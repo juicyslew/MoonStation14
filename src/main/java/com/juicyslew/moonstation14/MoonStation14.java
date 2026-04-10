@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14;
 
+import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
@@ -34,6 +35,7 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.register(this);
 
         ModItems.register(modEventBus);
+        ModBlocks.register(modEventBus);
 
         // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
@@ -54,6 +56,11 @@ public class MoonStation14 {
             event.accept(ModItems.PAPER);
             event.accept(ModItems.CLOTH);
             event.accept(ModItems.WOOD);
+        }
+
+        if(event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS){
+            event.accept(ModBlocks.STEEL_WALL_BLOCK);
+            event.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
         }
     }
 

@@ -1,6 +1,13 @@
 {
   "item.moonstation14.steel": "Steel",
-  "item.moonstation14.steel_2": "Steel 2",
+  "item.moonstation14.plastic": "Plastic",
+  "item.moonstation14.glass": "Glass",
+  "item.moonstation14.paper": "Paper",
+  "item.moonstation14.cloth": "Cloth",
+  "item.moonstation14.wood": "Wood",
+
+  "block.moonstation14.steel_wall_block": "Steel Wall",
+  "block.moonstation14.steel_wall_girder_block": "Steel Wall Girder",
 
   "moonstation14.configuration.title": "Moon Station 14 Configs",
   "moonstation14.configuration.section.moonstation14.common.toml": "Moon Station 14 Configs",
