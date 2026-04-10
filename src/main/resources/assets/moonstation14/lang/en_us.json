@@ -1,7 +1,6 @@
 {
-  "itemGroup.moonstation14": "Example Mod Tab",
-  "block.moonstation14.example_block": "Example Block",
-  "item.moonstation14.example_item": "Example Item",
+  "item.moonstation14.steel": "Steel",
+  "item.moonstation14.steel_2": "Steel 2",
 
   "moonstation14.configuration.title": "Moon Station 14 Configs",
   "moonstation14.configuration.section.moonstation14.common.toml": "Moon Station 14 Configs",
