@@ -29,7 +29,7 @@ public class ModBlocks {
     public static final DeferredBlock<Block> STEEL_WALL_GIRDER_BLOCK = registerBlock("steel_wall_girder_block",
             () -> new Block(BlockBehaviour.Properties.of().noOcclusion()
                     .isViewBlocking(ModBlocks::never)
-                    .strength(4f).requiresCorrectToolForDrops().sound(SoundType.COPPER_GRATE)));
+                    .strength(2f).requiresCorrectToolForDrops().sound(SoundType.COPPER_GRATE)));
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
