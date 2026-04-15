@@ -9,6 +9,9 @@
   "block.moonstation14.steel_wall_block": "Steel Wall",
   "block.moonstation14.steel_wall_girder_block": "Steel Wall Girder",
 
+  "creativetab.moonstation14.moonstation_items": "Moonstation Items",
+  "creativetab.moonstation14.moonstation_blocks": "Moonstation Blocks",
+
   "moonstation14.configuration.title": "Moon Station 14 Configs",
   "moonstation14.configuration.section.moonstation14.common.toml": "Moon Station 14 Configs",
   "moonstation14.configuration.section.moonstation14.common.toml.title": "Moon Station 14 Configs",
