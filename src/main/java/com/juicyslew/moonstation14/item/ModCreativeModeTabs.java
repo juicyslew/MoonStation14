@@ -26,6 +26,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.GLASS);
                         output.accept(ModItems.PAPER);
                         output.accept(ModItems.PLASTIC);
+                        output.accept(ModItems.CROWBAR);
                     }).build());
     public static final Supplier<CreativeModeTab> MOONSTATION_BLOCKS_TAB = CREATIVE_MODE_TAB.register("moonstation_blocks_tab",
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocks.STEEL_WALL_GIRDER_BLOCK.get()))
@@ -34,6 +35,7 @@ public class ModCreativeModeTabs {
                     .displayItems((itemDisplayParameters, output) -> {
                         output.accept(ModBlocks.STEEL_WALL_BLOCK);
                         output.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
+                        output.accept(ModBlocks.MAGIC_BLOCK);
                     }).build());
 
     public static void register(IEventBus eventBus) {
