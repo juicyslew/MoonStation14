@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "moonstation14:steel"
+    },
+    {
+      "item": "moonstation14:steel"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "moonstation14:steel_wall_girder_block"
+  }
+}

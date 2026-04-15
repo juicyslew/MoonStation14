@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
+import com.juicyslew.moonstation14.item.ModCreativeModeTabs;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
@@ -34,6 +35,8 @@ public class MoonStation14 {
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
 
+        ModCreativeModeTabs.register(modEventBus);
+
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
 
@@ -62,6 +65,7 @@ public class MoonStation14 {
             event.accept(ModBlocks.STEEL_WALL_BLOCK);
             event.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
         }
+
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
