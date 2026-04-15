@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.block;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -30,6 +31,10 @@ public class ModBlocks {
             () -> new Block(BlockBehaviour.Properties.of().noOcclusion()
                     .isViewBlocking(ModBlocks::never)
                     .strength(2f).requiresCorrectToolForDrops().sound(SoundType.COPPER_GRATE)));
+
+    public static final DeferredBlock<Block> MAGIC_BLOCK = registerBlock("magic_block",
+            () -> new MagicBlock(BlockBehaviour.Properties.of()
+                    .strength(2f).requiresCorrectToolForDrops()));
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);

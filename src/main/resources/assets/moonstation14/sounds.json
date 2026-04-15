@@ -1,0 +1,8 @@
+{
+  "crowbar_use": {
+    "sounds": [
+      "moonstation14:crowbar_use"
+    ],
+    "subtitle": "sounds.moonstation14.crowbar_use"
+  }
+}
