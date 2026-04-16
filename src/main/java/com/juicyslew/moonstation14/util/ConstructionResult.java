@@ -1,4 +1,4 @@
-package com.juicyslew.moonstation14.structs;
+package com.juicyslew.moonstation14.util;
 
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.item.Item;

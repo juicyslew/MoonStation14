@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.item;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.item.custom.BottleItem;
 import com.juicyslew.moonstation14.item.custom.CrowbarItem;
 import com.juicyslew.moonstation14.item.custom.SteelItem;
 import net.minecraft.world.item.Item;
@@ -28,6 +29,11 @@ public class ModItems {
             () -> new Item(new Item.Properties().stacksTo(8))
     );
 
+    // Food
+    public static final DeferredItem<Item> WAFFLE = ITEMS.register("waffle",
+            () -> new Item(new Item.Properties().food(ModFoodProperties.WAFFLE))
+    );
+
     // CUSTOM ITEMS
     // TODO: If I start having dependency issues with what needs to be defined before what, consider a lazy-initialized static map pattern for these item's construction result maps.
     public static final DeferredItem<Item> STEEL = ITEMS.register("steel",
@@ -35,6 +41,9 @@ public class ModItems {
     );
     public static final DeferredItem<Item> CROWBAR = ITEMS.register("crowbar",
             () -> new CrowbarItem(new Item.Properties().durability(32))
+    );
+    public static final DeferredItem<Item> BOTTLE = ITEMS.register("bottle",
+            () -> new BottleItem(new Item.Properties().food(ModFoodProperties.BOTTLE).stacksTo(1))
     );
 
     public static void register(IEventBus eventBus) {

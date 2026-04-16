@@ -1,9 +1,11 @@
 package com.juicyslew.moonstation14;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
+import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.item.ModCreativeModeTabs;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.sounds.ModSounds;
+import com.juicyslew.moonstation14.util.ModItemProperties;
 import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
 
@@ -41,6 +43,7 @@ public class MoonStation14 {
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
         ModSounds.register(modEventBus);
+        ModDataComponents.register(modEventBus);
         //ModFluids.register(modEventBus);
 
         // Register the item to a creative tab
@@ -63,6 +66,8 @@ public class MoonStation14 {
             event.accept(ModItems.CLOTH);
             event.accept(ModItems.WOOD);
             event.accept(ModItems.CROWBAR);
+            event.accept(ModItems.WAFFLE);
+            event.accept(ModItems.BOTTLE);
         }
 
         if(event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS){
