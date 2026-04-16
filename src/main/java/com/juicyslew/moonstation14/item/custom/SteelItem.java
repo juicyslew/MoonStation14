@@ -1,7 +1,7 @@
 package com.juicyslew.moonstation14.item.custom;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
-import com.juicyslew.moonstation14.structs.ConstructionResult;
+import com.juicyslew.moonstation14.util.ConstructionResult;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;

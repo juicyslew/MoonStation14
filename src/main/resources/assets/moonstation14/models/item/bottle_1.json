@@ -1,0 +1,7 @@
+{
+  "parent": "moonstation14:item/bottle",
+  "textures": {
+    "layer0": "moonstation14:item/bottle",
+    "layer1": "moonstation14:item/bottle_1"
+  }
+}

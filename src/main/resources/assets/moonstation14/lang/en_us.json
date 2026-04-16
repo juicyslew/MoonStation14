@@ -7,6 +7,9 @@
   "item.moonstation14.wood": "Wood",
   "item.moonstation14.crowbar": "Crowbar",
 
+  "item.moonstation14.waffle": "Waffle",
+  "item.moonstation14.bottle": "Bottle",
+
   "sounds.moonstation14.crowbar_use": "Crowbar Prying",
 
   "block.moonstation14.steel_wall_block": "Steel Wall",
