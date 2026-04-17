@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "heartbreakertoxin": 1,
+    "plasma": 1,
+    "vestine": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "lexorin": 2
+  }
+}

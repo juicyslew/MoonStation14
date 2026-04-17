@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "ephedrine": 1,
+    "diethylamine": 1,
+    "mercury": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "lipolicide": 3
+  }
+}

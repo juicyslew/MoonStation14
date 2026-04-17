@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "histamine": 2
+  },
+  "catalysts": {
+    "plasma": 1
+  },
+  "outputs": {
+    "ultravasculine": 2
+  }
+}

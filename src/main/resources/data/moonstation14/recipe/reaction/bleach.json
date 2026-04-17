@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "tablesalt": 2,
+    "spacecleaner": 2,
+    "sodiumhydroxide": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "bleach": 5
+  }
+}

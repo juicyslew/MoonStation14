@@ -1,0 +1,13 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "ammonia": 1,
+    "tablesalt": 1,
+    "carbon": 1,
+    "oxygen": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "sodiumcarbonate": 4
+  }
+}

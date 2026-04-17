@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "impedrezene": 2,
+    "vestine": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "nocturine": 1
+  }
+}

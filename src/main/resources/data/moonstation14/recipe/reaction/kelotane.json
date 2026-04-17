@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "silicon": 1,
+    "carbon": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "kelotane": 2
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "toxin": 1,
+    "water": 4
+  },
+  "catalysts": {},
+  "outputs": {
+    "plantbgone": 5
+  }
+}

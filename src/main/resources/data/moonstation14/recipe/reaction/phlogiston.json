@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "phosphorus": 1,
+    "sulfuricacid": 1,
+    "plasma": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "phlogiston": 3
+  }
+}

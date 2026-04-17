@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "hydrogen": 3,
+    "nitrogen": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "ammonia": 4
+  }
+}

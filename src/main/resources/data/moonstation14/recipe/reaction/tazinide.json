@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "licoxide": 1,
+    "vestine": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "tazinide": 1
+  }
+}

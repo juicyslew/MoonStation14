@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "ammonia": 1,
+    "water": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "spacecleaner": 2
+  }
+}

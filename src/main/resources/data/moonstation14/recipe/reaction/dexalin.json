@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "oxygen": 2
+  },
+  "catalysts": {
+    "plasma": 1
+  },
+  "outputs": {
+    "dexalin": 3
+  }
+}

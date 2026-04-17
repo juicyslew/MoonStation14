@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "sulfuricacid": 1,
+    "nitrogen": 1,
+    "sodium": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "heparin": 2
+  }
+}

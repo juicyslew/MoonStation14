@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "mindbreakertoxin": 1,
+    "synaptizine": 1,
+    "water": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "pax": 3
+  }
+}

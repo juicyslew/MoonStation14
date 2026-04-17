@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "tablesalt": 1,
+    "ethanol": 1,
+    "radium": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "lipozine": 3
+  }
+}

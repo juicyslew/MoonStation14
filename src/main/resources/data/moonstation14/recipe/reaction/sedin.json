@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "cryoxadone": 1,
+    "robustharvest": 3,
+    "diethylamine": 3
+  },
+  "catalysts": {},
+  "outputs": {
+    "sedin": 1
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "lacerinol": 1,
+    "puncturase": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "razorium": 1
+  }
+}

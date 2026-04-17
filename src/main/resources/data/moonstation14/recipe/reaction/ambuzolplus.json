@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "ambuzol": 5,
+    "omnizine": 5
+  },
+  "catalysts": {},
+  "outputs": {
+    "ambuzolplus": 10
+  }
+}

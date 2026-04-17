@@ -1,0 +1,13 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "oil": 1,
+    "hydrogen": 1,
+    "sugar": 1,
+    "diethylamine": 0
+  },
+  "catalysts": {},
+  "outputs": {
+    "ephedrine": 4
+  }
+}
