@@ -30,5 +30,4 @@ public class ModDataComponents {
     public static void register(IEventBus eventBus){
         DATA_COMPONENT_TYPES.register(eventBus);
     }
-
 }
