@@ -1,12 +1,19 @@
 package com.juicyslew.moonstation14.item.container;
 
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.component.codec.ReagentContainerData;
 import com.juicyslew.moonstation14.enums.ReagentEnum;
 import com.juicyslew.moonstation14.recipe.ModRecipes;
 import com.juicyslew.moonstation14.recipe.ReactionRecipe;
 import com.juicyslew.moonstation14.recipe.ReactionRecipeInput;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.UseAnim;
@@ -23,6 +30,8 @@ import static net.minecraft.util.Mth.ceil;
 public abstract class Container extends Item {
     // TODO: Split container functionality from Item
     public final int capacity; // In MilliUnits
+    private static final int SIP_INTERVAL_TICKS = 10; // consume every 10 ticks
+    private static final int UNITS_PER_SIP = 500;
 
     public Container(Item.Properties properties, int capacity) {
         super(properties);
@@ -36,10 +45,6 @@ public abstract class Container extends Item {
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
-        // TODO: Add Give vs Take Mode.
-        // If possible, feed to entity.
-        // If possible, give to another object.
-        // Else, drink it?
         Level level = context.getLevel();
 
         if (level.isClientSide()) return InteractionResult.PASS;
@@ -50,30 +55,36 @@ public abstract class Container extends Item {
         ).getMap();
         // Stack NBT data can't be mutated.
         Map<ReagentEnum, Integer> mutableReagentMap = new HashMap<>(immutableReagentMap);
-        ClampedAdd(level, mutableReagentMap, ReagentEnum.BICARIDINE, 100);
+        ClampedAdd(level, mutableReagentMap, ReagentEnum.BICARIDINE, 100, capacity);
 
         stack.set(ModDataComponents.REAGENT_CONTAINER.get(), new ReagentContainerData(mutableReagentMap));
 
         return InteractionResult.SUCCESS;
     }
 
-    public void ClampedAdd(Level level, Map<ReagentEnum, Integer> data, ReagentEnum Reagent, int amount) {
+    public static void ClampedAdd(Level level, Map<ReagentEnum, Integer> data, ReagentEnum Reagent, int amount, int capacity) {
         int totalVolume = getTotalVolume(data);
         int actual_add = Integer.min(totalVolume + amount, capacity) - totalVolume;
         data.put(Reagent, data.getOrDefault(Reagent, 0) + actual_add);
-
-        // Check For Reaction, also chain react
-        while (true) {
-            Optional<RecipeHolder<ReactionRecipe>> recipe = level.getRecipeManager().getRecipeFor(ModRecipes.REACTION_RECIPE_TYPE.get(), new ReactionRecipeInput(data), level);
-            if (recipe.isPresent()) {
-                ResolveReaction(data, recipe.get().value());
-            }else{
-                break;
-            }
-        }
+        recursiveReaction(level, data, capacity);
     }
 
-    public void SpecificRemove(Map<ReagentEnum, Integer> data, ReagentEnum reagent, int amount) {
+    public static void mergeAdd(Level level, Map<ReagentEnum, Integer> data, Map<ReagentEnum, Integer> to_add, int capacity){
+        // Can Output the difference if necessary somewhere.
+
+        int totalVolume = getTotalVolume(data);
+        int to_add_volume = getTotalVolume(to_add);
+        int actual_add_volume = Integer.min(totalVolume + to_add_volume, capacity) - totalVolume;
+        System.out.println(to_add);
+        System.out.println(to_add_volume);
+        float to_mult = actual_add_volume / to_add_volume;
+        for (ReagentEnum r : to_add.keySet()){
+            data.put(r, data.getOrDefault(r, 0) + ceil(to_add.get(r) * to_mult));
+        }
+        recursiveReaction(level, data, capacity);
+    }
+
+    public static void SpecificRemove(Map<ReagentEnum, Integer> data, ReagentEnum reagent, int amount) {
         // Reactions can only happen when something's added to a container, NOT when removed is added to a container.
         int reagent_present = data.getOrDefault(reagent, 0);
         int new_amount = Integer.max(reagent_present - amount, 0);
@@ -85,16 +96,36 @@ public abstract class Container extends Item {
 
     }
 
-    public void NaiveRemove(Map<ReagentEnum, Integer> data, int amount) {
+    public static Map<ReagentEnum, Integer> NaiveRemove(Map<ReagentEnum, Integer> data, int amount) {
+        // MODIFIES PROVIDED DICTIONARY, THEN RETURNS THE DIFFERENCE.
+
         // Reactions can only happen when something's added to a container, NOT when removed is added to a container.
         // TODO: Save removed data, so that we may easily transfer it to another reagent container.
         int vol = getTotalVolume(data);
         int new_amount = Integer.min(vol, amount);
-        data.replaceAll((k, v) -> v - ceil((float) (new_amount / vol))); // TODO: This will likely cause problems at low transfer amounts. Need to ensure that "amount" milliliters of reagent in total are actually removed.
+        Map<ReagentEnum, Integer> difference = new HashMap<>();
+        for (Map.Entry<ReagentEnum, Integer> e : data.entrySet()) {
+            int diff = ceil((float) e.getValue() * new_amount / vol); // TODO: This will likely cause problems at low transfer amounts. Need to ensure that "amount" milliliters of reagent in total are actually removed.
+            difference.put(e.getKey(), diff);
+            data.put(e.getKey(), e.getValue() - diff);
+        }
         data.entrySet().removeIf(entry -> entry.getValue() == 0);
+        return difference;
     }
 
-    public Map<ReagentEnum, Integer> ResolveReaction (Map<ReagentEnum, Integer> presentReagents, ReactionRecipe reactionRecipe) {
+    public static void recursiveReaction(Level level, Map<ReagentEnum, Integer> data, int capacity){
+        // Check For Reaction, also chain react
+        while (true) {
+            Optional<RecipeHolder<ReactionRecipe>> recipe = level.getRecipeManager().getRecipeFor(ModRecipes.REACTION_RECIPE_TYPE.get(), new ReactionRecipeInput(data), level);
+            if (recipe.isPresent()) {
+                resolveReaction(data, recipe.get().value(), capacity);
+            }else{
+                break;
+            }
+        }
+    }
+
+    public static void resolveReaction(Map<ReagentEnum, Integer> presentReagents, ReactionRecipe reactionRecipe, int capacity) {
         // Find the limiting chemical to determine the chemical multiplier (floats are allowed for multiplier, but round back to int])
         // Ignore Catalysts, the matching functionality already ensured they're present, and they don't change in value as a result of this recipe.
         int reaction_count = Integer.MAX_VALUE;
@@ -126,14 +157,13 @@ public abstract class Container extends Item {
         }
 
         presentReagents.entrySet().removeIf(entry -> entry.getValue() == 0);
-        return presentReagents;
     }
 
-    public int getTotalVolume(ItemStack stack){
+    public static int getTotalVolume(ItemStack stack){
         Map<ReagentEnum, Integer> containerData = stack.getOrDefault(ModDataComponents.REAGENT_CONTAINER, new ReagentContainerData()).getMap();
         return getTotalVolume(containerData);
     }
-    public int getTotalVolume(Map<ReagentEnum, Integer> reagentMap) {
+    public static int getTotalVolume(Map<ReagentEnum, Integer> reagentMap) {
         int sum = 0;
         for (int i : reagentMap.values()) {
             sum += i;
@@ -142,20 +172,62 @@ public abstract class Container extends Item {
     }
 
 
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        // Only start using if there is content
+        ReagentContainerData data = stack.getOrDefault(ModDataComponents.REAGENT_CONTAINER, new ReagentContainerData());
+        if (data.getMap().isEmpty()) return InteractionResultHolder.pass(stack);
 
-//    @Override
-//    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-//        // TODO: Add Give vs Take Mode.
-//
-//        // If possible, feed to entity.
-//        // If possible, give to another object.
-//        // Else, eat it.
-//        // Give to something if possible
-//
-//        //Else start drinkin it.
-//        if (level.isClientSide()) return InteractionResultHolder.pass(player.getItemInHand(hand));
-//        ItemStack stack = player.getItemInHand(hand).set(ModDataComponents.REAGENT_CONTAINER, );
-//
-//        return InteractionResultHolder.success(stack);
-//    }
+        player.startUsingItem(hand);
+        return InteractionResultHolder.consume(stack);
+    }
+
+    @Override
+    public int getUseDuration(ItemStack stack, LivingEntity entity) { return 72000; } // An hour - funny, so if you sit long enough, you can consume the container itself lol.
+
+
+    @Override
+    public void onUseTick(Level level, LivingEntity livingEntity, ItemStack stack, int remainingUseDuration) {
+        // TODO: Add visual for how far along you're drink action is. (much like the progress bar for actions in SS14)
+        if (!(livingEntity instanceof Player player)) return;
+        if (livingEntity.level().isClientSide()) return; // handle server-side authoritative changes only
+
+        int usedTicks = getUseDuration(stack, livingEntity) - remainingUseDuration;
+        if (usedTicks % SIP_INTERVAL_TICKS != 0 || usedTicks == 0) return;
+
+        Map<ReagentEnum, Integer> containerReagentMap = new HashMap<>(stack.getOrDefault(ModDataComponents.REAGENT_CONTAINER, new ReagentContainerData()).getMap());
+        if (getTotalVolume(containerReagentMap) == 0) {
+            // stop using when empty
+            player.stopUsingItem();
+            return;
+        }
+
+        // consume units
+        int consumed = Math.min(UNITS_PER_SIP, getTotalVolume(containerReagentMap));
+        Map<ReagentEnum, Integer> consumed_reagents = NaiveRemove(containerReagentMap, consumed);
+        stack.set(ModDataComponents.REAGENT_CONTAINER.get(), new ReagentContainerData(containerReagentMap)); // persist change
+        // TODO: Add capacity to entities. If at capacity, stop using item.
+
+        // Put the info on the Player!
+        Map<ReagentEnum, Integer> entityReagents = new HashMap<>(livingEntity.getData(ModDataAttachments.REAGENT_CONTAINER.get()).getMap());
+        mergeAdd(level, entityReagents, consumed_reagents, 10000); // Entity Capacity.
+        livingEntity.setData(ModDataAttachments.REAGENT_CONTAINER.get(), new ReagentContainerData(entityReagents));
+
+
+        // TODO??: sync to client if needed
+        // ComponentSync.syncItem(stack, ModDataComponents.REAGENT_CONTAINER);
+
+        // TODO: apply effects to the user
+        // ChemicalSystem.applySipEffects((LivingEntity) player, consumed, containerData);
+
+        // play sound / particle if desired
+        livingEntity.level().playSound(null, livingEntity.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0F, 1.0F);
+    }
+
+    @Override
+    public void releaseUsing(ItemStack stack, Level world, LivingEntity user, int remainingUseTicks) {
+        // Called when player stops using (right-click released or cancelled).
+        // No extra logic required unless you want finalization.
+    }
 }

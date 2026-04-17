@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.item.ModCreativeModeTabs;
 import com.juicyslew.moonstation14.item.ModItems;
@@ -45,6 +46,7 @@ public class MoonStation14 {
         ModBlocks.register(modEventBus);
         ModSounds.register(modEventBus);
         ModDataComponents.register(modEventBus);
+        ModDataAttachments.register(modEventBus);
         ModRecipes.register(modEventBus);
         //ModFluids.register(modEventBus);
 
