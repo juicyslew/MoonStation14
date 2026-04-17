@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "inaprovaline": 1,
+    "sulfuricacid": 1,
+    "sugar": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "tranexamicacid": 3
+  }
+}

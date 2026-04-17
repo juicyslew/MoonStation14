@@ -1,0 +1,13 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "copper": 1,
+    "fersilicite": 1
+  },
+  "catalysts": {
+    "plasma": 1
+  },
+  "outputs": {
+    "leporazine": 2
+  }
+}

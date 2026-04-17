@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "leporazine": 1,
+    "kelotane": 1,
+    "silicon": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "insuzine": 3
+  }
+}

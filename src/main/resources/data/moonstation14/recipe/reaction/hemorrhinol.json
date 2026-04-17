@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "heparin": 2,
+    "razorium": 2,
+    "plasma": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "hemorrhinol": 2
+  }
+}

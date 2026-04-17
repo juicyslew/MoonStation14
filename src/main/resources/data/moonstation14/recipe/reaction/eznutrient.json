@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "nitrogen": 1,
+    "phosphorus": 1,
+    "potassium": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "eznutrient": 3
+  }
+}

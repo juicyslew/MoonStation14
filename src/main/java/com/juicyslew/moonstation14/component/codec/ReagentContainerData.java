@@ -6,8 +6,11 @@ import com.mojang.serialization.Codec;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
+
+import static net.minecraft.util.Mth.ceil;
 
 public final class ReagentContainerData {
     private final Map<ReagentEnum, Integer> reagentMap;
@@ -20,14 +23,6 @@ public final class ReagentContainerData {
     }
 
     public Map<ReagentEnum,Integer> getMap() { return reagentMap; }
-
-    public int getTotalVolume() {
-        int sum = 0;
-        for (int i : reagentMap.values()) {
-            sum += i;
-        }
-        return sum;
-    }
 
     public int getBlendedColor() {
         if (reagentMap.isEmpty()) return -1; // Default/No tint
@@ -46,22 +41,6 @@ public final class ReagentContainerData {
         }
 
         return 0xFF000000 | ((int)(r / totalWeight) << 16) | ((int)(g / totalWeight) << 8) | (int)(b / totalWeight);
-    }
-
-    public ReagentContainerData withClampedAdd(ReagentEnum Reagent, int amount, int capacity) {
-        int totalVolume = getTotalVolume();
-        int actual_add = Integer.min(totalVolume + amount, capacity) - totalVolume;
-        Map<ReagentEnum, Integer> newMap = new HashMap<>(this.reagentMap);
-        newMap.put(Reagent, newMap.getOrDefault(Reagent, 0) + actual_add); // Add your clamping logic here
-        return new ReagentContainerData(newMap);
-    }
-
-    public ReagentContainerData withRemovedClamp(ReagentEnum Reagent, int amount) {
-        int reagent_present = reagentMap.getOrDefault(Reagent, 0);
-        int new_amount = Integer.max(reagent_present - amount, 0);
-        Map<ReagentEnum, Integer> newMap = new HashMap<>(this.reagentMap);
-        newMap.put(Reagent, new_amount); // Add your clamping logic here
-        return new ReagentContainerData(newMap);
     }
 
     // decode -> mutable map

@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "vestine": 2,
+    "spaceglue": 2
+  },
+  "catalysts": {},
+  "outputs": {
+    "mutetoxin": 2
+  }
+}

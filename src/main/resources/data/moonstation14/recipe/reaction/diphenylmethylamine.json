@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "ethyloxyephedrine": 1,
+    "sodiumcarbonate": 1,
+    "coffee": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "diphenylmethylamine": 3
+  }
+}

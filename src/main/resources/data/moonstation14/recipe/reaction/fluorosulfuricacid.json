@@ -1,0 +1,13 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "fluorine": 1,
+    "hydrogen": 1,
+    "potassium": 1,
+    "sulfuricacid": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "fluorosulfuricacid": 4
+  }
+}

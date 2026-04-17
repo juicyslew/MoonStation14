@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "lithium": 1,
+    "hydrogen": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "foamingagent": 2
+  }
+}

@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.item.ModCreativeModeTabs;
 import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.recipe.ModRecipes;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import com.juicyslew.moonstation14.util.ModItemProperties;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -44,6 +45,7 @@ public class MoonStation14 {
         ModBlocks.register(modEventBus);
         ModSounds.register(modEventBus);
         ModDataComponents.register(modEventBus);
+        ModRecipes.register(modEventBus);
         //ModFluids.register(modEventBus);
 
         // Register the item to a creative tab

@@ -1,0 +1,14 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "aluminium": 1,
+    "chlorine": 1,
+    "fluorine": 1,
+    "oil": 1,
+    "potassiumiodide": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "haloperidol": 5
+  }
+}

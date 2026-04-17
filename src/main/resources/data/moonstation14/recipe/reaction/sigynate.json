@@ -1,0 +1,14 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "sodiumcarbonate": 1,
+    "sodiumhydroxide": 1,
+    "kelotane": 1,
+    "water": 1,
+    "sugar": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "sigynate": 4
+  }
+}

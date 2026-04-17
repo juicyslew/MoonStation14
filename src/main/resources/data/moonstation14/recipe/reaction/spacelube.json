@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "water": 1,
+    "fersilicite": 1,
+    "oxygen": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "spacelube": 5
+  }
+}

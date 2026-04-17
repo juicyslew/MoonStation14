@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "hydrogen": 1,
+    "sulfur": 1,
+    "oxygen": 2
+  },
+  "catalysts": {},
+  "outputs": {
+    "sulfuricacid": 3
+  }
+}

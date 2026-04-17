@@ -1,0 +1,13 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "phenol": 1,
+    "acetone": 1,
+    "chlorine": 1,
+    "hydroxide": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "epinephrine": 4
+  }
+}

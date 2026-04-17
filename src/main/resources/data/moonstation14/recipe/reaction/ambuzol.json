@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "dylovene": 1,
+    "ammonia": 1,
+    "zombieblood": 2
+  },
+  "catalysts": {},
+  "outputs": {
+    "ambuzol": 4
+  }
+}

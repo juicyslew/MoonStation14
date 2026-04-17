@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "dexalinplus": 1,
+    "mindbreakertoxin": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "heartbreakertoxin": 2
+  }
+}

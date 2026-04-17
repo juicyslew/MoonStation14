@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "cryoxadone": 1,
+    "unstablemutagen": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "doxarubixadone": 2
+  }
+}

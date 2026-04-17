@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "chlorine": 1,
+    "fluorine": 3
+  },
+  "catalysts": {},
+  "outputs": {
+    "chlorinetrifluoride": 4
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "sulfuricacid": 1,
+    "plasma": 1,
+    "potassium": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "polytrinicacid": 3
+  }
+}

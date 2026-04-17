@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "mercury": 1,
+    "oxygen": 1,
+    "water": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "impedrezene": 1
+  }
+}

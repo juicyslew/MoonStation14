@@ -1,0 +1,12 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "kelotane": 1,
+    "oxygen": 1,
+    "phosphorus": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "dermaline": 3
+  }
+}

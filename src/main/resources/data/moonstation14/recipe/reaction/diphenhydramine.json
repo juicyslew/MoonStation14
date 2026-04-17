@@ -1,0 +1,14 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "diethylamine": 1,
+    "oil": 1,
+    "tablesalt": 1,
+    "carbon": 1,
+    "ethanol": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "diphenhydramine": 3
+  }
+}

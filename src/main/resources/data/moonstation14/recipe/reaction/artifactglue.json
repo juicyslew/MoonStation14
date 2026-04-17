@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "spaceglue": 1,
+    "artifexium": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "artifactglue": 2
+  }
+}

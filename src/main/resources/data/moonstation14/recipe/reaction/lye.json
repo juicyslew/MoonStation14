@@ -1,0 +1,11 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "water": 1,
+    "ash": 1
+  },
+  "catalysts": {},
+  "outputs": {
+    "lye": 2
+  }
+}

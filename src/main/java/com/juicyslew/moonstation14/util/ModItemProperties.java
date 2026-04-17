@@ -20,14 +20,10 @@ public class ModItemProperties {
         makeContainerObject((Container) ModItems.BOTTLE.get());
     }
 
-    private static int testFunc(ItemStack stack){
-        return stack.getOrDefault(ModDataComponents.REAGENT_CONTAINER, new ReagentContainerData()).getTotalVolume();
-    }
-
     private static void makeContainerObject(Container container) {
         ItemProperties.register(
                 container,
                 ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "fill"),
-                (stack, level, entity, seed) -> (float) testFunc(stack) / container.capacity);
+                (stack, level, entity, seed) -> (float) container.getTotalVolume(stack) / container.capacity);
     }
 }

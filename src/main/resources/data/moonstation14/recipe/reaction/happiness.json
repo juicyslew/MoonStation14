@@ -1,0 +1,14 @@
+{
+  "type": "moonstation14:reaction_recipe",
+  "inputs": {
+    "laughter": 2,
+    "epinephrine": 1,
+    "ethanol": 1
+  },
+  "catalysts": {
+    "plasma": 5
+  },
+  "outputs": {
+    "happiness": 4
+  }
+}
