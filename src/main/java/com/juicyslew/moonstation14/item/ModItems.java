@@ -1,8 +1,10 @@
 package com.juicyslew.moonstation14.item;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.item.custom.BottleItem;
 import com.juicyslew.moonstation14.item.custom.CrowbarItem;
+import com.juicyslew.moonstation14.item.custom.JugItem;
 import com.juicyslew.moonstation14.item.custom.SteelItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -42,9 +44,11 @@ public class ModItems {
     public static final DeferredItem<Item> CROWBAR = ITEMS.register("crowbar",
             () -> new CrowbarItem(new Item.Properties().durability(32))
     );
-    public static final DeferredItem<Item> BOTTLE = ITEMS.register("bottle",
-            () -> new BottleItem(new Item.Properties().food(ModFoodProperties.BOTTLE).stacksTo(1))
+    public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",
+            () -> new BottleItem(new Item.Properties().stacksTo(1))
     );
+    public static final DeferredItem<JugItem> JUG = ITEMS.register("jug",
+            () -> new JugItem(ModBlocks.JUG.get(), new Item.Properties().stacksTo(1)));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);

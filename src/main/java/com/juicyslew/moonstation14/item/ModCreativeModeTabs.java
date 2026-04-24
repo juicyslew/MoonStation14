@@ -38,6 +38,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.STEEL_WALL_BLOCK);
                         output.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
                         output.accept(ModBlocks.MAGIC_BLOCK);
+                        output.accept(ModBlocks.JUG);
                     }).build());
 
     public static void register(IEventBus eventBus) {

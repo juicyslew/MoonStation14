@@ -1,0 +1,7 @@
+{
+  "parent": "moonstation14:item/jug",
+  "textures": {
+      "layer0": "moonstation14:item/jug",
+      "layer1": "moonstation14:item/jug_6"
+  }
+}

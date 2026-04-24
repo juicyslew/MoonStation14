@@ -1,0 +1,40 @@
+package com.juicyslew.moonstation14.block;
+
+import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
+import com.juicyslew.moonstation14.block.custom.MagicBlock;
+import com.juicyslew.moonstation14.item.ModItems;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.function.Supplier;
+
+public class ModBlockEntities {
+    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, MoonStation14.MOD_ID);
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<JugBlockEntity>> JUG = BLOCK_ENTITY_TYPES.register("jug",
+            () -> BlockEntityType.Builder.of(JugBlockEntity::new, ModBlocks.JUG.get()).build(null)
+    );
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PuddleBlockEntity>> PUDDLE = BLOCK_ENTITY_TYPES.register("puddle",
+            () -> BlockEntityType.Builder.of(PuddleBlockEntity::new, ModBlocks.PUDDLE.get()).build(null)
+    );
+
+    public static void register(IEventBus eventBus){
+        BLOCK_ENTITY_TYPES.register(eventBus);
+    }
+}

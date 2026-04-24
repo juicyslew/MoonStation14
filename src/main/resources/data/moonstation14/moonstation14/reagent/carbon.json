@@ -1,0 +1,10 @@
+{
+  "type": "reagent",
+  "id": "carbon",
+  "name": "reagent-name-carbon",
+  "group": "Elements",
+  "desc": "reagent-desc-carbon",
+  "physicalDesc": "reagent-physical-desc-crystalline",
+  "flavor": "bitter",
+  "color": "#22282b"
+}

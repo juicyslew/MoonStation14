@@ -1,0 +1,24 @@
+{
+  "id": "inaprovaline",
+  "name": "reagent-name-inaprovaline",
+  "group": "Medicine",
+  "desc": "reagent-desc-inaprovaline",
+  "physicalDesc": "reagent-physical-desc-opaque",
+  "flavor": "medicine",
+  "color": "0x731024",
+  "metabolisms":{
+    "Bloodstream": {
+      "metabolismRate": 0.1,
+      "effects": [
+        {
+          "type": "HealthChange",
+          "damage": {
+            "types": {
+              "Asphyxiation": -2
+            }
+          }
+        }
+      ]
+    }
+  }
+}
