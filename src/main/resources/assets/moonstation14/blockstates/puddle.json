@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "fill_level=0": { "model": "moonstation14:block/puddle_0" },
+    "fill_level=1": { "model": "moonstation14:block/puddle_1" },
+    "fill_level=2": { "model": "moonstation14:block/puddle_2" },
+    "fill_level=3": { "model": "moonstation14:block/puddle_3" }
+  }
+}

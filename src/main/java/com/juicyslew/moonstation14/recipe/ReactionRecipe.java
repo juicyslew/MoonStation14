@@ -1,33 +1,32 @@
 package com.juicyslew.moonstation14.recipe;
 
-import com.juicyslew.moonstation14.component.ModDataComponents;
-import com.juicyslew.moonstation14.component.codec.ReagentContainerData;
-import com.juicyslew.moonstation14.enums.ReagentEnum;
+import com.juicyslew.moonstation14.component.codec.json.ReagentData;
+import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.Level;
 
 import java.util.*;
-import java.util.stream.Collectors;
+
+import static com.juicyslew.moonstation14.util.CodecHelpers.LENIENT_ID_CODEC;
 
 public record ReactionRecipe(
-        Map<ReagentEnum, Integer> inputs,
-        Map<ReagentEnum, Integer> catalysts, //TODO: Make this a Set (Figure out the Stream Codecs :C )
-        Map<ReagentEnum, Integer> outputs
+        Map<ResourceKey<ReagentData>, Float> inputs,
+        Map<ResourceKey<ReagentData>, Float> catalysts, //TODO: Make this a Set (Figure out the Stream Codecs :C )
+        Map<ResourceKey<ReagentData>, Float> outputs
 ) implements Recipe<ReactionRecipeInput> {
 
     @Override
     public boolean matches(ReactionRecipeInput input, Level level) {
-        Set<ReagentEnum> present_reagents = input.container().keySet();
+        Set<ResourceKey<ReagentData>> present_reagents = input.container().keySet();
         return present_reagents.containsAll(inputs.keySet()) && present_reagents.containsAll(catalysts.keySet());
     }
 
@@ -62,21 +61,12 @@ public record ReactionRecipe(
     public RecipeType<?> getType() {
         return ModRecipes.REACTION_RECIPE_TYPE.get();
     }
-    private static Codec<Map<ReagentEnum, Integer>> reagentCountMapCodec() {
-        // represent as Map<String,Integer> then map keys to enum
-        Codec<Map<String, Integer>> stringIntMap = Codec.unboundedMap(Codec.STRING, Codec.INT);
-        return stringIntMap.xmap(
-                m -> {
-                    return m.entrySet().stream()
-                            //.filter(e -> e.getKey() != null)  // Shouldn't this only be possible if I wrote null in the recipe json?
-                            .map((e) -> Map.entry(ReagentEnum.getEnum(e.getKey()), e.getValue()))
-                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-                },
-                m -> {
-                    return m.entrySet().stream()
-                            .collect(Collectors.toMap(e -> e.getKey().getId(), Map.Entry::getValue));
-                }
-        );
+
+    private static Codec<Map<ResourceKey<ReagentData>, Float>> reagentCountMapCodec() {
+        return Codec.unboundedMap(LENIENT_ID_CODEC.xmap(
+                rl -> ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, rl),
+                ResourceKey::location
+        ), Codec.FLOAT);
     }
 
 //    private static Codec<List<ReagentEnum>> reagentSetCodec() {
@@ -84,11 +74,11 @@ public record ReactionRecipe(
 //        return ReagentEnum.CODEC.listOf();
 //    }
 
-    public static StreamCodec<RegistryFriendlyByteBuf, Map<ReagentEnum, Integer>> mapSubStreamCodec(){
+    public static StreamCodec<RegistryFriendlyByteBuf, Map<ResourceKey<ReagentData>, Float>> mapSubStreamCodec(){
         return ByteBufCodecs.map(
                 HashMap::new,
-                ByteBufCodecs.fromCodec(ReagentEnum.CODEC),
-                ByteBufCodecs.INT
+                ResourceKey.streamCodec(ModReagents.REAGENT_REGISTRY_KEY),
+                ByteBufCodecs.FLOAT
         );
     }
     public static class Serializer implements RecipeSerializer<ReactionRecipe> {

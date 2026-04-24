@@ -1,13 +1,16 @@
 package com.juicyslew.moonstation14.block;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.block.custom.JugBlock;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
+import com.juicyslew.moonstation14.block.custom.PuddleBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -32,6 +35,15 @@ public class ModBlocks {
     public static final DeferredBlock<Block> MAGIC_BLOCK = registerBlock("magic_block",
             () -> new MagicBlock(BlockBehaviour.Properties.of()
                     .strength(2f).requiresCorrectToolForDrops()));
+
+
+    // Custom Register (No Item, or Item needs to be custom-made)
+    public static final DeferredBlock<JugBlock> JUG = BLOCKS.register("jug",
+            () -> new JugBlock(Block.Properties.ofFullCopy(Blocks.GLASS)));
+
+    public static final DeferredBlock<PuddleBlock> PUDDLE = BLOCKS.register("puddle",
+            () -> new PuddleBlock(BlockBehaviour.Properties.of()
+                    .destroyTime(72000f).noCollission().noLootTable()));
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);

@@ -1,0 +1,16 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+      "layer0": "moonstation14:item/jug",
+      "layer1": "moonstation14:item/jug_0"
+  },
+  "overrides": [
+    { "predicate": { "moonstation14:fill": 0.0 }, "model": "moonstation14:item/jug_0" },
+    { "predicate": { "moonstation14:fill": 0.16 }, "model": "moonstation14:item/jug_1" },
+    { "predicate": { "moonstation14:fill": 0.33 }, "model": "moonstation14:item/jug_2" },
+    { "predicate": { "moonstation14:fill": 0.5 }, "model": "moonstation14:item/jug_3" },
+    { "predicate": { "moonstation14:fill": 0.67 }, "model": "moonstation14:item/jug_4" },
+    { "predicate": { "moonstation14:fill": 0.84 }, "model": "moonstation14:item/jug_5" },
+    { "predicate": { "moonstation14:fill": 1.0 }, "model": "moonstation14:item/jug_6" }
+  ]
+}

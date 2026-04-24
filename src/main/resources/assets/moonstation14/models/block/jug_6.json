@@ -1,0 +1,80 @@
+{
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
+	"render_type": "minecraft:cutout",
+	"texture_size": [32, 32],
+	"textures": {
+		"1": "moonstation14:block/jug_liquid",
+		"2": "moonstation14:block/jug_glass",
+		"particle": "moonstation14:block/jug_glass"
+	},
+	"elements": [
+		{
+			"name": "liquid",
+			"from": [4.5, 0.5, 4.5],
+			"to": [11.5, 9.5, 11.5],
+			"faces": {
+				"north": {"uv": [0, 0, 1, 1], "texture": "#1", "tintindex": 0},
+				"east": {"uv": [1, 0, 2, 1], "texture": "#1", "tintindex": 0},
+				"south": {"uv": [2, 0, 3, 1], "texture": "#1", "tintindex": 0},
+				"west": {"uv": [3, 0, 4, 1], "texture": "#1", "tintindex": 0},
+				"up": {"uv": [4, 0, 5, 1], "texture": "#1", "tintindex": 0},
+				"down": {"uv": [5, 0, 6, 1], "texture": "#1", "tintindex": 0}
+			}
+		},
+		{
+			"name": "neck",
+			"from": [6.5, 8.5, 6.5],
+			"to": [9.5, 11.5, 9.5],
+			"faces": {
+				"north": {"uv": [0, 0, 1, 1], "texture": "#1", "tintindex": 0},
+				"east": {"uv": [1, 0, 2, 1], "texture": "#1", "tintindex": 0},
+				"south": {"uv": [2, 0, 3, 1], "texture": "#1", "tintindex": 0},
+				"west": {"uv": [3, 0, 4, 1], "texture": "#1", "tintindex": 0},
+				"up": {"uv": [4, 0, 5, 1], "texture": "#1", "tintindex": 0},
+				"down": {"uv": [5, 0, 6, 1], "texture": "#1", "tintindex": 0}
+			}
+		},
+		{
+			"name": "body",
+			"from": [4, 0, 4],
+			"to": [12, 10, 12],
+			"faces": {
+				"north": {"uv": [4, 5, 8, 10], "texture": "#2"},
+				"east": {"uv": [4, 5, 8, 10], "texture": "#2"},
+				"south": {"uv": [4, 5, 8, 10], "texture": "#2"},
+				"west": {"uv": [4, 5, 8, 10], "texture": "#2"},
+				"up": {"uv": [12, 4, 8, 0], "texture": "#2"},
+				"down": {"uv": [12, 4, 8, 8], "texture": "#2"}
+			}
+		},
+		{
+			"name": "neck",
+			"from": [6, 10, 6],
+			"to": [10, 12, 10],
+			"faces": {
+				"north": {"uv": [0, 10, 2, 11], "texture": "#2"},
+				"east": {"uv": [0, 10, 2, 11], "texture": "#2"},
+				"south": {"uv": [0, 10, 2, 11], "texture": "#2"},
+				"west": {"uv": [0, 10, 2, 11], "texture": "#2"},
+				"up": {"uv": [10, 10, 8, 8], "texture": "#2"}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "jug_liquid",
+			"origin": [0, 0, 0],
+			"scope": 0,
+			"color": 0,
+			"children": [0, 1]
+		},
+		{
+			"name": "jug_glass",
+			"origin": [0, 0, 0],
+			"scope": 0,
+			"color": 0,
+			"children": [2, 3]
+		}
+	]
+}

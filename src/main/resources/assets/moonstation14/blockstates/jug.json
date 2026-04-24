@@ -1,0 +1,11 @@
+{
+  "variants": {
+    "fill_level=0": { "model": "moonstation14:block/jug_0" },
+    "fill_level=1": { "model": "moonstation14:block/jug_1" },
+    "fill_level=2": { "model": "moonstation14:block/jug_2" },
+    "fill_level=3": { "model": "moonstation14:block/jug_3" },
+    "fill_level=4": { "model": "moonstation14:block/jug_4" },
+    "fill_level=5": { "model": "moonstation14:block/jug_5" },
+    "fill_level=6": { "model": "moonstation14:block/jug_6" }
+  }
+}

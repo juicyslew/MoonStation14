@@ -1,11 +1,12 @@
 package com.juicyslew.moonstation14.recipe;
 
-import com.juicyslew.moonstation14.enums.ReagentEnum;
+import com.juicyslew.moonstation14.component.codec.json.ReagentData;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeInput;
 import java.util.Map;
 
-public record ReactionRecipeInput(Map<ReagentEnum, Integer> container) implements RecipeInput{
+public record ReactionRecipeInput(Map<ResourceKey<ReagentData>, Float> container) implements RecipeInput{
 
     @Override
     public ItemStack getItem(int index) {

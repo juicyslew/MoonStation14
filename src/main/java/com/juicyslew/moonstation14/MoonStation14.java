@@ -1,13 +1,16 @@
 package com.juicyslew.moonstation14;
 
+import com.juicyslew.moonstation14.block.ModBlockEntities;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
+import com.juicyslew.moonstation14.entities.ModEntities;
+import com.juicyslew.moonstation14.eventhooks.ModEventHooks;
 import com.juicyslew.moonstation14.item.ModCreativeModeTabs;
 import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.recipe.ModRecipes;
 import com.juicyslew.moonstation14.sounds.ModSounds;
-import com.juicyslew.moonstation14.util.ModItemProperties;
 import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
 
@@ -27,7 +30,7 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 @Mod(MoonStation14.MOD_ID)
 public class MoonStation14 {
     public static final String MOD_ID = "moonstation14";
-    public static final Logger  LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     // The constructor for the mod class is the first code that is run when your mod is loaded.
     // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
@@ -44,10 +47,15 @@ public class MoonStation14 {
 
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
+        ModBlockEntities.register(modEventBus);
         ModSounds.register(modEventBus);
         ModDataComponents.register(modEventBus);
         ModDataAttachments.register(modEventBus);
+        ModEventHooks.register(modEventBus);
         ModRecipes.register(modEventBus);
+        ModEntities.register(modEventBus);
+        modEventBus.register(ModReagents.class);
+        //NeoForge.EVENT_BUS.addListener(this::onAddReloadListeners);
         //ModFluids.register(modEventBus);
 
         // Register the item to a creative tab
@@ -56,6 +64,10 @@ public class MoonStation14 {
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
+
+//    public void onAddReloadListeners(AddReloadListenerEvent event) {
+//        event.addListener(new ReagentReloadListener());
+//    }
 
     private void commonSetup(FMLCommonSetupEvent event) {
     }
@@ -78,6 +90,7 @@ public class MoonStation14 {
             event.accept(ModBlocks.STEEL_WALL_BLOCK);
             event.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
             event.accept(ModBlocks.MAGIC_BLOCK);
+            event.accept(ModBlocks.JUG);
         }
     }
 

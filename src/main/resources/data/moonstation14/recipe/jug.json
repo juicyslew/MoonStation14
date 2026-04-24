@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "moonstation14:plastic"
+    },
+    {
+      "item": "moonstation14:plastic"
+    },
+    {
+      "item": "moonstation14:plastic"
+    },
+    {
+      "item": "moonstation14:plastic"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "moonstation14:jug"
+  }
+}

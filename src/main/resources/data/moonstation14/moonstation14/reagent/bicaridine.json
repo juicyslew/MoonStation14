@@ -1,0 +1,61 @@
+{
+  "id": "bicaridine",
+  "name": "reagent-name-bicaridine",
+  "group": "Medicine",
+  "desc": "reagent-desc-bicaridine",
+  "physicalDesc": "reagent-physical-desc-opaque",
+  "flavor": "medicine",
+  "color": "0xffaa00",
+  "metabolisms": {
+    "bloodstream": {
+      "effects": [
+        {
+          "type": "EvenHealthChange",
+          "damage": {
+            "brute": -1.5
+          }
+        },
+        {
+          "type": "HealthChange",
+          "conditions": [
+            {
+              "type": "ReagentCondition",
+              "reagent": "bicaridine",
+              "min": 15
+            }
+          ],
+          "damage": {
+            "types": {
+              "asphyxiation": 0.5,
+              "poison": 1.5
+            }
+          }
+        },
+        {
+          "type": "Vomit",
+          "conditions": [
+            {
+              "type": "ReagentCondition",
+              "reagent": "bicaridine",
+              "min": 30
+            }
+          ],
+          "probability": 0.02
+        },
+        {
+          "type": "Jitter",
+          "conditions": [
+            {
+              "type": "ReagentCondition",
+              "reagent": "bicaridine",
+              "min": 15
+            }
+          ]
+        },
+        {
+          "type": "Drunk"
+        }
+      ]
+    }
+  }
+}
