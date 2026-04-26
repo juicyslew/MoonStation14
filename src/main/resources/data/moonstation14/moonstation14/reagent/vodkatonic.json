@@ -1,0 +1,24 @@
+{
+  "id":  "vodkatonic",
+  "name":  "reagent-name-vodka-tonic",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-vodka-tonic",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "vodkatonic",
+  "color":  "0x64C8",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/vodkatonicglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.14
+      }
+    }
+  },
+  "fizziness":  0.4
+}

@@ -1,0 +1,44 @@
+{
+  "id":  "fluorine",
+  "name":  "reagent-name-fluorine",
+  "group":  "elements",
+  "desc":  "reagent-desc-fluorine",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "flavor":  "bitter",
+  "color":  "0xBA85CC",
+  "boilingpoint":  -188.11,
+  "meltingpoint":  -219.67,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  -0.5
+    },
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  25
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -4
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -2
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  0.5,
+              "poison":  0.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

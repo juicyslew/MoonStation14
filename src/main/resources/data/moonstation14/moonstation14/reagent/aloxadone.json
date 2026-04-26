@@ -1,0 +1,28 @@
+{
+  "id":  "aloxadone",
+  "name":  "reagent-name-aloxadone",
+  "group":  "medicine",
+  "desc":  "reagent-desc-aloxadone",
+  "physicaldesc":  "reagent-physical-desc-soothing",
+  "flavor":  "medicine",
+  "color":  "0x89F77F",
+  "worksonthedead":  true,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "TemperatureCondition",
+              "max":  213
+            }
+          ],
+          "damage":  {
+            "burn":  -4.5
+          }
+        }
+      ]
+    }
+  }
+}

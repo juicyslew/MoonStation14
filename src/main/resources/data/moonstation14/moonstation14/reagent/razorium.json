@@ -1,0 +1,64 @@
+{
+  "id":  "razorium",
+  "name":  "reagent-name-razorium",
+  "group":  "toxins",
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "desc":  "reagent-desc-razorium",
+  "physicaldesc":  "reagent-physical-desc-reflective",
+  "flavor":  "sharp",
+  "color":  "0xE3FFFB",
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  false,
+          "damage":  {
+            "types":  {
+              "slash":  0.25
+            }
+          }
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.7
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismRate":  3,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "slash":  9
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "largecaution",
+          "messages":  [
+            "generic-reagent-effect-slicing-insides"
+          ],
+          "probability":  0.33
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.3
+        }
+      ]
+    }
+  }
+}

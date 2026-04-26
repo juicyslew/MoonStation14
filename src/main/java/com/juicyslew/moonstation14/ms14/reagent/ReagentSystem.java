@@ -24,13 +24,14 @@ public class ReagentSystem {
         ReagentAttachment srcCont = MS14Provider.get(source.holder(), bridge);
         ReagentAttachment dstCont = MS14Provider.get(target.holder(), bridge);
 
-        transfer(level, srcCont, dstCont, amount, source.trait().getCapacity(), target.trait().getCapacity());
+        transfer(level, srcCont, dstCont, amount, target.trait().getCapacity());
 
         MS14Provider.update(source.holder(), bridge, srcCont);
         MS14Provider.update(target.holder(), bridge, dstCont);
     }
 
-    static void transfer(Level level, ReagentAttachment srcCont, ReagentAttachment dstCont, float amount, float source_capacity, float target_capacity) {
+    static void transfer(Level level, ReagentAttachment srcCont, ReagentAttachment dstCont, float amount, float target_capacity) {
+        // TODO: ensure that no reagent goes negative in value.
         float availableSpace = target_capacity - getTotal(dstCont.getMap());
         float toMove = Math.min(Math.min(amount, getTotal(srcCont.getMap())), availableSpace);
         var removed = srcCont.naiveRemove(toMove);
@@ -52,7 +53,7 @@ public class ReagentSystem {
             // Add to existing puddle logic
             if (level.getBlockEntity(targetPos) instanceof PuddleBlockEntity target) {
                 ReagentAttachment dstCont = MS14Provider.get(target, bridge);
-                transfer(level, srcCont, dstCont, amount, source.trait().getCapacity(), target.getCapacity());
+                transfer(level, srcCont, dstCont, amount, target.getCapacity());
                 MS14Provider.update(source.holder(), bridge, srcCont);
                 MS14Provider.update(target, bridge, dstCont);
             }
@@ -61,7 +62,7 @@ public class ReagentSystem {
             // Add to existing puddle logic
             if (level.getBlockEntity(abovePos) instanceof PuddleBlockEntity target) {
                 ReagentAttachment dstCont = MS14Provider.get(target, bridge);
-                transfer(level, srcCont, dstCont, amount, source.trait().getCapacity(), target.getCapacity());
+                transfer(level, srcCont, dstCont, amount, target.getCapacity());
                 MS14Provider.update(source.holder(), bridge, srcCont);
                 MS14Provider.update(target, bridge, dstCont);
             }
@@ -75,7 +76,7 @@ public class ReagentSystem {
                     // Transfer data to the new BlockEntity
                     if (level.getBlockEntity(abovePos) instanceof PuddleBlockEntity target) {
                         ReagentAttachment dstCont = MS14Provider.get(target, bridge);
-                        transfer(level, srcCont, dstCont, amount, source.trait().getCapacity(), target.getCapacity());
+                        transfer(level, srcCont, dstCont, amount, target.getCapacity());
 
                         MS14Provider.update(source.holder(), bridge, srcCont);
                         MS14Provider.update(target, bridge, dstCont);

@@ -1,0 +1,41 @@
+{
+  "id":  "ambuzolplus",
+  "name":  "reagent-name-ambuzol-plus",
+  "group":  "medicine",
+  "desc":  "reagent-desc-ambuzol-plus",
+  "physicaldesc":  "reagent-physical-desc-crisp",
+  "flavor":  "medicine",
+  "color":  "0x1274B5",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "CureZombieInfection",
+          "innoculate":  true,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ambuzolplus",
+              "min":  5
+            }
+          ]
+        }
+      ]
+    },
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "CureZombieInfection",
+          "innoculate":  true,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ambuzolplus",
+              "min":  5
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "alliescocktail",
+  "name":  "reagent-name-allies-cocktail",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-allies-cocktail",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "alliescocktail",
+  "color":  "0x664D",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/alliescocktail.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

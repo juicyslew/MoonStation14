@@ -1,0 +1,30 @@
+{
+  "id":  "milk",
+  "name":  "reagent-name-milk",
+  "group":  "drinks",
+  "desc":  "reagent-desc-milk",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "milk",
+  "color":  "0xDFDFDF",
+  "recognizable":  true,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  0.9
+    }
+  ],
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  4
+        }
+      ]
+    }
+  }
+}

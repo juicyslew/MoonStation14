@@ -1,0 +1,23 @@
+{
+  "id":  "driestmartini",
+  "name":  "reagent-name-driest-martini",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-driest-martini",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "driestmartini",
+  "color":  "0x2E6671",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/driestmartiniglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      }
+    }
+  }
+}

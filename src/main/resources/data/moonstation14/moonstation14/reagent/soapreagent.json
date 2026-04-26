@@ -1,0 +1,43 @@
+{
+  "id":  "soapreagent",
+  "name":  "reagent-name-soap",
+  "desc":  "reagent-desc-soap",
+  "physicaldesc":  "reagent-physical-desc-soapy",
+  "flavor":  "clean",
+  "color":  "0xC8DFC9",
+  "recognizable":  true,
+  "boilingpoint":  100,
+  "meltingpoint":  60,
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "friction":  0.3,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "soapreagent",
+              "min":  6
+            }
+          ],
+          "probability":  0.2
+        },
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "soapreagent",
+              "min":  6
+            }
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

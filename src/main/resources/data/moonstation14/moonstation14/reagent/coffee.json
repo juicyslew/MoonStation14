@@ -1,0 +1,36 @@
+{
+  "id":  "coffee",
+  "name":  "reagent-name-coffee",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-coffee",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "coffee",
+  "color":  "0x664300",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  2,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  },
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/coffeeglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

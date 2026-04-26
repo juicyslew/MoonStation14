@@ -1,0 +1,106 @@
+{
+  "id":  "frezon",
+  "name":  "reagent-name-frezon",
+  "desc":  "reagent-desc-frezon",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "alloweddepartments":  [
+    "Engineering"
+  ],
+  "allowedjobs":  [
+    "Chemist"
+  ],
+  "flavor":  "bitter",
+  "color":  "0x3A758C",
+  "boilingpoint":  -195.8,
+  "meltingpoint":  -210,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "cellular":  0.5
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "subtype":  "add",
+          "time":  15
+        },
+        {
+          "type":  "Drunk",
+          "boozepower":  15
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "frezon-lungs-cold"
+          ],
+          "probability":  0.1,
+          "minscale":  1
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "frezon-euphoric"
+          ],
+          "probability":  0.1,
+          "conditions":  null,
+          "minscale":  2
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "minscale":  0.5,
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "cellular":  0.05
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "minscale":  1,
+          "effectproto":  "statuseffectseeingrainbow",
+          "subtype":  "add",
+          "time":  500
+        },
+        {
+          "type":  "Drunk",
+          "boozepower":  500,
+          "minscale":  1
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "frezon-lungs-cold"
+          ],
+          "probability":  0.1,
+          "minscale":  1
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "frezon-euphoric"
+          ],
+          "probability":  0.1,
+          "minscale":  1
+        }
+      ]
+    }
+  }
+}

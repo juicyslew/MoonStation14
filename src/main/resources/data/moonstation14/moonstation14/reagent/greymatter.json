@@ -1,0 +1,27 @@
+{
+  "id":  "greymatter",
+  "name":  "reagent-name-grey-matter",
+  "group":  "biological",
+  "desc":  "reagent-desc-grey-matter",
+  "physicaldesc":  "reagent-physical-desc-neural",
+  "flavor":  "mindful",
+  "color":  "0xC584B8",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  1.5
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "cellular":  2
+            }
+          }
+        }
+      ]
+    }
+  }
+}

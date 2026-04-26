@@ -1,0 +1,80 @@
+{
+  "id":  "felinase",
+  "name":  "reagent-name-catessence",
+  "group":  "toxins",
+  "desc":  "reagent-desc-catessence",
+  "physicaldesc":  "reagent-physical-desc-milky",
+  "flavor":  "cannedtuna",
+  "color":  "0xD8BED8",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.2,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "felinase",
+              "min":  15
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "radiation":  0.5
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "felinase",
+          "amount":  -5,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "felinase",
+              "min":  30
+            }
+          ]
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "felinase",
+              "min":  10
+            }
+          ],
+          "effectproto":  "statuseffectowo",
+          "time":  12.5,
+          "subtype":  "add"
+        },
+        {
+          "type":  "Emote",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "felinase",
+              "min":  10
+            }
+          ],
+          "emote":  "cough",
+          "showinchat":  true,
+          "showinguidebook":  true,
+          "force":  true,
+          "probability":  0.05
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "small",
+          "messages":  [
+            "capsaicin-effect-light-burn"
+          ],
+          "probability":  0.05
+        }
+      ]
+    }
+  }
+}

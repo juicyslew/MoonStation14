@@ -1,0 +1,41 @@
+{
+  "id":  "cocoapowder",
+  "name":  "reagent-name-cocoapowder",
+  "group":  "foods",
+  "desc":  "reagent-desc-cocoapowder",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "chocolate",
+  "color":  "0x800000",
+  "meltingpoint":  146,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "nutriment",
+              "min":  0.1
+            }
+          ],
+          "factor":  1
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  2
+    },
+    {
+      "type":  "PlantAdjustPests",
+      "amount":  2
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "vermouth",
+  "name":  "reagent-name-vermouth",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-vermouth",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "vermouth",
+  "color":  "0x91FF91",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/vermouthglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

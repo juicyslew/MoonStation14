@@ -1,0 +1,78 @@
+{
+  "id":  "barozine",
+  "name":  "reagent-name-barozine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-barozine",
+  "physicaldesc":  "reagent-physical-desc-viscous",
+  "flavor":  "medicine",
+  "color":  "0xFF867D",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "probability":  0.3,
+          "damage":  {
+            "types":  {
+              "heat":  0.5
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "barozine",
+              "min":  30
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  3
+            }
+          }
+        },
+        {
+          "type":  "Vomit",
+          "probability":  0.15,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "barozine",
+              "min":  30
+            }
+          ]
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "pressureimmunity",
+          "component":  "pressureimmunity"
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "stutter",
+          "component":  "stutteringaccent"
+        },
+        {
+          "type":  "Jitter"
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.2
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "large",
+          "messages":  [
+            "barozine-effect-skin-burning",
+            "barozine-effect-muscle-contract"
+          ],
+          "probability":  0.1
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "greentea",
+  "name":  "reagent-name-green-tea",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-green-tea",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "tea",
+  "color":  "0x7EB626",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/greenteaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

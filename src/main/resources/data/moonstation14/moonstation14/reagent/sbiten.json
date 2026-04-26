@@ -1,0 +1,16 @@
+{
+  "id":  "sbiten",
+  "name":  "reagent-name-sbiten",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-sbiten",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "sbiten",
+  "color":  "0x4166",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/sbitenglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

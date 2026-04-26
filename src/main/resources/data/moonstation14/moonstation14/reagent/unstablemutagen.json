@@ -1,0 +1,35 @@
+{
+  "id":  "unstablemutagen",
+  "name":  "reagent-name-unstable-mutagen",
+  "group":  "toxins",
+  "desc":  "reagent-desc-unstable-mutagen",
+  "physicaldesc":  "reagent-physical-desc-glowing",
+  "allowedjobs":  [
+    "Chemist",
+    "Botanist"
+  ],
+  "flavor":  "bitter",
+  "color":  "0xFF5F",
+  "boilingpoint":  340282300,
+  "meltingpoint":  261,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustMutationLevel",
+      "amount":  1
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "radiation":  3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

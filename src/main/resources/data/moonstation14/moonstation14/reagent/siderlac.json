@@ -1,0 +1,23 @@
+{
+  "id":  "siderlac",
+  "name":  "reagent-name-siderlac",
+  "group":  "medicine",
+  "desc":  "reagent-desc-siderlac",
+  "physicaldesc":  "reagent-physical-desc-milky",
+  "flavor":  "medicine",
+  "color":  "0xF4DAB8",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  -5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

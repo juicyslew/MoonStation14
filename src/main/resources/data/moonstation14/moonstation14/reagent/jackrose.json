@@ -1,0 +1,16 @@
+{
+  "id":  "jackrose",
+  "name":  "reagent-name-jack-rose",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-jack-rose",
+  "physicaldesc":  "reagent-physical-desc-tart",
+  "flavor":  "jackrose",
+  "color":  "0xF53B3B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/jackrose.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

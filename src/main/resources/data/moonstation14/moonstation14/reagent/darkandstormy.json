@@ -1,0 +1,16 @@
+{
+  "id":  "darkandstormy",
+  "name":  "reagent-name-dark-and-stormy",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-dark-and-stormy",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "darkandstormy",
+  "color":  "0xCF7F17",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/dark\u0026stormy.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

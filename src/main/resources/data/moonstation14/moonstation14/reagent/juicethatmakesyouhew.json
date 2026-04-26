@@ -1,0 +1,54 @@
+{
+  "id":  "juicethatmakesyouhew",
+  "name":  "reagent-name-hew",
+  "group":  "toxins",
+  "desc":  "reagent-desc-hew",
+  "physicaldesc":  "reagent-physical-desc-inversed",
+  "flavor":  "hew",
+  "color":  "0xA64DC5",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.25,
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "hew",
+          "showinchat":  true,
+          "showinguidebook":  true,
+          "force":  true,
+          "probability":  0.5
+        },
+        {
+          "type":  "Polymorph",
+          "prototype":  "artifactlizard",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "animal"
+              ],
+              "inverted":  true
+            },
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "juicethatmakesyouhew",
+              "min":  50
+            }
+          ]
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "juicethatmakesyouhew",
+          "amount":  -20,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "juicethatmakesyouhew",
+              "min":  50
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

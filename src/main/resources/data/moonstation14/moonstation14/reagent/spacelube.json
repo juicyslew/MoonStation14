@@ -1,0 +1,22 @@
+{
+  "id":  "spacelube",
+  "name":  "reagent-name-space-lube",
+  "desc":  "reagent-desc-space-lube",
+  "evaporationspeed":  0.1,
+  "slipdata":  {
+    "requiredslipspeed":  1,
+    "superslippery":  true
+  },
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "flavor":  "funny",
+  "color":  "0x77B58E",
+  "recognizable":  true,
+  "boilingpoint":  290,
+  "meltingpoint":  18.2,
+  "tilereactions":  [
+    {
+      "type":  "SpillTileReaction"
+    }
+  ],
+  "friction":  0.05
+}

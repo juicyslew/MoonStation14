@@ -1,0 +1,34 @@
+{
+  "id":  "cogchamp",
+  "name":  "reagent-name-cogchamp",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-cogchamp",
+  "physicaldesc":  "reagent-physical-desc-ground-brass",
+  "flavor":  "cogchamp",
+  "color":  "0xB5A642",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/cogchamp.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      },
+      "effects":  [
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "ratvarianlanguage",
+          "component":  "ratvarianlanguage"
+        },
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        }
+      ]
+    }
+  }
+}

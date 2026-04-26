@@ -1,0 +1,17 @@
+{
+  "id":  "rewriter",
+  "name":  "reagent-name-rewriter",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-rewriter",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "sweet",
+  "color":  "0x485000",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/rewriter.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "fizziness":  0.3
+}

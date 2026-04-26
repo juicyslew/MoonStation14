@@ -1,0 +1,32 @@
+{
+  "id":  "thc",
+  "name":  "reagent-name-thc",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-thc",
+  "flavor":  "bitter",
+  "flavorminimum":  0.05,
+  "color":  "0x808080",
+  "physicaldesc":  "reagent-physical-desc-crystalline",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  -5
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -1
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "time":  16,
+          "subtype":  "add"
+        }
+      ]
+    }
+  }
+}

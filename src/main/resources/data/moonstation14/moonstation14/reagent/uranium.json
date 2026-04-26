@@ -1,0 +1,44 @@
+{
+  "id":  "uranium",
+  "name":  "reagent-name-uranium",
+  "group":  "elements",
+  "desc":  "reagent-desc-uranium",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "flavor":  "metallic",
+  "color":  "0x8FA191",
+  "meltingpoint":  1133,
+  "boilingpoint":  4131,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustMutationLevel",
+      "amount":  0.6
+    },
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  4
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -1.5
+    },
+    {
+      "type":  "PlantAdjustMutationMod",
+      "probability":  0.2,
+      "amount":  0.1
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "radiation":  2
+            }
+          }
+        }
+      ]
+    }
+  }
+}

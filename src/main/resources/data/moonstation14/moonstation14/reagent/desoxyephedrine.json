@@ -1,0 +1,95 @@
+{
+  "id":  "desoxyephedrine",
+  "name":  "reagent-name-desoxyephedrine",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-desoxyephedrine",
+  "physicaldesc":  "reagent-physical-desc-translucent",
+  "contrabandseverity":  "minor",
+  "flavor":  "bitter",
+  "color":  "0xFAFAFA",
+  "boilingpoint":  212,
+  "meltingpoint":  170,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  0.55,
+              "blunt":  1.1
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "desoxyephedrine",
+              "min":  16
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  3,
+              "asphyxiation":  2
+            }
+          }
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  1.2,
+          "sprintspeedmodifier":  1.2
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdesoxystamina",
+          "time":  3
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "adrenaline",
+          "component":  "ignoreslowondamage",
+          "time":  3
+        },
+        {
+          "type":  "Jitter"
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "stutter",
+          "component":  "stutteringaccent"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectpainnumbness",
+          "time":  2
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "haloperidol",
+              "max":  0.01
+            }
+          ],
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  10,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ResetNarcolepsy",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "desoxyephedrine",
+              "min":  5
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

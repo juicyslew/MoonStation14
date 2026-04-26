@@ -1,0 +1,72 @@
+{
+  "id":  "holywater",
+  "name":  "reagent-name-holywater",
+  "group":  "medicine",
+  "desc":  "reagent-desc-holywater",
+  "evaporationspeed":  0.3,
+  "physicaldesc":  "reagent-physical-desc-holy",
+  "flavor":  "holy",
+  "color":  "0x91C3F7",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  3
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  null,
+          "damage":  {
+            "types":  {
+              "blunt":  -0.2,
+              "poison":  -0.2,
+              "heat":  -0.2,
+              "shock":  -0.2,
+              "cold":  -0.2
+            }
+          }
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "extinguish":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Extinguish"
+        }
+      ]
+    },
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  false,
+          "damage":  {
+            "types":  {
+              "holy":  0.5
+            }
+          }
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  1
+    }
+  ],
+  "tilereactions":  [
+    {
+      "type":  "ExtinguishTileReaction { }"
+    }
+  ]
+}

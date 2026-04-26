@@ -1,0 +1,31 @@
+{
+  "id":  "champagne",
+  "name":  "reagent-name-champagne",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-champagne",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "champagne",
+  "color":  "0xFCFCEE",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/champagneglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.6
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  3
+        }
+      ]
+    }
+  },
+  "fizziness":  0.8
+}

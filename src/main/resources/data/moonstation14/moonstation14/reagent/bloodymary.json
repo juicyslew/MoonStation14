@@ -1,0 +1,16 @@
+{
+  "id":  "bloodymary",
+  "name":  "reagent-name-bloody-mary",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-bloody-mary",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "bloodymary",
+  "color":  "0xDF6A50",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/bloodymaryglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

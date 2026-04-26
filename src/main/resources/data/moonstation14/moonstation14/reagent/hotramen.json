@@ -1,0 +1,19 @@
+{
+  "id":  "hotramen",
+  "name":  "reagent-name-hot-ramen",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-hot-ramen",
+  "physicaldesc":  "reagent-physical-desc-wormy",
+  "flavor":  "cheapnoodles",
+  "color":  "0x664300",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  4
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "parent":  "artifexium",
+  "id":  "artifactglue",
+  "name":  "reagent-name-artifact-glue",
+  "desc":  "reagent-desc-artifact-glue",
+  "flavor":  "artifactglue",
+  "physicaldesc":  "reagent-physical-desc-non-newtonian",
+  "color":  "0x827394",
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "ArtifactDurabilityRestore",
+          "minscale":  5
+        }
+      ]
+    }
+  }
+}

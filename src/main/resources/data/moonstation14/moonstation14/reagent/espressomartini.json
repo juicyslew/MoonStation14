@@ -1,0 +1,23 @@
+{
+  "id":  "espressomartini",
+  "name":  "reagent-name-espresso-martini",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-espresso-martini",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "espressomartini",
+  "color":  "0x170A0C",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/espressomartini.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

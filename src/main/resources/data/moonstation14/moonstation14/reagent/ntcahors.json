@@ -1,0 +1,16 @@
+{
+  "id":  "ntcahors",
+  "name":  "reagent-name-n-t-cahors",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-n-t-cahors",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "bitter",
+  "color":  "0x7E4043",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/wineglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

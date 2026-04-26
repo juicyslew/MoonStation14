@@ -1,0 +1,49 @@
+{
+  "id":  "ethyloxyephedrine",
+  "name":  "reagent-name-ethyloxyephedrine",
+  "desc":  "reagent-desc-ethyloxyephedrine",
+  "group":  "medicine",
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "flavor":  "medicine",
+  "color":  "0xD5D5E4",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Jitter"
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "stutter",
+          "component":  "stutteringaccent"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  10,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ResetNarcolepsy",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ethyloxyephedrine",
+              "min":  10
+            }
+          ]
+        },
+        {
+          "type":  "PopupMessage",
+          "visualtype":  "medium",
+          "messages":  [
+            "ethyloxyephedrine-effect-feeling-awake",
+            "ethyloxyephedrine-effect-clear-mind"
+          ],
+          "subtype":  "local",
+          "probability":  0.1
+        }
+      ]
+    }
+  }
+}

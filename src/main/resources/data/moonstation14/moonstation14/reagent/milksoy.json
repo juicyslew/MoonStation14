@@ -1,0 +1,9 @@
+{
+  "id":  "milksoy",
+  "parent":  "milkoat",
+  "name":  "reagent-name-milk-soy",
+  "desc":  "reagent-desc-milk-soy",
+  "physicaldesc":  "reagent-physical-desc-refreshing",
+  "flavor":  "soy",
+  "color":  "0xD2C29D"
+}

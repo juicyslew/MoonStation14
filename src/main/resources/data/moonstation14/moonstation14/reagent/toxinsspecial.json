@@ -1,0 +1,16 @@
+{
+  "id":  "toxinsspecial",
+  "name":  "reagent-name-toxins-special",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-toxins-special",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "flavor":  "toxinsspecial",
+  "color":  "0x665C00",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/toxinsspecialglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

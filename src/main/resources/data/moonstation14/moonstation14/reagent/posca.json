@@ -1,0 +1,9 @@
+{
+  "id":  "posca",
+  "name":  "reagent-name-posca",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-posca",
+  "physicaldesc":  "reagent-physical-desc-sour",
+  "flavor":  "bitter",
+  "color":  "0xB3B599"
+}

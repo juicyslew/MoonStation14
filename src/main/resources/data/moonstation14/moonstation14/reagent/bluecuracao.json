@@ -1,0 +1,23 @@
+{
+  "id":  "bluecuracao",
+  "name":  "reagent-name-blue-curacao",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-blue-curacao",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "bluecuracao",
+  "color":  "0x99FF",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/curacaoglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.1
+      }
+    }
+  }
+}

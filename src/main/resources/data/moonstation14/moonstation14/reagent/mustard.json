@@ -1,0 +1,10 @@
+{
+  "id":  "mustard",
+  "name":  "reagent-name-mustard",
+  "group":  "foods",
+  "desc":  "reagent-desc-mustard",
+  "physicaldesc":  "reagent-physical-desc-thick",
+  "flavor":  "mustard",
+  "color":  "0xFFDB58",
+  "recognizable":  true
+}

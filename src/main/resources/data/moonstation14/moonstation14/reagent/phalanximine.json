@@ -1,0 +1,66 @@
+{
+  "id":  "phalanximine",
+  "name":  "reagent-name-phalanximine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-phalanximine",
+  "physicaldesc":  "reagent-physical-desc-acrid",
+  "flavor":  "medicine",
+  "color":  "0xC8FF75",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  6
+    },
+    {
+      "type":  "PlantPhalanximine",
+      "minscale":  4
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.1,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "cellular":  -0.3,
+              "radiation":  0.15,
+              "caustic":  0.15
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "phalanximine",
+              "min":  11
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "radiation":  0.2
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "arithrazine",
+              "min":  1
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "caustic":  0.3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

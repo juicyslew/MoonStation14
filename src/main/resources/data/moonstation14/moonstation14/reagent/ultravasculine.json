@@ -1,0 +1,97 @@
+{
+  "id":  "ultravasculine",
+  "name":  "reagent-name-ultravasculine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-ultravasculine",
+  "physicaldesc":  "reagent-physical-desc-thick-and-grainy",
+  "flavor":  "medicine",
+  "color":  "0x520E30",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ultravasculine",
+              "min":  0,
+              "max":  20
+            }
+          ],
+          "damage":  {
+            "toxin":  -6
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ultravasculine",
+              "min":  0,
+              "max":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "blunt":  1.5
+            }
+          }
+        },
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ultravasculine",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "toxin":  -2
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ultravasculine",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "blunt":  6
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "histamine",
+              "min":  1
+            }
+          ],
+          "reagent":  "histamine",
+          "amount":  -1
+        },
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "histamine",
+              "min":  1
+            }
+          ],
+          "reagent":  "ultravasculine",
+          "amount":  0.5
+        }
+      ]
+    }
+  }
+}

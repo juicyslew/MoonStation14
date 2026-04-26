@@ -1,0 +1,16 @@
+{
+  "id":  "kalimotxo",
+  "name":  "reagent-name-kalimotxo",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-kalimotxo",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "kalimotxo",
+  "color":  "0x360606",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/kalimotxo.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

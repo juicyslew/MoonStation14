@@ -1,0 +1,25 @@
+{
+  "id":  "silicon",
+  "name":  "reagent-name-silicon",
+  "group":  "elements",
+  "desc":  "reagent-desc-silicon",
+  "physicaldesc":  "reagent-physical-desc-crystalline",
+  "flavor":  "metallic",
+  "color":  "0x364266",
+  "boilingpoint":  3265,
+  "meltingpoint":  1414,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

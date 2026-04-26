@@ -1,0 +1,46 @@
+{
+  "id":  "blackpepper",
+  "name":  "reagent-name-blackpepper",
+  "group":  "foods",
+  "desc":  "reagent-desc-blackpepper",
+  "physicaldesc":  "reagent-physical-desc-grainy",
+  "flavor":  "peppery",
+  "color":  "0x0",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "cough",
+          "showinchat":  true,
+          "showinguidebook":  true,
+          "probability":  0.05
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "cough",
+          "showinguidebook":  true,
+          "conditions":  [
+            {
+              "type":  "BreathingCondition"
+            },
+            {
+              "type":  "InternalsCondition",
+              "inverted":  true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

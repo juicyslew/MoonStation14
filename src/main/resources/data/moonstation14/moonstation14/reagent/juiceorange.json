@@ -1,0 +1,16 @@
+{
+  "id":  "juiceorange",
+  "name":  "reagent-name-juice-orange",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-orange",
+  "physicaldesc":  "reagent-physical-desc-citric",
+  "flavor":  "orange",
+  "color":  "0xE78108",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/orangejuiceglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

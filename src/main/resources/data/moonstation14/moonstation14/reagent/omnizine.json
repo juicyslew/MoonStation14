@@ -1,0 +1,24 @@
+{
+  "id":  "omnizine",
+  "name":  "reagent-name-omnizine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-omnizine",
+  "physicaldesc":  "reagent-physical-desc-soothing",
+  "flavor":  "medicine",
+  "color":  "0xFCF7F9",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "damage":  {
+            "burn":  -2,
+            "toxin":  -2,
+            "airloss":  -2,
+            "brute":  -2
+          }
+        }
+      ]
+    }
+  }
+}

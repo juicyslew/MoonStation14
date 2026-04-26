@@ -1,0 +1,19 @@
+{
+  "id":  "cream",
+  "name":  "reagent-name-cream",
+  "group":  "drinks",
+  "desc":  "reagent-desc-cream",
+  "physicaldesc":  "reagent-physical-desc-creamy",
+  "flavor":  "creamy",
+  "color":  "0xDFD7AF",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id":  "juicecherry",
+  "name":  "reagent-name-juice-cherry",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-cherry",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "cherry",
+  "color":  "0x84031A"
+}

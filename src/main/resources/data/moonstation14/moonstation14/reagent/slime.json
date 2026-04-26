@@ -1,0 +1,54 @@
+{
+  "id":  "slime",
+  "name":  "reagent-name-slime",
+  "group":  "biological",
+  "desc":  "reagent-desc-slime",
+  "flavor":  "slimy",
+  "color":  "0x2CF274",
+  "recognizable":  true,
+  "standsout":  true,
+  "physicaldesc":  "reagent-physical-desc-viscous",
+  "viscosity":  0.25,
+  "tilereactions":  [
+    {
+      "type":  "SpillTileReaction"
+    }
+  ],
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  1,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ]
+        },
+        {
+          "type":  "ModifyBloodLevel",
+          "amount":  0.5,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "footstepsound":  {
+    "collection":  "footstepslime",
+    "params":  {
+      "volume":  6
+    }
+  }
+}

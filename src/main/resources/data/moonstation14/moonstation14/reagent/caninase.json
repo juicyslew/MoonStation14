@@ -1,0 +1,80 @@
+{
+  "id":  "caninase",
+  "name":  "reagent-name-canidessence",
+  "group":  "toxins",
+  "desc":  "reagent-desc-canidessence",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "dogfood",
+  "color":  "0xB87333",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.2,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "caninase",
+              "min":  15
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "radiation":  0.5
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "caninase",
+          "amount":  -5,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "caninase",
+              "min":  30
+            }
+          ]
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "caninase",
+              "min":  10
+            }
+          ],
+          "effectproto":  "statuseffectbark",
+          "time":  12.5,
+          "subtype":  "add"
+        },
+        {
+          "type":  "Emote",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "caninase",
+              "min":  10
+            }
+          ],
+          "emote":  "cough",
+          "showinchat":  true,
+          "showinguidebook":  true,
+          "force":  true,
+          "probability":  0.05
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "small",
+          "messages":  [
+            "capsaicin-effect-light-burn"
+          ],
+          "probability":  0.05
+        }
+      ]
+    }
+  }
+}

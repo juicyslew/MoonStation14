@@ -1,0 +1,53 @@
+{
+  "id":  "bleach",
+  "name":  "reagent-name-bleach",
+  "desc":  "reagent-desc-bleach",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "allowedjobs":  [
+    "Janitor",
+    "Chemist"
+  ],
+  "flavor":  "bitter",
+  "color":  "0xA1000B",
+  "boilingpoint":  111,
+  "meltingpoint":  -5,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  2,
+              "caustic":  2
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "mediumcaution",
+          "messages":  [
+            "generic-reagent-effect-burning-insides"
+          ],
+          "probability":  0.33
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.15
+        }
+      ]
+    }
+  },
+  "tilereactions":  [
+    {
+      "type":  "CleanTileReaction",
+      "cleancost":  0.13
+    },
+    {
+      "type":  "CleanDecalsReaction",
+      "cleancost":  0.13
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "id":  "happiness",
+  "name":  "reagent-name-happiness",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-happiness",
+  "physicaldesc":  "reagent-physical-desc-soothing",
+  "flavor":  "paintthinner",
+  "color":  "0xEE35FF",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "laugh",
+          "showinchat":  true,
+          "probability":  0.1,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "happiness",
+              "max":  20
+            }
+          ]
+        },
+        {
+          "type":  "Emote",
+          "emote":  "whistle",
+          "showinchat":  true,
+          "probability":  0.1,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "happiness",
+              "max":  20
+            }
+          ]
+        },
+        {
+          "type":  "Emote",
+          "emote":  "crying",
+          "showinchat":  true,
+          "probability":  0.1,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "happiness",
+              "min":  20
+            }
+          ]
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "psicodine-effect-fearless",
+            "psicodine-effect-anxieties-wash-away",
+            "psicodine-effect-at-peace"
+          ],
+          "probability":  0.2,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "happiness",
+              "max":  20
+            }
+          ]
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "subtype":  "add",
+          "time":  5
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id":  "oculine",
+  "name":  "reagent-name-oculine",
+  "desc":  "reagent-desc-oculine",
+  "group":  "medicine",
+  "physicaldesc":  "reagent-physical-desc-translucent",
+  "flavor":  "medicine",
+  "color":  "0x404040",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EyeDamage"
+        }
+      ]
+    }
+  }
+}

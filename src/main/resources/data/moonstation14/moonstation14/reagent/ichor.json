@@ -1,0 +1,56 @@
+{
+  "id":  "ichor",
+  "name":  "reagent-name-ichor",
+  "group":  "biological",
+  "desc":  "reagent-desc-ichor",
+  "physicaldesc":  "reagent-physical-desc-roaring",
+  "flavor":  "metallic",
+  "color":  "0xF4692E",
+  "recognizable":  true,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1.5
+        },
+        {
+          "type":  "ModifyBloodLevel",
+          "amount":  3
+        },
+        {
+          "type":  "EvenHealthChange",
+          "damage":  {
+            "burn":  -3,
+            "brute":  -3,
+            "toxin":  -2
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "bloodloss":  -3
+            }
+          }
+        },
+        {
+          "type":  "ModifyBleed",
+          "amount":  -1.5
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  0.5
+    }
+  ],
+  "footstepsound":  {
+    "collection":  "footstepblood",
+    "params":  {
+      "volume":  6
+    }
+  }
+}

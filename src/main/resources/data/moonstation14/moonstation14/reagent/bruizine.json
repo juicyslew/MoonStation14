@@ -1,0 +1,43 @@
+{
+  "id":  "bruizine",
+  "name":  "reagent-name-bruizine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-bruizine",
+  "physicaldesc":  "reagent-physical-desc-mucus-like",
+  "flavor":  "sour",
+  "color":  "0xFF3636",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.25,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "blunt":  -2.25
+            }
+          }
+        },
+        {
+          "type":  "SatiateHunger",
+          "factor":  -1
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "bruizine",
+              "min":  10.5
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  2.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

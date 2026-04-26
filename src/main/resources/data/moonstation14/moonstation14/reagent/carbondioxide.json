@@ -1,0 +1,105 @@
+{
+  "id":  "carbondioxide",
+  "name":  "reagent-name-carbon-dioxide",
+  "desc":  "reagent-desc-carbon-dioxide",
+  "physicaldesc":  "reagent-physical-desc-odorless",
+  "flavor":  "bitter",
+  "color":  "0x66FF33",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Oxygenate",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant",
+                "vox"
+              ],
+              "inverted":  true
+            }
+          ],
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "poison":  0.4
+            }
+          }
+        },
+        {
+          "type":  "Oxygenate",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ],
+              "inverted":  true
+            }
+          ],
+          "factor":  -4
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "Oxygenate",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "HealthChange",
+          "minscale":  0.5,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant",
+                "vox"
+              ],
+              "inverted":  true
+            }
+          ],
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "poison":  0.8
+            }
+          }
+        },
+        {
+          "type":  "Oxygenate",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ],
+              "inverted":  true
+            }
+          ],
+          "factor":  -4
+        }
+      ]
+    }
+  }
+}

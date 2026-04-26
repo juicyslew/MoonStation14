@@ -1,0 +1,39 @@
+{
+  "id":  "ice",
+  "name":  "reagent-name-ice",
+  "desc":  "reagent-desc-ice",
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "evaporationspeed":  0.15,
+  "physicaldesc":  "reagent-physical-desc-frosty",
+  "flavor":  "cold",
+  "color":  "0xBED8E6",
+  "recognizable":  true,
+  "meltingpoint":  0,
+  "boilingpoint":  100,
+  "friction":  0.05,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  3
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  1
+    }
+  ],
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/iceglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

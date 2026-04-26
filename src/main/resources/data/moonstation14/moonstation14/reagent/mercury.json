@@ -1,0 +1,30 @@
+{
+  "id":  "mercury",
+  "name":  "reagent-name-mercury",
+  "group":  "elements",
+  "desc":  "reagent-desc-mercury",
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "flavor":  "metallic",
+  "color":  "0x929296",
+  "meltingpoint":  -38.83,
+  "boilingpoint":  356.73,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectscrambled",
+          "subtype":  "update"
+        }
+      ]
+    }
+  }
+}

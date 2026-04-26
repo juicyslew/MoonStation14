@@ -1,0 +1,24 @@
+{
+  "id":  "moscowmule",
+  "name":  "reagent-name-moscow-mule",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-moscow-mule",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "moscowmule",
+  "color":  "0xCECBAD",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/moscowmule.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.2,
+        "copper":  0.1
+      }
+    }
+  }
+}

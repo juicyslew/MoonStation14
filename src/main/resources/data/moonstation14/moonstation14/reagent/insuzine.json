@@ -1,0 +1,74 @@
+{
+  "id":  "insuzine",
+  "name":  "reagent-name-insuzine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-insuzine",
+  "physicaldesc":  "reagent-physical-desc-frosty",
+  "flavor":  "metallic",
+  "color":  "0x8147FF",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.25,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "shock":  -1.5
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "licoxide",
+          "amount":  -2
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "tazinide",
+          "amount":  -2
+        },
+        {
+          "type":  "AdjustTemperature",
+          "amount":  -2500
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "insuzine",
+              "min":  12
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "cold":  1
+            }
+          }
+        },
+        {
+          "type":  "AdjustTemperature",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "insuzine",
+              "min":  12
+            }
+          ],
+          "amount":  -30000
+        },
+        {
+          "type":  "Jitter",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "insuzine",
+              "min":  12
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

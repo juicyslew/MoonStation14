@@ -1,0 +1,18 @@
+{
+  "id":  "oil",
+  "name":  "reagent-name-oil",
+  "group":  "foods",
+  "desc":  "reagent-desc-oil",
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "flavor":  "oily",
+  "flavorminimum":  0.05,
+  "recognizable":  true,
+  "color":  "0xB67823",
+  "boilingpoint":  300,
+  "meltingpoint":  -16,
+  "tilereactions":  [
+    {
+      "type":  "FlammableTileReaction {}"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id":  "silver",
+  "name":  "reagent-name-silver",
+  "group":  "elements",
+  "desc":  "reagent-desc-silver",
+  "physicaldesc":  "reagent-physical-desc-reasonably-metallic",
+  "flavor":  "metallic",
+  "color":  "0xD0D0D0",
+  "boilingpoint":  2212,
+  "meltingpoint":  960.5
+}

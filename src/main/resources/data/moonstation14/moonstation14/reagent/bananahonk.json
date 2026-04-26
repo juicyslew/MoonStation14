@@ -1,0 +1,16 @@
+{
+  "id":  "bananahonk",
+  "name":  "reagent-name-banana-honk",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-banana-honk",
+  "physicaldesc":  "reagent-physical-desc-creamy",
+  "flavor":  "bananahonk",
+  "color":  "0xFFFF91",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/bananahonkglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

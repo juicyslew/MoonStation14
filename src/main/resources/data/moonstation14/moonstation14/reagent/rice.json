@@ -1,0 +1,18 @@
+{
+  "id":  "rice",
+  "name":  "reagent-name-rice",
+  "group":  "foods",
+  "desc":  "reagent-desc-rice",
+  "physicaldesc":  "reagent-physical-desc-chewy",
+  "flavor":  "rice",
+  "color":  "0xFFFFFF",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "sugar":  0.8,
+        "nutriment":  0.2
+      }
+    }
+  }
+}

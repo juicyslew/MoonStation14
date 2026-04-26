@@ -1,0 +1,17 @@
+{
+  "id":  "erikasurprise",
+  "name":  "reagent-name-erika-surprise",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-erika-surprise",
+  "physicaldesc":  "reagent-physical-desc-cloudy",
+  "flavor":  "erikasurprise",
+  "color":  "0x67BC50",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/beerstein.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "fizziness":  0.15
+}

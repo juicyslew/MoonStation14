@@ -1,0 +1,24 @@
+{
+  "id":  "flour",
+  "name":  "reagent-name-flour",
+  "group":  "foods",
+  "desc":  "reagent-desc-flour",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "chalky",
+  "color":  "0xFFFFFF",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "sugar":  0.4,
+        "nutriment":  0.2
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -0.2
+        }
+      ]
+    }
+  }
+}

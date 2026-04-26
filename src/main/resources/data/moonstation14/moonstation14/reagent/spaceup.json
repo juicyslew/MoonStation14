@@ -1,0 +1,16 @@
+{
+  "id":  "spaceup",
+  "name":  "reagent-name-space-up",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-space-up",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "spaceup",
+  "color":  "0xE3E3E37",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/space-up_glass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

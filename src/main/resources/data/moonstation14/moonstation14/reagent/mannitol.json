@@ -1,0 +1,31 @@
+{
+  "id":  "Mannitol",
+  "name":  "reagent-name-mannitol",
+  "group":  "medicine",
+  "desc":  "reagent-desc-mannitol",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "sweet",
+  "color":  "0xA0A0A0",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "PopupMessage",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "mannitol",
+              "min":  15
+            }
+          ],
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "mannitol-effect-enlightened"
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

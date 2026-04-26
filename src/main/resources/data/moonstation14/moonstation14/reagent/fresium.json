@@ -1,0 +1,167 @@
+{
+  "id":  "fresium",
+  "name":  "reagent-name-fresium",
+  "group":  "toxins",
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "desc":  "reagent-desc-fresium",
+  "physicaldesc":  "reagent-physical-desc-frosty",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "flavor":  "cold",
+  "color":  "0xB3F1FF",
+  "boilingpoint":  50,
+  "meltingpoint":  45,
+  "tilereactions":  [
+    {
+      "type":  "CreateEntityTileReaction",
+      "entity":  "icecrust",
+      "maxontilewhitelist":  {
+        "tags":  [
+          "ice"
+        ]
+      }
+    },
+    {
+      "type":  "ExtinguishTileReaction { }"
+    }
+  ],
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  false,
+          "damage":  {
+            "types":  {
+              "cold":  0.05
+            }
+          }
+        },
+        {
+          "type":  "AdjustTemperature",
+          "conditions":  [
+            {
+              "type":  "TemperatureCondition",
+              "min":  160.15
+            }
+          ],
+          "amount":  -30000
+        }
+      ]
+    },
+    "extinguish":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Extinguish"
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismRate":  0.45,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "cold":  0.01,
+              "heat":  -3
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "fresium",
+              "max":  35
+            }
+          ],
+          "subtype":  "local",
+          "visualtype":  "largecaution",
+          "messages":  [
+            "fresium-effect-freeze-insides"
+          ],
+          "probability":  0.05
+        },
+        {
+          "type":  "PopupMessage",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "fresium",
+              "max":  35
+            }
+          ],
+          "subtype":  "local",
+          "visualtype":  "largecaution",
+          "messages":  [
+            "fresium-effect-slow"
+          ],
+          "probability":  0.2
+        },
+        {
+          "type":  "AdjustTemperature",
+          "conditions":  [
+            {
+              "type":  "TemperatureCondition",
+              "min":  160.15
+            }
+          ],
+          "amount":  -10000
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "fresium",
+              "max":  40
+            }
+          ],
+          "walkspeedmodifier":  0.6,
+          "sprintspeedmodifier":  0.6
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "fresium",
+              "min":  40
+            }
+          ],
+          "walkspeedmodifier":  0,
+          "sprintspeedmodifier":  0
+        },
+        {
+          "type":  "PopupMessage",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "fresium",
+              "min":  40
+            }
+          ],
+          "subtype":  "local",
+          "visualtype":  "largecaution",
+          "messages":  [
+            "fresium-effect-frozen"
+          ],
+          "probability":  0.4
+        }
+      ]
+    }
+  }
+}

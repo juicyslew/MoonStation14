@@ -1,0 +1,23 @@
+{
+  "id":  "tequila",
+  "name":  "reagent-name-tequila",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-tequila",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "tequila",
+  "color":  "0xD7D1D1",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/tequillaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "id":  "blood",
+  "name":  "reagent-name-blood",
+  "group":  "biological",
+  "desc":  "reagent-desc-blood",
+  "flavor":  "metallic",
+  "color":  "0x800000",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/bloodglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "recognizable":  true,
+  "standsout":  true,
+  "physicaldesc":  "reagent-physical-desc-ferrous",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "uncookedanimalproteins":  0.2
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "human"
+              ],
+              "inverted":  true
+            }
+          ]
+        },
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "bloodsucker"
+              ]
+            }
+          ],
+          "damage":  {
+            "brute":  -3,
+            "burn":  -1.25
+          }
+        }
+      ]
+    },
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  0.2
+            }
+          }
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  0.5
+    }
+  ],
+  "footstepsound":  {
+    "collection":  "footstepblood",
+    "params":  {
+      "volume":  6
+    }
+  }
+}

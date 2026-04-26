@@ -1,0 +1,70 @@
+{
+  "id":  "chlorinetrifluoride",
+  "name":  "reagent-name-chlorine-trifluoride",
+  "parent":  "basepyrotechnic",
+  "desc":  "reagent-desc-chlorine-trifluoride",
+  "physicaldesc":  "reagent-physical-desc-blazing",
+  "contrabandseverity":  "major",
+  "flavor":  "bitter",
+  "color":  "0xFFC8C8",
+  "tilereactions":  [
+    {
+      "type":  "PryTileReaction"
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  2,
+              "poison":  1,
+              "caustic":  0.5
+            }
+          }
+        },
+        {
+          "type":  "Flammable",
+          "multiplier":  0.2
+        },
+        {
+          "type":  "AdjustTemperature",
+          "amount":  6000
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "flammable":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Flammable",
+          "multiplier":  0.3
+        },
+        {
+          "type":  "Ignite"
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.2
+        },
+        {
+          "type":  "PopupMessage",
+          "messages":  [
+            "clf3-it-burns",
+            "clf3-get-away"
+          ],
+          "visualtype":  "mediumcaution",
+          "probability":  0.3,
+          "subtype":  "local"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id":  "kelotane",
+  "name":  "reagent-name-kelotane",
+  "group":  "medicine",
+  "desc":  "reagent-desc-kelotane",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "medicine",
+  "color":  "0xBF3D19",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  -0.33,
+              "shock":  -0.33,
+              "cold":  -0.33
+            }
+          }
+        },
+        {
+          "type":  "SatiateThirst",
+          "factor":  -10,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "kelotane",
+              "min":  30
+            }
+          ]
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "generic-reagent-effect-nauseous",
+            "generic-reagent-effect-thirsty",
+            "generic-reagent-effect-parched"
+          ],
+          "probability":  0.1,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "kelotane",
+              "min":  25
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

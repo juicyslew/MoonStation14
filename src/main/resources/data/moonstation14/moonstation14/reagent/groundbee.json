@@ -1,0 +1,8 @@
+{
+  "id":  "groundbee",
+  "name":  "reagent-name-ground-bee",
+  "desc":  "reagent-desc-ground-bee",
+  "physicaldesc":  "reagent-physical-desc-bee-guts",
+  "flavor":  "bee",
+  "color":  "0x86530E"
+}

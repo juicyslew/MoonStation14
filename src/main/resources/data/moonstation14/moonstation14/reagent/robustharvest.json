@@ -1,0 +1,93 @@
+{
+  "id":  "robustharvest",
+  "name":  "reagent-name-robust-harvest",
+  "group":  "botanical",
+  "desc":  "reagent-desc-robust-harvest",
+  "flavor":  "bitter",
+  "color":  "0x3E901C",
+  "physicaldesc":  "reagent-physical-desc-robust",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.05
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "probability":  0.025,
+      "amount":  1
+    },
+    {
+      "type":  "PlantAdjustPests",
+      "probability":  0.025,
+      "amount":  1
+    },
+    {
+      "type":  "RobustHarvest"
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  -2,
+              "blunt":  -3,
+              "slash":  -3,
+              "piercing":  -3
+            }
+          },
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            },
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "robustharvest",
+              "min":  30
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  1,
+              "heat":  2,
+              "poison":  1
+            }
+          }
+        },
+        {
+          "type":  "Polymorph",
+          "prototype":  "treemorph",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            },
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "robustharvest",
+              "min":  80
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

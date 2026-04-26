@@ -1,0 +1,9 @@
+{
+  "id":  "hydroxide",
+  "name":  "reagent-name-hydroxide",
+  "desc":  "reagent-desc-hydroxide",
+  "physicaldesc":  "reagent-physical-desc-alkaline",
+  "color":  "0xFFFFFF",
+  "boilingpoint":  1661,
+  "meltingpoint":  596
+}

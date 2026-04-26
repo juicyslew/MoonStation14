@@ -1,0 +1,23 @@
+{
+  "id":  "blackrussian",
+  "name":  "reagent-name-black-russian",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-black-russian",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "blackrussian",
+  "color":  "0x360000",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/blackrussianglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

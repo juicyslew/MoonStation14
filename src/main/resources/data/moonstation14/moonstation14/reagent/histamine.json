@@ -1,0 +1,64 @@
+{
+  "id":  "histamine",
+  "name":  "reagent-name-histamine",
+  "group":  "toxins",
+  "desc":  "reagent-desc-histamine",
+  "physicaldesc":  "reagent-physical-desc-abrasive",
+  "color":  "0xFA6464",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "probability":  0.1,
+          "damage":  {
+            "types":  {
+              "blunt":  2
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "histamine",
+              "min":  45
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "blunt":  2,
+              "asphyxiation":  2,
+              "poison":  2
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "histamine-effect-light-itchiness"
+          ],
+          "probability":  0.1
+        },
+        {
+          "type":  "PopupMessage",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "histamine",
+              "min":  45
+            }
+          ],
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "histamine-effect-heavy-itchiness"
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id":  "whiskeysour",
+  "name":  "reagent-name-whiskey-sour",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-whiskey-sour",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "whiskeysour",
+  "color":  "0x8B7941",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/whiskeysour.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id":  "gintonic",
+  "name":  "reagent-name-gin-tonic",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-gin-tonic",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "gintonic",
+  "color":  "0x4166",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/gintonicglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.14
+      }
+    }
+  },
+  "fizziness":  0.4
+}

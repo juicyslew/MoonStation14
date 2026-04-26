@@ -1,0 +1,23 @@
+{
+  "id":  "daiquiri",
+  "name":  "reagent-name-daiquiri",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-daiquiri",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "daiquiri",
+  "color":  "0xDAC865",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/daiquiri.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.2
+      }
+    }
+  }
+}

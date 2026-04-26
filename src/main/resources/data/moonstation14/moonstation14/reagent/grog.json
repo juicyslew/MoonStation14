@@ -1,0 +1,16 @@
+{
+  "id":  "grog",
+  "name":  "reagent-name-grog",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-grog",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "grog",
+  "color":  "0xE3E77B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/beerstein.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "rootbeer",
+  "name":  "reagent-name-root-beer",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-root-beer",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "rootbeersoda",
+  "color":  "0x381C07",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/rootbeerglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

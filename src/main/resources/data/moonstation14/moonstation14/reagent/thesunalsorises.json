@@ -1,0 +1,23 @@
+{
+  "id":  "thesunalsorises",
+  "name":  "reagent-name-the-sun-also-rises",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-the-sun-also-rises",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "thesunalsorises",
+  "color":  "0xDCE2DE",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/thesunalsorises.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.6
+      }
+    }
+  }
+}

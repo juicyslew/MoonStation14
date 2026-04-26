@@ -1,0 +1,25 @@
+{
+  "id":  "fiber",
+  "name":  "reagent-name-fiber",
+  "desc":  "reagent-desc-fiber",
+  "physicaldesc":  "reagent-physical-desc-fibrous",
+  "flavor":  "fiber",
+  "color":  "0x808080",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "moth"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

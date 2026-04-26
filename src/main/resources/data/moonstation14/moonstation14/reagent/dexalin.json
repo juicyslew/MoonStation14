@@ -1,0 +1,40 @@
+{
+  "id":  "dexalin",
+  "name":  "reagent-name-dexalin",
+  "group":  "medicine",
+  "desc":  "reagent-desc-dexalin",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "medicine",
+  "color":  "0x41A8",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "asphyxiation":  -1,
+              "bloodloss":  -0.5
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dexalin",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  3,
+              "cold":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

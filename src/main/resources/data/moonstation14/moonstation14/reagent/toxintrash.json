@@ -1,0 +1,26 @@
+{
+  "id":  "toxintrash",
+  "name":  "reagent-name-toxintrash",
+  "group":  "toxins",
+  "desc":  "reagent-desc-toxintrash",
+  "flavor":  "trashy",
+  "physicaldesc":  "reagent-physical-desc-nondescript",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  1,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -14,6 +14,11 @@ public interface IClampedMapHolder<T> {
     }
     // Just does the math, doesn't touch the Entity or Networking
     default void specificAdd(T key, float amount, float capacity) {
+        if (amount < 0){
+            // TODO: Make this logic more generic.
+            specificRemove(key, -amount);
+            return;
+        }
         Map<T, Float> data = this.getMap();
         float totalVolume = MapOperations.getTotal(data);
         float actual_add = Float.min(totalVolume + amount, capacity) - totalVolume;
@@ -29,7 +34,7 @@ public interface IClampedMapHolder<T> {
         float actual_add_volume = Float.min(totalVolume + to_add_volume, capacity) - totalVolume;
         float to_mult = actual_add_volume / to_add_volume;
         for (T key : to_add.keySet()){
-            data.put(key, data.getOrDefault(key, 0f) + to_add.get(key) * to_mult);
+            data.put(key, Math.max(0f, data.getOrDefault(key, 0f) + to_add.get(key) * to_mult)); // Enforce a minimum (for damage at least)
         }
     }
 

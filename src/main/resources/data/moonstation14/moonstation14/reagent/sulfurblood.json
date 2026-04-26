@@ -1,0 +1,11 @@
+{
+  "parent":  "blood",
+  "id":  "sulfurblood",
+  "name":  "reagent-name-sulfur-blood",
+  "group":  "biological",
+  "desc":  "reagent-desc-sulfur-blood",
+  "flavor":  "bitter",
+  "color":  "0xCCAC1F",
+  "recognizable":  true,
+  "physicaldesc":  "reagent-physical-desc-strong-smelling"
+}

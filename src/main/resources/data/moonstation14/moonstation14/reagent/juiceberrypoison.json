@@ -1,0 +1,27 @@
+{
+  "id":  "juiceberrypoison",
+  "parent":  "basejuice",
+  "name":  "reagent-name-juice-berry-poison",
+  "group":  "drinks",
+  "desc":  "reagent-desc-juice-berry-poison",
+  "physicaldesc":  "reagent-physical-desc-sickly",
+  "flavor":  "bitter",
+  "color":  "0x6600CC",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst"
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

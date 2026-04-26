@@ -1,0 +1,9 @@
+{
+  "id":  "changelingsting",
+  "name":  "reagent-name-changeling-sting",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-changeling-sting",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "soda",
+  "color":  "0x2E6671"
+}

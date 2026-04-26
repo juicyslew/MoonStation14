@@ -1,9 +1,11 @@
 package com.juicyslew.moonstation14.eventhooks;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.ms14.MS14Bridges;
+import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.effect.EffectContext;
-import com.juicyslew.moonstation14.enums.DamageEnum;
+import com.juicyslew.moonstation14.util.enums.DamageEnum;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -17,10 +19,10 @@ import static com.juicyslew.moonstation14.util.NetworkingUtils.markDirty;
 
 public class TickHooks {
     private static final Map<String, Float> passiveHealing = Map.of(
-            DamageEnum.BLUNT.getId(), -.04f, // Make this a "shared group" passive heal, so people heal brute damage efficiently.
-            DamageEnum.PIERCE.getId(), -.04f,
-            DamageEnum.SLASH.getId(), -.04f,
-            DamageEnum.HEAT.getId(), -.02f
+            DamageEnum.BLUNT.getId(), -.02f, // Make this a "shared group" passive heal, so people heal brute damage efficiently.
+            DamageEnum.PIERCE.getId(), -.02f,
+            DamageEnum.SLASH.getId(), -.02f,
+            DamageEnum.HEAT.getId(), -.01f
             // Eventually these will use registers.
             // And after that, passive healing will be loaded from a JSON File.
             // At some point next to no actual values should be in this code, only logic.
@@ -40,7 +42,7 @@ public class TickHooks {
             if (reagentContainer.isEmpty()){
                 return;
             }
-            var reagentEntries = new HashMap<>(reagentContainer.getMap());
+            var reagentEntries = new HashMap<>(reagentContainer.getMap()); // Gotta copy so I can iterate while mutating.
 
             for (var reagentKey : reagentEntries.keySet()) {
                 var reagent = reg.get(reagentKey);
@@ -52,6 +54,10 @@ public class TickHooks {
                         return;
                     }
                     float scale = Math.min(reagentEntries.get(reagentKey) / metabolismData.rate(), 1f);
+
+                    // TODO: Add organs? could abstract this away for MVP maybe.
+                    metabolismData.Digest(livingEntity); // DIGEST! (moves reagent from stomach to bloodstream (although rn, stomach and bloodstream are a shared container, so just moves reagents from bloodstream to bloodstream lol.
+
                     metabolismData.effects().forEach(effect -> {
                         EffectContext effectContext = new EffectContext.Builder(livingEntity).scale(scale).build();
                         if (effect.shouldApply(effectContext)) {
@@ -67,7 +73,7 @@ public class TickHooks {
 
             // Allegedly, I can update the data attachments without re-setting them, hence no need for these.
             markDirty(livingEntity, ModDataAttachments.DAMAGE);
-            markDirty(livingEntity, ModDataAttachments.REAGENT);
+            MS14Provider.update(livingEntity, MS14Bridges.REAGENT, reagentContainer);
         }
     }
 }

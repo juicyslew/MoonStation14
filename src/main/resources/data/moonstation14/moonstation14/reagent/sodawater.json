@@ -1,0 +1,10 @@
+{
+  "id":  "sodawater",
+  "name":  "reagent-name-soda-water",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-soda-water",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "fizzy",
+  "color":  "0x619494",
+  "fizziness":  0.8
+}

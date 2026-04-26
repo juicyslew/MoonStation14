@@ -1,0 +1,24 @@
+{
+  "id":  "bungotoxin",
+  "name":  "reagent-name-bungotoxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-bungotoxin",
+  "physicaldesc":  "reagent-physical-desc-nondescript",
+  "contrabandseverity":  "major",
+  "color":  "0xEBFF8E",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.2,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1.8
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id":  "theobromine",
+  "name":  "reagent-name-theobromine",
+  "group":  "toxins",
+  "desc":  "reagent-desc-theobromine",
+  "physicaldesc":  "reagent-physical-desc-grainy",
+  "color":  "0xF5F5F5",
+  "meltingpoint":  351,
+  "boilingpoint":  554,
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.05,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "animal"
+              ]
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.4
+            }
+          }
+        },
+        {
+          "type":  "Vomit",
+          "probability":  0.04,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "animal"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

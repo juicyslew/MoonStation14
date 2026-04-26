@@ -1,0 +1,29 @@
+{
+  "id":  "doxarubixadone",
+  "name":  "reagent-name-doxarubixadone",
+  "group":  "medicine",
+  "desc":  "reagent-desc-doxarubixadone",
+  "physicaldesc":  "reagent-physical-desc-bubbling",
+  "flavor":  "medicine",
+  "color":  "0x32CD32",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "TemperatureCondition",
+              "max":  213
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "cellular":  -2
+            }
+          }
+        }
+      ]
+    }
+  }
+}

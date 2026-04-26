@@ -1,0 +1,36 @@
+{
+  "id":  "potassiumiodide",
+  "name":  "reagent-name-potassium-iodide",
+  "group":  "medicine",
+  "desc":  "reagent-desc-potassium-iodide",
+  "physicaldesc":  "reagent-physical-desc-grainy",
+  "flavor":  "medicine",
+  "color":  "0xBAA15D",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectradiationprotection",
+          "time":  2,
+          "subtype":  "add"
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "potassiumiodide",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

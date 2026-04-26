@@ -1,0 +1,16 @@
+{
+  "id":  "crushdepth",
+  "name":  "reagent-name-crush-depth",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-crush-depth",
+  "physicaldesc":  "reagent-physical-desc-cloudy",
+  "flavor":  "crushdepth",
+  "color":  "0xA0A33",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/crushdepth.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

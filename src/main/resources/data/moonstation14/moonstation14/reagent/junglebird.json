@@ -1,0 +1,16 @@
+{
+  "id":  "junglebird",
+  "name":  "reagent-name-jungle-bird",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-jungle-bird",
+  "physicaldesc":  "reagent-physical-desc-tropical",
+  "flavor":  "junglebird",
+  "color":  "0xF27C3D",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/junglebird.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

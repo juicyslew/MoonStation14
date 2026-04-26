@@ -1,0 +1,25 @@
+{
+  "id":  "phenol",
+  "name":  "reagent-name-phenol",
+  "desc":  "reagent-desc-phenol",
+  "physicaldesc":  "reagent-physical-desc-acidic",
+  "flavor":  "bitter",
+  "color":  "0xE7EA91",
+  "boilingpoint":  55.5,
+  "meltingpoint":  -50,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  1,
+              "poison":  2
+            }
+          }
+        }
+      ]
+    }
+  }
+}

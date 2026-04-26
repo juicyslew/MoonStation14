@@ -1,0 +1,29 @@
+{
+  "id":  "ferrochromicacid",
+  "name":  "reagent-name-ferrochromic-acid",
+  "group":  "toxins",
+  "desc":  "reagent-desc-ferrochromic-acid",
+  "flavor":  "sour",
+  "color":  "0x48B3B8",
+  "physicaldesc":  "reagent-physical-desc-ferrous",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -1.5
+        },
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "heat":  2.5,
+              "caustic":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

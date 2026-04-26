@@ -1,0 +1,33 @@
+{
+  "id":  "basesoda",
+  "parent":  "basedrink",
+  "abstract":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -0.1
+    }
+  ],
+  "footstepsound":  {
+    "collection":  "footstepslime"
+  },
+  "fizziness":  0.5
+}

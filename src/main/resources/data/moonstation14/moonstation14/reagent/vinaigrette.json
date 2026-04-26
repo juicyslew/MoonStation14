@@ -1,0 +1,10 @@
+{
+  "id":  "vinaigrette",
+  "name":  "reagent-name-vinaigrette",
+  "group":  "foods",
+  "desc":  "reagent-desc-vinaigrette",
+  "physicaldesc":  "reagent-physical-desc-sour",
+  "flavor":  "sour",
+  "color":  "0xEFDAAE",
+  "recognizable":  true
+}

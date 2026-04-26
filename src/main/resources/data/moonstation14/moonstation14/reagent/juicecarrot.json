@@ -1,0 +1,17 @@
+{
+  "id":  "juicecarrot",
+  "name":  "reagent-name-juice-carrot",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-carrot",
+  "physicaldesc":  "reagent-physical-desc-crisp",
+  "flavor":  "carrot",
+  "color":  "0xFF8820",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "oculine":  1,
+        "nutriment":  1
+      }
+    }
+  }
+}

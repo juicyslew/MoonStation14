@@ -1,0 +1,34 @@
+{
+  "id":  "sodiumhydroxide",
+  "name":  "reagent-name-sodium-hydroxide",
+  "desc":  "reagent-desc-sodium-hydroxide",
+  "physicaldesc":  "reagent-physical-desc-alkaline",
+  "color":  "0xFFFFFF",
+  "boilingpoint":  1661,
+  "meltingpoint":  596,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  1.5
+            }
+          }
+        },
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "sodiumhydroxide",
+              "min":  5
+            }
+          ],
+          "probability":  0.1
+        }
+      ]
+    }
+  }
+}

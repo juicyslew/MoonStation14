@@ -1,0 +1,10 @@
+{
+  "id":  "fersilicite",
+  "name":  "reagent-name-fersilicite",
+  "desc":  "reagent-desc-fersilicite",
+  "physicaldesc":  "reagent-physical-desc-crystalline",
+  "flavor":  "metallic",
+  "color":  "0x434B4D",
+  "boilingpoint":  2962,
+  "meltingpoint":  1638
+}

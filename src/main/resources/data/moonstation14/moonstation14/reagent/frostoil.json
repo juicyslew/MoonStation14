@@ -1,0 +1,45 @@
+{
+  "id":  "frostoil",
+  "name":  "reagent-name-frost-oil",
+  "group":  "foods",
+  "desc":  "reagent-desc-frost-oil",
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "flavor":  "cold",
+  "color":  "0x87CEEB",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "nutriment":  1.5
+      },
+      "effects":  [
+        {
+          "type":  "AdjustTemperature",
+          "amount":  -250
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "frostoil",
+              "min":  5
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "cold":  1
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "frost-oil-effect-light-cold"
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

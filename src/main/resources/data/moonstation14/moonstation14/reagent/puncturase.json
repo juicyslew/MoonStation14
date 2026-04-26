@@ -1,0 +1,40 @@
+{
+  "id":  "puncturase",
+  "name":  "reagent-name-puncturase",
+  "group":  "medicine",
+  "desc":  "reagent-desc-puncturase",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "fizzy",
+  "color":  "0xB9BF93",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.25,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "piercing":  -2.5,
+              "radiation":  0.05
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "puncturase",
+              "min":  12
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "blunt":  3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

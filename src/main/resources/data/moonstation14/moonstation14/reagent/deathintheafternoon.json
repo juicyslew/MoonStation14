@@ -1,0 +1,23 @@
+{
+  "id":  "deathintheafternoon",
+  "name":  "reagent-name-death-in-the-afternoon",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-death-in-the-afternoon",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "deathintheafternoon",
+  "color":  "0x57A87D",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/deathintheafternoon.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.6
+      }
+    }
+  }
+}

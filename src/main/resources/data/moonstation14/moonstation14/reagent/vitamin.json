@@ -1,0 +1,41 @@
+{
+  "id":  "vitamin",
+  "name":  "reagent-name-vitamin",
+  "group":  "foods",
+  "desc":  "reagent-desc-vitamin",
+  "physicaldesc":  "reagent-physical-desc-chalky",
+  "flavor":  "vitamin",
+  "color":  "0xD3D3D3",
+  "metabolisms":  {
+    "metabolites":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "probability":  0.5,
+          "damage":  {
+            "brute":  -0.5,
+            "burn":  -0.5
+          }
+        },
+        {
+          "type":  "ModifyBleed",
+          "amount":  -0.25
+        },
+        {
+          "type":  "SatiateHunger"
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.5
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  1.5
+    }
+  ],
+  "priceperunit":  2.5
+}

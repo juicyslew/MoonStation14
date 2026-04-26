@@ -1,0 +1,10 @@
+{
+  "id":  "horseradishsauce",
+  "name":  "reagent-name-horseradish-sauce",
+  "group":  "foods",
+  "desc":  "reagent-desc-horseradish-sauce",
+  "physicaldesc":  "reagent-physical-desc-overpowering",
+  "flavor":  "spicy",
+  "color":  "0x808080",
+  "recognizable":  true
+}

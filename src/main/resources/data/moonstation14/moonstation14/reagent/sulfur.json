@@ -1,0 +1,25 @@
+{
+  "id":  "sulfur",
+  "name":  "reagent-name-sulfur",
+  "group":  "elements",
+  "desc":  "reagent-desc-sulfur",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "bitter",
+  "color":  "0xFFF385",
+  "boilingpoint":  445,
+  "meltingpoint":  120,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  0.1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

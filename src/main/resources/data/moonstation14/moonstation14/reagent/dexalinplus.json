@@ -1,0 +1,52 @@
+{
+  "id":  "dexalinplus",
+  "name":  "reagent-name-dexalin-plus",
+  "group":  "medicine",
+  "desc":  "reagent-desc-dexalin-plus",
+  "physicaldesc":  "reagent-physical-desc-cloudy",
+  "flavor":  "medicine",
+  "color":  "0x4DA0BD",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "asphyxiation":  -3.5,
+              "bloodloss":  -3
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "heartbreakertoxin",
+              "min":  1
+            }
+          ],
+          "reagent":  "heartbreakertoxin",
+          "amount":  -3
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dexalinplus",
+              "min":  25
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  5,
+              "cold":  3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

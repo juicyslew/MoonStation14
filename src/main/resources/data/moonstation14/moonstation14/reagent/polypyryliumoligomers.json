@@ -1,0 +1,41 @@
+{
+  "id":  "polypyryliumoligomers",
+  "name":  "reagent-name-polypyrylium-oligomers",
+  "group":  "medicine",
+  "desc":  "reagent-desc-polypyrylium-oligomers",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "flavor":  "violets",
+  "color":  "0x9423FF",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "damage":  {
+            "brute":  -1.75,
+            "airloss":  -1
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "polypyryliumoligomers",
+              "min":  30
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  3.5
+            }
+          }
+        },
+        {
+          "type":  "ModifyBleed",
+          "amount":  -0.25
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id":  "pwrgame",
+  "name":  "reagent-name-pwr-game",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-pwr-game",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "pwrgamesoda",
+  "color":  "0x9385BF",
+  "fizziness":  0.9
+}

@@ -1,0 +1,40 @@
+{
+  "id":  "lacerinol",
+  "name":  "reagent-name-lacerinol",
+  "group":  "medicine",
+  "desc":  "reagent-desc-lacerinol",
+  "physicaldesc":  "reagent-physical-desc-viscous",
+  "flavor":  "syrupy",
+  "color":  "0x283332",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.25,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "slash":  -2,
+              "heat":  0.2
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "lacerinol",
+              "min":  12
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "cold":  1.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

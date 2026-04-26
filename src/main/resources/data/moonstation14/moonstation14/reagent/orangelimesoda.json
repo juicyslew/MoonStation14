@@ -1,0 +1,17 @@
+{
+  "id":  "orangelimesoda",
+  "name":  "reagent-name-orange-lime-soda",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-orange-lime-soda",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "sweet",
+  "color":  "0xCCCC99",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/orangelime_soda.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "fizziness":  0.3
+}

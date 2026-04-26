@@ -1,0 +1,22 @@
+{
+  "id":  "lye",
+  "name":  "reagent-name-lye",
+  "desc":  "reagent-desc-lye",
+  "flavor":  "alkaline",
+  "physicaldesc":  "reagent-physical-desc-alkaline",
+  "color":  "0xE5420B",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

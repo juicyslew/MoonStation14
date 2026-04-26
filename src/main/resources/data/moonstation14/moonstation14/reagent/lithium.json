@@ -1,0 +1,36 @@
+{
+  "id":  "lithium",
+  "name":  "reagent-name-lithium",
+  "group":  "elements",
+  "desc":  "reagent-desc-lithium",
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "flavor":  "metallic",
+  "color":  "0xD6C0A7",
+  "meltingpoint":  180.5,
+  "boilingpoint":  1330,
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.1,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  0.05
+            }
+          }
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.05
+        },
+        {
+          "type":  "Emote",
+          "emote":  "laugh",
+          "probability":  0.05
+        }
+      ]
+    }
+  }
+}

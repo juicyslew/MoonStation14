@@ -1,0 +1,26 @@
+{
+  "id":  "hemorrhinol",
+  "name":  "reagent-name-hemorrhinol",
+  "group":  "toxins",
+  "desc":  "reagent-desc-hemorrhinol",
+  "physicaldesc":  "reagent-physical-desc-thin",
+  "contrabandseverity":  "major",
+  "flavor":  "sharp",
+  "color":  "0x96424F",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffecthemorrhage",
+          "time":  21,
+          "subtype":  "update"
+        },
+        {
+          "type":  "ModifyBleed",
+          "amount":  0.5
+        }
+      ]
+    }
+  }
+}

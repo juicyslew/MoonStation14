@@ -1,0 +1,24 @@
+{
+  "id":  "lead",
+  "name":  "reagent-name-lead",
+  "group":  "toxins",
+  "desc":  "reagent-desc-lead",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "contrabandseverity":  "major",
+  "color":  "0x5C6274",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.03,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  0.6
+            }
+          }
+        }
+      ]
+    }
+  }
+}

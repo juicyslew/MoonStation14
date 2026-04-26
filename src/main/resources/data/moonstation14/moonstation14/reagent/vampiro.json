@@ -1,0 +1,16 @@
+{
+  "id":  "vampiro",
+  "name":  "reagent-name-vampiro",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-vampiro",
+  "physicaldesc":  "reagent-physical-desc-spicy",
+  "flavor":  "vampiro",
+  "color":  "0xB51B1B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/vampiro.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

@@ -1,0 +1,57 @@
+{
+  "id":  "left4zed",
+  "name":  "reagent-name-left4-zed",
+  "group":  "botanical",
+  "desc":  "reagent-desc-left4-zed",
+  "flavor":  "bitter",
+  "color":  "0x5B406C",
+  "physicaldesc":  "reagent-physical-desc-heterogeneous",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  1
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -0.5
+    },
+    {
+      "type":  "PlantAdjustMutationMod",
+      "probability":  0.3,
+      "amount":  0.4
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          },
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

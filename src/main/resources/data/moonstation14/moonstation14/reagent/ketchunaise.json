@@ -1,0 +1,10 @@
+{
+  "id":  "ketchunaise",
+  "name":  "reagent-name-ketchunaise",
+  "group":  "foods",
+  "desc":  "reagent-desc-ketchunaise",
+  "physicaldesc":  "reagent-physical-desc-saucey",
+  "flavor":  "ketchunaise",
+  "color":  "0xFBA399",
+  "recognizable":  true
+}

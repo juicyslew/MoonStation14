@@ -1,0 +1,18 @@
+{
+  "id":  "beer",
+  "name":  "reagent-name-beer",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-beer",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "beer",
+  "color":  "0xE3E77B",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/beerglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "fizziness":  0.6
+}

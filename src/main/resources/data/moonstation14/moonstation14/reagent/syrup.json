@@ -1,0 +1,32 @@
+{
+  "id":  "syrup",
+  "name":  "reagent-name-syrup",
+  "group":  "foods",
+  "desc":  "reagent-desc-syrup",
+  "flavor":  "sweet",
+  "color":  "0xFB7125",
+  "recognizable":  true,
+  "physicaldesc":  "reagent-physical-desc-sticky",
+  "viscosity":  0.55,
+  "tilereactions":  [
+    {
+      "type":  "SpillTileReaction"
+    }
+  ],
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  6
+        }
+      ]
+    }
+  },
+  "footstepsound":  {
+    "collection":  "footstepslime",
+    "params":  {
+      "volume":  6
+    }
+  }
+}

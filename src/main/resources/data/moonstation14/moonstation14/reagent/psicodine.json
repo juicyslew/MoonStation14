@@ -1,0 +1,66 @@
+{
+  "id":  "psicodine",
+  "name":  "reagent-name-psicodine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-psicodine",
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "flavor":  "bitter",
+  "color":  "0x7E79E",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "psicodine",
+              "min":  30
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  2
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "psicodine",
+              "min":  30
+            }
+          ],
+          "subtype":  "add",
+          "time":  8
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "jitter",
+          "time":  2,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrunk",
+          "time":  6,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "psicodine-effect-fearless",
+            "psicodine-effect-anxieties-wash-away",
+            "psicodine-effect-at-peace"
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

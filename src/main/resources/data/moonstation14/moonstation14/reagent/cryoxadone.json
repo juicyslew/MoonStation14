@@ -1,0 +1,43 @@
+{
+  "id":  "cryoxadone",
+  "name":  "reagent-name-cryoxadone",
+  "group":  "medicine",
+  "desc":  "reagent-desc-cryoxadone",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "medicine",
+  "color":  "0x91FF",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  -5
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  5
+    },
+    {
+      "type":  "PlantCryoxadone"
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "TemperatureCondition",
+              "max":  213
+            }
+          ],
+          "damage":  {
+            "airloss":  -3,
+            "brute":  -2,
+            "burn":  -2,
+            "toxin":  -2
+          }
+        }
+      ]
+    }
+  }
+}

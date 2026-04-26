@@ -1,0 +1,19 @@
+{
+  "id":  "creamofcoconut",
+  "name":  "reagent-name-cream-of-coconut",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-cream-of-coconut",
+  "physicaldesc":  "reagent-physical-desc-syrupy",
+  "flavor":  "creamy",
+  "color":  "0xFFEABF",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        }
+      ]
+    }
+  }
+}

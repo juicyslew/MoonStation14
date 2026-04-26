@@ -1,0 +1,23 @@
+{
+  "id":  "pinacolada",
+  "name":  "reagent-name-pina-colada",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-pina-colada",
+  "physicaldesc":  "reagent-physical-desc-tropical",
+  "flavor":  "pinacolada",
+  "color":  "0xE8DBA4",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/pinacolada.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id":  "egg",
+  "name":  "reagent-name-raw-egg",
+  "group":  "foods",
+  "desc":  "reagent-desc-raw-egg",
+  "physicaldesc":  "reagent-physical-desc-mucus-like",
+  "flavor":  "raw-egg",
+  "color":  "0xFFFFFF",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "uncookedanimalproteins":  1
+      }
+    }
+  }
+}

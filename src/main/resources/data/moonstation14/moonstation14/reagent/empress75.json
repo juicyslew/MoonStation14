@@ -1,0 +1,23 @@
+{
+  "id":  "empress75",
+  "name":  "reagent-name-empress-75",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-empress-75",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "empress75",
+  "color":  "0x900296",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/empress75.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.6
+      }
+    }
+  }
+}

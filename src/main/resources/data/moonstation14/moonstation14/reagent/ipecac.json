@@ -1,0 +1,29 @@
+{
+  "id":  "ipecac",
+  "name":  "reagent-name-ipecac",
+  "group":  "medicine",
+  "desc":  "reagent-desc-ipecac",
+  "physicaldesc":  "reagent-physical-desc-inky",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "flavor":  "medicine",
+  "color":  "0x422912",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ipecac",
+              "min":  4
+            }
+          ],
+          "probability":  0.3
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "spacemountainwind",
+  "name":  "reagent-name-space-mountain-wind",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-space-mountain-wind",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "sodacitrus",
+  "color":  "0xA6FA5A",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/space_mountain_wind_glass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

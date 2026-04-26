@@ -1,0 +1,22 @@
+{
+  "id":  "cornmeal",
+  "name":  "reagent-name-cornmeal",
+  "group":  "foods",
+  "desc":  "reagent-desc-cornmeal",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "corn",
+  "color":  "0xD2B48C",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "nutriment":  0.2
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -0.2
+        }
+      ]
+    }
+  }
+}

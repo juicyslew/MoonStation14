@@ -1,0 +1,9 @@
+{
+  "id":  "basejuice",
+  "parent":  "basedrink",
+  "abstract":  true,
+  "flavor":  "sweet",
+  "footstepsound":  {
+    "collection":  "footstepslime"
+  }
+}

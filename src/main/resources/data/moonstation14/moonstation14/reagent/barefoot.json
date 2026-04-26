@@ -1,0 +1,16 @@
+{
+  "id":  "barefoot",
+  "name":  "reagent-name-barefoot",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-barefoot",
+  "physicaldesc":  "reagent-physical-desc-creamy",
+  "flavor":  "barefoot",
+  "color":  "0xFF66CC",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/b\u0026p.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

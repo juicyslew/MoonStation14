@@ -1,0 +1,23 @@
+{
+  "id":  "gildlager",
+  "name":  "reagent-name-gildlager",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-gildlager",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "gildlager",
+  "color":  "0xFFFF91",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/gildlagerglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

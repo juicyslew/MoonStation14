@@ -1,0 +1,94 @@
+{
+  "id":  "bacchusblessing",
+  "name":  "reagent-name-bacchus-blessing",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-bacchus-blessing",
+  "physicaldesc":  "reagent-physical-desc-unidentifiable",
+  "flavor":  "bacchusblessing",
+  "color":  "0x331303",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/bacchusblessing.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  2,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.9
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  3
+        },
+        {
+          "type":  "Drunk",
+          "boozepower":  10
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "bacchusblessing",
+              "min":  6
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "dwarf"
+              ],
+              "inverted":  true
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.2
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "bacchusblessing",
+              "min":  6
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "dwarf"
+              ]
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.04
+            }
+          }
+        },
+        {
+          "type":  "Vomit",
+          "probability":  0.1,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "bacchusblessing",
+              "min":  8
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "dwarf"
+              ],
+              "inverted":  true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id":  "milkoat",
+  "name":  "reagent-name-milk-oat",
+  "group":  "drinks",
+  "desc":  "reagent-desc-milk-oat",
+  "physicaldesc":  "reagent-physical-desc-refreshing",
+  "flavor":  "oats",
+  "color":  "0xDEDACD",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  4
+        }
+      ]
+    }
+  }
+}

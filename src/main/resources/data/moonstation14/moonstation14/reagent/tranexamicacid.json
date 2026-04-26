@@ -1,0 +1,34 @@
+{
+  "id":  "tranexamicacid",
+  "name":  "reagent-name-tranexamic-acid",
+  "group":  "medicine",
+  "desc":  "reagent-desc-tranexamic-acid",
+  "physicaldesc":  "reagent-physical-desc-viscous",
+  "flavor":  "medicine",
+  "color":  "0xBA7D7D",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyBleed",
+          "amount":  -1.5
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "tranexamicacid",
+              "min":  15
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "bloodloss":  3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

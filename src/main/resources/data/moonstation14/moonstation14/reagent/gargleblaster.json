@@ -1,0 +1,23 @@
+{
+  "id":  "gargleblaster",
+  "name":  "reagent-name-gargle-blaster",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-gargle-blaster",
+  "physicaldesc":  "reagent-physical-desc-volatile",
+  "flavor":  "gargleblaster",
+  "color":  "0x9CC8B4",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/gargleblasterglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

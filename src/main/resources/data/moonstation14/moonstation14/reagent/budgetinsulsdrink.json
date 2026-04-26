@@ -1,0 +1,37 @@
+{
+  "id":  "budgetinsulsdrink",
+  "name":  "reagent-name-budget-insuls",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-budget-insuls",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "budgetinsulsdrink",
+  "color":  "0xDEDE73",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/budgetinsulsdrink.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3,
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  1,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  },
+  "fizziness":  0.25
+}

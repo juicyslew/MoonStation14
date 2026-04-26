@@ -1,0 +1,41 @@
+{
+  "id":  "diphenylmethylamine",
+  "name":  "reagent-name-diphenylmethylamine",
+  "desc":  "reagent-desc-diphenylmethylamine",
+  "group":  "medicine",
+  "physicaldesc":  "reagent-physical-desc-glowing",
+  "flavor":  "medicine",
+  "color":  "0xB0ABAA",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  10,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ResetNarcolepsy",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "diphenylmethylamine",
+              "min":  5
+            }
+          ]
+        },
+        {
+          "type":  "PopupMessage",
+          "visualtype":  "medium",
+          "messages":  [
+            "ethyloxyephedrine-effect-feeling-awake",
+            "ethyloxyephedrine-effect-clear-mind"
+          ],
+          "subtype":  "local",
+          "probability":  0.1
+        }
+      ]
+    }
+  }
+}

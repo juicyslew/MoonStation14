@@ -1,0 +1,45 @@
+{
+  "id":  "carpotoxin",
+  "name":  "reagent-name-carpotoxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-carpotoxin",
+  "flavor":  "bitter",
+  "color":  "0xE2A38C",
+  "physicaldesc":  "reagent-physical-desc-exotic-smelling",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  10
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -5
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  4
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "mediumcaution",
+          "messages":  [
+            "generic-reagent-effect-burning-insides"
+          ],
+          "probability":  0.33
+        }
+      ]
+    }
+  }
+}

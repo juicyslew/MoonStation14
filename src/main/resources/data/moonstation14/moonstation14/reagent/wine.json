@@ -1,0 +1,17 @@
+{
+  "id":  "wine",
+  "name":  "reagent-name-wine",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-wine",
+  "physicaldesc":  "reagent-physical-desc-translucent",
+  "flavor":  "shittywine",
+  "color":  "0x7E4043",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/wineglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

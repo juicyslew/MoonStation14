@@ -1,0 +1,19 @@
+{
+  "id":  "butter",
+  "name":  "reagent-name-butter",
+  "group":  "foods",
+  "desc":  "reagent-desc-butter",
+  "physicaldesc":  "reagent-physical-desc-creamy",
+  "flavor":  "butter",
+  "color":  "0xFFFF00",
+  "meltingpoint":  32,
+  "boilingpoint":  100,
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "nutriment":  1.5
+      }
+    }
+  }
+}

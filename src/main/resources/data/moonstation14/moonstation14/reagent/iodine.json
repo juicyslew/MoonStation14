@@ -1,0 +1,11 @@
+{
+  "id":  "iodine",
+  "name":  "reagent-name-iodine",
+  "group":  "elements",
+  "desc":  "reagent-desc-iodine",
+  "physicaldesc":  "reagent-physical-desc-dark-brown",
+  "flavor":  "bitter",
+  "color":  "0xBC8A00",
+  "boilingpoint":  184.3,
+  "meltingpoint":  113.7
+}

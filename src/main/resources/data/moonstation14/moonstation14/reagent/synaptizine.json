@@ -1,0 +1,40 @@
+{
+  "id":  "synaptizine",
+  "name":  "reagent-name-synaptizine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-synaptizine",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "flavor":  "medicine",
+  "color":  "0xD49A2F",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  2
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectstunned",
+          "time":  3,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyKnockdown",
+          "time":  3,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "time":  15,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  }
+}

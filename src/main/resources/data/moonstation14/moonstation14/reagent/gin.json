@@ -1,0 +1,24 @@
+{
+  "id":  "gin",
+  "name":  "reagent-name-gin",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-gin",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "gin",
+  "color":  "0x664300",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/ginvodkaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

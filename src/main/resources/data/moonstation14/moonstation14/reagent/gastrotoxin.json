@@ -1,0 +1,34 @@
+{
+  "id":  "gastrotoxin",
+  "name":  "reagent-name-gastrotoxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-gastrotoxin",
+  "flavor":  "bitter",
+  "color":  "0xACC91A",
+  "physicaldesc":  "reagent-physical-desc-putrid",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  2
+            }
+          }
+        },
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "gastrotoxin",
+              "min":  2
+            }
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

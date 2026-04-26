@@ -1,0 +1,16 @@
+{
+  "id":  "acidspit",
+  "name":  "reagent-name-acid-spit",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-acid-spit",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "acidspit",
+  "color":  "0x365000",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/acidspitglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

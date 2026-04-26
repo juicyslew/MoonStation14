@@ -1,0 +1,10 @@
+{
+  "id":  "laughinsyrup",
+  "name":  "reagent-name-laughin-syrup",
+  "group":  "foods",
+  "desc":  "reagent-desc-laughin-syrup",
+  "physicaldesc":  "reagent-physical-desc-funny",
+  "flavor":  "sweet",
+  "color":  "0x803280",
+  "recognizable":  true
+}

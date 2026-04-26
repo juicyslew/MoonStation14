@@ -1,0 +1,146 @@
+{
+  "id":  "oxygen",
+  "name":  "reagent-name-oxygen",
+  "desc":  "reagent-desc-oxygen",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "flavor":  "bitter",
+  "color":  "0xC4F5FF",
+  "boilingpoint":  -183,
+  "meltingpoint":  -218.4,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Oxygenate",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "human",
+                "animal",
+                "rat",
+                "plant"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "ModifyLungGas",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ],
+              "inverted":  true
+            }
+          ],
+          "ratios":  {
+            "carbondioxide":  1,
+            "oxygen":  -1
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ]
+            }
+          ],
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "poison":  1.5
+            }
+          }
+        },
+        {
+          "type":  "AdjustAlert",
+          "alerttype":  "toxins",
+          "minscale":  1,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ]
+            }
+          ],
+          "clear":  true,
+          "time":  5
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "Oxygenate",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "human",
+                "animal",
+                "rat",
+                "plant",
+                "arachnid",
+                "moth"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "ModifyLungGas",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ],
+              "inverted":  true
+            }
+          ],
+          "ratios":  {
+            "carbondioxide":  1,
+            "oxygen":  -1
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ]
+            }
+          ],
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "poison":  0.7
+            }
+          }
+        },
+        {
+          "type":  "AdjustAlert",
+          "alerttype":  "toxins",
+          "minscale":  0.5,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ]
+            }
+          ],
+          "clear":  true,
+          "time":  5
+        }
+      ]
+    }
+  }
+}

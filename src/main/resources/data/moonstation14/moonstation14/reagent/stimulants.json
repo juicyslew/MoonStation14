@@ -1,0 +1,136 @@
+{
+  "id":  "stimulants",
+  "name":  "reagent-name-stimulants",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-stimulants",
+  "physicaldesc":  "reagent-physical-desc-energizing",
+  "contrabandseverity":  "syndicate",
+  "flavor":  "sharp",
+  "color":  "0x9A040E",
+  "boilingpoint":  212,
+  "meltingpoint":  170,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  1.25,
+          "sprintspeedmodifier":  1.25
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectstimulantsstamina",
+          "time":  3
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectstunned",
+          "time":  3.5,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyKnockdown",
+          "time":  3.5,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectforcedsleeping",
+          "time":  3,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "adrenaline",
+          "component":  "ignoreslowondamage",
+          "time":  3
+        },
+        {
+          "type":  "Jitter"
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "stimulants",
+              "min":  45
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  3
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "haloperidol",
+              "max":  0.01
+            }
+          ],
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  10,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "chloralhydrate",
+              "min":  1
+            }
+          ],
+          "reagent":  "chloralhydrate",
+          "amount":  -10
+        },
+        {
+          "type":  "ModifyBleed",
+          "amount":  -1.5
+        },
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "MobStateCondition",
+              "mobstate":  "critical"
+            }
+          ],
+          "damage":  {
+            "burn":  -0.5,
+            "brute":  -0.5
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MobStateCondition",
+              "mobstate":  "critical"
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  -2
+            }
+          }
+        },
+        {
+          "type":  "ResetNarcolepsy"
+        },
+        {
+          "type":  "SatiateHunger",
+          "factor":  1
+        },
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        }
+      ]
+    }
+  }
+}

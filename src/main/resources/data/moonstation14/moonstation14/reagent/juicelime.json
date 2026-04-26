@@ -1,0 +1,9 @@
+{
+  "id":  "juicelime",
+  "name":  "reagent-name-juice-lime",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-lime",
+  "physicaldesc":  "reagent-physical-desc-citric",
+  "flavor":  "sour",
+  "color":  "0x99BB43"
+}

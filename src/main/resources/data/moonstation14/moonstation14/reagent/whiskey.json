@@ -1,0 +1,24 @@
+{
+  "id":  "whiskey",
+  "name":  "reagent-name-whiskey",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-whiskey",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "whiskey",
+  "color":  "0xEE7732",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/whiskeyglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

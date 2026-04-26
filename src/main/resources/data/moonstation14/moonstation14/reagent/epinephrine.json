@@ -1,0 +1,128 @@
+{
+  "id":  "epinephrine",
+  "name":  "reagent-name-epinephrine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-epinephrine",
+  "physicaldesc":  "reagent-physical-desc-odorless",
+  "flavor":  "medicine",
+  "color":  "0xD2FFFA",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "histamine",
+              "min":  45
+            }
+          ],
+          "reagent":  "histamine",
+          "amount":  -5
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MobStateCondition",
+              "mobstate":  "critical"
+            },
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "epinephrine",
+              "max":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  -3,
+              "poison":  -0.5
+            }
+          }
+        },
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "MobStateCondition",
+              "mobstate":  "critical"
+            },
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "epinephrine",
+              "max":  20
+            }
+          ],
+          "damage":  {
+            "brute":  -0.5,
+            "burn":  -0.5
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "epinephrine",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  1,
+              "poison":  1
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "heartbreakertoxin",
+          "amount":  -2
+        },
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "heartbreakertoxin",
+              "min":  1
+            }
+          ],
+          "reagent":  "epinephrine",
+          "amount":  -1
+        },
+        {
+          "type":  "AdjustReagent",
+          "probability":  0.1,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "heartbreakertoxin",
+              "min":  1
+            }
+          ],
+          "reagent":  "histamine",
+          "amount":  4
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectstunned",
+          "time":  0.75,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyKnockdown",
+          "time":  0.75,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "adrenaline",
+          "component":  "ignoreslowondamage",
+          "time":  5
+        }
+      ]
+    }
+  }
+}

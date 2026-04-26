@@ -1,0 +1,16 @@
+{
+  "id":  "soldry",
+  "name":  "reagent-name-sol-dry",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-sol-dry",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "gingersoda",
+  "color":  "0xCCB87E",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/sol_dry_glass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

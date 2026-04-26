@@ -1,0 +1,24 @@
+{
+  "id":  "lexorin",
+  "name":  "reagent-name-lexorin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-lexorin",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "contrabandseverity":  "syndicate",
+  "color":  "0x6B0007",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "asphyxiation":  5,
+              "bloodloss":  5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

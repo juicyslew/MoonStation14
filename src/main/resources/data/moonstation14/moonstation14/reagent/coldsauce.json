@@ -1,0 +1,9 @@
+{
+  "id":  "coldsauce",
+  "name":  "reagent-name-coldsauce",
+  "group":  "foods",
+  "desc":  "reagent-desc-coldsauce",
+  "physicaldesc":  "reagent-physical-desc-cold",
+  "flavor":  "cold",
+  "color":  "0x87CEEB"
+}

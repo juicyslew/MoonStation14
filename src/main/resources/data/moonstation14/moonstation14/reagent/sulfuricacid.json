@@ -1,0 +1,81 @@
+{
+  "id":  "sulfuricacid",
+  "name":  "reagent-name-sulfuric-acid",
+  "group":  "toxins",
+  "desc":  "reagent-desc-sulfuric-acid",
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "allowedjobs":  [
+    "Chemist"
+  ],
+  "flavor":  "acid",
+  "color":  "0xBF8C00",
+  "recognizable":  true,
+  "boilingpoint":  337,
+  "meltingpoint":  10.31,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  10
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -2
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -5
+    }
+  ],
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  false,
+          "damage":  {
+            "types":  {
+              "caustic":  0.1
+            }
+          }
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.1
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  3,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  5
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "large",
+          "messages":  [
+            "generic-reagent-effect-burning-insides"
+          ],
+          "probability":  0.33
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id":  "nuclearcola",
+  "parent":  "basesoda",
+  "name":  "reagent-name-nuclear-cola",
+  "group":  "drinks",
+  "desc":  "reagent-desc-nuclear-cola",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "atomiccola",
+  "color":  "0x100800",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/nuclear_colaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  6
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  3,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  },
+  "fizziness":  0.5
+}

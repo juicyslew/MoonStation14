@@ -1,0 +1,24 @@
+{
+  "id":  "amatoxin",
+  "name":  "reagent-name-amatoxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-amatoxin",
+  "physicaldesc":  "reagent-physical-desc-nondescript",
+  "contrabandseverity":  "major",
+  "color":  "0xD6CE7B",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.2,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

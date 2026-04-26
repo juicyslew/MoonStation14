@@ -1,0 +1,18 @@
+{
+  "id":  "ale",
+  "name":  "reagent-name-ale",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-ale",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "ale",
+  "color":  "0x663100",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/aleglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "fizziness":  0.6
+}

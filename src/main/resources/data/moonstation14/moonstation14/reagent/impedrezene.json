@@ -1,0 +1,43 @@
+{
+  "id":  "impedrezene",
+  "name":  "reagent-name-impedrezene",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-impedrezene",
+  "physicaldesc":  "reagent-physical-desc-acrid",
+  "contrabandseverity":  "minor",
+  "flavor":  "bitter",
+  "color":  "0x215263",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  0.65,
+          "sprintspeedmodifier":  0.65
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  2
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "time":  10,
+          "subtype":  "add"
+        },
+        {
+          "type":  "Vomit",
+          "probability":  0.05
+        },
+        {
+          "type":  "Drunk",
+          "boozepower":  5
+        }
+      ]
+    }
+  }
+}

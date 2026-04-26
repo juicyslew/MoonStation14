@@ -1,0 +1,24 @@
+{
+  "id":  "rum",
+  "name":  "reagent-name-rum",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-rum",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "rum",
+  "color":  "0xF09F42",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/rumglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

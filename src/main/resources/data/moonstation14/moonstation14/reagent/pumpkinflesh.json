@@ -1,0 +1,8 @@
+{
+  "id":  "pumpkinflesh",
+  "parent":  "nutriment",
+  "name":  "reagent-name-pumpkin-flesh",
+  "desc":  "reagent-desc-pumpkin-flesh",
+  "flavor":  "pumpkin",
+  "color":  "0xFC9300"
+}

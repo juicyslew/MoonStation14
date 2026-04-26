@@ -1,0 +1,17 @@
+{
+  "id":  "nothing",
+  "name":  "reagent-name-nothing",
+  "desc":  "reagent-desc-nothing",
+  "group":  "drinks",
+  "physicaldesc":  "reagent-physical-desc-nothing",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        }
+      ]
+    }
+  }
+}

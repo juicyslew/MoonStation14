@@ -1,0 +1,26 @@
+{
+  "id":  "benzene",
+  "name":  "reagent-name-benzene",
+  "desc":  "reagent-desc-benzene",
+  "physicaldesc":  "reagent-physical-desc-acidic",
+  "allowedjobs":  [
+    "Chemist"
+  ],
+  "color":  "0xE7EA91",
+  "boilingpoint":  353.2,
+  "meltingpoint":  278.7,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "cellular":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id":  "spacedrugs",
+  "name":  "reagent-name-space-drugs",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-space-drugs",
+  "physicaldesc":  "reagent-physical-desc-syrupy",
+  "flavor":  "bitter",
+  "color":  "0x63806E",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "subtype":  "add",
+          "time":  5
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "id":  "neurotoxin",
+  "name":  "reagent-name-neurotoxin",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-neurotoxin",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "flavor":  "neurotoxin",
+  "color":  "0x2E2E61",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/neurotoxinglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.5
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

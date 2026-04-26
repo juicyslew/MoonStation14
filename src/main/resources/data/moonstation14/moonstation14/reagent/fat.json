@@ -1,0 +1,15 @@
+{
+  "id":  "fat",
+  "name":  "reagent-name-fat",
+  "group":  "biological",
+  "desc":  "reagent-desc-fat",
+  "flavor":  "terrible",
+  "color":  "0xD8D8B0",
+  "physicaldesc":  "reagent-physical-desc-exotic-smelling",
+  "footstepsound":  {
+    "collection":  "footstepblood",
+    "params":  {
+      "volume":  6
+    }
+  }
+}

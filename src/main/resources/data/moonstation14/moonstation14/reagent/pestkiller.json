@@ -1,0 +1,41 @@
+{
+  "id":  "pestkiller",
+  "name":  "reagent-name-pest-killer",
+  "group":  "botanical",
+  "desc":  "reagent-desc-pest-killer",
+  "flavor":  "bitter",
+  "color":  "0x9E9886",
+  "physicaldesc":  "reagent-physical-desc-bubbling",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  4
+    },
+    {
+      "type":  "PlantAdjustPests",
+      "amount":  -6
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  3
+            }
+          },
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

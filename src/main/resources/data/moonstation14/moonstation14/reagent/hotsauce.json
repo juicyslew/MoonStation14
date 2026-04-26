@@ -1,0 +1,10 @@
+{
+  "id":  "hotsauce",
+  "name":  "reagent-name-hotsauce",
+  "group":  "foods",
+  "desc":  "reagent-desc-hotsauce",
+  "physicaldesc":  "reagent-physical-desc-spicy",
+  "flavor":  "spicy",
+  "color":  "0xFF0000",
+  "recognizable":  true
+}

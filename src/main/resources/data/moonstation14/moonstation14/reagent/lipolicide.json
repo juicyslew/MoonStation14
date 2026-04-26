@@ -1,0 +1,36 @@
+{
+  "id":  "lipolicide",
+  "name":  "reagent-name-lipolicide",
+  "group":  "toxins",
+  "desc":  "reagent-desc-lipolicide",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "flavor":  "mothballs",
+  "color":  "0xF0FFF0",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "HungerCondition",
+              "max":  50
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  2
+            }
+          }
+        },
+        {
+          "type":  "SatiateHunger",
+          "factor":  -6
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id":  "juicebungo",
+  "name":  "reagent-name-juice-bungo",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-bungo",
+  "physicaldesc":  "reagent-physical-desc-tart",
+  "flavor":  "bungo",
+  "color":  "0xF9E43D"
+}

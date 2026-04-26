@@ -1,0 +1,24 @@
+{
+  "id":  "threemileisland",
+  "name":  "reagent-name-three-mile-island",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-three-mile-island",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "threemileisland",
+  "color":  "0x666340",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/threemileislandglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  2,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3,
+        "uranium":  0.1
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id":  "zombiecocktail",
+  "name":  "reagent-name-zombiecocktail",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-zombiecocktail",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "zombiecocktail",
+  "color":  "0xD17844",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/zombiecocktail.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.5
+      }
+    }
+  }
+}

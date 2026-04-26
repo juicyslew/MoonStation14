@@ -1,0 +1,23 @@
+{
+  "id":  "moonshine",
+  "name":  "reagent-name-moonshine",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-moonshine",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "flavor":  "moonshine",
+  "color":  "0xD1D7D1",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/moonshineglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.5
+      }
+    }
+  }
+}

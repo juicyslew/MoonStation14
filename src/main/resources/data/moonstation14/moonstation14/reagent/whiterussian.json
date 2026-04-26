@@ -1,0 +1,23 @@
+{
+  "id":  "whiterussian",
+  "name":  "reagent-name-white-russian",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-white-russian",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "whiterussian",
+  "color":  "0xA68340",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/whiterussianglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      }
+    }
+  }
+}

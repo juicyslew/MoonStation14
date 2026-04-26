@@ -1,0 +1,9 @@
+{
+  "id":  "cellulose",
+  "name":  "reagent-name-cellulose",
+  "group":  "biological",
+  "desc":  "reagent-desc-cellulose",
+  "flavor":  "bitter",
+  "color":  "0xE6E6DA",
+  "physicaldesc":  "reagent-physical-desc-crystalline"
+}

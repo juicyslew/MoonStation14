@@ -1,0 +1,85 @@
+{
+  "id":  "ephedrine",
+  "name":  "reagent-name-ephedrine",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-ephedrine",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "bitter",
+  "color":  "0xD2FFFA",
+  "boilingpoint":  255,
+  "meltingpoint":  36,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  1.15,
+          "sprintspeedmodifier":  1.15
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectstunned",
+          "time":  1,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyKnockdown",
+          "time":  1,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "Jitter"
+        },
+        {
+          "type":  "PopupMessage",
+          "visualtype":  "medium",
+          "messages":  [
+            "ephedrine-effect-tight-pain",
+            "ephedrine-effect-heart-pounds"
+          ],
+          "subtype":  "local",
+          "probability":  0.05
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ephedrine",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  2,
+              "asphyxiation":  2
+            }
+          }
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "haloperidol",
+              "max":  0.01
+            }
+          ],
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  10,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ResetNarcolepsy",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ephedrine",
+              "min":  15
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

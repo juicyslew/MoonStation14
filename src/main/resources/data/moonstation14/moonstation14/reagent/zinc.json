@@ -1,0 +1,11 @@
+{
+  "id":  "zinc",
+  "name":  "reagent-name-zinc",
+  "group":  "elements",
+  "desc":  "reagent-desc-zinc",
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "flavor":  "metallic",
+  "color":  "0xBABABA",
+  "meltingpoint":  419.5,
+  "boilingpoint":  907
+}
