@@ -1,0 +1,9 @@
+{
+  "id":  "starkist",
+  "name":  "reagent-name-starkist",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-starkist",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "starkistsoda",
+  "color":  "0x9F3400"
+}

@@ -1,0 +1,63 @@
+{
+  "id":  "norepinephricacid",
+  "name":  "reagent-name-norepinephric-acid",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-norepinephric-acid",
+  "physicaldesc":  "reagent-physical-desc-milky",
+  "contrabandseverity":  "minor",
+  "flavor":  "salty",
+  "color":  "0x96A8B5",
+  "boilingpoint":  255,
+  "meltingpoint":  36,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "generic-reagent-effect-burning-eyes",
+            "generic-reagent-effect-burning-eyes-a-bit",
+            "generic-reagent-effect-tearing-up",
+            "norepinephricacid-effect-eyelids",
+            "norepinephricacid-effect-eyes-itch",
+            "norepinephricacid-effect-vision-fade",
+            "norepinephricacid-effect-vision-fail"
+          ],
+          "probability":  0.08
+        },
+        {
+          "type":  "PopupMessage",
+          "visualtype":  "mediumcaution",
+          "subtype":  "local",
+          "messages":  [
+            "norepinephricacid-effect-eye-disconnect",
+            "norepinephricacid-effect-eye-pain",
+            "norepinephricacid-effect-darkness",
+            "norepinephricacid-effect-blindness"
+          ],
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "norepinephricacid",
+              "min":  20
+            }
+          ],
+          "probability":  0.03
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "temporaryblindness",
+          "component":  "temporaryblindness",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "norepinephricacid",
+              "min":  20
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

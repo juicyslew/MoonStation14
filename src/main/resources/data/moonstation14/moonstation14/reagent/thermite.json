@@ -1,0 +1,33 @@
+{
+  "id":  "thermite",
+  "name":  "reagent-name-thermite",
+  "parent":  "basepyrotechnic",
+  "desc":  "reagent-desc-thermite",
+  "physicaldesc":  "reagent-physical-desc-grainy",
+  "contrabandseverity":  "minor",
+  "flavor":  "bitter",
+  "color":  "0x757245",
+  "boilingpoint":  2977,
+  "meltingpoint":  2030,
+  "tilereactions":  [
+    {
+      "type":  "FlammableTileReaction",
+      "temperaturemultiplier":  2
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  2,
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

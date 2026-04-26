@@ -1,0 +1,47 @@
+{
+  "id":  "carpetium",
+  "name":  "reagent-name-carpetium",
+  "group":  "special",
+  "desc":  "reagent-desc-carpetium",
+  "physicaldesc":  "reagent-physical-desc-fibrous",
+  "flavor":  "carpet",
+  "color":  "0x800000",
+  "tilereactions":  [
+    {
+      "type":  "CreateEntityTileReaction",
+      "entity":  "carpet",
+      "maxontilewhitelist":  {
+        "tags":  [
+          "carpet"
+        ]
+      }
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "carpetium-effect-blood-fibrous",
+            "carpetium-effect-jumpsuit-insides"
+          ],
+          "probability":  0.1
+        },
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "carpotoxin",
+              "min":  1
+            }
+          ],
+          "reagent":  "carpotoxin",
+          "amount":  -3
+        }
+      ]
+    }
+  }
+}

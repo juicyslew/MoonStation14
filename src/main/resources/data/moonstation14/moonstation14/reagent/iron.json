@@ -1,0 +1,47 @@
+{
+  "id":  "iron",
+  "name":  "reagent-name-iron",
+  "group":  "elements",
+  "desc":  "reagent-desc-iron",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "flavor":  "metallic",
+  "color":  "0x434B4D",
+  "boilingpoint":  2862,
+  "meltingpoint":  1538,
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.1,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "arachnid"
+              ]
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.1
+            }
+          }
+        },
+        {
+          "type":  "ModifyBloodLevel",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "arachnid"
+              ],
+              "inverted":  true
+            }
+          ],
+          "amount":  0.4
+        }
+      ]
+    }
+  }
+}

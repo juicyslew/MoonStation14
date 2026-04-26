@@ -1,0 +1,35 @@
+{
+  "id":  "heparin",
+  "name":  "reagent-name-heparin",
+  "group":  "medicine",
+  "desc":  "reagent-desc-heparin",
+  "physicaldesc":  "reagent-physical-desc-thin",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "flavor":  "medicine",
+  "color":  "0xD0E21B",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectanticoagulant",
+          "time":  30,
+          "subtype":  "update"
+        },
+        {
+          "type":  "ModifyBleed",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "heparin",
+              "min":  15
+            }
+          ],
+          "amount":  0.25
+        }
+      ]
+    }
+  }
+}

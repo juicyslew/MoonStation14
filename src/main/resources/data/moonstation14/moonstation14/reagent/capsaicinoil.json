@@ -1,0 +1,49 @@
+{
+  "id":  "capsaicinoil",
+  "name":  "reagent-name-capsaicin-oil",
+  "group":  "foods",
+  "desc":  "reagent-desc-capsaicin-oil",
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "flavor":  "spicy",
+  "flavorminimum":  0.05,
+  "color":  "0xFF0000",
+  "recognizable":  true,
+  "meltingpoint":  146,
+  "boilingpoint":  410,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "nutriment":  1.5
+      },
+      "effects":  [
+        {
+          "type":  "AdjustTemperature",
+          "amount":  250
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "capsaicinoil",
+              "min":  5
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "caustic":  1
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "messages":  [
+            "capsaicin-effect-light-burn"
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id":  "ventcrud",
+  "name":  "reagent-name-vent-crud",
+  "group":  "toxins",
+  "desc":  "reagent-desc-vent-crud",
+  "physicaldesc":  "reagent-physical-desc-sticky",
+  "flavor":  "bitter",
+  "color":  "0x0",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  2
+            }
+          }
+        }
+      ]
+    }
+  }
+}

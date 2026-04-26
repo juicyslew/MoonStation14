@@ -1,0 +1,11 @@
+{
+  "parent":  "blood",
+  "id":  "insectblood",
+  "name":  "reagent-name-insect-blood",
+  "group":  "biological",
+  "desc":  "reagent-desc-insect-blood",
+  "flavor":  "horrible",
+  "color":  "0x808A51",
+  "recognizable":  true,
+  "physicaldesc":  "reagent-physical-desc-slimy"
+}

@@ -1,0 +1,36 @@
+{
+  "id":  "sap",
+  "name":  "reagent-name-sap",
+  "group":  "biological",
+  "desc":  "reagent-desc-sap",
+  "flavor":  "sweet",
+  "color":  "0xCD7314",
+  "recognizable":  true,
+  "physicaldesc":  "reagent-physical-desc-sticky",
+  "viscosity":  0.1,
+  "tilereactions":  [
+    {
+      "type":  "SpillTileReaction"
+    }
+  ],
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  1
+        },
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        }
+      ]
+    }
+  },
+  "footstepsound":  {
+    "collection":  "footstepslime",
+    "params":  {
+      "volume":  6
+    }
+  }
+}

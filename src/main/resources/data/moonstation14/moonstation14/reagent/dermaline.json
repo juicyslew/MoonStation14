@@ -1,0 +1,52 @@
+{
+  "id":  "dermaline",
+  "name":  "reagent-name-dermaline",
+  "group":  "medicine",
+  "desc":  "reagent-desc-dermaline",
+  "physicaldesc":  "reagent-physical-desc-translucent",
+  "flavor":  "medicine",
+  "color":  "0x215263",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  -1.5,
+              "shock":  -1.5,
+              "cold":  -1.5
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dermaline",
+              "min":  10
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "asphyxiation":  1,
+              "cold":  2,
+              "blunt":  0.5
+            }
+          }
+        },
+        {
+          "type":  "Jitter",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dermaline",
+              "min":  10
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

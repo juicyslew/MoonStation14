@@ -1,0 +1,42 @@
+{
+  "id":  "doctorsdelight",
+  "name":  "reagent-name-doctors-delight",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-doctors-delight",
+  "physicaldesc":  "reagent-physical-desc-soothing",
+  "flavor":  "medicine",
+  "color":  "0xFF8CFF",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/doctorsdelightglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "SatiateHunger",
+          "factor":  -2
+        },
+        {
+          "type":  "EvenHealthChange",
+          "damage":  {
+            "burn":  -1,
+            "brute":  -1,
+            "airloss":  -1,
+            "toxin":  -1
+          }
+        }
+      ]
+    }
+  }
+}

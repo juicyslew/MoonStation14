@@ -1,0 +1,23 @@
+{
+  "id":  "sake",
+  "name":  "reagent-name-sake",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-sake",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "sake",
+  "color":  "0xDDDDDD",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/sakeglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

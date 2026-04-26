@@ -1,0 +1,28 @@
+{
+  "id":  "cryptobiolin",
+  "name":  "reagent-name-cryptobiolin",
+  "group":  "medicine",
+  "desc":  "reagent-desc-cryptobiolin",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "flavor":  "medicine",
+  "color":  "0x81A80",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectscrambled",
+          "subtype":  "update"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectwoozy",
+          "time":  20
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id":  "spacecleaner",
+  "name":  "reagent-name-space-cleaner",
+  "desc":  "reagent-desc-space-cleaner",
+  "physicaldesc":  "reagent-physical-desc-lemony-fresh",
+  "flavor":  "bitter",
+  "color":  "0xC8FF69",
+  "recognizable":  true,
+  "boilingpoint":  147,
+  "meltingpoint":  -11,
+  "tilereactions":  [
+    {
+      "type":  "CleanTileReaction {}"
+    },
+    {
+      "type":  "CleanDecalsReaction {}"
+    }
+  ]
+}

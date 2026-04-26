@@ -1,0 +1,23 @@
+{
+  "id":  "b52",
+  "name":  "reagent-name-b52",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-b52",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "b52",
+  "color":  "0x664300",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/b52glass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "parent":  "blood",
+  "id":  "ammoniablood",
+  "name":  "reagent-name-ammonia-blood",
+  "group":  "biological",
+  "desc":  "reagent-desc-ammonia-blood",
+  "flavor":  "bitter",
+  "color":  "0x7A8BF2",
+  "recognizable":  true,
+  "physicaldesc":  "reagent-physical-desc-pungent"
+}

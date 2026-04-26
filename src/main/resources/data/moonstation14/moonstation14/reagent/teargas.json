@@ -1,0 +1,88 @@
+{
+  "id":  "teargas",
+  "name":  "reagent-name-tear-gas",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-tear-gas",
+  "physicaldesc":  "reagent-physical-desc-milky",
+  "alloweddepartments":  [
+    "Security"
+  ],
+  "flavor":  "salty",
+  "color":  "0xFFFFFF",
+  "boilingpoint":  255,
+  "meltingpoint":  36,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "probability":  0.08,
+          "messages":  [
+            "generic-reagent-effect-burning-eyes",
+            "generic-reagent-effect-burning-eyes-a-bit",
+            "generic-reagent-effect-tearing-up",
+            "norepinephricacid-effect-eyelids",
+            "norepinephricacid-effect-eyes-itch",
+            "norepinephricacid-effect-vision-fade",
+            "norepinephricacid-effect-vision-fail"
+          ]
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "mediumcaution",
+          "probability":  0.03,
+          "messages":  [
+            "norepinephricacid-effect-eye-disconnect",
+            "norepinephricacid-effect-eye-pain",
+            "norepinephricacid-effect-darkness",
+            "norepinephricacid-effect-blindness"
+          ]
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.08,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "teargas",
+              "min":  4
+            }
+          ]
+        },
+        {
+          "type":  "Emote",
+          "emote":  "cough",
+          "probability":  0.08
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "temporaryblindness",
+          "component":  "temporaryblindness",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "teargas",
+              "min":  4
+            }
+          ]
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  0.65,
+          "sprintspeedmodifier":  0.65,
+          "time":  1.5,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "teargas",
+              "min":  4
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

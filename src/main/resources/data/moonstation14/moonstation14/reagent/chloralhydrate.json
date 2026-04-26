@@ -1,0 +1,50 @@
+{
+  "id":  "chloralhydrate",
+  "name":  "reagent-name-chloral-hydrate",
+  "group":  "toxins",
+  "desc":  "reagent-desc-chloral-hydrate",
+  "flavor":  "bitter",
+  "color":  "0x67",
+  "physicaldesc":  "reagent-physical-desc-nondescript",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "yawn",
+          "showinchat":  true,
+          "probability":  0.1
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  0.65,
+          "sprintspeedmodifier":  0.65
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  4,
+          "subtype":  "update"
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "chloralhydrate",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  1.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

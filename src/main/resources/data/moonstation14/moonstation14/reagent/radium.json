@@ -1,0 +1,12 @@
+{
+  "id":  "radium",
+  "name":  "reagent-name-radium",
+  "group":  "elements",
+  "parent":  "uranium",
+  "desc":  "reagent-desc-radium",
+  "physicaldesc":  "reagent-physical-desc-glowing",
+  "flavor":  "metallic",
+  "color":  "0xFF04",
+  "meltingpoint":  700,
+  "boilingpoint":  1737
+}

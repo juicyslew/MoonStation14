@@ -1,0 +1,17 @@
+{
+  "id":  "demonsblood",
+  "name":  "reagent-name-demons-blood",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-demons-blood",
+  "physicaldesc":  "reagent-physical-desc-ferrous",
+  "flavor":  "demonsblood",
+  "color":  "0xA70000",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/demonsblood.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "fizziness":  0.3
+}

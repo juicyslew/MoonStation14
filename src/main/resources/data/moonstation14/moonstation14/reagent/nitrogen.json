@@ -1,0 +1,70 @@
+{
+  "id":  "nitrogen",
+  "name":  "reagent-name-nitrogen",
+  "desc":  "reagent-desc-nitrogen",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "flavor":  "bitter",
+  "color":  "0xA1E1FF",
+  "boilingpoint":  -195.8,
+  "meltingpoint":  -210,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "cold":  0.5
+            }
+          }
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "Oxygenate",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox",
+                "slime"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "ModifyLungGas",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ]
+            }
+          ],
+          "ratios":  {
+            "ammonia":  1,
+            "nitrogen":  -1
+          }
+        },
+        {
+          "type":  "ModifyLungGas",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ]
+            }
+          ],
+          "ratios":  {
+            "nitrousoxide":  1,
+            "nitrogen":  -1
+          }
+        }
+      ]
+    }
+  }
+}

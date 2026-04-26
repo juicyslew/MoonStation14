@@ -1,0 +1,24 @@
+{
+  "id":  "pax",
+  "name":  "reagent-name-pax",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-pax",
+  "physicaldesc":  "reagent-physical-desc-soothing",
+  "alloweddepartments":  [
+    "Security",
+    "Medical"
+  ],
+  "color":  "0xAAAAAA",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "pacified",
+          "component":  "pacified",
+          "time":  4
+        }
+      ]
+    }
+  }
+}

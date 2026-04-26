@@ -1,0 +1,95 @@
+{
+  "id":  "dylovene",
+  "name":  "reagent-name-dylovene",
+  "group":  "medicine",
+  "desc":  "reagent-desc-dylovene",
+  "physicaldesc":  "reagent-physical-desc-translucent",
+  "flavor":  "medicine",
+  "color":  "0x3A1D8A",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  -1
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dylovene",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "blunt":  2
+            }
+          }
+        },
+        {
+          "type":  "Jitter",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dylovene",
+              "min":  20
+            }
+          ]
+        },
+        {
+          "type":  "PopupMessage",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dylovene",
+              "min":  20
+            }
+          ],
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "generic-reagent-effect-nauseous"
+          ],
+          "probability":  0.2
+        },
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dylovene",
+              "min":  20
+            }
+          ],
+          "probability":  0.02
+        },
+        {
+          "type":  "Drunk",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "dylovene",
+              "min":  15
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  -10
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  1
+    }
+  ]
+}

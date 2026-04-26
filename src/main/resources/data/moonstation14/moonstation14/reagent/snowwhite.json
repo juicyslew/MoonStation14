@@ -1,0 +1,17 @@
+{
+  "id":  "snowwhite",
+  "name":  "reagent-name-snow-white",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-snow-white",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "snowwhite",
+  "color":  "0xFFFFFF",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/snowwhite.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "fizziness":  0.3
+}

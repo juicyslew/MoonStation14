@@ -1,0 +1,37 @@
+{
+  "id":  "xenobasher",
+  "name":  "reagent-name-xeno-basher",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-xeno-basher",
+  "physicaldesc":  "reagent-physical-desc-fizzy-and-creamy",
+  "flavor":  "xenobasher",
+  "color":  "0x4D6600",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/xenobasher.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  2,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3,
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  1,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  },
+  "fizziness":  0.15
+}

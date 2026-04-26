@@ -1,0 +1,27 @@
+{
+  "id":  "mindbreakertoxin",
+  "name":  "reagent-name-mindbreaker-toxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-mindbreaker-toxin",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "bitter",
+  "color":  "0x77B58E",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  10
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "subtype":  "add",
+          "time":  10
+        }
+      ]
+    }
+  }
+}

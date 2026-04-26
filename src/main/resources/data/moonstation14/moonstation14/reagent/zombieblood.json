@@ -1,0 +1,35 @@
+{
+  "id":  "zombieblood",
+  "name":  "reagent-name-zombie-blood",
+  "group":  "biological",
+  "desc":  "reagent-desc-zombie-blood",
+  "physicaldesc":  "reagent-physical-desc-necrotic",
+  "flavor":  "bitter",
+  "color":  "0x2B0700",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -0.5
+        }
+      ]
+    },
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  4
+            }
+          }
+        },
+        {
+          "type":  "Vomit",
+          "probability":  0.25
+        }
+      ]
+    }
+  }
+}

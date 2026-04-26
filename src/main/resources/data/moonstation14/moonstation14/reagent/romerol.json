@@ -1,0 +1,27 @@
+{
+  "id":  "romerol",
+  "name":  "reagent-name-romerol",
+  "group":  "toxins",
+  "desc":  "reagent-desc-romerol",
+  "physicaldesc":  "reagent-physical-desc-necrotic",
+  "contrabandseverity":  "syndicate",
+  "flavor":  "bitter",
+  "color":  "0x7E916E",
+  "worksonthedead":  true,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "CauseZombieInfection",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "romerol",
+              "min":  5
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

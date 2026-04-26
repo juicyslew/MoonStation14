@@ -1,0 +1,24 @@
+{
+  "id":  "whiskeysoda",
+  "name":  "reagent-name-whiskey-soda",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-whiskey-soda",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "whiskeycola",
+  "color":  "0x533600",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/whiskeysodaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.14
+      }
+    }
+  },
+  "fizziness":  0.4
+}

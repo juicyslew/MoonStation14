@@ -1,0 +1,16 @@
+{
+  "id":  "electricshark",
+  "name":  "reagent-name-electric-shark",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-electric-shark",
+  "physicaldesc":  "reagent-physical-desc-tropical",
+  "flavor":  "electricshark",
+  "color":  "0x3097CF",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/electricshark.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

@@ -1,0 +1,79 @@
+{
+  "id":  "haloperidol",
+  "name":  "reagent-name-haloperidol",
+  "group":  "medicine",
+  "desc":  "reagent-desc-haloperidol",
+  "physicaldesc":  "reagent-physical-desc-crystalline",
+  "flavor":  "medicine",
+  "color":  "0x27870A",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "yawn",
+          "showinchat":  true,
+          "probability":  0.1
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  4,
+          "subtype":  "add"
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "jitter",
+          "time":  4,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "time":  10,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "desoxyephedrine",
+          "amount":  -3
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "ephedrine",
+          "amount":  -3
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "stimulants",
+          "amount":  -3
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "thc",
+          "amount":  -3
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "spacedrugs",
+          "amount":  -3
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "bananadine",
+          "amount":  -3
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "spaceglue",
+          "amount":  -3
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "mindbreakertoxin",
+          "amount":  -3
+        }
+      ]
+    }
+  }
+}

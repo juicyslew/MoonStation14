@@ -1,0 +1,28 @@
+{
+  "id":  "charcoal",
+  "name":  "reagent-name-charcoal",
+  "desc":  "reagent-desc-charcoal",
+  "physicaldesc":  "reagent-physical-desc-porous",
+  "color":  "0x22282B",
+  "boilingpoint":  4200,
+  "meltingpoint":  3550,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  -1
+            }
+          }
+        },
+        {
+          "type":  "CleanBloodstream",
+          "excluded":  "charcoal",
+          "cleanserate":  3
+        }
+      ]
+    }
+  }
+}

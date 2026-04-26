@@ -1,0 +1,10 @@
+{
+  "id":  "mayo",
+  "name":  "reagent-name-mayo",
+  "group":  "foods",
+  "desc":  "reagent-desc-mayo",
+  "physicaldesc":  "reagent-physical-desc-thick",
+  "flavor":  "mayonnaise",
+  "color":  "0xF9F5E5",
+  "recognizable":  true
+}

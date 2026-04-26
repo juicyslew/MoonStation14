@@ -1,0 +1,32 @@
+{
+  "id":  "eznutrient",
+  "name":  "reagent-name-e-z-nutrient",
+  "group":  "botanical",
+  "desc":  "reagent-desc-e-z-nutrient",
+  "flavor":  "bitter",
+  "color":  "0x664330",
+  "physicaldesc":  "reagent-physical-desc-thick",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  2
+    }
+  ],
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

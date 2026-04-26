@@ -1,0 +1,29 @@
+{
+  "id":  "nutriment",
+  "name":  "reagent-name-nutriment",
+  "group":  "foods",
+  "desc":  "reagent-desc-nutriment",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "nutriment",
+  "color":  "0x24591F",
+  "metabolisms":  {
+    "metabolites":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger"
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  1.5
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  0.75
+    }
+  ],
+  "priceperunit":  2
+}

@@ -1,0 +1,23 @@
+{
+  "id":  "caipirinha",
+  "name":  "reagent-name-caipirinha",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-caipirinha",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "caipirinha",
+  "color":  "0xE6EE9C",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/caipirinha.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.2
+      }
+    }
+  }
+}

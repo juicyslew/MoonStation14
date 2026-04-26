@@ -1,0 +1,16 @@
+{
+  "id":  "bahamamama",
+  "name":  "reagent-name-bahama-mama",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-bahama-mama",
+  "physicaldesc":  "reagent-physical-desc-tropical",
+  "flavor":  "bahamamama",
+  "color":  "0xFF7F3B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/bahama_mama.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

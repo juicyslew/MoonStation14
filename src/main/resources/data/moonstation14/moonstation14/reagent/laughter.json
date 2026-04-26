@@ -1,0 +1,33 @@
+{
+  "id":  "laughter",
+  "name":  "reagent-name-laughter",
+  "group":  "special",
+  "desc":  "reagent-desc-laughter",
+  "physicaldesc":  "reagent-physical-desc-funny",
+  "flavor":  "funny",
+  "color":  "0xFF4DD2",
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "laugh",
+          "showinguidebook":  true,
+          "probability":  0.3
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "large",
+          "messages":  [
+            "laughter-effect-control-laughter"
+          ],
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id":  "mopwata",
+  "name":  "reagent-name-mopwata",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-mopwata",
+  "physicaldesc":  "reagent-physical-desc-murky",
+  "flavor":  "mopwata",
+  "color":  "0x59502B",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  0.6
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id":  "icedcoffee",
+  "name":  "reagent-name-iced-coffee",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-iced-coffee",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "coffee",
+  "color":  "0x102838",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/icedcoffeeglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  2,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  }
+}

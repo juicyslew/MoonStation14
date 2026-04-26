@@ -1,0 +1,26 @@
+{
+  "id":  "shirleytemple",
+  "name":  "reagent-name-shirley-temple",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-shirley-temple",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "sweet",
+  "color":  "0xAF2221",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/shirleytemple.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  4
+        }
+      ]
+    }
+  }
+}

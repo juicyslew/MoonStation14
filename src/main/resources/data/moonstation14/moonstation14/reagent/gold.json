@@ -1,0 +1,11 @@
+{
+  "id":  "gold",
+  "name":  "reagent-name-gold",
+  "group":  "elements",
+  "desc":  "reagent-desc-gold",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "flavor":  "metallic",
+  "color":  "0xF7C430",
+  "boilingpoint":  2700,
+  "meltingpoint":  1064.76
+}

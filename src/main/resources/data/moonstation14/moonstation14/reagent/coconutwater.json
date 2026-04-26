@@ -1,0 +1,19 @@
+{
+  "id":  "coconutwater",
+  "name":  "reagent-name-coconut-water",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-coconut-water",
+  "physicaldesc":  "reagent-physical-desc-milky",
+  "flavor":  "nutty",
+  "color":  "0xF4EADB",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  4
+        }
+      ]
+    }
+  }
+}

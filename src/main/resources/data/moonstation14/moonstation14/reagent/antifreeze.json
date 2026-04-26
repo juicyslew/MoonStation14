@@ -1,0 +1,23 @@
+{
+  "id":  "antifreeze",
+  "name":  "reagent-name-antifreeze",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-antifreeze",
+  "physicaldesc":  "reagent-physical-desc-translucent",
+  "flavor":  "antifreeze",
+  "color":  "0xFF7D63",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/antifreeze.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id":  "painkiller",
+  "name":  "reagent-name-painkiller",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-painkiller",
+  "physicaldesc":  "reagent-physical-desc-refreshing",
+  "flavor":  "painkiller",
+  "color":  "0xE6CB47",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/painkiller.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

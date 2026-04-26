@@ -1,0 +1,23 @@
+{
+  "id":  "tequilasunrise",
+  "name":  "reagent-name-tequila-sunrise",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-tequila-sunrise",
+  "physicaldesc":  "reagent-physical-desc-citric",
+  "flavor":  "tequilasunrise",
+  "color":  "0xFFE48C",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/tequillasunriseglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      }
+    }
+  }
+}

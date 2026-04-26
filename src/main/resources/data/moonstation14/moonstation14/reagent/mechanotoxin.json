@@ -1,0 +1,71 @@
+{
+  "id":  "mechanotoxin",
+  "name":  "reagent-name-mechanotoxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-mechanotoxin",
+  "flavor":  "sweet",
+  "color":  "0xB408",
+  "physicaldesc":  "reagent-physical-desc-nondescript",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.2,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "arachnid"
+              ],
+              "inverted":  true
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  1.6
+            }
+          }
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "mechanotoxin",
+              "min":  2
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "arachnid"
+              ],
+              "inverted":  true
+            }
+          ],
+          "walkspeedmodifier":  0.8,
+          "sprintspeedmodifier":  0.8
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "mechanotoxin",
+              "min":  4
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "arachnid"
+              ],
+              "inverted":  true
+            }
+          ],
+          "walkspeedmodifier":  0.4,
+          "sprintspeedmodifier":  0.4
+        }
+      ]
+    }
+  }
+}

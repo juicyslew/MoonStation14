@@ -1,0 +1,16 @@
+{
+  "id":  "radler",
+  "name":  "reagent-name-radler",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-radler",
+  "physicaldesc":  "reagent-physical-desc-citric",
+  "flavor":  "radler",
+  "color":  "0xEDFF2B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/radler.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

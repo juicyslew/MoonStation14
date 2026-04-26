@@ -1,0 +1,54 @@
+{
+  "id":  "juicethatmakesyouweh",
+  "name":  "reagent-name-weh",
+  "group":  "toxins",
+  "desc":  "reagent-desc-weh",
+  "physicaldesc":  "reagent-physical-desc-vibrant",
+  "flavor":  "weh",
+  "color":  "0x59B23A",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.25,
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "weh",
+          "showinchat":  true,
+          "showinguidebook":  true,
+          "force":  true,
+          "probability":  0.5
+        },
+        {
+          "type":  "Polymorph",
+          "prototype":  "artifactlizard",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "animal"
+              ],
+              "inverted":  true
+            },
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "juicethatmakesyouweh",
+              "min":  50
+            }
+          ]
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "juicethatmakesyouweh",
+          "amount":  -20,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "juicethatmakesyouweh",
+              "min":  50
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

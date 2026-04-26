@@ -1,0 +1,29 @@
+{
+  "id":  "arnoldpalmer",
+  "name":  "reagent-name-arnold-palmer",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-arnold-palmer",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "arnoldpalmer",
+  "color":  "0xD8CC5D",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/arnoldpalmer.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  4
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id":  "cornoil",
+  "name":  "reagent-name-cornoil",
+  "group":  "foods",
+  "desc":  "reagent-desc-cornoil",
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "flavor":  "oily",
+  "color":  "0xFFFF00",
+  "recognizable":  true
+}

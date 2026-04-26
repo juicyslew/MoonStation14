@@ -1,0 +1,23 @@
+{
+  "id":  "vodkamartini",
+  "name":  "reagent-name-vodka-martini",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-vodka-martini",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "vodkamartini",
+  "color":  "0x4666",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/martiniglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "juicelemon",
+  "name":  "reagent-name-juice-lemon",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-lemon",
+  "physicaldesc":  "reagent-physical-desc-citric",
+  "flavor":  "sour",
+  "color":  "0xFFF690",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/lemonjuiceglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

@@ -1,0 +1,11 @@
+{
+  "id":  "hydrogen",
+  "name":  "reagent-name-hydrogen",
+  "group":  "elements",
+  "desc":  "reagent-desc-hydrogen",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "flavor":  "bitter",
+  "color":  "0xCCCCCC",
+  "boilingpoint":  -253,
+  "meltingpoint":  -259.2
+}

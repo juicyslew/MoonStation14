@@ -1,0 +1,23 @@
+{
+  "id":  "saline",
+  "name":  "reagent-name-saline",
+  "group":  "medicine",
+  "desc":  "reagent-desc-saline",
+  "physicaldesc":  "reagent-physical-desc-salty",
+  "flavor":  "salty",
+  "color":  "0x64C8",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  6
+        },
+        {
+          "type":  "ModifyBloodLevel",
+          "amount":  6
+        }
+      ]
+    }
+  }
+}

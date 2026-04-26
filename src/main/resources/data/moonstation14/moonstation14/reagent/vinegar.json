@@ -1,0 +1,31 @@
+{
+  "id":  "vinegar",
+  "name":  "reagent-name-vinegar",
+  "group":  "foods",
+  "desc":  "reagent-desc-vinegar",
+  "physicaldesc":  "reagent-physical-desc-sour",
+  "flavor":  "bitter",
+  "color":  "0xD2B48C",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "water":  0.8,
+        "vitamin":  0.2
+      },
+      "effects":  [
+        {
+          "type":  "Vomit",
+          "probability":  0.1,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "vinegar",
+              "min":  6
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

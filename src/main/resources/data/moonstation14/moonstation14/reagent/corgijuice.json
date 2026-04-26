@@ -1,0 +1,54 @@
+{
+  "id":  "corgijuice",
+  "name":  "reagent-name-corgiessence",
+  "group":  "toxins",
+  "desc":  "reagent-desc-corgiessence",
+  "physicaldesc":  "reagent-physical-desc-fluffy",
+  "flavor":  "dogfood",
+  "color":  "0xED9715",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.2,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "corgijuice",
+              "min":  15
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "cellular":  0.5
+            }
+          }
+        },
+        {
+          "type":  "Polymorph",
+          "prototype":  "smartcorgimorph",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "corgijuice",
+              "min":  50
+            }
+          ]
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "corgijuice",
+          "amount":  -20,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "corgijuice",
+              "min":  50
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

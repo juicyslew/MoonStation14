@@ -1,0 +1,9 @@
+{
+  "id":  "juicebluepumpkin",
+  "name":  "reagent-name-juice-blue-pumpkin",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-blue-pumpkin",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "bluepumpkin",
+  "color":  "0xBFFF"
+}

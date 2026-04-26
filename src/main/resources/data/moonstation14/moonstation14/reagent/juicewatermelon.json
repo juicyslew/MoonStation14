@@ -1,0 +1,16 @@
+{
+  "id":  "juicewatermelon",
+  "name":  "reagent-name-juice-watermelon",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-watermelon",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "watermelon",
+  "color":  "0xEF3520",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/watermelonglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

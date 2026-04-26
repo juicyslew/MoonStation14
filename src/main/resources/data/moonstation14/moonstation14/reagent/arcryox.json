@@ -1,0 +1,29 @@
+{
+  "id":  "arcryox",
+  "name":  "reagent-name-arcryox",
+  "group":  "medicine",
+  "desc":  "reagent-desc-arcryox",
+  "physicaldesc":  "reagent-physical-desc-arcryox",
+  "flavor":  "medicine",
+  "color":  "0xCBFE9",
+  "worksonthedead":  true,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "TemperatureCondition",
+              "max":  213
+            }
+          ],
+          "damage":  {
+            "brute":  -3,
+            "burn":  -3
+          }
+        }
+      ]
+    }
+  }
+}

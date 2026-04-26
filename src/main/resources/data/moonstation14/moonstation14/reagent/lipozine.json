@@ -1,0 +1,22 @@
+{
+  "id":  "lipozine",
+  "name":  "reagent-name-lipozine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-lipozine",
+  "alloweddepartments":  [
+    "Medical"
+  ],
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "flavor":  "medicine",
+  "color":  "0x2690B5",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  -1
+        }
+      ]
+    }
+  }
+}

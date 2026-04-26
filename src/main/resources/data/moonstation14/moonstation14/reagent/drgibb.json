@@ -1,0 +1,16 @@
+{
+  "id":  "drgibb",
+  "name":  "reagent-name-dr-gibb",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-dr-gibb",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "drgibb",
+  "color":  "0x102000",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/dr_gibb_glass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

@@ -1,0 +1,46 @@
+{
+  "id":  "water",
+  "name":  "reagent-name-water",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-water",
+  "evaporationspeed":  0.3,
+  "absorbent":  true,
+  "physicaldesc":  "reagent-physical-desc-translucent",
+  "flavor":  "water",
+  "color":  "0x75B1F0",
+  "recognizable":  true,
+  "boilingpoint":  100,
+  "meltingpoint":  0,
+  "friction":  0.4,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  4
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  true,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ]
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "heat":  3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

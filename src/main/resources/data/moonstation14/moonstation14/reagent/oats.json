@@ -1,0 +1,17 @@
+{
+  "id":  "oats",
+  "name":  "reagent-name-oats",
+  "group":  "foods",
+  "desc":  "reagent-desc-oats",
+  "physicaldesc":  "reagent-physical-desc-coarse",
+  "flavor":  "oats",
+  "color":  "0xD2B48C",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "sugar":  0.4,
+        "nutriment":  0.6
+      }
+    }
+  }
+}

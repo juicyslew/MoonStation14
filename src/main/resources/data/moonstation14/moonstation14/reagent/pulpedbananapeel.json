@@ -1,0 +1,19 @@
+{
+  "id":  "pulpedbananapeel",
+  "name":  "reagent-name-pulped-banana-peel",
+  "group":  "medicine",
+  "desc":  "reagent-desc-pulped-banana-peel",
+  "physicaldesc":  "reagent-physical-desc-pulpy",
+  "flavor":  "medicine",
+  "color":  "0xFFE774",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyBleed",
+          "amount":  -0.5
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "id":  "weldingfuel",
+  "name":  "reagent-name-welding-fuel",
+  "parent":  "basepyrotechnic",
+  "desc":  "reagent-desc-welding-fuel",
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "flavor":  "bitter",
+  "flavorminimum":  0.01,
+  "color":  "0xA76B1C",
+  "recognizable":  true,
+  "boilingpoint":  -84.7,
+  "meltingpoint":  -80.7,
+  "friction":  0.4,
+  "tilereactions":  [
+    {
+      "type":  "FlammableTileReaction {}"
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ]
+            }
+          ]
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "vox"
+              ],
+              "inverted":  true
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        },
+        {
+          "type":  "Flammable",
+          "multiplier":  0.4
+        }
+      ]
+    }
+  }
+}

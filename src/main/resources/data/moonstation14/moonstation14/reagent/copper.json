@@ -1,0 +1,47 @@
+{
+  "id":  "copper",
+  "name":  "reagent-name-copper",
+  "group":  "elements",
+  "desc":  "reagent-desc-copper",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "flavor":  "metallic",
+  "color":  "0xB05B3C",
+  "boilingpoint":  2595,
+  "meltingpoint":  1083,
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.1,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "arachnid"
+              ],
+              "inverted":  true
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.1
+            }
+          }
+        },
+        {
+          "type":  "ModifyBloodLevel",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "arachnid"
+              ]
+            }
+          ],
+          "amount":  0.4
+        }
+      ]
+    }
+  }
+}

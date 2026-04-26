@@ -1,0 +1,11 @@
+{
+  "id":  "sodium",
+  "name":  "reagent-name-sodium",
+  "group":  "elements",
+  "desc":  "reagent-desc-sodium",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "flavor":  "bitter",
+  "color":  "0xA7B3D6",
+  "meltingpoint":  97.8,
+  "boilingpoint":  883
+}

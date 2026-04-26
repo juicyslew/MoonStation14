@@ -1,0 +1,9 @@
+{
+  "id":  "juicegrape",
+  "name":  "reagent-name-juice-grape",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-grape",
+  "physicaldesc":  "reagent-physical-desc-crisp",
+  "flavor":  "juice",
+  "color":  "0x512284"
+}

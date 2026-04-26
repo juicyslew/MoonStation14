@@ -1,0 +1,16 @@
+{
+  "id":  "hippiesdelight",
+  "name":  "reagent-name-hippies-delight",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-hippies-delight",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "hippiesdelight",
+  "color":  "0x6EAA0C",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/hippiesdelightglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

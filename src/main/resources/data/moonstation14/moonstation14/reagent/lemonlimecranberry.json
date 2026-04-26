@@ -1,0 +1,9 @@
+{
+  "id":  "lemonlimecranberry",
+  "name":  "reagent-name-lemon-lime-cranberry",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-lemon-lime-cranberry",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "lemonlimecranberrysoda",
+  "color":  "0x803C53"
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "tortuga",
+  "name":  "reagent-name-tortuga",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-tortuga",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "tortuga",
+  "color":  "0x1C8C40",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/tortuga.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

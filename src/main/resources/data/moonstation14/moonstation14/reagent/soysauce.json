@@ -1,0 +1,24 @@
+{
+  "id":  "soysauce",
+  "name":  "reagent-name-soysauce",
+  "group":  "foods",
+  "desc":  "reagent-desc-soysauce",
+  "physicaldesc":  "reagent-physical-desc-salty",
+  "flavor":  "salty",
+  "color":  "0x8B4513",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  0.5
+        },
+        {
+          "type":  "SatiateThirst",
+          "factor":  -0.5
+        }
+      ]
+    }
+  }
+}

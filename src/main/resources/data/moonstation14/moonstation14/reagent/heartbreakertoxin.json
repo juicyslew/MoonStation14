@@ -1,0 +1,29 @@
+{
+  "id":  "heartbreakertoxin",
+  "name":  "reagent-name-heartbreaker-toxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-heartbreaker-toxin",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "contrabandseverity":  "major",
+  "color":  "0x5F959C",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "asphyxiation":  5
+            }
+          }
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  10
+    }
+  ]
+}

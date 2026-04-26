@@ -1,0 +1,64 @@
+{
+  "id":  "tritium",
+  "name":  "reagent-name-tritium",
+  "desc":  "reagent-desc-tritium",
+  "physicaldesc":  "reagent-physical-desc-ionizing",
+  "alloweddepartments":  [
+    "Engineering"
+  ],
+  "flavor":  "bitter",
+  "color":  "0x66FF33",
+  "tilereactions":  [
+    {
+      "type":  "FlammableTileReaction",
+      "temperaturemultiplier":  2
+    }
+  ],
+  "reactiveeffects":  {
+    "flammable":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Flammable",
+          "multiplier":  0.8
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "radiation":  1.5
+            }
+          }
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "radiation":  1
+            }
+          }
+        },
+        {
+          "type":  "AdjustAlert",
+          "alerttype":  "toxins",
+          "minscale":  1.5,
+          "clear":  true,
+          "time":  5
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id":  "foamingagent",
+  "name":  "reagent-name-foaming-agent",
+  "parent":  "basepyrotechnic",
+  "desc":  "reagent-desc-foaming-agent",
+  "physicaldesc":  "reagent-physical-desc-foamy",
+  "flavor":  "bitter",
+  "color":  "0x215263",
+  "boilingpoint":  418,
+  "meltingpoint":  7.4
+}

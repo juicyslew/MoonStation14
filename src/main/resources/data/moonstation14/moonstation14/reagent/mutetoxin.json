@@ -1,0 +1,24 @@
+{
+  "id":  "mutetoxin",
+  "name":  "reagent-name-mute-toxin",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-mute-toxin",
+  "physicaldesc":  "reagent-physical-desc-syrupy",
+  "contrabandseverity":  "syndicate",
+  "color":  "0x0",
+  "boilingpoint":  255,
+  "meltingpoint":  36,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "muted",
+          "component":  "muted",
+          "subtype":  "add",
+          "time":  10
+        }
+      ]
+    }
+  }
+}

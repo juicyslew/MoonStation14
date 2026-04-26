@@ -1,0 +1,23 @@
+{
+  "id":  "sedin",
+  "name":  "reagent-name-sedin",
+  "group":  "botanical",
+  "desc":  "reagent-desc-sedin",
+  "flavor":  "bitter",
+  "color":  "0x3CB371",
+  "physicaldesc":  "reagent-physical-desc-sickly",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -2
+    },
+    {
+      "type":  "PlantRestoreSeeds",
+      "probability":  0.2
+    },
+    {
+      "type":  "PlantAdjustPotency",
+      "amount":  -3
+    }
+  ]
+}

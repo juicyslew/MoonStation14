@@ -1,0 +1,24 @@
+{
+  "id":  "tea",
+  "name":  "reagent-name-tea",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-tea",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "tea",
+  "color":  "0x8A5A3A",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "theobromine":  0.1
+      }
+    }
+  },
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/teaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

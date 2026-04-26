@@ -1,0 +1,24 @@
+{
+  "id":  "cognac",
+  "name":  "reagent-name-cognac",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-cognac",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "cognac",
+  "color":  "0xAB3C05",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/cognacglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

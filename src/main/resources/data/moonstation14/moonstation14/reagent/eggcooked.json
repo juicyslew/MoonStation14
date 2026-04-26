@@ -1,0 +1,17 @@
+{
+  "id":  "eggcooked",
+  "name":  "reagent-name-egg",
+  "group":  "foods",
+  "desc":  "reagent-desc-egg",
+  "physicaldesc":  "reagent-physical-desc-fluffy",
+  "flavor":  "egg",
+  "color":  "0xFFFFFF",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "protein":  2
+      }
+    }
+  }
+}

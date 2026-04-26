@@ -1,0 +1,17 @@
+{
+  "id":  "syndicatebomb",
+  "name":  "reagent-name-syndicate-bomb",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-syndicate-bomb",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "syndiebomb",
+  "color":  "0xE3E77B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/syndicatebomb.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "fizziness":  0.6
+}

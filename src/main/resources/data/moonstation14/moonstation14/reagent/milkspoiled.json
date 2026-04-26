@@ -1,0 +1,19 @@
+{
+  "id":  "milkspoiled",
+  "name":  "reagent-name-milk-spoiled",
+  "group":  "drinks",
+  "desc":  "reagent-desc-milk-spoiled",
+  "physicaldesc":  "reagent-physical-desc-putrid",
+  "flavor":  "terrible",
+  "color":  "0xFAFFBA",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -2
+        }
+      ]
+    }
+  }
+}

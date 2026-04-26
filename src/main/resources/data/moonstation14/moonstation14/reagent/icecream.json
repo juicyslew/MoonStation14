@@ -1,0 +1,18 @@
+{
+  "id":  "icecream",
+  "name":  "reagent-name-ice-cream",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-ice-cream",
+  "physicaldesc":  "reagent-physical-desc-creamy",
+  "flavor":  "icecream",
+  "color":  "0xFFFBD6",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/icecreamglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "fizziness":  0
+}

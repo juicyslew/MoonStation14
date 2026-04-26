@@ -1,0 +1,49 @@
+{
+  "id":  "napalm",
+  "name":  "reagent-name-napalm",
+  "parent":  "basepyrotechnic",
+  "desc":  "reagent-desc-napalm",
+  "physicaldesc":  "reagent-physical-desc-soapy",
+  "contrabandseverity":  "major",
+  "flavor":  "bitter",
+  "color":  "0xFA00AF",
+  "tilereactions":  [
+    {
+      "type":  "FlammableTileReaction",
+      "temperaturemultiplier":  5
+    }
+  ],
+  "reactiveeffects":  {
+    "flammable":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Flammable",
+          "multiplier":  0.4
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  2,
+              "poison":  1,
+              "caustic":  0.5
+            }
+          }
+        },
+        {
+          "type":  "Flammable",
+          "multiplier":  0.4
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "id":  "fourteenloko",
+  "name":  "reagent-name-fourteen-loko",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-fourteen-loko",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "fourteenlokosoda",
+  "color":  "0xDEB928",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/fourteen_loko_glass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "theobromine":  0.2
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

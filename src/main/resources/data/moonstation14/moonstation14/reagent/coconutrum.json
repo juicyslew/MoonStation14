@@ -1,0 +1,23 @@
+{
+  "id":  "coconutrum",
+  "name":  "reagent-name-coconut-rum",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-coconut-rum",
+  "physicaldesc":  "reagent-physical-desc-milky",
+  "flavor":  "coconutrum",
+  "color":  "0xCCCBC8",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/coconutrum.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

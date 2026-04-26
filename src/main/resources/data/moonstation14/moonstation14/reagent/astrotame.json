@@ -1,0 +1,10 @@
+{
+  "id":  "astrotame",
+  "name":  "reagent-name-astrotame",
+  "group":  "foods",
+  "desc":  "reagent-desc-astrotame",
+  "physicaldesc":  "reagent-physical-desc-sugary",
+  "flavor":  "sweet",
+  "color":  "0x7FFFD4",
+  "recognizable":  true
+}

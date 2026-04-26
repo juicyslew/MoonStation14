@@ -1,0 +1,37 @@
+{
+  "id":  "allicin",
+  "name":  "reagent-name-allicin",
+  "group":  "foods",
+  "desc":  "reagent-desc-allicin",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "flavor":  "bitter",
+  "color":  "0xF2E9D2",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolismrate":  0.05,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "allicin",
+              "min":  1
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "animal"
+              ]
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.06
+            }
+          }
+        }
+      ]
+    }
+  }
+}

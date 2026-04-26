@@ -1,0 +1,10 @@
+{
+  "id":  "ketchup",
+  "name":  "reagent-name-ketchup",
+  "group":  "foods",
+  "desc":  "reagent-desc-ketchup",
+  "physicaldesc":  "reagent-physical-desc-tangy",
+  "flavor":  "tomato",
+  "color":  "0xFF0000",
+  "recognizable":  true
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "monkeybusiness",
+  "name":  "reagent-name-monkey-business",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-monkey-business",
+  "physicaldesc":  "reagent-physical-desc-tart",
+  "flavor":  "monkeybusiness",
+  "color":  "0xD6B929",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/monkeybusiness.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

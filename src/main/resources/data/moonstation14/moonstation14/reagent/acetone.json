@@ -1,0 +1,10 @@
+{
+  "id":  "acetone",
+  "name":  "reagent-name-acetone",
+  "desc":  "reagent-desc-acetone",
+  "physicaldesc":  "reagent-physical-desc-acidic",
+  "flavor":  "bitter",
+  "color":  "0xAF14B7",
+  "boilingpoint":  55.5,
+  "meltingpoint":  -50
+}

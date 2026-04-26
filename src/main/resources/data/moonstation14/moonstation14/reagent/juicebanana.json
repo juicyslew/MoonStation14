@@ -1,0 +1,9 @@
+{
+  "id":  "juicebanana",
+  "name":  "reagent-name-juice-banana",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-banana",
+  "physicaldesc":  "reagent-physical-desc-crisp",
+  "flavor":  "banana",
+  "color":  "0xFFE777"
+}

@@ -1,0 +1,16 @@
+{
+  "id":  "devilskiss",
+  "name":  "reagent-name-devils-kiss",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-devils-kiss",
+  "physicaldesc":  "reagent-physical-desc-ferrous",
+  "flavor":  "devilskiss",
+  "color":  "0xFF0033",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/devilskiss.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

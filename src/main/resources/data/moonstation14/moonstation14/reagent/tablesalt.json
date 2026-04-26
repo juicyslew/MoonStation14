@@ -1,0 +1,48 @@
+{
+  "id":  "tablesalt",
+  "name":  "reagent-name-table-salt",
+  "group":  "foods",
+  "desc":  "reagent-desc-table-salt",
+  "physicaldesc":  "reagent-physical-desc-grainy",
+  "flavor":  "salty",
+  "color":  "0xCFD1D0",
+  "recognizable":  true,
+  "boilingpoint":  1465,
+  "meltingpoint":  800.7,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  -3
+    },
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  -0.3
+    },
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  8
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -2
+    },
+    {
+      "type":  "PlantAdjustPests",
+      "amount":  -1
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -2
+    }
+  ],
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -0.5
+        }
+      ]
+    }
+  }
+}

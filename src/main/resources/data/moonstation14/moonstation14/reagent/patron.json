@@ -1,0 +1,23 @@
+{
+  "id":  "patron",
+  "name":  "reagent-name-patron",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-patron",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "flavor":  "patron",
+  "color":  "0x585840",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/patronglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

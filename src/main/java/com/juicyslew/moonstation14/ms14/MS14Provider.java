@@ -1,10 +1,13 @@
 package com.juicyslew.moonstation14.ms14;
 
+import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentHandle;
 import com.juicyslew.moonstation14.util.SystemLink;
 import com.juicyslew.moonstation14.util.interfaces.IMS14Attachment;
 import com.juicyslew.moonstation14.util.interfaces.IMS14Component;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -45,19 +48,19 @@ public class MS14Provider {
     public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(ItemStack stack, SystemLink<A, C> link, A data) {
         stack.set(link.component(), data.toComponent());
     }
-    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(IAttachmentHolder holder, SystemLink<A, C> link, A data) {
-        holder.setData(link.attachment().get(), data);
-
-        // BlockEntity specific logic for chunk saving and client syncing
-        if (holder instanceof BlockEntity be) {
-            be.setChanged();
-            Level level = be.getLevel();
-            if (level != null) {
-                // Notifies the world that this block's data has changed (updates renderers/comparators)
-                level.sendBlockUpdated(be.getBlockPos(), be.getBlockState(), be.getBlockState(), 3);
-            }
+    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(BlockEntity be, SystemLink<A, C> link, A data) {
+        be.setData(link.attachment().get(), data);
+        // be.setChanged(); // SET DATA CALLS THIS.
+        Level level = be.getLevel();
+        if (level != null) {
+            // Notifies the world that this block's data has changed (updates renderers/comparators)
+            level.sendBlockUpdated(be.getBlockPos(), be.getBlockState(), be.getBlockState(), 3);
         }
     }
+    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(Entity entity, SystemLink<A, C> link, A data) {
+        entity.setData(link.attachment().get(), data);
+    }
+
     public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(ReagentHandle handle, SystemLink<A, C> link, A data) {
         update(handle.holder(), link, data);
     }
@@ -67,8 +70,15 @@ public class MS14Provider {
             return;
         }
 
-        if (holder instanceof IAttachmentHolder attachmentHolder) {
-            update(attachmentHolder, link, data);
+        if (holder instanceof Entity entity) {
+            // Note, BlockEntity and Entity are both IAttachmentHolders.
+            update(entity, link, data);
+            return;
+        }
+
+        if (holder instanceof BlockEntity be) {
+            // Note, BlockEntity and Entity are both IAttachmentHolders.
+            update(be, link, data);
             return;
         }
 

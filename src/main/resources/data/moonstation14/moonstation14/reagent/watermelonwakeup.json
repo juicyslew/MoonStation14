@@ -1,0 +1,37 @@
+{
+  "id":  "watermelonwakeup",
+  "name":  "reagent-name-watermelon-wakeup",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-watermelon-wakeup",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "watermelonwakeup",
+  "color":  "0xD49DCA",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/champagneglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.14,
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  1,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  },
+  "fizziness":  0.15
+}

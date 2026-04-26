@@ -1,0 +1,10 @@
+{
+  "id":  "juiceapple",
+  "name":  "reagent-name-juice-apple",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-apple",
+  "physicaldesc":  "reagent-physical-desc-crisp",
+  "flavor":  "apple",
+  "color":  "0xFDAD01",
+  "recognizable":  true
+}

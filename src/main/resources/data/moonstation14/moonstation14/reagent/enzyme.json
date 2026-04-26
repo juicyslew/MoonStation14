@@ -1,0 +1,9 @@
+{
+  "id":  "enzyme",
+  "name":  "reagent-name-enzyme",
+  "group":  "foods",
+  "desc":  "reagent-desc-enzyme",
+  "physicaldesc":  "reagent-physical-desc-chalky",
+  "flavor":  "bitter",
+  "color":  "0x9900"
+}

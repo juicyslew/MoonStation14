@@ -1,0 +1,16 @@
+{
+  "id":  "singulo",
+  "name":  "reagent-name-singulo",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-singulo",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "singulo",
+  "color":  "0x3B0C0C",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/singulo.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

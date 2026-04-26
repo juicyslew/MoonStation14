@@ -1,0 +1,9 @@
+{
+  "id":  "hooch",
+  "name":  "reagent-name-hooch",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-hooch",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "hooch",
+  "color":  "0x664E00"
+}

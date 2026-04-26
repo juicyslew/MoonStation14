@@ -1,0 +1,23 @@
+{
+  "id":  "redmead",
+  "name":  "reagent-name-red-mead",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-red-mead",
+  "physicaldesc":  "reagent-physical-desc-ferrous",
+  "flavor":  "redmead",
+  "color":  "0xBC5550",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/red_meadglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

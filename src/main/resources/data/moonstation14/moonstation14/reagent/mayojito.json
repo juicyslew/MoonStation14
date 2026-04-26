@@ -1,0 +1,48 @@
+{
+  "id":  "mayojito",
+  "name":  "reagent-name-mayojito",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-mayojito",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "mayojito",
+  "color":  "0x6FBE44",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/mayojito.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.15
+      },
+      "effects":  [
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "mayojito",
+              "min":  5
+            }
+          ],
+          "probability":  0.5
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  0.5
+            }
+          }
+        },
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        }
+      ]
+    }
+  }
+}

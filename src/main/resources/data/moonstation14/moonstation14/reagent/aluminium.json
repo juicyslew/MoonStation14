@@ -1,0 +1,11 @@
+{
+  "id":  "aluminium",
+  "name":  "reagent-name-aluminium",
+  "group":  "elements",
+  "desc":  "reagent-desc-aluminium",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "flavor":  "metallic",
+  "color":  "0x848789",
+  "boilingpoint":  2327,
+  "meltingpoint":  660
+}

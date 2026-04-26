@@ -1,0 +1,16 @@
+{
+  "id":  "icedgreentea",
+  "name":  "reagent-name-iced-green-tea",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-iced-green-tea",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "icedtea",
+  "color":  "0x5B821B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/icedgreenteaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

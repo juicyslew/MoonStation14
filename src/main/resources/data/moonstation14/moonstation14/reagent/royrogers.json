@@ -1,0 +1,26 @@
+{
+  "id":  "royrogers",
+  "name":  "reagent-name-roy-rogers",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-roy-rogers",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "cola",
+  "color":  "0x262019",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/royrogers.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  4
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id":  "basealcohol",
+  "group":  "drinks",
+  "abstract":  true,
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "friction":  0.4,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.12
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "flammable":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Flammable"
+        }
+      ]
+    }
+  },
+  "tilereactions":  [
+    {
+      "type":  "FlammableTileReaction",
+      "temperaturemultiplier":  1.35
+    }
+  ],
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.25
+    },
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  0.7
+    }
+  ]
+}

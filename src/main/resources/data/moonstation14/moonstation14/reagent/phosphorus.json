@@ -1,0 +1,25 @@
+{
+  "id":  "phosphorus",
+  "name":  "reagent-name-phosphorus",
+  "group":  "elements",
+  "desc":  "reagent-desc-phosphorus",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "metallic",
+  "color":  "0xF5DA9A",
+  "meltingpoint":  44.2,
+  "boilingpoint":  280.5,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  -0.5
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -2
+    }
+  ]
+}

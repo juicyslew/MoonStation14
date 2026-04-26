@@ -1,0 +1,11 @@
+{
+  "id":  "potassium",
+  "name":  "reagent-name-potassium",
+  "group":  "elements",
+  "desc":  "reagent-desc-potassium",
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "flavor":  "metallic",
+  "color":  "0xC6C8CC",
+  "meltingpoint":  65.5,
+  "boilingpoint":  759
+}

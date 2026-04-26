@@ -1,0 +1,27 @@
+{
+  "id":  "sodiumpolyacrylate",
+  "name":  "reagent-name-sodium-polyacrylate",
+  "desc":  "reagent-desc-sodium-polyacrylate",
+  "flavor":  "bitter",
+  "physicaldesc":  "reagent-physical-desc-grainy",
+  "color":  "0xF0F0F0",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -5
+        },
+        {
+          "type":  "PopupMessage",
+          "visualtype":  "mediumcaution",
+          "subtype":  "local",
+          "messages":  [
+            "generic-reagent-effect-parched"
+          ],
+          "probability":  0.1
+        }
+      ]
+    }
+  }
+}

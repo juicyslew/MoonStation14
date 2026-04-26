@@ -1,0 +1,37 @@
+{
+  "id":  "vodkaredbool",
+  "name":  "reagent-name-vodka-red-bool",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-vodka-red-bool",
+  "physicaldesc":  "reagent-physical-desc-bubbly",
+  "flavor":  "vodkaredbool",
+  "color":  "0xC4C276",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/ginvodkaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.2,
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  1,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  },
+  "fizziness":  0.25
+}

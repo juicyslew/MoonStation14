@@ -1,0 +1,22 @@
+{
+  "id":  "licoxide",
+  "name":  "reagent-name-licoxide",
+  "group":  "toxins",
+  "desc":  "reagent-desc-licoxide",
+  "physicaldesc":  "reagent-physical-desc-electric",
+  "contrabandseverity":  "minor",
+  "flavor":  "shocking",
+  "color":  "0xFDD023",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  2,
+      "effects":  [
+        {
+          "type":  "Electrocute",
+          "siemenscoefficient":  0.5,
+          "probability":  0.5
+        }
+      ]
+    }
+  }
+}

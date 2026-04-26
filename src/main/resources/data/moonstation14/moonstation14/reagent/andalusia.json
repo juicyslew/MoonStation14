@@ -1,0 +1,16 @@
+{
+  "id":  "andalusia",
+  "name":  "reagent-name-andalusia",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-andalusia",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "andalusia",
+  "color":  "0x665700",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/andalusia.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

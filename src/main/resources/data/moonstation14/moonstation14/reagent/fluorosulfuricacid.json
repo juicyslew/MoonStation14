@@ -1,0 +1,64 @@
+{
+  "id":  "fluorosulfuricacid",
+  "name":  "reagent-name-fluorosulfuric-acid",
+  "group":  "toxins",
+  "desc":  "reagent-desc-fluorosulfuric-acid",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "contrabandseverity":  "minor",
+  "flavor":  "acid",
+  "color":  "0x5050FF",
+  "boilingpoint":  165,
+  "meltingpoint":  -87,
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  false,
+          "damage":  {
+            "types":  {
+              "caustic":  0.3
+            }
+          }
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.2
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  3,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  8
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "large",
+          "messages":  [
+            "generic-reagent-effect-burning-insides"
+          ],
+          "probability":  0.33
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.25
+        }
+      ]
+    }
+  }
+}

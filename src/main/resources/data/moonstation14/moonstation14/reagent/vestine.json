@@ -1,0 +1,50 @@
+{
+  "id":  "vestine",
+  "name":  "reagent-name-vestine",
+  "group":  "toxins",
+  "desc":  "reagent-desc-vestine",
+  "physicaldesc":  "reagent-physical-desc-shiny",
+  "contrabandseverity":  "syndicate",
+  "flavor":  "medicine",
+  "color":  "0x435166",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantMutateChemicals",
+      "randompickbotanyreagent":  "evilrandomfillsolution"
+    },
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  10
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "Jitter",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "vestine",
+              "min":  5
+            }
+          ]
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  0.8,
+          "sprintspeedmodifier":  0.8
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "asphyxiation":  1,
+              "bloodloss":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

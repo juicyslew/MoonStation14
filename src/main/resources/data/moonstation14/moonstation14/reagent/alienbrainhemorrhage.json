@@ -1,0 +1,16 @@
+{
+  "id":  "alienbrainhemorrhage",
+  "name":  "reagent-name-alien-brain-hemorrhage",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-alien-brain-hemorrhage",
+  "physicaldesc":  "reagent-physical-desc-creamy",
+  "flavor":  "alienbrainhemorrhage",
+  "color":  "0xFFFDD0",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/alienbrainhemorrhage.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

@@ -1,0 +1,102 @@
+{
+  "id":  "ethanol",
+  "name":  "reagent-name-ethanol",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-ethanol",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "alcohol",
+  "color":  "0xB05B3C",
+  "boilingpoint":  78.2,
+  "meltingpoint":  -114.1,
+  "metabolisms":  {
+    "metabolites":  {
+      "metabolismrate":  0.05,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ethanol",
+              "min":  15
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "dwarf"
+              ],
+              "inverted":  true
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.1
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ethanol",
+              "min":  15
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "dwarf"
+              ]
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.02
+            }
+          }
+        },
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ethanol",
+              "min":  15
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "dwarf"
+              ]
+            }
+          ],
+          "damage":  {
+            "brute":  -0.1
+          }
+        },
+        {
+          "type":  "Vomit",
+          "probability":  0.04,
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ethanol",
+              "min":  12
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "dwarf"
+              ],
+              "inverted":  true
+            }
+          ]
+        },
+        {
+          "type":  "Drunk",
+          "boozepower":  2
+        }
+      ]
+    }
+  }
+}

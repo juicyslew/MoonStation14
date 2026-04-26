@@ -1,0 +1,24 @@
+{
+  "id":  "arithrazine",
+  "name":  "reagent-name-arithrazine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-arithrazine",
+  "physicaldesc":  "reagent-physical-desc-cloudy",
+  "flavor":  "medicine",
+  "color":  "0xBD5902",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "radiation":  -3,
+              "blunt":  1.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

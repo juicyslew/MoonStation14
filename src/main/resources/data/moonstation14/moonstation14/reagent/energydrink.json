@@ -1,0 +1,29 @@
+{
+  "id":  "energydrink",
+  "name":  "reagent-name-energy-drink",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-energy-drink",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "energydrink",
+  "color":  "0xFFFFBF",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "theobromine":  0.2
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  2,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  },
+  "fizziness":  0.4
+}

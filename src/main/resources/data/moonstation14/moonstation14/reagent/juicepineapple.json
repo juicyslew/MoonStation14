@@ -1,0 +1,9 @@
+{
+  "id":  "juicepineapple",
+  "name":  "reagent-name-juice-pineapple",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-pineapple",
+  "physicaldesc":  "reagent-physical-desc-tropical",
+  "flavor":  "pineapple",
+  "color":  "0xFFFF00"
+}

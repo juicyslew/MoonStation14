@@ -1,0 +1,19 @@
+{
+  "id":  "dryramen",
+  "name":  "reagent-name-dry-ramen",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-dry-ramen",
+  "physicaldesc":  "reagent-physical-desc-wormy",
+  "flavor":  "cheapnoodles",
+  "color":  "0x664300",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "factor":  1
+        }
+      ]
+    }
+  }
+}

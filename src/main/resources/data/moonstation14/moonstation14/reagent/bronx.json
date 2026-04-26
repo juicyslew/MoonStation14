@@ -1,0 +1,16 @@
+{
+  "id":  "bronx",
+  "name":  "reagent-name-bronx",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-bronx",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "bronx",
+  "color":  "0xD68829",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/bronx.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

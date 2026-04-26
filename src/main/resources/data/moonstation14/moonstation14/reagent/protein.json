@@ -1,0 +1,30 @@
+{
+  "id":  "protein",
+  "name":  "reagent-name-protein",
+  "group":  "foods",
+  "desc":  "reagent-desc-protein",
+  "physicaldesc":  "reagent-physical-desc-clumpy",
+  "flavor":  "protein",
+  "color":  "0xFFFFE5",
+  "metabolisms":  {
+    "metabolites":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "probability":  0.5,
+          "damage":  {
+            "brute":  -0.4
+          }
+        },
+        {
+          "type":  "ModifyBloodLevel",
+          "amount":  1
+        },
+        {
+          "type":  "SatiateHunger"
+        }
+      ]
+    }
+  },
+  "priceperunit":  3
+}

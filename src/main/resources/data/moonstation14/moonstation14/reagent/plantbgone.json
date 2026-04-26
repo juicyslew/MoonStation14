@@ -1,0 +1,55 @@
+{
+  "id":  "plantbgone",
+  "name":  "reagent-name-plant-b-gone",
+  "group":  "botanical",
+  "desc":  "reagent-desc-plant-b-gone",
+  "flavor":  "bitter",
+  "color":  "0x49002E",
+  "physicaldesc":  "reagent-physical-desc-bubbling",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  6
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -8
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -20
+    },
+    {
+      "type":  "PlantAdjustMutationMod",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantRemoveKudzu"
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  -4,
+              "blunt":  2,
+              "slash":  1,
+              "piercing":  1
+            }
+          },
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "plant"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

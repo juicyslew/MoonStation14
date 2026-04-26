@@ -1,0 +1,27 @@
+{
+  "id":  "rororium",
+  "name":  "reagent-name-rororium",
+  "desc":  "reagent-desc-rororium",
+  "group":  "biological",
+  "flavor":  "tingly",
+  "physicaldesc":  "reagent-physical-desc-refreshing",
+  "color":  "0xBF1365",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "damage":  {
+            "brute":  -4
+          }
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "adrenaline",
+          "component":  "ignoreslowondamage",
+          "time":  120
+        }
+      ]
+    }
+  }
+}

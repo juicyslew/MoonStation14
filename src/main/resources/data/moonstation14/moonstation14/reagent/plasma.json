@@ -1,0 +1,68 @@
+{
+  "id":  "plasma",
+  "name":  "reagent-name-plasma",
+  "desc":  "reagent-desc-plasma",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "flavor":  "bitter",
+  "color":  "0x7E009E",
+  "recognizable":  true,
+  "boilingpoint":  -127.3,
+  "meltingpoint":  -186.4,
+  "tilereactions":  [
+    {
+      "type":  "FlammableTileReaction",
+      "temperaturemultiplier":  1.5
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1.5
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "inaprovaline",
+          "amount":  -2
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  true,
+          "damage":  {
+            "types":  {
+              "poison":  0.1
+            }
+          }
+        },
+        {
+          "type":  "AdjustAlert",
+          "alerttype":  "toxins",
+          "minscale":  1.5,
+          "clear":  true,
+          "time":  5
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "flammable":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Flammable"
+        }
+      ]
+    }
+  }
+}

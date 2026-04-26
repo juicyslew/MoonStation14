@@ -1,0 +1,25 @@
+{
+  "id":  "cognizine",
+  "name":  "reagent-name-cognizine",
+  "desc":  "reagent-desc-cognizine",
+  "group":  "medicine",
+  "physicaldesc":  "reagent-physical-desc-enigmatic",
+  "flavor":  "magical",
+  "color":  "0xB50EE8",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "MakeSentient",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "cognizine",
+              "min":  5
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

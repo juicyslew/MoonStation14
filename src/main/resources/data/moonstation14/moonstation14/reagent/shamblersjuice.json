@@ -1,0 +1,9 @@
+{
+  "id":  "shamblersjuice",
+  "name":  "reagent-name-shamblers-juice",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-shamblers-juice",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "metallic",
+  "color":  "0x66538F"
+}

@@ -1,0 +1,20 @@
+{
+  "id":  "pilk",
+  "name":  "reagent-name-pilk",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-pilk",
+  "physicaldesc":  "reagent-physical-desc-creamy",
+  "flavor":  "pilk",
+  "color":  "0xE7C69F",
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        }
+      ]
+    }
+  },
+  "fizziness":  0.3
+}

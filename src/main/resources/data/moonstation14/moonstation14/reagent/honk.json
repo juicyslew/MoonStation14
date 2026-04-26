@@ -1,0 +1,45 @@
+{
+  "id":  "honk",
+  "name":  "reagent-name-honk",
+  "group":  "toxins",
+  "desc":  "reagent-desc-honk",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "flavor":  "bitter",
+  "color":  "0xF2E9D2",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.05,
+      "effects":  [
+        {
+          "type":  "Emote",
+          "emote":  "honk",
+          "showinchat":  true,
+          "showinguidebook":  true,
+          "force":  true,
+          "probability":  0.2
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "honk",
+              "min":  1
+            },
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "animal"
+              ]
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  0.06
+            }
+          }
+        }
+      ]
+    }
+  }
+}

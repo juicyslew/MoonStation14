@@ -1,0 +1,18 @@
+{
+  "id":  "oilolive",
+  "name":  "reagent-name-oil-olive",
+  "group":  "foods",
+  "desc":  "reagent-desc-oil-olive",
+  "physicaldesc":  "reagent-physical-desc-oily",
+  "flavor":  "oily",
+  "flavorminimum":  0.05,
+  "color":  "0x808000",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "nutriment":  1.5
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id":  "basedrink",
+  "group":  "drinks",
+  "abstract":  true,
+  "slipdata":  {
+    "requiredslipspeed":  3.5
+  },
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  3
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "extinguish":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Extinguish"
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  1
+    }
+  ],
+  "tilereactions":  [
+    {
+      "type":  "ExtinguishTileReaction { }"
+    },
+    {
+      "type":  "SpillIfPuddlePresentTileReaction { }"
+    }
+  ]
+}

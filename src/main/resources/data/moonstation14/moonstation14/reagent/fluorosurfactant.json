@@ -1,0 +1,11 @@
+{
+  "id":  "fluorosurfactant",
+  "name":  "reagent-name-fluorosurfactant",
+  "parent":  "basepyrotechnic",
+  "desc":  "reagent-desc-fluorosurfactant",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "bitter",
+  "color":  "0x9E6B38",
+  "boilingpoint":  190,
+  "meltingpoint":  45
+}

@@ -1,0 +1,33 @@
+{
+  "id":  "cola",
+  "name":  "reagent-name-cola",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-cola",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "soda",
+  "color":  "0x6C2828",
+  "recognizable":  true,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/colaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  1,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  }
+}

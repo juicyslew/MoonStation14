@@ -1,0 +1,42 @@
+{
+  "id":  "tricordrazine",
+  "name":  "reagent-name-tricordrazine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-tricordrazine",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "medicine",
+  "color":  "0xE5FF",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "EvenHealthChange",
+          "conditions":  [
+            {
+              "type":  "MobStateCondition",
+              "mobstate":  "alive"
+            }
+          ],
+          "damage":  {
+            "brute":  -1,
+            "burn":  -1
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "MobStateCondition",
+              "mobstate":  "alive"
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "poison":  -0.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

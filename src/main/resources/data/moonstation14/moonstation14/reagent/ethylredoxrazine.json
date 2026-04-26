@@ -1,0 +1,29 @@
+{
+  "id":  "ethylredoxrazine",
+  "name":  "reagent-name-ethylredoxrazine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-ethylredoxrazine",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "flavor":  "medicine",
+  "color":  "0x2D5708",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrunk",
+          "time":  6,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  -0.5
+            }
+          }
+        }
+      ]
+    }
+  }
+}

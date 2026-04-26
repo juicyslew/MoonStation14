@@ -1,0 +1,22 @@
+{
+  "id":  "tazinide",
+  "name":  "reagent-name-tazinide",
+  "group":  "toxins",
+  "desc":  "reagent-desc-tazinide",
+  "physicaldesc":  "reagent-physical-desc-metallic",
+  "contrabandseverity":  "syndicate",
+  "flavor":  "shocking",
+  "color":  "0xFDD023",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  2,
+      "effects":  [
+        {
+          "type":  "Electrocute",
+          "electrocutetime":  1,
+          "probability":  0.5
+        }
+      ]
+    }
+  }
+}

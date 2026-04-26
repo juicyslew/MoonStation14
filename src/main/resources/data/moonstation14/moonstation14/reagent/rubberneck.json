@@ -1,0 +1,37 @@
+{
+  "id":  "rubberneck",
+  "name":  "reagent-name-rubberneck",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-rubberneck",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "rubberneck",
+  "color":  "0xF0D74A",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/rubberneck.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3,
+        "theobromine":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  1
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  1,
+          "subtype":  "remove"
+        }
+      ]
+    }
+  },
+  "fizziness":  0.25
+}

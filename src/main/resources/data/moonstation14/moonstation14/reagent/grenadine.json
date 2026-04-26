@@ -1,0 +1,19 @@
+{
+  "id":  "grenadine",
+  "name":  "reagent-name-grenadine",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-grenadine",
+  "physicaldesc":  "reagent-physical-desc-dark-red",
+  "flavor":  "bitter",
+  "color":  "0xEA1D26",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/grenadineglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "footstepsound":  {
+    "collection":  "footstepslime"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id":  "bbqsauce",
+  "name":  "reagent-name-bbq-sauce",
+  "group":  "foods",
+  "desc":  "reagent-desc-bbq-sauce",
+  "physicaldesc":  "reagent-physical-desc-gloopy",
+  "flavor":  "sweet",
+  "color":  "0x8B0000",
+  "recognizable":  true
+}

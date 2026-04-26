@@ -1,0 +1,63 @@
+{
+  "id":  "pyrazine",
+  "name":  "reagent-name-pyrazine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-pyrazine",
+  "physicaldesc":  "reagent-physical-desc-thick",
+  "flavor":  "syrupy",
+  "color":  "0xAA4308",
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismrate":  0.1,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  -1
+            }
+          }
+        },
+        {
+          "type":  "HealthChange",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "pyrazine",
+              "min":  20
+            }
+          ],
+          "damage":  {
+            "types":  {
+              "slash":  0.5,
+              "piercing":  0.5
+            }
+          }
+        },
+        {
+          "type":  "Vomit",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "pyrazine",
+              "min":  15
+            }
+          ],
+          "probability":  0.1
+        },
+        {
+          "type":  "Emote",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "pyrazine",
+              "min":  20
+            }
+          ],
+          "emote":  "scream",
+          "probability":  0.2
+        }
+      ]
+    }
+  }
+}

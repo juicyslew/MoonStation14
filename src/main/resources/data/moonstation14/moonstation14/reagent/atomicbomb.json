@@ -1,0 +1,24 @@
+{
+  "id":  "atomicbomb",
+  "name":  "reagent-name-atomic-bomb",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-atomic-bomb",
+  "physicaldesc":  "reagent-physical-desc-cloudy",
+  "flavor":  "atomicbomb",
+  "color":  "0x666300",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/atomicbombglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3,
+        "uranium":  0.1
+      }
+    }
+  }
+}

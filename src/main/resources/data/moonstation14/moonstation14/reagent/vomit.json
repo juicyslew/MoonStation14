@@ -1,0 +1,32 @@
+{
+  "id":  "vomit",
+  "name":  "reagent-name-vomit",
+  "group":  "biological",
+  "desc":  "reagent-desc-vomit",
+  "flavor":  "terrible",
+  "color":  "0x87AB08",
+  "physicaldesc":  "reagent-physical-desc-pungent",
+  "slipdata":  {
+    "requiredslipspeed":  4
+  },
+  "friction":  0.4,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "nutriment":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  0.5
+        }
+      ]
+    }
+  },
+  "footstepsound":  {
+    "collection":  "footstepblood",
+    "params":  {
+      "volume":  6
+    }
+  }
+}

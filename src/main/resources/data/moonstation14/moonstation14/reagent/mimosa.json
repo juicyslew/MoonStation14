@@ -1,0 +1,23 @@
+{
+  "id":  "mimosa",
+  "name":  "reagent-name-mimosa",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-mimosa",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "mimosa",
+  "color":  "0xFFCA48",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/mimosa.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.14
+      }
+    }
+  }
+}

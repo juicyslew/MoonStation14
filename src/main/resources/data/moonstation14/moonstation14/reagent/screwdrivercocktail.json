@@ -1,0 +1,23 @@
+{
+  "id":  "screwdrivercocktail",
+  "name":  "reagent-name-screwdriver-cocktail",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-screwdriver-cocktail",
+  "physicaldesc":  "reagent-physical-desc-citric",
+  "flavor":  "screwdriver",
+  "color":  "0xA68310",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/screwdriverglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.14
+      }
+    }
+  }
+}

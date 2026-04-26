@@ -1,0 +1,16 @@
+{
+  "id":  "amasec",
+  "name":  "reagent-name-amasec",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-amasec",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "amasec",
+  "color":  "0x124DA7",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/amasecglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

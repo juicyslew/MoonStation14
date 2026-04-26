@@ -1,0 +1,16 @@
+{
+  "id":  "booger",
+  "name":  "reagent-name-booger",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-booger",
+  "physicaldesc":  "reagent-physical-desc-slimy",
+  "flavor":  "booger",
+  "color":  "0x99FF00",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/booger.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

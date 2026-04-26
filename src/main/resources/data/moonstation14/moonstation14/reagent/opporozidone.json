@@ -1,0 +1,30 @@
+{
+  "id":  "opporozidone",
+  "name":  "reagent-name-opporozidone",
+  "group":  "medicine",
+  "desc":  "reagent-desc-opporozidone",
+  "physicaldesc":  "reagent-physical-desc-sickly",
+  "flavor":  "acid",
+  "color":  "0xB5E36D",
+  "worksonthedead":  true,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ReduceRotting",
+          "seconds":  20,
+          "conditions":  [
+            {
+              "type":  "TemperatureCondition",
+              "max":  150
+            },
+            {
+              "type":  "MobStateCondition",
+              "mobstate":  "dead"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

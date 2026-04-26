@@ -1,0 +1,48 @@
+{
+  "id":  "sugar",
+  "name":  "reagent-name-sugar",
+  "group":  "foods",
+  "desc":  "reagent-desc-sugar",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "sweet",
+  "color":  "0xFFFFFF",
+  "meltingpoint":  146,
+  "metabolisms":  {
+    "metabolites":  {
+      "effects":  [
+        {
+          "type":  "SatiateHunger",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "nutriment",
+              "min":  0.1
+            }
+          ],
+          "factor":  1
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  2
+    },
+    {
+      "type":  "PlantAdjustPests",
+      "amount":  2
+    }
+  ],
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/sugarglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  7,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

@@ -1,0 +1,27 @@
+{
+  "id":  "basepyrotechnic",
+  "group":  "pyrotechnic",
+  "abstract":  true,
+  "reactiveeffects":  {
+    "flammable":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Flammable"
+        }
+      ]
+    }
+  },
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -2
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -2
+    }
+  ]
+}

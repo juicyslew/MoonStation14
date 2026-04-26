@@ -1,0 +1,17 @@
+{
+  "id":  "mojito",
+  "name":  "reagent-name-mojito",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-mojito",
+  "physicaldesc":  "reagent-physical-desc-refreshing",
+  "flavor":  "mojito",
+  "color":  "0x3EA99888",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/mojito.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  6,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "fizziness":  0.3
+}

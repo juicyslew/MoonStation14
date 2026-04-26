@@ -1,0 +1,54 @@
+{
+  "id":  "spaceglue",
+  "name":  "reagent-name-space-glue",
+  "desc":  "reagent-desc-space-glue",
+  "physicaldesc":  "reagent-physical-desc-sticky",
+  "flavor":  "glue",
+  "color":  "0xFFFFFF",
+  "boilingpoint":  250,
+  "meltingpoint":  380,
+  "tilereactions":  [
+    {
+      "type":  "SpillTileReaction"
+    }
+  ],
+  "viscosity":  0.5,
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "ModifyBleed",
+          "amount":  -1.5
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "time":  5,
+          "subtype":  "add"
+        }
+      ]
+    },
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "muted",
+          "component":  "muted",
+          "time":  5
+        }
+      ]
+    }
+  },
+  "footstepsound":  {
+    "collection":  "footstepslime"
+  }
+}

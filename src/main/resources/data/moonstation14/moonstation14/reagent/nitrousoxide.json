@@ -1,0 +1,130 @@
+{
+  "id":  "nitrousoxide",
+  "name":  "reagent-name-nitrous-oxide",
+  "desc":  "reagent-desc-nitrous-oxide",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "flavor":  "bitter",
+  "color":  "0x5D88C9",
+  "boilingpoint":  -88,
+  "meltingpoint":  -90,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    },
+    "respiration":  {
+      "effects":  [
+        {
+          "type":  "Emote",
+          "minscale":  0.2,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ],
+          "emote":  "laugh",
+          "showinchat":  true,
+          "probability":  0.1
+        },
+        {
+          "type":  "Emote",
+          "minscale":  0.2,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ],
+          "emote":  "scream",
+          "showinchat":  true,
+          "probability":  0.01
+        },
+        {
+          "type":  "PopupMessage",
+          "minscale":  0.5,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ],
+          "subtype":  "local",
+          "visualtype":  "medium",
+          "messages":  [
+            "effect-sleepy"
+          ],
+          "probability":  0.1
+        },
+        {
+          "type":  "MovementSpeedModifier",
+          "minscale":  1,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ],
+          "walkspeedmodifier":  0.65,
+          "sprintspeedmodifier":  0.65
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "minscale":  1.8,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ],
+          "effectproto":  "statuseffectforcedsleeping",
+          "time":  3,
+          "subtype":  "update"
+        },
+        {
+          "type":  "HealthChange",
+          "minscale":  3.5,
+          "conditions":  [
+            {
+              "type":  "MetabolizerTypeCondition",
+              "subtype":  [
+                "slime"
+              ],
+              "inverted":  true
+            }
+          ],
+          "ignoreresistances":  true,
+          "scaling":  true,
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id":  "chlorine",
+  "name":  "reagent-name-chlorine",
+  "group":  "elements",
+  "desc":  "reagent-desc-chlorine",
+  "physicaldesc":  "reagent-physical-desc-gaseous",
+  "flavor":  "bitter",
+  "color":  "0xA2FF00",
+  "meltingpoint":  -101.5,
+  "boilingpoint":  -34.04,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustWater",
+      "amount":  -0.5
+    },
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  15
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -3
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -1
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  2
+            }
+          }
+        }
+      ]
+    }
+  }
+}

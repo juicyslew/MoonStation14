@@ -1,0 +1,16 @@
+{
+  "id":  "aloe",
+  "name":  "reagent-name-aloe",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-aloe",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "aloe",
+  "color":  "0x192C00",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/aloe.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

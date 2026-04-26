@@ -1,0 +1,22 @@
+{
+  "id":  "teapowder",
+  "name":  "reagent-name-tea-powder",
+  "desc":  "reagent-desc-tea-powder",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "tea",
+  "color":  "0x7F8400",
+  "group":  "foods",
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "nutriment":  0.2
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  -0.2
+        }
+      ]
+    }
+  }
+}

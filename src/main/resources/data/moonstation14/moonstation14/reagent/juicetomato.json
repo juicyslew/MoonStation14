@@ -1,0 +1,9 @@
+{
+  "id":  "juicetomato",
+  "name":  "reagent-name-juice-tomato",
+  "parent":  "basejuice",
+  "desc":  "reagent-desc-juice-tomato",
+  "physicaldesc":  "reagent-physical-desc-saucey",
+  "flavor":  "tomato",
+  "color":  "0x731008"
+}

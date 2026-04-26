@@ -1,0 +1,17 @@
+{
+  "id":  "hotcocoa",
+  "name":  "reagent-name-hot-cocoa",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-hot-cocoa",
+  "physicaldesc":  "reagent-physical-desc-aromatic",
+  "flavor":  "chocolate",
+  "color":  "0x664300",
+  "recognizable":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "theobromine":  0.1
+      }
+    }
+  }
+}

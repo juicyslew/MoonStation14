@@ -1,0 +1,34 @@
+{
+  "id":  "mimeosa",
+  "name":  "reagent-name-mimeosa",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-mimeosa",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "mimeosa",
+  "color":  "0x939393",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/mimeosa.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.14
+      },
+      "effects":  [
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "muted",
+          "component":  "muted"
+        },
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        }
+      ]
+    }
+  }
+}

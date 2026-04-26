@@ -1,10 +1,11 @@
 {
-  "type": "reagent",
-  "id": "carbon",
-  "name": "reagent-name-carbon",
-  "group": "Elements",
-  "desc": "reagent-desc-carbon",
-  "physicalDesc": "reagent-physical-desc-crystalline",
-  "flavor": "bitter",
-  "color": "#22282b"
+  "id":  "carbon",
+  "name":  "reagent-name-carbon",
+  "group":  "elements",
+  "desc":  "reagent-desc-carbon",
+  "physicaldesc":  "reagent-physical-desc-crystalline",
+  "flavor":  "bitter",
+  "color":  "0x22282B",
+  "boilingpoint":  4200,
+  "meltingpoint":  3550
 }

@@ -1,0 +1,16 @@
+{
+  "id":  "melonliquor",
+  "name":  "reagent-name-melon-liquor",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-melon-liquor",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "watermelon",
+  "color":  "0xFF33",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/emeraldglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

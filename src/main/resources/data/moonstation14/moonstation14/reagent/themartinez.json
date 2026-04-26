@@ -1,0 +1,17 @@
+{
+  "id":  "themartinez",
+  "name":  "reagent-name-the-martinez",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-the-martinez",
+  "physicaldesc":  "reagent-physical-desc-vibrant",
+  "flavor":  "themartinez",
+  "color":  "0x75B1F0",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/the_martinez.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "fizziness":  0.2
+}

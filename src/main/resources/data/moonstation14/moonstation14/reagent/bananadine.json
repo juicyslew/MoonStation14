@@ -1,0 +1,21 @@
+{
+  "id":  "bananadine",
+  "name":  "reagent-name-bananadine",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-bananadine",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "flavor":  "bitter",
+  "color":  "0xFFFF00",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectseeingrainbow",
+          "subtype":  "add",
+          "time":  5
+        }
+      ]
+    }
+  }
+}

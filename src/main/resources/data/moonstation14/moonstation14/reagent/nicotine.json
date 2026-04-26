@@ -1,0 +1,15 @@
+{
+  "id":  "nicotine",
+  "name":  "reagent-name-nicotine",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-nicotine",
+  "flavor":  "bitter",
+  "color":  "0xC0C0C0",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -5
+    }
+  ]
+}

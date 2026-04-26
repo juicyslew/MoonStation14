@@ -2,7 +2,7 @@ package com.juicyslew.moonstation14.eventhooks;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
-import com.juicyslew.moonstation14.enums.DamageEnum;
+import com.juicyslew.moonstation14.util.enums.DamageEnum;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;

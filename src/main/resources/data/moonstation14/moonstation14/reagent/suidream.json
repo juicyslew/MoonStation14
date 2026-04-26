@@ -1,0 +1,17 @@
+{
+  "id":  "suidream",
+  "name":  "reagent-name-sui-dream",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-sui-dream",
+  "physicaldesc":  "reagent-physical-desc-sweet",
+  "flavor":  "suidream",
+  "color":  "0xA86B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/sdreamglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "fizziness":  0.2
+}

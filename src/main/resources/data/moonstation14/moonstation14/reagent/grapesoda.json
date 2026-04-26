@@ -1,0 +1,9 @@
+{
+  "id":  "grapesoda",
+  "name":  "reagent-name-grape-soda",
+  "parent":  "basesoda",
+  "desc":  "reagent-desc-grape-soda",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "grapesoda",
+  "color":  "0xAE94A6"
+}

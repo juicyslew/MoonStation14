@@ -1,0 +1,16 @@
+{
+  "id":  "margarita",
+  "name":  "reagent-name-margarita",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-margarita",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "margarita",
+  "color":  "0x8CFF8C",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/margaritaglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true
+}

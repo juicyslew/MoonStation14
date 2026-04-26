@@ -1,0 +1,37 @@
+{
+  "id":  "poisonwine",
+  "name":  "reagent-name-poison-wine",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-poison-wine",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "bitter",
+  "color":  "0x990066",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/pwineglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  true,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.1
+      },
+      "effects":  [
+        {
+          "type":  "SatiateThirst",
+          "factor":  2
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

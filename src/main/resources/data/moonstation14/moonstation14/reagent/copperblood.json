@@ -1,0 +1,11 @@
+{
+  "parent":  "blood",
+  "id":  "copperblood",
+  "name":  "reagent-name-hemocyanin-blood",
+  "group":  "biological",
+  "desc":  "reagent-desc-hemocyanin-blood",
+  "flavor":  "metallic",
+  "color":  "0x162581",
+  "recognizable":  true,
+  "physicaldesc":  "reagent-physical-desc-metallic"
+}

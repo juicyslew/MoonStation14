@@ -1,0 +1,34 @@
+{
+  "id":  "toxin",
+  "name":  "reagent-name-toxin",
+  "group":  "toxins",
+  "desc":  "reagent-desc-toxin",
+  "flavor":  "bitter",
+  "color":  "0xCF3600",
+  "physicaldesc":  "reagent-physical-desc-opaque",
+  "contrabandseverity":  "minor",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  10
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -5
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  4
+            }
+          }
+        }
+      ]
+    }
+  }
+}

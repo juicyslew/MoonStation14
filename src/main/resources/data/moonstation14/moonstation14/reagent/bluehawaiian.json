@@ -1,0 +1,23 @@
+{
+  "id":  "bluehawaiian",
+  "name":  "reagent-name-blue-hawaiian",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-blue-hawaiian",
+  "physicaldesc":  "reagent-physical-desc-tropical",
+  "flavor":  "bluehawaiian",
+  "color":  "0x47687B",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/bluehawaiian.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  4,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.4
+      }
+    }
+  }
+}

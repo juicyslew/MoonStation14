@@ -1,0 +1,78 @@
+{
+  "id":  "polytrinicacid",
+  "name":  "reagent-name-polytrinic-acid",
+  "group":  "toxins",
+  "desc":  "reagent-desc-polytrinic-acid",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "contrabandseverity":  "major",
+  "flavor":  "acid",
+  "color":  "0xA1000B",
+  "boilingpoint":  78.2,
+  "meltingpoint":  -19.4,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  20
+    },
+    {
+      "type":  "PlantAdjustWeeds",
+      "amount":  -4
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  -8
+    }
+  ],
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "ignoreresistances":  false,
+          "damage":  {
+            "types":  {
+              "caustic":  0.5
+            }
+          }
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.3
+        }
+      ]
+    }
+  },
+  "metabolisms":  {
+    "bloodstream":  {
+      "metabolismRate":  3,
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  11
+            }
+          }
+        },
+        {
+          "type":  "PopupMessage",
+          "subtype":  "local",
+          "visualtype":  "large",
+          "messages":  [
+            "generic-reagent-effect-burning-insides"
+          ],
+          "probability":  0.33
+        },
+        {
+          "type":  "Emote",
+          "emote":  "scream",
+          "probability":  0.3
+        }
+      ]
+    }
+  }
+}

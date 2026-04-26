@@ -1,0 +1,24 @@
+{
+  "id":  "mold",
+  "name":  "reagent-name-mold",
+  "group":  "toxins",
+  "desc":  "reagent-desc-mold",
+  "flavor":  "bitter",
+  "color":  "0x8A9A5B",
+  "recognizable":  true,
+  "physicaldesc":  "reagent-physical-desc-fuzzy",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

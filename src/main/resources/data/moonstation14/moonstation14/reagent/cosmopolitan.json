@@ -1,0 +1,23 @@
+{
+  "id":  "cosmopolitan",
+  "name":  "reagent-name-cosmopolitan",
+  "parent":  "basealcohol",
+  "desc":  "reagent-desc-cosmopolitan",
+  "physicaldesc":  "reagent-physical-desc-citric",
+  "flavor":  "cosmopolitan",
+  "color":  "0xF73030",
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/cosmopolitan.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  3,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false,
+  "metabolisms":  {
+    "digestion":  {
+      "metabolites":  {
+        "ethanol":  0.3
+      }
+    }
+  }
+}

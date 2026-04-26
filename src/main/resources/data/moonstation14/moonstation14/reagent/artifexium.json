@@ -1,0 +1,38 @@
+{
+  "id":  "artifexium",
+  "name":  "reagent-name-artifexium",
+  "desc":  "reagent-desc-artifexium",
+  "flavor":  "metallic",
+  "physicaldesc":  "reagent-physical-desc-crystalline",
+  "alloweddepartments":  [
+    "Science"
+  ],
+  "color":  "0x776291",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  2
+            }
+          }
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "acidic":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "ArtifactUnlock",
+          "minscale":  5
+        }
+      ]
+    }
+  }
+}

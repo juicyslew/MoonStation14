@@ -1,0 +1,39 @@
+{
+  "id":  "diphenhydramine",
+  "name":  "reagent-name-diphenhydramine",
+  "group":  "medicine",
+  "desc":  "reagent-desc-diphenhydramine",
+  "physicaldesc":  "reagent-physical-desc-chalky",
+  "flavor":  "medicine",
+  "color":  "0x64FFE6",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "AdjustReagent",
+          "reagent":  "histamine",
+          "amount":  -3
+        },
+        {
+          "type":  "GenericStatusEffect",
+          "key":  "jitter",
+          "time":  3,
+          "subtype":  "remove"
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "effectproto":  "statuseffectdrowsiness",
+          "time":  1.5
+        },
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  -3
+            }
+          }
+        }
+      ]
+    }
+  }
+}

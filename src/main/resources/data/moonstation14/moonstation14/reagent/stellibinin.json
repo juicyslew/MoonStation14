@@ -1,0 +1,41 @@
+{
+  "id":  "stellibinin",
+  "name":  "reagent-name-stellibinin",
+  "group":  "medicine",
+  "desc":  "reagent-desc-stellibinin",
+  "physicaldesc":  "reagent-physical-desc-starry",
+  "flavor":  "medicine",
+  "color":  "0x2B2F77",
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustToxins",
+      "amount":  -5
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "poison":  -4
+            }
+          }
+        },
+        {
+          "type":  "AdjustReagent",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "amatoxin",
+              "min":  1
+            }
+          ],
+          "reagent":  "amatoxin",
+          "amount":  -3
+        }
+      ]
+    }
+  }
+}

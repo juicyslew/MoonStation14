@@ -1,0 +1,35 @@
+{
+  "id":  "nocturine",
+  "name":  "reagent-name-nocturine",
+  "group":  "narcotics",
+  "desc":  "reagent-desc-nocturine",
+  "physicaldesc":  "reagent-physical-desc-powdery",
+  "contrabandseverity":  "syndicate",
+  "color":  "0x128E80",
+  "boilingpoint":  444,
+  "meltingpoint":  128,
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "MovementSpeedModifier",
+          "walkspeedmodifier":  0.65,
+          "sprintspeedmodifier":  0.65
+        },
+        {
+          "type":  "ModifyStatusEffect",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "nocturine",
+              "min":  8
+            }
+          ],
+          "effectproto":  "statuseffectforcedsleeping",
+          "time":  9,
+          "delay":  5
+        }
+      ]
+    }
+  }
+}

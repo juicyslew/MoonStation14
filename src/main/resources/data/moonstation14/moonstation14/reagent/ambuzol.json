@@ -1,0 +1,39 @@
+{
+  "id":  "ambuzol",
+  "name":  "reagent-name-ambuzol",
+  "group":  "medicine",
+  "desc":  "reagent-desc-ambuzol",
+  "physicaldesc":  "reagent-physical-desc-crisp",
+  "flavor":  "medicine",
+  "color":  "0x86CAF7",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "CureZombieInfection",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ambuzol",
+              "min":  10
+            }
+          ]
+        }
+      ]
+    },
+    "digestion":  {
+      "effects":  [
+        {
+          "type":  "CureZombieInfection",
+          "conditions":  [
+            {
+              "type":  "ReagentCondition",
+              "reagent":  "ambuzol",
+              "min":  10
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

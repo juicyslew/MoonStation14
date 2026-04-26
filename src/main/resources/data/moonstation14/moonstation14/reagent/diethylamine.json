@@ -1,0 +1,48 @@
+{
+  "id":  "diethylamine",
+  "name":  "reagent-name-diethylamine",
+  "group":  "botanical",
+  "desc":  "reagent-desc-diethylamine",
+  "physicaldesc":  "reagent-physical-desc-strong-smelling",
+  "flavor":  "bitter",
+  "color":  "0xA1000B",
+  "boilingpoint":  55.5,
+  "meltingpoint":  -50,
+  "plantmetabolism":  [
+    {
+      "type":  "PlantAdjustNutrition",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAdjustPests",
+      "probability":  0.1,
+      "amount":  -1
+    },
+    {
+      "type":  "PlantAdjustHealth",
+      "amount":  0.1
+    },
+    {
+      "type":  "PlantAffectGrowth",
+      "probability":  0.2,
+      "amount":  1
+    },
+    {
+      "type":  "PlantDiethylamine"
+    }
+  ],
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "caustic":  1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

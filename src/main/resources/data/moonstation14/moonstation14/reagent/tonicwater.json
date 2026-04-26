@@ -1,0 +1,17 @@
+{
+  "id":  "tonicwater",
+  "name":  "reagent-name-tonic-water",
+  "parent":  "basedrink",
+  "desc":  "reagent-desc-tonic-water",
+  "physicaldesc":  "reagent-physical-desc-fizzy",
+  "flavor":  "tonicwater",
+  "color":  "0x64C8",
+  "fizziness":  0.4,
+  "metamorphicsprite":  {
+    "sprite":  "objects/consumable/drinks/tonicglass.rsi",
+    "state":  "icon_empty"
+  },
+  "metamorphicmaxfilllevels":  5,
+  "metamorphicfillbasename":  "fill-",
+  "metamorphicchangecolor":  false
+}

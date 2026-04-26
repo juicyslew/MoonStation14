@@ -1,0 +1,52 @@
+{
+  "id":  "phlogiston",
+  "name":  "reagent-name-phlogiston",
+  "parent":  "basepyrotechnic",
+  "desc":  "reagent-desc-phlogiston",
+  "physicaldesc":  "reagent-physical-desc-burning",
+  "contrabandseverity":  "major",
+  "flavor":  "bitter",
+  "color":  "0xD4872A",
+  "metabolisms":  {
+    "bloodstream":  {
+      "effects":  [
+        {
+          "type":  "HealthChange",
+          "damage":  {
+            "types":  {
+              "heat":  3,
+              "poison":  1
+            }
+          }
+        },
+        {
+          "type":  "Flammable",
+          "multiplier":  0.1
+        },
+        {
+          "type":  "AdjustTemperature",
+          "amount":  6000
+        },
+        {
+          "type":  "Ignite"
+        }
+      ]
+    }
+  },
+  "reactiveeffects":  {
+    "flammable":  {
+      "methods":  [
+        "touch"
+      ],
+      "effects":  [
+        {
+          "type":  "Flammable",
+          "multiplier":  0.2
+        },
+        {
+          "type":  "Ignite"
+        }
+      ]
+    }
+  }
+}
