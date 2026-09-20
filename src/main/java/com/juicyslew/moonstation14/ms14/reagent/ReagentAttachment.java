@@ -26,6 +26,10 @@ public final class ReagentAttachment implements IClampedMapHolder<ResourceKey<Re
         reagentMap = new HashMap<>(data.contents());
     }
 
+    public ReagentAttachment(Map<ResourceKey<ReagentData>, Float> data){
+        reagentMap = data;
+    }
+
     public ReagentAttachment(){
         reagentMap = new HashMap<>();
     }

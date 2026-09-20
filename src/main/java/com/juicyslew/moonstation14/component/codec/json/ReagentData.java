@@ -68,22 +68,3 @@ public record ReagentData(
             (Float)b.get(0), (ContrabandSeverityEnum)b.get(1), (List<PlantMetabolismData>)b.get(2), (Map<String, MetabolismData>)b.get(3), (MetamorphicSpriteData)b.get(4), (Float)b.get(5), (String)b.get(6), (Boolean)b.get(7), (Float)b.get(8)
     )));
 }
-
-// Metabolism holds effects list
-
-
-// Polymorphic Effect
-
-
-//// DamageSpec mirrors the nested "damage" object in your JSON example
-/// CONSIDER REPLACING EXISTING DAMAGE DICTIONARY
-//public record DamageSpec(
-//        // If the JSON uses "damage": {"Brute": -1.5} or nested "types": {...}
-//        Map<String, Double> direct,
-//        Map<String, Double> types
-//) {
-//    public static final Codec<DamageSpec> CODEC = RecordCodecBuilder.create(inst -> inst.group(
-//            Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).optionalFieldOf("damage", Map.of()).forGetter(d -> d.direct),
-//            Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).optionalFieldOf("types", Map.of()).forGetter(d -> d.types)
-//    ).apply(inst, (direct, types) -> new DamageSpec(direct, types)));
-//}

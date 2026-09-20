@@ -3,7 +3,8 @@
   "package": "com.juicyslew.moonstation14.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "LivingEntityReagentMixin"
+    "LivingEntityReagentMixin",
+    "LivingEntityStatusEffectMixin"
   ],
   "injectors": {
     "defaultRequire": 1

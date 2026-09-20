@@ -12,6 +12,13 @@ public interface IClampedMapHolder<T> {
     default boolean isEmpty(){
         return getMap().isEmpty();
     }
+    default void scale(float scale){
+        // TODO: Make this return the excess so we can spill the extra in cases where that makes sense.
+        Map<T, Float> data = this.getMap();
+        for (T key : data.keySet()){
+            data.put(key, data.getOrDefault(key, 0f) * scale);
+        }
+    }
     // Just does the math, doesn't touch the Entity or Networking
     default void specificAdd(T key, float amount, float capacity) {
         if (amount < 0){
