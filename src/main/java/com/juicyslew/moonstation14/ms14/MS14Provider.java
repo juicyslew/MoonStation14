@@ -2,7 +2,6 @@ package com.juicyslew.moonstation14.ms14;
 
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
-import com.juicyslew.moonstation14.ms14.reagent.ReagentHandle;
 import com.juicyslew.moonstation14.util.SystemLink;
 import com.juicyslew.moonstation14.util.interfaces.IMS14Attachment;
 import com.juicyslew.moonstation14.util.interfaces.IMS14Component;
@@ -23,7 +22,7 @@ public class MS14Provider {
     public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> A get(IAttachmentHolder holder, SystemLink<A, C> link) {
         return holder.getData(link.attachment().get());
     }
-    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> A get(ReagentHandle handle, SystemLink<A, C> link) {
+    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>, T> A get(TraitHandler<T> handle, SystemLink<A, C> link) {
         return get(handle.holder(), link);
     }
     public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> A get(Object holder, SystemLink<A, C> link) {
@@ -36,7 +35,7 @@ public class MS14Provider {
             return get(attachmentHolder, link);
         }
 
-        if (holder instanceof ReagentHandle handle) {
+        if (holder instanceof TraitHandler handle) {
             return get(handle.holder(), link);
         }
 
@@ -61,7 +60,7 @@ public class MS14Provider {
         entity.setData(link.attachment().get(), data);
     }
 
-    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(ReagentHandle handle, SystemLink<A, C> link, A data) {
+    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>, T> void update(TraitHandler<T> handle, SystemLink<A, C> link, A data) {
         update(handle.holder(), link, data);
     }
     public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(Object holder, SystemLink<A, C> link, A data) {
@@ -82,7 +81,7 @@ public class MS14Provider {
             return;
         }
 
-        if (holder instanceof ReagentHandle handle) {
+        if (holder instanceof TraitHandler handle) {
             update(handle.holder(), link, data);
             return;
         }

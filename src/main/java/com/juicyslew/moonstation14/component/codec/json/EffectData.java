@@ -3,13 +3,22 @@ package com.juicyslew.moonstation14.component.codec.json;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
 import com.juicyslew.moonstation14.effect.EffectContext;
+import com.juicyslew.moonstation14.ms14.TraitHandler;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
+import com.juicyslew.moonstation14.ms14.status_effect.IStatusEffectTrait;
+import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectAttachment;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
 import com.juicyslew.moonstation14.util.enums.DamageEnum;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import org.apache.commons.lang3.NotImplementedException;
 
 import java.util.ArrayList;
@@ -18,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.juicyslew.moonstation14.util.CodecHelpers.LENIENT_ID_CODEC;
+import static com.juicyslew.moonstation14.util.MapOperations.getTotal;
 import static java.lang.String.format;
 
 public sealed interface EffectData permits
@@ -177,6 +187,7 @@ public sealed interface EffectData permits
                     damageContainer.mergeAdd(damageChange, 1000f);
                     // TODO: Events. Probably wanna shoot one off when damage is changed. Future concern.
                     // TODO: Add Resistances / Damage Modifiers here.
+                    // May wanna roll up the above TODOs into some kind of damage handler.
                 }
             );
         }
@@ -222,6 +233,28 @@ public sealed interface EffectData permits
         }
         @Override public void apply(EffectContext ctx) {
             // Chance to trigger vomit action based on probability.
+
+            // VOMIT
+            // Set off an event for trying to vomit.
+            // Update hunger and thirst (notably lower both), check SS14s codebase for balance.
+            // - Attempt to remove 40 hunger and 40 thirst. (i.e. become hungry and thirsty)
+            // - Note that hunger is out of 200, thirst probably the same.
+            // Remove x reagent based on how much hunger / thirst was removed.
+            // Add it to some vomit solution
+            // Then dump it on the ground where the player is standing.
+            Entity entity = ctx.entity();
+            float hungerAdded = -40f;
+            float thirstAdded = -40f;
+            float vomitAmount = (Math.abs(thirstAdded) + Math.abs(hungerAdded)) / 6;
+
+            // TODO: Slow the player down.
+            ReagentAttachment source = entity.getData(ModDataAttachments.REAGENT.get());
+            ReagentAttachment vomitSolution = new ReagentAttachment(source.naiveRemove(vomitAmount));
+            vomitSolution.scale(.1f);
+            float bloodstreamContribution = getTotal(vomitSolution.getMap());
+            vomitAmount -= bloodstreamContribution;
+            vomitSolution.specificAdd(ModReagents.createKey("vomit"), vomitAmount, Float.MAX_VALUE);
+            ReagentSystem.handleSpillSolution(vomitSolution, entity.level(), entity.getOnPos());
         }
     }
 
@@ -235,6 +268,10 @@ public sealed interface EffectData permits
         @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
         @Override public void apply(EffectContext ctx) {
             // Add to a set of active effects on the entity.
+            Entity entity = ctx.entity();
+            if (entity instanceof IStatusEffectTrait statusEffectHolder){
+                StatusEffectSystem.setTime(statusEffectHolder.toHandleSelf(), entity.level(), ModStatusEffects.createKey("jitter"), 2f);
+            }
         }
     }
 

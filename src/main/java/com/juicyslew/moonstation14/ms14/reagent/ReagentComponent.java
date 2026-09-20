@@ -18,7 +18,7 @@ import java.util.Objects;
 
 import static com.juicyslew.moonstation14.util.CodecHelpers.LENIENT_ID_CODEC;
 
-public record ReagentComponent(Map<ResourceKey<ReagentData>, Float> contents) implements IMS14Codeced<ReagentComponent>, IMS14Component<ReagentComponent, ReagentAttachment> {
+public record ReagentComponent(Map<ResourceKey<ReagentData>, Float> contents) implements IMS14Component<ReagentComponent, ReagentAttachment> {
 
     public ReagentComponent() {
         this(Map.of());
