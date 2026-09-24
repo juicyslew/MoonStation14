@@ -1,0 +1,7 @@
+{
+  "translation_key": "status-effect.knockdown",
+  "beneficial": false,
+  "color": "0x666666",
+  "behaviors": ["marker"],
+  "eligibility": ["living_entity"]
+}

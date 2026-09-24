@@ -16,7 +16,6 @@
         },
         {
           "type":  "HealthChange",
-          "conditions":  null,
           "damage":  {
             "types":  {
               "blunt":  -0.2,

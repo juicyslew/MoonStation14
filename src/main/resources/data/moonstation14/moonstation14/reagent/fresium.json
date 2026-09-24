@@ -68,7 +68,7 @@
   },
   "metabolisms":  {
     "bloodstream":  {
-      "metabolismRate":  0.45,
+      "metabolismrate":  0.45,
       "effects":  [
         {
           "type":  "HealthChange",

@@ -8,9 +8,12 @@ import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentCatalogValidation;
+import com.juicyslew.moonstation14.ms14.stomach.StomachSystem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
@@ -71,16 +74,12 @@ public class JugBlock extends TransparentBlock implements EntityBlock {
         // 1. Fetch the BlockEntity (The Data Instance)
         BlockEntity be = level.getBlockEntity(pos);
         // 2. Check if it's our Holder
-        if (be instanceof IReagentTrait blockHolder) {
-            ReagentSystem.handleTransfer(
-                    blockHolder.toHandleSelf(),
-                    ((IReagentTrait) player).toHandleSelf(), // Player will implement this because of LivingEntityMixin
-                    level,
-                    UNITS_PER_SIP
-            );
-
-            level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0F, 1.0F);
-            return InteractionResult.SUCCESS;
+        if (be instanceof IReagentTrait blockHolder && level instanceof ServerLevel serverLevel) {
+            float consumed = StomachSystem.ingest(blockHolder.toHandleSelf(), player, serverLevel, UNITS_PER_SIP);
+            if (consumed > 0f) {
+                level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0F, 1.0F);
+                return InteractionResult.SUCCESS;
+            }
         }
         return InteractionResult.PASS;
     }
@@ -101,21 +100,23 @@ public class JugBlock extends TransparentBlock implements EntityBlock {
 
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        if (level.isClientSide) return;
+        var reagentData = stack.get(ModDataComponents.REAGENT.get());
+        if (reagentData != null && !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
+                reagentData.contents(), level, "jug block placement")) return;
         if (level.getBlockEntity(pos) instanceof JugBlockEntity jug) {
             // 1. Get the component from the item
-            var reagentData = stack.get(ModDataComponents.REAGENT.get());
+            if (reagentData == null || reagentData.contents().isEmpty()) {
+                return;
+            }
 
-            if (reagentData != null) {
-                // 2. Set the data into your Block Entity's Data Attachment
-                // This assumes you've exposed a setter or the attachment is accessible
-                MS14Provider.update(jug, ReagentSystem.bridge, new ReagentAttachment(reagentData));
-                if (level.isClientSide) {
-                    // On the client, we force the update NOW before the frame ends
-                    //jug.requestModelDataUpdate();
-                } else {
-                    jug.setChanged();
-                    level.sendBlockUpdated(pos, state, state, 3);
-                }
+            // Preserve the provider's change detection and block update path.
+            ReagentAttachment current = MS14Provider.getDetached(jug, ReagentSystem.bridge);
+            var before = MS14Provider.snapshot(current);
+            boolean updated = MS14Provider.updateIfChanged(jug, ReagentSystem.bridge, before,
+                    new ReagentAttachment(reagentData));
+            if (updated) {
+                jug.updateFillLevel();
             }
         }
     }

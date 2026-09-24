@@ -12,30 +12,39 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
-import static com.juicyslew.moonstation14.util.MapOperations.getTotal;
 
 public class ReagentSystem {
     public static SystemLink<ReagentAttachment, ReagentComponent> bridge = MS14Bridges.REAGENT;
 
     // --- CORE LOGIC --- //
     public static void handleTransfer(TraitHandler<IReagentTrait> source, TraitHandler<IReagentTrait> target, Level level, float amount) {
+        if (source.holder() == target.holder()) return;
         if (level.isClientSide) return;
 
-        ReagentAttachment srcCont = MS14Provider.get(source.holder(), bridge);
-        ReagentAttachment dstCont = MS14Provider.get(target.holder(), bridge);
+        ReagentAttachment srcCont = MS14Provider.getDetached(source.holder(), bridge);
+        if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(srcCont.getMap(), level,
+                "transfer source " + source.holder().getClass().getSimpleName())) return;
+        ReagentAttachment dstCont = MS14Provider.getDetached(target.holder(), bridge);
+        if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dstCont.getMap(), level,
+                "transfer destination " + target.holder().getClass().getSimpleName())) return;
+        var srcBefore = MS14Provider.snapshot(srcCont);
+        var dstBefore = MS14Provider.snapshot(dstCont);
 
         transfer(level, srcCont, dstCont, amount, target.trait().getCapacity());
 
-        MS14Provider.update(source.holder(), bridge, srcCont);
-        MS14Provider.update(target.holder(), bridge, dstCont);
+        MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
+        MS14Provider.updateIfChanged(target.holder(), bridge, dstBefore, dstCont);
     }
 
     static void transfer(Level level, ReagentAttachment srcCont, ReagentAttachment dstCont, float amount, float target_capacity) {
-        // TODO: ensure that no reagent goes negative in value.
-        float availableSpace = target_capacity - getTotal(dstCont.getMap());
-        float toMove = Math.min(Math.min(amount, getTotal(srcCont.getMap())), availableSpace);
-        var removed = srcCont.naiveRemove(toMove);
-        dstCont.mergeAdd(removed, target_capacity);
+        // Float APIs bound requested flow to cent precision; once admitted the paired
+        // source/destination mutation is exact and capacity-conserving.
+        // Spill-solution callers use Float.MAX_VALUE as an "all available" sentinel.
+        long requested = amount == Float.MAX_VALUE ? ReagentUnits.MAX_CENTS
+                : ReagentUnits.fromFloat(Math.max(0f, amount));
+        long capacity = ReagentUnits.fromFloat(target_capacity);
+        long admitted = ReagentAttachment.transferUnits(srcCont, dstCont, requested, capacity);
+        if (admitted == 0) return;
         dstCont.recursiveReaction(level, target_capacity);
     }
 
@@ -48,23 +57,33 @@ public class ReagentSystem {
         BlockState puddleTargetState = level.getBlockState(targetPos);
         BlockPos abovePos = targetPos.above();
         BlockState aboveState = level.getBlockState(abovePos);
-        ReagentAttachment srcCont = MS14Provider.get(source.holder(), bridge);
+        ReagentAttachment srcCont = MS14Provider.getDetached(source.holder(), bridge);
+        if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(srcCont.getMap(), level,
+                "spill source " + source.holder().getClass().getSimpleName())) return InteractionResult.PASS;
         if (puddleTargetState.is(ModBlocks.PUDDLE.get())) {
             // Add to existing puddle logic
             if (level.getBlockEntity(targetPos) instanceof PuddleBlockEntity target) {
-                ReagentAttachment dstCont = MS14Provider.get(target, bridge);
+                ReagentAttachment dstCont = MS14Provider.getDetached(target, bridge);
+                if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dstCont.getMap(), level,
+                        "spill destination puddle")) return InteractionResult.PASS;
+                var srcBefore = MS14Provider.snapshot(srcCont);
+                var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, srcCont, dstCont, amount, target.getCapacity());
-                MS14Provider.update(source.holder(), bridge, srcCont);
-                MS14Provider.update(target, bridge, dstCont);
+                MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
+                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
             }
         }else if (aboveState.is(ModBlocks.PUDDLE.get())) {
             // for thrown jugs, and also like, if you clicked the block below somehow.
             // Add to existing puddle logic
             if (level.getBlockEntity(abovePos) instanceof PuddleBlockEntity target) {
-                ReagentAttachment dstCont = MS14Provider.get(target, bridge);
+                ReagentAttachment dstCont = MS14Provider.getDetached(target, bridge);
+                if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dstCont.getMap(), level,
+                        "spill destination puddle")) return InteractionResult.PASS;
+                var srcBefore = MS14Provider.snapshot(srcCont);
+                var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, srcCont, dstCont, amount, target.getCapacity());
-                MS14Provider.update(source.holder(), bridge, srcCont);
-                MS14Provider.update(target, bridge, dstCont);
+                MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
+                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
             }
         } else if (aboveState.canBeReplaced()) {
             // Interface Check
@@ -75,11 +94,13 @@ public class ReagentSystem {
 
                     // Transfer data to the new BlockEntity
                     if (level.getBlockEntity(abovePos) instanceof PuddleBlockEntity target) {
-                        ReagentAttachment dstCont = MS14Provider.get(target, bridge);
+                        ReagentAttachment dstCont = MS14Provider.getDetached(target, bridge);
+                        var srcBefore = MS14Provider.snapshot(srcCont);
+                        var dstBefore = MS14Provider.snapshot(dstCont);
                         transfer(level, srcCont, dstCont, amount, target.getCapacity());
 
-                        MS14Provider.update(source.holder(), bridge, srcCont);
-                        MS14Provider.update(target, bridge, dstCont);
+                        MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
+                        MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
                     }
                 }
             }
@@ -91,23 +112,32 @@ public class ReagentSystem {
     public static void handleSpillSolution(ReagentAttachment solution, Level level, BlockPos targetPos) {
         // TODO: Make this less item-use-centric Should be possible to spill from a player (vomitting) or even a jug (breaking with melee)
 
+        if (solution.isEmpty()) return;
+        if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(solution.getMap(), level, "spill solution")) return;
+
         BlockState puddleTargetState = level.getBlockState(targetPos);
         BlockPos abovePos = targetPos.above();
         BlockState aboveState = level.getBlockState(abovePos);
         if (puddleTargetState.is(ModBlocks.PUDDLE.get())) {
             // Add to existing puddle logic
             if (level.getBlockEntity(targetPos) instanceof PuddleBlockEntity target) {
-                ReagentAttachment dstCont = MS14Provider.get(target, bridge);
+                ReagentAttachment dstCont = MS14Provider.getDetached(target, bridge);
+                if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dstCont.getMap(), level,
+                        "spill solution destination puddle")) return;
+                var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
-                MS14Provider.update(target, bridge, dstCont);
+                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
             }
         }else if (aboveState.is(ModBlocks.PUDDLE.get())) {
             // for thrown jugs, and also like, if you clicked the block below somehow.
             // Add to existing puddle logic
             if (level.getBlockEntity(abovePos) instanceof PuddleBlockEntity target) {
-                ReagentAttachment dstCont = MS14Provider.get(target, bridge);
+                ReagentAttachment dstCont = MS14Provider.getDetached(target, bridge);
+                if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dstCont.getMap(), level,
+                        "spill solution destination puddle")) return;
+                var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
-                MS14Provider.update(target, bridge, dstCont);
+                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
             }
         } else if (aboveState.canBeReplaced()) {
             // Interface Check
@@ -118,9 +148,10 @@ public class ReagentSystem {
 
                     // Transfer data to the new BlockEntity
                     if (level.getBlockEntity(abovePos) instanceof PuddleBlockEntity target) {
-                        ReagentAttachment dstCont = MS14Provider.get(target, bridge);
+                        ReagentAttachment dstCont = MS14Provider.getDetached(target, bridge);
+                        var dstBefore = MS14Provider.snapshot(dstCont);
                         transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
-                        MS14Provider.update(target, bridge, dstCont);
+                        MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
                     }
                 }
             }

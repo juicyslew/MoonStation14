@@ -1,6 +1,7 @@
 {
-  "id": "jitter",
-  "translation_key": "key",
+  "translation_key": "status-effect.jitter",
   "beneficial": false,
-  "color": "0x661379"
+  "color": "0x661379",
+  "behaviors": ["client_jitter"],
+  "eligibility": ["living_entity"]
 }

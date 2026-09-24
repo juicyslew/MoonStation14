@@ -4,14 +4,17 @@ import com.juicyslew.moonstation14.block.ModBlockEntities;
 import com.juicyslew.moonstation14.block.custom.JugBlock;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
+import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -87,8 +90,9 @@ public class JugBlockEntity extends BlockEntity implements IReagentTrait {
     }
 
     public void updateFillLevel() {
-        float percentage = getTotal(getData(ModDataAttachments.REAGENT).getMap()) / getCapacity();
-        int newLevel = Math.round(percentage * 6); // 0 to 4
+        ReagentAttachment contents = MS14Provider.getDetached(this, ReagentSystem.bridge);
+        float percentage = Mth.clamp(getTotal(contents.getMap()) / getCapacity(), 0f, 1f);
+        int newLevel = Mth.clamp(Math.round(percentage * 6), 0, 6);
 
         BlockState currentState = getBlockState();
         if (currentState.getValue(JugBlock.FILL_LEVEL) != newLevel) {
@@ -97,10 +101,12 @@ public class JugBlockEntity extends BlockEntity implements IReagentTrait {
     }
 
     public void saveToItem(ItemStack stack) {
-        var attachmentData = this.getData(ModDataAttachments.REAGENT.get());
-        if (attachmentData != null) {
-            // Shove the map into the Item's component
+        var attachmentData = this.getExistingDataOrNull(ModDataAttachments.REAGENT.get());
+        if (attachmentData != null && !attachmentData.isEmpty()) {
+            // Shove the non-empty map into the item's component.
             stack.set(ModDataComponents.REAGENT.get(), attachmentData.toComponent());
+        } else {
+            stack.remove(ModDataComponents.REAGENT.get());
         }
     }
 }

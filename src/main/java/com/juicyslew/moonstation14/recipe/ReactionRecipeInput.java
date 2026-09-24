@@ -5,8 +5,13 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeInput;
 import java.util.Map;
+import java.util.Objects;
 
 public record ReactionRecipeInput(Map<ResourceKey<ReagentData>, Float> container) implements RecipeInput{
+
+    public ReactionRecipeInput {
+        container = Map.copyOf(Objects.requireNonNull(container, "container"));
+    }
 
     @Override
     public ItemStack getItem(int index) {

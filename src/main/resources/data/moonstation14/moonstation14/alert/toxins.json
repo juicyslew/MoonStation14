@@ -1,0 +1,7 @@
+{
+  "name_translation_key": "alerts-high-toxin-name",
+  "description_translation_key": "alerts-high-toxin-desc",
+  "color": "0xff0000",
+  "order": 0,
+  "category": "moonstation14:toxins"
+}

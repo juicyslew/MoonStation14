@@ -60,19 +60,83 @@ public interface IClampedMapHolder<T> {
     }
 
     default Map<T, Float> naiveRemove(float amount) {
-        // MODIFIES PROVIDED DICTIONARY, THEN RETURNS THE DIFFERENCE.=\
+        // MODIFIES PROVIDED DICTIONARY, THEN RETURNS THE DIFFERENCE.
+        if (!Float.isFinite(amount) || amount < 0f) {
+            throw new IllegalArgumentException("amount must be finite and nonnegative");
+        }
+
         Map<T, Float> data = this.getMap();
         // Reactions can only happen when something's added to a container, NOT when removed is added to a container.
-        float vol = MapOperations.getTotal(data);
-        float new_amount = Float.min(vol, amount);
-        Map<T, Float> difference = new HashMap<>();
+        double vol = 0d;
         for (Map.Entry<T, Float> e : data.entrySet()) {
-            float diff = e.getValue() * new_amount / vol;
-            difference.put(e.getKey(), diff);
-            data.put(e.getKey(), e.getValue() - diff);
+            Float value = e.getValue();
+            if (value == null || !Float.isFinite(value) || value < 0f) {
+                throw new IllegalArgumentException("stored amount must be finite and nonnegative");
+            }
+            vol += value;
         }
-        data.entrySet().removeIf(entry -> entry.getValue() == 0f);
-        trimZeroes();
+
+        Map<T, Float> difference = new HashMap<>();
+
+        // There is no proportional transfer to perform. Build the cleaned map
+        // first so zero entries are removed without ever dividing by zero.
+        if (vol == 0d || amount == 0f) {
+            Map<T, Float> cleaned = new HashMap<>();
+            for (Map.Entry<T, Float> e : data.entrySet()) {
+                if (e.getValue() > 0f) cleaned.put(e.getKey(), e.getValue());
+            }
+            data.clear();
+            data.putAll(cleaned);
+            return difference;
+        }
+
+        // A full transfer returns the original positive quantities exactly.
+        if ((double) amount >= vol) {
+            for (Map.Entry<T, Float> e : data.entrySet()) {
+                if (e.getValue() > 0f) difference.put(e.getKey(), e.getValue());
+            }
+            data.clear();
+            return difference;
+        }
+
+        // Stage all writes. Besides keeping zero entries out of the result,
+        // this ensures every source validation above completes before mutation.
+        Map<T, Float> remaining = new HashMap<>();
+        double leftToRemove = amount;
+        for (Map.Entry<T, Float> e : data.entrySet()) {
+            float sourceAmount = e.getValue();
+            if (sourceAmount == 0f) continue;
+
+            double proportional = (double) sourceAmount * amount / vol;
+            float proposedRemoved = (float) Math.min(proportional, leftToRemove);
+            float sourceRemaining = sourceAmount - proposedRemoved;
+            float removed = sourceAmount - sourceRemaining;
+
+            // The source subtraction is the actual transfer. If its rounding
+            // exceeds the request, choose the representable remaining source
+            // at or above (source - request) instead of repeatedly shrinking
+            // the returned removal.
+            if ((double) removed > leftToRemove) {
+                sourceRemaining = (float) ((double) sourceAmount - leftToRemove);
+                if ((double) sourceAmount - sourceRemaining > leftToRemove) {
+                    sourceRemaining = Math.nextUp(sourceRemaining);
+                }
+                removed = sourceAmount - sourceRemaining;
+            }
+
+            if (removed > 0f && (double) removed <= leftToRemove) {
+                difference.put(e.getKey(), removed);
+                leftToRemove -= removed;
+            } else {
+                // No positive representable delta fits in the request.
+                sourceRemaining = sourceAmount;
+            }
+
+            if (sourceRemaining > 0f) remaining.put(e.getKey(), sourceRemaining);
+        }
+
+        data.clear();
+        data.putAll(remaining);
         return difference;
     }
 

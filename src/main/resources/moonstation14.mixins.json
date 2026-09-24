@@ -3,6 +3,8 @@
   "package": "com.juicyslew.moonstation14.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "FoodDataCharacterMixin",
+    "PlayerPeacefulNutritionMixin",
     "LivingEntityReagentMixin",
     "LivingEntityStatusEffectMixin"
   ],

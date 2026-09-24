@@ -1,29 +1,29 @@
 package com.juicyslew.moonstation14.component.codec.attachment;
 
 import com.juicyslew.moonstation14.component.codec.component.DamageMap;
-import com.juicyslew.moonstation14.util.interfaces.IClampedMapHolder;
 import com.mojang.serialization.Codec;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
-import java.util.HashMap;
 import java.util.Map;
 
-public final class DamageData implements IClampedMapHolder<String> {
+/** Immutable persisted/networked snapshot of character damage. */
+public final class DamageData {
     private final Map<String, Float> damageMap;
     public DamageData(DamageMap data){
-        this.damageMap = new HashMap<>(data.contents());
-    };
-    // TODO: Should probably have some information somewhere about what damage types are allowed for the object using this.
-
-    public DamageData(){
-        damageMap = new HashMap<>();
+        this.damageMap = data.contents();
     }
 
-    @Override public Map<String, Float> getMap() { return damageMap; }
+    public DamageData(){
+        damageMap = Map.of();
+    }
+
+    public Map<String, Float> getMap() { return damageMap; }
+
+    public boolean isEmpty() { return damageMap.isEmpty(); }
 
     public DamageMap toData() {
-        return new DamageMap(Map.copyOf(damageMap));
+        return new DamageMap(damageMap);
     }
 
     // decode -> mutable map
@@ -39,13 +39,12 @@ public final class DamageData implements IClampedMapHolder<String> {
             DamageData::toData
     );
 
-    @Override
     public int hashCode() {
-        return super.hashCode();
+        return damageMap.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-        return super.equals(obj);
+        return obj instanceof DamageData other && damageMap.equals(other.damageMap);
     }
 }

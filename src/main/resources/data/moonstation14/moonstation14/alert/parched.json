@@ -1,0 +1,7 @@
+{
+  "name_translation_key": "alerts-parched-name",
+  "description_translation_key": "alerts-parched-desc",
+  "color": "0xff6633",
+  "order": 31,
+  "category": "moonstation14:thirst"
+}
