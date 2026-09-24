@@ -34,7 +34,11 @@ public class NetworkingUtils {
 
     public static <T extends IMS14Codeced<T>> void saveToTag(CompoundTag tag, IAttachmentHolder holder, AttachmentType<T> type) {
         String key = NeoForgeRegistries.ATTACHMENT_TYPES.getKey(type).toString();
-        T data = holder.getData(type);
+        T data = holder.getExistingDataOrNull(type);
+        if (data == null) {
+            tag.remove(key);
+            return;
+        }
         data.getCodec().encodeStart(NbtOps.INSTANCE, data).result().ifPresent(nbt -> tag.put(key, nbt));
     }
 

@@ -10,7 +10,7 @@ import java.util.Objects;
 public enum DamageEnum implements StringRepresentable {
     // TODO: Probably eventually replace with a Reagent class, and hydrate it all from Json files rather than this enum list.
     BLUNT("blunt"),
-    PIERCE("pierce"),
+    PIERCING("piercing"),
     SLASH("slash"),
     HEAT("heat"),
     COLD("cold"),
@@ -26,7 +26,7 @@ public enum DamageEnum implements StringRepresentable {
 
     // TODO: Figure out the best way to make use of these groups
     public final static Map<String, List<DamageEnum>> DAMAGE_GROUPS = Map.of(
-        "brute", List.of(BLUNT, PIERCE, SLASH),
+        "brute", List.of(BLUNT, PIERCING, SLASH),
         "burn", List.of(HEAT, COLD, SHOCK, CAUSTIC),
         "airloss", List.of(ASPHYXIATION, BLOODLOSS),
         "toxin", List.of(POISON, RADIATION),

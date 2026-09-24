@@ -1,719 +1,838 @@
 package com.juicyslew.moonstation14.component.codec.json;
 
-import com.juicyslew.moonstation14.component.ModDataAttachments;
-import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
-import com.juicyslew.moonstation14.effect.EffectContext;
-import com.juicyslew.moonstation14.ms14.TraitHandler;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
-import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
-import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
-import com.juicyslew.moonstation14.ms14.status_effect.IStatusEffectTrait;
-import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
-import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectAttachment;
-import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
-import com.juicyslew.moonstation14.util.enums.DamageEnum;
+import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectOperation;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import org.apache.commons.lang3.NotImplementedException;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import static com.juicyslew.moonstation14.util.CodecHelpers.LENIENT_ID_CODEC;
-import static com.juicyslew.moonstation14.util.MapOperations.getTotal;
-import static java.lang.String.format;
 
+/** Data-only reagent effects.  Execution remains owned by the existing systems. */
 public sealed interface EffectData permits
-        EffectData.EvenHealthChange,
-        EffectData.HealthChange,
-        EffectData.Vomit,
-        EffectData.Jitter,
-        EffectData.Drunk,
-        EffectData.ModifyBleed,
-        EffectData.Oxygenate,
-        EffectData.ModifyLungGas,
-        EffectData.AdjustAlert,
-        EffectData.SatiateHunger,
-        EffectData.ModifyBloodLevel,
-        EffectData.SatiateThirst,
-        EffectData.PopupMessage,
-        EffectData.Emote,
-        EffectData.ModifyStatusEffect,
-        EffectData.AdjustReagent,
-        EffectData.CureZombieInfection,
-        EffectData.ArtifactDurabilityRestore,
-        EffectData.ArtifactUnlock,
-        EffectData.GenericStatusEffect,
-        EffectData.Flammable,
-        EffectData.Ignite,
-        EffectData.AdjustTemperature,
-        EffectData.Extinguish,
-        EffectData.MovementSpeedModifier,
-        EffectData.CleanBloodstream,
-        EffectData.MakeSentient,
-        EffectData.Polymorph,
-        EffectData.ResetNarcolepsy,
-        EffectData.ModifyKnockdown,
-        EffectData.Electrocute,
-        EffectData.EyeDamage,
-        EffectData.ReduceRotting,
-        EffectData.CauseZombieInfection
-{
+        EffectData.EvenHealthChange, EffectData.HealthChange, EffectData.Vomit, EffectData.Jitter,
+        EffectData.Drunk, EffectData.ModifyBleed, EffectData.Oxygenate, EffectData.ModifyLungGas,
+        EffectData.AdjustAlert, EffectData.SatiateHunger, EffectData.ModifyBloodLevel,
+        EffectData.SatiateThirst, EffectData.PopupMessage, EffectData.Emote, EffectData.ModifyStatusEffect,
+        EffectData.AdjustReagent, EffectData.CureZombieInfection, EffectData.ArtifactDurabilityRestore,
+        EffectData.ArtifactUnlock, EffectData.GenericStatusEffect, EffectData.Flammable, EffectData.Ignite,
+        EffectData.AdjustTemperature, EffectData.Extinguish, EffectData.MovementSpeedModifier,
+        EffectData.CleanBloodstream, EffectData.MakeSentient, EffectData.Polymorph, EffectData.ResetNarcolepsy,
+        EffectData.ModifyKnockdown, EffectData.Electrocute, EffectData.EyeDamage, EffectData.ReduceRotting,
+        EffectData.CauseZombieInfection {
+
+    EffectCommonData common();
     String type();
-    boolean shouldApply(EffectContext context);
-    void apply(EffectContext context);
 
-    default boolean conditionsPass(Entity entity, List<ConditionData> conditions){
-        for (ConditionData condition : conditions) {
-            if (!condition.test(entity)){
-                return false;
-            }
+    default List<ConditionData> conditions() { return common().conditions(); }
+    default float probability() { return common().probability(); }
+    default float minScale() { return common().minScale(); }
+    default boolean scaling() { return common().scaling(); }
+
+    enum PopupRecipients {
+        Pvs("pvs"),
+        Local("local");
+
+        private final String serializedName;
+
+        PopupRecipients(String serializedName) {
+            this.serializedName = serializedName;
         }
-        return true;
+
+        static final Codec<PopupRecipients> CODEC = EffectCodecHelpers.closedString(
+                Map.of("pvs", Pvs, "local", Local), value -> value.serializedName);
     }
 
-    // dispatch by "type" field in JSON
+    enum PopupMethod {
+        PopupEntity("popupentity"),
+        PopupCoordinates("popupcoordinates");
+
+        private final String serializedName;
+
+        PopupMethod(String serializedName) {
+            this.serializedName = serializedName;
+        }
+
+        static final Codec<PopupMethod> CODEC = EffectCodecHelpers.closedString(
+                Map.of("popupentity", PopupEntity, "popupcoordinates", PopupCoordinates),
+                value -> value.serializedName);
+    }
+
+    enum PopupVisualType {
+        Small("small"),
+        SmallCaution("smallcaution"),
+        Medium("medium"),
+        MediumCaution("mediumcaution"),
+        Large("large"),
+        LargeCaution("largecaution");
+
+        private final String serializedName;
+
+        PopupVisualType(String serializedName) {
+            this.serializedName = serializedName;
+        }
+
+        static final Codec<PopupVisualType> CODEC = EffectCodecHelpers.closedString(
+                Map.of("small", Small, "smallcaution", SmallCaution, "medium", Medium,
+                        "mediumcaution", MediumCaution, "large", Large, "largecaution", LargeCaution),
+                value -> value.serializedName);
+    }
+
     Codec<EffectData> CODEC = Codec.STRING.dispatch(
-            "type",              // The JSON field name
-            EffectData::type,    // How to get the string from the object (for encoding)
-            type -> switch (type) { // How to get the codec from the string (for decoding)
-                case "EvenHealthChange"                         -> EvenHealthChange.CODEC;
-                case "HealthChange"                             -> HealthChange.CODEC;
-                case "Vomit"                                    -> Vomit.CODEC;
-                case "Jitter"                                   -> Jitter.CODEC;
-                case "Drunk"                                    -> Drunk.CODEC;
-                case "ModifyBleed"                              -> ModifyBleed.CODEC;
-                case "Oxygenate"                                -> Oxygenate.CODEC;
-                case "ModifyLungGas"                            -> ModifyLungGas.CODEC;
-                case "AdjustAlert"                              -> AdjustAlert.CODEC;
-                case "SatiateHunger"                            -> SatiateHunger.CODEC;
-                case "ModifyBloodLevel"                         -> ModifyBloodLevel.CODEC;
-                case "SatiateThirst"                            -> SatiateThirst.CODEC;
-                case "PopupMessage"                             -> PopupMessage.CODEC;
-                case "Emote"                                    -> Emote.CODEC;
-                case "ModifyStatusEffect"                       -> ModifyStatusEffect.CODEC;
-                case "AdjustReagent"                            -> AdjustReagent.CODEC;
-                case "CureZombieInfection"                      -> CureZombieInfection.CODEC;
-                case "ArtifactDurabilityRestore"                -> ArtifactDurabilityRestore.CODEC;
-                case "ArtifactUnlock"                           -> ArtifactUnlock.CODEC;
-                case "GenericStatusEffect"                      -> GenericStatusEffect.CODEC;
-                case "Flammable"                                -> Flammable.CODEC;
-                case "Ignite"                                   -> Ignite.CODEC;
-                case "AdjustTemperature"                        -> AdjustTemperature.CODEC;
-                case "Extinguish"                               -> Extinguish.CODEC;
-                case "MovementSpeedModifier"                    -> MovementSpeedModifier.CODEC;
-                case "CleanBloodstream"                         -> CleanBloodstream.CODEC;
-                case "MakeSentient"                             -> MakeSentient.CODEC;
-                case "Polymorph"                                -> Polymorph.CODEC;
-                case "ResetNarcolepsy"                          -> ResetNarcolepsy.CODEC;
-                case "ModifyKnockdown"                          -> ModifyKnockdown.CODEC;
-                case "Electrocute"                              -> Electrocute.CODEC;
-                case "EyeDamage"                                -> EyeDamage.CODEC;
-                case "ReduceRotting"                            -> ReduceRotting.CODEC;
-                case "CauseZombieInfection"                     -> CauseZombieInfection.CODEC;
-
+            "type", EffectData::type, type -> switch (type) {
+                case "EvenHealthChange" -> EvenHealthChange.CODEC;
+                case "HealthChange" -> HealthChange.CODEC;
+                case "Vomit" -> Vomit.CODEC;
+                case "Jitter" -> Jitter.CODEC;
+                case "Drunk" -> Drunk.CODEC;
+                case "ModifyBleed" -> ModifyBleed.CODEC;
+                case "Oxygenate" -> Oxygenate.CODEC;
+                case "ModifyLungGas" -> ModifyLungGas.CODEC;
+                case "AdjustAlert" -> AdjustAlert.CODEC;
+                case "SatiateHunger" -> SatiateHunger.CODEC;
+                case "ModifyBloodLevel" -> ModifyBloodLevel.CODEC;
+                case "SatiateThirst" -> SatiateThirst.CODEC;
+                case "PopupMessage" -> PopupMessage.CODEC;
+                case "Emote" -> Emote.CODEC;
+                case "ModifyStatusEffect" -> ModifyStatusEffect.CODEC;
+                case "AdjustReagent" -> AdjustReagent.CODEC;
+                case "CureZombieInfection" -> CureZombieInfection.CODEC;
+                case "ArtifactDurabilityRestore" -> ArtifactDurabilityRestore.CODEC;
+                case "ArtifactUnlock" -> ArtifactUnlock.CODEC;
+                case "GenericStatusEffect" -> GenericStatusEffect.CODEC;
+                case "Flammable" -> Flammable.CODEC;
+                case "Ignite" -> Ignite.CODEC;
+                case "AdjustTemperature" -> AdjustTemperature.CODEC;
+                case "Extinguish" -> Extinguish.CODEC;
+                case "MovementSpeedModifier" -> MovementSpeedModifier.CODEC;
+                case "CleanBloodstream" -> CleanBloodstream.CODEC;
+                case "MakeSentient" -> MakeSentient.CODEC;
+                case "Polymorph" -> Polymorph.CODEC;
+                case "ResetNarcolepsy" -> ResetNarcolepsy.CODEC;
+                case "ModifyKnockdown" -> ModifyKnockdown.CODEC;
+                case "Electrocute" -> Electrocute.CODEC;
+                case "EyeDamage" -> EyeDamage.CODEC;
+                case "ReduceRotting" -> ReduceRotting.CODEC;
+                case "CauseZombieInfection" -> CauseZombieInfection.CODEC;
                 default -> throw new IllegalStateException("Unknown effect type: " + type);
-            }
-    );
-    // EvenHealthChange
-    record EvenHealthChange(List<ConditionData> conditions, Map<String, Float> damage) implements EffectData {
-        public static final MapCodec<EvenHealthChange> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(EvenHealthChange::conditions),
-                Codec.unboundedMap(Codec.STRING, Codec.FLOAT).fieldOf("damage").forGetter(EvenHealthChange::damage)
-                // TODO: Codec.simpleMap can use REGISTRIES as the KEYABLE ARGUMENT! So, if I end up registering more things, like damage types and what-not, this would be the way to define what values are allowed.
-        ).apply(inst, EvenHealthChange::new));
+            });
 
+    record EvenHealthChange(EffectCommonData common, boolean ignoreResistances, Map<String, Float> damage) implements EffectData {
+        public EvenHealthChange {
+            damage = Map.copyOf(Objects.requireNonNull(damage, "damage"));
+        }
+
+        public static final MapCodec<EvenHealthChange> CODEC = EffectCommonData.withCommon(RecordCodecBuilder.<EvenHealthChange>mapCodec(i -> i.group(
+                Codec.BOOL.optionalFieldOf("ignoreresistances", true).forGetter(EvenHealthChange::ignoreResistances),
+                Codec.unboundedMap(EffectCodecHelpers.closedString(Set.of(
+                                "brute", "burn", "airloss", "toxin", "genetic", "metaphysical")),
+                        EffectCodecHelpers.FINITE_FLOAT).fieldOf("damage").forGetter(EvenHealthChange::damage)
+        ).apply(i, (ignore, damage) -> new EvenHealthChange(EffectCommonData.DEFAULT, ignore, damage))),
+                EvenHealthChange::common,
+                (value, common) -> new EvenHealthChange(
+                        common, value.ignoreResistances(), value.damage()));
+        public EvenHealthChange(List<ConditionData> conditions, Map<String, Float> damage) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), true, damage);
+        }
+        public EvenHealthChange(Map<String, Float> damage) { this(EffectCommonData.DEFAULT, true, damage); }
         @Override public String type() { return "EvenHealthChange"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        private static final Map<String, List<String>> damageGroupToType = Map.of(
-                "brute", List.of("blunt", "pierce", "slash"),
-                "burn", List.of("heat", "cold", "shock", "caustic"),
-                "airloss", List.of("asphyxiation", "bloodloss"),
-                "toxin", List.of("poison", "radiation"),
-                "genetic", List.of("cellular"),
-                "metaphysical", List.of("holy")
-        );
-        @Override public void apply(EffectContext ctx) {
-            DamageData damageContainer = ctx.entity().getData(ModDataAttachments.DAMAGE.get());
-            Map<String, Float> damageMap = damageContainer.getMap();
-            // Need Better naming convention.
-            // damage here is a map to damage groups, NOT damage types.
-
-            // TODO: Check if even is damageable.
-
-            // Get our total damage, or heal if we're below a certain amount.
-            // TODO: Use a registry to convert damage groups to types.
-            // TODO: Provide helper classes in DamageData ("Entity damage container") to get damage by group.
-
-            // make sure damageChange has the same damage types as damage
-            damage.forEach(
-                (group_name, amount) ->{
-                    List<String> keys = new ArrayList<>(damageGroupToType.get(group_name));
-                    var damageChange = new HashMap<String, Float>();
-                    for (String key : keys)
-                    {
-                        damageChange.put(key, 0f);
-                    }
-                    float remaining = -amount * ctx.scale();
-                    while (remaining > 0){
-                        int count = keys.size();
-                        if (count == 0) break;
-                        float maxHeal = remaining / count;
-                        for (int i = count-1; i >=0; i--) {
-                            String key = keys.get(i);
-                            // TODO: Use helper damage function? SpecificAdd?
-                            float heal = maxHeal;
-                            float current_damage = damageMap.getOrDefault(key,0f);
-                            if (heal >= current_damage) {
-                                heal = current_damage;
-                                keys.remove(i);
-                            }
-                            if (heal >= remaining) {
-                                remaining = 0;
-                                damageChange.put(key, damageChange.get(key) - heal);
-                                break;
-                            }
-                            remaining -= heal;
-                            damageChange.put(key, damageChange.get(key) - heal);
-                        }
-                    }
-                    damageContainer.mergeAdd(damageChange, 1000f);
-                    // TODO: Events. Probably wanna shoot one off when damage is changed. Future concern.
-                    // TODO: Add Resistances / Damage Modifiers here.
-                    // May wanna roll up the above TODOs into some kind of damage handler.
-                }
-            );
-        }
     }
 
-    // HealthChange with optional conditions and a nested damage object
-    record HealthChange(List<ConditionData> conditions, boolean ignoreResistances, DamageSpecifierData damage) implements EffectData {
-        public static final MapCodec<HealthChange> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(HealthChange::conditions),
-                Codec.BOOL.optionalFieldOf("ignoreResistances", true).forGetter(HealthChange::ignoreResistances),
+    record HealthChange(EffectCommonData common, boolean ignoreResistances, DamageSpecifierData damage) implements EffectData {
+        public static final MapCodec<HealthChange> CODEC = EffectCommonData.withCommon(RecordCodecBuilder.<HealthChange>mapCodec(i -> i.group(
+                Codec.BOOL.optionalFieldOf("ignoreresistances", true).forGetter(HealthChange::ignoreResistances),
                 DamageSpecifierData.CODEC.fieldOf("damage").forGetter(HealthChange::damage)
-                // TODO: Handle Damage Groups.
-        ).apply(inst, HealthChange::new));
-
+        ).apply(i, (ignore, damage) -> new HealthChange(EffectCommonData.DEFAULT, ignore, damage))),
+                HealthChange::common,
+                (value, common) -> new HealthChange(
+                        common, value.ignoreResistances(), value.damage()));
+        public HealthChange(List<ConditionData> conditions, boolean ignoreResistances,
+                            DamageSpecifierData damage) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), ignoreResistances, damage);
+        }
+        public HealthChange(boolean ignoreResistances, DamageSpecifierData damage) { this(EffectCommonData.DEFAULT, ignoreResistances, damage); }
         @Override public String type() { return "HealthChange"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO: implement ignoreResistances
-            DamageData damageContainer = ctx.entity().getData(ModDataAttachments.DAMAGE.get());
-            float scale = ctx.scale();
-            if (scale == 1f){
-                // I highly doubt this is saving that much computation time in practice lol.
-                damageContainer.mergeAdd(damage.types(), 1000f);
-                return;
-            }
-            HashMap<String, Float> dS = new HashMap(damage.types());
-            dS.replaceAll((k, v) -> dS.get(k) * scale);
-            damageContainer.mergeAdd(dS, 1000f);
-        }
     }
 
-    // Vomit effect with optional conditions and probability
-    record Vomit(List<ConditionData> conditions, Float probability) implements EffectData {
-        public static final MapCodec<Vomit> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Vomit::conditions),
-                Codec.FLOAT.optionalFieldOf("probability", 1.0f).forGetter(Vomit::probability)
-        ).apply(inst, Vomit::new));
-
+    record Vomit(EffectCommonData common) implements EffectData {
+        public static final MapCodec<Vomit> CODEC = unit(Vomit::new);
+        public Vomit(List<ConditionData> conditions, Float probability) {
+            this(new EffectCommonData(conditions, probability, 0f, true));
+        }
         @Override public String type() { return "Vomit"; }
-        @Override public boolean shouldApply(EffectContext ctx) {
-            // It's so unlikely this ever matters, but here we scale probability by scale so that any reagent that has a probability of making vomitting happen will reduce chance if reagent would've been done metabolizing partway through the tick window.
-            return Math.random() < (ctx.scale() * probability) && conditionsPass(ctx.entity(), conditions);
-        }
-        @Override public void apply(EffectContext ctx) {
-            // Chance to trigger vomit action based on probability.
-
-            // VOMIT
-            // Set off an event for trying to vomit.
-            // Update hunger and thirst (notably lower both), check SS14s codebase for balance.
-            // - Attempt to remove 40 hunger and 40 thirst. (i.e. become hungry and thirsty)
-            // - Note that hunger is out of 200, thirst probably the same.
-            // Remove x reagent based on how much hunger / thirst was removed.
-            // Add it to some vomit solution
-            // Then dump it on the ground where the player is standing.
-            Entity entity = ctx.entity();
-            float hungerAdded = -40f;
-            float thirstAdded = -40f;
-            float vomitAmount = (Math.abs(thirstAdded) + Math.abs(hungerAdded)) / 6;
-
-            // TODO: Slow the player down.
-            ReagentAttachment source = entity.getData(ModDataAttachments.REAGENT.get());
-            ReagentAttachment vomitSolution = new ReagentAttachment(source.naiveRemove(vomitAmount));
-            vomitSolution.scale(.1f);
-            float bloodstreamContribution = getTotal(vomitSolution.getMap());
-            vomitAmount -= bloodstreamContribution;
-            vomitSolution.specificAdd(ModReagents.createKey("vomit"), vomitAmount, Float.MAX_VALUE);
-            ReagentSystem.handleSpillSolution(vomitSolution, entity.level(), entity.getOnPos());
-        }
     }
 
-    // Jitter with optional conditions
-    record Jitter(List<ConditionData> conditions) implements EffectData {
-        public static final MapCodec<Jitter> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Jitter::conditions)
-        ).apply(inst, Jitter::new));
+    record Jitter(EffectCommonData common, float amplitude, float frequency, float time, boolean refresh) implements EffectData {
+        public static final MapCodec<Jitter> CODEC = EffectCommonData.withCommon(RecordCodecBuilder.<Jitter>mapCodec(i -> i.group(
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("amplitude", 10f).forGetter(Jitter::amplitude),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("frequency", 4f).forGetter(Jitter::frequency),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("time", 2f).forGetter(Jitter::time),
+                        Codec.BOOL.optionalFieldOf("refresh", true).forGetter(Jitter::refresh))
+                .apply(i, (amplitude, frequency, time, refresh) ->
+                        new Jitter(EffectCommonData.DEFAULT, amplitude, frequency, time, refresh))),
+                Jitter::common,
+                (value, common) -> new Jitter(common, value.amplitude(), value.frequency(), value.time(), value.refresh()));
+        public Jitter(EffectCommonData common) {
+            this(common, 10f, 4f, 2f, true);
+        }
 
+        public Jitter(List<ConditionData> conditions) {
+            this(new EffectCommonData(conditions, 1f, 0f, true));
+        }
         @Override public String type() { return "Jitter"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // Add to a set of active effects on the entity.
-            Entity entity = ctx.entity();
-            if (entity instanceof IStatusEffectTrait statusEffectHolder){
-                StatusEffectSystem.setTime(statusEffectHolder.toHandleSelf(), entity.level(), ModStatusEffects.createKey("jitter"), 2f);
+    }
+
+    record Drunk(EffectCommonData common, float boozePower) implements EffectData {
+        public static final MapCodec<Drunk> CODEC = EffectData.common(RecordCodecBuilder.<Drunk>mapCodec(i -> i.group(EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("boozepower", 3f).forGetter(Drunk::boozePower)).apply(i, power -> new Drunk(EffectCommonData.DEFAULT, power))), Drunk::new);
+        public Drunk(List<ConditionData> conditions, float boozePower) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), boozePower);
+        }
+        private Drunk(EffectCommonData common, Drunk value) { this(common, value.boozePower()); }
+        @Override public String type() { return "Drunk"; }
+    }
+
+    record ModifyBleed(EffectCommonData common, float amount) implements EffectData {
+        public static final MapCodec<ModifyBleed> CODEC = EffectData.common(RecordCodecBuilder.<ModifyBleed>mapCodec(i -> i.group(Codec.FLOAT.fieldOf("amount").forGetter(ModifyBleed::amount)).apply(i, amount -> new ModifyBleed(EffectCommonData.DEFAULT, amount))), ModifyBleed::new);
+        public ModifyBleed(List<ConditionData> conditions, float amount) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), amount);
+        }
+        private ModifyBleed(EffectCommonData common, ModifyBleed value) { this(common, value.amount()); }
+        @Override public String type() { return "ModifyBleed"; }
+    }
+
+    record Oxygenate(EffectCommonData common, float factor) implements EffectData {
+        public static final MapCodec<Oxygenate> CODEC = EffectData.common(RecordCodecBuilder.<Oxygenate>mapCodec(i -> i.group(Codec.FLOAT.optionalFieldOf("factor", 1f).forGetter(Oxygenate::factor)).apply(i, factor -> new Oxygenate(EffectCommonData.DEFAULT, factor))), Oxygenate::new);
+        public Oxygenate(List<ConditionData> conditions, float factor) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), factor);
+        }
+        private Oxygenate(EffectCommonData common, Oxygenate value) { this(common, value.factor()); }
+        @Override public String type() { return "Oxygenate"; }
+    }
+
+    record ModifyLungGas(EffectCommonData common, Map<ResourceKey<ReagentData>, Float> ratios) implements EffectData {
+        public static final MapCodec<ModifyLungGas> CODEC = EffectData.common(RecordCodecBuilder.<ModifyLungGas>mapCodec(i -> i.group(Codec.unboundedMap(REAGENT_KEY, Codec.FLOAT).fieldOf("ratios").forGetter(ModifyLungGas::ratios)).apply(i, ratios -> new ModifyLungGas(EffectCommonData.DEFAULT, ratios))), ModifyLungGas::new);
+        public ModifyLungGas(List<ConditionData> conditions, Map<ResourceKey<ReagentData>, Float> ratios) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), ratios);
+        }
+        private ModifyLungGas(EffectCommonData common, ModifyLungGas value) { this(common, value.ratios()); }
+        @Override public String type() { return "ModifyLungGas"; }
+    }
+
+    record AdjustAlert(EffectCommonData common, ResourceKey<AlertData> alertType, boolean clear, boolean showCooldown, float time) implements EffectData {
+        public static final MapCodec<AdjustAlert> CODEC = EffectData.common(RecordCodecBuilder.<AdjustAlert>mapCodec(i -> i.group(ModAlerts.ALERT_KEY_CODEC.fieldOf("alerttype").forGetter(AdjustAlert::alertType), Codec.BOOL.optionalFieldOf("clear", false).forGetter(AdjustAlert::clear), Codec.BOOL.optionalFieldOf("showcooldown", false).forGetter(value -> value.showCooldown()), EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("time", 0f).forGetter(AdjustAlert::time)).apply(i, (alert, clear, showCooldown, time) -> new AdjustAlert(EffectCommonData.DEFAULT, alert, clear, showCooldown, time))), AdjustAlert::new);
+        public AdjustAlert(List<ConditionData> conditions, ResourceKey<AlertData> alertType, float minScale,
+                           boolean clear, float time) {
+            this(new EffectCommonData(conditions, 1f, minScale, true), alertType, clear, false, time);
+        }
+        public AdjustAlert(EffectCommonData common, ResourceKey<AlertData> alertType, boolean clear, float time) {
+            this(common, alertType, clear, false, time);
+        }
+        public AdjustAlert(List<ConditionData> conditions, String alertType, float minScale,
+                           boolean clear, float time) {
+            this(conditions, ModAlerts.createKeyFromReference(alertType), minScale, clear, time);
+        }
+        public AdjustAlert(EffectCommonData common, String alertType, boolean clear,
+                           boolean showCooldown, float time) {
+            this(common, ModAlerts.createKeyFromReference(alertType), clear, showCooldown, time);
+        }
+        public AdjustAlert(EffectCommonData common, String alertType, boolean clear, float time) {
+            this(common, ModAlerts.createKeyFromReference(alertType), clear, false, time);
+        }
+        private AdjustAlert(EffectCommonData common, AdjustAlert value) { this(common, value.alertType(), value.clear(), value.showCooldown(), value.time()); }
+        @Override public String type() { return "AdjustAlert"; }
+    }
+
+    record SatiateHunger(EffectCommonData common, float factor) implements EffectData {
+        public static final MapCodec<SatiateHunger> CODEC = EffectData.common(RecordCodecBuilder.<SatiateHunger>mapCodec(i -> i.group(EffectCodecHelpers.FINITE_FLOAT.optionalFieldOf("factor", 1.5f).forGetter(SatiateHunger::factor)).apply(i, factor -> new SatiateHunger(EffectCommonData.DEFAULT, factor))), SatiateHunger::new);
+        public SatiateHunger(List<ConditionData> conditions, float factor) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), factor);
+        }
+        private SatiateHunger(EffectCommonData common, SatiateHunger value) { this(common, value.factor()); }
+        @Override public String type() { return "SatiateHunger"; }
+    }
+
+    record ModifyBloodLevel(EffectCommonData common, float amount) implements EffectData {
+        public static final MapCodec<ModifyBloodLevel> CODEC = EffectData.common(RecordCodecBuilder.<ModifyBloodLevel>mapCodec(i -> i.group(Codec.FLOAT.fieldOf("amount").forGetter(ModifyBloodLevel::amount)).apply(i, amount -> new ModifyBloodLevel(EffectCommonData.DEFAULT, amount))), ModifyBloodLevel::new);
+        public ModifyBloodLevel(List<ConditionData> conditions, float amount) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), amount);
+        }
+        private ModifyBloodLevel(EffectCommonData common, ModifyBloodLevel value) { this(common, value.amount()); }
+        @Override public String type() { return "ModifyBloodLevel"; }
+    }
+
+    record SatiateThirst(EffectCommonData common, float factor) implements EffectData {
+        public static final MapCodec<SatiateThirst> CODEC = EffectData.common(RecordCodecBuilder.<SatiateThirst>mapCodec(i -> i.group(EffectCodecHelpers.FINITE_FLOAT.optionalFieldOf("factor", 1.5f).forGetter(SatiateThirst::factor)).apply(i, factor -> new SatiateThirst(EffectCommonData.DEFAULT, factor))), SatiateThirst::new);
+        public SatiateThirst(List<ConditionData> conditions, float factor) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), factor);
+        }
+        private SatiateThirst(EffectCommonData common, SatiateThirst value) { this(common, value.factor()); }
+        @Override public String type() { return "SatiateThirst"; }
+    }
+
+    record PopupMessage(EffectCommonData common, PopupRecipients subType, PopupMethod method,
+                        PopupVisualType visualType, List<String> messages) implements EffectData {
+        public PopupMessage {
+            messages = List.copyOf(Objects.requireNonNull(messages, "messages"));
+            if (messages.isEmpty() || messages.stream().anyMatch(String::isBlank)) {
+                throw new IllegalArgumentException("messages must be nonempty and contain no blank keys");
             }
         }
-    }
 
-    // Drunk with no extra fields
-    record Drunk(List<ConditionData> conditions, float boozePower) implements EffectData {
-        public static final MapCodec<Drunk> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Drunk::conditions),
-                Codec.FLOAT.optionalFieldOf("boozepower", 1f).forGetter(Drunk::boozePower)
-        ).apply(inst, Drunk::new));
-
-        @Override public String type() { return "Drunk"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // Add to a set of active effects on the entity.
+        public static final MapCodec<PopupMessage> CODEC = EffectData.common(RecordCodecBuilder.<PopupMessage>mapCodec(i -> i.group(
+                PopupRecipients.CODEC.optionalFieldOf("subtype", PopupRecipients.Local).forGetter(PopupMessage::subType),
+                PopupMethod.CODEC.optionalFieldOf("method", PopupMethod.PopupEntity).forGetter(PopupMessage::method),
+                PopupVisualType.CODEC.optionalFieldOf("visualtype", PopupVisualType.Small).forGetter(PopupMessage::visualType),
+                 Codec.list(EffectCodecHelpers.NONBLANK_STRING).validate(messages -> !messages.isEmpty()
+                         ? com.mojang.serialization.DataResult.success(messages)
+                         : com.mojang.serialization.DataResult.error(() -> "messages must not be empty"))
+                        .fieldOf("messages").forGetter(PopupMessage::messages))
+                .apply(i, (sub, method, visual, messages) -> new PopupMessage(
+                        EffectCommonData.DEFAULT, sub, method, visual, messages))), PopupMessage::new);
+        public PopupMessage(List<ConditionData> conditions, String subType, String visualType,
+                            List<String> messages, float probability) {
+                this(new EffectCommonData(conditions, probability, 0f, true),
+                    popupRecipient(subType), PopupMethod.PopupEntity, popupVisual(visualType), messages);
         }
-    }
-
-    record ModifyBleed(List<ConditionData> conditions, float amount) implements EffectData {
-        public static final MapCodec<ModifyBleed> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ModifyBleed::conditions),
-                Codec.FLOAT.fieldOf("amount").forGetter(ModifyBleed::amount)
-        ).apply(inst, ModifyBleed::new));
-
-        @Override public String type() { return "ModifyBleed"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            DamageData damageContainer = ctx.entity().getData(ModDataAttachments.DAMAGE.get());
-            float scale = ctx.scale();
-            damageContainer.specificAdd(DamageEnum.BLOODLOSS.getId(), amount * scale, 1000f);
+        public PopupMessage(EffectCommonData common, String subType, String visualType,
+                            List<String> messages) {
+            this(common, popupRecipient(subType), PopupMethod.PopupEntity, popupVisual(visualType), messages);
         }
-    }
-
-    record Oxygenate(List<ConditionData> conditions, float factor) implements EffectData {
-        public static final MapCodec<Oxygenate> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Oxygenate::conditions),
-                Codec.FLOAT.optionalFieldOf("factor", 1f).forGetter(Oxygenate::factor)
-        ).apply(inst, Oxygenate::new));
-
-        @Override public String type() { return "ModifyBleed"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO: Implement
-            return;
+        private PopupMessage(EffectCommonData common, PopupMessage value) {
+            this(common, value.subType(), value.method(), value.visualType(), value.messages());
         }
-    }
-
-    record ModifyLungGas(List<ConditionData> conditions, Map<ResourceKey<ReagentData>, Float> ratios) implements EffectData {
-        public static final MapCodec<ModifyLungGas> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ModifyLungGas::conditions),
-                Codec.unboundedMap(LENIENT_ID_CODEC.xmap(
-                        rl -> ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, rl),
-                        ResourceKey::location
-                ), Codec.FLOAT).fieldOf("ratios").forGetter(ModifyLungGas::ratios)
-        ).apply(inst, ModifyLungGas::new));
-
-        @Override public String type() { return "ModifyLungGas"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
-    }
-
-    record AdjustAlert(List<ConditionData> conditions, String alertType, float minScale, boolean clear, float time) implements EffectData {
-        public static final MapCodec<AdjustAlert> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(AdjustAlert::conditions),
-                Codec.STRING.fieldOf("alerttype").forGetter(AdjustAlert::alertType), // This might be an enum!
-                Codec.FLOAT.fieldOf("minscale").forGetter(AdjustAlert::minScale),
-                Codec.BOOL.fieldOf("clear").forGetter(AdjustAlert::clear),
-                Codec.FLOAT.fieldOf("time").forGetter(AdjustAlert::time)
-        ).apply(inst, AdjustAlert::new));
-
-        @Override public String type() { return "AdjustAlert"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
-    }
-
-    record SatiateHunger(List<ConditionData> conditions, float factor) implements EffectData {
-        public static final MapCodec<SatiateHunger> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(SatiateHunger::conditions),
-                Codec.FLOAT.optionalFieldOf("factor", 1f).forGetter(SatiateHunger::factor)
-        ).apply(inst, SatiateHunger::new));
-
-        @Override public String type() { return "SatiateHunger"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
-    }
-
-    record ModifyBloodLevel(List<ConditionData> conditions, float amount) implements EffectData {
-        public static final MapCodec<ModifyBloodLevel> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ModifyBloodLevel::conditions),
-                Codec.FLOAT.fieldOf("amount").forGetter(ModifyBloodLevel::amount)
-        ).apply(inst, ModifyBloodLevel::new));
-
-        @Override public String type() { return "ModifyBloodLevel"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            DamageData damageContainer = ctx.entity().getData(ModDataAttachments.DAMAGE.get());
-            float scale = ctx.scale();
-            damageContainer.specificAdd(DamageEnum.BLOODLOSS.getId(), amount * scale, 1000f);
-        }
-    }
-
-    record SatiateThirst(List<ConditionData> conditions, float factor) implements EffectData {
-        public static final MapCodec<SatiateThirst> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(SatiateThirst::conditions),
-                Codec.FLOAT.optionalFieldOf("factor", 1f).forGetter(SatiateThirst::factor)
-        ).apply(inst, SatiateThirst::new));
-
-        @Override public String type() { return "SatiateThirst"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
-    }
-
-    record PopupMessage(List<ConditionData> conditions, String subType, String visualType, List<String> messages, float probability) implements EffectData {
-        public static final MapCodec<PopupMessage> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(PopupMessage::conditions),
-                Codec.STRING.fieldOf("subtype").forGetter(PopupMessage::subType),
-                Codec.STRING.optionalFieldOf("visualtype", "unknown").forGetter(PopupMessage::visualType),
-                Codec.list(Codec.STRING).fieldOf("messages").forGetter(PopupMessage::messages),
-                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PopupMessage::probability)
-        ).apply(inst, PopupMessage::new));
-
         @Override public String type() { return "PopupMessage"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
+
+        private static PopupRecipients popupRecipient(String value) {
+            return switch (value) {
+                case "local" -> PopupRecipients.Local;
+                case "pvs" -> PopupRecipients.Pvs;
+                default -> throw new IllegalArgumentException("Unknown popup recipient: " + value);
+            };
+        }
+
+        private static PopupVisualType popupVisual(String value) {
+            return switch (value) {
+                case "small" -> PopupVisualType.Small;
+                case "smallcaution" -> PopupVisualType.SmallCaution;
+                case "medium" -> PopupVisualType.Medium;
+                case "mediumcaution" -> PopupVisualType.MediumCaution;
+                case "large" -> PopupVisualType.Large;
+                case "largecaution" -> PopupVisualType.LargeCaution;
+                default -> throw new IllegalArgumentException("Unknown popup visual type: " + value);
+            };
         }
     }
 
-    record Emote(List<ConditionData> conditions, String emote, boolean showInGuidebook, float probability) implements EffectData {
-        public static final MapCodec<Emote> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Emote::conditions),
-                Codec.STRING.fieldOf("emote").forGetter(Emote::emote),
-                Codec.BOOL.optionalFieldOf("showinguidebook", false).forGetter(Emote::showInGuidebook),
-                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(Emote::probability)
-        ).apply(inst, Emote::new));
-
+    record Emote(EffectCommonData common, String emote, boolean showInGuidebook, boolean showInChat, boolean force) implements EffectData {
+        public static final MapCodec<Emote> CODEC = EffectData.common(RecordCodecBuilder.<Emote>mapCodec(i -> i.group(EmoteRegistry.CODEC.fieldOf("emote").forGetter(Emote::emote), Codec.BOOL.optionalFieldOf("showinguidebook", false).forGetter(Emote::showInGuidebook), Codec.BOOL.optionalFieldOf("showinchat", false).forGetter(Emote::showInChat), Codec.BOOL.optionalFieldOf("force", false).forGetter(Emote::force)).apply(i, (emote, guide, chat, force) -> new Emote(EffectCommonData.DEFAULT, emote, guide, chat, force))), Emote::new);
+        public Emote(List<ConditionData> conditions, String emote, boolean showInGuidebook,
+                     float probability) {
+            this(new EffectCommonData(conditions, probability, 0f, true), emote,
+                    showInGuidebook, false, false);
+        }
+        public Emote {
+            Objects.requireNonNull(common, "common");
+            Objects.requireNonNull(emote, "emote");
+        }
+        private Emote(EffectCommonData common, Emote value) { this(common, value.emote(), value.showInGuidebook(), value.showInChat(), value.force()); }
         @Override public String type() { return "Emote"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record ModifyStatusEffect(List<ConditionData> conditions, String effectKey, float time, String subType) implements EffectData {
-        public static final MapCodec<ModifyStatusEffect> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ModifyStatusEffect::conditions),
-                Codec.STRING.fieldOf("effectproto").forGetter(ModifyStatusEffect::effectKey), // TODO: Make this a registry lol.
-                Codec.FLOAT.optionalFieldOf("time", 1f).forGetter(ModifyStatusEffect::time),
-                Codec.STRING.optionalFieldOf("subtype", "update").forGetter(ModifyStatusEffect::subType) // TODO: Make this an enum (remove, add, update)
-        ).apply(inst, ModifyStatusEffect::new));
+    record ModifyStatusEffect(EffectCommonData common, String effectKey, StatusEffectDuration time,
+                              StatusEffectOperation subType, float delay) implements EffectData {
+        public static final MapCodec<ModifyStatusEffect> CODEC = EffectData.common(
+                RecordCodecBuilder.<ModifyStatusEffect>mapCodec(i -> i.group(
+                        EffectCodecHelpers.NONBLANK_STRING.fieldOf("effectproto")
+                                .forGetter(ModifyStatusEffect::effectKey),
+                        StatusEffectDuration.fieldOf("time")
+                                .forGetter(ModifyStatusEffect::time),
+                        StatusEffectOperation.CODEC.optionalFieldOf("subtype", StatusEffectOperation.UPDATE)
+                                .forGetter(ModifyStatusEffect::subType),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("delay", 0f)
+                                .forGetter(ModifyStatusEffect::delay)
+                ).apply(i, (key, time, sub, delay) -> new ModifyStatusEffect(
+                        EffectCommonData.DEFAULT, key, time, sub, delay))),
+                ModifyStatusEffect::new);
 
+        public ModifyStatusEffect {
+            common = Objects.requireNonNull(common, "common");
+            effectKey = requireNonBlank(effectKey, "effectKey");
+            Objects.requireNonNull(time, "time");
+            Objects.requireNonNull(subType, "subType");
+            if (!Float.isFinite(delay) || delay < 0f) {
+                throw new IllegalArgumentException("delay must be finite and nonnegative");
+            }
+        }
+
+        public ModifyStatusEffect(List<ConditionData> conditions, String effectKey,
+                                   float time, String subType) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), effectKey,
+                    StatusEffectDuration.finite(time), operation(subType), 0f);
+        }
+        public ModifyStatusEffect(List<ConditionData> conditions, String effectKey,
+                                  StatusEffectDuration time, StatusEffectOperation subType) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), effectKey, time, subType, 0f);
+        }
+        private ModifyStatusEffect(EffectCommonData common, ModifyStatusEffect value) {
+            this(common, value.effectKey(), value.time(), value.subType(), value.delay());
+        }
         @Override public String type() { return "ModifyStatusEffect"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record AdjustReagent(List<ConditionData> conditions, ResourceKey<ReagentData> reagent, float amount) implements EffectData {
-        public static final MapCodec<AdjustReagent> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(AdjustReagent::conditions),
-                LENIENT_ID_CODEC.xmap(
-                        rl -> ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, rl),
-                        ResourceKey::location
-                ).fieldOf("reagent").forGetter(AdjustReagent::reagent),
-                Codec.FLOAT.fieldOf("amount").forGetter(AdjustReagent::amount)
-        ).apply(inst, AdjustReagent::new));
-
+    record AdjustReagent(EffectCommonData common, ResourceKey<ReagentData> reagent, float amount) implements EffectData {
+        public static final MapCodec<AdjustReagent> CODEC = EffectData.common(RecordCodecBuilder.<AdjustReagent>mapCodec(i -> i.group(REAGENT_KEY.fieldOf("reagent").forGetter(AdjustReagent::reagent), EffectCodecHelpers.FINITE_FLOAT.fieldOf("amount").forGetter(AdjustReagent::amount)).apply(i, (reagent, amount) -> new AdjustReagent(EffectCommonData.DEFAULT, reagent, amount))), AdjustReagent::new);
+        public AdjustReagent(List<ConditionData> conditions, ResourceKey<ReagentData> reagent,
+                             float amount) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), reagent, amount);
+        }
+        private AdjustReagent(EffectCommonData common, AdjustReagent value) { this(common, value.reagent(), value.amount()); }
         @Override public String type() { return "AdjustReagent"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record CureZombieInfection(List<ConditionData> conditions) implements EffectData {
-        public static final MapCodec<CureZombieInfection> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(CureZombieInfection::conditions)
-        ).apply(inst, CureZombieInfection::new));
-
+    record CureZombieInfection(EffectCommonData common, boolean innoculate) implements EffectData {
+        public static final MapCodec<CureZombieInfection> CODEC = EffectData.common(RecordCodecBuilder.<CureZombieInfection>mapCodec(i -> i.group(Codec.BOOL.optionalFieldOf("innoculate", false).forGetter(CureZombieInfection::innoculate)).apply(i, value -> new CureZombieInfection(EffectCommonData.DEFAULT, value))), CureZombieInfection::new);
+        public CureZombieInfection(List<ConditionData> conditions) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), false);
+        }
+        public CureZombieInfection(boolean innoculate) {
+            this(EffectCommonData.DEFAULT, innoculate);
+        }
+        private CureZombieInfection(EffectCommonData common, CureZombieInfection value) { this(common, value.innoculate()); }
         @Override public String type() { return "CureZombieInfection"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record ArtifactDurabilityRestore(List<ConditionData> conditions, float minScale) implements EffectData {
-        public static final MapCodec<ArtifactDurabilityRestore> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ArtifactDurabilityRestore::conditions),
-                Codec.FLOAT.fieldOf("minscale").forGetter(ArtifactDurabilityRestore::minScale)
-        ).apply(inst, ArtifactDurabilityRestore::new));
+    record ArtifactDurabilityRestore(EffectCommonData common) implements EffectData {
+        public static final MapCodec<ArtifactDurabilityRestore> CODEC = unit(ArtifactDurabilityRestore::new);
+
+        public ArtifactDurabilityRestore(List<ConditionData> conditions, float minScale) {
+            this(new EffectCommonData(conditions, 1f, minScale, true));
+        }
 
         @Override public String type() { return "ArtifactDurabilityRestore"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record ArtifactUnlock(List<ConditionData> conditions, float minScale) implements EffectData {
-        public static final MapCodec<ArtifactUnlock> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ArtifactUnlock::conditions),
-                Codec.FLOAT.fieldOf("minscale").forGetter(ArtifactUnlock::minScale)
-        ).apply(inst, ArtifactUnlock::new));
+    record ArtifactUnlock(EffectCommonData common) implements EffectData {
+        public static final MapCodec<ArtifactUnlock> CODEC = unit(ArtifactUnlock::new);
+
+        public ArtifactUnlock(List<ConditionData> conditions, float minScale) {
+            this(new EffectCommonData(conditions, 1f, minScale, true));
+        }
 
         @Override public String type() { return "ArtifactUnlock"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record GenericStatusEffect(List<ConditionData> conditions, String effectKey, String component, String subType, float time) implements EffectData {
-        public static final MapCodec<GenericStatusEffect> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(GenericStatusEffect::conditions),
-                Codec.STRING.fieldOf("key").forGetter(GenericStatusEffect::effectKey), // TODO: Make this a registry lol.
-                Codec.STRING.optionalFieldOf("component", "None").forGetter(GenericStatusEffect::component), // TODO: Make this a registry lol.
-                Codec.STRING.optionalFieldOf("subtype", "update").forGetter(GenericStatusEffect::subType), // TODO: Make this an enum (remove, add, update)
-                Codec.FLOAT.optionalFieldOf("time", 1f).forGetter(GenericStatusEffect::time)
-        ).apply(inst, GenericStatusEffect::new));
+    record GenericStatusEffect(EffectCommonData common, String effectKey, String component,
+                               StatusEffectOperation subType, float time) implements EffectData {
+        public static final MapCodec<GenericStatusEffect> CODEC = EffectData.common(
+                RecordCodecBuilder.<GenericStatusEffect>mapCodec(i -> i.group(
+                        EffectCodecHelpers.NONBLANK_STRING.fieldOf("key").forGetter(GenericStatusEffect::effectKey),
+                        Codec.STRING.optionalFieldOf("component", "")
+                                .forGetter(GenericStatusEffect::component),
+                        StatusEffectOperation.CODEC.optionalFieldOf("subtype", StatusEffectOperation.UPDATE)
+                                .forGetter(GenericStatusEffect::subType),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("time", 2f)
+                                .forGetter(GenericStatusEffect::time)
+                ).apply(i, (key, component, sub, time) -> new GenericStatusEffect(
+                        EffectCommonData.DEFAULT, key, component, sub, time))),
+                GenericStatusEffect::new);
 
+        public GenericStatusEffect {
+            common = Objects.requireNonNull(common, "common");
+            effectKey = requireNonBlank(effectKey, "effectKey");
+            Objects.requireNonNull(component, "component");
+            Objects.requireNonNull(subType, "subType");
+            if (!Float.isFinite(time) || time < 0f) {
+                throw new IllegalArgumentException("time must be finite and nonnegative");
+            }
+        }
+
+        public GenericStatusEffect(List<ConditionData> conditions, String effectKey,
+                                   String component, String subType, float time) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), effectKey, component,
+                    operation(subType), time);
+        }
+        public GenericStatusEffect(List<ConditionData> conditions, String effectKey,
+                                   String component, StatusEffectOperation subType, float time) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), effectKey, component, subType, time);
+        }
+        private GenericStatusEffect(EffectCommonData common, GenericStatusEffect v) {
+            this(common, v.effectKey(), v.component(), v.subType(), v.time());
+        }
         @Override public String type() { return "GenericStatusEffect"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
+    record Flammable(EffectCommonData common, float multiplier, Float multiplierOnExisting) implements EffectData {
+        public static final MapCodec<Flammable> CODEC = EffectData.common(
+                RecordCodecBuilder.<Flammable>mapCodec(i -> i.group(
+                        EffectCodecHelpers.FINITE_FLOAT.optionalFieldOf("multiplier", 0.05f)
+                                .forGetter(Flammable::multiplier),
+                        // Absence, rather than JSON null, is the canonical null representation.
+                        EffectCodecHelpers.FINITE_FLOAT.optionalFieldOf("multiplieronexisting")
+                                .forGetter(value -> java.util.Optional.ofNullable(value.multiplierOnExisting()))
+                ).apply(i, (multiplier, onExisting) -> new Flammable(
+                        EffectCommonData.DEFAULT, multiplier, onExisting.orElse(null)))),
+                Flammable::new);
 
-    record Flammable(List<ConditionData> conditions, float multiplier) implements EffectData {
-        public static final MapCodec<Flammable> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Flammable::conditions),
-                Codec.FLOAT.optionalFieldOf("multiplier", 1f).forGetter(Flammable::multiplier)
-        ).apply(inst, Flammable::new));
+        public Flammable(List<ConditionData> conditions, float multiplier) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), multiplier, null);
+        }
+        public Flammable(EffectCommonData common, float multiplier) {
+            this(common, multiplier, null);
+        }
+
+        private Flammable(EffectCommonData common, Flammable value) {
+            this(common, value.multiplier(), value.multiplierOnExisting());
+        }
 
         @Override public String type() { return "Flammable"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record Ignite(List<ConditionData> conditions) implements EffectData {
-        public static final MapCodec<Ignite> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Ignite::conditions)
-        ).apply(inst, Ignite::new));
+    record Ignite(EffectCommonData common) implements EffectData {
+        public static final MapCodec<Ignite> CODEC = unit(Ignite::new);
+
+        public Ignite(List<ConditionData> conditions) {
+            this(new EffectCommonData(conditions, 1f, 0f, true));
+        }
 
         @Override public String type() { return "Ignite"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record AdjustTemperature(List<ConditionData> conditions, float amount) implements EffectData {
-        public static final MapCodec<AdjustTemperature> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(AdjustTemperature::conditions),
-                Codec.FLOAT.fieldOf("amount").forGetter(AdjustTemperature::amount)
-        ).apply(inst, AdjustTemperature::new));
+    record AdjustTemperature(EffectCommonData common, float amount) implements EffectData {
+        public static final MapCodec<AdjustTemperature> CODEC = EffectData.common(
+                RecordCodecBuilder.<AdjustTemperature>mapCodec(i -> i.group(
+                        Codec.FLOAT.fieldOf("amount").forGetter(AdjustTemperature::amount)
+                ).apply(i, value -> new AdjustTemperature(EffectCommonData.DEFAULT, value))),
+                AdjustTemperature::new);
+
+        public AdjustTemperature(List<ConditionData> conditions, float amount) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), amount);
+        }
+
+        private AdjustTemperature(EffectCommonData common, AdjustTemperature value) {
+            this(common, value.amount());
+        }
 
         @Override public String type() { return "AdjustTemperature"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record Extinguish(List<ConditionData> conditions) implements EffectData {
-        public static final MapCodec<Extinguish> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Extinguish::conditions)
-        ).apply(inst, Extinguish::new));
+    record Extinguish(EffectCommonData common, float fireStacksAdjustment) implements EffectData {
+        public static final MapCodec<Extinguish> CODEC = EffectData.common(
+                RecordCodecBuilder.<Extinguish>mapCodec(i -> i.group(
+                        EffectCodecHelpers.FINITE_FLOAT.optionalFieldOf("firestacksadjustment", -1.5f)
+                                .forGetter(Extinguish::fireStacksAdjustment)
+                ).apply(i, value -> new Extinguish(EffectCommonData.DEFAULT, value))),
+                Extinguish::new);
+
+        public Extinguish(List<ConditionData> conditions) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), -1.5f);
+        }
+        public Extinguish(EffectCommonData common) {
+            this(common, -1.5f);
+        }
+
+        private Extinguish(EffectCommonData common, Extinguish value) {
+            this(common, value.fireStacksAdjustment());
+        }
 
         @Override public String type() { return "Extinguish"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record MovementSpeedModifier(List<ConditionData> conditions, float minScale, float walkSpeedModifier, float sprintSpeedModifier, float time) implements EffectData {
-        public static final MapCodec<MovementSpeedModifier> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(MovementSpeedModifier::conditions),
-                Codec.FLOAT.optionalFieldOf("minscale", 0f).forGetter(MovementSpeedModifier::minScale),
-                Codec.FLOAT.fieldOf("walkspeedmodifier").forGetter(MovementSpeedModifier::walkSpeedModifier),
-                Codec.FLOAT.fieldOf("sprintspeedmodifier").forGetter(MovementSpeedModifier::sprintSpeedModifier),
-                Codec.FLOAT.optionalFieldOf("time", 5f).forGetter(MovementSpeedModifier::time)
-        ).apply(inst, MovementSpeedModifier::new));
+    record MovementSpeedModifier(EffectCommonData common, float walkSpeedModifier,
+                                 float sprintSpeedModifier, String effectProto,
+                                 StatusEffectDuration time, StatusEffectOperation subType,
+                                 float delay) implements EffectData {
+        public static final MapCodec<MovementSpeedModifier> CODEC = EffectData.common(
+                RecordCodecBuilder.<MovementSpeedModifier>mapCodec(i -> i.group(
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("walkspeedmodifier", 1f)
+                                .forGetter(MovementSpeedModifier::walkSpeedModifier),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("sprintspeedmodifier", 1f)
+                                .forGetter(MovementSpeedModifier::sprintSpeedModifier),
+                        // Upstream MovementModStatusSystem.ReagentSpeed is
+                        // Upstream serializes the omitted default as
+                        // ReagentSpeedStatusEffect. Runtime key creation and
+                        // reference validation canonicalize it to the
+                        // lowercase prototype without changing this DTO.
+                        EffectCodecHelpers.NONBLANK_STRING.optionalFieldOf("effectproto", "ReagentSpeedStatusEffect")
+                                .forGetter(MovementSpeedModifier::effectProto),
+                        StatusEffectDuration.fieldOf("time")
+                                .forGetter(MovementSpeedModifier::time),
+                        StatusEffectOperation.CODEC.optionalFieldOf("subtype", StatusEffectOperation.UPDATE)
+                                .forGetter(MovementSpeedModifier::subType),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("delay", 0f)
+                                .forGetter(MovementSpeedModifier::delay)
+                ).apply(i, (walk, sprint, proto, time, sub, delay) -> new MovementSpeedModifier(
+                        EffectCommonData.DEFAULT, walk, sprint, proto, time, sub, delay))),
+                MovementSpeedModifier::new);
+
+        public MovementSpeedModifier {
+            common = Objects.requireNonNull(common, "common");
+            Objects.requireNonNull(effectProto, "effectProto");
+            if (effectProto.isBlank()) {
+                throw new IllegalArgumentException("effectProto must not be blank");
+            }
+            if (!Float.isFinite(walkSpeedModifier) || walkSpeedModifier < 0f
+                    || !Float.isFinite(sprintSpeedModifier) || sprintSpeedModifier < 0f) {
+                throw new IllegalArgumentException("speed modifiers must be finite and nonnegative");
+            }
+            Objects.requireNonNull(time, "time");
+            Objects.requireNonNull(subType, "subType");
+            if (!Float.isFinite(delay) || delay < 0f) {
+                throw new IllegalArgumentException("delay must be finite and nonnegative");
+            }
+        }
+
+        public MovementSpeedModifier(List<ConditionData> conditions, float minScale,
+                                      float walkSpeedModifier, float sprintSpeedModifier,
+                                      float time) {
+            this(new EffectCommonData(conditions, 1f, minScale, true),
+                    walkSpeedModifier, sprintSpeedModifier, "ReagentSpeedStatusEffect",
+                    StatusEffectDuration.finite(time), StatusEffectOperation.UPDATE, 0f);
+        }
+
+        public MovementSpeedModifier(List<ConditionData> conditions, float minScale,
+                                     float walkSpeedModifier, float sprintSpeedModifier,
+                                     String effectProto, StatusEffectDuration time,
+                                     StatusEffectOperation subType, float delay) {
+            this(new EffectCommonData(conditions, 1f, minScale, true), walkSpeedModifier,
+                    sprintSpeedModifier, effectProto, time, subType, delay);
+        }
+
+        private MovementSpeedModifier(EffectCommonData common, MovementSpeedModifier value) {
+            this(common, value.walkSpeedModifier(), value.sprintSpeedModifier(), value.effectProto(),
+                    value.time(), value.subType(), value.delay());
+        }
 
         @Override public String type() { return "MovementSpeedModifier"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record CleanBloodstream(List<ConditionData> conditions, ResourceKey<ReagentData> excluded, float cleanseRate) implements EffectData {
-        public static final MapCodec<CleanBloodstream> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(CleanBloodstream::conditions),
-                LENIENT_ID_CODEC.xmap(
-                        rl -> ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, rl),
-                        ResourceKey::location
-                ).fieldOf("excluded").forGetter(CleanBloodstream::excluded),
-                Codec.FLOAT.fieldOf("cleanserate").forGetter(CleanBloodstream::cleanseRate)
-        ).apply(inst, CleanBloodstream::new));
+    record CleanBloodstream(EffectCommonData common, ResourceKey<ReagentData> excluded,
+                            float cleanseRate) implements EffectData {
+        public static final MapCodec<CleanBloodstream> CODEC = EffectData.common(
+                RecordCodecBuilder.<CleanBloodstream>mapCodec(i -> i.group(
+                        REAGENT_KEY.fieldOf("excluded").forGetter(CleanBloodstream::excluded),
+                        Codec.FLOAT.fieldOf("cleanserate").forGetter(CleanBloodstream::cleanseRate)
+                ).apply(i, (excluded, rate) -> new CleanBloodstream(
+                        EffectCommonData.DEFAULT, excluded, rate))),
+                CleanBloodstream::new);
+
+        public CleanBloodstream(List<ConditionData> conditions,
+                                ResourceKey<ReagentData> excluded, float cleanseRate) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), excluded, cleanseRate);
+        }
+
+        private CleanBloodstream(EffectCommonData common, CleanBloodstream value) {
+            this(common, value.excluded(), value.cleanseRate());
+        }
 
         @Override public String type() { return "CleanBloodstream"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record MakeSentient(List<ConditionData> conditions) implements EffectData {
-        public static final MapCodec<MakeSentient> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(MakeSentient::conditions)
-        ).apply(inst, MakeSentient::new));
+    record MakeSentient(EffectCommonData common) implements EffectData {
+        public static final MapCodec<MakeSentient> CODEC = unit(MakeSentient::new);
+
+        public MakeSentient(List<ConditionData> conditions) {
+            this(new EffectCommonData(conditions, 1f, 0f, true));
+        }
 
         @Override public String type() { return "MakeSentient"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
-    record Polymorph(List<ConditionData> conditions, String prototype) implements EffectData {
-        public static final MapCodec<Polymorph> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Polymorph::conditions),
-                Codec.STRING.fieldOf("prototype").forGetter(Polymorph::prototype)
-        ).apply(inst, Polymorph::new));
+
+    record Polymorph(EffectCommonData common, String prototype) implements EffectData {
+        public static final MapCodec<Polymorph> CODEC = EffectData.common(
+                RecordCodecBuilder.<Polymorph>mapCodec(i -> i.group(
+                        Codec.STRING.fieldOf("prototype").forGetter(Polymorph::prototype)
+                ).apply(i, value -> new Polymorph(EffectCommonData.DEFAULT, value))),
+                Polymorph::new);
+
+        public Polymorph(List<ConditionData> conditions, String prototype) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), prototype);
+        }
+
+        private Polymorph(EffectCommonData common, Polymorph value) {
+            this(common, value.prototype());
+        }
 
         @Override public String type() { return "Polymorph"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record ResetNarcolepsy(List<ConditionData> conditions) implements EffectData {
-        public static final MapCodec<ResetNarcolepsy> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ResetNarcolepsy::conditions)
-        ).apply(inst, ResetNarcolepsy::new));
+    record ResetNarcolepsy(EffectCommonData common) implements EffectData {
+        public static final MapCodec<ResetNarcolepsy> CODEC = unit(ResetNarcolepsy::new);
+
+        public ResetNarcolepsy(List<ConditionData> conditions) {
+            this(new EffectCommonData(conditions, 1f, 0f, true));
+        }
 
         @Override public String type() { return "ResetNarcolepsy"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record ModifyKnockdown(List<ConditionData> conditions, float time, String subType) implements EffectData {
-        public static final MapCodec<ModifyKnockdown> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ModifyKnockdown::conditions),
-                Codec.FLOAT.optionalFieldOf("time", 1f).forGetter(ModifyKnockdown::time),
-                Codec.STRING.optionalFieldOf("subtype", "update").forGetter(ModifyKnockdown::subType) // TODO: Make this an enum (remove, add, update)
-        ).apply(inst, ModifyKnockdown::new));
+    record ModifyKnockdown(EffectCommonData common, StatusEffectDuration time,
+                           StatusEffectOperation subType, float delay,
+                           boolean crawling, boolean drop)
+            implements EffectData {
+        public static final MapCodec<ModifyKnockdown> CODEC = EffectData.common(
+                RecordCodecBuilder.<ModifyKnockdown>mapCodec(i -> i.group(
+                        StatusEffectDuration.fieldOf("time")
+                                .forGetter(ModifyKnockdown::time),
+                        StatusEffectOperation.CODEC.optionalFieldOf("subtype", StatusEffectOperation.UPDATE)
+                                .forGetter(ModifyKnockdown::subType),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("delay", 0f)
+                                .forGetter(ModifyKnockdown::delay),
+                        Codec.BOOL.optionalFieldOf("crawling", false)
+                                .forGetter(ModifyKnockdown::crawling),
+                        Codec.BOOL.optionalFieldOf("drop", false)
+                                .forGetter(ModifyKnockdown::drop)
+                ).apply(i, (time, subType, delay, crawling, drop) -> new ModifyKnockdown(
+                        EffectCommonData.DEFAULT, time, subType, delay, crawling, drop))),
+                ModifyKnockdown::new);
+
+        public ModifyKnockdown {
+            common = Objects.requireNonNull(common, "common");
+            Objects.requireNonNull(time, "time");
+            Objects.requireNonNull(subType, "subType");
+            if (!Float.isFinite(delay) || delay < 0f) {
+                throw new IllegalArgumentException("delay must be finite and nonnegative");
+            }
+        }
+
+        public ModifyKnockdown(List<ConditionData> conditions, float time, String subType) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), StatusEffectDuration.finite(time),
+                    operation(subType), 0f, false, false);
+        }
+
+        public ModifyKnockdown(List<ConditionData> conditions, StatusEffectDuration time,
+                               StatusEffectOperation subType, float delay,
+                               boolean crawling, boolean drop) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), time, subType, delay, crawling, drop);
+        }
+
+        private ModifyKnockdown(EffectCommonData common, ModifyKnockdown value) {
+            this(common, value.time(), value.subType(), value.delay(), value.crawling(), value.drop());
+        }
 
         @Override public String type() { return "ModifyKnockdown"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record Electrocute(List<ConditionData> conditions, float electrocuteTime, float siemensCoefficient, float probability) implements EffectData {
-        public static final MapCodec<Electrocute> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(Electrocute::conditions),
-                Codec.FLOAT.optionalFieldOf("electrocutetime", 1f).forGetter(Electrocute::electrocuteTime),
-                Codec.FLOAT.optionalFieldOf("siemenscoefficient", 1f).forGetter(Electrocute::siemensCoefficient), // TODO: This is a random default, find what SS14 uses.
-                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(Electrocute::probability)
-        ).apply(inst, Electrocute::new));
+    record Electrocute(EffectCommonData common, float electrocuteTime, int shockDamage,
+                       boolean refresh, boolean bypassInsulation, float siemensCoefficient) implements EffectData {
+        public static final MapCodec<Electrocute> CODEC = EffectData.common(
+                RecordCodecBuilder.<Electrocute>mapCodec(i -> i.group(
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("electrocutetime", 2f)
+                                .forGetter(Electrocute::electrocuteTime),
+                        EffectCodecHelpers.NONNEGATIVE_INT.optionalFieldOf("shockdamage", 5)
+                                .forGetter(Electrocute::shockDamage),
+                        Codec.BOOL.optionalFieldOf("refresh", true).forGetter(Electrocute::refresh),
+                        Codec.BOOL.optionalFieldOf("bypassinsulation", true).forGetter(Electrocute::bypassInsulation),
+                        EffectCodecHelpers.NONNEGATIVE_FLOAT.optionalFieldOf("siemenscoefficient", 1f)
+                                .forGetter(Electrocute::siemensCoefficient)
+                ).apply(i, (time, damage, refresh, bypass, coefficient) -> new Electrocute(
+                        EffectCommonData.DEFAULT, time, damage, refresh, bypass, coefficient))),
+                Electrocute::new);
+
+        public Electrocute(List<ConditionData> conditions, float electrocuteTime,
+                           float siemensCoefficient, float probability) {
+            this(new EffectCommonData(conditions, probability, 0f, true),
+                    electrocuteTime, 5, true, true, siemensCoefficient);
+        }
+        public Electrocute(EffectCommonData common, float electrocuteTime,
+                           float siemensCoefficient) {
+            this(common, electrocuteTime, 5, true, true, siemensCoefficient);
+        }
+
+        private Electrocute(EffectCommonData common, Electrocute value) {
+            this(common, value.electrocuteTime(), value.shockDamage(), value.refresh(),
+                    value.bypassInsulation(), value.siemensCoefficient());
+        }
 
         @Override public String type() { return "Electrocute"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record EyeDamage() implements EffectData {
-        public static final MapCodec<EyeDamage> CODEC = MapCodec.unit(new EyeDamage());
+    record EyeDamage(EffectCommonData common, int amount) implements EffectData {
+        public static final MapCodec<EyeDamage> CODEC = EffectData.common(
+                RecordCodecBuilder.<EyeDamage>mapCodec(i -> i.group(
+                        EffectCodecHelpers.EXACT_INT.optionalFieldOf("amount", -1).forGetter(EyeDamage::amount)
+                ).apply(i, value -> new EyeDamage(EffectCommonData.DEFAULT, value))),
+                EyeDamage::new);
+
+        public EyeDamage() {
+            this(EffectCommonData.DEFAULT, -1);
+        }
+        public EyeDamage(EffectCommonData common) {
+            this(common, -1);
+        }
+
+        private EyeDamage(EffectCommonData common, EyeDamage value) {
+            this(common, value.amount());
+        }
 
         @Override public String type() { return "EyeDamage"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return true; }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record ReduceRotting(List<ConditionData> conditions, float seconds) implements EffectData {
-        public static final MapCodec<ReduceRotting> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(ReduceRotting::conditions),
-                Codec.FLOAT.fieldOf("seconds").forGetter(ReduceRotting::seconds)
-        ).apply(inst, ReduceRotting::new));
+    record ReduceRotting(EffectCommonData common, float seconds) implements EffectData {
+        public static final MapCodec<ReduceRotting> CODEC = EffectData.common(
+                RecordCodecBuilder.<ReduceRotting>mapCodec(i -> i.group(
+                        Codec.FLOAT.fieldOf("seconds").forGetter(ReduceRotting::seconds)
+                ).apply(i, value -> new ReduceRotting(EffectCommonData.DEFAULT, value))),
+                ReduceRotting::new);
+
+        public ReduceRotting(List<ConditionData> conditions, float seconds) {
+            this(new EffectCommonData(conditions, 1f, 0f, true), seconds);
+        }
+
+        private ReduceRotting(EffectCommonData common, ReduceRotting value) {
+            this(common, value.seconds());
+        }
 
         @Override public String type() { return "ReduceRotting"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
-        }
     }
 
-    record CauseZombieInfection(List<ConditionData> conditions) implements EffectData {
-        public static final MapCodec<CauseZombieInfection> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.list(ConditionData.CODEC).optionalFieldOf("conditions", List.of()).forGetter(CauseZombieInfection::conditions)
-        ).apply(inst, CauseZombieInfection::new));
+    record CauseZombieInfection(EffectCommonData common) implements EffectData {
+        public static final MapCodec<CauseZombieInfection> CODEC = unit(CauseZombieInfection::new);
+
+        public CauseZombieInfection(List<ConditionData> conditions) {
+            this(new EffectCommonData(conditions, 1f, 0f, true));
+        }
 
         @Override public String type() { return "CauseZombieInfection"; }
-        @Override public boolean shouldApply(EffectContext ctx) { return conditionsPass(ctx.entity(), conditions); }
-        @Override public void apply(EffectContext ctx) {
-            // TODO Implement
-            return;
+    }
+
+    Codec<ResourceKey<ReagentData>> REAGENT_KEY = LENIENT_ID_CODEC.xmap(rl -> ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, rl), ResourceKey::location);
+
+    private static String requireNonBlank(String value, String field) {
+        Objects.requireNonNull(value, field);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
         }
+        return value;
+    }
+
+    private static StatusEffectOperation operation(String value) {
+        Objects.requireNonNull(value, "subType");
+        return switch (value) {
+            case "update" -> StatusEffectOperation.UPDATE;
+            case "add" -> StatusEffectOperation.ADD;
+            case "remove" -> StatusEffectOperation.REMOVE;
+            case "set" -> StatusEffectOperation.SET;
+            default -> throw new IllegalArgumentException("Unknown status effect operation '" + value + "'");
+        };
+    }
+
+    private static <T extends EffectData> MapCodec<T> common(
+            MapCodec<T> specific,
+            java.util.function.BiFunction<EffectCommonData, T, T> setter) {
+        return EffectCommonData.withCommon(specific, EffectData::common,
+                (value, common) -> setter.apply(common, value));
+    }
+    private static <T extends EffectData> MapCodec<T> unit(java.util.function.Function<EffectCommonData, T> factory) {
+        T defaultValue = factory.apply(EffectCommonData.DEFAULT);
+        return EffectCommonData.withCommon(
+                MapCodec.unit(defaultValue),
+                EffectData::common,
+                (value, common) -> factory.apply(common));
     }
 }

@@ -5,6 +5,12 @@ import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectAttachment;
+import com.juicyslew.moonstation14.ms14.activity.EntityActivityAttachment;
+import com.juicyslew.moonstation14.ms14.fire.FireStackAttachment;
+import com.juicyslew.moonstation14.ms14.eye.EyeDamageAttachment;
+import com.juicyslew.moonstation14.ms14.alert.AlertAttachment;
+import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
+import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -17,15 +23,67 @@ public class ModDataAttachments {
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, MoonStation14.MOD_ID);
 
     public static final Supplier<AttachmentType<ReagentAttachment>> REAGENT = ATTACHMENT_TYPES.register(
-            "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment()).serialize(ReagentAttachment.CODEC).sync(ReagentAttachment.STREAM_CODEC).build()
+            "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment())
+                    .serialize(ReagentAttachment.CODEC, attachment -> !attachment.isEmpty())
+                    .sync(ReagentAttachment.STREAM_CODEC)
+                    .build()
+    );
+
+    /** Character-owned digestive contents, persisted and synchronized independently from bloodstream reagents. */
+    public static final Supplier<AttachmentType<ReagentAttachment>> STOMACH = ATTACHMENT_TYPES.register(
+            "stomach", () -> AttachmentType.builder(() -> new ReagentAttachment())
+                    .serialize(ReagentAttachment.CODEC, attachment -> !attachment.isEmpty())
+                    .sync(ReagentAttachment.STREAM_CODEC)
+                    .build()
     );
 
     public static final Supplier<AttachmentType<DamageData>> DAMAGE = ATTACHMENT_TYPES.register(
-            "damage", () -> AttachmentType.builder(() -> new DamageData()).serialize(DamageData.CODEC).sync(DamageData.STREAM_CODEC).build()
+            "damage", () -> AttachmentType.builder(() -> new DamageData())
+                    .serialize(DamageData.CODEC, damage -> !damage.isEmpty())
+                    .sync(DamageData.STREAM_CODEC)
+                    .build()
     );
 
     public static final Supplier<AttachmentType<StatusEffectAttachment>> STATUS_EFFECT = ATTACHMENT_TYPES.register(
-            "status_effect", () -> AttachmentType.builder(() -> new StatusEffectAttachment()).serialize(StatusEffectAttachment.CODEC).sync(StatusEffectAttachment.STREAM_CODEC).build()
+            "status_effect", () -> AttachmentType.builder(() -> new StatusEffectAttachment()).serialize(StatusEffectAttachment.CODEC, attachment -> !attachment.isEmpty()).sync(StatusEffectAttachment.STREAM_CODEC).build()
+    );
+
+    public static final Supplier<AttachmentType<AlertAttachment>> ALERT = ATTACHMENT_TYPES.register(
+            "alert", () -> AttachmentType.builder((Supplier<AlertAttachment>) AlertAttachment::new)
+                    .serialize(AlertAttachment.CODEC, attachment -> !attachment.isEmpty())
+            .sync(AlertAttachment.STREAM_CODEC).build());
+
+    public static final Supplier<AttachmentType<HungerAttachment>> HUNGER = ATTACHMENT_TYPES.register(
+            "hunger", () -> AttachmentType.builder((Supplier<HungerAttachment>) HungerAttachment::new)
+                    .serialize(HungerAttachment.CODEC)
+                    .sync(HungerAttachment.STREAM_CODEC).build());
+
+    /** Persisted character thirst. Its default-valued state is intentionally retained once initialized. */
+    public static final Supplier<AttachmentType<ThirstAttachment>> THIRST = ATTACHMENT_TYPES.register(
+            "thirst", () -> AttachmentType.builder((Supplier<ThirstAttachment>) ThirstAttachment::new)
+                    .serialize(ThirstAttachment.CODEC)
+                    .sync(ThirstAttachment.STREAM_CODEC).build());
+
+    /** Character-owned authoritative fire stacks; empty state is not persisted or synchronized. */
+    public static final Supplier<AttachmentType<FireStackAttachment>> FIRE_STACK = ATTACHMENT_TYPES.register(
+            "fire_stack", () -> AttachmentType.builder((Supplier<FireStackAttachment>) FireStackAttachment::new)
+                    .serialize(FireStackAttachment.CODEC, attachment -> !attachment.isEmpty())
+                    .sync(FireStackAttachment.STREAM_CODEC)
+                    .build()
+    );
+
+    /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */
+    public static final Supplier<AttachmentType<EyeDamageAttachment>> EYE_DAMAGE = ATTACHMENT_TYPES.register(
+            "eye_damage", () -> AttachmentType.builder((Supplier<EyeDamageAttachment>) EyeDamageAttachment::new)
+                    .serialize(EyeDamageAttachment.CODEC, attachment -> !attachment.isEmpty())
+                    .sync(EyeDamageAttachment.STREAM_CODEC)
+                    // Deliberately no copyOnDeath: the current player clone policy clears this state.
+                    .build()
+    );
+
+    /** Derived scheduling state; it is deliberately neither persisted nor synchronized. */
+    public static final Supplier<AttachmentType<EntityActivityAttachment>> ACTIVE_SYSTEMS = ATTACHMENT_TYPES.register(
+            "active_systems", () -> AttachmentType.builder((Supplier<EntityActivityAttachment>) EntityActivityAttachment::new).build()
     );
 
 

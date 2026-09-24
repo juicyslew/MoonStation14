@@ -1,0 +1,8 @@
+{
+  "translation_key": "status-effect.vomiting-slowdown",
+  "beneficial": false,
+  "color": "0x7f7f7f",
+  "behaviors": ["movement_speed"],
+  "eligibility": ["living_entity"],
+  "movement_speed_multiplier": 0.5
+}

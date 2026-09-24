@@ -1,0 +1,7 @@
+{
+  "name_translation_key": "alerts-starving-name",
+  "description_translation_key": "alerts-starving-desc",
+  "color": "0xff6633",
+  "order": 41,
+  "category": "moonstation14:hunger"
+}

@@ -8,6 +8,8 @@ import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentCatalogValidation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -34,6 +36,8 @@ import static com.juicyslew.moonstation14.util.MapOperations.getTotal;
 import static com.juicyslew.moonstation14.util.NetworkingUtils.*;
 
 public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
+    private long lastCommittedUnits = -1L;
+    private boolean removingEmptyBlock;
     // Gonna probably want a generic ContainerBlockEntity.
     static Map<Integer, Direction> puddleOffsets = Map.of(
             0, Direction.NORTH,//List.of(0,1),
@@ -46,6 +50,13 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
 
     public PuddleBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PUDDLE.get(), pos, state);
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (level != null && !level.isClientSide)
+            lastCommittedUnits = getReagentContainer().totalUnits();
     }
 
     @Override public float getCapacity() { return 200000f; }
@@ -98,12 +109,16 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
     }
 
     private ReagentAttachment getReagentContainer(){
-        return getData(ModDataAttachments.REAGENT);
+        return MS14Provider.getDetached(this, MS14Bridges.REAGENT);
     }
 
     public void updateFillLevel() {
-        float percentage = Math.clamp((getTotal(getReagentContainer().getMap())) / overflowThreshold, 0f, 1f);
-        int newLevel = (int) Math.floor((percentage * 3) + .1f); // 0 to 4 - the .1f is to make sure the texture stays stable at the overflowthreshold (otherwise it jitters between textures)
+        ReagentAttachment reagents = getReagentContainer();
+        if (reagents.totalUnits() == 0L) {
+            removeEmptyBlock();
+            return;
+        }
+        int newLevel = fillLevelForVolume(getTotal(reagents.getMap()));
 
         BlockState currentState = getBlockState();
         if (currentState.getValue(PuddleBlock.FILL_LEVEL) != newLevel) {
@@ -111,18 +126,41 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         }
     }
 
+    static int fillLevelForVolume(float volume) {
+        if (!(volume > 0f) || !Float.isFinite(volume)) return 0;
+
+        float percentage = Math.clamp(volume / overflowThreshold, 0f, 1f);
+        int fillLevel = (int) Math.floor((percentage * 3) + .1f);
+        // Level zero uses the faint empty-puddle texture; positive contents must use a visible splat.
+        return Math.max(1, fillLevel);
+    }
+
     @Override
     public void setChanged() {
         super.setChanged();
         // RUNS WHENEVER DATA IS DIRTIED!
         if (this.level != null && !this.level.isClientSide) {
-            updateFillLevel();
+            long committedUnits = getReagentContainer().totalUnits();
+            boolean drained = lastCommittedUnits > 0L && committedUnits == 0L;
+            lastCommittedUnits = committedUnits;
+            if (drained) removeEmptyBlock();
+            else if (committedUnits > 0L) updateFillLevel();
         }
     }
 
     public static void tick(Level level, BlockPos pos, BlockState state, PuddleBlockEntity be) {
         // Only run logic on the server
         if (level.isClientSide) return;
+
+        // Empty /setblock puddles are allowed to survive placement so callers can
+        // fill them in the same server operation, but never persist past a tick.
+        ReagentAttachment contents = be.getReagentContainer();
+        if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(contents.getMap(), level,
+                "puddle tick " + pos)) return;
+        if (contents.totalUnits() == 0L) {
+            be.removeEmptyBlock();
+            return;
+        }
 
         // The 20-tick heartbeat (using the position offset to prevent lag spikes)
         float ticksPerCalc = 10f;
@@ -133,6 +171,9 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
 
     private void slowTick(Level level, BlockPos pos, BlockState state, PuddleBlockEntity be) {
         ReagentAttachment srcCont = getReagentContainer();
+        if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(srcCont.getMap(), level,
+                "puddle flow source " + pos)) return;
+        var srcBefore = MS14Provider.snapshot(srcCont);
         float volume = getTotal(srcCont.getMap());
 
         if (volume <= overflowThreshold) return;
@@ -148,6 +189,15 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         ){}
         List<Neighbor> neighbors = new ArrayList<>();
         float totalDrop = 0;
+
+        // Validate all existing destinations before creating even an empty neighbor
+        // puddle, so a bad destination makes this whole flow tick a no-op.
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos targetPos = findFlowTarget(level, pos.relative(dir));
+            if (targetPos != null && level.getBlockEntity(targetPos) instanceof PuddleBlockEntity target
+                    && !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
+                    target.getReagentContainer().getMap(), level, "puddle flow destination " + targetPos)) return;
+        }
 
         for (Direction dir : Direction.Plane.HORIZONTAL) {
             BlockPos targetPos = findFlowTarget(level, pos.relative(dir));
@@ -193,6 +243,7 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
 
             // Final math: We "push" more than the net volume, then "pull" back the difference
             ReagentAttachment dstCont = targetPuddle.getReagentContainer();
+            var dstBefore = MS14Provider.snapshot(dstCont);
             float osmosisAmount = volume * 0.1f;
             if (targetPos.getY() < pos.getY()){
                 osmosisAmount = 0f; // Can't "osmos" up a height differential
@@ -212,20 +263,34 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
             }
             performCombinedTransfer(srcCont, dstCont, netVolumeToMove, osmosisAmount);
             dstCont.recursiveReaction(level, getCapacity());
-            MS14Provider.update(targetPuddle, MS14Bridges.REAGENT, dstCont);
+            MS14Provider.updateIfChanged(targetPuddle, MS14Bridges.REAGENT, dstBefore, dstCont);
         }
         srcCont.recursiveReaction(level, getCapacity());
-        MS14Provider.update(this, MS14Bridges.REAGENT, srcCont);
+        MS14Provider.updateIfChanged(this, MS14Bridges.REAGENT, srcBefore, srcCont);
     }
 
     private void performCombinedTransfer(ReagentAttachment source, ReagentAttachment target, float netVol, float osmosisVol) {
-        // 1. Take the "Push" slice (Volume moving out + Osmosis buffer)
-        float totalToPush = netVol + osmosisVol;
-        var removed = source.naiveRemove(totalToPush);
-        target.mergeAdd(removed, getCapacity());
+        transferFlow(source, target, netVol, osmosisVol, getCapacity());
+    }
 
-        var readd = target.naiveRemove(osmosisVol);
-        source.mergeAdd(readd, getCapacity());
+    private void removeEmptyBlock() {
+        if (removingEmptyBlock || level == null || level.isClientSide
+                || level.getBlockEntity(worldPosition) != this
+                || !level.getBlockState(worldPosition).is(ModBlocks.PUDDLE.get())) return;
+        removingEmptyBlock = true;
+        // No drops: reagent state is already empty and must not be duplicated.
+        level.removeBlock(worldPosition, false);
+    }
+
+    static void transferFlow(ReagentAttachment source, ReagentAttachment target, float netVol,
+                             float osmosisVol, float capacity) {
+        // Requested flow remains float-derived, so pressure may approximate at cent
+        // boundaries. Each committed direction is an exact paired cent transfer.
+        float totalToPush = netVol + osmosisVol;
+        ReagentAttachment.transferUnits(source, target, ReagentUnits.fromFloat(Math.max(0f, totalToPush)),
+                ReagentUnits.fromFloat(capacity));
+        ReagentAttachment.transferUnits(target, source, ReagentUnits.fromFloat(Math.max(0f, osmosisVol)),
+                ReagentUnits.fromFloat(capacity));
     }
 
     private BlockPos findFlowTarget(Level level, BlockPos neighborPos) {

@@ -3,19 +3,20 @@ package com.juicyslew.moonstation14.block.custom;
 import com.juicyslew.moonstation14.block.ModBlockEntities;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
-import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.player.Player;
+import com.juicyslew.moonstation14.ms14.stomach.StomachSystem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -32,6 +33,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import net.minecraft.world.entity.player.Player;
 import javax.annotation.Nullable;
 
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
@@ -72,16 +74,12 @@ public class PuddleBlock extends TransparentBlock implements EntityBlock {
         // 1. Fetch the BlockEntity (The Data Instance)
         BlockEntity be = level.getBlockEntity(pos);
         // 2. Check if it's our Holder
-        if (be instanceof IReagentTrait blockHolder) {
-            ReagentSystem.handleTransfer(
-                    blockHolder.toHandleSelf(),
-                    ((IReagentTrait) player).toHandleSelf(), // Player will implement this because of LivingEntityMixin
-                    level,
-                    UNITS_PER_SIP
-            );
-
-            level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0F, 1.0F);
-            return InteractionResult.SUCCESS;
+        if (be instanceof IReagentTrait blockHolder && level instanceof ServerLevel serverLevel) {
+            float consumed = StomachSystem.ingest(blockHolder.toHandleSelf(), player, serverLevel, UNITS_PER_SIP);
+            if (consumed > 0f) {
+                level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0F, 1.0F);
+                return InteractionResult.SUCCESS;
+            }
         }
         return InteractionResult.PASS;
     }
@@ -145,7 +143,8 @@ public class PuddleBlock extends TransparentBlock implements EntityBlock {
 
             if (landingPos != null && !landingPos.equals(pos)) {
                 // 2. Extract the reagents
-                ReagentAttachment reagents = sourceBE.getData(ModDataAttachments.REAGENT);
+                ReagentAttachment reagents = MS14Provider.getDetached(sourceBE, MS14Bridges.REAGENT);
+                var sourceBefore = MS14Provider.snapshot(reagents);
 
                 BlockState targetState = level.getBlockState(landingPos);
                 if (!targetState.is(ModBlocks.PUDDLE.get())) {
@@ -154,13 +153,21 @@ public class PuddleBlock extends TransparentBlock implements EntityBlock {
 
                 // 3. Place or Merge at the bottom
                 if (level.getBlockEntity(landingPos) instanceof PuddleBlockEntity targetBE) {
-                    ReagentAttachment destCont = targetBE.getData(ModDataAttachments.REAGENT);
-                    destCont.mergeAdd(reagents.getMap(), targetBE.getCapacity());
-                    MS14Provider.update(targetBE, MS14Bridges.REAGENT, destCont);
+                    ReagentAttachment destCont = MS14Provider.getDetached(targetBE, MS14Bridges.REAGENT);
+                    var before = MS14Provider.snapshot(destCont);
+                    ReagentAttachment.transferUnits(reagents, destCont, reagents.totalUnits(),
+                            ReagentUnits.fromFloat(targetBE.getCapacity()));
+                    MS14Provider.updateIfChanged(targetBE, MS14Bridges.REAGENT, before, destCont);
+                    MS14Provider.updateIfChanged(sourceBE, MS14Bridges.REAGENT, sourceBefore, reagents);
+                    // A full landing puddle can admit only part; keep the exact remainder
+                    // at the original location rather than deleting unadmitted contents.
+                    if (!reagents.isEmpty()) return;
+                } else {
+                    return;
                 }
+                level.removeBlock(pos, false);
+                return;
             }
-            // 4. No Matter what, delete the puddle.
-            level.removeBlock(pos, false);
         }
     }
 }

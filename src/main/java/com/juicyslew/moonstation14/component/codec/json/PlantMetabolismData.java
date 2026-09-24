@@ -2,18 +2,14 @@ package com.juicyslew.moonstation14.component.codec.json;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
-import com.juicyslew.moonstation14.effect.EffectContext;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import org.apache.commons.lang3.NotImplementedException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static java.lang.String.format;
 
 sealed interface PlantMetabolismData permits
         PlantMetabolismData.PlantAdjustNutrition,
@@ -35,7 +31,6 @@ sealed interface PlantMetabolismData permits
         PlantMetabolismData.PlantAdjustPotency
 {
     String type();
-    void apply(EffectContext ctx);
 
     Codec<PlantMetabolismData> CODEC = Codec.STRING.dispatch(
         "type",              // The JSON field name
@@ -69,31 +64,32 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAdjustNutrition::new));
 
         @Override public String type() { return "PlantAdjustNutrition"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
-    record PlantAdjustWeeds(float amount) implements PlantMetabolismData {
+    record PlantAdjustWeeds(float probability, float amount) implements PlantMetabolismData {
+        public PlantAdjustWeeds(float amount) {
+            this(1f, amount);
+        }
+
         public static final MapCodec<PlantAdjustWeeds> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantAdjustWeeds::probability),
                 Codec.FLOAT.fieldOf("amount").forGetter(PlantAdjustWeeds::amount)
         ).apply(inst, PlantAdjustWeeds::new));
 
         @Override public String type() { return "PlantAdjustWeeds"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
-    record PlantAdjustPests(float amount) implements PlantMetabolismData {
+    record PlantAdjustPests(float probability, float amount) implements PlantMetabolismData {
+        public PlantAdjustPests(float amount) {
+            this(1f, amount);
+        }
+
         public static final MapCodec<PlantAdjustPests> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantAdjustPests::probability),
                 Codec.FLOAT.fieldOf("amount").forGetter(PlantAdjustPests::amount)
         ).apply(inst, PlantAdjustPests::new));
 
         @Override public String type() { return "PlantAdjustPests"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantAdjustHealth(float amount) implements PlantMetabolismData {
@@ -102,9 +98,6 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAdjustHealth::new));
 
         @Override public String type() { return "PlantAdjustHealth"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantAdjustWater(float amount) implements PlantMetabolismData {
@@ -113,9 +106,6 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAdjustWater::new));
 
         @Override public String type() { return "PlantAdjustWater"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantAdjustToxins(float amount) implements PlantMetabolismData {
@@ -124,18 +114,12 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAdjustToxins::new));
 
         @Override public String type() { return "PlantAdjustToxins"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantCryoxadone() implements PlantMetabolismData {
         public static final MapCodec<PlantCryoxadone> CODEC = MapCodec.unit(new PlantCryoxadone());
 
         @Override public String type() { return "PlantCryoxadone"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
 
@@ -146,18 +130,12 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAffectGrowth::new));
 
         @Override public String type() { return "PlantAffectGrowth"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantDiethylamine() implements PlantMetabolismData {
         public static final MapCodec<PlantDiethylamine> CODEC = MapCodec.unit(new PlantDiethylamine());
 
         @Override public String type() { return "PlantDiethylamine"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantAdjustMutationMod(float probability, float amount) implements PlantMetabolismData {
@@ -167,9 +145,6 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAdjustMutationMod::new));
 
         @Override public String type() { return "PlantAdjustMutationMod"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantMutateChemicals(String randomPickBotanyReagent) implements PlantMetabolismData {
@@ -178,9 +153,6 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantMutateChemicals::new));
 
         @Override public String type() { return "PlantMutateChemicals"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantPhalanximine(float minScale) implements PlantMetabolismData {
@@ -189,27 +161,18 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantPhalanximine::new));
 
         @Override public String type() { return "PlantPhalanximine"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantRemoveKudzu() implements PlantMetabolismData {
         public static final MapCodec<PlantRemoveKudzu> CODEC = MapCodec.unit(new PlantRemoveKudzu());
 
         @Override public String type() { return "PlantRemoveKudzu"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record RobustHarvest() implements PlantMetabolismData {
         public static final MapCodec<RobustHarvest> CODEC = MapCodec.unit(new RobustHarvest());
 
         @Override public String type() { return "RobustHarvest"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantAdjustMutationLevel(float amount) implements PlantMetabolismData {
@@ -218,9 +181,6 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAdjustMutationLevel::new));
 
         @Override public String type() { return "PlantAdjustMutationLevel"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantRestoreSeeds(float probability) implements PlantMetabolismData {
@@ -229,9 +189,6 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantRestoreSeeds::new));
 
         @Override public String type() { return "PlantRestoreSeeds"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 
     record PlantAdjustPotency(float amount) implements PlantMetabolismData {
@@ -240,8 +197,5 @@ sealed interface PlantMetabolismData permits
         ).apply(inst, PlantAdjustPotency::new));
 
         @Override public String type() { return "PlantAdjustPotency"; }
-        @Override public void apply(EffectContext ctx) {
-            throw new NotImplementedException(format("Apply Function hasn't been implemented yet for %s", type()));
-        }
     }
 }

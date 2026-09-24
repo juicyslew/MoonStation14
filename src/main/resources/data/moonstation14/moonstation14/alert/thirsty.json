@@ -1,0 +1,7 @@
+{
+  "name_translation_key": "alerts-thirsty-name",
+  "description_translation_key": "alerts-thirsty-desc",
+  "color": "0xffcc33",
+  "order": 30,
+  "category": "moonstation14:thirst"
+}

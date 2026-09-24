@@ -4,12 +4,15 @@ import com.juicyslew.moonstation14.block.ModBlockEntities;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
-import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.eventhooks.ModEventHooks;
 import com.juicyslew.moonstation14.item.ModCreativeModeTabs;
 import com.juicyslew.moonstation14.item.ModItems;
-import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeReloadListener;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
+import com.juicyslew.moonstation14.ms14.status_effect.prototype.StatusEffectReferenceValidator;
+import com.juicyslew.moonstation14.ms14.alert.prototype.AlertReferenceValidator;
 import com.juicyslew.moonstation14.recipe.ModRecipes;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -25,7 +28,10 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(MoonStation14.MOD_ID)
@@ -55,9 +61,7 @@ public class MoonStation14 {
         ModEventHooks.register(modEventBus);
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
-        modEventBus.register(ModStatusEffects.class);
-        modEventBus.register(ModReagents.class);
-        //NeoForge.EVENT_BUS.addListener(this::onAddReloadListeners);
+        modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
         //ModFluids.register(modEventBus);
 
         // Register the item to a creative tab
@@ -66,10 +70,6 @@ public class MoonStation14 {
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
-
-//    public void onAddReloadListeners(AddReloadListenerEvent event) {
-//        event.addListener(new ReagentReloadListener());
-//    }
 
     private void commonSetup(FMLCommonSetupEvent event) {
     }
@@ -99,5 +99,33 @@ public class MoonStation14 {
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+    }
+
+    @SubscribeEvent
+    public void onServerStarted(ServerStartedEvent event) {
+        // Initial datapack loading completes before ServerStartedEvent. This
+        // also safely commits an initial candidate if no all-player sync event
+        // was emitted during startup.
+        PrototypeRuntime.serverManager().commitStagedReload();
+    }
+
+    @SubscribeEvent
+    public void onAddReloadListeners(AddReloadListenerEvent event) {
+        event.addListener(new PrototypeReloadListener(PrototypeRuntime.serverManager(),
+                encodedCatalogs -> {
+                    StatusEffectReferenceValidator.validate(encodedCatalogs);
+                    AlertReferenceValidator.validate(encodedCatalogs);
+                    PrototypeCatalogNetworking.validateSyncableCatalogs(encodedCatalogs);
+                }));
+    }
+
+    @SubscribeEvent
+    public void onDatapackSync(net.neoforged.neoforge.event.OnDatapackSyncEvent event) {
+        PrototypeCatalogNetworking.onDatapackSync(event);
+    }
+
+    @SubscribeEvent
+    public void onServerStopped(ServerStoppedEvent event) {
+        PrototypeRuntime.serverManager().clearPublishedCatalogs();
     }
 }

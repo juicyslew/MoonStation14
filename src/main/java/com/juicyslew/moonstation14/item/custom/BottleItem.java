@@ -4,8 +4,11 @@ import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentCatalogValidation;
 import com.juicyslew.moonstation14.util.MapOperations;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
+import com.juicyslew.moonstation14.ms14.stomach.StomachSystem;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundEvents;
@@ -60,6 +63,9 @@ public class BottleItem extends Item implements IReagentTrait {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        ReagentComponent component = stack.get(ModDataComponents.REAGENT.get());
+        if (component != null && !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
+                component.contents(), level, "bottle item use")) return InteractionResultHolder.fail(stack);
         // Only start if not empty
         if (MapOperations.getTotal(stack.getOrDefault(ModDataComponents.REAGENT.get(), new ReagentComponent()).contents()) <= 0) {
             return InteractionResultHolder.fail(stack);
@@ -70,16 +76,36 @@ public class BottleItem extends Item implements IReagentTrait {
 
     @Override
     public void onUseTick(Level level, LivingEntity entity, ItemStack stack, int remaining) {
+        ReagentComponent component = stack.get(ModDataComponents.REAGENT.get());
+        if (component != null && !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
+                component.contents(), level, "bottle use tick")) {
+            entity.stopUsingItem();
+            return;
+        }
         int used = getUseDuration(stack, entity) - remaining;
         if (used > 0 && used % SIP_INTERVAL_TICKS == 0) {
-            ReagentSystem.handleTransfer(
-                    this.toHandle(stack),
-                    ((IReagentTrait) entity).toHandleSelf(), // Player will implement this because of LivingEntityMixin
-                    level,
-                    UNITS_PER_SIP
-            );
+            float sourceBefore = getSourceTotal(stack);
+            if (!(sourceBefore > 0f)) {
+                entity.stopUsingItem();
+                return;
+            }
 
-            level.playSound(null, entity.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0F, 1.0F);
+            if (entity instanceof Player player && level instanceof ServerLevel serverLevel) {
+                StomachSystem.ingest(this.toHandle(stack), player, serverLevel, UNITS_PER_SIP);
+            }
+
+            float sourceAfter = getSourceTotal(stack);
+            if (!level.isClientSide && sourceBefore - sourceAfter > 0f) {
+                level.playSound(null, entity.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0F, 1.0F);
+            }
+            if (!(sourceAfter > 0f)) {
+                entity.stopUsingItem();
+            }
         }
+    }
+
+    private static float getSourceTotal(ItemStack stack) {
+        ReagentComponent data = stack.get(ModDataComponents.REAGENT.get());
+        return data == null ? 0f : MapOperations.getTotal(data.contents());
     }
 }
