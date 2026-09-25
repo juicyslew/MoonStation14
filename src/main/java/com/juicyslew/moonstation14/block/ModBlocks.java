@@ -4,6 +4,8 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.custom.JugBlock;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.block.custom.PuddleBlock;
+import com.juicyslew.moonstation14.block.custom.AtmosphereTestDeviceBlock;
+import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -44,6 +46,15 @@ public class ModBlocks {
     public static final DeferredBlock<PuddleBlock> PUDDLE = BLOCKS.register("puddle",
             () -> new PuddleBlock(BlockBehaviour.Properties.of()
                     .destroyTime(72000f).noCollission().noLootTable()));
+
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_AIR_PRODUCER = registerBlock("atmos_air_producer",
+            () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.PRODUCER, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_GAS_SINK = registerBlock("atmos_gas_sink",
+            () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.SINK, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_HEATER = registerBlock("atmos_heater",
+            () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.HEATER, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_COOLER = registerBlock("atmos_cooler",
+            () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.COOLER, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);

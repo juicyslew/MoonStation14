@@ -6,6 +6,7 @@
   "item.moonstation14.cloth": "Cloth",
   "item.moonstation14.wood": "Wood",
   "item.moonstation14.crowbar": "Crowbar",
+  "item.moonstation14.atmosphere_analyzer": "Atmosphere Analyzer",
 
   "item.moonstation14.waffle": "Waffle",
   "item.moonstation14.bottle": "Bottle",
@@ -34,6 +35,10 @@
   "block.moonstation14.steel_wall_girder_block": "Steel Wall Girder",
   "block.moonstation14.magic_block": "Magic Block",
   "block.moonstation14.jug": "Jug",
+  "block.moonstation14.atmos_air_producer": "Atmosphere Air Producer",
+  "block.moonstation14.atmos_gas_sink": "Atmosphere Gas Sink",
+  "block.moonstation14.atmos_heater": "Atmosphere Heater",
+  "block.moonstation14.atmos_cooler": "Atmosphere Cooler",
 
   "creativetab.moonstation14.moonstation_items": "Moonstation Items",
   "creativetab.moonstation14.moonstation_blocks": "Moonstation Blocks",

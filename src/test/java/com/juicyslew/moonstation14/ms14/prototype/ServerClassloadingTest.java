@@ -27,7 +27,9 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/LocalPlayerMovementTravelMixin.java",
             "com/juicyslew/moonstation14/mixin/client/LivingEntityMovementAnimationInvoker.java",
             "com/juicyslew/moonstation14/mixin/client/LivingEntityWishFacingMixin.java",
-            "com/juicyslew/moonstation14/mixin/client/MouseHandlerSlidingLookMixin.java"
+            "com/juicyslew/moonstation14/mixin/client/MouseHandlerSlidingLookMixin.java",
+            "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
+            "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
@@ -59,6 +61,30 @@ class ServerClassloadingTest {
 
         assertTrue(violations.isEmpty(), () -> "Server-owned production sources reference client-only classes:\n"
                 + String.join("\n", violations));
+    }
+
+    @Test
+    void ghostMobHarnessRendererIsExplicitlyClientOnly() throws IOException {
+        Path source = findProductionSourceRoot().resolve(
+                "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java");
+        assertTrue(Files.isRegularFile(source), "Ghost mob harness renderer source should exist");
+
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
+                        + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
+                "Ghost mob harness renderer must be explicitly subscribed on Dist.CLIENT");
+    }
+
+    @Test
+    void ghostControlClientIsExplicitlyClientOnly() throws IOException {
+        Path source = findProductionSourceRoot().resolve(
+                "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java");
+        assertTrue(Files.isRegularFile(source), "Ghost control client source should exist");
+
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
+                        + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
+                "Ghost control client must be explicitly subscribed on Dist.CLIENT");
     }
 
     private static Path findProductionSourceRoot() {

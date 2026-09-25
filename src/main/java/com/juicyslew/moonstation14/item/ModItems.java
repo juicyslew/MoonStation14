@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.item;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.item.custom.BottleItem;
+import com.juicyslew.moonstation14.item.custom.AtmosphereAnalyzerItem;
 import com.juicyslew.moonstation14.item.custom.CrowbarItem;
 import com.juicyslew.moonstation14.item.custom.JugItem;
 import com.juicyslew.moonstation14.item.custom.SteelItem;
@@ -49,6 +50,8 @@ public class ModItems {
     );
     public static final DeferredItem<JugItem> JUG = ITEMS.register("jug",
             () -> new JugItem(ModBlocks.JUG.get(), new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<AtmosphereAnalyzerItem> ATMOSPHERE_ANALYZER = ITEMS.register("atmosphere_analyzer",
+            () -> new AtmosphereAnalyzerItem(new Item.Properties().stacksTo(1)));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);

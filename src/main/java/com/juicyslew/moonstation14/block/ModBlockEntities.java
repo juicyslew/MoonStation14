@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.block;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.AtmosphereTestDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
@@ -32,6 +33,10 @@ public class ModBlockEntities {
     );
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PuddleBlockEntity>> PUDDLE = BLOCK_ENTITY_TYPES.register("puddle",
             () -> BlockEntityType.Builder.of(PuddleBlockEntity::new, ModBlocks.PUDDLE.get()).build(null)
+    );
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AtmosphereTestDeviceBlockEntity>> ATMOSPHERE_TEST_DEVICE = BLOCK_ENTITY_TYPES.register("atmosphere_test_device",
+            () -> BlockEntityType.Builder.of(AtmosphereTestDeviceBlockEntity::new,
+                    ModBlocks.ATMOS_AIR_PRODUCER.get(), ModBlocks.ATMOS_GAS_SINK.get(), ModBlocks.ATMOS_HEATER.get(), ModBlocks.ATMOS_COOLER.get()).build(null)
     );
 
     public static void register(IEventBus eventBus){
