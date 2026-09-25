@@ -1,8 +1,14 @@
 package com.juicyslew.moonstation14.ms14.activity;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.ms14.MS14Bridges;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
+import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
+import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,5 +51,16 @@ class EntityActivityTest {
         EntityActivitySystem.update(item, EntityActivity.STATUS_EFFECT, true);
 
         assertFalse(item.hasData(ModDataAttachments.ACTIVE_SYSTEMS.get()));
+    }
+
+    @Test
+    void stomachBindingSchedulesOnlyNonemptyReagentMetabolism() {
+        var binding = MS14Bridges.STOMACH.activityBinding().orElseThrow();
+
+        assertEquals(EntityActivity.REAGENT_METABOLISM, binding.activity());
+        assertFalse(binding.needsTicking().test(new ReagentAttachment()));
+        var reagent = ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
+                ResourceLocation.fromNamespaceAndPath("moonstation14", "water"));
+        assertTrue(binding.needsTicking().test(new ReagentAttachment(java.util.Map.of(reagent, 1f))));
     }
 }

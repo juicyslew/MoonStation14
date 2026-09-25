@@ -6,8 +6,8 @@
   "flavor":  "terrible",
   "color":  "0x87AB08",
   "physicaldesc":  "reagent-physical-desc-pungent",
-  "slipdata":  {
-    "requiredslipspeed":  4
+  "slipData":  {
+    "requiredSlipSpeed":  4
   },
   "friction":  0.4,
   "metabolisms":  {

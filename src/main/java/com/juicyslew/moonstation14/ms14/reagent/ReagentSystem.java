@@ -11,9 +11,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ReagentSystem {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReagentSystem.class);
     public static SystemLink<ReagentAttachment, ReagentComponent> bridge = MS14Bridges.REAGENT;
 
     // --- CORE LOGIC --- //
@@ -43,6 +46,11 @@ public class ReagentSystem {
         long requested = amount == Float.MAX_VALUE ? ReagentUnits.MAX_CENTS
                 : ReagentUnits.fromFloat(Math.max(0f, amount));
         long capacity = ReagentUnits.fromFloat(target_capacity);
+        if (dstCont.totalUnits() > capacity) {
+            LOGGER.error("Skipping reagent transfer into legacy over-capacity destination: stored {} cents " +
+                    "exceeds {} cents; contents are preserved for repair", dstCont.totalUnits(), capacity);
+            return;
+        }
         long admitted = ReagentAttachment.transferUnits(srcCont, dstCont, requested, capacity);
         if (admitted == 0) return;
         dstCont.recursiveReaction(level, target_capacity);

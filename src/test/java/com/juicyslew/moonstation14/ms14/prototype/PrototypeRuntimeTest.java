@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.component.codec.json.StatusEffectBehavior;
 import com.juicyslew.moonstation14.component.codec.json.StatusEffectData;
 import com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import net.minecraft.resources.ResourceLocation;
@@ -26,8 +27,8 @@ class PrototypeRuntimeTest {
         client.clearPublishedCatalogs();
 
         assertNotSame(server, client);
-        assertEquals(3, server.registeredTypes().size());
-        assertEquals(3, client.registeredTypes().size());
+        assertEquals(4, server.registeredTypes().size());
+        assertEquals(4, client.registeredTypes().size());
 
         server.reload(ModReagents.REAGENT_TYPE, Map.of(id("server"), reagent("server")));
         client.reload(ModReagents.REAGENT_TYPE, Map.of(id("client"), reagent("client")));
@@ -42,9 +43,11 @@ class PrototypeRuntimeTest {
         assertTrue(server.registeredTypes().contains(ModReagents.REAGENT_TYPE));
         assertTrue(server.registeredTypes().contains(com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.STATUS_EFFECT_TYPE));
         assertTrue(server.registeredTypes().contains(ModAlerts.ALERT_TYPE));
+        assertTrue(server.registeredTypes().contains(ModCharacters.CHARACTER_TYPE));
         assertTrue(client.registeredTypes().contains(ModReagents.REAGENT_TYPE));
         assertTrue(client.registeredTypes().contains(com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.STATUS_EFFECT_TYPE));
         assertTrue(client.registeredTypes().contains(ModAlerts.ALERT_TYPE));
+        assertTrue(client.registeredTypes().contains(ModCharacters.CHARACTER_TYPE));
         assertTrue(PrototypeRuntime.serverReagents().asMap().isEmpty());
         assertTrue(PrototypeRuntime.clientReagents().contains(id("client")));
 
@@ -53,7 +56,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void completeTwoTypeRuntimeExportImportsStatusCatalogWithoutSharingState() {
+    void runtimeExportImportsAllFourFamiliesIncludingCharacterWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -64,14 +67,24 @@ class PrototypeRuntimeTest {
                 java.util.List.of(StatusEffectEligibility.LIVING_ENTITY));
         server.publishDecoded(ModStatusEffects.STATUS_EFFECT_TYPE,
                 Map.of(id("status-test"), status));
+        var character = new com.juicyslew.moonstation14.component.codec.json.CharacterData(
+                new com.juicyslew.moonstation14.component.codec.json.CharacterData.SlipTargetData(
+                        true, false, true, true,
+                        java.util.List.of(com.juicyslew.moonstation14.component.codec.json.CharacterData.ReactiveGroup.ACIDIC),
+                        java.util.List.of(com.juicyslew.moonstation14.component.codec.json.CharacterData.ReactiveMethod.TOUCH)));
+        server.publishDecoded(ModCharacters.CHARACTER_TYPE, Map.of(id("human-test"), character));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
-        assertEquals(3, exported.size());
+        assertEquals(4, exported.size());
         assertTrue(exported.containsKey(ModReagents.REAGENT_TYPE.typeId()));
         assertTrue(exported.containsKey(ModStatusEffects.STATUS_EFFECT_TYPE.typeId()));
         assertTrue(exported.containsKey(ModAlerts.ALERT_TYPE.typeId()));
+        assertTrue(exported.containsKey(ModCharacters.CHARACTER_TYPE.typeId()));
 
         client.publishEncodedCatalogs(exported);
         assertEquals(status, PrototypeRuntime.clientStatusEffects().get(id("status-test")));
+        assertEquals(character, PrototypeRuntime.clientCharacters().get(id("human-test")));
+        assertTrue(PrototypeRuntime.clientCharacters().contains(id("human-test")));
+        assertFalse(PrototypeRuntime.clientCharacters().contains(id("missing")));
         assertTrue(PrototypeRuntime.clientReagents().asMap().isEmpty());
         assertTrue(PrototypeRuntime.serverReagents().asMap().isEmpty());
 

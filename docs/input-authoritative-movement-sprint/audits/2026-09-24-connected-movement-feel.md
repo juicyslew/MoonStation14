@@ -1,0 +1,48 @@
+# 2026-09-24 connected movement-feel audit
+
+> **CORRECTION (2026-09-24):** The original multi-source section below reports a local three-launch fixture (`0.6 -> 0.9 -> 1.35`, producing `0.9 -> 1.35 -> 2.025` velocity) and suggests repeated admitted re-slips can compound while still sliding. That result was caused by a local parity bug and is **superseded, not pinned SS14 intended behavior**. At pinned SS14 `c9df5ef5d675b0d1d226828bddf6b78c28502d91`, an already-sliding entity may be admitted for a `SlipEvent`, but the velocity multiplier is applied only when not already sliding; sound and stun are applied only when not already knocked down. See the [re-slip parity correction](2026-09-24-re-slip-parity.md) for code references, corrected local behavior, test evidence, and remaining connected checks. Keep the original dated observation below as history only; do not use its three-launch claim as current parity evidence or proof that each puddle launches.
+
+> **FRICTION CORRECTION (2026-09-24):** The statement below that normal HUMAN friction `2.5` is the final effective value was false. Pinned SS14's `MovementSpeedModifierSystem` multiplies both base friction values by `physics.tile_friction = 8.0`, so normal HUMAN friction is 20, not 2.5. At default 20 Hz, neutral-floor retention is clamped to zero (`clamp(1 - 20 * 0.05, 0, 1)`), rather than 0.875. The local HUMAN policy now uses 20 for normal and sprint friction. SpaceLube contact factor 0.05 yields effective friction and acceleration 1 only during qualifying contact; no post-contact timer or artificial speed cap was added. See the [ground-friction and client-presentation audit](2026-09-24-ground-friction-and-client-presentation.md). This correction changes the source-based interpretation; it does not claim owner-connected feel acceptance.
+
+**Scope/status:** owner-reported limited connected survival smoke after the collision-resolution fix, plus bounded source and automated-test evidence for the changes made in this iteration. Ordinary survival walking and jumping worked without a crash; the original ordinary-movement exception was not reproduced in this limited smoke. This is useful connected evidence, but not acceptance: jump clearance/geometry, the full player/Villager chain, adverse latency, and the mode/teleport handoffs remain unverified. Creative movement is intentionally excluded from custom ownership and is not part of this evaluation. Stop and disable the experiment if the connected behavior is problematic; use the [smoke checklist](experimental-connected-smoke.md).
+
+## Owner-connected observations
+
+The owner reported that ordinary survival walking works and jumping works, but a jump could not clear a one-block obstacle. On ordinary ground, movement coasts longer than expected relative to SS14. SpaceLube changed friction, but produced little sustained glide and steering returned quickly. The camera continued to turn during a slip. An intermittent very large speed burst was observed crossing large/multi-tile SpaceLube. These are bounded observations, not proof of one common cause, and the perceptual ground/sliding response is **not claimed solved**. There is no new connected owner height/obstacle retest after the changes described below.
+
+## Jump and motor reference
+
+The jump comparison is pinned to Minecraft 1.21.1 vanilla behavior: initial vertical velocity `0.42` blocks/tick, gravity `0.08` blocks/tick², vertical drag `0.98`, and movement-before-gravity ordering. Under the stated discrete update, the predicted apex is approximately `1.252` blocks. Before the fix, the shared server/client motor started a jump at `0.34`; it now starts at `0.42` and applies vertical drag `0.98` on both sides, with movement before gravity and drag afterwards. No arbitrary jump multiplier was added. A focused unit one-block fixture and a real-Villager slab GameTest cover bounded jump/collision behavior; neither is an authenticated player's post-change one-block clearance test. Therefore the owner's obstacle report remains open and should be repeated in the connected smoke.
+
+## Contact friction and feel
+
+The SS14 comparison is pinned to commit `c9df5ef5d675b0d1d226828bddf6b78c28502d91`: `Resources/Prototypes/Reagents/cleaning.yml` defines SpaceLube friction `0.05`, and `SlidingSystem.cs` scales both contact friction and acceleration while sliding, then clears the sliding state on exit. The former custom motor bypassed the legacy `LivingEntity.travel` friction mixin. The shared environment now supplies a contact factor through `SlidingFrictionSystem` on server and client, accepting finite nonnegative values (including values greater than `1`) only while the entity is sliding and its feet overlap a currently qualifying puddle. The factor is neutral after contact ends; there is no invented post-contact timer. **Correction:** the component's base HUMAN friction `2.5` is multiplied by tile friction 8.0, making the effective value 20; see the correction note and linked audit above for the full calculation and local policy.
+
+These source/implementation facts do not guarantee a particular subjective glide duration. The owner's report of long ordinary-ground coasting, little sustained SpaceLube glide, and quick return of steering remains a feel issue for connected retest and tuning; do not describe it as resolved by applying the contact factor.
+
+## Slip camera and feedback
+
+The selected temporary camera policy is stun-only: client and server angle guards use client-synchronized / server-authoritative stun, not Sliding or Knockdown alone. SS14 `ChangeDirectionAttempt` is blocked during Stunned; its 0.5-second stun can end before 1.5-second sliding/knockdown. Status synchronization may delay client behavior. Other movement-mode rotation is unchanged, and a future camera system is separate work. Retest turning while stunned, then after stun expires while sliding/knockdown persists, and confirm ordinary rotation behavior. Details are in the [ground-friction and client-presentation audit](2026-09-24-ground-friction-and-client-presentation.md).
+
+The pinned upstream SS14 `/Audio/Effects/slip.ogg` has no file-specific provenance/license entry in `attributions.yml`; it was not copied. The current admitted-slip feedback is a local one-shot vanilla `SoundEvents.SLIME_BLOCK_FALL` at volume `0.35`. See the [slip-audio provenance audit](slip-audio-provenance.md); this is temporary substitute feedback, not a canonical sound match.
+
+## Multi-source speed-burst evidence and limits
+
+A controlled FakePlayer GameTest admitted three distinct SpaceLube source launches, each with 20 units. The accepted horizontal speed deltas were `0.6`, `0.9`, and `1.35` (each at or below the per-admission `1.5` limit); resulting launch velocities were `0.9`, `1.35`, and `2.025` blocks/tick. `superSlippery` is a boolean that permits re-slip while knocked down; the default `launchVelocityMultiplier` is `1.5`. Re-slips across multiple qualifying sources can therefore plausibly compound into a large speed burst. This fixture demonstrates a possible mechanism and records three distinct source admissions; it is **not** proof of the owner's particular burst's cause, nor proof of an authenticated three-puddle traversal or accepted numeric lane bound.
+
+The server now logs once when an admitted slip launch changes horizontal speed using `[movement server] admitted slip launch changed horizontal speed`. During owner retest, preserve server logs and correlate each diagnostic with source locations/amounts, contact order, and observed player speed. This can distinguish admitted re-launches from an unrelated movement/collision issue; absence/presence alone should not be stretched into a broader causal claim. Test a single source against multiple separate sources and stop/disable the experiment if a burst is unsafe.
+
+## Reported automated validation (not a connected retest)
+
+The latest coordinator report after these changes was:
+
+- `test --rerun-tasks --no-daemon` — `BUILD SUCCESSFUL` in 34s. An earlier attempt failed because a new client mixin was omitted from the explicit client-only allowlist in `ServerClassloadingTest`; that narrow allowlist was corrected and the rerun passed.
+- `build --no-daemon` — `BUILD SUCCESSFUL` in 6s.
+- `runGameTestServer --no-daemon -Pms14GameTestDir=build/gametest-run` — `BUILD SUCCESSFUL`; this was an earlier 111/111 run and is historical. The latest 112-test run after final changes is recorded in the [ground-friction and client-presentation audit](2026-09-24-ground-friction-and-client-presentation.md).
+- Python parsed 603 JSON files; `git diff --check` passed with CRLF warnings.
+
+Automated fixtures, including the controlled multi-source GameTest and jump/collision cases, do not substitute for connected-player verification. The [collision regression audit](2026-09-24-connected-collision-regression.md) retains the earlier 110-test run as historical evidence; its record has not been rewritten.
+
+## Required connected follow-up
+
+Using matching rebuilt client/server and a backed-up test world, follow the [smoke checklist](experimental-connected-smoke.md): compare jumping against a one-block obstacle, ordinary-ground coast/stop, steering, one source versus multiple SpaceLube sources, and camera/sound while sliding and while stunned. Confirm rotation after leaving the slide. Record exact logs and source contacts, especially the admitted-launch diagnostic. The full connected player/Villager chain, latency and teleport/mode handoff gates remain open. If any behavior is problematic, turn the startup opt-in off and restart rather than treating experimental observations as acceptance.

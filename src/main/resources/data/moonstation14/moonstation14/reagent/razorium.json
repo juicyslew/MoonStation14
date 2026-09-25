@@ -2,8 +2,8 @@
   "id":  "razorium",
   "name":  "reagent-name-razorium",
   "group":  "toxins",
-  "slipdata":  {
-    "requiredslipspeed":  3.5
+  "slipData":  {
+    "requiredSlipSpeed":  3.5
   },
   "desc":  "reagent-desc-razorium",
   "physicaldesc":  "reagent-physical-desc-reflective",

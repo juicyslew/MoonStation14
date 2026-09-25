@@ -48,6 +48,7 @@ public class TickHooks {
                 || !(entity.level() instanceof ServerLevel serverLevel)) {
             return;
         }
+        com.juicyslew.moonstation14.ms14.slip.SlipSystem.reconcileTarget(entity);
 
         EntityActivityAttachment active = entity.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
         // Eligibility is temporary policy, while the attachment is durable owner state.

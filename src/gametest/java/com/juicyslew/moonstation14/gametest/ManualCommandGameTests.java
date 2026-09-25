@@ -18,7 +18,8 @@ public final class ManualCommandGameTests {
         String[] commands = {
                 "give @s moonstation14:bottle[moonstation14:reagent={\"moonstation14:water\":30.0f}]",
                 "give @s moonstation14:bottle[moonstation14:reagent={\"moonstation14:polytrinicacid\":30.0f}]",
-                "give @s moonstation14:jug[moonstation14:reagent={\"moonstation14:water\":20.0f}]"
+                "give @s moonstation14:jug[moonstation14:reagent={\"moonstation14:water\":20.0f}]",
+                "give @s moonstation14:jug[moonstation14:reagent={\"moonstation14:spacelube\":16.0f,\"moonstation14:polytrinicacid\":4.0f}]"
         };
 
         var dispatcher = helper.getLevel().getServer().getCommands().getDispatcher();

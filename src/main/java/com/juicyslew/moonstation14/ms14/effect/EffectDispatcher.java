@@ -66,6 +66,12 @@ public final class EffectDispatcher {
         return Set.copyOf(handlers.keySet());
     }
 
+    /** Read-only query of whether this exact payload type has an executable handler. */
+    public boolean supportsHandler(EffectData effect) {
+        Objects.requireNonNull(effect, "effect");
+        return handlers.containsKey(effect.getClass());
+    }
+
     /** Package-private audit view used by the exhaustive support-matrix tests. */
     Map<Class<? extends EffectData>, String> registeredUnsupportedTypes() {
         return Map.copyOf(unsupportedReasons);

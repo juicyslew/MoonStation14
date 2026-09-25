@@ -4,8 +4,8 @@
   "parent":  "basepyrotechnic",
   "desc":  "reagent-desc-welding-fuel",
   "physicaldesc":  "reagent-physical-desc-oily",
-  "slipdata":  {
-    "requiredslipspeed":  3.5
+  "slipData":  {
+    "requiredSlipSpeed":  3.5
   },
   "flavor":  "bitter",
   "flavorminimum":  0.01,

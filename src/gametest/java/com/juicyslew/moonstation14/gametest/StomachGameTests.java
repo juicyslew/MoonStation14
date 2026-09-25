@@ -43,6 +43,7 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
@@ -274,6 +275,8 @@ public final class StomachGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void vomitEmptiesStomachSpillsActualMixtureAndPenalizesCustomNeeds(GameTestHelper helper) {
+        BlockPos supportPos = new BlockPos(1, 0, 1);
+        helper.setBlock(supportPos, Blocks.STONE);
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
         MS14Provider.update(character, MS14Bridges.STOMACH,
@@ -295,22 +298,17 @@ public final class StomachGameTests {
                 "vomit projects 0.5 movement multiplier");
         require(MS14Provider.get(character, MS14Bridges.REAGENT).getMap().equals(Map.of(MILK, 7f)),
                 "shared body solution is never purged");
-        boolean spilledContents = false;
-        boolean puddleCreated = false;
-        BlockPos center = character.blockPosition();
-        for (int dx = -2; dx <= 2 && !spilledContents; dx++) {
-            for (int dy = -1; dy <= 2 && !spilledContents; dy++) {
-                for (int dz = -2; dz <= 2 && !spilledContents; dz++) {
-                    if (helper.getLevel().getBlockEntity(center.offset(dx, dy, dz)) instanceof PuddleBlockEntity puddle) {
-                        puddleCreated = true;
-                        if (MS14Provider.get(puddle, MS14Bridges.REAGENT).getMap()
-                                .equals(Map.of(WATER, 1f, SUGAR, 1f))) spilledContents = true;
-                    }
-                }
-            }
+        BlockPos expectedSupport = helper.absolutePos(supportPos);
+        require(character.getOnPos().equals(expectedSupport), "vomiting target stands on its owned stone support");
+        // vomit passes target.getOnPos() to handleSpillSolution, which creates the puddle
+        // one block above that support. Inspect only this fixture-owned landing block: nearby
+        // templates run in the same level and may independently create or consume puddles.
+        BlockPos expectedLanding = expectedSupport.above();
+        if (helper.getLevel().getBlockEntity(expectedLanding) instanceof PuddleBlockEntity puddle) {
+            require(MS14Provider.get(puddle, MS14Bridges.REAGENT).getMap()
+                            .equals(Map.of(WATER, 1f, SUGAR, 1f)),
+                    "any successfully created vomit puddle preserves the actual mixture without synthetic reagent");
         }
-        require(!puddleCreated || spilledContents,
-                "any successfully created puddle preserves the actual mixture without synthetic reagent");
         for (int tick = 0; tick < 10; tick++) StatusEffectSystem.advanceOneTick(character);
         require(StomachSystem.vomit(vomitContext(character, (ServerLevel) helper.getLevel()))
                         == EffectResult.APPLIED,

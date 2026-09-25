@@ -23,6 +23,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Vector3f;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -36,6 +38,7 @@ import static com.juicyslew.moonstation14.util.MapOperations.getTotal;
 import static com.juicyslew.moonstation14.util.NetworkingUtils.*;
 
 public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PuddleBlockEntity.class);
     private long lastCommittedUnits = -1L;
     private boolean removingEmptyBlock;
     // Gonna probably want a generic ContainerBlockEntity.
@@ -46,7 +49,8 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
             3, Direction.WEST
     );
 
-    static float overflowThreshold = 20f;
+    static final float overflowThreshold = 50f;
+    static final float MAX_CAPACITY = 1000f;
 
     public PuddleBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PUDDLE.get(), pos, state);
@@ -59,7 +63,7 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
             lastCommittedUnits = getReagentContainer().totalUnits();
     }
 
-    @Override public float getCapacity() { return 200000f; }
+    @Override public float getCapacity() { return MAX_CAPACITY; }
 
     @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
@@ -157,6 +161,7 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         ReagentAttachment contents = be.getReagentContainer();
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(contents.getMap(), level,
                 "puddle tick " + pos)) return;
+        if (!be.isWithinCapacity(contents, "puddle tick", pos)) return;
         if (contents.totalUnits() == 0L) {
             be.removeEmptyBlock();
             return;
@@ -173,6 +178,7 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         ReagentAttachment srcCont = getReagentContainer();
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(srcCont.getMap(), level,
                 "puddle flow source " + pos)) return;
+        if (!isWithinCapacity(srcCont, "puddle flow source", pos)) return;
         var srcBefore = MS14Provider.snapshot(srcCont);
         float volume = getTotal(srcCont.getMap());
 
@@ -195,8 +201,9 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         for (Direction dir : Direction.Plane.HORIZONTAL) {
             BlockPos targetPos = findFlowTarget(level, pos.relative(dir));
             if (targetPos != null && level.getBlockEntity(targetPos) instanceof PuddleBlockEntity target
-                    && !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
-                    target.getReagentContainer().getMap(), level, "puddle flow destination " + targetPos)) return;
+                    && (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
+                    target.getReagentContainer().getMap(), level, "puddle flow destination " + targetPos)
+                    || !target.isWithinCapacity(target.getReagentContainer(), "puddle flow destination", targetPos))) return;
         }
 
         for (Direction dir : Direction.Plane.HORIZONTAL) {
@@ -280,6 +287,15 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         removingEmptyBlock = true;
         // No drops: reagent state is already empty and must not be duplicated.
         level.removeBlock(worldPosition, false);
+    }
+
+    private boolean isWithinCapacity(ReagentAttachment contents, String operation, BlockPos pos) {
+        long capacity = ReagentUnits.fromFloat(getCapacity());
+        long stored = contents.totalUnits();
+        if (stored <= capacity) return true;
+        LOGGER.error("Skipping {} for legacy over-capacity puddle at {}: stored {} cents exceeds {} cents; " +
+                "contents are preserved for repair", operation, pos, stored, capacity);
+        return false;
     }
 
     static void transferFlow(ReagentAttachment source, ReagentAttachment target, float netVol,

@@ -6,7 +6,28 @@
     "FoodDataCharacterMixin",
     "PlayerPeacefulNutritionMixin",
     "LivingEntityReagentMixin",
-    "LivingEntityStatusEffectMixin"
+    "LivingEntityStatusEffectMixin",
+    "LivingEntityStunImmobileMixin",
+    "LivingEntitySlidingFrictionMixin",
+    "VillagerStunBrainMixin",
+    "LivingEntityImmobileInvoker",
+    "ServerPlayerStunActionMixin",
+    "ServerPlayerStunPickupMixin",
+    "ServerPlayerAcceptedMoveMixin",
+    "ServerPlayerMovementTickMixin",
+    "ServerPlayerMovementPacketMixin",
+    "MovementTeleportStateAccessor",
+    "ServerPlayerMovementTeleportAckMixin",
+    "LivingEntityMovementOwnerMixin"
+  ],
+  "client": [
+    "client.MinecraftStunInputMixin",
+    "client.LocalPlayerStunDropMixin",
+      "client.LocalPlayerMovementTickMixin",
+      "client.LocalPlayerMovementTravelMixin",
+      "client.LivingEntityMovementAnimationInvoker",
+      "client.MouseHandlerSlidingLookMixin",
+      "client.LivingEntityWishFacingMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -116,7 +116,7 @@ public record ReagentData(
             Codec.BOOL.optionalFieldOf("worksonthedead").forGetter(o -> (Optional<Boolean>) o.get(2)),
             Codec.list(Codec.STRING).optionalFieldOf("alloweddepartments").forGetter(o -> (Optional<List<String>>) o.get(3)),
             Codec.list(Codec.STRING).optionalFieldOf("allowedjobs").forGetter(o -> (Optional<List<String>>) o.get(4)),
-            SlipData.CODEC.codec().optionalFieldOf("slipdata").forGetter(o -> (Optional<SlipData>) o.get(5)),
+            SlipData.CODEC.codec().optionalFieldOf("slipData").forGetter(o -> (Optional<SlipData>) o.get(5)),
             Codec.FLOAT.optionalFieldOf("friction").forGetter(o -> (Optional<Float>) o.get(6)),
             Codec.list(TileReactionData.CODEC.codec()).optionalFieldOf("tilereactions").forGetter(o -> (Optional<List<TileReactionData>>) o.get(7)),
             FootstepSoundData.CODEC.codec().optionalFieldOf("footstepsound").forGetter(o -> (Optional<FootstepSoundData>) o.get(8)),

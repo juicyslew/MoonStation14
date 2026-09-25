@@ -60,7 +60,7 @@ class ReagentDataCodecTest {
         JsonObject json = JsonParser.parseString("""
                 {
                   "id":"buzzochloricbees-style",
-                  "slipdata":{"requiredslipspeed":3.5,"superslippery":false},
+                  "slipData":{"requiredSlipSpeed":3.5,"superSlippery":false},
                   "footstepsound":{"collection":"footstepblood","params":{"volume":6}},
                   "tilereactions":[
                     {"type":"CreateEntityTileReaction { entity: mobbee }", "temperaturemultiplier":1.25,

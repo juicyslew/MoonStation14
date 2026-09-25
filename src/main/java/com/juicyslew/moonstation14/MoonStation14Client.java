@@ -14,6 +14,9 @@ import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogSyncPa
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.util.ModSpecialProperties;
 import com.juicyslew.moonstation14.ms14.alert.AlertAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.movement.client.MovementClientController;
+import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.util.RandomSource;
@@ -46,6 +49,7 @@ public class MoonStation14Client {
         // Do not forget to add translations for your config options to the en_us.json file.
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         PrototypeCatalogNetworking.installClientHandler(MoonStation14Client::handleCatalogPayload);
+        MovementClientController.install();
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
     }
 
@@ -60,9 +64,9 @@ public class MoonStation14Client {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.level == null) return;
         AlertAttachment alerts = minecraft.player.getExistingDataOrNull(ModDataAttachments.ALERT.get());
-        if (alerts == null || alerts.isEmpty()) return;
         var catalog = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.clientAlerts();
-        var ordered = alerts.snapshot().entrySet().stream().filter(entry -> catalog.get(entry.getKey().location()) != null)
+        var ordered = alerts == null ? java.util.List.<java.util.Map.Entry<net.minecraft.resources.ResourceKey<com.juicyslew.moonstation14.component.codec.json.AlertData>, com.juicyslew.moonstation14.ms14.alert.AlertInstance>>of()
+                : alerts.snapshot().entrySet().stream().filter(entry -> catalog.get(entry.getKey().location()) != null)
                 .sorted(java.util.Comparator.comparingInt(entry -> catalog.get(entry.getKey().location()).order()))
                 .toList();
         int y = 12;
@@ -80,6 +84,27 @@ public class MoonStation14Client {
             event.getGuiGraphics().drawString(minecraft.font, label, x, y, 0xffffffff, false);
             y += 13;
         }
+
+        var player = minecraft.player;
+        if (CharacterControlSystem.isClientActionBlocked(player)) {
+            y = drawMovementHudLabel(event, minecraft, "moonstation14.hud.movement.stunned", 0xffa83232, y);
+        }
+        if (SlipSystem.isSliding(player)) {
+            y = drawMovementHudLabel(event, minecraft, "moonstation14.hud.movement.slipped", 0xffa86b16, y);
+        }
+        if (CharacterControlSystem.isKnockedDown(player)) {
+            drawMovementHudLabel(event, minecraft, "moonstation14.hud.movement.knocked_down", 0xff67469a, y);
+        }
+    }
+
+    private static int drawMovementHudLabel(RenderGuiEvent.Post event, Minecraft minecraft,
+                                            String translationKey, int color, int y) {
+        String label = net.minecraft.network.chat.Component.translatable(translationKey).getString();
+        int width = minecraft.font.width(label);
+        int x = minecraft.getWindow().getGuiScaledWidth() - width - 20;
+        event.getGuiGraphics().fill(x - 3, y - 2, x + width + 3, y + 11, 0x99000000 | (color & 0x00ffffff));
+        event.getGuiGraphics().drawString(minecraft.font, label, x, y, 0xffffffff, false);
+        return y + 13;
     }
 
     @SubscribeEvent
@@ -160,10 +185,12 @@ final class MoonStation14ClientNetworkEvents {
     @SubscribeEvent
     public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
         MoonStation14Client.clearCatalogSync();
+        MovementClientController.reset();
     }
 
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         MoonStation14Client.clearCatalogSync();
+        MovementClientController.reset();
     }
 }

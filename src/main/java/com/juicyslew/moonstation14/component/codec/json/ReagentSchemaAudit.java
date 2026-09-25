@@ -27,12 +27,13 @@ public final class ReagentSchemaAudit {
             "metabolisms", "metamorphicsprite", "metamorphicmaxfilllevels",
             "metamorphicfillbasename", "metamorphicchangecolor", "priceperunit",
             "reactiveeffects", "recognizable", "fizziness", "worksonthedead",
-            "alloweddepartments", "allowedjobs", "slipdata", "friction", "tilereactions",
+            "alloweddepartments", "allowedjobs", "slipData", "friction", "tilereactions",
             "footstepsound", "standsout", "flavorminimum", "evaporationspeed", "viscosity",
             "absorbent", "parent", "abstract");
     private static final Set<String> METABOLISM = Set.of("effects", "metabolites", "metabolismrate");
     private static final Set<String> COMMON = Set.of("type", "conditions", "probability", "minscale", "scaling");
     private static final Set<String> REACTIVE = Set.of("methods", "effects");
+    private static final Set<String> REACTION_METHODS = Set.of("touch", "injection", "ingestion");
     private static final Set<String> DAMAGE_TYPES = DamageSpecifierData.KNOWN_DAMAGE_TYPES;
     private static final Set<String> DAMAGE_GROUPS = Set.of(
             "brute", "burn", "airloss", "toxin", "genetic", "metaphysical");
@@ -129,7 +130,8 @@ public final class ReagentSchemaAudit {
         stringFields(id, reagent, "name", "group", "desc", "physicaldesc", "flavor",
                 "contrabandseverity", "metamorphicfillbasename");
         numberFields(id, reagent, "boilingpoint", "meltingpoint", "metamorphicmaxfilllevels", "priceperunit",
-                "fizziness", "friction", "flavorminimum", "evaporationspeed", "viscosity");
+                "fizziness", "flavorminimum", "evaporationspeed", "viscosity");
+        if (reagent.has("friction")) finiteNonnegativeNumber(id, "friction", reagent.get("friction"));
         booleanFields(id, reagent, "metamorphicchangecolor", "recognizable", "worksonthedead", "standsout",
                 "absorbent", "abstract");
         if (reagent.has("color")) string(id, "color", reagent.get("color"));
@@ -153,7 +155,7 @@ public final class ReagentSchemaAudit {
         }
         if (reagent.has("metabolisms")) auditMetabolisms(id, object(id, "metabolisms", reagent.get("metabolisms")));
         if (reagent.has("reactiveeffects")) auditReactiveEffects(id, object(id, "reactiveeffects", reagent.get("reactiveeffects")));
-        if (reagent.has("slipdata")) auditSlipData(id, "slipdata", object(id, "slipdata", reagent.get("slipdata")));
+        if (reagent.has("slipData")) auditSlipData(id, "slipData", object(id, "slipData", reagent.get("slipData")));
         if (reagent.has("footstepsound")) auditFootstepSound(id, "footstepsound", object(id, "footstepsound", reagent.get("footstepsound")));
         if (reagent.has("tilereactions")) auditTileReactions(id, array(id, reagent, "tilereactions"));
     }
@@ -196,7 +198,19 @@ public final class ReagentSchemaAudit {
             JsonObject reaction = object(id, path, entry.getValue());
             checkUnknown(id, path, reaction, REACTIVE);
             requireArray(id, reaction, "methods", path + ".methods");
-            stringArray(id, path + ".methods", reaction.getAsJsonArray("methods"));
+            JsonArray methods = reaction.getAsJsonArray("methods");
+            if (methods.isEmpty()) fail(id, path + ".methods", "expected a nonempty array");
+            stringArray(id, path + ".methods", methods);
+            Set<String> seenMethods = new HashSet<>();
+            for (int i = 0; i < methods.size(); i++) {
+                String method = methods.get(i).getAsString();
+                String methodPath = path + ".methods[" + i + "]";
+                if (!REACTION_METHODS.contains(method)) {
+                    fail(id, methodPath, "unknown reaction method '" + method
+                            + "' (expected one of " + REACTION_METHODS + ")");
+                }
+                if (!seenMethods.add(method)) fail(id, methodPath, "duplicate reaction method '" + method + "'");
+            }
             requireArray(id, reaction, "effects", path + ".effects");
             auditEffects(id, path, reaction.getAsJsonArray("effects"));
         }
@@ -399,9 +413,15 @@ public final class ReagentSchemaAudit {
     }
 
     private static void auditSlipData(ResourceLocation id, String path, JsonObject slip) {
-        checkUnknown(id, path, slip, Set.of("requiredslipspeed", "superslippery"));
-        requireNumber(id, slip, "requiredslipspeed", path + ".requiredslipspeed");
-        optionalBool(id, path, slip, "superslippery");
+        checkUnknown(id, path, slip, Set.of("stunTime", "knockdownTime", "autoStand",
+                "launchForwardsMultiplier", "requiredSlipSpeed", "superSlippery", "slipFriction"));
+        optionalNonnegativeNumber(id, path, slip, "requiredSlipSpeed");
+        optionalBool(id, path, slip, "superSlippery");
+        optionalNonnegativeNumber(id, path, slip, "stunTime");
+        optionalNonnegativeNumber(id, path, slip, "knockdownTime");
+        optionalBool(id, path, slip, "autoStand");
+        optionalNonnegativeNumber(id, path, slip, "launchForwardsMultiplier");
+        optionalNonnegativeNumber(id, path, slip, "slipFriction");
     }
 
     private static void auditFootstepSound(ResourceLocation id, String path, JsonObject sound) {
@@ -488,6 +508,11 @@ public final class ReagentSchemaAudit {
         if (!Double.isFinite(parsed) || !Float.isFinite(value.getAsFloat())) {
             fail(id, path, "expected a finite number");
         }
+    }
+
+    private static void requireNonnegativeNumber(ResourceLocation id, JsonObject object, String field, String path) {
+        if (!object.has(field)) fail(id, path, "missing required field");
+        finiteNonnegativeNumber(id, path, object.get(field));
     }
 
     private static void alertReference(ResourceLocation id, String path, JsonElement value) {

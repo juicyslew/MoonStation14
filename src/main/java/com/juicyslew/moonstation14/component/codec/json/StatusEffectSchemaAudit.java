@@ -82,8 +82,9 @@ public final class StatusEffectSchemaAudit {
                 fail(itemPath, "duplicate value '" + name + "'");
             }
             if (behaviors) {
-                if (!name.equals("marker") && !name.equals("client_jitter")
-                        && !name.equals("movement_speed")) {
+                boolean known = java.util.Arrays.stream(StatusEffectBehavior.values())
+                        .anyMatch(behavior -> behavior.serializedName().equals(name));
+                if (!known) {
                     fail(itemPath, "unknown status effect behavior '" + name + "'");
                 }
             } else if (!name.equals("living_entity")) {

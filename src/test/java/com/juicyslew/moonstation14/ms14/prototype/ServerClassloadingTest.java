@@ -19,7 +19,15 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/MoonStation14Client.java",
             "com/juicyslew/moonstation14/CameraJitterHandler.java",
             "com/juicyslew/moonstation14/util/ModSpecialProperties.java",
-            "com/juicyslew/moonstation14/ms14/eye/client/EyeDamageFogHandler.java"
+            "com/juicyslew/moonstation14/ms14/eye/client/EyeDamageFogHandler.java",
+            "com/juicyslew/moonstation14/mixin/client/MinecraftStunInputMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/LocalPlayerStunDropMixin.java",
+            "com/juicyslew/moonstation14/ms14/movement/client/MovementClientController.java",
+            "com/juicyslew/moonstation14/mixin/client/LocalPlayerMovementTickMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/LocalPlayerMovementTravelMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/LivingEntityMovementAnimationInvoker.java",
+            "com/juicyslew/moonstation14/mixin/client/LivingEntityWishFacingMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/MouseHandlerSlidingLookMixin.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"

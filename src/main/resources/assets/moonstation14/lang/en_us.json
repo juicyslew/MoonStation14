@@ -59,6 +59,9 @@
   "alerts-thirsty-desc": "You are thirsty.",
   "alerts-parched-name": "Parched",
   "alerts-parched-desc": "You are severely dehydrated.",
+  "moonstation14.hud.movement.stunned": "Stunned",
+  "moonstation14.hud.movement.slipped": "Slipped",
+  "moonstation14.hud.movement.knocked_down": "Knocked Down",
 
   "absinthe-effect-hear-voice": "You hear a tiny voice. \"Tee hee hee!\"",
   "absinthe-effect-feel-tulips": "You feel tulips brush up against your legs.",

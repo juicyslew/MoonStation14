@@ -3,7 +3,9 @@ package com.juicyslew.moonstation14.ms14.prototype;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.component.codec.json.StatusEffectData;
 import com.juicyslew.moonstation14.component.codec.json.AlertData;
+import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 
@@ -47,11 +49,20 @@ public final class PrototypeRuntime {
         return CLIENT_MANAGER.snapshot(ModAlerts.ALERT_TYPE);
     }
 
+    public static PrototypeCatalog<CharacterData> serverCharacters() {
+        return SERVER_MANAGER.snapshot(ModCharacters.CHARACTER_TYPE);
+    }
+
+    public static PrototypeCatalog<CharacterData> clientCharacters() {
+        return CLIENT_MANAGER.snapshot(ModCharacters.CHARACTER_TYPE);
+    }
+
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModReagents.REAGENT_TYPE);
         manager.register(ModStatusEffects.STATUS_EFFECT_TYPE);
         manager.register(ModAlerts.ALERT_TYPE);
+        manager.register(ModCharacters.CHARACTER_TYPE);
         return manager;
     }
 }
