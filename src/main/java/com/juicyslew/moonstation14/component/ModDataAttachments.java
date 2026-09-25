@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.eye.EyeDamageAttachment;
 import com.juicyslew.moonstation14.ms14.alert.AlertAttachment;
 import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import net.neoforged.bus.api.IEventBus;
@@ -99,6 +100,13 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<SlidingAttachment>> SLIDING = ATTACHMENT_TYPES.register(
             "sliding", () -> AttachmentType.builder((Supplier<SlidingAttachment>) SlidingAttachment::new)
                     .sync(SlidingAttachment.STREAM_CODEC).build()
+    );
+
+    /** Sparse server-persisted chunk atmosphere state; deliberately not synchronized. */
+    public static final Supplier<AttachmentType<AtmosphereChunkData>> ATMOSPHERE_CHUNK = ATTACHMENT_TYPES.register(
+            "atmosphere_chunk", () -> AttachmentType.builder(AtmosphereChunkData::new)
+                    .serialize(AtmosphereChunkData.CODEC, data -> data.size() > 0)
+                    .build()
     );
 
 

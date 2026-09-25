@@ -11,6 +11,8 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeReloadListener;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereEventHooks;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
 import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
@@ -33,6 +35,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
@@ -52,6 +55,7 @@ public class MoonStation14 {
         // Note that this is necessary if and only if we want *this* class (MoonStation14) to respond directly to events.
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
+        AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
 
         ModCreativeModeTabs.register(modEventBus);
 
@@ -91,6 +95,7 @@ public class MoonStation14 {
             event.accept(ModItems.CROWBAR);
             event.accept(ModItems.WAFFLE);
             event.accept(ModItems.BOTTLE);
+            event.accept(ModItems.ATMOSPHERE_ANALYZER);
         }
 
         if(event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS){
@@ -98,6 +103,10 @@ public class MoonStation14 {
             event.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
             event.accept(ModBlocks.MAGIC_BLOCK);
             event.accept(ModBlocks.JUG);
+            event.accept(ModBlocks.ATMOS_AIR_PRODUCER);
+            event.accept(ModBlocks.ATMOS_GAS_SINK);
+            event.accept(ModBlocks.ATMOS_HEATER);
+            event.accept(ModBlocks.ATMOS_COOLER);
         }
     }
 
@@ -105,6 +114,12 @@ public class MoonStation14 {
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         MovementStartupGate.onServerStarting(Config.EXPERIMENTAL_VERTICAL_SLICE_MOVEMENT.get());
+    }
+
+    @SubscribeEvent
+    public void onServerAboutToStart(ServerAboutToStartEvent event) {
+        AtmosphereService.INSTANCE.configureAtServerStart(Config.ENABLE_ATMOSPHERICS.get(),
+                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()));
     }
 
     @SubscribeEvent
@@ -132,6 +147,7 @@ public class MoonStation14 {
 
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
+        AtmosphereService.INSTANCE.onServerStopped();
         MovementServerController.onServerStopped();
         MovementStartupGate.onServerStopped();
         PrototypeRuntime.serverManager().clearPublishedCatalogs();

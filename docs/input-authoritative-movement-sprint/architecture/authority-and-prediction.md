@@ -1,6 +1,6 @@
 # Movement authority and prediction — companion
 
-**Status: default-off experimental connected vertical slice implemented; authenticated runtime and transition proof remain open.** See the root [`instructions.md`](../../../instructions.md) for scope, gates, milestones, validation and decision status, and the [connected-smoke checklist](../audits/experimental-connected-smoke.md). The owner authorized this bounded experiment; M2/M3 acceptance is still open.
+**Status: default-off experimental connected vertical slice implemented; authenticated runtime and transition proof remain open.** See the sprint [`Instructions.md`](../Instructions.md) for scope, gates, milestones, validation and decision status, and the [connected-smoke checklist](../audits/experimental-connected-smoke.md). The owner authorized this bounded experiment; M2/M3 acceptance is still open.
 
 The original source investigation findings and native-input gate result are in the [M0 authority and protocol proof](../audits/m0-authority-and-protocol-proof.md). Candidate hooks and protocol now exist, but their live transition/tick behavior remains unproved; M2/M3 acceptance awaits authenticated connected smoke and single-owner mode/teleport tests.
 

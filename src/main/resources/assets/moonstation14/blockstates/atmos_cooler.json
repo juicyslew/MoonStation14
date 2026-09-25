@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"moonstation14:block/atmos_cooler"},"facing=east":{"model":"moonstation14:block/atmos_cooler","y":90},"facing=south":{"model":"moonstation14:block/atmos_cooler","y":180},"facing=west":{"model":"moonstation14:block/atmos_cooler","y":270}}}
