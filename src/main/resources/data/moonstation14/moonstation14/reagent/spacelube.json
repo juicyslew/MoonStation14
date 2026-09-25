@@ -3,9 +3,9 @@
   "name":  "reagent-name-space-lube",
   "desc":  "reagent-desc-space-lube",
   "evaporationspeed":  0.1,
-  "slipdata":  {
-    "requiredslipspeed":  1,
-    "superslippery":  true
+  "slipData":  {
+    "requiredSlipSpeed":  1,
+    "superSlippery":  true
   },
   "physicaldesc":  "reagent-physical-desc-shiny",
   "flavor":  "funny",

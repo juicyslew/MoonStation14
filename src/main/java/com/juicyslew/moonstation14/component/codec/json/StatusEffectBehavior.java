@@ -7,7 +7,8 @@ import com.mojang.serialization.DataResult;
 public enum StatusEffectBehavior {
     MARKER("marker"),
     CLIENT_JITTER("client_jitter"),
-    MOVEMENT_SPEED("movement_speed");
+    MOVEMENT_SPEED("movement_speed"),
+    STUN_ACTION_BLOCK("stun_action_block");
 
     public static final Codec<StatusEffectBehavior> CODEC = Codec.STRING.comapFlatMap(
             value -> {

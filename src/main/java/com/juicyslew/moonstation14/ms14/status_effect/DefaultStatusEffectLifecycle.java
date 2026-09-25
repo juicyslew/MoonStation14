@@ -92,6 +92,9 @@ public class DefaultStatusEffectLifecycle implements StatusEffectLifecycle {
                 case MOVEMENT_SPEED -> {
                     // Reconciled above from the authoritative attachment.
                 }
+                case STUN_ACTION_BLOCK -> {
+                    // Read directly from active authoritative status state.
+                }
             }
         }
     }

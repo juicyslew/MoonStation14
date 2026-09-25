@@ -9,6 +9,7 @@ import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
+import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -32,19 +33,31 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.Entity;
 import javax.annotation.Nullable;
 
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
 import static com.juicyslew.moonstation14.util.Helpers.findFirstSurfaceBelow;
 
 public class PuddleBlock extends TransparentBlock implements EntityBlock {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PuddleBlock.class);
     public static IntegerProperty FILL_LEVEL = IntegerProperty.create("fill_level", 0, 3);
 
     public PuddleBlock(Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(FILL_LEVEL, 0));
+    }
+
+    /** Repeated vanilla overlap callback; server slip logic owns admission and latching. */
+    @Override
+    public void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
+        if (!level.isClientSide && level instanceof ServerLevel serverLevel) {
+            SlipSystem.onPuddleContact(serverLevel, pos, entity);
+        }
     }
 
     @Override
@@ -154,6 +167,12 @@ public class PuddleBlock extends TransparentBlock implements EntityBlock {
                 // 3. Place or Merge at the bottom
                 if (level.getBlockEntity(landingPos) instanceof PuddleBlockEntity targetBE) {
                     ReagentAttachment destCont = MS14Provider.getDetached(targetBE, MS14Bridges.REAGENT);
+                    if (destCont.totalUnits() > ReagentUnits.fromFloat(targetBE.getCapacity())) {
+                        LOGGER.error("Skipping gravity merge into legacy over-capacity puddle at {}: stored {} cents " +
+                                "exceeds {} cents; source and destination contents are preserved for repair",
+                                landingPos, destCont.totalUnits(), ReagentUnits.fromFloat(targetBE.getCapacity()));
+                        return;
+                    }
                     var before = MS14Provider.snapshot(destCont);
                     ReagentAttachment.transferUnits(reagents, destCont, reagents.totalUnits(),
                             ReagentUnits.fromFloat(targetBE.getCapacity()));

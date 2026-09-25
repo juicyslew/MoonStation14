@@ -11,6 +11,8 @@ import com.juicyslew.moonstation14.ms14.eye.EyeDamageAttachment;
 import com.juicyslew.moonstation14.ms14.alert.AlertAttachment;
 import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -72,6 +74,13 @@ public class ModDataAttachments {
                     .build()
     );
 
+    /** Persisted, key-only server character identity. */
+    public static final Supplier<AttachmentType<CharacterIdentityAttachment>> CHARACTER_IDENTITY = ATTACHMENT_TYPES.register(
+            "character_identity", () -> AttachmentType.builder((Supplier<CharacterIdentityAttachment>) CharacterIdentityAttachment::new)
+                    .serialize(CharacterIdentityAttachment.CODEC, CharacterIdentityAttachment::isBound)
+                    .sync(CharacterIdentityAttachment.STREAM_CODEC)
+                    .build());
+
     /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */
     public static final Supplier<AttachmentType<EyeDamageAttachment>> EYE_DAMAGE = ATTACHMENT_TYPES.register(
             "eye_damage", () -> AttachmentType.builder((Supplier<EyeDamageAttachment>) EyeDamageAttachment::new)
@@ -84,6 +93,12 @@ public class ModDataAttachments {
     /** Derived scheduling state; it is deliberately neither persisted nor synchronized. */
     public static final Supplier<AttachmentType<EntityActivityAttachment>> ACTIVE_SYSTEMS = ATTACHMENT_TYPES.register(
             "active_systems", () -> AttachmentType.builder((Supplier<EntityActivityAttachment>) EntityActivityAttachment::new).build()
+    );
+
+    /** Volatile server-owned sliding projection: synchronized, never serialized or copied on death. */
+    public static final Supplier<AttachmentType<SlidingAttachment>> SLIDING = ATTACHMENT_TYPES.register(
+            "sliding", () -> AttachmentType.builder((Supplier<SlidingAttachment>) SlidingAttachment::new)
+                    .sync(SlidingAttachment.STREAM_CODEC).build()
     );
 
 

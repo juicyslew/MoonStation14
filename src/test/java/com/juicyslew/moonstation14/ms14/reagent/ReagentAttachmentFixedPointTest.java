@@ -132,6 +132,34 @@ class ReagentAttachmentFixedPointTest {
     }
 
     @Test
+    void centSplitReturnsImmutableConservedSnapshotAndCapsAtAvailableTotal() {
+        ReagentAttachment attachment = ReagentComponent.fromCents(Map.of(A, 100L, B, 300L)).toAttachment();
+
+        Map<ResourceKey<ReagentData>, Long> split = attachment.splitUnits(101L);
+
+        assertEquals(101L, ReagentUnits.total(split.values()));
+        assertEquals(74L, attachment.snapshotUnits().get(A));
+        assertEquals(225L, attachment.snapshotUnits().get(B));
+        assertEquals(299L, attachment.totalUnits());
+        assertThrows(UnsupportedOperationException.class, () -> split.put(A, 0L));
+
+        Map<ResourceKey<ReagentData>, Long> remainder = attachment.splitUnits(1_000L);
+        assertEquals(299L, ReagentUnits.total(remainder.values()));
+        assertEquals(Map.of(A, 74L, B, 225L), remainder);
+        assertTrue(attachment.isEmpty());
+    }
+
+    @Test
+    void invalidCentSplitIsMutationFree() {
+        ReagentAttachment attachment = ReagentComponent.fromCents(Map.of(A, 100L, B, 300L)).toAttachment();
+        Map<ResourceKey<ReagentData>, Long> before = attachment.snapshotUnits();
+
+        assertThrows(IllegalArgumentException.class, () -> attachment.splitUnits(-1L));
+        assertThrows(IllegalArgumentException.class, () -> attachment.splitUnits(ReagentUnits.MAX_CENTS + 1L));
+        assertEquals(before, attachment.snapshotUnits());
+    }
+
+    @Test
     void reactionProductsFloorToCentsAndTinyReactionCannotManufactureOrLoop() {
         ReagentAttachment attachment = new ReagentAttachment(Map.of(A, .01f));
         var reaction = new com.juicyslew.moonstation14.recipe.ReactionRecipe(

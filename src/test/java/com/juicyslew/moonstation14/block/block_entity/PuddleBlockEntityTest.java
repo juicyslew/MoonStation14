@@ -17,15 +17,21 @@ class PuddleBlockEntityTest {
     @Test
     void flowAdmissionIsExactNearPuddleCapacity() {
         ReagentAttachment source = new ReagentAttachment(Map.of(A, 1f));
-        ReagentAttachment target = new ReagentAttachment(Map.of(B, 200_000f));
+        ReagentAttachment target = new ReagentAttachment(Map.of(B, 1000f));
         target.removeUnits(B, 1);
         long before = source.totalUnits() + target.totalUnits();
 
-        PuddleBlockEntity.transferFlow(source, target, .01f, 0f, 200_000f);
+        PuddleBlockEntity.transferFlow(source, target, .01f, 0f, 1000f);
 
-        assertEquals(20_000_000L, target.totalUnits());
+        assertEquals(100_000L, target.totalUnits());
         assertEquals(99L, source.totalUnits());
         assertEquals(before, source.totalUnits() + target.totalUnits());
+    }
+
+    @Test
+    void puddleOverflowIsFiftyUnitsAndCapacityIsOneThousand() {
+        assertEquals(50f, PuddleBlockEntity.overflowThreshold);
+        assertEquals(1000f, PuddleBlockEntity.MAX_CAPACITY);
     }
 
     @Test
@@ -33,12 +39,11 @@ class PuddleBlockEntityTest {
         assertEquals(0, PuddleBlockEntity.fillLevelForVolume(0f));
         assertEquals(1, PuddleBlockEntity.fillLevelForVolume(Float.MIN_VALUE));
         assertEquals(1, PuddleBlockEntity.fillLevelForVolume(0.1f));
-        assertEquals(1, PuddleBlockEntity.fillLevelForVolume(Math.nextDown(6f)));
-        assertEquals(1, PuddleBlockEntity.fillLevelForVolume(6f));
-        assertEquals(2, PuddleBlockEntity.fillLevelForVolume(Math.nextDown(12.67f)));
-        assertEquals(2, PuddleBlockEntity.fillLevelForVolume(12.67f));
-        assertEquals(3, PuddleBlockEntity.fillLevelForVolume(Math.nextDown(20f)));
-        assertEquals(3, PuddleBlockEntity.fillLevelForVolume(20f));
+        assertEquals(1, PuddleBlockEntity.fillLevelForVolume(29.99f));
+        assertEquals(2, PuddleBlockEntity.fillLevelForVolume(31.7f));
+        assertEquals(2, PuddleBlockEntity.fillLevelForVolume(48.3f));
+        assertEquals(3, PuddleBlockEntity.fillLevelForVolume(48.4f));
+        assertEquals(3, PuddleBlockEntity.fillLevelForVolume(50f));
     }
 
     @Test

@@ -8,8 +8,8 @@
   "recognizable":  true,
   "boilingpoint":  100,
   "meltingpoint":  60,
-  "slipdata":  {
-    "requiredslipspeed":  3.5
+  "slipData":  {
+    "requiredSlipSpeed":  3.5
   },
   "friction":  0.3,
   "metabolisms":  {

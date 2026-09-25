@@ -13,6 +13,10 @@ import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.hunger.HungerComponent;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstComponent;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
+import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
+import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
 import com.juicyslew.moonstation14.util.SystemLink;
 
 public class MS14Bridges {
@@ -35,7 +39,8 @@ public class MS14Bridges {
 
     public static final SystemLink<ReagentAttachment, ReagentComponent> STOMACH = new SystemLink<>(
             ModDataAttachments.STOMACH, ModDataComponents.STOMACH,
-            ReagentAttachment::new);
+            ReagentAttachment::new,
+            new SystemLink.ActivityBinding<>(EntityActivity.REAGENT_METABOLISM, data -> !data.isEmpty()));
     public static final SystemLink<AlertAttachment, AlertComponent> ALERT = new SystemLink<>(
             ModDataAttachments.ALERT, ModDataComponents.ALERT, AlertAttachment::new,
             new SystemLink.ActivityBinding<>(EntityActivity.ALERT, data -> data.snapshot().values().stream()
@@ -48,4 +53,11 @@ public class MS14Bridges {
             ModDataAttachments.THIRST, ModDataComponents.THIRST, ThirstAttachment::new,
             new SystemLink.ActivityBinding<>(EntityActivity.THIRST,
                     data -> com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.needsTicking(data)));
+
+    public static final SystemLink<CharacterIdentityAttachment, CharacterIdentityComponent> CHARACTER_IDENTITY =
+            new SystemLink<>(ModDataAttachments.CHARACTER_IDENTITY, ModDataComponents.CHARACTER_IDENTITY,
+                    CharacterIdentityAttachment::new);
+
+    public static final SystemLink<SlidingAttachment, SlidingComponent> SLIDING =
+            new SystemLink<>(ModDataAttachments.SLIDING, ModDataComponents.SLIDING, SlidingAttachment::new);
 }

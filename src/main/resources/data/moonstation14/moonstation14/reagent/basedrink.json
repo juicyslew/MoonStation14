@@ -2,8 +2,8 @@
   "id":  "basedrink",
   "group":  "drinks",
   "abstract":  true,
-  "slipdata":  {
-    "requiredslipspeed":  3.5
+  "slipData":  {
+    "requiredSlipSpeed":  3.5
   },
   "metabolisms":  {
     "digestion":  {

@@ -2,6 +2,6 @@
   "translation_key": "status-effect.stunned",
   "beneficial": false,
   "color": "0x666666",
-  "behaviors": ["marker"],
+  "behaviors": ["marker", "stun_action_block"],
   "eligibility": ["living_entity"]
 }

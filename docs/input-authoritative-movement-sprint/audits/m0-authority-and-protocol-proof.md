@@ -1,0 +1,71 @@
+# M0 Authority and Protocol Proof
+
+**Status: source investigation complete; architecture and initial bounded scope approved; transition/hook proof and connected-client runtime proof remain OPEN.** This is a documentation-only audit. The approval does not authorize invasive movement/network implementation or establish that a proposed motor, packet path, or prediction loop works at runtime. No source, test, or resource files were changed for this audit; no build or game was run.
+
+## Decision summary
+
+**Native vanilla input alone cannot provide the proposed grounded, input-authoritative movement while vanilla client position packets are made non-authoritative. The unmodified native-input-authoritative gate FAILS.** `handlePlayerInput` always calls `ServerPlayer.setPlayerInput`, but that method assigns the input only when the player is a passenger. Ordinary grounded travel is driven by the normal player tick and proposed-position packet path. More critically, `ServerGamePacketListenerImpl.tick` calls `resetPosition()` to record the tick-start position, runs `player.doTick()`, then rolls the player back to that tick-start position if travel moved it. Simply canceling ordinary move packets therefore does not leave the native travel result persistent on the server.
+
+The source path makes a narrow server tick/owner hook necessary—even if vanilla `Player.travel`, collision, and `Entity.move` routines are reused. The owner has since approved the custom-protocol architecture and initial bounded grounded-human scope (decision recorded below). Approval does **not** demonstrate or approve a particular live protocol implementation, exact server tick hook, or completed transition/rollback solution. A connected-client smoke remains an acceptance gate and is not proved here.
+
+## Evidence classification
+
+### Source-verified: SS14 / RobustToolbox reference (architectural only)
+
+- SS14 is pinned at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; RobustToolbox is pinned at `3136118b5338ef2d9580178caf5c723e65eb76e7`.
+- In SS14, `Content.Shared/Movement/Systems/SharedMoverController.Input.cs` defines direction/subtick command data, while `Content.Shared/Movement/Systems/SharedMoverController.cs:275-333` and `:417-458` show the shared movement path, including friction/acceleration; configured movement-speed data is also consumed by this movement architecture. `Content.Server/NPC/Systems/NPCSteeringSystem.cs:287-302` routes NPC steering through the shared motor rather than a separate physics policy.
+- In RobustToolbox, `Robust.Shared/Input/InputCmdMessage.cs` defines input command transport. Client/server `InputSystem` paths and `Robust.Client/GameStates/ClientGameStateManager.cs` maintain/dispatch input and replay pending input against received state; `Robust.Shared/GameStates/GameState.cs` carries `LastProcessedInput` for acknowledgement/replay bookkeeping.
+- These paths establish a useful **architectural reference** for shared movement and acknowledged replay, not a literal port, parity guarantee, or proof that NeoForge offers equivalent hook semantics. The references do not demonstrate connected Minecraft behavior.
+
+### Source-verified: Minecraft 1.21.1 / NeoForge 21.1.224
+
+Reviewed artifact: `build/moddev/artifacts/neoforge-21.1.224-sources.jar` (Minecraft 1.21.1, NeoForge 21.1.224). The source entry paths below are package-relative within the artifact.
+
+- `net/minecraft/client/player/LocalPlayer.java:235-248` sends position updates when grounded and sends `ServerboundPlayerInputPacket` while riding a vehicle. `LocalPlayer.java:266-316` emits the `Pos`, `PosRot`, `Rot`, and `StatusOnly` movement packet variants and separately sends sprint/sneak command changes. Client prediction exists locally, but these lines do not show server/client shared-motor prediction or acknowledged replay.
+- `net/minecraft/network/protocol/game/ServerboundPlayerInputPacket.java` represents directional input and jump/sneak state; it has no simulation sequence/tick or acknowledgement. Sprint is carried separately by the player-command path.
+- `net/minecraft/server/network/ServerGamePacketListenerImpl.java:376-383` (`handlePlayerInput`) calls `ServerPlayer.setPlayerInput` unconditionally. The assignment inside `net/minecraft/server/level/ServerPlayer.java`'s `setPlayerInput` method is passenger-only, so this packet is not an ordinary grounded movement driver.
+- `ServerGamePacketListenerImpl.java:872-1001` (`handleMovePlayer`) validates and applies the ordinary client-proposed movement/rotation path, including collision/known-movement bookkeeping and on-ground state. Thus the normal grounded route still depends on this position packet path.
+- **Critical rollback boundary:** `ServerGamePacketListenerImpl.java:256-268` (`tick`) invokes `resetPosition()`, then `player.doTick()`, then rolls the player back to `firstGoodX/Y/Z` if travel moved it. `ServerGamePacketListenerImpl.java:331-338` (`resetPosition`) records the tick-start position in `firstGood`/`lastGood`; it does not move the player. Consequently, native `doTick`/`travel` movement is not retained simply by disabling `handleMovePlayer`; a deliberately designed hook must own and preserve the server movement result at the right point without restoring the tick-start position.
+- Vanilla `Player` / `LivingEntity` tick and `travel` routines, and `Entity.move` collision handling, are source-level reuse candidates. **Inference/design constraint:** reusing them requires an explicit authority hook and rollback treatment; source reachability alone does not prove suitable sequencing or correctness for the proposed protocol.
+- `ServerGamePacketListenerImpl` also has `handleMoveVehicle`; passengers/vehicles cannot be folded into an ordinary grounded-human packet rule. Explicit teleport id/ack handling is in `ServerGamePacketListenerImpl.java:501-526`, with the corresponding client listener in `net/minecraft/client/multiplayer/ClientPacketListener.java:733-734`. Respawn/dimension transitions and their existing vanilla handling remain distinct; there is no separate general respawn acknowledgement to treat as a movement snapshot.
+
+### Source-verified: current local integration seams (not an authority implementation)
+
+- `src/main/java/com/juicyslew/moonstation14/mixin/ServerPlayerStunActionMixin.java:31-44` cancels player input/move packets under the current stun policy and invokes vanilla teleport correction for denied move packets. This is a stun/action gate, not a movement motor; using that correction every tick would be the prohibited per-tick teleport approach.
+- `src/main/java/com/juicyslew/moonstation14/mixin/ServerPlayerAcceptedMoveMixin.java:19-26` observes after `ServerPlayer.setKnownMovement` in `handleMovePlayer` and forwards the accepted displacement to `SlipSystem.onAcceptedPlayerMovement`. `src/main/java/com/juicyslew/moonstation14/ms14/slip/SlipSystem.java:97` is the corresponding entry point. This samples movement already accepted by vanilla; it does not confer movement authority on server input.
+- `src/main/java/com/juicyslew/moonstation14/mixin/LivingEntitySlidingFrictionMixin.java` hooks common `LivingEntity.travel` and delegates friction behavior to `SlidingFrictionSystem`; it changes travel behavior, not ownership or client/server agreement. `SlidingAttachment` / `SlidingComponent` are the existing sliding projection, not a per-tick motor-state protocol.
+- `src/main/java/com/juicyslew/moonstation14/ms14/character/CharacterControlSystem.java` owns current character-control policy, and `src/main/java/com/juicyslew/moonstation14/eventhooks/ModEventHooks.java` contains player clone/identity lifecycle handling. These are candidate policy/lifecycle integration seams, not a demonstrated mode handoff or movement owner.
+- `src/main/java/com/juicyslew/moonstation14/ms14/prototype/network/PrototypeCatalogNetworking.java:30-35` registers existing payload handling with `HandlerThread.MAIN` and `playToClient`; the actual client callback is installed from the client-only `MoonStation14Client` path. **Inference only:** a proposed `playToServer` payload could use `MAIN` after approval and dedicated-server/classloading review. No movement payload or such registration currently exists, and this inspection is not classloading or connection proof.
+
+## Authority alternatives (proposals only)
+
+1. **Recommended for owner decision: custom sequenced command plus snapshots/acknowledgement.** Add a bounded `playToServer` intent command with per-session epoch and sequence, and server-to-client authoritative snapshots acknowledging consumed input. Share a deterministic motor kernel while letting Minecraft collision routines resolve the world. Select a precise server tick hook that retains the motor's accepted result across the vanilla `resetPosition`/restore behavior. For enrolled normal grounded human mode, reject vanilla client-proposed position while preserving vanilla rotation, explicit teleport/respawn handling, and fallback for excluded modes. Define exactly one owner at handoff; do not use per-tick teleports.
+2. **Alternative: extend vanilla input payload with sequence/snapshot data.** This still requires client and server hooks, sequencing/ack/replay, and the same fix for the ordinary position path and tick rollback. It may entangle protocol compatibility and ownership more than a distinct command/snapshot pair. No source evidence proves it simpler or safer; compare against option 1 before approval.
+
+Neither option is implemented or runtime-proven. The existing prototype-catalog payload registration is not movement-protocol precedent sufficient to declare a movement path working.
+
+## Risks and unresolved proof obligations
+
+- **Two authorities / rollback:** gating a client position packet without changing the tick rollback boundary can freeze or revert travel. Accepting both streams can double-apply movement. The exact injection point, retention strategy, and interaction with `firstGood`/`lastGood` require follow-up source/hook validation before implementation.
+- **Vanilla semantics:** preserve rotation and explicit teleport IDs/acks; handle teleport, respawn, dimension change, disconnect, clone/death, and transitions without stale commands or dual ownership. Keep vehicle input and all unsupported movement modes on explicitly defined vanilla fallback paths. Sprint is separate, and jump is one-shot state that must not be repeated by missing-input behavior.
+- **Validation paths:** changing or bypassing `handleMovePlayer` may bypass vanilla collision checks and bookkeeping: fall/floating/speed validation, chunk handling, accepted/known movement, and `firstGood`/`lastGood` state need a mapped replacement or deliberate compatibility path. The motor must still use server collision and must not feed client-proposed displacement into slip/contact sampling.
+- **Local systems:** the accepted-move slip hook currently observes vanilla accepted movement; integrating a second motor risks missing, duplicating, or changing swept slip observations. Existing friction, stun restrictions, `CharacterControlSystem`, `SlidingAttachment`, and `ModEventHooks` need explicit ownership contracts rather than becoming incidental movement state paths.
+- **Protocol/security/resource bounds:** epochs, sequence ordering, duplicate/stale/future input, rate and queue caps, missing input, one-shot edges, replay/catch-up cost, snapshots, and cleanup require a designed and tested policy. None is implemented or measured.
+- **Mode boundary:** the owner has approved the initial grounded `moonstation14:human` scope for design and isolated M1 work. Its exclusions (unbound, fly/creative/spectator, passenger/vehicle, elytra, swimming, climbing, and other unmodeled modes) remain the proposed fallback boundary, not a proven runtime eligibility/handoff. Do not enroll a mode until one-owner transition and vanilla coexistence are explicit; transition/hook proof and owner review still block M2.
+- **Dedicated server / connected path:** current catalog networking registration and a dedicated-server `FakePlayer` fixture are not proof of a real authenticated connection's natural packet/tick flow, side isolation, movement prediction, or snapshot reconciliation. No connected runtime test was performed.
+
+## Dated owner decision — 2026-09-24
+
+The owner explicitly selected **“Approve custom protocol”** and responded to the grounded-human scope recommendation: **“If you think that best, then sure. But be very certain about it. I worry that a mixed solution will lead to issues, but I understand that implementing all of those things at once is a bit unreasonable.”**
+
+Record this as approval of the proposed custom-protocol **architecture** and the initial bounded grounded-human scope for design/M1 planning—not as blanket approval of mixed runtime modes, a demonstrated live protocol, an exact tick hook, or a working handoff. The owner's caution about certainty and mixed-solution risks remains material.
+
+M0 is complete as **source investigation only**, and the architecture/scope decision is recorded. M1's isolated pure kernel may proceed. **Hard stop before M2 invasive network/mixin work:** first produce a specific, source-verified single-owner transition/hook proof that addresses all of the following, then obtain owner review and establish a real connected-client smoke path:
+
+- explicit begin/end transition acknowledgement and ownership state;
+- a mode-eligibility matrix, including vanilla fallback boundaries;
+- exact server tick ownership and handling of the `resetPosition`/travel rollback boundary;
+- proof that native and custom movement are never simultaneously authoritative or applied;
+- explicit teleport acknowledgement handling and fallback behavior.
+
+Do not infer that an epoch alone solves these obligations. The source findings show that simply preventing rollback can double-move, while bypassing `handleMovePlayer` may lose fall/floating/known-movement/chunk/stat validation and bookkeeping. No connected-client proof has been performed. Even after the transition proof and owner review, do not claim runtime success until the real connected-client smoke has run. This report neither closes prior sprint gates nor authorizes M2/M3 implementation before that stop gate is cleared.

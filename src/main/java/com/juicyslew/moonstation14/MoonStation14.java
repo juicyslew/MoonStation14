@@ -11,6 +11,9 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeReloadListener;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
+import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
+import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
+import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
 import com.juicyslew.moonstation14.ms14.status_effect.prototype.StatusEffectReferenceValidator;
 import com.juicyslew.moonstation14.ms14.alert.prototype.AlertReferenceValidator;
 import com.juicyslew.moonstation14.recipe.ModRecipes;
@@ -62,6 +65,8 @@ public class MoonStation14 {
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
+        modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
+        MovementServerController.install();
         //ModFluids.register(modEventBus);
 
         // Register the item to a creative tab
@@ -99,6 +104,7 @@ public class MoonStation14 {
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        MovementStartupGate.onServerStarting(Config.EXPERIMENTAL_VERTICAL_SLICE_MOVEMENT.get());
     }
 
     @SubscribeEvent
@@ -126,6 +132,8 @@ public class MoonStation14 {
 
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
+        MovementServerController.onServerStopped();
+        MovementStartupGate.onServerStopped();
         PrototypeRuntime.serverManager().clearPublishedCatalogs();
     }
 }

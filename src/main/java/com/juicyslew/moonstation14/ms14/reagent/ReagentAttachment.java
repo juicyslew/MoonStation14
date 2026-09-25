@@ -97,8 +97,22 @@ public final class ReagentAttachment implements IMS14Attachment<ReagentAttachmen
     }
 
     public Map<ResourceKey<ReagentData>, Float> naiveRemove(float amount) {
-        long request = units(amount, "amount"), total = total(cents);
-        long actual = Math.min(request, total);
+        long request = units(amount, "amount");
+        Map<ResourceKey<ReagentData>, Long> removed = splitUnits(request);
+        Map<ResourceKey<ReagentData>, Long> positive = new HashMap<>();
+        removed.forEach((key, value) -> { if (value != 0) positive.put(key, value); });
+        return floatSnapshot(positive);
+    }
+
+    /**
+     * Proportionally removes up to the requested cent quantity and returns an
+     * immutable snapshot of the shares. Requests above the available total are
+     * capped to that total, matching {@link #naiveRemove(float)} semantics.
+     */
+    public Map<ResourceKey<ReagentData>, Long> splitUnits(long requestedCents) {
+        ReagentUnits.validateCents(requestedCents, "requestedCents");
+        long available = total(cents);
+        long actual = Math.min(requestedCents, available);
         Map<ResourceKey<ReagentData>, Long> removed = ReagentUnits.split(cents, actual);
         Map<ResourceKey<ReagentData>, Long> staged = new HashMap<>();
         for (var entry : cents.entrySet()) {
@@ -106,9 +120,7 @@ public final class ReagentAttachment implements IMS14Attachment<ReagentAttachmen
             if (left != 0) staged.put(entry.getKey(), left);
         }
         replace(staged);
-        Map<ResourceKey<ReagentData>, Long> positive = new HashMap<>();
-        removed.forEach((key, value) -> { if (value != 0) positive.put(key, value); });
-        return floatSnapshot(positive);
+        return removed;
     }
 
     public void trimZeroes() { cents.entrySet().removeIf(entry -> entry.getValue() == 0); }

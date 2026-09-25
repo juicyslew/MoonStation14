@@ -6,6 +6,8 @@ import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectComponent;
 import com.juicyslew.moonstation14.ms14.alert.AlertComponent;
 import com.juicyslew.moonstation14.ms14.hunger.HungerComponent;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstComponent;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
+import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.bus.api.IEventBus;
@@ -36,6 +38,14 @@ public class ModDataComponents {
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ThirstComponent>> THIRST =
             register_component("thirst", builder -> builder.persistent(ThirstComponent.CODEC).networkSynchronized(ThirstComponent.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<CharacterIdentityComponent>> CHARACTER_IDENTITY =
+            register_component("character_identity", builder -> builder.persistent(CharacterIdentityComponent.CODEC)
+                    .networkSynchronized(CharacterIdentityComponent.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<SlidingComponent>> SLIDING =
+            register_component("sliding", builder -> builder.persistent(SlidingComponent.CODEC)
+                    .networkSynchronized(SlidingComponent.STREAM_CODEC));
 
 
     private static <T>DeferredHolder<DataComponentType<?>, DataComponentType<T>> register_component(

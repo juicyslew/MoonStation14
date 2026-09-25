@@ -1,0 +1,10 @@
+{
+  "slip_data": {
+    "can_receive_stun": true,
+    "no_slip": false,
+    "standing_eligible": true,
+    "prone_eligible": true,
+    "reactive_groups": ["flammable", "extinguish", "acidic"],
+    "reactive_methods": ["touch"]
+  }
+}

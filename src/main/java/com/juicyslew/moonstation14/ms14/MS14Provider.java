@@ -109,6 +109,14 @@ public class MS14Provider {
         entity.setData(link.attachment().get(), data);
         EntityActivitySystem.update(entity, link, data);
     }
+
+    /** Removes an entity attachment through the provider boundary without materializing absent data. */
+    public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> boolean remove(
+            Entity entity, SystemLink<A, C> link) {
+        if (!entity.hasData(link.attachment().get())) return false;
+        entity.removeData(link.attachment().get());
+        return true;
+    }
     public static <A extends IMS14Attachment<A, C>, C extends IMS14Component<C, A>> void update(
             IAttachmentHolder holder, SystemLink<A, C> link, A data) {
         if (holder instanceof Entity entity) {

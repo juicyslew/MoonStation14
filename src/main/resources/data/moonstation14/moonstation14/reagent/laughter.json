@@ -6,8 +6,8 @@
   "physicaldesc":  "reagent-physical-desc-funny",
   "flavor":  "funny",
   "color":  "0xFF4DD2",
-  "slipdata":  {
-    "requiredslipspeed":  3.5
+  "slipData":  {
+    "requiredSlipSpeed":  3.5
   },
   "metabolisms":  {
     "bloodstream":  {

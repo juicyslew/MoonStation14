@@ -45,6 +45,11 @@ public final class EffectSystem {
         }
     }
 
+    /** Read-only handler-registration query; does not evaluate gates or invoke a handler. */
+    public boolean supportsHandler(EffectData effect) {
+        return dispatcher.supportsHandler(effect);
+    }
+
     public List<EffectResult> applyAll(Iterable<? extends EffectData> effects, EffectContext context) {
         Objects.requireNonNull(context, "context");
         return applyEach(effects, effect -> apply(effect, context));

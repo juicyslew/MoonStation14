@@ -2,8 +2,8 @@
   "id":  "ice",
   "name":  "reagent-name-ice",
   "desc":  "reagent-desc-ice",
-  "slipdata":  {
-    "requiredslipspeed":  3.5
+  "slipData":  {
+    "requiredSlipSpeed":  3.5
   },
   "evaporationspeed":  0.15,
   "physicaldesc":  "reagent-physical-desc-frosty",
