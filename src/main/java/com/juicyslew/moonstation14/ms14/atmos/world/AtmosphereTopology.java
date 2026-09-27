@@ -57,4 +57,12 @@ public final class AtmosphereTopology {
     public static boolean canExchange(LevelReader level, BlockPos first, BlockPos second) {
         return first.distManhattan(second) == 1 && isPassable(level, first) && isPassable(level, second);
     }
+
+    /**
+     * Heightmap heights are first-free Y coordinates. This test is independent of dimension
+     * skylight and is used only after the caller has confirmed a loaded, passable cell.
+     */
+    static boolean isDirectExteriorByHeightmap(boolean loaded, boolean passable, int y, int firstFreeY) {
+        return loaded && passable && y >= firstFreeY;
+    }
 }

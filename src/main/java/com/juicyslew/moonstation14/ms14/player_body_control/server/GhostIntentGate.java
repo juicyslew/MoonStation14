@@ -7,6 +7,12 @@ final class GhostIntentGate<T> {
     private T pending;
     private boolean exhausted;
 
+    /**
+     * Accepts increasing sequence numbers, not necessarily contiguous ones. A same-tick intent rejected by the
+     * one-frame limit is permanently skipped; once a higher sequence is accepted it cannot be accepted later.
+     * This lets acknowledgements settle all sequences through the last applied one without requiring recovery of
+     * dropped or skipped packets.
+     */
     boolean offer(long sequence, long tick, T frame) {
         if (exhausted) return false;
         if (sequence == Long.MAX_VALUE) {
@@ -28,4 +34,11 @@ final class GhostIntentGate<T> {
     }
 
     boolean exhausted() { return exhausted; }
+
+    void reset() {
+        lastSequence = 0;
+        acceptedTick = Long.MIN_VALUE;
+        pending = null;
+        exhausted = false;
+    }
 }

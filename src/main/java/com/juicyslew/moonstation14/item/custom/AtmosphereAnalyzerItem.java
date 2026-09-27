@@ -1,7 +1,7 @@
 package com.juicyslew.moonstation14.item.custom;
 
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereSampleFormatter;
-import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereReading;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -54,29 +54,30 @@ public class AtmosphereAnalyzerItem extends Item {
             return;
         }
 
-        TargetSample result = sampleTarget(true, clicked, face, pos -> AtmosphereService.INSTANCE.sample(level, pos));
-        if (result.mixture().isPresent()) {
-            player.sendSystemMessage(Component.literal(AtmosphereSampleFormatter.format(result.mixture().get())));
+        TargetSample<AtmosphereReading> result = sampleTarget(true, clicked, face,
+                pos -> AtmosphereService.INSTANCE.readAtmosphere(level, pos));
+        if (result.sample().isPresent()) {
+            player.sendSystemMessage(Component.literal(AtmosphereSampleFormatter.format(result.sample().get())));
         } else {
-            player.sendSystemMessage(Component.literal(UNAVAILABLE_MESSAGE));
+            player.sendSystemMessage(Component.literal(face == null ? UNAVAILABLE_MESSAGE : "No gas cell on the clicked side"));
         }
     }
 
-    /** Pure target policy seam: samples clicked first, then at most its clicked-face neighbor. */
-    public static TargetSample sampleTarget(boolean enabled, BlockPos clicked, Direction face,
-                                            Function<BlockPos, Optional<GasMixture>> sampler) {
-        if (!enabled) return new TargetSample(TargetStatus.DISABLED, Optional.empty());
+    /** Pure target policy seam: reads clicked first, then at most its clicked-face neighbor. */
+    public static <T> TargetSample<T> sampleTarget(boolean enabled, BlockPos clicked, Direction face,
+                                                   Function<BlockPos, Optional<T>> sampler) {
+        if (!enabled) return new TargetSample<>(TargetStatus.DISABLED, Optional.empty());
 
-        Optional<GasMixture> result = sampler.apply(clicked);
+        Optional<T> result = sampler.apply(clicked);
         if (result.isPresent() || face == null) {
-            return new TargetSample(result.isPresent() ? TargetStatus.SAMPLED : TargetStatus.UNAVAILABLE, result);
+            return new TargetSample<>(result.isPresent() ? TargetStatus.SAMPLED : TargetStatus.UNAVAILABLE, result);
         }
 
         result = sampler.apply(clicked.relative(face));
-        return new TargetSample(result.isPresent() ? TargetStatus.SAMPLED : TargetStatus.UNAVAILABLE, result);
+        return new TargetSample<>(result.isPresent() ? TargetStatus.SAMPLED : TargetStatus.UNAVAILABLE, result);
     }
 
     public enum TargetStatus { SAMPLED, DISABLED, UNAVAILABLE }
 
-    public record TargetSample(TargetStatus status, Optional<GasMixture> mixture) { }
+    public record TargetSample<T>(TargetStatus status, Optional<T> sample) { }
 }

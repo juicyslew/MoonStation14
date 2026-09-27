@@ -28,6 +28,8 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/LivingEntityMovementAnimationInvoker.java",
             "com/juicyslew/moonstation14/mixin/client/LivingEntityWishFacingMixin.java",
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerSlidingLookMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/GhostOwnedEntityTrackerMixin.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java"
     );

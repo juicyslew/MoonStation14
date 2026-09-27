@@ -8,9 +8,14 @@ import java.util.Set;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
-    private static final Set<String> ROOT_FIELDS = Set.of("slip_data");
+    private static final Set<String> ROOT_FIELDS = Set.of("slip_data", "movement", "host_entity_types", "thermal");
+    private static final Set<String> MOVEMENT_FIELDS = Set.of("mode", "acceleration", "walk_speed", "sprint_speed",
+            "ground_friction_with_input", "ground_friction_without_input", "minimum_friction_speed");
     private static final Set<String> SLIP_FIELDS = Set.of("can_receive_stun", "no_slip",
             "standing_eligible", "prone_eligible", "reactive_groups", "reactive_methods");
+    private static final Set<String> THERMAL_FIELDS = Set.of("mass_kg", "specific_heat_joules_per_kg_kelvin",
+            "atmosphere_transfer_efficiency", "heat_damage_threshold_kelvin", "cold_damage_threshold_kelvin",
+            "current_kelvin", "heat_damage_per_second", "cold_damage_per_second", "damage_cap");
 
     private CharacterSchemaAudit() {
     }
@@ -21,6 +26,34 @@ public final class CharacterSchemaAudit {
         if (!character.has("slip_data")) fail("$.slip_data", "required field is missing");
         if (!character.get("slip_data").isJsonObject()) fail("$.slip_data", "expected object");
         auditSlipData(character.getAsJsonObject("slip_data"));
+        if (character.has("movement")) {
+            if (!character.get("movement").isJsonObject()) fail("$.movement", "expected object");
+            auditMovement(character.getAsJsonObject("movement"));
+        }
+        if (character.has("thermal")) {
+            if (!character.get("thermal").isJsonObject()) fail("$.thermal", "expected object");
+            auditThermal(character.getAsJsonObject("thermal"));
+        }
+        if (character.has("host_entity_types")) {
+            JsonElement hosts = character.get("host_entity_types");
+            if (!hosts.isJsonArray()) fail("$.host_entity_types", "expected array");
+            if (hosts.getAsJsonArray().size() > 16) fail("$.host_entity_types", "at most 16 host entity types are allowed");
+            Set<String> seen = new java.util.HashSet<>();
+            for (int i = 0; i < hosts.getAsJsonArray().size(); i++) {
+                JsonElement host = hosts.getAsJsonArray().get(i);
+                String path = "$.host_entity_types[" + i + "]";
+                if (!host.isJsonPrimitive() || !host.getAsJsonPrimitive().isString()) fail(path, "expected string");
+                String value = host.getAsString();
+                ResourceLocation parsed = ResourceLocation.tryParse(value);
+                if (parsed == null || !value.equals(parsed.toString()) || !value.contains(":")) {
+                    fail(path, "expected canonical namespaced resource location");
+                }
+                if (!seen.add(value)) fail(path, "duplicate host entity type");
+            }
+            if (!hosts.getAsJsonArray().isEmpty() && !character.has("movement")) {
+                fail("$.movement", "required when host_entity_types is nonempty");
+            }
+        }
     }
 
     public static void audit(ResourceLocation id, JsonObject character) {
@@ -45,6 +78,62 @@ public final class CharacterSchemaAudit {
         boolean groups = !slip.getAsJsonArray("reactive_groups").isEmpty();
         boolean methods = !slip.getAsJsonArray("reactive_methods").isEmpty();
         if (groups != methods) fail("$.slip_data", "reactive groups and methods must both be empty or populated");
+    }
+
+    public static void auditMovement(JsonObject movement) {
+        checkFields(movement, MOVEMENT_FIELDS, "$.movement");
+        JsonElement mode = movement.get("mode");
+        if (mode == null) fail("$.movement.mode", "required field is missing");
+        if (!mode.isJsonPrimitive() || !mode.getAsJsonPrimitive().isString() || !"grounded".equals(mode.getAsString())) {
+            fail("$.movement.mode", "only canonical mode 'grounded' is supported");
+        }
+        for (String field : MOVEMENT_FIELDS) {
+            if ("mode".equals(field)) continue;
+            JsonElement value = movement.get(field);
+            if (value == null) fail("$.movement." + field, "required field is missing");
+            if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) fail("$.movement." + field, "expected number");
+            double number;
+            try { number = value.getAsDouble(); } catch (NumberFormatException exception) {
+                fail("$.movement." + field, "expected finite number"); return;
+            }
+            if (!Double.isFinite(number) || number < 0 || number > 100) {
+                fail("$.movement." + field, "expected finite number in [0, 100]");
+            }
+        }
+    }
+
+    public static void auditThermal(JsonObject thermal) {
+        checkFields(thermal, THERMAL_FIELDS, "$.thermal");
+        auditThermalNumber(thermal, "mass_kg", 0.1, 500.0);
+        auditThermalNumber(thermal, "specific_heat_joules_per_kg_kelvin", 1.0, 10000.0);
+        auditThermalNumber(thermal, "atmosphere_transfer_efficiency", 0.0, 1.0);
+        auditThermalNumber(thermal, "heat_damage_threshold_kelvin", 150.0, 500.0);
+        auditThermalNumber(thermal, "cold_damage_threshold_kelvin", 150.0, 500.0);
+        auditThermalNumber(thermal, "current_kelvin", 150.0, 500.0);
+        auditThermalNumber(thermal, "heat_damage_per_second", 0.0, 100.0);
+        auditThermalNumber(thermal, "cold_damage_per_second", 0.0, 100.0);
+        auditThermalNumber(thermal, "damage_cap", 0.0, 100.0);
+        double heatThreshold = thermal.get("heat_damage_threshold_kelvin").getAsDouble();
+        double coldThreshold = thermal.get("cold_damage_threshold_kelvin").getAsDouble();
+        double current = thermal.get("current_kelvin").getAsDouble();
+        if (heatThreshold <= coldThreshold) fail("$.thermal", "heat threshold must be greater than cold threshold");
+        if (current <= coldThreshold || current >= heatThreshold) {
+            fail("$.thermal.current_kelvin", "must be between cold and heat thresholds");
+        }
+    }
+
+    private static void auditThermalNumber(JsonObject thermal, String field, double minimum, double maximum) {
+        JsonElement value = thermal.get(field);
+        String path = "$.thermal." + field;
+        if (value == null) fail(path, "required field is missing");
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) fail(path, "expected number");
+        double number;
+        try { number = value.getAsDouble(); } catch (NumberFormatException exception) {
+            fail(path, "expected finite number"); return;
+        }
+        if (!Double.isFinite(number) || number <= minimum || number > maximum) {
+            fail(path, "expected finite positive number in (" + minimum + ", " + maximum + "]");
+        }
     }
 
     private static void auditStringArray(JsonObject object, String field, Set<String> allowed) {

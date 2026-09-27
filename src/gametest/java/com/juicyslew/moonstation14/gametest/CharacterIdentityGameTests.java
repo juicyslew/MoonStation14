@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -32,7 +33,8 @@ public final class CharacterIdentityGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void villagerJoinBindsHumanPolicyAndDanglingKeyRemainsInert(GameTestHelper helper) {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
-        Pig unadaptedPig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));
+        Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));
+        var unconfiguredCow = helper.spawn(EntityType.COW, new BlockPos(2, 1, 2));
         FakePlayer player = new FakePlayer(helper.getLevel(),
                 new GameProfile(UUID.randomUUID(), "identity-test"));
         player.setPos(3.5, 1, 1.5);
@@ -41,6 +43,8 @@ public final class CharacterIdentityGameTests {
         helper.runAfterDelay(1, () -> {
             require(villager.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
                     "real villager join must enroll a character key");
+            require(pig.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
+                    "configured real Pig join must enroll a character key");
             require(player.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
                     "fake player join must enroll a character key");
             var villagerIdentity = MS14Provider.getDetached(villager, MS14Bridges.CHARACTER_IDENTITY);
@@ -49,12 +53,25 @@ public final class CharacterIdentityGameTests {
             ResourceLocation playerKey = playerIdentity.characterId();
             require(villagerKey.equals(ModCharacters.HUMAN_ID) && playerKey.equals(ModCharacters.HUMAN_ID),
                     "villager and player keys must both be human");
+            var pigIdentity = MS14Provider.getDetached(pig, MS14Bridges.CHARACTER_IDENTITY);
+            var pigData = CharacterIdentitySystem.resolve(pig).orElseThrow();
+            require(pigIdentity.characterId().equals(ResourceLocation.fromNamespaceAndPath("moonstation14", "pig")),
+                    "configured Pig must resolve its data-driven Pig key");
+            var pigMovement = pigData.movement().orElseThrow();
+            require(pigMovement.walkSpeed() == 4d && pigMovement.sprintSpeed() == 4d,
+                    "Pig policy must carry typed 4/4 movement values");
+            require(!pigData.slipData().canReceiveStun() && pigData.slipData().noSlip(),
+                    "Pig provisional local slip_data must disable stun and slipping");
             require(villagerKey.equals(playerKey), "villager and player must bind the same key");
             require(villager.level() instanceof ServerLevel && player.level() instanceof ServerLevel
                             && !villager.level().isClientSide && !player.level().isClientSide,
                     "both identity fixtures must be server-side actors");
             var villagerPolicy = CharacterIdentitySystem.resolve(villager).orElseThrow();
             var playerPolicy = CharacterIdentitySystem.resolve(player).orElseThrow();
+            require(ActiveCharacterPolicy.resolveActor(player).orElseThrow().equals(playerPolicy),
+                    "inactive FakePlayer keeps its legacy character policy");
+            require(ActiveCharacterPolicy.resolveActor(pig).orElseThrow().equals(pigData),
+                    "configured Mob keeps its own character policy");
             require(villagerPolicy.equals(playerPolicy),
                     "villager and player must resolve identical character data");
             require(!villagerPolicy.slipData().reactiveGroups().isEmpty()
@@ -67,10 +84,10 @@ public final class CharacterIdentityGameTests {
                             && MS14Provider.getDetached(player, MS14Bridges.CHARACTER_IDENTITY).characterId()
                             .equals(playerKey),
                     "identity reads must not change either actor's key");
-            require(!unadaptedPig.hasData(ModDataAttachments.CHARACTER_IDENTITY.get())
-                            && CharacterIdentitySystem.resolve(unadaptedPig).isEmpty(),
-                    "unadapted actors remain inert and identity reads must not materialize state");
-            require(!unadaptedPig.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
+            require(!unconfiguredCow.hasData(ModDataAttachments.CHARACTER_IDENTITY.get())
+                            && CharacterIdentitySystem.resolve(unconfiguredCow).isEmpty(),
+                    "unconfigured Mob hosts remain inert and identity reads must not materialize state");
+            require(!unconfiguredCow.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
                     "failed identity lookup must leave absence unmaterialized");
 
             // A dangling existing key remains intact and resolves inertly; enrollment must not replace it.
@@ -78,11 +95,11 @@ public final class CharacterIdentityGameTests {
             var invalidId = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("test", "dangling");
             invalid.bind(invalidId);
             MS14Provider.update(villager, MS14Bridges.CHARACTER_IDENTITY, invalid);
-            require(!CharacterIdentitySystem.enroll(villager, helper.getLevel(), ModCharacters.HUMAN_ID),
-                    "dangling key must not be overwritten");
-            require(MS14Provider.getDetached(villager, MS14Bridges.CHARACTER_IDENTITY).characterId()
-                            .equals(invalidId), "invalid key must remain diagnostic and unchanged");
-            require(CharacterIdentitySystem.resolve(villager).isEmpty(), "dangling identity must fail closed");
+            MS14Provider.update(pig, MS14Bridges.CHARACTER_IDENTITY, invalid);
+            CharacterIdentitySystem.enrollSupportedActor(pig, helper.getLevel());
+            require(MS14Provider.getDetached(pig, MS14Bridges.CHARACTER_IDENTITY).characterId()
+                            .equals(invalidId), "join enrollment must not overwrite a dangling Pig key");
+            require(CharacterIdentitySystem.resolve(pig).isEmpty(), "dangling Pig identity must fail closed");
 
             FakePlayer danglingPlayer = new FakePlayer(helper.getLevel(),
                     new GameProfile(UUID.randomUUID(), "dangling-rejoin-test"));

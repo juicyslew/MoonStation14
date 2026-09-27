@@ -1,8 +1,12 @@
 # Next systems roadmap
 
-This is a proposal for after the current sprint closes, not authorization to start another implementation sprint. Favor foundational ownership boundaries over adding isolated content. Keep the existing movement feature disabled by default and preserve its owner-acceptance limits.
+This roadmap is a planning reference, not authorization to start an implementation sprint. Favor foundational ownership boundaries over adding isolated content. Keep the existing movement feature disabled by default and preserve its owner-acceptance limits.
+
+> **Status and priority update — 2026-09-27:** Player Body Control is closed by owner direction as a **bounded experimental sprint**, not accepted as its full target; account/session–character–body lifecycle and connected acceptance remain incomplete. See [the closure record](player-body-control-sprint/closure.md). Atmospherics is already being worked on by another agent and is **not a candidate for the next sprint**. For the next *new* sprint, this roadmap now recommends a bounded generic device UI/menu/session-synchronization technical spike, independent of atmospherics; its proposal is [here](device-ui-platform-sprint/proposal.md). The UI spike is only a proposal, not implementation authorization. Player/session-character-body lifecycle remains high-priority work and should be a dedicated subsequent sprint **before ChemMaster or gameplay action menus**. The owner may choose the lifecycle sprint first instead; the recommendation and rationale are detailed in the proposal.
 
 ## Order and gates
+
+> **Historical ranking:** The ordered items below preserve an earlier roadmap ranking, not the current candidate order or an instruction to begin any of this work. The dated status update above is the current priority reference; in particular, atmosphere is excluded from the next-sprint candidate while its active work proceeds under its current owner.
 
 1. **Separate player/session, character, and body; make this the first architectural gate.** `CharacterIdentitySystem` currently enrolls a `ServerPlayer` or `Villager` to the `moonstation14:human` prototype. `CharacterData` is immutable data-only eligibility/policy, not a mind, player account, or character-creation model. Define stable ownership and lifecycle for account/session → selected character → spawned body, including logout, death/respawn, and round transitions, before those features multiply identity assumptions. **MVP/gate:** one authenticated player selects one persistent profile, spawns a body, and a tested respawn/reconnect path cannot duplicate or silently reassign its identity. Keep NPC enrollment explicitly separate. SS14's `Content.Shared/Mind/SharedMindSystem.cs` is a useful conceptual reference, not a Minecraft API to port.
 
@@ -14,7 +18,9 @@ This is a proposal for after the current sprint closes, not authorization to sta
 
 5. **Gravity only after movement authority is settled.** The experimental `ms14/movement/*` path owns supported grounded bound humans; handoff to vanilla movement mode is not proved. Gravity changes could multiply that uncertainty. **MVP/gate:** first prove authority handoff and regression behavior for supported and unsupported actors; only then prototype one bounded zone with entry/exit, fall, and reconnect tests. If authority/handoff fails its gate, leave gravity to vanilla behavior. SS14's `Content.Shared/Gravity/SharedGravitySystem.cs` is a conceptual reference.
 
-## Next-sprint recommendation
+## Previous next-sprint recommendation — historical snapshot
+
+The recommendation below records the earlier roadmap snapshot and is superseded by the dated status update above. It is retained as historical context, not current authorization or a direction to start this work:
 
 Do one deliberately narrow sprint on the **player/session–character–body lifecycle and its respawn/reconnect test gate**, with a written interface that round/lobby can later consume. In parallel, time-box the atmospherics feasibility spike as investigation, not a second implementation commitment. Identity and lifecycle are prerequisites for coherent rounds and future ownership; atmos is the largest technical unknown and deserves early evidence, but should not expand the sprint into a solver. After the owner reviews the gates and accepts scope, choose the next implementation. Content additions such as items/blocks can continue to leverage existing Minecraft hosting without pretending they establish these missing systems.
 

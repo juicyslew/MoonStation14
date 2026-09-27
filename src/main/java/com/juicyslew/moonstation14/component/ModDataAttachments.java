@@ -13,6 +13,7 @@ import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -67,6 +68,12 @@ public class ModDataAttachments {
                     .serialize(ThirstAttachment.CODEC)
                     .sync(ThirstAttachment.STREAM_CODEC).build());
 
+    /** Persisted and synchronized entity body temperature, including the normal baseline. */
+    public static final Supplier<AttachmentType<BodyTemperatureAttachment>> BODY_TEMPERATURE = ATTACHMENT_TYPES.register(
+            "body_temperature", () -> AttachmentType.builder((Supplier<BodyTemperatureAttachment>) BodyTemperatureAttachment::new)
+                    .serialize(BodyTemperatureAttachment.CODEC)
+                    .sync(BodyTemperatureAttachment.STREAM_CODEC).build());
+
     /** Character-owned authoritative fire stacks; empty state is not persisted or synchronized. */
     public static final Supplier<AttachmentType<FireStackAttachment>> FIRE_STACK = ATTACHMENT_TYPES.register(
             "fire_stack", () -> AttachmentType.builder((Supplier<FireStackAttachment>) FireStackAttachment::new)
@@ -105,7 +112,7 @@ public class ModDataAttachments {
     /** Sparse server-persisted chunk atmosphere state; deliberately not synchronized. */
     public static final Supplier<AttachmentType<AtmosphereChunkData>> ATMOSPHERE_CHUNK = ATTACHMENT_TYPES.register(
             "atmosphere_chunk", () -> AttachmentType.builder(AtmosphereChunkData::new)
-                    .serialize(AtmosphereChunkData.CODEC, data -> data.size() > 0)
+                    .serialize(AtmosphereChunkData.CODEC, AtmosphereChunkData::hasPersistedState)
                     .build()
     );
 

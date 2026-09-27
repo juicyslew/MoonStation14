@@ -8,7 +8,8 @@ import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
-import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentCatalogValidation;
@@ -23,6 +24,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.AABB;
@@ -87,6 +89,11 @@ public final class SlipSystem {
         // Player velocity is not authoritative for ordinary network movement. Players are
         // admitted only from the accepted ServerGamePacketListener movement boundary below.
         if (entity instanceof ServerPlayer) return;
+        // Entity.move calls BlockState.entityInside inline. An owned harness mob's motor
+        // publishes its accepted velocity only after that call returns, so defer contact
+        // until the owned movement boundary below.
+        if (entity instanceof Mob mob && mob instanceof MindControlledMob owner
+                && owner.moonstation14$isMovementOwned()) return;
         if (level.isClientSide || !(entity instanceof LivingEntity target) || !entity.isAlive()
                 || entity.level() != level || !level.hasChunkAt(position)
                 || !level.getBlockState(position).is(ModBlocks.PUDDLE.get())
@@ -106,7 +113,22 @@ public final class SlipSystem {
         // Reject rotation-only packets and discontinuous corrections/teleports.
         if (!Double.isFinite(lengthSqr) || lengthSqr <= 1.0e-8d || lengthSqr > 2.25d) return;
 
-        AABB bounds = player.getBoundingBox();
+        admitEndpointContacts(level, player, acceptedDisplacement, acceptedDisplacement, lengthSqr);
+    }
+
+    /** Server-authoritative post-motor contact entry for movement-owned mobs only. */
+    public static void onAcceptedHarnessMovement(Mob body, Vec3 acceptedDisplacement) {
+        if (!(body instanceof MindControlledMob owner) || !owner.moonstation14$isMovementOwned()
+                || body.level().isClientSide || !(body.level() instanceof ServerLevel level)
+                || body.isPassenger() || !body.isAlive() || acceptedDisplacement == null) return;
+        double lengthSqr = acceptedDisplacement.lengthSqr();
+        if (!Double.isFinite(lengthSqr) || lengthSqr <= 1.0e-8d || lengthSqr > 2.25d) return;
+        admitEndpointContacts(level, body, acceptedDisplacement, body.getDeltaMovement(), lengthSqr);
+    }
+
+    private static void admitEndpointContacts(ServerLevel level, LivingEntity body,
+                                              Vec3 acceptedDisplacement, Vec3 launchVelocity, double lengthSqr) {
+        AABB bounds = body.getBoundingBox();
         int minX = net.minecraft.util.Mth.floor(bounds.minX);
         int minY = net.minecraft.util.Mth.floor(bounds.minY);
         int minZ = net.minecraft.util.Mth.floor(bounds.minZ);
@@ -116,11 +138,11 @@ public final class SlipSystem {
         long cells = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
         if (!finite(bounds) || bounds.getXsize() > MAX_BODY_WIDTH || bounds.getZsize() > MAX_BODY_WIDTH
                 || bounds.getYsize() > MAX_BODY_HEIGHT || cells <= 0 || cells > MAX_ENDPOINT_CELLS) return;
-        reconcileContacts(level, player, bounds);
+        reconcileContacts(level, body, bounds);
         for (BlockPos position : BlockPos.betweenClosed(minX, minY, minZ, maxX, maxY, maxZ)) {
             if (level.hasChunkAt(position) && level.getBlockState(position).is(ModBlocks.PUDDLE.get())
                     && level.getBlockEntity(position) instanceof PuddleBlockEntity puddle) {
-                admitContact(level, position.immutable(), player, acceptedDisplacement,
+                admitContact(level, position.immutable(), body, launchVelocity,
                         Math.sqrt(lengthSqr) * 20d, bounds, puddle);
             }
         }
@@ -141,7 +163,7 @@ public final class SlipSystem {
             if (contacts != null && contacts.sources.containsKey(sourcePosition)) return;
         }
 
-        CharacterData character = CharacterIdentitySystem.resolve(target).orElse(null);
+        CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
         if (character == null || !character.slipData().canReceiveStun()
                 || !character.slipData().standingEligible()
                 || !(target instanceof IStatusEffectTrait statusTrait)) return;

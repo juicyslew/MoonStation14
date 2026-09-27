@@ -44,6 +44,10 @@ public class Config {
             .comment("Enable server-side atmospherics simulation (sampled only at server startup)")
             .define("enableAtmospherics", false);
 
+    public static final ModConfigSpec.BooleanValue MOON_SKY = BUILDER
+            .comment("Client-local visual option: render a black, starry sky in the Overworld")
+            .define("moonSky", false);
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> ATMOSPHERE_VACUUM_DIMENSIONS = BUILDER
             .comment("Dimension IDs whose ambient atmosphere is vacuum. Changes apply at server startup; restart the server to reclassify ambient atmosphere.")
             .defineListAllowEmpty("atmosphereVacuumDimensions", List.of(), () -> "", Config::isValidAtmosphereDimension);
@@ -70,5 +74,9 @@ public class Config {
                 .map(ResourceLocation::parse)
                 .map(location -> ResourceKey.create(Registries.DIMENSION, location))
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public static boolean shouldRenderMoonSky(boolean moonSkyEnabled, ResourceKey<Level> dimension) {
+        return moonSkyEnabled && Level.OVERWORLD.equals(dimension);
     }
 }

@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.atmos.device;
 
 import com.juicyslew.moonstation14.item.custom.AtmosphereAnalyzerItem;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereReading;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;
@@ -15,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AtmosphereAnalyzerTargetTest {
-    private static final GasMixture AIR = GasMixture.breathableAir();
+    private static final AtmosphereReading AIR = new AtmosphereReading(
+            GasMixture.breathableAir(), AtmosphereReading.Status.FINITE);
 
     @Test
     void usesPassableClickedCellWithoutSamplingAdjacentCell() {
@@ -27,7 +29,19 @@ class AtmosphereAnalyzerTargetTest {
 
         assertEquals(AtmosphereAnalyzerItem.TargetStatus.SAMPLED, result.status());
         assertEquals(List.of(clicked), sampled);
-        assertEquals(AtmosphereSampleFormatter.format(AIR), AtmosphereSampleFormatter.format(result.mixture().orElseThrow()));
+        assertEquals(AtmosphereSampleFormatter.format(AIR), AtmosphereSampleFormatter.format(result.sample().orElseThrow()));
+    }
+
+    @Test
+    void eyeCellWithoutFaceRemainsAValidSingleCellRead() {
+        BlockPos eyeCell = new BlockPos(2, 3, 4);
+        List<BlockPos> sampled = new ArrayList<>();
+
+        var result = AtmosphereAnalyzerItem.sampleTarget(true, eyeCell, null,
+                recordingSampler(sampled, ignored -> Optional.of(AIR)));
+
+        assertEquals(AtmosphereAnalyzerItem.TargetStatus.SAMPLED, result.status());
+        assertEquals(List.of(eyeCell), sampled);
     }
 
     @Test
@@ -53,7 +67,7 @@ class AtmosphereAnalyzerTargetTest {
                 recordingSampler(sampleRequests, ignored -> Optional.empty()));
 
         assertEquals(AtmosphereAnalyzerItem.TargetStatus.UNAVAILABLE, result.status());
-        assertTrue(result.mixture().isEmpty());
+        assertTrue(result.sample().isEmpty());
         assertEquals(List.of(clicked, clicked.relative(Direction.NORTH)), sampleRequests);
     }
 
@@ -68,8 +82,28 @@ class AtmosphereAnalyzerTargetTest {
         assertTrue(sampled.isEmpty());
     }
 
-    private static Function<BlockPos, Optional<GasMixture>> recordingSampler(
-            List<BlockPos> sampled, Function<BlockPos, Optional<GasMixture>> result) {
+    @Test
+    void closedDoorTopologyUsesOnlyClickedSideAndCanShowProvisionalNeighbor() {
+        BlockPos door = new BlockPos(2, 3, 4);
+        BlockPos clickedSide = door.relative(Direction.EAST);
+        AtmosphereReading provisional = new AtmosphereReading(
+                GasMixture.breathableAir(), AtmosphereReading.Status.PROVISIONAL);
+        List<BlockPos> sampled = new ArrayList<>();
+
+        // A closed door's (possibly partial) collision shape does not make it a gas cell:
+        // its sample is empty, while the passable clicked-side neighbor yields a reading.
+        var result = AtmosphereAnalyzerItem.sampleTarget(true, door, Direction.EAST,
+                recordingSampler(sampled, pos -> pos.equals(door) ? Optional.empty() : Optional.of(provisional)));
+
+        assertEquals(AtmosphereAnalyzerItem.TargetStatus.SAMPLED, result.status());
+        assertEquals(List.of(door, clickedSide), sampled);
+        assertEquals(provisional, result.sample().orElseThrow());
+        assertTrue(AtmosphereSampleFormatter.format(result.sample().orElseThrow())
+                .startsWith("Provisional / classification pending | P: "));
+    }
+
+    private static Function<BlockPos, Optional<AtmosphereReading>> recordingSampler(
+            List<BlockPos> sampled, Function<BlockPos, Optional<AtmosphereReading>> result) {
         return pos -> {
             sampled.add(pos);
             return result.apply(pos);

@@ -53,6 +53,7 @@ final class EffectHandlers {
         dispatcher.register(EffectData.Flammable.class, EffectHandlers::flammable);
         dispatcher.register(EffectData.Ignite.class, EffectHandlers::ignite);
         dispatcher.register(EffectData.Extinguish.class, EffectHandlers::extinguish);
+        dispatcher.register(EffectData.AdjustTemperature.class, EffectHandlers::adjustTemperature);
 
         dispatcher.registerUnsupported(EffectData.ModifyBleed.class,
                 "Authoritative blood/bleed state is unavailable; damage substitution is disabled.");
@@ -65,8 +66,6 @@ final class EffectHandlers {
         dispatcher.register(EffectData.SatiateThirst.class, EffectHandlers::satiateThirst);
         dispatcher.registerUnsupported(EffectData.CleanBloodstream.class,
                 "Route-aware bloodstream state and reagent exclusion rules are unavailable.");
-        dispatcher.registerUnsupported(EffectData.AdjustTemperature.class,
-                "Authoritative temperature and heat-capacity state is unavailable.");
         dispatcher.registerUnsupported(EffectData.ResetNarcolepsy.class,
                 "Authoritative narcolepsy incident state is unavailable.");
         dispatcher.registerUnsupported(EffectData.ReduceRotting.class,
@@ -111,6 +110,11 @@ final class EffectHandlers {
 
     private static EffectResult eyeDamage(EffectData.EyeDamage effect, EffectContext context) {
         return EyeDamageSystem.apply(context.entity(), effect.amount(), context.scale());
+    }
+
+    private static EffectResult adjustTemperature(EffectData.AdjustTemperature effect, EffectContext context) {
+        return com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.adjustHeat(
+                context.entity(), effect.amount(), context.scale());
     }
 
     private static EffectResult adjustAlert(EffectData.AdjustAlert effect, EffectContext context) {

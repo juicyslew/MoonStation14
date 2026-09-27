@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.mixin;
 
 import com.juicyslew.moonstation14.ms14.hunger.HungerSystem;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.server.level.ServerLevel;
@@ -22,7 +23,7 @@ public abstract class PlayerPeacefulNutritionMixin {
         Player player = (Player) (Object) this;
         if (key == GameRules.RULE_NATURAL_REGENERATION
                 && player.level() instanceof ServerLevel
-                && HungerSystem.isEligible(player)) {
+                && (HungerSystem.isEligible(player) || ActiveCharacterPolicy.isCarrier(player))) {
             return false;
         }
         return original.call(rules, key);

@@ -17,7 +17,6 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MoverType;
-import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
@@ -62,7 +61,7 @@ public final class PuddleSlipGameTests {
         FakePlayer fake = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "puddle-slip"));
         putAt(fake, helper, new BlockPos(1, 1, 2));
         require(helper.getLevel().addFreshEntity(fake), "FakePlayer/ServerPlayer must join the GameTest level");
-        Pig unbound = helper.spawn(EntityType.PIG, new BlockPos(4, 1, 2));
+        var unbound = helper.spawn(EntityType.COW, new BlockPos(4, 1, 2));
         unbound.setNoAi(true);
         require(CharacterControlSystem.canAct(villager) && CharacterControlSystem.canAct(fake),
                 "both positive actors must resolve as eligible human characters");
@@ -91,7 +90,7 @@ public final class PuddleSlipGameTests {
                                 && SlipSystem.isSliding(fake) == SlidingFrictionSystem.hasQualifyingContact(fake),
                         "sliding projection must remain only while each actor's feet contact a qualifying source");
                 require(!unbound.hasData(ModDataAttachments.STATUS_EFFECT.get()),
-                        "unbound pig remains inert despite physical puddle contact");
+                        "unconfigured Cow remains inert despite physical puddle contact");
                 require(!SlipSystem.isSliding(unbound) && !unbound.hasData(ModDataAttachments.SLIDING.get()),
                         "absent sliding read must not materialize state on an unrelated entity");
                 villager.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(.1, 0, 0));
@@ -270,7 +269,7 @@ public final class PuddleSlipGameTests {
         putAt(player, helper, new BlockPos(1, 1, 2));
         require(level.addFreshEntity(player), "soap-contact FakePlayer must join the GameTest level");
         targetId.set(player.getUUID());
-        Pig unbound = helper.spawn(EntityType.PIG, new BlockPos(4, 1, 2));
+        var unbound = helper.spawn(EntityType.COW, new BlockPos(4, 1, 2));
         unbound.setNoAi(true);
         com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment invalidIdentity =
                 new com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment();
@@ -290,11 +289,11 @@ public final class PuddleSlipGameTests {
                     "admitted soap slip must apply timed status");
             putAt(unbound, helper, puddlePos);
             require(com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolve(unbound).isEmpty(),
-                    "unbound Pig must remain unresolved before source contact");
+                    "unconfigured Cow must remain unresolved before source contact");
             int beforeUnboundContact = totalEvents.get();
             SlipSystem.onPuddleContact(level, helper.absolutePos(puddlePos), unbound);
             require(totalEvents.get() == beforeUnboundContact,
-                    "unbound Pig must not emit a slip event for soap source contact");
+                    "unconfigured Cow must not emit a slip event for soap source contact");
             SlipSystem.removeListener(observer);
             helper.succeed();
         });

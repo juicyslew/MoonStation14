@@ -5,12 +5,13 @@ import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Mob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,8 +34,10 @@ public final class CharacterIdentitySystem {
 
     /** Called only by the centralized spawn/load enrollment adapter. */
     public static void enrollSupportedActor(LivingEntity actor, ServerLevel level) {
-        if (!(actor instanceof ServerPlayer) && !(actor instanceof Villager)) return;
-        enroll(actor, level, ModCharacters.HUMAN_ID);
+        if (!(actor instanceof ServerPlayer) && !(actor instanceof Mob)) return;
+        ResourceLocation hostType = BuiltInRegistries.ENTITY_TYPE.getKey(actor.getType());
+        ModCharacters.characterForHost(level, hostType)
+                .ifPresent(characterId -> enroll(actor, level, characterId));
     }
 
     /** Existing keys, including unknown/dangling keys, are never replaced. */

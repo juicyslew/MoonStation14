@@ -1,6 +1,14 @@
 package com.juicyslew.moonstation14.ms14.movement;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.mojang.serialization.JsonOps;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -25,6 +33,42 @@ class CharacterMovementMotorTest {
         assertEquals(playerMotor.tick(initial, input, environment, false),
                 villagerMotor.tick(initial, input, environment, false));
         assertEquals(20d, CharacterMovementPolicy.HUMAN.accelerationPerSecondSquared());
+    }
+
+    @Test
+    void typedHumanAndPigProfilesUseTheSameMotorWithDifferentConfiguredSpeeds() throws IOException {
+        CharacterMovementPolicy human = CharacterMovementPolicy.fromCharacterData(readCharacter("human.json"));
+        CharacterMovementPolicy pig = CharacterMovementPolicy.fromCharacterData(readCharacter("pig.json"));
+        CharacterMovementMotor humanMotor = new CharacterMovementMotor(human);
+        CharacterMovementMotor pigMotor = new CharacterMovementMotor(pig);
+        CharacterMovementEnvironment environment = env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN);
+        CharacterMovementState humanWalk = state(MovementVector.ZERO, MovementVector.ZERO, true);
+        CharacterMovementState pigWalk = humanWalk;
+        CharacterMovementState humanSprint = humanWalk;
+        CharacterMovementState pigSprint = humanWalk;
+
+        for (int tick = 0; tick < 120; tick++) {
+            humanWalk = humanMotor.tick(humanWalk, new CharacterMovementCommand(1d, 0d, false, false), environment, false);
+            pigWalk = pigMotor.tick(pigWalk, new CharacterMovementCommand(1d, 0d, false, false), environment, false);
+            humanSprint = humanMotor.tick(humanSprint, new CharacterMovementCommand(1d, 0d, false, true), environment, false);
+            pigSprint = pigMotor.tick(pigSprint, new CharacterMovementCommand(1d, 0d, false, true), environment, false);
+        }
+
+        assertEquals(2.5d, humanWalk.velocity().x(), 1e-9);
+        assertEquals(4d, pigWalk.velocity().x(), 1e-9);
+        assertEquals(4.5d, humanSprint.velocity().x(), 1e-9);
+        assertEquals(4d, pigSprint.velocity().x(), 1e-9);
+        assertEquals(20d, human.accelerationPerSecondSquared());
+        assertEquals(20d, pig.accelerationPerSecondSquared());
+    }
+
+    private static CharacterData readCharacter(String name) throws IOException {
+        String path = "data/moonstation14/moonstation14/character/" + name;
+        try (var stream = CharacterMovementMotorTest.class.getClassLoader().getResourceAsStream(path)) {
+            if (stream == null) throw new IOException("Missing resource " + path);
+            JsonObject json = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+            return CharacterData.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
+        }
     }
 
     @Test

@@ -41,6 +41,7 @@ public class ModEventHooks {
         if (event.getLevel() instanceof ServerLevel && event.getEntity() instanceof LivingEntity livingEntity) {
             com.juicyslew.moonstation14.ms14.slip.SlipSystem.onEntityJoin(livingEntity);
             CharacterIdentitySystem.enrollSupportedActor(livingEntity, (ServerLevel) event.getLevel());
+            com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(livingEntity,
                     (ServerLevel) event.getLevel());
             com.juicyslew.moonstation14.ms14.hunger.HungerSystem.initializeIfEligible(livingEntity,

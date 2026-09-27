@@ -6,5 +6,26 @@
     "prone_eligible": true,
     "reactive_groups": ["flammable", "extinguish", "acidic"],
     "reactive_methods": ["touch"]
+  },
+  "movement": {
+    "mode": "grounded",
+    "acceleration": 20.0,
+    "walk_speed": 2.5,
+    "sprint_speed": 4.5,
+    "ground_friction_with_input": 20.0,
+    "ground_friction_without_input": 20.0,
+    "minimum_friction_speed": 0.005
+  },
+  "host_entity_types": ["minecraft:player", "minecraft:villager"],
+  "thermal": {
+    "mass_kg": 70.0,
+    "specific_heat_joules_per_kg_kelvin": 42.0,
+    "atmosphere_transfer_efficiency": 0.1,
+    "heat_damage_threshold_kelvin": 325.0,
+    "cold_damage_threshold_kelvin": 260.0,
+    "current_kelvin": 310.0,
+    "heat_damage_per_second": 1.5,
+    "cold_damage_per_second": 0.1,
+    "damage_cap": 8.0
   }
 }

@@ -12,10 +12,16 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.WeakHashMap;
 
 /** Prototype descriptor and side-aware accessors for character policies. */
 public final class ModCharacters {
+    private static final Map<PrototypeCatalog<CharacterData>, Map<ResourceLocation, ResourceLocation>> HOST_INDEXES =
+            new WeakHashMap<>();
     public static final ResourceKey<Registry<CharacterData>> CHARACTER_REGISTRY_KEY =
             ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "character"));
 
@@ -28,9 +34,18 @@ public final class ModCharacters {
             CharacterData.CODEC,
             (com.juicyslew.moonstation14.ms14.prototype.PrototypeJsonCatalogValidator)
                     (owned, resolved) -> {
+                        Map<ResourceLocation, ResourceLocation> hosts = new LinkedHashMap<>();
                         for (ResourceLocation id : resolved.keys()) {
                             JsonObject json = resolved.get(id);
                             CharacterSchemaAudit.audit(id, json);
+                            for (ResourceLocation host : CharacterData.CODEC.parse(
+                                    com.mojang.serialization.JsonOps.INSTANCE, json).getOrThrow().hostEntityTypes()) {
+                                ResourceLocation previous = hosts.putIfAbsent(host, id);
+                                if (previous != null) {
+                                    throw new IllegalArgumentException("host entity type '" + host
+                                            + "' is claimed by character prototypes '" + previous + "' and '" + id + "'");
+                                }
+                            }
                         }
                     });
 
@@ -55,5 +70,37 @@ public final class ModCharacters {
     public static CharacterData require(Level level, ResourceLocation id) {
         Objects.requireNonNull(level, "level");
         return require(catalog(level), id);
+    }
+
+    /** Returns the character prototype bound to this host type, if any. The index is scoped to this immutable snapshot. */
+    public static Optional<ResourceLocation> characterForHost(Level level, ResourceLocation hostType) {
+        Objects.requireNonNull(level, "level");
+        return characterForHost(catalog(level), hostType);
+    }
+
+    /** Catalog overload supports callers already holding a stable prototype snapshot. */
+    public static Optional<ResourceLocation> characterForHost(PrototypeCatalog<CharacterData> catalog,
+                                                               ResourceLocation hostType) {
+        Objects.requireNonNull(catalog, "resolved character catalog");
+        Objects.requireNonNull(hostType, "host entity type");
+        Map<ResourceLocation, ResourceLocation> index;
+        synchronized (HOST_INDEXES) {
+            index = HOST_INDEXES.computeIfAbsent(catalog, ModCharacters::buildHostIndex);
+        }
+        return Optional.ofNullable(index.get(hostType));
+    }
+
+    private static Map<ResourceLocation, ResourceLocation> buildHostIndex(PrototypeCatalog<CharacterData> catalog) {
+        Map<ResourceLocation, ResourceLocation> index = new LinkedHashMap<>();
+        for (Map.Entry<ResourceLocation, CharacterData> entry : catalog.asMap().entrySet()) {
+            for (ResourceLocation host : entry.getValue().hostEntityTypes()) {
+                ResourceLocation previous = index.putIfAbsent(host, entry.getKey());
+                if (previous != null) {
+                    throw new IllegalArgumentException("host entity type '" + host
+                            + "' is claimed by character prototypes '" + previous + "' and '" + entry.getKey() + "'");
+                }
+            }
+        }
+        return Map.copyOf(index);
     }
 }

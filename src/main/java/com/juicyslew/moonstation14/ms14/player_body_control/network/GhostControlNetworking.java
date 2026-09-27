@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.network;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.api.distmarker.Dist;
@@ -18,7 +19,7 @@ import java.util.function.BiConsumer;
 /** Common play-phase registration and fail-closed dispatch for ghost control payloads. */
 @EventBusSubscriber(modid = MoonStation14.MOD_ID)
 public final class GhostControlNetworking {
-    public static final String PROTOCOL_VERSION = "1";
+    public static final String PROTOCOL_VERSION = "3";
 
     private static volatile BiConsumer<CustomPacketPayload, IPayloadContext> serverHandler;
     private static volatile BiConsumer<CustomPacketPayload, IPayloadContext> clientHandler;
@@ -29,13 +30,19 @@ public final class GhostControlNetworking {
     public static void registerPayloadHandlers(RegisterPayloadHandlersEvent event) {
         event.registrar(PROTOCOL_VERSION)
                 .executesOn(HandlerThread.MAIN)
+                .playToClient(GhostControlPayloads.Offer.TYPE, GhostControlPayloads.Offer.STREAM_CODEC,
+                        GhostControlNetworking::handleClientPayload)
                 .playToClient(GhostControlPayloads.Begin.TYPE, GhostControlPayloads.Begin.STREAM_CODEC,
                         GhostControlNetworking::handleClientPayload)
                 .playToClient(GhostControlPayloads.Commit.TYPE, GhostControlPayloads.Commit.STREAM_CODEC,
                         GhostControlNetworking::handleClientPayload)
                 .playToClient(GhostControlPayloads.Stop.TYPE, GhostControlPayloads.Stop.STREAM_CODEC,
                         GhostControlNetworking::handleClientPayload)
+                .playToClient(GhostControlPayloads.Snapshot.TYPE, GhostControlPayloads.Snapshot.STREAM_CODEC,
+                        GhostControlNetworking::handleClientPayload)
                 .playToServer(GhostControlPayloads.Ready.TYPE, GhostControlPayloads.Ready.STREAM_CODEC,
+                        GhostControlNetworking::handleServerPayload)
+                .playToServer(GhostControlPayloads.OfferReady.TYPE, GhostControlPayloads.OfferReady.STREAM_CODEC,
                         GhostControlNetworking::handleServerPayload)
                 .playToServer(GhostControlPayloads.Intent.TYPE, GhostControlPayloads.Intent.STREAM_CODEC,
                         GhostControlNetworking::handleServerPayload);
@@ -90,7 +97,26 @@ public final class GhostControlNetworking {
     }
 
     private static void handleClientPayload(CustomPacketPayload payload, IPayloadContext context) {
+        if (!supportedClientHarnessKind(payload)) {
+            MobHarnessKind harnessKind = payload instanceof GhostControlPayloads.Begin begin
+                    ? begin.harnessKind() : ((GhostControlPayloads.Snapshot) payload).harnessKind();
+            MoonStation14.LOGGER.warn("Rejecting unsupported ghost-control harness kind on client: {} ({})",
+                    harnessKind, payload.type().id());
+            return;
+        }
         dispatch(payload, context, clientHandler, "client");
+    }
+
+    static boolean supportedClientHarnessKind(CustomPacketPayload payload) {
+        return true;
+    }
+
+    /** Pure tuple validation used by the client before retaining or acknowledging an offer. */
+    public static boolean matchesOffer(long currentEpoch, int currentEntityId, MobHarnessKind currentKind,
+                                       GhostControlPayloads.Offer offer) {
+        return currentEpoch > 0 && currentEntityId >= 0 && currentKind != null && offer != null
+                && offer.currentEpoch() == currentEpoch && offer.targetEntityId() != currentEntityId
+                && offer.targetKind() != currentKind;
     }
 
     static boolean isConnectedServerPlayer(boolean isServerPlayer, boolean fakePlayer, boolean removed,

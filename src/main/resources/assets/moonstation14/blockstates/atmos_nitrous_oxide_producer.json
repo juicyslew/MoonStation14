@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"moonstation14:block/atmos_nitrous_oxide_producer"},"facing=east":{"model":"moonstation14:block/atmos_nitrous_oxide_producer","y":90},"facing=south":{"model":"moonstation14:block/atmos_nitrous_oxide_producer","y":180},"facing=west":{"model":"moonstation14:block/atmos_nitrous_oxide_producer","y":270}}}

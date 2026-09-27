@@ -1,0 +1,20 @@
+{
+  "slip_data": {
+    "can_receive_stun": false,
+    "no_slip": true,
+    "standing_eligible": false,
+    "prone_eligible": false,
+    "reactive_groups": [],
+    "reactive_methods": []
+  },
+  "movement": {
+    "mode": "grounded",
+    "acceleration": 20.0,
+    "walk_speed": 4.0,
+    "sprint_speed": 4.0,
+    "ground_friction_with_input": 20.0,
+    "ground_friction_without_input": 20.0,
+    "minimum_friction_speed": 0.005
+  },
+  "host_entity_types": ["minecraft:pig"]
+}

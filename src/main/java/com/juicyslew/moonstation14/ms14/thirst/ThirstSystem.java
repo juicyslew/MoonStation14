@@ -17,6 +17,7 @@ import com.juicyslew.moonstation14.component.codec.json.AlertData;
 import com.juicyslew.moonstation14.ms14.alert.AlertSystem;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -36,7 +37,7 @@ public final class ThirstSystem {
     private ThirstSystem() { }
 
     public static boolean isEligible(LivingEntity entity) {
-        return entity.getType().is(ELIGIBLE_ENTITY_TYPES);
+        return !ActiveCharacterPolicy.isCarrier(entity) && entity.getType().is(ELIGIBLE_ENTITY_TYPES);
     }
 
     public static boolean needsTicking(ThirstAttachment thirst) {

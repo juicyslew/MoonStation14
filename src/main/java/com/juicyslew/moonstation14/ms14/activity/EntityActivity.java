@@ -7,7 +7,9 @@ public enum EntityActivity {
     REAGENT_METABOLISM(20),
     FIRE_DRYING(20),
     THIRST(20),
-    HUNGER(20);
+    HUNGER(20),
+    BODY_TEMPERATURE(20),
+    RESPIRATION_EXPOSURE(40);
 
     private final int tickInterval;
 

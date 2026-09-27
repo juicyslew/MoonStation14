@@ -203,6 +203,67 @@ class BodyControlRegistryTest {
     }
 
     @Test
+    void lostCharacterCanTransferOrAttachReplacementGhostWithoutChangingMindOrSharingOwnership() {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID session = uuid(110);
+        UUID otherSession = uuid(111);
+        MobHarnessId initialGhost = harness(registry, 112, MobHarnessKind.GHOST);
+        MobHarnessId character = harness(registry, 113, MobHarnessKind.CHARACTER);
+        MobHarnessId replacementGhost = harness(registry, 114, MobHarnessKind.GHOST);
+        MobHarnessId otherGhost = harness(registry, 115, MobHarnessKind.GHOST);
+        var initial = registry.createMind(session, initialGhost, ELIGIBLE).orElseThrow();
+        var otherMind = registry.createMind(otherSession, otherGhost, ELIGIBLE).orElseThrow();
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.transfer(session, character, initial.epoch(), ELIGIBLE));
+        var characterMind = registry.mind(session).orElseThrow();
+
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.transfer(session, replacementGhost, characterMind.epoch(), ELIGIBLE));
+        var transferred = registry.mind(session).orElseThrow();
+        assertEquals(initial.id(), transferred.id());
+        assertEquals(replacementGhost, transferred.harnessId());
+        assertTrue(transferred.epoch() > characterMind.epoch());
+        assertEquals(BodyControlRegistry.OperationResult.STALE_EPOCH,
+                registry.transfer(session, character, characterMind.epoch(), ELIGIBLE));
+        assertFalse(registry.authorizes(session, character, characterMind.epoch(), ELIGIBLE));
+        assertTrue(registry.authorizes(session, replacementGhost, transferred.epoch(), ELIGIBLE));
+        assertEquals(otherGhost, registry.mind(otherSession).orElseThrow().harnessId());
+        assertEquals(otherMind.id(), registry.mind(otherSession).orElseThrow().id());
+    }
+
+    @Test
+    void revokedCharacterBindingCanAttachReplacementGhostAndUnexpectedOwnerIsRejected() {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID session = uuid(116);
+        UUID otherSession = uuid(117);
+        MobHarnessId initialGhost = harness(registry, 118, MobHarnessKind.GHOST);
+        MobHarnessId character = harness(registry, 119, MobHarnessKind.CHARACTER);
+        MobHarnessId replacementGhost = harness(registry, 120, MobHarnessKind.GHOST);
+        MobHarnessId ownedGhost = harness(registry, 121, MobHarnessKind.GHOST);
+        var initial = registry.createMind(session, initialGhost, ELIGIBLE).orElseThrow();
+        var otherMind = registry.createMind(otherSession, ownedGhost, ELIGIBLE).orElseThrow();
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.transfer(session, character, initial.epoch(), ELIGIBLE));
+        var onCharacter = registry.mind(session).orElseThrow();
+        assertFalse(registry.authorizes(session, character, onCharacter.epoch(), target -> false));
+        var detached = registry.mind(session).orElseThrow();
+        assertNull(detached.harnessId());
+
+        assertEquals(BodyControlRegistry.OperationResult.HARNESS_OWNED,
+                registry.attach(session, ownedGhost, detached.epoch(), ELIGIBLE));
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.attach(session, replacementGhost, detached.epoch(), ELIGIBLE));
+        var recovered = registry.mind(session).orElseThrow();
+        assertEquals(initial.id(), recovered.id());
+        assertEquals(replacementGhost, recovered.harnessId());
+        assertTrue(recovered.epoch() > detached.epoch());
+        assertFalse(registry.authorizes(session, replacementGhost, detached.epoch(), ELIGIBLE));
+        assertTrue(registry.authorizes(session, replacementGhost, recovered.epoch(), ELIGIBLE));
+        assertEquals(ownedGhost, registry.mind(otherSession).orElseThrow().harnessId());
+        assertEquals(otherMind.id(), registry.mind(otherSession).orElseThrow().id());
+    }
+
+    @Test
     void newMindForSameSessionUuidNeverReusesAnEarlierEpoch() {
         BodyControlRegistry registry = new BodyControlRegistry();
         UUID session = uuid(90);
