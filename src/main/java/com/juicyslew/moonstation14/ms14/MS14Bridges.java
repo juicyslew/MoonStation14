@@ -17,6 +17,8 @@ import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureComponent;
 import com.juicyslew.moonstation14.util.SystemLink;
 
 public class MS14Bridges {
@@ -60,4 +62,8 @@ public class MS14Bridges {
 
     public static final SystemLink<SlidingAttachment, SlidingComponent> SLIDING =
             new SystemLink<>(ModDataAttachments.SLIDING, ModDataComponents.SLIDING, SlidingAttachment::new);
+
+    public static final SystemLink<BodyTemperatureAttachment, BodyTemperatureComponent> BODY_TEMPERATURE =
+            new SystemLink<>(ModDataAttachments.BODY_TEMPERATURE, ModDataComponents.BODY_TEMPERATURE,
+                    BodyTemperatureAttachment::new);
 }

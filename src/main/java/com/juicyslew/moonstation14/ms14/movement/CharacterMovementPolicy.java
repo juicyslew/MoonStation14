@@ -1,5 +1,9 @@
 package com.juicyslew.moonstation14.ms14.movement;
 
+import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+
+import java.util.Objects;
+
 /** Physical profile for the shared initial human policy (used irrespective of player or Villager host). */
 public record CharacterMovementPolicy(double accelerationPerSecondSquared,
                                       double walkSpeedPerSecond,
@@ -18,6 +22,19 @@ public record CharacterMovementPolicy(double accelerationPerSecondSquared,
     public static CharacterMovementPolicy forCharacterPrototype(String prototypeId) {
         if (HUMAN_PROTOTYPE_ID.equals(prototypeId)) return HUMAN;
         throw new IllegalArgumentException("unknown character prototype: " + prototypeId);
+    }
+
+    /** Resolves the generic grounded motor policy from a typed character prototype. */
+    public static CharacterMovementPolicy fromCharacterData(CharacterData data) {
+        Objects.requireNonNull(data, "data");
+        CharacterData.MovementData movement = data.movement().orElseThrow(() ->
+                new IllegalArgumentException("character prototype has no movement policy"));
+        if (!"grounded".equals(movement.mode())) {
+            throw new IllegalArgumentException("unsupported character movement mode: " + movement.mode());
+        }
+        return new CharacterMovementPolicy(movement.acceleration(), movement.walkSpeed(), movement.sprintSpeed(),
+                movement.groundFrictionWithInput(), movement.groundFrictionWithoutInput(),
+                movement.minimumFrictionSpeed());
     }
 
     public CharacterMovementPolicy {

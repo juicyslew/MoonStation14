@@ -1,3 +1,7 @@
+> **ARCHIVED BASELINE — 2026-09-26 (pre-M2 snapshot)**
+>
+> This audit records the earlier M1 implementation snapshot. Its old present-tense statements—including that there is no Monstermos-style equalizer, zero-capacity vacuum is not a cold sink, coordinate overflow is unbounded, and the analyzer only has the vanilla tab—describe the **pre-M2 snapshot, not current code**. Do not use them as current implementation status or as evidence of parity or acceptance. M2 code gates remain unverified: no server-world GameTest execution or 20-player benchmark has been performed. For the later review and current sprint status, see the [M2 audit](m2-2026-09-26-sky-boundary-and-equalizer.md) and [sprint instructions](../Instructions.md).
+
 # Atmospherics / Temperature M1 Implementation Status
 
 ## Summary

@@ -29,6 +29,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.CROWBAR);
                         output.accept(ModItems.WAFFLE);
                         output.accept(ModItems.BOTTLE);
+                        output.accept(ModItems.ATMOSPHERE_ANALYZER);
                     }).build());
     public static final Supplier<CreativeModeTab> MOONSTATION_BLOCKS_TAB = CREATIVE_MODE_TAB.register("moonstation_blocks_tab",
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocks.STEEL_WALL_GIRDER_BLOCK.get()))
@@ -39,6 +40,19 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
                         output.accept(ModBlocks.MAGIC_BLOCK);
                         output.accept(ModBlocks.JUG);
+                        output.accept(ModBlocks.ATMOS_AIR_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_OXYGEN_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_NITROGEN_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_CARBON_DIOXIDE_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_PLASMA_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_TRITIUM_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_WATER_VAPOR_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_AMMONIA_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_FREZON_PRODUCER);
+                        output.accept(ModBlocks.ATMOS_GAS_SINK);
+                        output.accept(ModBlocks.ATMOS_HEATER);
+                        output.accept(ModBlocks.ATMOS_COOLER);
                     }).build());
 
     public static void register(IEventBus eventBus) {

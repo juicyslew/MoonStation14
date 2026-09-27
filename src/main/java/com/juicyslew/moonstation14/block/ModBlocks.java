@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.block.custom.PuddleBlock;
 import com.juicyslew.moonstation14.block.custom.AtmosphereTestDeviceBlock;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -49,6 +50,15 @@ public class ModBlocks {
 
     public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_AIR_PRODUCER = registerBlock("atmos_air_producer",
             () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.PRODUCER, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_OXYGEN_PRODUCER = registerGasProducer(GasType.OXYGEN);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_NITROGEN_PRODUCER = registerGasProducer(GasType.NITROGEN);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_CARBON_DIOXIDE_PRODUCER = registerGasProducer(GasType.CARBON_DIOXIDE);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_PLASMA_PRODUCER = registerGasProducer(GasType.PLASMA);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_TRITIUM_PRODUCER = registerGasProducer(GasType.TRITIUM);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_WATER_VAPOR_PRODUCER = registerGasProducer(GasType.WATER_VAPOR);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_AMMONIA_PRODUCER = registerGasProducer(GasType.AMMONIA);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_NITROUS_OXIDE_PRODUCER = registerGasProducer(GasType.NITROUS_OXIDE);
+    public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_FREZON_PRODUCER = registerGasProducer(GasType.FREZON);
     public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_GAS_SINK = registerBlock("atmos_gas_sink",
             () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.SINK, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
     public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_HEATER = registerBlock("atmos_heater",
@@ -60,6 +70,11 @@ public class ModBlocks {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
         registerBlockItem(name, toReturn);
         return toReturn;
+    }
+
+    private static DeferredBlock<AtmosphereTestDeviceBlock> registerGasProducer(GasType gas) {
+        return registerBlock("atmos_" + gas.id() + "_producer", () -> new AtmosphereTestDeviceBlock(
+                AtmosphereDeviceRules.Device.PRODUCER, gas, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
     }
 
     private static <T extends Block> void registerBlockItem(String name, DeferredBlock<T> block) {

@@ -36,7 +36,10 @@ public class ModBlockEntities {
     );
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AtmosphereTestDeviceBlockEntity>> ATMOSPHERE_TEST_DEVICE = BLOCK_ENTITY_TYPES.register("atmosphere_test_device",
             () -> BlockEntityType.Builder.of(AtmosphereTestDeviceBlockEntity::new,
-                    ModBlocks.ATMOS_AIR_PRODUCER.get(), ModBlocks.ATMOS_GAS_SINK.get(), ModBlocks.ATMOS_HEATER.get(), ModBlocks.ATMOS_COOLER.get()).build(null)
+                    ModBlocks.ATMOS_AIR_PRODUCER.get(), ModBlocks.ATMOS_OXYGEN_PRODUCER.get(), ModBlocks.ATMOS_NITROGEN_PRODUCER.get(),
+                    ModBlocks.ATMOS_CARBON_DIOXIDE_PRODUCER.get(), ModBlocks.ATMOS_PLASMA_PRODUCER.get(), ModBlocks.ATMOS_TRITIUM_PRODUCER.get(),
+                    ModBlocks.ATMOS_WATER_VAPOR_PRODUCER.get(), ModBlocks.ATMOS_AMMONIA_PRODUCER.get(), ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER.get(),
+                    ModBlocks.ATMOS_FREZON_PRODUCER.get(), ModBlocks.ATMOS_GAS_SINK.get(), ModBlocks.ATMOS_HEATER.get(), ModBlocks.ATMOS_COOLER.get()).build(null)
     );
 
     public static void register(IEventBus eventBus){

@@ -7,7 +7,7 @@ import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.component.codec.json.ReactiveEffectsData;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
-import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.juicyslew.moonstation14.ms14.effect.ConditionContext;
 import com.juicyslew.moonstation14.ms14.effect.EffectCause;
 import com.juicyslew.moonstation14.ms14.effect.EffectContext;
@@ -81,7 +81,7 @@ public final class ReactiveTouchSystem {
         ServerLevel level = event.level();
         LivingEntity target = event.target();
         if (level.isClientSide || target.level() != level || !target.isAlive()) return;
-        CharacterData character = CharacterIdentitySystem.resolve(target).orElse(null);
+        CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
         if (character == null || !admitsTouch(character.slipData())) return;
         DispatchKey dispatchKey = new DispatchKey(event.sourcePosition().immutable(), target.getUUID(), level.getGameTime());
         synchronized (DISPATCHED) {

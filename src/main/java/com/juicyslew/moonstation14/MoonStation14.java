@@ -13,6 +13,8 @@ import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereEventHooks;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualNetworking;
+import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualServerHooks;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
 import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
@@ -56,6 +58,7 @@ public class MoonStation14 {
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
         AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
+        AtmosphereVisualServerHooks.register(NeoForge.EVENT_BUS);
 
         ModCreativeModeTabs.register(modEventBus);
 
@@ -69,6 +72,7 @@ public class MoonStation14 {
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
+        modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
         MovementServerController.install();
         //ModFluids.register(modEventBus);
@@ -104,6 +108,15 @@ public class MoonStation14 {
             event.accept(ModBlocks.MAGIC_BLOCK);
             event.accept(ModBlocks.JUG);
             event.accept(ModBlocks.ATMOS_AIR_PRODUCER);
+            event.accept(ModBlocks.ATMOS_OXYGEN_PRODUCER);
+            event.accept(ModBlocks.ATMOS_NITROGEN_PRODUCER);
+            event.accept(ModBlocks.ATMOS_CARBON_DIOXIDE_PRODUCER);
+            event.accept(ModBlocks.ATMOS_PLASMA_PRODUCER);
+            event.accept(ModBlocks.ATMOS_TRITIUM_PRODUCER);
+            event.accept(ModBlocks.ATMOS_WATER_VAPOR_PRODUCER);
+            event.accept(ModBlocks.ATMOS_AMMONIA_PRODUCER);
+            event.accept(ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER);
+            event.accept(ModBlocks.ATMOS_FREZON_PRODUCER);
             event.accept(ModBlocks.ATMOS_GAS_SINK);
             event.accept(ModBlocks.ATMOS_HEATER);
             event.accept(ModBlocks.ATMOS_COOLER);

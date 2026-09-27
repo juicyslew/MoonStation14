@@ -46,20 +46,20 @@ public final class AtmosphereEventHooks {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onBlockPlaced(BlockEvent.EntityPlaceEvent event) {
-        if (AtmosphereService.INSTANCE.isEnabled()) invalidate(event.getLevel(), event.getPos());
+        if (AtmosphereService.INSTANCE.isEnabled()) topologyChanged(event.getLevel(), event.getPos());
     }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onBlockBroken(BlockEvent.BreakEvent event) {
-        if (AtmosphereService.INSTANCE.isEnabled()) invalidate(event.getLevel(), event.getPos());
+        if (AtmosphereService.INSTANCE.isEnabled()) topologyChanged(event.getLevel(), event.getPos());
     }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onNeighborNotified(BlockEvent.NeighborNotifyEvent event) {
-        if (AtmosphereService.INSTANCE.isEnabled()) invalidate(event.getLevel(), event.getPos());
+        if (AtmosphereService.INSTANCE.isEnabled()) topologyChanged(event.getLevel(), event.getPos());
     }
 
-    private static void invalidate(net.minecraft.world.level.LevelAccessor level, BlockPos pos) {
-        if (level instanceof ServerLevel serverLevel) AtmosphereService.INSTANCE.invalidate(serverLevel, pos);
+    private static void topologyChanged(net.minecraft.world.level.LevelAccessor level, BlockPos pos) {
+        if (level instanceof ServerLevel serverLevel) AtmosphereService.INSTANCE.topologyChanged(serverLevel, pos);
     }
 }

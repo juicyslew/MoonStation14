@@ -39,6 +39,7 @@ class EffectDispatcherSupportMatrixTest {
             EffectData.EyeDamage.class,
             EffectData.Electrocute.class,
             EffectData.AdjustAlert.class,
+            EffectData.AdjustTemperature.class,
             EffectData.SatiateHunger.class,
             EffectData.SatiateThirst.class,
             EffectData.Emote.class);
@@ -49,7 +50,6 @@ class EffectDispatcherSupportMatrixTest {
             EffectData.ModifyLungGas.class,
             EffectData.ModifyBloodLevel.class,
             EffectData.CleanBloodstream.class,
-            EffectData.AdjustTemperature.class,
             EffectData.ResetNarcolepsy.class,
             EffectData.ReduceRotting.class,
             EffectData.CauseZombieInfection.class,
@@ -70,8 +70,8 @@ class EffectDispatcherSupportMatrixTest {
                 .collect(Collectors.toSet());
 
         assertEquals(34, variants.size());
-        assertEquals(20, dispatcher.registeredHandlerTypes().size());
-        assertEquals(14, dispatcher.registeredUnsupportedTypes().size());
+        assertEquals(21, dispatcher.registeredHandlerTypes().size());
+        assertEquals(13, dispatcher.registeredUnsupportedTypes().size());
         assertEquals(FUNCTIONAL, dispatcher.registeredHandlerTypes());
         assertEquals(UNSUPPORTED, dispatcher.registeredUnsupportedTypes().keySet());
         assertEquals(variants, union(dispatcher.registeredHandlerTypes(),
@@ -136,7 +136,7 @@ class EffectDispatcherSupportMatrixTest {
         EffectHandlers.registerDefaults(dispatcher);
 
         List<EffectData> effects = unsupportedEffects();
-        assertEquals(14, effects.size());
+        assertEquals(13, effects.size());
         for (EffectData effect : effects) {
             assertTrue(UNSUPPORTED.contains(effect.getClass()), effect.type());
             assertEquals(EffectResult.SKIPPED_UNSUPPORTED, dispatcher.dispatch(effect, null));
@@ -144,7 +144,7 @@ class EffectDispatcherSupportMatrixTest {
         }
         assertEquals(UNSUPPORTED.stream().map(Class::getSimpleName).collect(Collectors.toSet()),
                 Set.copyOf(warnings));
-        assertEquals(14, warnings.size());
+        assertEquals(13, warnings.size());
     }
 
     private static List<EffectData> unsupportedEffects() {
@@ -155,7 +155,6 @@ class EffectDispatcherSupportMatrixTest {
                 new EffectData.ModifyLungGas(EffectCommonData.DEFAULT, Map.of(water, 1f)),
                 new EffectData.ModifyBloodLevel(EffectCommonData.DEFAULT, 1f),
                 new EffectData.CleanBloodstream(EffectCommonData.DEFAULT, water, 1f),
-                new EffectData.AdjustTemperature(EffectCommonData.DEFAULT, 1f),
                 new EffectData.ResetNarcolepsy(EffectCommonData.DEFAULT),
                 new EffectData.ReduceRotting(EffectCommonData.DEFAULT, 1f),
                 new EffectData.CauseZombieInfection(EffectCommonData.DEFAULT),

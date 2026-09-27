@@ -7,6 +7,7 @@ import com.juicyslew.moonstation14.component.codec.json.AlertData;
 import com.juicyslew.moonstation14.ms14.alert.AlertSystem;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -34,7 +35,9 @@ public final class HungerSystem {
             Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath("moonstation14", "thirst_eligible"));
 
     private HungerSystem() { }
-    public static boolean isEligible(LivingEntity entity) { return entity.getType().is(ELIGIBLE_ENTITY_TYPES); }
+    public static boolean isEligible(LivingEntity entity) {
+        return !ActiveCharacterPolicy.isCarrier(entity) && entity.getType().is(ELIGIBLE_ENTITY_TYPES);
+    }
     public static boolean needsTicking(HungerAttachment state) { return state.hunger() > 0f; }
 
     /** One-time server-join initialization. Existing values, including 150, are authoritative. */
@@ -125,6 +128,7 @@ public final class HungerSystem {
         return present ? value : HungerComponent.DEFAULT_HUNGER;
     }
     public static boolean satiate(LivingEntity entity, float factor, float scale) {
+        if (ActiveCharacterPolicy.isCarrier(entity)) return false;
         HungerReducer.Result transition = HungerReducer.satiate(read(entity), factor, scale);
         if (!transition.valid()) return false;
         if (!transition.changed()) return true;
@@ -138,6 +142,7 @@ public final class HungerSystem {
 
     /** Applies an owner-authoritative hunger adjustment only when this character has initialized state. */
     public static boolean satiateIfInitialized(LivingEntity entity, float factor, float scale) {
+        if (ActiveCharacterPolicy.isCarrier(entity)) return false;
         if (!entity.hasData(com.juicyslew.moonstation14.component.ModDataAttachments.HUNGER.get())) return true;
         return satiate(entity, factor, scale);
     }

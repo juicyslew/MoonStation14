@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.block.block_entity.AtmosphereTestDeviceBlockE
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereSampleFormatter;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -31,14 +32,21 @@ public class AtmosphereTestDeviceBlock extends Block implements EntityBlock {
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
     private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 16, 16);
     private final AtmosphereDeviceRules.Device device;
+    private final GasType pureGas;
 
     public AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device device, Properties properties) {
+        this(device, null, properties);
+    }
+
+    public AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device device, @Nullable GasType pureGas, Properties properties) {
         super(properties);
         this.device = device;
+        this.pureGas = pureGas;
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
     public AtmosphereDeviceRules.Device device() { return device; }
+    @Nullable public GasType pureGas() { return pureGas; }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
@@ -51,9 +59,9 @@ public class AtmosphereTestDeviceBlock extends Block implements EntityBlock {
         }
 
         BlockPos target = pos.relative(state.getValue(FACING));
-        var sample = AtmosphereService.INSTANCE.sample(serverLevel, target);
+        var sample = AtmosphereService.INSTANCE.readAtmosphere(serverLevel, target);
         if (sample.isEmpty()) {
-            player.sendSystemMessage(Component.literal("No available atmosphere cell in front"));
+            player.sendSystemMessage(Component.literal("No gas cell on the clicked side"));
         } else {
             player.sendSystemMessage(Component.literal(AtmosphereSampleFormatter.format(sample.get())));
         }

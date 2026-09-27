@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.ms14.hunger.HungerComponent;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstComponent;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
 import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureComponent;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.bus.api.IEventBus;
@@ -38,6 +39,11 @@ public class ModDataComponents {
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ThirstComponent>> THIRST =
             register_component("thirst", builder -> builder.persistent(ThirstComponent.CODEC).networkSynchronized(ThirstComponent.STREAM_CODEC));
+
+    /** Bridge representation for entity-owned body temperature; no item behavior is currently assigned. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BodyTemperatureComponent>> BODY_TEMPERATURE =
+            register_component("body_temperature", builder -> builder.persistent(BodyTemperatureComponent.CODEC)
+                    .networkSynchronized(BodyTemperatureComponent.STREAM_CODEC));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<CharacterIdentityComponent>> CHARACTER_IDENTITY =
             register_component("character_identity", builder -> builder.persistent(CharacterIdentityComponent.CODEC)

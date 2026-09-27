@@ -21,6 +21,8 @@ import com.juicyslew.moonstation14.ms14.stomach.StomachDigestionTransfer;
 import com.juicyslew.moonstation14.ms14.status_effect.IStatusEffectTrait;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
 import com.juicyslew.moonstation14.ms14.fire.FireStackSystem;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.CarrierActivityPolicy;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
@@ -49,6 +51,13 @@ public class TickHooks {
             return;
         }
         com.juicyslew.moonstation14.ms14.slip.SlipSystem.reconcileTarget(entity);
+
+        // Retry prototype-backed thermal enrollment on the same staggered cadence. This
+        // covers catalogs populated after an entity's join without resolving every tick.
+        if (EntityActivity.BODY_TEMPERATURE.isDue(serverLevel.getGameTime(), entity.getId())) {
+            com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.reconcile(livingEntity);
+            com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem.reconcile(livingEntity);
+        }
 
         EntityActivityAttachment active = entity.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
         // Eligibility is temporary policy, while the attachment is durable owner state.
@@ -105,23 +114,36 @@ public class TickHooks {
     /** Narrow scheduler seam used by server tests and the entity tick hook. */
     public static void runDueActivities(LivingEntity livingEntity, ServerLevel serverLevel,
                                         Set<EntityActivity> due) {
-        if (due.contains(EntityActivity.STATUS_EFFECT)) {
+        boolean activeCarrier = ActiveCharacterPolicy.isCarrier(livingEntity);
+        if (due.contains(EntityActivity.STATUS_EFFECT)
+                && CarrierActivityPolicy.shouldRun(EntityActivity.STATUS_EFFECT, activeCarrier)) {
             StatusEffectUpdate(livingEntity, serverLevel);
         }
-        if (due.contains(EntityActivity.ALERT)) {
+        if (due.contains(EntityActivity.ALERT)
+                && CarrierActivityPolicy.shouldRun(EntityActivity.ALERT, activeCarrier)) {
             com.juicyslew.moonstation14.ms14.alert.AlertSystem.expire(livingEntity, serverLevel);
         }
-        if (due.contains(EntityActivity.REAGENT_METABOLISM)) {
+        if (due.contains(EntityActivity.REAGENT_METABOLISM)
+                && CarrierActivityPolicy.shouldRun(EntityActivity.REAGENT_METABOLISM, activeCarrier)) {
             ReagentUpdate(livingEntity, serverLevel);
         }
-        if (due.contains(EntityActivity.FIRE_DRYING)) {
+        if (due.contains(EntityActivity.FIRE_DRYING)
+                && CarrierActivityPolicy.shouldRun(EntityActivity.FIRE_DRYING, activeCarrier)) {
             FireStackSystem.dry(livingEntity);
         }
-        if (due.contains(EntityActivity.THIRST)) {
+        if (due.contains(EntityActivity.THIRST)
+                && CarrierActivityPolicy.shouldRun(EntityActivity.THIRST, activeCarrier)) {
             com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.decayOneSecond(livingEntity);
         }
-        if (due.contains(EntityActivity.HUNGER)) {
+        if (due.contains(EntityActivity.HUNGER)
+                && CarrierActivityPolicy.shouldRun(EntityActivity.HUNGER, activeCarrier)) {
             com.juicyslew.moonstation14.ms14.hunger.HungerSystem.decayOneSecond(livingEntity);
+        }
+        if (due.contains(EntityActivity.BODY_TEMPERATURE)) {
+            com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.exposeOneSecond(livingEntity, serverLevel);
+        }
+        if (due.contains(EntityActivity.RESPIRATION_EXPOSURE)) {
+            com.juicyslew.moonstation14.ms14.atmos.exposure.RespirationExposure.exposeTwoSeconds(livingEntity, serverLevel);
         }
     }
 

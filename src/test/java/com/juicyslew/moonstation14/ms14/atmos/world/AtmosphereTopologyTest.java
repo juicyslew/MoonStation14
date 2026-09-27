@@ -56,6 +56,28 @@ class AtmosphereTopologyTest {
         }));
     }
 
+    @Test
+    void motionBlockingHeightDeterminesExteriorWithoutSkylight() {
+        int targetY = 65;
+        int firstFreeY = 65; // A roof at block Y=64 is included by MOTION_BLOCKING.
+
+        assertTrue(AtmosphereTopology.isDirectExteriorByHeightmap(true, true, targetY, firstFreeY));
+        assertFalse(AtmosphereTopology.isDirectExteriorByHeightmap(true, true, 64, firstFreeY));
+        assertFalse(AtmosphereTopology.isDirectExteriorByHeightmap(false, true, targetY, firstFreeY));
+        assertFalse(AtmosphereTopology.isDirectExteriorByHeightmap(true, false, targetY, firstFreeY));
+    }
+
+    @Test
+    void addingAndRemovingRoofDynamicallyChangesHeightmapExposure() {
+        int targetY = 65;
+
+        assertTrue(AtmosphereTopology.isDirectExteriorByHeightmap(true, true, targetY, 65));
+        assertFalse(AtmosphereTopology.isDirectExteriorByHeightmap(true, true, targetY, 66),
+                "a newly placed roof below the target raises first-free Y");
+        assertTrue(AtmosphereTopology.isDirectExteriorByHeightmap(true, true, targetY, 65),
+                "removing the roof restores exposure on the next evaluation");
+    }
+
     private static boolean isPassable(BlockState state, AtmosphereTopology.FullCollisionCheck check) {
         return AtmosphereTopology.isPassable(state, null, BlockPos.ZERO, check);
     }

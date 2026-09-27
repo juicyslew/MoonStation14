@@ -1,78 +1,58 @@
-# Bounded Station Atmosphere Solver Proposal
+# Bounded Atmosphere Solver: Design and Acceptance Proposal
 
 ## Purpose and scope
 
-This is a proposal for evaluating room-scale atmosphere behavior for a **prebuilt moon base plus a small trade station**. Active gas cells are expected to be concentrated in a few buildings, while the Minecraft 3D volume represented by those buildings can still contain thousands or tens of thousands of cells. Exterior space should behave as vacuum only when the owner opts a dimension into vacuum through `atmosphereVacuumDimensions`; the current default is breathable ambient in every dimension.
+This document describes the bounded equalization path now present in code and the validation still required. It is not a proposal for a prebuilt station or fixed envelope: rooms/buildings may be constructed anywhere, with no permanent station bounds. It is not a blind SS14 port, parity claim, or evidence of measured performance. See the [sprint instructions](../Instructions.md) and [M2 audit](../audits/m2-2026-09-26-sky-boundary-and-equalizer.md).
 
-This is not an implementation plan to blindly port SS14, a parity claim, or evidence that any solver has been benchmarked. First measure the existing implementation; then compare a bounded region prototype against it. The [sprint instructions](../Instructions.md) describe the current model and open gates.
+## Facts established by source review
 
-## Facts established by the current implementation
+> **Ownership update:** The heightmap-only description in this earlier solver proposal is superseded by the dynamic ownership implementation summarized here and in the [M3 audit](../audits/m3-dynamic-space-ownership.md). The [M2 audit](../audits/m2-2026-09-26-sky-boundary-and-equalizer.md) is an archived earlier baseline.
 
-- A block position represents a fixed 1 m³ gas cell. Gas and thermal energy exchange across six-face neighbors; pressure is derived from gas and temperature.
-- Active processing runs every four server ticks and permits at most 128 pair edges and 512 conservatively charged inspections per processing tick. At 20 server TPS, the pair-edge ceiling is **640 pair edges/second**.
-- An entirely open 20 × 10 × 20-cell room has `(19×10×20) + (20×9×20) + (20×10×19) = 11,200` undirected neighbor edges. At the ideal ceiling, a single pass would take at least `11,200 / 640 = 17.5 seconds`; actual progress can be slower due to queue ordering, inspections, and repeated work. This is an arithmetic estimate, not a measured benchmark.
-- The current solver is local pairwise exchange, not room-wide equalization. Queue overflow memory is unbounded, airtight faces are approximate, and topology edits can create or destroy implicit ambient gas. Empty vacuum currently has zero heat capacity and is not a thermal sink.
-- There is no measured 20-player result or current solver profile. No 20-player capacity, equalization latency, or performance claim is established.
+- Heightmap `MOTION_BLOCKING` first-free Y supplies only exterior seeds for loaded/passable cells. Unclaimed covered cells are classified by resumable six-face ownership search; a complete loaded enclosed proof is required for FINITE claims. Unloaded/unknown cells and the 131,072 candidate cap fail closed. The service budget is 768 ownership probes and 256 staged claim writes per due tick.
+- Persisted schema-v2 finite claims take precedence over sky seeding and survive breached doors. Schema-v1 gas overrides are promoted to claims. Direct sky claim remains finite so stored gas is not instantly deleted; an adjacent open sky cell provides the sink. No permanent envelope or room column exists, and connected sky beneath an overhang can be exterior.
+- Incomplete claim plans can leave a partial persisted claim set across crash/restart; committed claims survive plan cancellation. No whole-room demolition release policy exists. Custom geometry heuristic errors, no exact SS14 floor/map identity, and unresolved topology-edit gas displacement remain limitations.
 
-## Recommendation
+- A block position represents a fixed 1 m³ gas cell. Gas and thermal energy exchange across six-face neighbors; pressure derives from gas and temperature.
+- The service retains local neighbor species/heat processing and adds a pure bounded equalizer plus incremental finite-region discovery within the same server pipeline.
+- `BoundedGasEqualizer` has an 800-cell maximum. It equalizes total moles to the patch average and transports donor composition and enthalpy; it is not a uniform mixture overwrite.
+- `BoundedRegionDiscovery` has an 8,000-candidate limit. A patch/hard limit is not evidence that the whole connected region has been found or that it is exterior. Continuation seeds represent incomplete frontiers.
+- Heightmap first-free Y is an exterior seed only. Covered unclaimed cells use the dynamic ownership search described above; claims take precedence, and local exchange to adjacent sky remains available. This is an approximate heuristic, not exact SS14 vacuum behavior.
+- Direct exterior exports finite-cell species and energy into a transient per-level ledger. The ledger is not persisted. Unloaded chunks are unavailable/closed, not sinks.
+- Scheduling includes priority mutation seeds with FIFO interleaving, an 8,192-position hot queue, coalesced per-chunk dirty retries, an ordered version-checked `AtmosphereChunkData.nextAfter` cursor, and per-column snapshots for exposure cleanup. Cursor/index behavior has focused unit coverage; priority overflow/recovery and long-region fairness are unit-tested only. Some work is bounded per tick; total memory, all overload cases, and real-world fairness are not acceptance-proven.
+- Coordinator actually ran `.\gradlew.bat test --rerun-tasks --no-daemon` and `.\gradlew.bat build --no-daemon`; both reported **SUCCESS**. `compileGametestJava` executed during `test`, but GameTests were never executed in a server world (no game/server launch). No 800-cell cost profile, comprehensive transactionality test, or 20-player benchmark is evidenced.
 
-Keep the current per-cell gas and heat model as the correctness baseline. Do **not** replace it with a whole-room homogeneous simulation or adopt LINDA/Monstermos based on name or presumed performance. First instrument and characterize the actual workload. If results justify it, prototype bounded room-region discovery and a Monstermos-style fast equalization strategy **inside explicitly registered finite station bounds or otherwise loaded regions**. Never discover regions by flood-filling all Minecraft air or the unbounded world.
+## Design boundaries
 
-Room/region equalization should accelerate pressure redistribution, not erase local state indiscriminately. Retain per-cell state and processing where vents, leaks, fire, hotspots, or other local thermal/gas effects need gradients. A coarse homogeneous volume or chunk-section local cache is optional future work only if profiling demonstrates a meaningful benefit and tests show it preserves required behavior.
+There is no room object or permanent station envelope. Do not flood-fill an entire world or classify all cells connected through a door as exterior. Heightmap is only an exterior seed; covered unclaimed cells are resolved by six-face ownership search, and persistent finite claims override later sky connectivity. Breaching a door therefore does not instantly convert an entire claimed volume to exterior; finite cells drain through adjacent open sky. Roof/glass/no-skylight and complex topologies require real fixture validation. The heightmap seed heuristic may not identify intended mapped exterior correctly in all world layouts.
 
-## Staged plan
+The bounded equalizer is Monstermos-inspired in its high-level use of finite patches, but it is not SS14 Monstermos and does not imply parity. Its bounded partial work must remain explicitly incomplete: an 800-cell patch or 8,000-candidate discovery limit cannot be interpreted as a complete room, or as proof that the unresolved region is space. Local exchange remains part of the same pipeline to preserve local gradients and process finite/exterior boundaries.
 
-### Stage 0 — M0 measurement before optimization
+## Acceptance plan
 
-Instrument the current solver before changing its behavior. Capture, at minimum:
+### Gate A — World fixtures and boundary semantics
 
-- Active gas-cell count, active positions, and active connected/building-region counts (where region attribution can be measured without changing semantics).
-- Pair-edge queue depth, deferred overflow depth, deduplication size, enqueue/dequeue rates, and high-water marks; report overload and dropped/deferred work explicitly.
-- Pair edges and inspections processed per tick, solver wall-clock time per tick and percentile/max cost, and age/latency of queued work. Count persistence/load-resume work separately.
-- Work budget utilization against the configured 128 pair edges / 4 ticks and 512 inspections per processing tick.
+Execute server-world fixtures for direct exposure and covered cells, including roof/glass and no-skylight End cases; verify finite under-overhang exchange, immutable exposed ambient, and gradual door-to-space drainage. Verify normal and configured vacuum dimensions use their respective immutable exposed ambient. Check that partial discovery, unloaded chunks, and unknown boundaries are never reclassified as exterior. Document that heightmap classification is a deliberate approximation and obtain owner direction for mapped exterior policy.
 
-Profile representative scenarios: a prebuilt sealed room, an expected breach/open-boundary case, a room crossing chunk boundaries, and a representative 20-player server workload. Use repeatable fixtures and state what is loaded and active. Include configurations with vacuum opt-in enabled and disabled where boundary behavior is under test. Do not infer a 20-player result from a synthetic single-room benchmark.
+### Gate B — Continuation and bounded work
 
-### Stage 1 — Correctness and semantics gates
+Exercise finite connected regions larger than 800 cells and larger than the 8,000-candidate discovery limit. Verify patches make progress through continuation seeds and do not assert whole-region completion based on a partial result. Test mutation-priority scheduling alongside FIFO work, coalesced dirty chunk retry behavior, and `nextAfter` cursor restarts after version changes. Test unloaded chunk seams without force-loading. Establish memory/overload bounds and progress guarantees instead of inferring them from individual per-tick caps.
 
-Before optimizing, specify and test the behavior the prototype must preserve or deliberately change:
+### Gate C — State conservation and boundary accounting
 
-1. Correct airtight faces and topology, including partial block shapes and orientation, doors, and other expected station boundaries.
-2. Gas displacement and conservation semantics on enclosure construction, opening, closing, and breach. Missing cells inheriting ambient must not silently imply conservation.
-3. Startup configuration and persistence behavior, including opt-in vacuum dimensions and the effect of policy on saved worlds.
-4. Exterior boundary semantics. In an opt-in vacuum dimension, a named exterior boundary may act as a synthetic gas sink. Distinguish that sink from an unloaded chunk, an unknown boundary, or an ordinary missing cell; do not treat every unavailable neighbor as vacuum.
+Measure closed finite-patch species and energy before/after equalization. Test topology changes (wall/roof/door placement/removal, exposure changes) separately because they can alter implicit ambient/exterior classification and may displace or reinterpret matter. Verify finite-to-exterior exports and the transient ledger's species/energy values; decide whether ledger state must persist, how it resets, and how it is surfaced. Distinguish intentional exterior export from topology-induced changes and ambient defaults.
 
-Prioritize these semantics over faster equalization. Preserve the existing gate's restart-only configuration behavior and migration warning unless an owner-approved policy changes it.
+Do not claim comprehensive transactionality. Measure preflight and write cost for a maximum 800-cell patch. Exercise service-thread mutations/failures and establish what happens if state changes or a write fails between validation and commit; add rollback only if a defined requirement calls for it.
 
-### Stage 2 — Bounded-region prototype
+### Gate D — Performance and decision
 
-Prototype finite region discovery only within owner-registered station/building bounds or a defined loaded-region scope. Bounds must be explicit and finite; never scan or flood-fill arbitrary world air. The prototype should:
+Profile discovery, patch preflight/commit, local processing, dirty retries, memory high-water marks and equalization latency in representative worlds. Include a region beyond 8,000 candidates and realistic loaded chunk seams. Benchmark a representative 20-player workload. No profile or 20-player result exists. Use results and correctness gates to tune or retain the design; do not derive performance claims from cell/edge arithmetic or a synthetic isolated patch.
 
-- Identify connected passable cells across correct airtight faces, with a deliberate strategy for bounds, chunks, and dynamic topology.
-- Treat explicitly identified exterior vacuum as a named synthetic sink. Track its gas removal separately so closed-system conservation can be checked while intentional loss to this sink is accounted for.
-- Handle doors and breaches incrementally where feasible: door changes can split/merge regions, and breach changes can connect a bounded interior to its exterior sink. Do not assume these updates are already cheap or correct; measure them.
-- Treat chunk unload as a closed/unknown boundary, not an exterior vacuum opening. Do not force-load chunks to complete discovery.
-- Cap discovery/flood-fill work per tick, expose its queues and high-water marks to instrumentation, and define how incomplete work affects simulation and player-visible behavior.
-- Keep per-cell gas/thermal values where local gradients or devices need them. Evaluate fast equalization within a bounded region as a prototype, not as an assumption that every cell is perfectly uniform every tick.
+## Explicit outstanding owner decisions
 
-### Stage 3 — Validation and comparison
+- What policy identifies intended exterior on mapped worlds where heightmap exposure is insufficient or overinclusive?
+- How should topology changes materialize/displace ambient gas, and which conservation invariant is expected?
+- Is the boundary ledger diagnostic/transient by design, or must it be persisted across restart? What reset/accounting behavior is desired?
+- What mutation rollback semantics are required for patch preflight/write failures?
+- What profile environment, acceptance workload, and performance target define successful 20-player operation?
 
-Run the same repeatable scenarios against a LINDA snapshot-based per-cell candidate and the bounded-region equalizer. The current implementation is a local pairwise solver, not LINDA. Record solver CPU time, queue/discovery work and memory, equalization latency, and behavior under doors, breaches, chunk seams/unloads, persistence, and 20-player load.
-
-Add correctness tests for sealed topology split/merge: opening or closing an internal door must preserve total gas and thermal energy except for explicitly modeled sources/sinks. Verify that gas is lost **only** to the named exterior sink, and account quantitatively for that loss. Test conservation for fully sealed split/merge, cross-chunk topology, and restart/persistence. Confirm vacuum's present zero-gas/zero-heat-capacity ambient behavior separately; a vacuum gas sink does not imply a cold heat sink.
-
-Compare qualitative behavior as well as timings against the relevant SS14 reference cases, documenting deviations. LINDA snapshot processing and Monstermos-style equalization are distinct strategies, not names for interchangeable algorithms. SS14 behavior can inform tests, but no parity claim follows from matching a solver label.
-
-### Stage 4 — Decision gate
-
-Adopt bounded regions only if measurements show the current solver misses an owner-approved performance or gameplay target and the prototype meets correctness gates at robust 20-player scale. Otherwise retain the simpler per-cell design and prioritize bounded queue memory and topology correctness. Publish the measured evidence and remaining tradeoffs before choosing coarse homogeneous volumes or chunk-section caching.
-
-## Owner decisions required
-
-- What finite bounds define the prebuilt station/base and any later registered buildings? Who registers and updates them?
-- What breach sizes/frequencies and open exterior connections are representative?
-- What equalization time is acceptable for small and large rooms, and what gameplay cases require local gradients to remain visible?
-- Which server/profile environment and representative 20-player workload are the acceptance basis?
-- What conservation/materialization policy applies when walls enclose cells that previously inherited ambient? Is gas lost through exterior vacuum acceptable, and how is it accounted for?
-
-Until these decisions and measurements exist, do not claim room-scale performance, 20-player readiness, or SS14 parity. Handheld analyzer code is implemented and its automated unit tests passed; its server-world `useOn` behavior versus vanilla interactions and multiplayer behavior remain unverified. Keep its world verification open independently of this solver proposal.
+Until these gates are executed, do not claim room-scale performance, exact SS14 vacuum behavior, comprehensive transactionality, 20-player readiness, or SS14 parity. Roof/direct exposure including no-skylight End behavior is supported by the heightmap code and code-level tests only; no real-world room tests have run. Test sources compiled are not executed server-world tests. After automated world tests pass, the owner-only manual checklist remains: decide mapped exterior policy; assess topology edit gas displacement; set ledger accounting/persistence semantics; confirm actual device/analyzer interactions; and perform owner smoke.

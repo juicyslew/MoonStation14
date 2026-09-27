@@ -8,16 +8,25 @@ import com.mojang.serialization.Decoder;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.ThermalExposureMath;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /** Immutable, data-only character policy. The catalog key supplies identity. */
-public record CharacterData(SlipTargetData slipData) {
+public record CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                            List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal) {
     private static final Codec<CharacterData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
-            instance.group(SlipTargetData.CODEC.fieldOf("slip_data").forGetter(CharacterData::slipData))
+            instance.group(
+                    SlipTargetData.CODEC.fieldOf("slip_data").forGetter(CharacterData::slipData),
+                    MovementData.CODEC.optionalFieldOf("movement").forGetter(CharacterData::movement),
+                    Codec.list(ResourceLocation.CODEC).optionalFieldOf("host_entity_types", List.of())
+                            .forGetter(CharacterData::hostEntityTypes),
+                    ThermalData.CODEC.optionalFieldOf("thermal").forGetter(CharacterData::thermal))
                     .apply(instance, CharacterData::new));
 
     private static final Decoder<CharacterData> STRICT_DECODER = new Decoder<>() {
@@ -42,9 +51,118 @@ public record CharacterData(SlipTargetData slipData) {
 
     public CharacterData {
         Objects.requireNonNull(slipData, "slipData");
+        Objects.requireNonNull(movement, "movement");
+        Objects.requireNonNull(hostEntityTypes, "hostEntityTypes");
+        Objects.requireNonNull(thermal, "thermal");
+        hostEntityTypes = List.copyOf(hostEntityTypes);
     }
 
-    /** Typed target capability bundle; separate from source-side reagent SlipData. */
+    /** Backward-compatible constructor for character policies predating thermal data. */
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes) {
+        this(slipData, movement, hostEntityTypes, Optional.empty());
+    }
+
+    /** Backward-compatible slip-only prototype constructor. */
+    public CharacterData(SlipTargetData slipData) {
+        this(slipData, Optional.empty(), List.of(), Optional.empty());
+    }
+
+    /** Optional per-character thermal exposure policy. currentKelvin is the initial body temperature. */
+    public record ThermalData(double massKg, double specificHeatJoulesPerKgKelvin,
+                              double atmosphereTransferEfficiency, double heatDamageThresholdKelvin,
+                              double coldDamageThresholdKelvin, double currentKelvin,
+                              double heatDamagePerSecond, double coldDamagePerSecond, double damageCap) {
+        private static final Codec<ThermalData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.DOUBLE.fieldOf("mass_kg").forGetter(ThermalData::massKg),
+                Codec.DOUBLE.fieldOf("specific_heat_joules_per_kg_kelvin").forGetter(ThermalData::specificHeatJoulesPerKgKelvin),
+                Codec.DOUBLE.fieldOf("atmosphere_transfer_efficiency").forGetter(ThermalData::atmosphereTransferEfficiency),
+                Codec.DOUBLE.fieldOf("heat_damage_threshold_kelvin").forGetter(ThermalData::heatDamageThresholdKelvin),
+                Codec.DOUBLE.fieldOf("cold_damage_threshold_kelvin").forGetter(ThermalData::coldDamageThresholdKelvin),
+                Codec.DOUBLE.fieldOf("current_kelvin").forGetter(ThermalData::currentKelvin),
+                Codec.DOUBLE.fieldOf("heat_damage_per_second").forGetter(ThermalData::heatDamagePerSecond),
+                Codec.DOUBLE.fieldOf("cold_damage_per_second").forGetter(ThermalData::coldDamagePerSecond),
+                Codec.DOUBLE.fieldOf("damage_cap").forGetter(ThermalData::damageCap)
+        ).apply(instance, ThermalData::new));
+
+        public static final Codec<ThermalData> CODEC = Codec.of(STRUCTURAL_CODEC, new Decoder<>() {
+            @Override
+            public <T> DataResult<Pair<ThermalData, T>> decode(DynamicOps<T> ops, T input) {
+                try {
+                    JsonElement json = ops.convertTo(JsonOps.INSTANCE, input);
+                    if (!json.isJsonObject()) return DataResult.error(() -> "thermal must be a JSON object");
+                    CharacterSchemaAudit.auditThermal(json.getAsJsonObject());
+                    return STRUCTURAL_CODEC.decode(ops, input);
+                } catch (RuntimeException exception) {
+                    String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+                    return DataResult.error(() -> message);
+                }
+            }
+        });
+
+        public ThermalData {
+            // SS14 Physics.FixturesMass is not available in this Minecraft approximation; mass is explicit policy data.
+            ThermalExposureMath.ThermalProfile profile = toProfile(massKg, specificHeatJoulesPerKgKelvin,
+                    atmosphereTransferEfficiency, heatDamageThresholdKelvin, coldDamageThresholdKelvin,
+                    heatDamagePerSecond, coldDamagePerSecond, damageCap);
+            if (!Double.isFinite(currentKelvin) || currentKelvin <= 0.0
+                    || currentKelvin <= coldDamageThresholdKelvin || currentKelvin >= heatDamageThresholdKelvin) {
+                throw new IllegalArgumentException("currentKelvin must be finite and between thermal thresholds");
+            }
+        }
+
+        public ThermalExposureMath.ThermalProfile toProfile() {
+            return toProfile(massKg, specificHeatJoulesPerKgKelvin, atmosphereTransferEfficiency,
+                    heatDamageThresholdKelvin, coldDamageThresholdKelvin, heatDamagePerSecond,
+                    coldDamagePerSecond, damageCap);
+        }
+
+        private static ThermalExposureMath.ThermalProfile toProfile(double massKg, double specificHeat,
+                double efficiency, double heatThreshold, double coldThreshold, double heatDamage,
+                double coldDamage, double cap) {
+            return new ThermalExposureMath.ThermalProfile(massKg, specificHeat, efficiency,
+                    heatThreshold, coldThreshold, heatDamage, coldDamage, cap);
+        }
+    }
+
+    /**
+     * Generic grounded movement parameters; species capability policy remains data-driven.
+     * Speech/hands remain unmodeled in this character codec until generic systems implement and enforce those capabilities;
+     * movement data alone does not grant or deny speech.
+     */
+    public record MovementData(String mode, double acceleration, double walkSpeed, double sprintSpeed,
+                               double groundFrictionWithInput, double groundFrictionWithoutInput,
+                               double minimumFrictionSpeed) {
+        private static final Codec<MovementData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.STRING.fieldOf("mode").forGetter(MovementData::mode),
+                Codec.DOUBLE.fieldOf("acceleration").forGetter(MovementData::acceleration),
+                Codec.DOUBLE.fieldOf("walk_speed").forGetter(MovementData::walkSpeed),
+                Codec.DOUBLE.fieldOf("sprint_speed").forGetter(MovementData::sprintSpeed),
+                Codec.DOUBLE.fieldOf("ground_friction_with_input").forGetter(MovementData::groundFrictionWithInput),
+                Codec.DOUBLE.fieldOf("ground_friction_without_input").forGetter(MovementData::groundFrictionWithoutInput),
+                Codec.DOUBLE.fieldOf("minimum_friction_speed").forGetter(MovementData::minimumFrictionSpeed)
+        ).apply(instance, MovementData::new));
+
+        public static final Codec<MovementData> CODEC = Codec.of(STRUCTURAL_CODEC, new Decoder<>() {
+            @Override
+            public <T> DataResult<Pair<MovementData, T>> decode(DynamicOps<T> ops, T input) {
+                try {
+                    JsonElement json = ops.convertTo(JsonOps.INSTANCE, input);
+                    if (!json.isJsonObject()) return DataResult.error(() -> "movement must be a JSON object");
+                    CharacterSchemaAudit.auditMovement(json.getAsJsonObject());
+                    return STRUCTURAL_CODEC.decode(ops, input);
+                } catch (RuntimeException exception) {
+                    String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+                    return DataResult.error(() -> message);
+                }
+            }
+        });
+    }
+
+    /**
+     * Typed target capability bundle; separate from source-side reagent SlipData. Entries are local policy,
+     * not claims about upstream species components; the Pig prototype's inert/no-slip selection is provisional.
+     */
     public record SlipTargetData(boolean canReceiveStun, boolean noSlip, boolean standingEligible,
                                  boolean proneEligible, List<ReactiveGroup> reactiveGroups,
                                  List<ReactiveMethod> reactiveMethods) {

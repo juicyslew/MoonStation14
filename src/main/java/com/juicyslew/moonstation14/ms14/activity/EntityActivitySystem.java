@@ -102,6 +102,10 @@ public final class EntityActivitySystem {
                 && com.juicyslew.moonstation14.ms14.hunger.HungerSystem.needsTicking(hunger)) {
             desired.add(EntityActivity.HUNGER);
         }
+        if (com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.isEligible(entity)) {
+            desired.add(EntityActivity.BODY_TEMPERATURE);
+            desired.add(EntityActivity.RESPIRATION_EXPOSURE);
+        }
 
         EntityActivityAttachment current = existing(entity);
         if (desired.isEmpty()) {

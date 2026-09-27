@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.status_effect.IStatusEffectTrait;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectOperation;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -34,7 +35,7 @@ public final class CharacterControlSystem {
     public static boolean applyStun(LivingEntity entity, int durationTicks) {
         Objects.requireNonNull(entity, "entity");
         if (durationTicks <= 0 || !(entity.level() instanceof ServerLevel level)
-                || CharacterIdentitySystem.resolve(entity).filter(data -> data.slipData().canReceiveStun()).isEmpty()
+                || ActiveCharacterPolicy.resolveActor(entity).filter(data -> data.slipData().canReceiveStun()).isEmpty()
                 || !(entity instanceof IStatusEffectTrait statusTrait)) {
             return false;
         }
@@ -56,7 +57,7 @@ public final class CharacterControlSystem {
     public static boolean isStunned(LivingEntity entity) {
         Objects.requireNonNull(entity, "entity");
         if (!(entity.level() instanceof ServerLevel level)
-                || CharacterIdentitySystem.resolve(entity)
+                || ActiveCharacterPolicy.resolveActor(entity)
                 .filter(data -> data.slipData().canReceiveStun()).isEmpty()
                 || !(entity instanceof IAttachmentHolder holder)
                 || !holder.hasData(ModDataAttachments.STATUS_EFFECT.get())) {
@@ -88,7 +89,7 @@ public final class CharacterControlSystem {
             return statuses != null && isActive(statuses.snapshot(), ModStatusEffects.catalog(entity.level()));
         }
         if (!(entity.level() instanceof ServerLevel level)
-                || CharacterIdentitySystem.resolve(entity)
+                || ActiveCharacterPolicy.resolveActor(entity)
                 .filter(data -> data.slipData().canReceiveStun()).isEmpty()
                 || !(entity instanceof IAttachmentHolder holder)
                 || !holder.hasData(ModDataAttachments.STATUS_EFFECT.get())) return false;
