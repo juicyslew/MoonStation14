@@ -1,6 +1,6 @@
 # 2026-09-26 ghost shared-motor prediction audit
 
-**Status: shared ghost movement and local prediction are implemented and pass the reported automated checks; connected-owner behavior remains unverified.** This is the authoritative current movement/prediction status for the experimental ghost slice. It supersedes earlier descriptions of server-only ghost movement and historical GameTest counts, but does not supersede the connected-owner smoke gate or claim that ghost movement feels fixed. See the [sprint instructions](../../../instructions-player-body-control-sprint.md), [owner smoke checklist](experimental-ghost-owner-smoke.md), and [M2b control-wire audit](m2b-ghost-control-wire.md).
+**Status: shared ghost movement and local prediction are implemented and pass the reported automated checks; connected-owner behavior remains unverified.** This is the authoritative current movement/prediction status for the experimental ghost slice. It supersedes earlier descriptions of server-only ghost movement and historical GameTest counts, but does not supersede the connected-owner smoke gate or claim that ghost movement feels fixed. See the [sprint instructions](../Instructions.md), [owner smoke checklist](experimental-ghost-owner-smoke.md), and [M2b control-wire audit](m2b-ghost-control-wire.md).
 
 ## Current movement and prediction path
 

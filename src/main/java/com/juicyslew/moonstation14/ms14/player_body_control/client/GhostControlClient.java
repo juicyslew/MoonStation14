@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementState;
@@ -57,6 +58,7 @@ public final class GhostControlClient {
     private static LocalPlayer owner;
     private static Level ownerLevel;
     private static GhostPredictionHistory predictionHistory;
+    private static GhostControlPayloads.Begin deferredBegin;
 
     static {
         // This class is discovered only on the physical client due to its Dist.CLIENT subscriber annotation.
@@ -67,20 +69,20 @@ public final class GhostControlClient {
 
     private static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (payload instanceof GhostControlPayloads.Begin begin) {
+            if (minecraft.player == null || minecraft.level == null || context.player() != minecraft.player) {
+                deferredBegin = ClientBeginPolicy.defer(deferredBegin, begin, highestEpoch);
+                return;
+            }
+            if (!(context.player() instanceof LocalPlayer player)
+                    || !ClientBeginPolicy.canAcceptPayload(begin, highestEpoch, true)) return;
+            acceptBegin(minecraft, player, begin);
+            return;
+        }
         if (!(context.player() instanceof LocalPlayer player) || player != minecraft.player || minecraft.level == null)
             return;
 
-        if (payload instanceof GhostControlPayloads.Begin begin) {
-            if (begin.mindEpoch() <= highestEpoch) return;
-            clearSession(minecraft, false);
-            highestEpoch = begin.mindEpoch();
-            pendingEpoch = begin.mindEpoch();
-            ghostEntityId = begin.harnessEntityId();
-            harnessKind = begin.harnessKind();
-            owner = player;
-            ownerLevel = minecraft.level;
-            tryReady(minecraft, player);
-        } else if (payload instanceof GhostControlPayloads.Offer offer) {
+        if (payload instanceof GhostControlPayloads.Offer offer) {
             // Offer is advisory only: preserve the current committed body and fail closed on stale or same-kind offers.
             if (!committed || owner != player || ownerLevel != minecraft.level
                     || !GhostControlNetworking.matchesOffer(activeEpoch, ghostEntityId, harnessKind, offer)) return;
@@ -122,6 +124,11 @@ public final class GhostControlClient {
             owner = null;
             ownerLevel = null;
             return;
+        }
+        if (ClientBeginPolicy.canAccept(deferredBegin, highestEpoch, true)) {
+            GhostControlPayloads.Begin begin = deferredBegin;
+            deferredBegin = null;
+            acceptBegin(minecraft, player, begin);
         }
         if (pendingEpoch == 0 || owner != player || ownerLevel != minecraft.level) return;
         tryOfferReady(minecraft, player);
@@ -182,6 +189,41 @@ public final class GhostControlClient {
         Minecraft minecraft = Minecraft.getInstance();
         clearSession(minecraft, true);
         highestEpoch = 0;
+        deferredBegin = ClientBeginPolicy.afterLogout();
+    }
+
+    static final class ClientBeginPolicy {
+        private ClientBeginPolicy() { }
+
+        static GhostControlPayloads.Begin defer(GhostControlPayloads.Begin current,
+                                                GhostControlPayloads.Begin incoming, long highestEpoch) {
+            if (incoming.mindEpoch() <= highestEpoch) return current;
+            return current == null || incoming.mindEpoch() > current.mindEpoch() ? incoming : current;
+        }
+
+        static boolean canAccept(GhostControlPayloads.Begin deferred, long highestEpoch, boolean ownerAndLevelReady) {
+            return ownerAndLevelReady && deferred != null && deferred.mindEpoch() > highestEpoch;
+        }
+
+        static boolean canAcceptPayload(GhostControlPayloads.Begin begin, long highestEpoch, boolean matchingContext) {
+            return matchingContext && begin.mindEpoch() > highestEpoch;
+        }
+
+        static GhostControlPayloads.Begin afterSessionClear(GhostControlPayloads.Begin deferred) { return deferred; }
+
+        static GhostControlPayloads.Begin afterLogout() { return null; }
+    }
+
+    private static void acceptBegin(Minecraft minecraft, LocalPlayer player, GhostControlPayloads.Begin begin) {
+        if (begin.mindEpoch() <= highestEpoch) return;
+        clearSession(minecraft, false);
+        highestEpoch = begin.mindEpoch();
+        pendingEpoch = begin.mindEpoch();
+        ghostEntityId = begin.harnessEntityId();
+        harnessKind = begin.harnessKind();
+        owner = player;
+        ownerLevel = minecraft.level;
+        tryReady(minecraft, player);
     }
 
     private static void tryReady(Minecraft minecraft, LocalPlayer player) {
@@ -206,18 +248,29 @@ public final class GhostControlClient {
         if (minecraft.level == null || id < 0 || kind == null) return null;
         Entity entity = minecraft.level.getEntity(id);
         if (kind == MobHarnessKind.GHOST) return entity instanceof GhostMobHarnessEntity ? entity : null;
+        if (entity instanceof PlayerCharacterHarnessEntity)
+            return characterBodyRecognized(true, false) ? entity : null;
         if (!(entity instanceof Mob mob) || entity instanceof GhostMobHarnessEntity) return null;
-        return characterPolicy(mob) == null ? null : mob;
+        return characterBodyRecognized(false, characterPolicy(mob) != null) ? mob : null;
+    }
+
+    static boolean characterBodyRecognized(boolean registeredPlayerCharacter, boolean mappedLegacyPolicyAvailable) {
+        return registeredPlayerCharacter || mappedLegacyPolicyAvailable;
     }
 
     private static CharacterMovementPolicy characterPolicy(Mob mob) {
         try {
-            var host = BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
-            var characterId = ModCharacters.characterForHost(mob.level(), host).orElse(null);
-            if (characterId == null) return null;
             CharacterIdentityAttachment identity = mob.getExistingDataOrNull(
                     ModDataAttachments.CHARACTER_IDENTITY.get());
-            if (identity == null || !identity.isBound() || !characterId.equals(identity.characterId())) return null;
+            if (identity == null || !identity.isBound()) return null;
+            var characterId = identity.characterId();
+            if (mob instanceof PlayerCharacterHarnessEntity) {
+                if (!ModCharacters.HUMAN_ID.equals(characterId)) return null;
+                var data = ModCharacters.catalog(mob.level()).get(characterId);
+                return data == null ? null : CharacterMovementPolicy.fromCharacterData(data);
+            }
+            var host = BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
+            if (!ModCharacters.characterForHost(mob.level(), host).filter(characterId::equals).isPresent()) return null;
             return CharacterMovementPolicy.fromCharacterData(ModCharacters.require(mob.level(), characterId));
         } catch (RuntimeException exception) {
             return null;
@@ -245,6 +298,7 @@ public final class GhostControlClient {
         latestStunned = false;
         owner = null;
         ownerLevel = null;
+        deferredBegin = ClientBeginPolicy.afterSessionClear(deferredBegin);
     }
 
     /** Returns the exact locally owned prediction target, or null when vanilla must own tracking. */

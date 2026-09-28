@@ -1,0 +1,9 @@
+# M4b device definitions and persistence
+
+Implemented four visible device blocks: an HV fixed source, HV-to-MV substation, APC, and APC-powered lamp placeholder. `PowerDeviceKind` defines explicit horizontal typed ports; facing selects the front port and converters additionally expose the opposite-face port at the next tier. The ports are consumed through the existing `DevicePort` / `PowerTopology.deviceAdjacent` geometry contract: a cable host must be the immediately neighboring block and its face must oppose the port. No world search, through-solid shortcut, tier inference, graph registration, allocation, or per-device ticker is introduced.
+
+The APC owns a bounded battery (initially 500 kJ, capped at 1 MJ) and closed breaker. These are uniquely BlockEntity-owned state, so persistence uses vanilla `BlockEntity.saveAdditional/loadAdditional` rather than a shared MS14 trait/bridge; there is no cross-holder component to share. Read validation maps non-finite energy to zero and clamps finite values to the capacity. The breaker is toggled only on the server by a build-authorized player within eight blocks (64 squared), and changes mark the BE dirty. No UI, energy flow, or lamp simulation is part of this milestone.
+
+Block textures/models are deliberate existing-texture placeholders. Focused unit tests cover port rotation/contact rejection, battery roundtrip and malformed/capped values, and breaker authorization/range policy. No manual game test is required for this definition-only milestone.
+
+The registered floor substrate, tile item, floor-tile pry tool, HV/MV/APC cable spools, cable cutter, HV source, HV-to-MV substation, APC, and power lamp are available from the existing MoonStation14 creative tabs. Survival acquisition recipes for these additions are not yet present; recipe design is a separate decision, and no arbitrary recipes are introduced here.

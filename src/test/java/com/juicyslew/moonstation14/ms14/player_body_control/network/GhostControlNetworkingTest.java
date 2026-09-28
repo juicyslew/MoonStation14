@@ -64,4 +64,32 @@ class GhostControlNetworkingTest {
         assertFalse(GhostControlNetworking.isConnectedServerPlayer(true, false, false,
                 false, true, false));
     }
+
+    @Test
+    void routesOnlyToTheUniqueOwnerOfAValidatedPlayerSession() {
+        var player = new ValidatedPlayerTuple(true, false, false, false, true, true);
+        assertTrue(GhostControlNetworking.isConnectedServerPlayer(player.serverPlayer(), player.fake(),
+                player.removed(), player.clientLevel(), player.hasServer(), player.listed()));
+        // Until a lifecycle session manager installs its handler, a debug-owned packet still reaches debug.
+        var reached = new java.util.concurrent.atomic.AtomicReference<GhostControlNetworking.ServerRoute>();
+        assertEquals(GhostControlNetworking.ServerRoute.DEBUG,
+                GhostControlNetworking.routeServerPayload(true, false, false, reached::set));
+        assertEquals(GhostControlNetworking.ServerRoute.DEBUG, reached.get());
+    }
+
+    @Test
+    void dropsUnknownAndOverlappingSessionOwnership() {
+        var reached = new java.util.concurrent.atomic.AtomicReference<GhostControlNetworking.ServerRoute>();
+        assertEquals(GhostControlNetworking.ServerRoute.UNKNOWN,
+                GhostControlNetworking.routeServerPayload(false, false, false, reached::set));
+        assertEquals(null, reached.get());
+        assertEquals(GhostControlNetworking.ServerRoute.AMBIGUOUS,
+                GhostControlNetworking.routeServerPayload(true, true, false, reached::set));
+        assertEquals(null, reached.get());
+        assertEquals(GhostControlNetworking.ServerRoute.AMBIGUOUS,
+                GhostControlNetworking.selectServerRoute(true, false, true));
+    }
+
+    private record ValidatedPlayerTuple(boolean serverPlayer, boolean fake, boolean removed,
+                                        boolean clientLevel, boolean hasServer, boolean listed) { }
 }

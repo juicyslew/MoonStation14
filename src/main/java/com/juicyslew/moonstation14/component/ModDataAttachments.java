@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.alert.AlertAttachment;
 import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
+import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
@@ -113,6 +114,13 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<AtmosphereChunkData>> ATMOSPHERE_CHUNK = ATTACHMENT_TYPES.register(
             "atmosphere_chunk", () -> AttachmentType.builder(AtmosphereChunkData::new)
                     .serialize(AtmosphereChunkData.CODEC, AtmosphereChunkData::hasPersistedState)
+                    .build()
+    );
+
+    /** Sparse server-persisted face cable records; clients receive no authority through this store. */
+    public static final Supplier<AttachmentType<CableChunkData>> POWER_CABLE_CHUNK = ATTACHMENT_TYPES.register(
+            "power_cable_chunk", () -> AttachmentType.builder(CableChunkData::new)
+                    .serialize(CableChunkData.CODEC, CableChunkData::hasPersistedState)
                     .build()
     );
 

@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"moonstation14:block/hv_source"},"facing=east":{"model":"moonstation14:block/hv_source","y":90},"facing=south":{"model":"moonstation14:block/hv_source","y":180},"facing=west":{"model":"moonstation14:block/hv_source","y":270}}}

@@ -1,6 +1,6 @@
 # 2026-09-27 committed character loss recovery and sprint scope
 
-**Status: bounded recovery is implemented; connected lifecycle acceptance remains open.** This records the current committed-CHARACTER loss recovery behavior, its validation boundary, and the scope decision to keep unrelated systems in separate milestones. It does not claim a universally guaranteed one-Mind active-play lifecycle. See the [sprint instructions](../../../instructions-player-body-control-sprint.md), [operator possession handoff audit](2026-09-27-operator-possession-handoff.md), and [active harness carrier policy audit](2026-09-27-active-harness-carrier-policy.md) for the bounded owner-reported carrier scenarios and policy boundary.
+**Status: bounded recovery is implemented; connected lifecycle acceptance remains open.** This records the current committed-CHARACTER loss recovery behavior, its validation boundary, and the scope decision to keep unrelated systems in separate milestones. It does not claim a universally guaranteed one-Mind active-play lifecycle. See the [sprint instructions](../Instructions.md), [operator possession handoff audit](2026-09-27-operator-possession-handoff.md), and [active harness carrier policy audit](2026-09-27-active-harness-carrier-policy.md) for the bounded owner-reported carrier scenarios and policy boundary.
 
 ## Bounded recovery behavior
 

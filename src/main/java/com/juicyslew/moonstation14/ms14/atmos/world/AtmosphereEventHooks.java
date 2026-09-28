@@ -56,7 +56,9 @@ public final class AtmosphereEventHooks {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onNeighborNotified(BlockEvent.NeighborNotifyEvent event) {
-        if (AtmosphereService.INSTANCE.isEnabled()) topologyChanged(event.getLevel(), event.getPos());
+        if (AtmosphereService.INSTANCE.isEnabled()
+                && event.getLevel() instanceof ServerLevel level)
+            AtmosphereService.INSTANCE.neighborNotified(level, event.getPos());
     }
 
     private static void topologyChanged(net.minecraft.world.level.LevelAccessor level, BlockPos pos) {

@@ -27,6 +27,13 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.PAPER);
                         output.accept(ModItems.PLASTIC);
                         output.accept(ModItems.CROWBAR);
+                        output.accept(ModItems.STATION_FLOOR_TILE);
+                        output.accept(ModItems.STATION_FLOOR_TILE_WHITE);
+                        output.accept(ModItems.STATION_FLOOR_TILE_PRY);
+                        output.accept(ModItems.HV_CABLE_SPOOL);
+                        output.accept(ModItems.MV_CABLE_SPOOL);
+                        output.accept(ModItems.APC_CABLE_SPOOL);
+                        output.accept(ModItems.CABLE_CUTTER);
                         output.accept(ModItems.WAFFLE);
                         output.accept(ModItems.BOTTLE);
                         output.accept(ModItems.ATMOSPHERE_ANALYZER);
@@ -38,6 +45,11 @@ public class ModCreativeModeTabs {
                     .displayItems((itemDisplayParameters, output) -> {
                         output.accept(ModBlocks.STEEL_WALL_BLOCK);
                         output.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
+                        output.accept(ModBlocks.STATION_FLOOR);
+                        output.accept(ModBlocks.HV_SOURCE);
+                        output.accept(ModBlocks.HV_MV_SUBSTATION);
+                        output.accept(ModBlocks.APC);
+                        output.accept(ModBlocks.POWER_LAMP);
                         output.accept(ModBlocks.MAGIC_BLOCK);
                         output.accept(ModBlocks.JUG);
                         output.accept(ModBlocks.ATMOS_AIR_PRODUCER);

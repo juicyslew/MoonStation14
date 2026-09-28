@@ -10,10 +10,13 @@ import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessMotor;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessPhysics;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.OwnedHarnessWalkAnimation;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MoverType;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Optional;
@@ -28,7 +31,7 @@ public final class GroundedHarnessWorldStep {
      */
     public Optional<CharacterMovementState> step(Mob body, int wishX, int wishZ,
                                                   boolean jump, boolean sprint, float yaw) {
-        if (!GroundedHarnessLease.isOwnedBodyEligible(body)
+        if (!(GroundedHarnessLease.isOwnedBodyEligible(body) || isOwnedPlayerCharacterEligible(body))
                 || !((MindControlledMob) body).moonstation14$isMovementOwned()
                 || wishX < -GroundedHarnessMotor.INPUT_QUANTIZATION
                 || wishX > GroundedHarnessMotor.INPUT_QUANTIZATION
@@ -78,6 +81,30 @@ public final class GroundedHarnessWorldStep {
         SlipSystem.onAcceptedHarnessMovement(body, acceptedDisplacement);
         OwnedHarnessWalkAnimation.update(body, acceptedDisplacement);
         return Optional.of(result);
+    }
+
+    /** Explicit alternative for the per-instance bound custom CHARACTER body, not a host mapping. */
+    private static boolean isOwnedPlayerCharacterEligible(Mob body) {
+        if (!(body instanceof PlayerCharacterHarnessEntity character)
+                || body.getType() != PlayerCharacterHarnessRegistration.getEntityType()
+                || body.isRemoved() || !body.isAlive() || body.isDeadOrDying()
+                || body.level().isClientSide || !(body.level() instanceof ServerLevel level)
+                || level.getServer() == null || !level.getServer().isSameThread()
+                || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body || body.isPassenger()
+                || body.isInWaterOrBubble() || body.isInLava() || !body.isNoAi()
+                || character.hasInvalidSavedBinding() || character.playerCharacterBinding() == null
+                || !(body instanceof MindControlledMob owner) || !owner.moonstation14$isMovementOwned()) {
+            return false;
+        }
+        var identity = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments
+                .CHARACTER_IDENTITY.get());
+        if (identity == null || !identity.isBound()
+                || !com.juicyslew.moonstation14.ms14.character.ModCharacters.HUMAN_ID.equals(identity.characterId())) {
+            return false;
+        }
+        return CharacterIdentitySystem.resolve(body)
+                .filter(data -> data.movement().filter(movement -> "grounded".equals(movement.mode())).isPresent())
+                .isPresent();
     }
 
     private static MovementVector vector(Vec3 value) {

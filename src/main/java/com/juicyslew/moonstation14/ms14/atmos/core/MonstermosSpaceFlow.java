@@ -25,6 +25,8 @@ public final class MonstermosSpaceFlow {
     public static final double MINIMUM_RELEASE_PRESSURE_KPA = 10.0;
     /** Below this local inventory, finish clearing numerical residue rather than leave a gas speck. */
     public static final double SPACE_FLOW_VACUUM_EPSILON_MOLES = 1.0e-6;
+    /** Small visible inventory retained by an otherwise empty finite transit cell. */
+    public static final double SPACE_FLOW_INTERIOR_RETENTION_MOLES = 0.6;
     private static final double GAS_CONSTANT = 8.31446261815324;
     private static final Comparator<BlockPos> POSITION_ORDER = Comparator.comparingLong((BlockPos pos) -> pos.getX())
             .thenComparingLong(pos -> pos.getY()).thenComparingLong(pos -> pos.getZ());
@@ -126,34 +128,48 @@ public final class MonstermosSpaceFlow {
                     new Work(input.size(), input.size() + exteriorNeighborChecks, 0, true, "no-space-opening"));
         }
 
-        Map<BlockPos, Integer> distance = distances(openings.keySet(), graph);
+        DistanceSearch search = distances(openings.keySet(), graph);
+        Map<BlockPos, Integer> distance = search.distances();
         if (distance.size() > maxCandidateCells) return incomplete(distance.size(), "candidate-budget-exceeded");
         Map<BlockPos, GasMixture> states = new LinkedHashMap<>(input);
         Map<DirectedEdge, Double> transfers = new LinkedHashMap<>();
         Map<DirectedEdge, List<BlockPos>> paths = new LinkedHashMap<>();
+        Map<BlockPos, Double> inboundMoles = new HashMap<>();
         int calls = 0;
+        Map<BlockPos, BlockPos> predecessor = new HashMap<>();
+        for (BlockPos pos : distance.keySet()) {
+            int depth = distance.get(pos);
+            if (depth == 0) continue;
+            graph.get(pos).stream()
+                    .filter(neighbor -> distance.getOrDefault(neighbor, Integer.MAX_VALUE) == depth - 1)
+                    .min(POSITION_ORDER)
+                    .ifPresent(parent -> predecessor.put(pos, parent));
+        }
         List<BlockPos> inward = new ArrayList<>(distance.keySet());
         inward.sort(Comparator.<BlockPos>comparingInt(distance::get).reversed().thenComparing(POSITION_ORDER));
         for (BlockPos sourcePos : inward) {
-            int depth = distance.get(sourcePos);
-            if (depth == 0) continue;
-            List<BlockPos> toward = graph.get(sourcePos).stream().filter(pos -> distance.getOrDefault(pos, Integer.MAX_VALUE) < depth).toList();
-            if (toward.isEmpty()) continue;
+            BlockPos parent = predecessor.get(sourcePos);
+            if (parent == null) continue;
             GasMixture source = states.get(sourcePos);
-            double amount = source.totalMoles() * SPACING_ESCAPE_RATIO;
+            double initialMoles = input.get(sourcePos).totalMoles();
+            double amount = initialMoles * SPACING_ESCAPE_RATIO + inboundMoles.getOrDefault(sourcePos, 0.0);
+            if (source.totalMoles() <= SPACE_FLOW_VACUUM_EPSILON_MOLES) amount = source.totalMoles();
+            // Keep only the deficit to a small finite-cell inventory from this invocation's inbound
+            // packet. Once filled, inbound gas passes through without per-hop attenuation.
+            double inbound = inboundMoles.getOrDefault(sourcePos, 0.0);
+            double retained = Math.min(inbound, Math.max(0.0,
+                    SPACE_FLOW_INTERIOR_RETENTION_MOLES - initialMoles));
+            amount -= retained;
             if (amount <= 0.0) continue;
             amount = Math.min(amount, source.totalMoles());
             GasMixture packet = source.withScaledMoles(amount / source.totalMoles());
             states.put(sourcePos, source.withScaledMoles(1.0 - amount / source.totalMoles()));
-            double each = amount / toward.size();
-            for (BlockPos next : toward) {
-                GasMixture part = packet.withScaledMoles(each / amount);
-                states.put(next, add(states.get(next), part));
-                DirectedEdge edge = new DirectedEdge(sourcePos, next);
-                transfers.merge(edge, each, Double::sum);
-                paths.put(edge, List.of(sourcePos, next));
-                calls++;
-            }
+            states.put(parent, add(states.get(parent), packet));
+            inboundMoles.merge(parent, amount, Double::sum);
+            DirectedEdge edge = new DirectedEdge(sourcePos, parent);
+            transfers.merge(edge, amount, Double::sum);
+            paths.put(edge, List.of(sourcePos, parent));
+            calls++;
         }
 
         EnumMap<GasType, Double> exported = new EnumMap<>(GasType.class);
@@ -167,10 +183,11 @@ public final class MonstermosSpaceFlow {
                 pressureBudget = pressure;
             }
             double capMoles = pressureBudget * 1000.0 / (GAS_CONSTANT * Math.max(source.temperatureKelvin(), 1e-12));
-            // The SS14 minimum is a pressure-release reference, not a per-tick vacuuming floor:
-            // applying it as an amount would empty a visible cell whenever its inventory is <=2 mol.
-            double requested = source.totalMoles() <= SPACE_FLOW_VACUUM_EPSILON_MOLES
-                    ? source.totalMoles() : source.totalMoles() * SPACING_ESCAPE_RATIO;
+            // The SS14 minimum is a pressure-release reference, not a per-tick vacuuming floor.
+            // Child packets are already requested escape gas and must not be attenuated per hop.
+            double initialMoles = input.get(boundary).totalMoles();
+            double requested = initialMoles * SPACING_ESCAPE_RATIO + inboundMoles.getOrDefault(boundary, 0.0);
+            if (source.totalMoles() <= SPACE_FLOW_VACUUM_EPSILON_MOLES) requested = source.totalMoles();
             double amount = Math.min(requested, capMoles);
             if (amount <= 0.0) continue;
             double fraction = amount / source.totalMoles();
@@ -185,7 +202,7 @@ public final class MonstermosSpaceFlow {
             calls++;
         }
         return new Result(states, new ExportLedger(exported, energyExported), transfers, paths,
-                new Work(distance.size(), exteriorNeighborChecks + distance.size() + calls, calls, true, "complete"));
+                new Work(distance.size(), exteriorNeighborChecks + distance.size() + search.traversedEdges() + calls, calls, true, "complete"));
     }
 
     private static Result unchanged(Map<BlockPos, GasMixture> input, String status) {
@@ -196,18 +213,24 @@ public final class MonstermosSpaceFlow {
         return new Result(Map.of(), new ExportLedger(Map.of(), 0), Map.of(), Map.of(), new Work(discovered, 0, 0, false, status));
     }
 
-    private static Map<BlockPos, Integer> distances(Set<BlockPos> seeds, Map<BlockPos, List<BlockPos>> graph) {
+    private record DistanceSearch(Map<BlockPos, Integer> distances, int traversedEdges) { }
+
+    private static DistanceSearch distances(Set<BlockPos> seeds, Map<BlockPos, List<BlockPos>> graph) {
         Map<BlockPos, Integer> result = new HashMap<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         seeds.stream().sorted(POSITION_ORDER).forEach(pos -> { result.put(pos, 0); queue.add(pos); });
+        int traversedEdges = 0;
         while (!queue.isEmpty()) {
             BlockPos current = queue.remove();
-            for (BlockPos next : graph.get(current)) if (!result.containsKey(next)) {
-                result.put(next, result.get(current) + 1);
-                queue.add(next);
+            for (BlockPos next : graph.get(current)) {
+                traversedEdges++;
+                if (!result.containsKey(next)) {
+                    result.put(next, result.get(current) + 1);
+                    queue.add(next);
+                }
             }
         }
-        return result;
+        return new DistanceSearch(result, traversedEdges);
     }
 
     private static GasMixture add(GasMixture first, GasMixture second) {

@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "tile_finish=none": { "model": "moonstation14:block/station_floor" },
+    "tile_finish=steel": { "model": "moonstation14:block/station_floor_steel" },
+    "tile_finish=white": { "model": "moonstation14:block/station_floor_white" }
+  }
+}

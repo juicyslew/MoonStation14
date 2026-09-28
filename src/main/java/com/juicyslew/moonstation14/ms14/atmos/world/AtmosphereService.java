@@ -20,6 +20,9 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
 
 import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
@@ -43,6 +46,8 @@ public final class AtmosphereService {
     static final int MAX_DEFERRED_CHUNK_LOADS_PER_TICK = 16;
     static final int MAX_DISCOVERY_PROBES_PER_TICK = 384;
     static final int MAX_OWNERSHIP_CLAIMS_PER_TICK = 128;
+    static final int MAX_PENDING_OWNERSHIP_CLAIM_PLANS = 256;
+    static final int MAX_EXTERIOR_WITNESS_CHECKS = 4096;
     private static final int MAX_QUEUED_POSITIONS = 8192;
     private static final int MAX_URGENT_POSITIONS = 256;
     private static final int MAX_CONSECUTIVE_URGENT_POLLS = 8;
@@ -61,6 +66,7 @@ public final class AtmosphereService {
     private final Map<ServerLevel, PrioritySeedQueue> prioritySeeds = new WeakHashMap<>();
     private final Map<ServerLevel, Integer> prioritySeedStreaks = new WeakHashMap<>();
     private final Map<ServerLevel, OwnershipWork> ownershipWork = new WeakHashMap<>();
+    private final Map<ServerLevel, OpenableStateTracker> openableStates = new WeakHashMap<>();
     private final Map<ServerLevel, ExcitedAtmosphereGroups> excitedGroups = new WeakHashMap<>();
     private final Map<ServerLevel, Long> nextExcitedCycle = new WeakHashMap<>();
     private volatile Set<ResourceKey<Level>> vacuumDimensions;
@@ -200,7 +206,7 @@ public final class AtmosphereService {
         if (!enabled || level == null || pos == null || !inBounds(level, pos)) return;
         excitedGroups.remove(level);
         cancelEqualization(level);
-        invalidateOwnership(level, pos);
+        invalidateOwnershipAt(level, pos);
         prioritizeSeed(level, pos);
         activateCellAndNeighbors(level, pos);
         WorkQueue urgentQueue = queue(level);
@@ -217,6 +223,39 @@ public final class AtmosphereService {
             for (AtmosphereChunkData.CellPosition cell : data.columnSnapshot(pos.getX() & 15, pos.getZ() & 15))
                 enqueue(queue, new BlockPos(cp.getMinBlockX() + cell.x(), cell.y(), cp.getMinBlockZ() + cell.z()));
         }
+    }
+
+    /** Neighbor notifications are broad; only a known proof cell becoming sealed is topology. */
+    public void neighborNotified(ServerLevel level, BlockPos pos) {
+        if (!enabled || level == null || pos == null || !inBounds(level, pos)) return;
+        // The event is broad and may be reported on a neighbor of the changed block. Inspect
+        // only the event cell and its six loaded neighbors for openable state transitions.
+        boolean openableChanged = observeOpenableAt(level, pos);
+        for (Direction direction : Direction.values())
+            openableChanged |= observeOpenableAt(level, pos.relative(direction));
+        if (openableChanged) return;
+        OwnershipWork work = ownershipWork.get(level);
+        if (work == null || !work.hasExteriorDependency(pos)) return;
+        LevelChunk chunk = loadedChunk(level, pos);
+        if (chunk != null && !AtmosphereTopology.isPassable(level, pos)) topologyChanged(level, pos);
+    }
+
+    private boolean observeOpenableAt(ServerLevel level, BlockPos pos) {
+        if (!inBounds(level, pos) || loadedChunk(level, pos) == null) return false;
+        var state = level.getBlockState(pos);
+        Boolean open = state.getBlock() instanceof DoorBlock ? state.getValue(DoorBlock.OPEN)
+                : state.getBlock() instanceof TrapDoorBlock ? state.getValue(TrapDoorBlock.OPEN)
+                : state.getBlock() instanceof FenceGateBlock ? state.getValue(FenceGateBlock.OPEN)
+                : null;
+        if (open == null) return false;
+        OpenableStateTracker tracker = openableStates.computeIfAbsent(level, ignored -> new OpenableStateTracker());
+        boolean changed = tracker.observe(pos, open);
+        OwnershipWork work = ownershipWork.get(level);
+        // Even if the bounded history evicted this position, a currently sealed openable in a
+        // cached witness must invalidate that witness rather than relying on a remembered state.
+        if (!open && work != null && work.hasExteriorDependency(pos)) changed = true;
+        if (changed) topologyChanged(level, pos);
+        return changed;
     }
 
     /** Compatibility entry point for ordinary local invalidation; intentionally cheap. */
@@ -272,7 +311,11 @@ public final class AtmosphereService {
     void onChunkLoad(ServerLevel level, LevelChunk chunk) {
         if (!enabled || level == null || chunk == null) return;
         cancelEqualization(level);
-        invalidateOwnership(level, null);
+        OwnershipWork ownership = ownershipWork.get(level);
+        if (ownership != null) {
+            ownership.retryForChunkLifecycle(chunk.getPos());
+            ownership.wakeUnknown(chunk.getPos());
+        }
         AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
         ChunkPos cp = chunk.getPos();
         if (data != null) {
@@ -303,7 +346,11 @@ public final class AtmosphereService {
         if (!enabled || level == null || chunk == null) return;
         excitedGroups.remove(level);
         cancelEqualization(level);
-        invalidateOwnership(level, null, false);
+        OwnershipWork ownership = ownershipWork.get(level);
+        if (ownership != null) {
+            ownership.retryForChunkLifecycle(chunk);
+            ownership.invalidateChunk(chunk).forEach(ownership::offer);
+        }
         DeferredChunkQueue deferred = deferredChunkLoads.get(level);
         if (deferred != null) {
             deferred.remove(chunk);
@@ -326,8 +373,8 @@ public final class AtmosphereService {
         }
     }
 
-    public void clear(ServerLevel level) { queues.remove(level); deferredChunkLoads.remove(level); boundaryLedgers.remove(level); spaceBoundaryCellsThisCycle.remove(level); equalizationJobs.remove(level); prioritySeeds.remove(level); prioritySeedStreaks.remove(level); ownershipWork.remove(level); excitedGroups.remove(level); nextExcitedCycle.remove(level); }
-    public void clearAll() { queues.clear(); deferredChunkLoads.clear(); boundaryLedgers.clear(); spaceBoundaryCellsThisCycle.clear(); equalizationJobs.clear(); prioritySeeds.clear(); prioritySeedStreaks.clear(); ownershipWork.clear(); excitedGroups.clear(); nextExcitedCycle.clear(); }
+    public void clear(ServerLevel level) { queues.remove(level); deferredChunkLoads.remove(level); boundaryLedgers.remove(level); spaceBoundaryCellsThisCycle.remove(level); equalizationJobs.remove(level); prioritySeeds.remove(level); prioritySeedStreaks.remove(level); ownershipWork.remove(level); openableStates.remove(level); excitedGroups.remove(level); nextExcitedCycle.remove(level); }
+    public void clearAll() { queues.clear(); deferredChunkLoads.clear(); boundaryLedgers.clear(); spaceBoundaryCellsThisCycle.clear(); equalizationJobs.clear(); prioritySeeds.clear(); prioritySeedStreaks.clear(); ownershipWork.clear(); openableStates.clear(); excitedGroups.clear(); nextExcitedCycle.clear(); }
 
     private void advanceEqualization(ServerLevel level, WorkQueue queue, Set<BlockPos> monstermosHandledThisCycle) {
         EqualizationJob job = equalizationJobs.get(level);
@@ -837,34 +884,18 @@ public final class AtmosphereService {
 
     private boolean isCachedExterior(ServerLevel level, BlockPos pos) {
         OwnershipWork work = ownershipWork.get(level);
-        return work != null && work.exterior.contains(pos);
+        return work != null && work.isVerifiedExterior(pos);
     }
 
-    private void invalidateOwnership(ServerLevel level, BlockPos retry) {
-        invalidateOwnership(level, retry, true);
-    }
-
-    private void invalidateOwnership(ServerLevel level, BlockPos retry, boolean wakeParked) {
+    private void invalidateOwnershipAt(ServerLevel level, BlockPos changed) {
         OwnershipWork work = ownershipWork.get(level);
         if (work == null) return;
-        work.exterior.clear();
-        if (wakeParked) {
-            // Lifecycle/topology changes may resolve either an unloaded dependency or saturation.
-            // Keep markers parked when chunks unload; no forced loads or per-tick retry is needed.
-            work.wakeParked();
-        }
-        if (work.active != null) {
-            BlockPos seed = work.active.seed;
-            work.active.search.cancel();
-            work.active = null;
-            work.offer(seed);
-        }
-        for (OwnershipClaimJob plan : work.claimPlans) {
-            plan.plan.cancel();
-            work.offer(plan.seed);
-        }
-        work.claimPlans.clear();
-        if (retry != null) work.offer(retry);
+        work.cancelPendingOwnership().forEach(work::offer);
+        // A proof is invalidated only when the changed cell was part of that proof. Neighbor
+        // notifications for unrelated blocks therefore cannot erase a verified covered gap.
+        work.invalidateAt(changed).forEach(work::offer);
+        work.wakeParked();
+        work.offer(changed);
     }
 
     private void advanceOwnership(ServerLevel level) {
@@ -886,15 +917,19 @@ public final class AtmosphereService {
                     : AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED;
         }, MAX_DISCOVERY_PROBES_PER_TICK);
         if (result.status() == AtmosphereOwnershipSearch.Status.EXTERIOR) {
-            result.visitedOpenCells().forEach(work::rememberExterior);
+            if (isLiveExteriorWitness(level, result.visitedOpenCells()))
+                work.rememberExteriorProof(job.seed, result.visitedOpenCells());
+            else
+                work.offer(job.seed);
             work.active = null;
         } else if (result.status() == AtmosphereOwnershipSearch.Status.FINITE) {
-            work.claimPlans.addLast(new OwnershipClaimJob(job.seed, new OwnershipClaimPlan(result.visitedOpenCells())));
+            if (!work.queueClaimPlan(job.seed, new OwnershipClaimPlan(result.visitedOpenCells())))
+                work.offer(job.seed);
             work.active = null;
         } else if (result.status() == AtmosphereOwnershipSearch.Status.UNKNOWN) {
             // One unloaded boundary must not hold the level's only active search. Keep this seed
             // parked until a chunk load or topology event makes another attempt worthwhile.
-            work.parkUnknown(job.seed);
+            work.parkUnknown(job.seed, job.search.unresolvedChunks());
             work.active = null;
         } else if (result.status() == AtmosphereOwnershipSearch.Status.SATURATED) {
             // This candidate cap is permanent for the current topology. Park the seed by
@@ -905,6 +940,27 @@ public final class AtmosphereService {
             work.offer(job.seed);
             work.active = null;
         }
+    }
+
+    static boolean isExteriorWitnessValid(List<BlockPos> witness, Predicate<BlockPos> loadedPassable,
+                                          Predicate<BlockPos> directSky) {
+        if (witness.isEmpty() || witness.size() > MAX_EXTERIOR_WITNESS_CHECKS) return false;
+        boolean reachesSky = false;
+        for (BlockPos pos : witness) {
+            if (!loadedPassable.test(pos)) return false;
+            if (directSky.test(pos)) reachesSky = true;
+        }
+        return reachesSky;
+    }
+
+    private boolean isLiveExteriorWitness(ServerLevel level, List<BlockPos> witness) {
+        return isExteriorWitnessValid(witness, pos -> {
+            LevelChunk chunk = loadedChunk(level, pos);
+            return chunk != null && AtmosphereTopology.isPassable(level, pos);
+        }, pos -> {
+            LevelChunk chunk = loadedChunk(level, pos);
+            return chunk != null && isExterior(chunk, pos);
+        });
     }
 
     private void advanceOwnershipClaims(ServerLevel level, OwnershipWork work) {
@@ -954,12 +1010,21 @@ public final class AtmosphereService {
         private static final int CACHE_CAPACITY = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
         private static final int SEED_CAPACITY = 8192;
         private static final int OVERFLOW_SEED_CAPACITY = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
+        private static final int MAX_PROOF_DEPENDENCIES = MAX_EXTERIOR_WITNESS_CHECKS;
+        final LinkedHashSet<ExteriorProof> proofs = new LinkedHashSet<>();
         final LinkedHashSet<BlockPos> exterior = new LinkedHashSet<>();
         final LinkedHashSet<BlockPos> seeds = new LinkedHashSet<>();
         final LinkedHashSet<BlockPos> overflowSeeds = new LinkedHashSet<>();
         final LinkedHashSet<BlockPos> unknown = new LinkedHashSet<>();
         final java.util.LinkedHashMap<ChunkPos, BlockPos> saturated = new java.util.LinkedHashMap<>();
         final ArrayDeque<OwnershipClaimJob> claimPlans = new ArrayDeque<>();
+        private final java.util.Map<BlockPos, java.util.LinkedHashSet<ExteriorProof>> proofByCell = new java.util.HashMap<>();
+        private final java.util.Map<BlockPos, java.util.LinkedHashSet<ExteriorProof>> proofByDependency = new java.util.HashMap<>();
+        private final java.util.Map<ChunkPos, java.util.LinkedHashSet<ExteriorProof>> proofsByChunk = new java.util.HashMap<>();
+        private final java.util.Map<Long, java.util.LinkedHashSet<ExteriorProof>> proofsByColumn = new java.util.HashMap<>();
+        private final java.util.Map<ChunkPos, java.util.LinkedHashSet<BlockPos>> unknownByChunk = new java.util.HashMap<>();
+        private final java.util.Map<BlockPos, Set<ChunkPos>> unknownChunksBySeed = new java.util.HashMap<>();
+        private int proofReferences;
         OwnershipJob active;
         boolean offer(BlockPos pos) {
             BlockPos key = pos.immutable();
@@ -994,13 +1059,46 @@ public final class AtmosphereService {
             }
         }
         void parkUnknown(BlockPos seed) {
-            if (unknown.size() < SEED_CAPACITY || unknown.contains(seed)) unknown.add(seed.immutable());
+            parkUnknown(seed, Set.of());
+        }
+        void parkUnknown(BlockPos seed, Set<ChunkPos> dependencies) {
+            BlockPos key = seed.immutable();
+            if (!(unknown.size() < SEED_CAPACITY || unknown.contains(key))) return;
+            unknown.add(key);
+            Set<ChunkPos> unique = Set.copyOf(dependencies);
+            unknownChunksBySeed.put(key, unique);
+            for (ChunkPos dependency : unique)
+                unknownByChunk.computeIfAbsent(dependency, ignored -> new LinkedHashSet<>()).add(key);
         }
         void wakeUnknown() {
             var iterator = unknown.iterator();
             while (iterator.hasNext()) {
-                if (offer(iterator.next())) iterator.remove();
+                BlockPos seed = iterator.next();
+                if (offer(seed)) {
+                    iterator.remove();
+                    removeUnknownIndexes(seed);
+                }
                 else break;
+            }
+        }
+        void wakeUnknown(ChunkPos chunk) {
+            Set<BlockPos> waiting = unknownByChunk.get(chunk);
+            if (waiting == null) return;
+            for (BlockPos seed : List.copyOf(waiting)) {
+                if (offer(seed)) {
+                    unknown.remove(seed);
+                    removeUnknownIndexes(seed);
+                }
+            }
+        }
+        private void removeUnknownIndexes(BlockPos seed) {
+            Set<ChunkPos> chunks = unknownChunksBySeed.remove(seed);
+            if (chunks == null) return;
+            for (ChunkPos chunk : chunks) {
+                Set<BlockPos> waiting = unknownByChunk.get(chunk);
+                if (waiting == null) continue;
+                waiting.remove(seed);
+                if (waiting.isEmpty()) unknownByChunk.remove(chunk);
             }
         }
         void wakeParked() {
@@ -1013,9 +1111,142 @@ public final class AtmosphereService {
         int saturatedChunkCount() { return saturated.size(); }
         int queuedSeedCount() { return seeds.size() + overflowSeeds.size(); }
         int unknownSeedCount() { return unknown.size(); }
-        void rememberExterior(BlockPos pos) {
-            exterior.add(pos.immutable());
-            while (exterior.size() > CACHE_CAPACITY) exterior.remove(exterior.iterator().next());
+        AtmosphereOwnershipSearch activeSearchForTesting() { return active == null ? null : active.search; }
+        boolean queueClaimPlan(BlockPos seed, OwnershipClaimPlan plan) {
+            if (claimPlans.size() >= MAX_PENDING_OWNERSHIP_CLAIM_PLANS) return false;
+            claimPlans.addLast(new OwnershipClaimJob(seed, plan));
+            return true;
+        }
+        List<BlockPos> cancelPendingOwnership() {
+            List<BlockPos> retrySeeds = new java.util.ArrayList<>();
+            if (active != null) {
+                retrySeeds.add(active.seed);
+                active.search.cancel();
+                active = null;
+            }
+            while (!claimPlans.isEmpty()) {
+                OwnershipClaimJob job = claimPlans.removeFirst();
+                job.plan.cancel();
+                retrySeeds.add(job.seed);
+            }
+            return retrySeeds;
+        }
+        List<BlockPos> onChunkLifecycle(ChunkPos chunk) {
+            List<BlockPos> retrySeeds = new java.util.ArrayList<>();
+            if (active != null && active.search.hasTouchedChunk(chunk)) {
+                retrySeeds.add(active.seed);
+                active.search.cancel();
+                active = null;
+            }
+            var iterator = claimPlans.iterator();
+            while (iterator.hasNext()) {
+                OwnershipClaimJob job = iterator.next();
+                if (!job.plan.dependsOn(chunk)) continue;
+                iterator.remove();
+                job.plan.cancel();
+                retrySeeds.add(job.seed);
+            }
+            return retrySeeds;
+        }
+        List<BlockPos> retryForChunkLifecycle(ChunkPos chunk) {
+            List<BlockPos> retrySeeds = onChunkLifecycle(chunk);
+            retrySeeds.forEach(this::offer);
+            return retrySeeds;
+        }
+        void rememberExteriorProof(BlockPos seed, List<BlockPos> dependencies) {
+            LinkedHashSet<BlockPos> uniqueDependencies = new LinkedHashSet<>();
+            dependencies.forEach(pos -> uniqueDependencies.add(pos.immutable()));
+            if (uniqueDependencies.isEmpty() || uniqueDependencies.size() > MAX_PROOF_DEPENDENCIES) return;
+            while (proofReferences + uniqueDependencies.size() > MAX_PROOF_DEPENDENCIES && !proofs.isEmpty())
+                removeProof(proofs.iterator().next());
+            if (proofReferences + uniqueDependencies.size() > MAX_PROOF_DEPENDENCIES) return;
+            ExteriorProof proof = new ExteriorProof(seed);
+            for (BlockPos key : uniqueDependencies) {
+                java.util.LinkedHashSet<ExteriorProof> indexed = proofByDependency.get(key);
+                if (indexed == null) {
+                    indexed = new java.util.LinkedHashSet<>();
+                    proofByDependency.put(key, indexed);
+                }
+                indexed.add(proof);
+                proof.dependencies.add(key);
+                proofReferences++;
+                proof.chunks.add(new ChunkPos(key));
+                proof.columns.add(columnKey(key));
+                proofsByColumn.computeIfAbsent(columnKey(key), ignored -> new java.util.LinkedHashSet<>()).add(proof);
+            }
+            for (ChunkPos chunk : proof.chunks)
+                proofsByChunk.computeIfAbsent(chunk, ignored -> new java.util.LinkedHashSet<>()).add(proof);
+            for (BlockPos key : uniqueDependencies) {
+                proofByCell.computeIfAbsent(key, ignored -> new java.util.LinkedHashSet<>()).add(proof);
+                exterior.add(key);
+            }
+            proofs.add(proof);
+        }
+        boolean isVerifiedExterior(BlockPos pos) {
+            Set<ExteriorProof> indexed = proofByCell.get(pos);
+            return indexed != null && indexed.stream().anyMatch(proof -> proof.valid);
+        }
+        boolean hasExteriorDependency(BlockPos pos) {
+            return proofByDependency.containsKey(pos) || proofsByColumn.containsKey(columnKey(pos));
+        }
+        int proofReferenceCountForTesting() { return proofReferences; }
+        List<BlockPos> invalidateAt(BlockPos changed) {
+            java.util.LinkedHashSet<ExteriorProof> affected = new java.util.LinkedHashSet<>();
+            addAll(affected, proofByDependency.get(changed));
+            // Heightmap exposure depends on the whole vertical column, not only on the sky cell.
+            addAll(affected, proofsByColumn.get(columnKey(changed)));
+            return removeAffected(affected);
+        }
+        List<BlockPos> invalidateChunk(ChunkPos chunk) {
+            java.util.LinkedHashSet<ExteriorProof> affected = proofsByChunk.get(new ChunkPos(chunk.x, chunk.z));
+            return affected == null ? List.of() : removeAffected(new java.util.LinkedHashSet<>(affected));
+        }
+        private List<BlockPos> removeAffected(Set<ExteriorProof> affected) {
+            List<BlockPos> retries = new java.util.ArrayList<>(affected.size());
+            for (ExteriorProof proof : affected) {
+                retries.add(proof.seed);
+                removeProof(proof);
+            }
+            return retries;
+        }
+        private void removeProof(ExteriorProof proof) {
+            if (!proofs.remove(proof)) return;
+            proof.valid = false;
+            for (BlockPos dependency : proof.dependencies) {
+                removeIndex(proofByDependency, dependency, proof);
+                java.util.LinkedHashSet<ExteriorProof> cellProofs = proofByCell.get(dependency);
+                if (cellProofs != null) {
+                    cellProofs.remove(proof);
+                    if (cellProofs.isEmpty()) {
+                        proofByCell.remove(dependency);
+                        exterior.remove(dependency);
+                    }
+                }
+                proofReferences--;
+            }
+            for (ChunkPos chunk : proof.chunks) removeIndex(proofsByChunk, chunk, proof);
+            for (long column : proof.columns) removeIndex(proofsByColumn, column, proof);
+        }
+        private static <K> void removeIndex(java.util.Map<K, java.util.LinkedHashSet<ExteriorProof>> index,
+                                            K key, ExteriorProof proof) {
+            java.util.LinkedHashSet<ExteriorProof> values = index.get(key);
+            if (values == null) return;
+            values.remove(proof);
+            if (values.isEmpty()) index.remove(key);
+        }
+        private static void addAll(Set<ExteriorProof> target, Set<ExteriorProof> source) {
+            if (source != null) target.addAll(source);
+        }
+        private static long columnKey(BlockPos pos) {
+            return ((long) pos.getX() << 32) ^ (pos.getZ() & 0xffffffffL);
+        }
+        private static final class ExteriorProof {
+            final BlockPos seed;
+            final List<BlockPos> dependencies = new java.util.ArrayList<>();
+            final Set<ChunkPos> chunks = new HashSet<>();
+            final Set<Long> columns = new HashSet<>();
+            boolean valid = true;
+            ExteriorProof(BlockPos seed) { this.seed = seed.immutable(); }
         }
     }
 
@@ -1155,6 +1386,20 @@ public final class AtmosphereService {
         if (Math.abs(a.temperatureKelvin() - b.temperatureKelvin()) > CONVERGENCE_EPSILON) return true;
         for (GasType type : GasType.values()) if (Math.abs(a.moles(type) - b.moles(type)) > CONVERGENCE_EPSILON) return true;
         return false;
+    }
+
+    static final class OpenableStateTracker {
+        private static final int MAX_TRACKED_POSITIONS = 8192;
+        private final java.util.LinkedHashMap<BlockPos, Boolean> states = new java.util.LinkedHashMap<>(16, 0.75f, true);
+
+        /** First-seen open blocks activate topology; duplicate notifications are ignored. */
+        boolean observe(BlockPos pos, boolean open) {
+            BlockPos key = pos.immutable();
+            Boolean previous = states.put(key, open);
+            while (states.size() > MAX_TRACKED_POSITIONS)
+                states.remove(states.keySet().iterator().next());
+            return previous == null ? open : previous != open;
+        }
     }
 
     static final class WorkQueue {

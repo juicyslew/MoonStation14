@@ -60,11 +60,11 @@ class AtmosphereVisualPayloadTest {
     @Test
     void fromUsesOnlyTheFiveOverlayGasesIncludingTritium() {
         GasMixture partial = new GasMixture(Map.of(
-                GasType.PLASMA, 5.0,
-                GasType.TRITIUM, 5.0,
-                GasType.WATER_VAPOR, 5.0,
-                GasType.AMMONIA, 5.0,
-                GasType.FREZON, 5.0,
+                GasType.PLASMA, 1.0,
+                GasType.TRITIUM, 1.0,
+                GasType.WATER_VAPOR, 1.0,
+                GasType.AMMONIA, 2.0,
+                GasType.FREZON, 4.0,
                 GasType.NITROUS_OXIDE, 100.0,
                 GasType.OXYGEN, 100.0), 293.15);
         var cell = AtmosphereVisualPayload.VisualCell.from(partial, new BlockPos(-1, 64, 16));
@@ -78,11 +78,11 @@ class AtmosphereVisualPayloadTest {
         assertTrue(cell.tritiumAlpha() > 0);
 
         GasMixture saturated = new GasMixture(Map.of(
-                GasType.PLASMA, 40.0,
-                GasType.TRITIUM, 40.0,
-                GasType.WATER_VAPOR, 40.0,
-                GasType.AMMONIA, 40.0,
-                GasType.FREZON, 40.0), 293.15);
+                GasType.PLASMA, 2.0,
+                GasType.TRITIUM, 2.0,
+                GasType.WATER_VAPOR, 2.0,
+                GasType.AMMONIA, 2.8,
+                GasType.FREZON, 4.8), 293.15);
         var saturatedCell = AtmosphereVisualPayload.VisualCell.from(saturated, BlockPos.ZERO);
         assertEquals(255, saturatedCell.plasmaAlpha());
         assertEquals(255, saturatedCell.tritiumAlpha());
@@ -110,9 +110,9 @@ class AtmosphereVisualPayloadTest {
         var minecraftCell = AtmosphereVisualPayload.VisualCell.from(nearThreshold, BlockPos.ZERO);
         var referenceCell = AtmosphereVisualPayload.VisualCell.from(nearThreshold, BlockPos.ZERO, 2.5d);
 
-        // 0.11 mol is above the 0.1 mol threshold for 1 m^3 and gets the first quantized alpha.
+        // 0.11 mol is above the 0.1 mol threshold for 1 m^3, but rounds to quantized zero.
         // The explicit 2.5 m^3 reference volume places it below the 0.25 mol threshold.
-        assertEquals(13, minecraftCell.plasmaAlpha());
+        assertEquals(0, minecraftCell.plasmaAlpha());
         assertEquals(0, referenceCell.plasmaAlpha());
 
         GasMixture visibleAtMinecraftVolume = new GasMixture(Map.of(GasType.PLASMA, 0.16), 293.15);
@@ -121,6 +121,10 @@ class AtmosphereVisualPayloadTest {
                 visibleAtMinecraftVolume, BlockPos.ZERO, 2.5d);
         assertTrue(visibleMinecraftCell.plasmaAlpha() > 0);
         assertEquals(0, invisibleReferenceCell.plasmaAlpha());
+
+        GasMixture saturatedAtMinecraftVolume = new GasMixture(Map.of(GasType.PLASMA, 2.0), 293.15);
+        assertEquals(255, AtmosphereVisualPayload.VisualCell.from(saturatedAtMinecraftVolume, BlockPos.ZERO)
+                .plasmaAlpha());
 
         GasMixture nitrousOnly = new GasMixture(Map.of(GasType.NITROUS_OXIDE, 100.0), 293.15);
         assertEquals(0, AtmosphereVisualPayload.VisualCell.from(nitrousOnly, BlockPos.ZERO).plasmaAlpha());

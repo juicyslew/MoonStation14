@@ -1,6 +1,6 @@
 # M1: Pure Mind/Mob Harness registry implementation audit
 
-**Status: isolated M1 model and tests delivered.** This audit records the implementation and its boundaries; it does not authorize M2 integration or claim runtime behavior. The sprint remains separately default-off. See the [sprint instructions](../../../instructions-player-body-control-sprint.md), [M0c architecture contract](m0c-mind-and-mob-harness-contract.md), and [historical M0b proof](m0b-spectator-ghost-harness-proof.md) (whose carrier-as-ghost premise is superseded).
+**Status: isolated M1 model and tests delivered.** This audit records the implementation and its boundaries; it does not authorize M2 integration or claim runtime behavior. The sprint remains separately default-off. See the [sprint instructions](../Instructions.md), [M0c architecture contract](m0c-mind-and-mob-harness-contract.md), and [historical M0b proof](m0b-spectator-ghost-harness-proof.md) (whose carrier-as-ghost premise is superseded).
 
 ## Delivered model
 

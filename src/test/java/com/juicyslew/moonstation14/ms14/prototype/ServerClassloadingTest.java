@@ -31,7 +31,9 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java",
             "com/juicyslew/moonstation14/mixin/client/GhostOwnedEntityTrackerMixin.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
-            "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java"
+            "com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java",
+            "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
+            "com/juicyslew/moonstation14/ms14/power/cable/client/CableVisualRenderer.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
@@ -75,6 +77,22 @@ class ServerClassloadingTest {
         assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
                         + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
                 "Ghost mob harness renderer must be explicitly subscribed on Dist.CLIENT");
+    }
+
+    @Test
+    void playerCharacterHarnessRendererIsExplicitlyClientOnlyAndRegistered() throws IOException {
+        Path source = findProductionSourceRoot().resolve(
+                "com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java");
+        assertTrue(Files.isRegularFile(source), "Player character harness renderer source should exist");
+
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
+                        + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
+                "Player character harness renderer must be explicitly subscribed on Dist.CLIENT");
+        assertTrue(code.matches("(?s).*event\\.registerEntityRenderer\\s*\\(\\s*"
+                        + "PlayerCharacterHarnessRegistration\\.getEntityType\\s*\\(\\s*\\)\\s*,\\s*"
+                        + "PlayerCharacterHarnessRenderer::new\\s*\\).*"),
+                "Player character harness renderer must register its entity renderer");
     }
 
     @Test

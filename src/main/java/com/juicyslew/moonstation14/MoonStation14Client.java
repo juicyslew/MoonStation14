@@ -21,6 +21,13 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualClientCache;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualNetworking;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualPayload;
+import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualClientCache;
+import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualRenderer;
+import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualResyncScheduler;
+import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualPendingSnapshots;
+import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualNetworking;
+import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualPayload;
+import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualResyncRequest;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualResyncRequest;
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient;
@@ -66,11 +73,16 @@ import org.joml.Matrix4f;
 @EventBusSubscriber(modid = MoonStation14.MOD_ID, value = Dist.CLIENT)
 public class MoonStation14Client {
     private static final AtmosphereVisualClientCache ATMOSPHERE_VISUALS = new AtmosphereVisualClientCache();
+    private static final CableVisualClientCache CABLE_VISUALS = new CableVisualClientCache();
+    private static final CableVisualResyncScheduler CABLE_RESYNC = new CableVisualResyncScheduler();
+    private static final CableVisualPendingSnapshots CABLE_PENDING = new CableVisualPendingSnapshots();
+    private static net.minecraft.resources.ResourceLocation cableWorldDimension;
     private static net.minecraft.resources.ResourceLocation atmosphereDimension;
     private static transient boolean serverAtmosVisualsActive;
     private static boolean warnedIncompleteAtmosphere;
     private static boolean atmosphereVisualRangeTruncated;
     private static int atmosphereResyncTick;
+    private static long cableResyncClock;
     private static final PrototypeCatalogSyncAssembler CATALOG_ASSEMBLER =
             new PrototypeCatalogSyncAssembler(PrototypeRuntime.clientManager()::publishEncodedCatalogs);
 
@@ -87,6 +99,7 @@ public class MoonStation14Client {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         PrototypeCatalogNetworking.installClientHandler(MoonStation14Client::handleCatalogPayload);
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
+        CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
         MovementClientController.install();
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
     }
@@ -94,6 +107,21 @@ public class MoonStation14Client {
     static void onClientSetup(FMLClientSetupEvent event) {
         ModSpecialProperties.addCustomItemProperties(event);
         // SET ALL BLOCK RENDERTYPES THAT NEED TO BE TRANSPARENT
+    }
+
+    private static void handleCableVisualPayload(CableVisualPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.player == null
+                || !minecraft.level.dimension().location().equals(payload.dimension())) {
+            CABLE_PENDING.stage(payload);
+            return;
+        }
+        CABLE_VISUALS.apply(payload);
+    }
+
+    @SubscribeEvent
+    public static void renderCableVisuals(RenderLevelStageEvent event) {
+        CableVisualRenderer.render(event, CABLE_VISUALS);
     }
 
     private static void handleAtmospherePayload(AtmosphereVisualPayload payload) {
@@ -522,6 +550,39 @@ public class MoonStation14Client {
         atmosphereResyncTick = 0;
     }
 
+    static void clearCableVisuals() {
+        resetCableVisuals();
+        CABLE_PENDING.clear();
+    }
+
+    /** Starts a new login's visual stream without losing snapshots already received before world readiness. */
+    static void resetCableVisualsForLogin() {
+        resetCableVisuals();
+    }
+
+    private static void resetCableVisuals() {
+        CABLE_VISUALS.clearDimension();
+        CABLE_RESYNC.reset();
+        cableWorldDimension = null;
+        cableResyncClock = 0;
+    }
+
+    static void unloadCableChunk(net.minecraft.resources.ResourceLocation dimension, int chunkX, int chunkZ) {
+        CABLE_VISUALS.removeChunk(dimension, chunkX, chunkZ);
+        CABLE_RESYNC.forgetChunk(dimension, chunkX, chunkZ);
+    }
+
+    static void prioritizeCableChunk(net.minecraft.resources.ResourceLocation dimension, int chunkX, int chunkZ) {
+        CABLE_RESYNC.prioritize(dimension, new CableVisualResyncScheduler.Chunk(chunkX, chunkZ));
+    }
+
+    static void flushPendingCableChunk(ClientLevel level, net.minecraft.world.level.ChunkPos position) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != level || minecraft.player == null) return;
+        CABLE_PENDING.flush(level.dimension().location(), payload -> payload.chunkX() == position.x
+                && payload.chunkZ() == position.z && level.hasChunk(payload.chunkX(), payload.chunkZ()), CABLE_VISUALS::apply);
+    }
+
     static void unloadAtmosphereChunk(net.minecraft.resources.ResourceLocation dimension, int chunkX, int chunkZ) {
         ATMOSPHERE_VISUALS.unload(dimension, chunkX, chunkZ);
     }
@@ -546,6 +607,57 @@ public class MoonStation14Client {
             PacketDistributor.sendToServer(new AtmosphereVisualResyncRequest(key.x(), key.z()));
         }
     }
+
+    @SubscribeEvent
+    public static void requestCableVisualResync(ClientTickEvent.Post event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.player == null || minecraft.getConnection() == null) {
+            CABLE_RESYNC.reset();
+            cableResyncClock = 0;
+            return;
+        }
+        var dimension = minecraft.level.dimension().location();
+        if (cableWorldDimension != null && !cableWorldDimension.equals(dimension)) {
+            CABLE_PENDING.retainDimension(dimension);
+            CABLE_VISUALS.clearDimension();
+            CABLE_RESYNC.reset();
+            cableResyncClock = 0;
+        }
+        cableWorldDimension = dimension;
+        CABLE_PENDING.flush(dimension, payload -> minecraft.level.hasChunk(payload.chunkX(), payload.chunkZ()),
+                CABLE_VISUALS::apply);
+        cableResyncClock++;
+        int requestsSent = 0;
+        var hasSnapshot = (java.util.function.Predicate<CableVisualResyncScheduler.Chunk>) chunk ->
+                CABLE_VISUALS.hasUsableSnapshot(dimension, chunk.x(), chunk.z());
+        var center = minecraft.player.chunkPosition();
+        java.util.function.Predicate<CableVisualResyncScheduler.Chunk> isNearbyLoaded = chunk ->
+                Math.abs(chunk.x() - center.x) <= 1 && Math.abs(chunk.z() - center.z) <= 1
+                        && minecraft.level.hasChunk(chunk.x(), chunk.z());
+        for (var chunk : CABLE_RESYNC.selectPriority(dimension, isNearbyLoaded, hasSnapshot, cableResyncClock,
+                CableVisualResyncScheduler.MAX_REQUESTS_PER_SCAN)) {
+            PacketDistributor.sendToServer(new CableVisualResyncRequest(chunk.x(), chunk.z()));
+            requestsSent++;
+        }
+        if (requestsSent >= CableVisualResyncScheduler.MAX_REQUESTS_PER_SCAN) return;
+
+        var window = new java.util.ArrayList<CableVisualResyncScheduler.Chunk>(9);
+        for (int distance = 0; distance <= 2; distance++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != distance) continue;
+                    int chunkX = center.x + dx;
+                    int chunkZ = center.z + dz;
+                    if (minecraft.level.hasChunk(chunkX, chunkZ))
+                        window.add(new CableVisualResyncScheduler.Chunk(chunkX, chunkZ));
+                }
+            }
+        }
+        for (var chunk : CABLE_RESYNC.select(dimension, window, hasSnapshot,
+                cableResyncClock, CableVisualResyncScheduler.MAX_REQUESTS_PER_SCAN - requestsSent)) {
+            PacketDistributor.sendToServer(new CableVisualResyncRequest(chunk.x(), chunk.z()));
+        }
+    }
 }
 
 
@@ -557,6 +669,7 @@ final class MoonStation14ClientNetworkEvents {
     public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();
+        MoonStation14Client.resetCableVisualsForLogin();
         MovementClientController.reset();
     }
 
@@ -564,6 +677,7 @@ final class MoonStation14ClientNetworkEvents {
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();
+        MoonStation14Client.clearCableVisuals();
         MovementClientController.reset();
     }
 
@@ -572,5 +686,14 @@ final class MoonStation14ClientNetworkEvents {
         if (!(event.getLevel() instanceof ClientLevel level)) return;
         var position = event.getChunk().getPos();
         MoonStation14Client.unloadAtmosphereChunk(level.dimension().location(), position.x, position.z);
+        MoonStation14Client.unloadCableChunk(level.dimension().location(), position.x, position.z);
+    }
+
+    @SubscribeEvent
+    public static void onClientChunkLoad(ChunkEvent.Load event) {
+        if (!(event.getLevel() instanceof ClientLevel level)) return;
+        var position = event.getChunk().getPos();
+        MoonStation14Client.prioritizeCableChunk(level.dimension().location(), position.x, position.z);
+        MoonStation14Client.flushPendingCableChunk(level, position);
     }
 }

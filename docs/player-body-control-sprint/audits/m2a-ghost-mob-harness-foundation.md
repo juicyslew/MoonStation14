@@ -1,6 +1,6 @@
 # M2a: Ghost Mob Harness foundation audit
 
-**Status: the registered ghost entity and its dedicated-server GameTest are verified; this is still only an integration gate, not M2 completion.** The [sprint instructions](../../../instructions-player-body-control-sprint.md), [M1 audit](m1-pure-mind-mob-harness-registry.md), and [M0c contract](m0c-mind-and-mob-harness-contract.md) remain the architecture and scope references. No player input, connected control, NPC transfer, or command is implemented or claimed here.
+**Status: the registered ghost entity and its dedicated-server GameTest are verified; this is still only an integration gate, not M2 completion.** The [sprint instructions](../Instructions.md), [M1 audit](m1-pure-mind-mob-harness-registry.md), and [M0c contract](m0c-mind-and-mob-harness-contract.md) remain the architecture and scope references. No player input, connected control, NPC transfer, or command is implemented or claimed here.
 
 ## Added foundation
 

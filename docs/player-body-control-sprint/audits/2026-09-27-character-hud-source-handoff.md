@@ -2,7 +2,7 @@
 
 **Status: bounded client-side HUD projection implemented; connected owner retest pending.** The owner reported that while possessing a Mob they saw no MS14 slipped, knocked-down, Hunger, or Thirst alerts, and no health, hotbar, or other HUD beyond noise messages. The source-level handoff below documents the implemented correction and its limits; it does not claim that the owner has retested the change in a connected session.
 
-Related records: [sprint instructions](../../../instructions-player-body-control-sprint.md), [active harness carrier policy](2026-09-27-active-harness-carrier-policy.md), [committed CHARACTER loss recovery](2026-09-27-committed-character-loss-recovery.md), and the [vanilla hearts and future action-capabilities decision](2026-09-27-vanilla-hearts-and-action-capabilities.md).
+Related records: [sprint instructions](../Instructions.md), [active harness carrier policy](2026-09-27-active-harness-carrier-policy.md), [committed CHARACTER loss recovery](2026-09-27-committed-character-loss-recovery.md), and the [vanilla hearts and future action-capabilities decision](2026-09-27-vanilla-hearts-and-action-capabilities.md).
 
 ## Source cause and owner decision
 
