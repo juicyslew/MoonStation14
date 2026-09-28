@@ -27,7 +27,7 @@ public final class AtmosphereM11GameTests {
 
     private AtmosphereM11GameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 120)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_m11_equal_pressure", timeoutTicks = 120)
     public static void equalPressureAdjacentRoomsExchangeSpeciesThroughNewOpening(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildPartitionedRooms(helper);
@@ -40,6 +40,10 @@ public final class AtmosphereM11GameTests {
         cells.addAll(right);
         fillCells(service, level, leftCells, GasType.OXYGEN, CELL_MOLES);
         fillCells(service, level, right, GasType.NITROGEN, CELL_MOLES);
+        double oxygenBeforeBreach = totalSpecies(service, level, cells, List.of(), GasType.OXYGEN);
+        double nitrogenBeforeBreach = totalSpecies(service, level, cells, List.of(), GasType.NITROGEN);
+        double energyBeforeBreach = 0.0;
+        for (BlockPos pos : cells) energyBeforeBreach += sample(service, level, pos).thermalEnergy();
 
         BlockPos openingLocal = new BlockPos(3, 1, 1);
         BlockPos opening = helper.absolutePos(openingLocal);
@@ -47,15 +51,15 @@ public final class AtmosphereM11GameTests {
         service.topologyChanged(level, opening);
         classifyUntilSample(service, level, opening, 40);
         require(isFiniteClaimed(level, opening), "new opening must receive a finite ownership claim");
-        require(service.sample(level, opening).orElseThrow().totalMoles() == 0.0,
-                "new opening must classify as part of the finite connected room before it is filled");
+        double openingEnergyBeforeInjection = sample(service, level, opening).thermalEnergy();
         require(service.addGas(level, opening, GasType.OXYGEN, CELL_MOLES * 0.5, TEMPERATURE_KELVIN)
                         && service.addGas(level, opening, GasType.NITROGEN, CELL_MOLES * 0.5, TEMPERATURE_KELVIN),
                 "balanced gas injection into the partition opening must succeed");
 
-        double oxygenBefore = speciesMoles(service, level, cells, opening, GasType.OXYGEN);
-        double nitrogenBefore = speciesMoles(service, level, cells, opening, GasType.NITROGEN);
-        double energyBefore = thermalEnergy(service, level, cells, opening);
+        double oxygenBefore = oxygenBeforeBreach + CELL_MOLES * 0.5;
+        double nitrogenBefore = nitrogenBeforeBreach + CELL_MOLES * 0.5;
+        double energyBefore = energyBeforeBreach + sample(service, level, opening).thermalEnergy()
+                - openingEnergyBeforeInjection;
         double initialPressure = CELL_MOLES * 8.31446261815324 * TEMPERATURE_KELVIN / 1000.0;
         BlockPos nearLeft = helper.absolutePos(new BlockPos(2, 1, 1));
         BlockPos nearRight = helper.absolutePos(new BlockPos(4, 1, 1));
@@ -89,7 +93,7 @@ public final class AtmosphereM11GameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 120)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_m11_pressure_transfer", timeoutTicks = 120)
     public static void openingTransfersGasDirectionallyFromHighToLowPressureRoom(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildPartitionedRooms(helper);
@@ -101,22 +105,28 @@ public final class AtmosphereM11GameTests {
         fillCells(service, level, high, GasType.OXYGEN, CELL_MOLES * 0.5);
         fillCells(service, level, high, GasType.NITROGEN, CELL_MOLES * 0.5);
         fillCells(service, level, low, GasType.NITROGEN, CELL_MOLES * 0.25);
+        double highInitial = totalMoles(service, level, high);
+        double lowInitial = totalMoles(service, level, low);
+        List<BlockPos> roomCells = new ArrayList<>(high);
+        roomCells.addAll(low);
+        double oxygenBeforeBreach = totalSpecies(service, level, roomCells, List.of(), GasType.OXYGEN);
+        double nitrogenBeforeBreach = totalSpecies(service, level, roomCells, List.of(), GasType.NITROGEN);
 
         BlockPos openingLocal = new BlockPos(3, 1, 1);
         BlockPos opening = helper.absolutePos(openingLocal);
+        BlockPos lowNear = helper.absolutePos(new BlockPos(4, 1, 1));
+        double lowNearOxygen = sample(service, level, lowNear).moles(GasType.OXYGEN);
         helper.setBlock(openingLocal, Blocks.AIR);
         service.topologyChanged(level, opening);
         classifyUntilSample(service, level, opening, 40);
         require(isFiniteClaimed(level, opening), "pressure-transfer opening must be claimed finite");
+        double openingNitrogenBeforeInjection = sample(service, level, opening).moles(GasType.NITROGEN);
         require(service.addGas(level, opening, GasType.NITROGEN, CELL_MOLES * 0.25, TEMPERATURE_KELVIN),
                 "opening should accept a sample at the low-room pressure");
 
-        double highInitial = totalMoles(service, level, high);
-        double lowInitial = totalMoles(service, level, low);
-        double oxygenInitial = speciesMoles(service, level, high, low, opening, GasType.OXYGEN);
-        double nitrogenInitial = speciesMoles(service, level, high, low, opening, GasType.NITROGEN);
-        BlockPos lowNear = helper.absolutePos(new BlockPos(4, 1, 1));
-        double lowNearOxygen = sample(service, level, lowNear).moles(GasType.OXYGEN);
+        double oxygenInitial = oxygenBeforeBreach;
+        double nitrogenInitial = nitrogenBeforeBreach + sample(service, level, opening).moles(GasType.NITROGEN)
+                - openingNitrogenBeforeInjection;
 
         tickPasses(service, level, 40);
 

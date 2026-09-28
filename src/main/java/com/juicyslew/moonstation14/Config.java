@@ -37,12 +37,16 @@ public class Config {
             .define("experimentalVerticalSliceMovement", false);
 
     public static final ModConfigSpec.BooleanValue EXPERIMENTAL_MIND_GHOST_CONTROL = BUILDER
-            .comment("Opt in to operator-only experimental Mind ghost control tests (sampled only at server startup)")
+            .comment("Opt in to the experimental automatic player-character Mob Harness lifecycle on eligible joins and operator-only debug tools (sampled at server startup; default false)")
             .define("experimentalMindGhostControl", false);
 
     public static final ModConfigSpec.BooleanValue ENABLE_ATMOSPHERICS = BUILDER
             .comment("Enable server-side atmospherics simulation (sampled only at server startup)")
             .define("enableAtmospherics", false);
+
+    public static final ModConfigSpec.BooleanValue ENABLE_POWER_SIMULATION = BUILDER
+            .comment("Enable server-side power simulation (sampled only at server startup)")
+            .define("enablePowerSimulation", true);
 
     public static final ModConfigSpec.BooleanValue MOON_SKY = BUILDER
             .comment("Client-local visual option: render a black, starry sky in the Overworld")

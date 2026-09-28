@@ -30,7 +30,7 @@ class MonstermosEqualizationTest {
     }
 
     @Test
-    void highPressureHundredsOfMolesMovePartiallyThroughOneDoorPerPass() {
+    void highPressureHundredsOfMolesRouteThroughOneDoorTowardPatchAverage() {
         BlockPos source = p(0), doorway = p(1), receiver = p(2);
         GasMixture pressurized = mix(GasType.OXYGEN, 120, 400);
         var result = MonstermosEqualization.equalize(
@@ -39,17 +39,18 @@ class MonstermosEqualizationTest {
 
         assertTrue(result.work().complete());
         assertTrue(result.states().get(doorway).totalMoles() > 0);
-        assertEquals(12, result.states().get(doorway).totalMoles(), 1e-10);
-        assertEquals(0, result.states().get(receiver).totalMoles(), 1e-10);
-        assertEquals(12, result.edgeFlows().get(new MonstermosEqualization.DirectedEdge(source, doorway)), 1e-10);
+        assertEquals(40, result.states().get(doorway).totalMoles(), 1e-10);
+        assertEquals(40, result.states().get(receiver).totalMoles(), 1e-10);
+        assertEquals(80, result.edgeFlows().get(new MonstermosEqualization.DirectedEdge(source, doorway)), 1e-10);
+        assertEquals(40, result.edgeFlows().get(new MonstermosEqualization.DirectedEdge(doorway, receiver)), 1e-10);
         assertTrue(result.work().transferOperations() <= 3);
-        assertTrue(result.states().get(source).totalMoles() > 40, "one invocation must not equalize the room");
+        assertEquals(40, result.states().get(source).totalMoles(), 1e-10);
         assertEquals(120, gasTotal(result.states(), GasType.OXYGEN), 1e-10);
         assertEquals(pressurized.thermalEnergy(), energy(result.states()), 1e-8);
     }
 
     @Test
-    void repeatedInvocationsConvergeGraduallyAndConserveSpeciesAndEnergy() {
+    void repeatedInvocationsRemainConservativeAfterFullSinglePassEqualization() {
         BlockPos source = p(0), receiver = p(1);
         Map<BlockPos, GasMixture> initial = map(source,
                 new GasMixture(Map.of(GasType.OXYGEN, 80.0, GasType.NITROGEN, 20.0), 420),
@@ -57,17 +58,16 @@ class MonstermosEqualizationTest {
         Map<BlockPos, Set<BlockPos>> topology = graph(source, receiver);
         var first = MonstermosEqualization.equalize(initial, topology, 2);
         assertTrue(first.states().get(receiver).totalMoles() > 0);
-        assertTrue(first.states().get(receiver).totalMoles() < 50, "first step is deliberately partial");
+        assertEquals(50, first.states().get(receiver).totalMoles(), 1e-10);
         Map<BlockPos, GasMixture> current = first.states();
         for (int i = 0; i < 9; i++) current = MonstermosEqualization.equalize(current, topology, 2).states();
-        assertTrue(current.get(receiver).totalMoles() > first.states().get(receiver).totalMoles());
-        assertTrue(current.get(receiver).totalMoles() > 35, "ten bounded steps should make substantial progress");
+        assertEquals(first.states().get(receiver).totalMoles(), current.get(receiver).totalMoles(), 1e-10);
         for (GasType gas : GasType.values()) assertEquals(gasTotal(initial, gas), gasTotal(current, gas), 1e-9);
         assertEquals(energy(initial), energy(current), 1e-8);
     }
 
     @Test
-    void longRoutesLeaveAConservativePlumeInTheNearestIntermediateCell() {
+    void longRoutesCarryFullConservativeSurplusWithoutArtificialRetention() {
         BlockPos source = p(0), near = p(1), middle = p(2), receiver = p(3);
         Map<BlockPos, GasMixture> initial = map(source, mix(GasType.OXYGEN, 10, 400),
                 near, mix(GasType.NITROGEN, 5, 300), middle, mix(GasType.NITROGEN, 5, 300),
@@ -75,12 +75,13 @@ class MonstermosEqualizationTest {
         var result = MonstermosEqualization.equalize(initial, graph(source, near, middle, receiver), 4);
         assertTrue(result.states().get(near).moles(GasType.OXYGEN) > 0);
         assertTrue(result.states().get(receiver).moles(GasType.OXYGEN) > 0);
+        assertEquals(5, result.states().get(receiver).totalMoles(), 1e-10);
         for (GasType gas : GasType.values()) assertEquals(gasTotal(initial, gas), gasTotal(result.states(), gas), 1e-10);
         assertEquals(energy(initial), energy(result.states()), 1e-8);
     }
 
     @Test
-    void smallProducerPulseSpreadsFromNearToFarOverBoundedCycles() {
+    void producerPulseReachesPatchAverageInOnePassAndEachTenHzPulseAddsTwoMoles() {
         Map<BlockPos, GasMixture> cells = new LinkedHashMap<>();
         Map<BlockPos, Set<BlockPos>> topology = new LinkedHashMap<>();
         for (int x = 0; x < 4; x++) for (int y = 0; y < 4; y++) for (int z = 0; z < 3; z++) {
@@ -96,12 +97,172 @@ class MonstermosEqualizationTest {
         }
         BlockPos near = new BlockPos(0, 0, 1), far = new BlockPos(3, 3, 2);
         var first = MonstermosEqualization.equalize(cells, topology, 48);
-        assertTrue(first.states().get(near).totalMoles() > first.states().get(far).totalMoles());
-        assertEquals(0, first.states().get(far).totalMoles(), 1e-12);
+        assertTrue(first.states().get(near).totalMoles() > 0);
+        assertTrue(first.states().get(far).totalMoles() > 0, "normal Monstermos has no long-route holding plume");
+        for (GasMixture mixture : first.states().values()) assertEquals(2.0 / 48, mixture.totalMoles(), 1e-10);
         Map<BlockPos, GasMixture> current = first.states();
-        for (int i = 0; i < 50; i++) current = MonstermosEqualization.equalize(current, topology, 48).states();
-        assertTrue(current.get(far).totalMoles() > 0, "bounded transport must eventually reach remote cells");
-        assertEquals(2, gasTotal(current, GasType.OXYGEN), 1e-9);
+        BlockPos source = new BlockPos(0, 0, 0);
+        for (int step = 1; step <= 5; step++) {
+            Map<BlockPos, GasMixture> injected = new LinkedHashMap<>(current);
+            injected.put(source, injected.get(source).withGasDelta(GasType.OXYGEN, 2.0));
+            current = MonstermosEqualization.equalize(injected, topology, 48).states();
+            assertEquals((step + 1) * 2.0, gasTotal(current, GasType.OXYGEN), 1e-9,
+                    "each 0.1-second source pulse contributes exactly two moles");
+        }
+    }
+
+    @Test
+    void twoConnectedRoomsRemainConservativeUnderBoundedRepeatedProducerPulses() {
+        assertRoomPulseProgression(new BlockPos(0, 2, 1), new BlockPos(7, 2, 1), "source near outer end");
+        assertRoomPulseProgression(new BlockPos(7, 2, 1), new BlockPos(0, 2, 1), "source in far room");
+    }
+
+    @Test
+    void longHallwayOf124CellsCarriesTritiumToFarEndOnFirstPass() {
+        Map<BlockPos, GasMixture> cells = new LinkedHashMap<>();
+        Map<BlockPos, Set<BlockPos>> topology = new LinkedHashMap<>();
+        for (int x = 0; x < 31; x++) {
+            for (int y = 0; y < 2; y++) {
+                for (int z = 0; z < 2; z++) {
+                    addRoomCell(cells, topology, new BlockPos(x, y, z));
+                }
+            }
+        }
+        assertEquals(124, cells.size(), "hallway must contain exactly 124 finite cells");
+        BlockPos source = new BlockPos(0, 0, 0);
+        cells.put(source, mix(GasType.TRITIUM, 2.0, 293.15));
+
+        var result = MonstermosEqualization.equalize(cells, topology, 124);
+        String work = "complete=" + result.work().complete() + ", status=" + result.work().status()
+                + ", discoveredCells=" + result.work().discoveredCells()
+                + ", transferOperations=" + result.work().transferOperations()
+                + ", edgeSearchWork=" + result.work().edgeSearchWork();
+        assertTrue(result.work().complete(), "124-cell hallway did not finish its first invocation: " + work);
+        assertTrue(result.work().transferOperations() <= 8000, "transfer operation ceiling exceeded: " + work);
+        assertTrue(result.work().edgeSearchWork() <= 8000, "edge-search ceiling exceeded: " + work);
+        for (int x = 26; x < 31; x++) {
+            for (int y = 0; y < 2; y++) {
+                for (int z = 0; z < 2; z++) {
+                    BlockPos farEnd = new BlockPos(x, y, z);
+                    assertTrue(result.states().get(farEnd).moles(GasType.TRITIUM) > 0,
+                            "TRITIUM did not reach far-end cell " + farEnd + " on first pass; " + work);
+                }
+            }
+        }
+        assertConserved(cells, result.states(), "124-cell tritium hallway");
+    }
+
+    private static void assertRoomPulseProgression(BlockPos source, BlockPos farRoomPosition, String setup) {
+        Map<BlockPos, GasMixture> current = new LinkedHashMap<>();
+        Map<BlockPos, Set<BlockPos>> topology = new LinkedHashMap<>();
+        // Chamber one is 4x5x3 (60 cells); chamber two is 4x4x4 (64 cells).
+        for (int x = 0; x < 4; x++) for (int y = 0; y < 5; y++) for (int z = 0; z < 3; z++) {
+            addRoomCell(current, topology, new BlockPos(x, y, z));
+        }
+        for (int x = 4; x < 8; x++) for (int y = 0; y < 4; y++) for (int z = 0; z < 4; z++) {
+            addRoomCell(current, topology, new BlockPos(x, y, z));
+        }
+        connect(topology, new BlockPos(3, 0, 0), new BlockPos(4, 0, 0));
+        assertEquals(124, current.size(), "fixture must contain exactly 124 finite cells");
+        assertEquals(1, topology.get(new BlockPos(3, 0, 0)).stream()
+                .filter(pos -> pos.getX() == 4).count(), "rooms must meet through one face-open doorway");
+
+        current.put(source, current.get(source).withGasDelta(GasType.TRITIUM, 2.0));
+        Map<BlockPos, GasMixture> firstInput = new LinkedHashMap<>(current);
+        var first = MonstermosEqualization.equalize(firstInput, topology, 124);
+        assertWorkBounded(first.work(), setup + " first invocation");
+        assertTrue(first.work().complete(),
+                setup + " first invocation complete=" + first.work().complete() + ", status=" + first.work().status());
+        assertEquals(124, first.work().discoveredCells(), setup + " first invocation positions visited");
+        assertTrue(first.work().edgeSearchWork() <= MonstermosEqualization.MAX_EDGE_SEARCH_WORK,
+                setup + " first invocation edgeSearchWork=" + first.work().edgeSearchWork());
+        assertConserved(firstInput, first.states(), setup + " first invocation");
+        Map<BlockPos, GasMixture> firstFarTwenty = roomInventory(first.states(), farRoomPosition);
+        assertEquals(20, firstFarTwenty.size(), setup + " first invocation far20 cell count");
+        assertFarTwentyContainsTritium(firstFarTwenty, setup + " first invocation");
+
+        current = first.states();
+        for (int step = 2; step <= 30; step++) {
+            Map<BlockPos, GasMixture> injected = new LinkedHashMap<>(current);
+            injected.put(source, injected.get(source).withGasDelta(GasType.TRITIUM, 2.0));
+            var result = MonstermosEqualization.equalize(injected, topology, 124);
+            assertWorkBounded(result.work(), setup + " invocation " + step);
+            assertConserved(injected, result.states(), setup + " invocation " + step);
+            if (step == 2) {
+                assertEquals(124, result.work().discoveredCells(), setup + " second invocation positions visited");
+                assertTrue(result.work().complete(),
+                        setup + " second invocation complete=" + result.work().complete() + ", status="
+                                + result.work().status());
+                Map<BlockPos, GasMixture> secondFarTwenty = roomInventory(result.states(), farRoomPosition);
+                assertEquals(20, secondFarTwenty.size(), setup + " second invocation far20 cell count");
+                assertFarTwentyContainsTritium(secondFarTwenty, setup + " second invocation");
+            }
+            current = result.states();
+        }
+        assertEquals(60.0, gasTotal(current, GasType.TRITIUM), 1e-9,
+                setup + " all thirty producer pulses must remain in the patch");
+    }
+
+    private static void assertFarTwentyContainsTritium(Map<BlockPos, GasMixture> states, String label) {
+        for (Map.Entry<BlockPos, GasMixture> entry : states.entrySet()) {
+            assertTrue(entry.getValue().moles(GasType.TRITIUM) > 0.0,
+                    label + " TRITIUM did not reach far-end cell " + entry.getKey());
+        }
+    }
+
+    private static void addRoomCell(Map<BlockPos, GasMixture> cells, Map<BlockPos, Set<BlockPos>> topology,
+                                    BlockPos pos) {
+        cells.put(pos, GasMixture.vacuum());
+        Set<BlockPos> neighbors = new LinkedHashSet<>();
+        for (int[] direction : new int[][]{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}) {
+            BlockPos neighbor = pos.offset(direction[0], direction[1], direction[2]);
+            if (cells.containsKey(neighbor)) {
+                neighbors.add(neighbor);
+                topology.get(neighbor).add(pos);
+            }
+        }
+        topology.put(pos, neighbors);
+    }
+
+    private static void connect(Map<BlockPos, Set<BlockPos>> topology, BlockPos a, BlockPos b) {
+        topology.get(a).add(b);
+        topology.get(b).add(a);
+    }
+
+    private static Map<BlockPos, GasMixture> roomInventory(Map<BlockPos, GasMixture> states, BlockPos roomPosition) {
+        Map<BlockPos, GasMixture> result = new LinkedHashMap<>();
+        int minX = roomPosition.getX() >= 4 ? 4 : 0;
+        int maxX = roomPosition.getX() >= 4 ? 8 : 4;
+        int maxY = roomPosition.getX() >= 4 ? 4 : 5;
+        int maxZ = roomPosition.getX() >= 4 ? 4 : 3;
+        for (int x = minX; x < maxX; x++) {
+            for (int y = 0; y < maxY; y++) {
+                for (int z = 0; z < maxZ; z++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    if (states.containsKey(pos)) result.put(pos, states.get(pos));
+                }
+            }
+        }
+        return result.entrySet().stream().sorted(Map.Entry.comparingByKey(
+                java.util.Comparator.<BlockPos>comparingLong(BlockPos::getX).thenComparingLong(BlockPos::getY)
+                        .thenComparingLong(BlockPos::getZ))).limit(20)
+                .collect(LinkedHashMap::new, (map, entry) -> map.put(entry.getKey(), entry.getValue()), LinkedHashMap::putAll);
+    }
+
+    private static void assertWorkBounded(MonstermosEqualization.Work work, String label) {
+        assertTrue(work.edgeSearchWork() <= MonstermosEqualization.MAX_EDGE_SEARCH_WORK,
+                label + " edgeSearchWork=" + work.edgeSearchWork());
+        assertTrue(work.transferOperations() <= MonstermosEqualization.MAX_TRANSFER_OPERATIONS,
+                label + " transferOperations=" + work.transferOperations());
+    }
+
+    private static void assertConserved(Map<BlockPos, GasMixture> before, Map<BlockPos, GasMixture> after,
+                                        String label) {
+        for (GasType gas : GasType.values()) {
+            assertEquals(gasTotal(before, gas), gasTotal(after, gas), 1e-9,
+                    label + " conservation of " + gas);
+        }
+        assertEquals(energy(before), energy(after), 1e-7, label + " enthalpy conservation");
     }
 
     @Test
@@ -168,8 +329,8 @@ class MonstermosEqualizationTest {
         var result = MonstermosEqualization.equalize(cells, topology, 800);
         assertTrue(result.work().complete());
         assertEquals(1, result.work().transferOperations());
-        assertEquals(10_085, result.states().get(p(0)).totalMoles(), 1e-9);
-        assertEquals(9_915, result.states().get(p(1)).totalMoles(), 1e-9);
+        assertEquals(10_000, result.states().get(p(0)).totalMoles(), 1e-9);
+        assertEquals(10_000, result.states().get(p(1)).totalMoles(), 1e-9);
     }
 
     @Test

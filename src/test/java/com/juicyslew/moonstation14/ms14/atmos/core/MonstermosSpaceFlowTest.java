@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.atmos.core;
 
+import com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
@@ -102,7 +103,8 @@ class MonstermosSpaceFlowTest {
                 new LinkedHashSet<>(exteriorOrder), 800);
 
         assertTrue(result.work().complete());
-        assertEquals(18_000, result.work().cellSteps() - result.work().discoveredCells() - result.work().simulationCalls());
+        assertEquals(18_000, result.work().cellSteps() - result.work().discoveredCells()
+                - result.work().simulationCalls() - 2 * (800 - 1));
         for (BlockPos pos : cells.keySet()) {
             assertEquals(result.states().get(pos).gasMoles(), reordered.states().get(pos).gasMoles());
             assertEquals(result.states().get(pos).thermalEnergy(), reordered.states().get(pos).thermalEnergy(), 1e-10);
@@ -195,6 +197,72 @@ class MonstermosSpaceFlowTest {
         assertEquals(0.0, last.states().get(cell).totalMoles(), 0);
         assertEquals(first.states().get(cell).totalMoles(), exportedMoles(last), 1e-15);
         assertEquals(1.1e-6, total(last.states()) + exportedMoles(first) + exportedMoles(last), 1e-15);
+    }
+
+    @Test
+    void emptyLongSpacePathRetainsVisibleGasAndContinuesExportingUnderEmission() {
+        Map<BlockPos, GasMixture> state = new LinkedHashMap<>();
+        for (int x = 0; x <= 10; x++) state.put(new BlockPos(x, 0, 0), mixture(0));
+        Map<BlockPos, Set<BlockPos>> adjacency = graph(state.keySet());
+        BlockPos producer = new BlockPos(0, 0, 0);
+        Set<BlockPos> opening = Set.of(new BlockPos(11, 0, 0));
+
+        // The first packet makes a visible foothold rather than passing through every empty cell.
+        Map<BlockPos, GasMixture> firstInput = new LinkedHashMap<>(state);
+        firstInput.put(producer, firstInput.get(producer).withGasDelta(GasType.PLASMA, 2.0));
+        MonstermosSpaceFlow.Result first = MonstermosSpaceFlow.run(firstInput, adjacency, opening, 800);
+        assertTrue(first.states().get(new BlockPos(1, 0, 0)).moles(GasType.PLASMA) >= 0.1);
+        assertConserved(2.0, total(first.states(), GasType.PLASMA),
+                first.exported().speciesMoles().getOrDefault(GasType.PLASMA, 0.0));
+
+        state = first.states();
+        double cumulativeExport = exportedMoles(first);
+        double cumulativePlasma = first.exported().speciesMoles().getOrDefault(GasType.PLASMA, 0.0);
+        double cumulativeEnergy = first.exported().thermalEnergyJoules();
+        double injectedEnergy = firstInput.get(producer).thermalEnergy();
+        for (int step = 1; step < 20; step++) {
+            Map<BlockPos, GasMixture> withEmission = new LinkedHashMap<>(state);
+            withEmission.put(producer, withEmission.get(producer).withGasDelta(GasType.PLASMA, 2.0));
+            double beforePlasma = total(state, GasType.PLASMA);
+            double beforeEnergy = energy(state);
+            double emissionEnergy = withEmission.get(producer).thermalEnergy() - state.get(producer).thermalEnergy();
+            MonstermosSpaceFlow.Result result = MonstermosSpaceFlow.run(withEmission, adjacency, opening, 800);
+            assertTrue(result.work().complete());
+            assertEquals(beforePlasma + 2.0, total(result.states(), GasType.PLASMA)
+                    + result.exported().speciesMoles().getOrDefault(GasType.PLASMA, 0.0), 1e-9);
+            assertEquals(beforeEnergy + emissionEnergy,
+                    energy(result.states()) + result.exported().thermalEnergyJoules(), 1e-7);
+            injectedEnergy += emissionEnergy;
+            state = result.states();
+            cumulativeExport += exportedMoles(result);
+            cumulativePlasma += result.exported().speciesMoles().getOrDefault(GasType.PLASMA, 0.0);
+            cumulativeEnergy += result.exported().thermalEnergyJoules();
+        }
+
+        for (int x = 1; x < 10; x++) {
+            double plasma = state.get(new BlockPos(x, 0, 0)).moles(GasType.PLASMA);
+            int alpha = GasVisibility.alphaByte(GasType.PLASMA, plasma, 1.0);
+            assertTrue(alpha >= 40, "path cell " + x + " should have visible plasma opacity >= 40: " + alpha);
+        }
+        assertTrue(cumulativeExport > 0.0);
+        assertTrue(cumulativePlasma > 0.0, "the explicit exterior opening should export injected plasma");
+        assertTrue(state.get(producer).totalMoles() < 30.0, "ongoing emission must not accumulate without bound");
+        assertEquals(40.0, total(state, GasType.PLASMA) + cumulativePlasma, 1e-8);
+        assertEquals(injectedEnergy, energy(state) + cumulativeEnergy, 1e-6);
+
+        // A missing exterior opening is not inferred from the end of a finite chain.
+        MonstermosSpaceFlow.Result sealed = MonstermosSpaceFlow.run(state, adjacency, Set.of(), 800);
+        assertEquals(0.0, exportedMoles(sealed));
+        assertEquals(state, sealed.states());
+
+        Map<BlockPos, GasMixture> residual = Map.of(new BlockPos(0, 0, 0), mixture(5.0e-7),
+                new BlockPos(1, 0, 0), mixture(0.0));
+        Map<BlockPos, Set<BlockPos>> residualGraph = graph(residual.keySet());
+        MonstermosSpaceFlow.Result residualFirst = MonstermosSpaceFlow.run(residual, residualGraph,
+                Set.of(new BlockPos(2, 0, 0)), 800);
+        MonstermosSpaceFlow.Result residualLast = MonstermosSpaceFlow.run(residualFirst.states(), residualGraph,
+                Set.of(new BlockPos(2, 0, 0)), 800);
+        assertEquals(0.0, total(residualLast.states()), 0.0, "sub-epsilon interior residue should drain after source-off steps");
     }
 
     private static Map<BlockPos, GasMixture> room(int x, int y, int z, double perCell) {

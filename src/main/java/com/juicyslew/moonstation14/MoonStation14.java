@@ -15,6 +15,12 @@ import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereEventHooks;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualNetworking;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualServerHooks;
+import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualNetworking;
+import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualServerHooks;
+import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
+import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
+import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
+import com.juicyslew.moonstation14.ms14.station.debug.StarterStationService;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
 import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
@@ -59,6 +65,10 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.register(this);
         AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
         AtmosphereVisualServerHooks.register(NeoForge.EVENT_BUS);
+        CableVisualServerHooks.register(NeoForge.EVENT_BUS);
+        PowerGraphService.register(NeoForge.EVENT_BUS);
+        PowerRuntime.register(NeoForge.EVENT_BUS);
+        StarterStationService.register(NeoForge.EVENT_BUS);
 
         ModCreativeModeTabs.register(modEventBus);
 
@@ -73,6 +83,7 @@ public class MoonStation14 {
         ModEntities.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
+        modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
         MovementServerController.install();
         //ModFluids.register(modEventBus);
@@ -131,6 +142,12 @@ public class MoonStation14 {
 
     @SubscribeEvent
     public void onServerAboutToStart(ServerAboutToStartEvent event) {
+        boolean powerEnabled = Config.ENABLE_POWER_SIMULATION.get();
+        PowerSimulationGate.configureAtServerStart(powerEnabled);
+        if (!powerEnabled) {
+            PowerGraphService.onSimulationDisabled();
+            PowerRuntime.onSimulationDisabled();
+        }
         AtmosphereService.INSTANCE.configureAtServerStart(Config.ENABLE_ATMOSPHERICS.get(),
                 Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()));
     }
@@ -161,6 +178,7 @@ public class MoonStation14 {
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
         AtmosphereService.INSTANCE.onServerStopped();
+        PowerSimulationGate.onServerStopped();
         MovementServerController.onServerStopped();
         MovementStartupGate.onServerStopped();
         PrototypeRuntime.serverManager().clearPublishedCatalogs();

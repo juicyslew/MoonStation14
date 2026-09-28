@@ -15,14 +15,19 @@ import net.neoforged.neoforge.network.registration.HandlerThread;
 import net.neoforged.bus.api.SubscribeEvent;
 
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 
 /** Common play-phase registration and fail-closed dispatch for ghost control payloads. */
 @EventBusSubscriber(modid = MoonStation14.MOD_ID)
 public final class GhostControlNetworking {
     public static final String PROTOCOL_VERSION = "3";
 
-    private static volatile BiConsumer<CustomPacketPayload, IPayloadContext> serverHandler;
+    private static volatile ServerHandler legacyServerHandler;
+    private static volatile ServerHandler debugServerHandler;
+    private static volatile ServerHandler lifecycleServerHandler;
     private static volatile BiConsumer<CustomPacketPayload, IPayloadContext> clientHandler;
+    private static final java.util.concurrent.atomic.AtomicBoolean UNKNOWN_SERVER_ROUTE_LOGGED = new java.util.concurrent.atomic.AtomicBoolean();
+    private static final java.util.concurrent.atomic.AtomicBoolean AMBIGUOUS_SERVER_ROUTE_LOGGED = new java.util.concurrent.atomic.AtomicBoolean();
 
     private GhostControlNetworking() { }
 
@@ -50,7 +55,30 @@ public final class GhostControlNetworking {
 
     /** Installs a server controller explicitly; no handler is installed by registration itself. */
     public static void installServerHandler(BiConsumer<CustomPacketPayload, IPayloadContext> handler) {
-        serverHandler = handler;
+        legacyServerHandler = handler == null ? null : new ServerHandler(handler, player -> true);
+    }
+
+    /** Installs the debug controller independently, with explicit exact-session ownership. */
+    public static void installDebugServerHandler(BiConsumer<CustomPacketPayload, IPayloadContext> handler,
+                                                 Predicate<ServerPlayer> ownerPredicate) {
+        debugServerHandler = handler == null || ownerPredicate == null ? null : new ServerHandler(handler, ownerPredicate);
+    }
+
+    /** Clears only the debug controller, leaving any lifecycle controller installed. */
+    public static void clearDebugServerHandler() {
+        debugServerHandler = null;
+    }
+
+    /** Installs the lifecycle controller independently, with explicit exact-session ownership. */
+    public static void installLifecycleServerHandler(BiConsumer<CustomPacketPayload, IPayloadContext> handler,
+                                                     Predicate<ServerPlayer> ownerPredicate) {
+        lifecycleServerHandler = handler == null || ownerPredicate == null ? null
+                : new ServerHandler(handler, ownerPredicate);
+    }
+
+    /** Clears only the lifecycle controller. */
+    public static void clearLifecycleServerHandler() {
+        lifecycleServerHandler = null;
     }
 
     /** Installs the client controller explicitly without referencing client-only classes here. */
@@ -93,8 +121,63 @@ public final class GhostControlNetworking {
                     payload.type().id());
             return;
         }
-        dispatch(payload, context, serverHandler, "server");
+        ServerHandler debug = debugServerHandler;
+        ServerHandler lifecycle = lifecycleServerHandler;
+        ServerHandler legacy = legacyServerHandler;
+        boolean debugOwns = owns(debug, player);
+        boolean lifecycleOwns = owns(lifecycle, player);
+        boolean legacyOwns = owns(legacy, player);
+        ServerRoute route = routeServerPayload(debugOwns, lifecycleOwns, legacyOwns, selectedRoute -> {
+            ServerHandler handler = switch (selectedRoute) {
+                case DEBUG -> debug;
+                case LIFECYCLE -> lifecycle;
+                case LEGACY -> legacy;
+                default -> null;
+            };
+            dispatch(payload, context, handler == null ? null : handler.handler, "server");
+        });
+        if (route == ServerRoute.UNKNOWN) {
+            if (UNKNOWN_SERVER_ROUTE_LOGGED.compareAndSet(false, true))
+                MoonStation14.LOGGER.warn("Dropping ghost-control server payload with no session owner: {}", payload.type().id());
+            return;
+        }
+        if (route == ServerRoute.AMBIGUOUS) {
+            if (AMBIGUOUS_SERVER_ROUTE_LOGGED.compareAndSet(false, true))
+                MoonStation14.LOGGER.warn("Dropping ghost-control server payload with ambiguous session ownership: {}", payload.type().id());
+            return;
+        }
     }
+
+    private static boolean owns(ServerHandler handler, ServerPlayer player) {
+        if (handler == null) return false;
+        try {
+            return handler.ownerPredicate.test(player);
+        } catch (RuntimeException exception) {
+            return false;
+        }
+    }
+
+    static ServerRoute selectServerRoute(boolean debugOwns, boolean lifecycleOwns, boolean legacyOwns) {
+        int owners = (debugOwns ? 1 : 0) + (lifecycleOwns ? 1 : 0) + (legacyOwns ? 1 : 0);
+        if (owners == 0) return ServerRoute.UNKNOWN;
+        if (owners != 1) return ServerRoute.AMBIGUOUS;
+        if (debugOwns) return ServerRoute.DEBUG;
+        if (lifecycleOwns) return ServerRoute.LIFECYCLE;
+        return ServerRoute.LEGACY;
+    }
+
+    static ServerRoute routeServerPayload(boolean debugOwns, boolean lifecycleOwns, boolean legacyOwns,
+                                          java.util.function.Consumer<ServerRoute> handler) {
+        ServerRoute route = selectServerRoute(debugOwns, lifecycleOwns, legacyOwns);
+        if (route == ServerRoute.DEBUG || route == ServerRoute.LIFECYCLE || route == ServerRoute.LEGACY)
+            handler.accept(route);
+        return route;
+    }
+
+    enum ServerRoute { DEBUG, LIFECYCLE, LEGACY, UNKNOWN, AMBIGUOUS }
+
+    private record ServerHandler(BiConsumer<CustomPacketPayload, IPayloadContext> handler,
+                                 Predicate<ServerPlayer> ownerPredicate) { }
 
     private static void handleClientPayload(CustomPacketPayload payload, IPayloadContext context) {
         if (!supportedClientHarnessKind(payload)) {

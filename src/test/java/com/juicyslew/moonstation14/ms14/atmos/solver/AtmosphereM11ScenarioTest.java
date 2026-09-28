@@ -125,15 +125,38 @@ class AtmosphereM11ScenarioTest {
         Map<BlockPos, GasMixture> states = new LinkedHashMap<>(chamber.finiteCells);
         double previousHigh = regionMoles(states, 0, 3);
         double previousLow = regionMoles(states, 5, 8);
-        for (int pass = 0; pass < 5; pass++) {
+        MonstermosEqualization.Result first = MonstermosEqualization.equalize(states, adjacency, CELL_BUDGET);
+        assertTrue(first.edgeFlows().keySet().stream().anyMatch(edge ->
+                edge.from().getX() < 4 && edge.to().getX() >= 4), "first pass routes donor gas through the doorway");
+        assertEquals(beforeMoles, totalMoles(first.states()), 1e-7);
+        assertEquals(beforeEnergy, totalEnergy(first.states()), 1e-5);
+        for (Map.Entry<GasType, Double> entry : beforeSpecies.entrySet()) {
+            assertEquals(entry.getValue(), speciesTotal(first.states(), entry.getKey()), 1e-7, entry.getKey().name());
+        }
+        states = new LinkedHashMap<>(first.states());
+        double firstHigh = regionMoles(states, 0, 3);
+        double firstLow = regionMoles(states, 5, 8);
+        assertTrue(firstHigh < previousHigh, "higher-pressure donor room loses gas on the first pass");
+        assertTrue(firstLow > previousLow, "lower-pressure taker room gains gas on the first pass");
+        previousHigh = firstHigh;
+        previousLow = firstLow;
+
+        boolean reachedEquilibrium = false;
+        for (int pass = 0; pass < 20; pass++) {
             MonstermosEqualization.Result result = MonstermosEqualization.equalize(states, adjacency, CELL_BUDGET);
             assertTrue(result.work().discoveredCells() <= CELL_BUDGET);
-            assertFalse(result.edgeFlows().isEmpty());
-            assertTrue(result.edgeFlows().keySet().stream().anyMatch(edge -> edge.from().getX() < 4 && edge.to().getX() >= 4));
-            result.edgeFlows().keySet().forEach(edge -> assertTrue(adjacency.get(edge.from()).contains(edge.to())));
             assertEquals(beforeMoles, totalMoles(result.states()), 1e-7);
             assertEquals(beforeEnergy, totalEnergy(result.states()), 1e-5);
-            beforeSpecies.forEach((gas, amount) -> assertEquals(amount, speciesTotal(result.states(), gas), 1e-7, gas.name()));
+            for (Map.Entry<GasType, Double> entry : beforeSpecies.entrySet()) {
+                assertEquals(entry.getValue(), speciesTotal(result.states(), entry.getKey()), 1e-7, entry.getKey().name());
+            }
+            if (result.edgeFlows().isEmpty()) {
+                assertTrue(maxMoles(result.states()) - minMoles(result.states())
+                        <= MonstermosEqualization.MINIMUM_MOLES_DELTA);
+                reachedEquilibrium = true;
+                break;
+            }
+            result.edgeFlows().keySet().forEach(edge -> assertTrue(adjacency.get(edge.from()).contains(edge.to())));
             states = new LinkedHashMap<>(result.states());
             double high = regionMoles(states, 0, 3);
             double low = regionMoles(states, 5, 8);
@@ -142,11 +165,27 @@ class AtmosphereM11ScenarioTest {
             previousHigh = high;
             previousLow = low;
         }
+        assertTrue(reachedEquilibrium, "repeated normal passes should settle within the bounded test window");
+        MonstermosEqualization.Result settled = MonstermosEqualization.equalize(states, adjacency, CELL_BUDGET);
+        assertTrue(settled.edgeFlows().isEmpty(), "equilibrium must not generate spurious flow");
+        assertEquals(beforeMoles, totalMoles(settled.states()), 1e-7);
+        assertEquals(beforeEnergy, totalEnergy(settled.states()), 1e-5);
+        Map<BlockPos, GasMixture> reverseOrder = new LinkedHashMap<>();
+        java.util.List<Map.Entry<BlockPos, GasMixture>> reversedEntries = new java.util.ArrayList<>(states.entrySet());
+        java.util.Collections.reverse(reversedEntries);
+        reversedEntries.forEach(entry -> reverseOrder.put(entry.getKey(), entry.getValue()));
+        MonstermosEqualization.Result reversed = MonstermosEqualization.equalize(reverseOrder, adjacency, CELL_BUDGET);
+        assertTrue(reversed.edgeFlows().isEmpty(), "settled behavior is independent of input map order");
+        assertEquals(totalMoles(states), totalMoles(reversed.states()), 1e-7);
+        for (BlockPos pos : states.keySet()) {
+            for (GasType gas : GasType.values()) {
+                assertEquals(states.get(pos).moles(gas), reversed.states().get(pos).moles(gas), 1e-9,
+                        "reversing map insertion order must not alter per-cell " + gas + " at " + pos);
+            }
+            assertEquals(states.get(pos).temperatureKelvin(), reversed.states().get(pos).temperatureKelvin(), 1e-9);
+        }
         assertTrue(previousHigh < regionMoles(chamber.finiteCells, 0, 3));
         assertTrue(previousLow > regionMoles(chamber.finiteCells, 5, 8));
-        assertTrue(Math.abs(previousHigh - previousLow) < Math.abs(
-                regionMoles(chamber.finiteCells, 0, 3) - regionMoles(chamber.finiteCells, 5, 8)),
-                "repeated bounded passes progress toward equalization without an instantaneous jump");
     }
 
     @Test
@@ -224,6 +263,14 @@ class AtmosphereM11ScenarioTest {
 
     private static double totalMoles(Map<BlockPos, GasMixture> cells) {
         return cells.values().stream().mapToDouble(GasMixture::totalMoles).sum();
+    }
+
+    private static double maxMoles(Map<BlockPos, GasMixture> cells) {
+        return cells.values().stream().mapToDouble(GasMixture::totalMoles).max().orElseThrow();
+    }
+
+    private static double minMoles(Map<BlockPos, GasMixture> cells) {
+        return cells.values().stream().mapToDouble(GasMixture::totalMoles).min().orElseThrow();
     }
 
     private static double totalEnergy(Map<BlockPos, GasMixture> cells) {

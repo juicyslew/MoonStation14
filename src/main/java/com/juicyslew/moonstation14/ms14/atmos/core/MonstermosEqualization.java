@@ -13,17 +13,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** Pure, bounded finite-cell, deliberately smoothed approximation of SS14 normal Monstermos. */
+/** Pure, bounded finite-cell approximation of SS14 normal Monstermos. */
 public final class MonstermosEqualization {
     public static final int MAX_CELLS = 800;
     /** Hard bounds on graph-search expansions and face-transfer operations per invocation. */
     public static final int MAX_EDGE_SEARCH_WORK = 8_000;
     public static final int MAX_TRANSFER_OPERATIONS = 8_000;
     public static final double MINIMUM_MOLES_DELTA = 0.0416;
-    /** Deliberate smoother-than-SS14 per-invocation cap; upstream normal Monstermos attempts full surplus. */
-    public static final double DONOR_SURPLUS_FRACTION_PER_INVOCATION = 0.15;
-    /** Long routes leave half of the packet in the first intervening cell as a plume. */
-    public static final double LONG_ROUTE_RETENTION_FRACTION = 0.5;
     private static final Comparator<BlockPos> POSITION_ORDER = Comparator.comparingLong((BlockPos pos) -> pos.getX())
             .thenComparingLong(pos -> pos.getY()).thenComparingLong(pos -> pos.getZ());
 
@@ -42,9 +38,8 @@ public final class MonstermosEqualization {
     public record Result(Map<BlockPos, GasMixture> states, Map<DirectedEdge, Double> edgeFlows, Work work) { }
 
     /**
-     * Moves gas toward the total-mole patch average over a complete connected finite patch. Unlike
-     * upstream normal Monstermos, which attempts the full donor surplus, this Minecraft-oriented
-     * variant limits each donor to 15% of its initial surplus per invocation. The caller owns world discovery:
+     * Moves gas toward the total-mole patch average over a complete connected finite patch. A donor
+     * may route its full surplus in this bounded invocation, as in upstream normal Monstermos. The caller owns world discovery:
      * missing adjacency entries are treated as closed boundaries and are never traversed.
      * Disconnected supplied patches are rejected rather than silently leaving unknown boundaries.
      */
@@ -107,8 +102,7 @@ public final class MonstermosEqualization {
             outer: for (BlockPos donor : donors) {
                 double donorInitialSurplus = states.get(donor).totalMoles() - target;
                 double donorAvailable = donorInitialSurplus;
-                double remainingAllowed = donorInitialSurplus * DONOR_SURPLUS_FRACTION_PER_INVOCATION;
-                while (donorAvailable > 0.0 && remainingAllowed > 0.0 && ri < receivers.size()) {
+                while (donorAvailable > 0.0 && ri < receivers.size()) {
                     BlockPos receiver = receivers.get(ri);
                     receiverNeed = Math.max(0.0, target - states.get(receiver).totalMoles());
                     if (receiverNeed == 0.0) {
@@ -125,7 +119,7 @@ public final class MonstermosEqualization {
                         complete = false; status = "transfer-budget-exhausted"; break outer;
                     }
                     double actualSurplus = Math.max(0.0, states.get(donor).totalMoles() - target);
-                    double amount = Math.min(Math.min(Math.min(Math.min(donorAvailable, actualSurplus), remainingAllowed), receiverNeed), states.get(donor).totalMoles());
+                    double amount = Math.min(Math.min(Math.min(donorAvailable, actualSurplus), receiverNeed), states.get(donor).totalMoles());
                     if (amount <= 0) break;
                     double delivered = amount;
                     for (int i = 1; i < path.size(); i++) {
@@ -138,10 +132,8 @@ public final class MonstermosEqualization {
                         states.put(to, add(current, packet));
                         flows.merge(new DirectedEdge(from, to), delivered, Double::sum);
                         operations++;
-                        if (path.size() > 2 && i == 1) delivered *= 1.0 - LONG_ROUTE_RETENTION_FRACTION;
                     }
                     donorAvailable -= amount;
-                    remainingAllowed -= amount;
                     receiverNeed -= delivered;
                     if (receiverNeed <= tolerance(target)) {
                         ri++;

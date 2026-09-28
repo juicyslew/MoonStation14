@@ -1,6 +1,6 @@
 # 2026-09-26 ghost camera Shift and presentation audit
 
-**Status: code-level fixes are present, but the owner's Shift/camera failure has not been retested in a connected session.** The historical owner observation is a real failure, not disproved by automated tests. This audit updates the [owner smoke checklist](experimental-ghost-owner-smoke.md) and the [sprint status](../../../instructions-player-body-control-sprint.md); it does not establish M2 acceptance or full SS14 parity.
+**Status: code-level fixes are present, but the owner's Shift/camera failure has not been retested in a connected session.** The historical owner observation is a real failure, not disproved by automated tests. This audit updates the [owner smoke checklist](experimental-ghost-owner-smoke.md) and the [sprint status](../Instructions.md); it does not establish M2 acceptance or full SS14 parity.
 
 ## What the owner finding means
 

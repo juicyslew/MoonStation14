@@ -1,6 +1,6 @@
 # Single Mind / Mob Harness movement route
 
-**Status: owner architectural decision; target architecture, not an implementation or acceptance claim.** There will never be a normal active-play situation in which a player is not a Mind controlling a Mob Harness. The sole exception is lobby, and only while a server-owned lobby state says the session is in lobby. A Mind without an active harness is not a transient ghost/body state. This decision rejects a permanent second movement or prediction path for the Minecraft player entity. See the [sprint instructions](../../../instructions-player-body-control-sprint.md) for current sprint status and migration gates.
+**Status: owner architectural decision; target architecture, not an implementation or acceptance claim.** There will never be a normal active-play situation in which a player is not a Mind controlling a Mob Harness. The sole exception is lobby, and only while a server-owned lobby state says the session is in lobby. A Mind without an active harness is not a transient ghost/body state. This decision rejects a permanent second movement or prediction path for the Minecraft player entity. See the [sprint instructions](../Instructions.md) for current sprint status and migration gates.
 
 ## Decision and current compliance
 

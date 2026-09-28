@@ -1,6 +1,6 @@
 # M2b: Ghost-control wire foundation audit
 
-**Status: experimental ghost owner-control is guarded by a default-off COMMON NeoForge boolean and requires an operator command; connected-owner smoke is pending.** The original payload-only foundation and its historical validation are recorded below. See the [sprint instructions](../../../instructions-player-body-control-sprint.md), the [M2a ghost harness audit](m2a-ghost-mob-harness-foundation.md), the [M0c Mind and Mob Harness contract](m0c-mind-and-mob-harness-contract.md), and the [experimental owner smoke checklist](experimental-ghost-owner-smoke.md). The feature does not start on join and is not full M2 acceptance or SS14 parity.
+**Status: experimental ghost owner-control is guarded by a default-off COMMON NeoForge boolean and requires an operator command; connected-owner smoke is pending.** The original payload-only foundation and its historical validation are recorded below. See the [sprint instructions](../Instructions.md), the [M2a ghost harness audit](m2a-ghost-mob-harness-foundation.md), the [M0c Mind and Mob Harness contract](m0c-mind-and-mob-harness-contract.md), and the [experimental owner smoke checklist](experimental-ghost-owner-smoke.md). The feature does not start on join and is not full M2 acceptance or SS14 parity.
 
 ## Delivered wire foundation
 

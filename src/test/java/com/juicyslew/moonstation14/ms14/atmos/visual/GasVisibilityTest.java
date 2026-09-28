@@ -28,19 +28,21 @@ class GasVisibilityTest {
     }
 
     @Test
-    void defaultGasThresholdAndFortyMoleLocalSaturationAreHandled() {
+    void defaultGasUsesReferenceThresholdAndMaximumScaledToCellVolume() {
         assertEquals(0, GasVisibility.alphaByte(GasType.PLASMA, 0.249999, 2.5));
         assertEquals(0, GasVisibility.alphaByte(GasType.PLASMA, 0.25, 2.5));
-        assertEquals(13, GasVisibility.alphaByte(GasType.PLASMA, 0.251, 2.5));
-        assertEquals(255, GasVisibility.alphaByte(GasType.PLASMA, 100.0, 2.5));
+        assertEquals(0, GasVisibility.alphaByte(GasType.PLASMA, Math.nextUp(0.25), 2.5));
+        assertEquals(13, GasVisibility.alphaByte(GasType.PLASMA, 0.375, 2.5));
+        assertEquals(255, GasVisibility.alphaByte(GasType.PLASMA, 5.0, 2.5));
+        assertEquals(255, GasVisibility.alphaByte(GasType.PLASMA, 2.0, 1.0));
         assertEquals(0, GasVisibility.alphaByte(GasType.NITROUS_OXIDE, 100.0, 2.5));
     }
 
     @Test
-    void tritiumUsesFortyMolesPerBlockWithFaintOnsetAndMonotoneSaturation() {
-        double[] amounts = {0.0, 0.1, 1.0, 10.0, 20.0, 39.9, 40.0, 50.0};
+    void tritiumUsesDefaultGasMaximumWithVisibleMidOpacityAndMonotoneSaturation() {
+        double[] amounts = {0.0, 0.1, 0.3, 1.0, 1.5, 1.9, 2.0, 3.0};
         int previous = 0;
-        int[] expected = {0, 0, 13, 67, 120, 255, 255, 255};
+        int[] expected = {0, 0, 26, 120, 187, 241, 255, 255};
         for (int i = 0; i < amounts.length; i++) {
             int alpha = GasVisibility.alphaByte(GasType.TRITIUM, amounts[i], 1.0);
             assertEquals(expected[i], alpha, "moles=" + amounts[i]);
@@ -50,27 +52,26 @@ class GasVisibilityTest {
         int faintColumnPlane = GasVisibility.perPlaneAlphaByte(
                 GasVisibility.alphaByte(GasType.TRITIUM, 1.0, 1.0), 3, 4);
         assertTrue(faintColumnPlane > 0);
-        assertTrue(faintColumnPlane < 10);
+        assertTrue(faintColumnPlane < 20);
     }
 
     @Test
-    void ammoniaAndFrezonKeepTheirStartConcentrationsAndShareTheFortyMoleMaximum() {
+    void ammoniaAndFrezonUseTheirUpstreamThresholdsAndMaximums() {
         assertEquals(0, GasVisibility.alphaByte(GasType.AMMONIA, 0.8, 1.0));
-        assertEquals(13, GasVisibility.alphaByte(GasType.AMMONIA, 0.801, 1.0));
+        assertEquals(0, GasVisibility.alphaByte(GasType.AMMONIA, Math.nextUp(0.8), 1.0));
         assertEquals(0, GasVisibility.alphaByte(GasType.FREZON, 0.24, 1.0));
-        assertEquals(13, GasVisibility.alphaByte(GasType.FREZON, 0.241, 1.0));
-        assertEquals(255, GasVisibility.alphaByte(GasType.AMMONIA, 40.0, 1.0));
-        assertEquals(255, GasVisibility.alphaByte(GasType.FREZON, 40.0, 1.0));
+        assertEquals(0, GasVisibility.alphaByte(GasType.FREZON, Math.nextUp(0.24), 1.0));
+        assertEquals(255, GasVisibility.alphaByte(GasType.AMMONIA, 2.8, 1.0));
+        assertEquals(255, GasVisibility.alphaByte(GasType.FREZON, 4.8, 1.0));
         assertEquals(new GasVisibility.Rgb(0x56, 0x94, 0x1E), GasVisibility.tint(GasType.AMMONIA).orElseThrow());
         assertEquals(new GasVisibility.Rgb(0x3A, 0x75, 0x8C), GasVisibility.tint(GasType.FREZON).orElseThrow());
     }
 
     @Test
-    void thresholdsAndFortyMoleMaximumScaleWithCellVolume() {
+    void bothThresholdsAndMaximumsScaleWithCellVolume() {
         assertEquals(0, GasVisibility.alphaByte(GasType.PLASMA, 0.1, 1.0));
-        assertEquals(255, GasVisibility.alphaByte(GasType.PLASMA, 100.0, 2.5));
-        assertEquals(GasVisibility.alphaByte(GasType.PLASMA, 100.0, 2.5),
-                GasVisibility.alphaByte(GasType.PLASMA, 40.0, 1.0));
+        assertEquals(255, GasVisibility.alphaByte(GasType.PLASMA, 2.0, 1.0));
+        assertEquals(255, GasVisibility.alphaByte(GasType.PLASMA, 5.0, 2.5));
         assertEquals(0, GasVisibility.alphaByte(GasType.AMMONIA, 0.8, 1.0));
         assertEquals(0, GasVisibility.alphaByte(GasType.FREZON, 0.24, 1.0));
     }
@@ -79,8 +80,8 @@ class GasVisibilityTest {
     void alphaLevelsAreQuantizedMonotonicallyAndTinyAmountsDoNotFlash() {
         int previous = 0;
         boolean[] levelsSeen = new boolean[GasVisibility.QUANTIZATION_LEVELS];
-        for (int step = 0; step <= 100; step++) {
-            int alpha = GasVisibility.alphaByte(GasType.PLASMA, 0.1 + 39.9 * step / 100.0, 1.0);
+        for (int step = 0; step <= 1000; step++) {
+            int alpha = GasVisibility.alphaByte(GasType.PLASMA, 0.1 + 1.9 * step / 1000.0, 1.0);
             assertTrue(alpha >= previous);
             assertTrue(alpha >= 0 && alpha <= 255);
             if (alpha > 0) {
@@ -92,9 +93,10 @@ class GasVisibilityTest {
         for (int level = 1; level < levelsSeen.length; level++) {
             assertTrue(levelsSeen[level], "quantized alpha level " + level + " should occur");
         }
-        assertEquals(13, GasVisibility.alphaByte(GasType.PLASMA, Math.nextUp(0.25), 2.5));
+        assertEquals(0, GasVisibility.alphaByte(GasType.PLASMA, Math.nextUp(0.25), 2.5));
+        assertEquals(13, GasVisibility.alphaByte(GasType.PLASMA, 0.375, 2.5));
         assertTrue(GasVisibility.overlay(GasType.PLASMA, 0.0, 2.5).isEmpty());
-        assertTrue(GasVisibility.overlay(GasType.PLASMA, Math.nextUp(0.25), 2.5).isPresent());
+        assertTrue(GasVisibility.overlay(GasType.PLASMA, Math.nextUp(0.25), 2.5).isEmpty());
     }
 
     @Test
@@ -104,7 +106,7 @@ class GasVisibilityTest {
         assertTrue(lowPerPlane > 0 && lowPerPlane < 10, "low tritium remains visible without becoming opaque");
         assertEquals(0, GasVisibility.perPlaneAlphaByte(0, 3, 4));
         assertTrue(GasVisibility.perPlaneAlphaByte(255, 3, 4) > lowPerPlane);
-        assertTrue(GasVisibility.perPlaneAlphaByte(255, 3, 4) <= 16);
+        assertEquals(37, GasVisibility.perPlaneAlphaByte(255, 3, 4));
         int previous = 0;
         for (int alpha = 0; alpha <= 255; alpha++) {
             int perPlane = GasVisibility.perPlaneAlphaByte(alpha, 3, 4);

@@ -1,6 +1,6 @@
 # 2026-09-27 render-frame ghost look and transfer notes
 
-**Status: a render-frame visual look projection is implemented; owner retest is pending.** The connected owner reports ghost movement is smooth but mouse turns jitter. This note records the narrow look response, the evidence boundary, and transfer semantics that future implementation must preserve. It does not claim the jitter is fixed, approve possession/transfer implementation, or establish full Mind/ghost acceptance. See the [owner smoke checklist](experimental-ghost-owner-smoke.md), [shared-motor prediction audit](2026-09-26-ghost-shared-motor-prediction.md), and [sprint instructions](../../../instructions-player-body-control-sprint.md).
+**Status: a render-frame visual look projection is implemented; owner retest is pending.** The connected owner reports ghost movement is smooth but mouse turns jitter. This note records the narrow look response, the evidence boundary, and transfer semantics that future implementation must preserve. It does not claim the jitter is fixed, approve possession/transfer implementation, or establish full Mind/ghost acceptance. See the [owner smoke checklist](experimental-ghost-owner-smoke.md), [shared-motor prediction audit](2026-09-26-ghost-shared-motor-prediction.md), and [sprint instructions](../Instructions.md).
 
 ## Mouse-look path and rationale
 

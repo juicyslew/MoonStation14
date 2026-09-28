@@ -17,12 +17,10 @@ import java.util.Optional;
  *
  * <p>Reference sources: {@code Resources/Prototypes/Atmospherics/gases.yml}
  * and {@code Content.Server/Atmos/EntitySystems/GasTileOverlaySystem.cs}.
- * SS14 visibility thresholds are for a 2.5 m^3 tile and scale by volume to
- * preserve their start concentrations. For gameplay readability, the maximum
- * opacity is instead reached at 40 moles per Minecraft 1 m^3 block (scaled by
- * block volume), rather than SS14's gasOverlaySprite maxima: 5 moles for the
- * default gases, 7 for ammonia, and 12 for frezon per 2.5 m^3 tile. This is an
- * intentional visual deviation, shared by all five overlay gases.</p>
+ * SS14 visibility thresholds and gasOverlaySprite maxima are specified for a
+ * 2.5 m^3 tile and both scale by cell volume: 5 moles for the default gases,
+ * 7 for ammonia, and 12 for frezon at the reference volume. This preserves the
+ * upstream volume-scaled visibility amounts.</p>
  *
  * <p>This opacity policy does not model ignition. For example, SS14's
  * {@code Resources/Prototypes/Atmospherics/reactions.yml} defines the
@@ -33,7 +31,6 @@ import java.util.Optional;
  */
 public final class GasVisibility {
     public static final double REFERENCE_VOLUME_CUBIC_METERS = 2.5;
-    public static final double MAXIMUM_MOLES_PER_CUBIC_METER = 40.0;
     public static final int QUANTIZATION_LEVELS = 20;
 
     /** Byte order used by {@link #packVisualChannels(Map, double)} (least significant first). */
@@ -77,9 +74,9 @@ public final class GasVisibility {
     /**
      * Computes an opacity byte for an amount of gas in a cell. The amount and
      * volume must be finite and nonnegative (volume must be greater than zero).
-     * Amounts at or below the visible threshold return zero. Quantized zero is
-     * amount above threshold receives at least the first nonzero quantized
-     * level, even when rounding would otherwise produce zero.
+     * Amounts at or below the visible threshold return zero. Amounts above the
+     * threshold use the original rounded 20-level quantization, which can still
+     * yield zero until the first quantization boundary is crossed.
      */
     public static int alphaByte(GasType gas, double moles, double cellVolumeCubicMeters) {
         Objects.requireNonNull(gas, "gas");
@@ -93,13 +90,12 @@ public final class GasVisibility {
         }
 
         double threshold = thresholdMoles(gas) * cellVolumeCubicMeters / REFERENCE_VOLUME_CUBIC_METERS;
-        double maximum = MAXIMUM_MOLES_PER_CUBIC_METER * cellVolumeCubicMeters;
+        double maximum = maximumMoles(gas) * cellVolumeCubicMeters / REFERENCE_VOLUME_CUBIC_METERS;
         if (moles <= threshold) {
             return 0;
         }
         double normalized = Math.max(0.0, Math.min(1.0, (moles - threshold) / (maximum - threshold)));
         int level = (int) Math.round(normalized * (QUANTIZATION_LEVELS - 1));
-        level = Math.max(1, level);
         return level * 255 / (QUANTIZATION_LEVELS - 1);
     }
 
@@ -110,7 +106,7 @@ public final class GasVisibility {
         if (columnHeight <= 0) throw new IllegalArgumentException("columnHeight must be positive");
         if (ss14Alpha == 0) return 0;
         double normalized = ss14Alpha / 255.0;
-        double columnOpacity = Math.min(0.55 * normalized, 0.55);
+        double columnOpacity = Math.min(0.85 * normalized, 0.85);
         double perCellOpacity = 1.0 - Math.pow(1.0 - columnOpacity, 1.0 / columnHeight);
         double perPlaneOpacity = 1.0 - Math.pow(1.0 - perCellOpacity, 1.0 / planes);
         return Math.max(1, Math.min(255, (int) Math.round(perPlaneOpacity * 255)));
@@ -170,6 +166,14 @@ public final class GasVisibility {
             case AMMONIA -> 2.0;
             case FREZON -> 0.6;
             default -> 0.25;
+        };
+    }
+
+    private static double maximumMoles(GasType gas) {
+        return switch (gas) {
+            case AMMONIA -> 7.0;
+            case FREZON -> 12.0;
+            default -> 5.0;
         };
     }
 

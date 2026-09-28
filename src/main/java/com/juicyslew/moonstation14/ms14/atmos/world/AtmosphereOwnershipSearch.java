@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.atmos.world;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -36,6 +37,8 @@ public final class AtmosphereOwnershipSearch {
     private final Set<BlockPos> candidates = new HashSet<>();
     private final Set<BlockPos> visited = new LinkedHashSet<>();
     private final Set<BlockPos> unresolved = new LinkedHashSet<>();
+    private final Set<ChunkPos> touchedChunks = new HashSet<>();
+    private final Set<ChunkPos> unresolvedChunks = new HashSet<>();
     private BlockPos current;
     private int directionIndex;
     private Status terminal;
@@ -69,6 +72,7 @@ public final class AtmosphereOwnershipSearch {
         if (seedPending && maxInspections > 0) {
             seedPending = false;
             BlockPos seed = frontier.removeFirst();
+            touchedChunks.add(new ChunkPos(seed));
             ProbeResult result = inspect(probe, seed);
             work++;
             if (result == ProbeResult.FINITE_CLAIMED) {
@@ -85,6 +89,7 @@ public final class AtmosphereOwnershipSearch {
                 frontier.addLast(seed);
             } else if (result == ProbeResult.UNKNOWN_UNLOADED) {
                 unresolved.add(seed);
+                unresolvedChunks.add(new ChunkPos(seed));
                 frontier.clear();
             } else {
                 frontier.clear();
@@ -111,6 +116,9 @@ public final class AtmosphereOwnershipSearch {
             }
             candidates.add(neighbor);
             ProbeResult result = checked(probe.inspect(neighbor));
+            // The candidate is counted before probing, so the distinct dependency set is bounded
+            // by the same cap as the search itself.
+            touchedChunks.add(new ChunkPos(neighbor));
             if (result == ProbeResult.OPEN_SKY_SEED) {
                 visited.add(neighbor);
                 terminal = Status.EXTERIOR;
@@ -121,6 +129,7 @@ public final class AtmosphereOwnershipSearch {
                 frontier.addLast(neighbor);
             } else if (result == ProbeResult.UNKNOWN_UNLOADED) {
                 unresolved.add(neighbor);
+                unresolvedChunks.add(new ChunkPos(neighbor));
             }
             // BLOCKED and FINITE_CLAIMED are barriers, not members of this component.
         }
@@ -134,7 +143,9 @@ public final class AtmosphereOwnershipSearch {
             BlockPos retry = unresolved.iterator().next();
             unresolved.remove(retry);
             ProbeResult result = checked(probe.inspect(retry));
+            touchedChunks.add(new ChunkPos(retry));
             work++;
+            if (result != ProbeResult.UNKNOWN_UNLOADED) unresolvedChunks.remove(new ChunkPos(retry));
             if (result == ProbeResult.OPEN_SKY_SEED) {
                 visited.add(retry);
                 terminal = Status.EXTERIOR;
@@ -145,8 +156,10 @@ public final class AtmosphereOwnershipSearch {
                 frontier.addLast(retry);
                 return snapshot(Status.IN_PROGRESS);
             }
-            if (result == ProbeResult.UNKNOWN_UNLOADED) unresolved.add(retry);
-            else if (result == ProbeResult.FINITE_CLAIMED) {
+            if (result == ProbeResult.UNKNOWN_UNLOADED) {
+                unresolved.add(retry);
+                unresolvedChunks.add(new ChunkPos(retry));
+            } else if (result == ProbeResult.FINITE_CLAIMED) {
                 // The cell became a claim while unloaded; it remains a barrier.
             }
             return snapshot(unresolved.isEmpty() ? (terminal = Status.FINITE) : Status.UNKNOWN);
@@ -165,6 +178,13 @@ public final class AtmosphereOwnershipSearch {
 
     /** Alias for explicit invalidation when the observed topology changes. */
     public Snapshot topologyChanged() { return cancel(); }
+
+    /** Chunks already observed by this search; future frontier chunks are deliberately absent. */
+    boolean hasTouchedChunk(ChunkPos chunk) { return touchedChunks.contains(chunk); }
+
+    /** Unloaded chunks whose cells were actually probed, for targeted parked-search wakeups. */
+    Set<ChunkPos> unresolvedChunks() { return Set.copyOf(unresolvedChunks); }
+
 
     private ProbeResult inspect(NeighborProbe probe, BlockPos position) {
         return checked(probe.inspect(position));

@@ -1,6 +1,6 @@
 # M0c: Mind and Mob Harness contract
 
-**Status: architecture/source record only.** The owner explicitly selected a distinct authenticated control-session **Mind** and a **Mob Harness** for every controllable entity, including the ghost. The earlier M0b premise of treating the Minecraft `ServerPlayer` spectator carrier as the ghost and allowing the Mind to be vacant by default is superseded. This audit authorizes only the isolated M1 pure model/tests identified below; it does not authorize shared integration, a command, or claim that a complete SS14 architecture has been implemented. See the [current sprint instructions](../../../instructions-player-body-control-sprint.md) and the [superseded M0b audit](m0b-spectator-ghost-harness-proof.md).
+**Status: architecture/source record only.** The owner explicitly selected a distinct authenticated control-session **Mind** and a **Mob Harness** for every controllable entity, including the ghost. The earlier M0b premise of treating the Minecraft `ServerPlayer` spectator carrier as the ghost and allowing the Mind to be vacant by default is superseded. This audit authorizes only the isolated M1 pure model/tests identified below; it does not authorize shared integration, a command, or claim that a complete SS14 architecture has been implemented. See the [current sprint instructions](../Instructions.md) and the [superseded M0b audit](m0b-spectator-ghost-harness-proof.md).
 
 ## Pinned SS14 evidence
 

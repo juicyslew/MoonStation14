@@ -5,9 +5,12 @@ import com.juicyslew.moonstation14.block.custom.JugBlock;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.block.custom.PuddleBlock;
 import com.juicyslew.moonstation14.block.custom.AtmosphereTestDeviceBlock;
+import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -29,6 +32,10 @@ public class ModBlocks {
     public static final DeferredBlock<Block> STEEL_WALL_BLOCK = registerBlock("steel_wall_block",
             () -> new Block(BlockBehaviour.Properties.of()
                     .strength(4f).requiresCorrectToolForDrops().sound(SoundType.COPPER_GRATE)));
+
+    public static final DeferredBlock<StationFloorBlock> STATION_FLOOR = registerBlock("station_floor",
+            () -> new StationFloorBlock(BlockBehaviour.Properties.of()
+                    .strength(3f).requiresCorrectToolForDrops().sound(SoundType.METAL)));
 
     public static final DeferredBlock<Block> STEEL_WALL_GIRDER_BLOCK = registerBlock("steel_wall_girder_block",
             () -> new Block(BlockBehaviour.Properties.of().noOcclusion()
@@ -66,6 +73,11 @@ public class ModBlocks {
     public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_COOLER = registerBlock("atmos_cooler",
             () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.COOLER, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
 
+    public static final DeferredBlock<PowerDeviceBlock> HV_SOURCE = registerPowerDevice(PowerDeviceKind.HV_SOURCE);
+    public static final DeferredBlock<PowerDeviceBlock> HV_MV_SUBSTATION = registerPowerDevice(PowerDeviceKind.HV_MV_SUBSTATION);
+    public static final DeferredBlock<PowerDeviceBlock> APC = registerPowerDevice(PowerDeviceKind.APC);
+    public static final DeferredBlock<PowerDeviceBlock> POWER_LAMP = registerPowerDevice(PowerDeviceKind.LAMP);
+
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
         registerBlockItem(name, toReturn);
@@ -75,6 +87,12 @@ public class ModBlocks {
     private static DeferredBlock<AtmosphereTestDeviceBlock> registerGasProducer(GasType gas) {
         return registerBlock("atmos_" + gas.id() + "_producer", () -> new AtmosphereTestDeviceBlock(
                 AtmosphereDeviceRules.Device.PRODUCER, gas, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
+    }
+
+    private static DeferredBlock<PowerDeviceBlock> registerPowerDevice(PowerDeviceKind kind) {
+        return registerBlock(kind.id(), () -> new PowerDeviceBlock(kind,
+                BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER).noOcclusion()
+                        .lightLevel(state -> kind == PowerDeviceKind.LAMP && state.getValue(PowerDeviceBlock.LIT) ? 14 : 0)));
     }
 
     private static <T extends Block> void registerBlockItem(String name, DeferredBlock<T> block) {

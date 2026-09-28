@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.AtmosphereTestDeviceBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
@@ -40,6 +41,10 @@ public class ModBlockEntities {
                     ModBlocks.ATMOS_CARBON_DIOXIDE_PRODUCER.get(), ModBlocks.ATMOS_PLASMA_PRODUCER.get(), ModBlocks.ATMOS_TRITIUM_PRODUCER.get(),
                     ModBlocks.ATMOS_WATER_VAPOR_PRODUCER.get(), ModBlocks.ATMOS_AMMONIA_PRODUCER.get(), ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER.get(),
                     ModBlocks.ATMOS_FREZON_PRODUCER.get(), ModBlocks.ATMOS_GAS_SINK.get(), ModBlocks.ATMOS_HEATER.get(), ModBlocks.ATMOS_COOLER.get()).build(null)
+    );
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PowerDeviceBlockEntity>> POWER_DEVICE = BLOCK_ENTITY_TYPES.register("power_device",
+            () -> BlockEntityType.Builder.of(PowerDeviceBlockEntity::new,
+                    ModBlocks.HV_SOURCE.get(), ModBlocks.HV_MV_SUBSTATION.get(), ModBlocks.APC.get(), ModBlocks.POWER_LAMP.get()).build(null)
     );
 
     public static void register(IEventBus eventBus){

@@ -20,6 +20,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControl
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleStartupRuntime;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
@@ -257,6 +258,11 @@ public final class GhostMobHarnessControl {
             return 0;
         }
         MinecraftServer server = player.level().getServer();
+        if (LifecycleStartupRuntime.blocksDebugMindFor(server, player.getUUID())) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "Mind ghost unavailable: lifecycle startup has a reserved account claim or requires operator recovery."));
+            return 0;
+        }
         RuntimeState state = serverState(server);
         if (state.sessions.containsKey(player.getUUID())) return 0;
 
@@ -618,6 +624,7 @@ public final class GhostMobHarnessControl {
     @SubscribeEvent
     public static void serverStopped(ServerStoppedEvent event) {
         MindGhostStartupGate.onServerStopped();
+        GhostControlNetworking.clearDebugServerHandler();
         RuntimeState state = SERVERS.get(event.getServer());
         if (state == null) return;
         for (Session session : state.sessions.values().toArray(Session[]::new)) end(state, session, false);
@@ -627,7 +634,6 @@ public final class GhostMobHarnessControl {
                     cleanup.context, cleanup.player.getGameProfile().getName());
         }
         SERVERS.remove(event.getServer());
-        GhostControlNetworking.installServerHandler(null);
     }
 
     private static boolean eligible(RuntimeState state, Session session, ServerPlayer player) {
@@ -654,10 +660,19 @@ public final class GhostMobHarnessControl {
                 && GroundedHarnessLease.isOwnedBodyEligible(body);
     }
 
-    /** Creates the runtime state and always ensures its packet handler is installed. */
+    /** Exact, read-only ownership check for this controller's connected debug session. */
+    public static boolean ownsDebugSession(ServerPlayer player) {
+        if (player == null || !connected(player) || player.level().getServer() == null) return false;
+        RuntimeState state = SERVERS.get(player.level().getServer());
+        Session session = state == null ? null : state.sessions.get(player.getUUID());
+        return session != null && session.player == player;
+    }
+
+    /** Creates the runtime state and ensures the debug packet handler owns only its exact sessions. */
     private static RuntimeState serverState(MinecraftServer server) {
         RuntimeState state = SERVERS.computeIfAbsent(server, ignored -> new RuntimeState());
-        GhostControlNetworking.installServerHandler(GhostMobHarnessControl::onPayload);
+        GhostControlNetworking.installDebugServerHandler(GhostMobHarnessControl::onPayload,
+                GhostMobHarnessControl::ownsDebugSession);
         return state;
     }
 

@@ -33,6 +33,26 @@ class BodyControlRegistryTest {
     }
 
     @Test
+    void stableMindStartsOnRegisteredEligibleCharacterAndRejectsDebugOwnedHarnessWithoutEpochChange() {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID debugSession = uuid(500);
+        MobHarnessId debugGhost = harness(registry, 501, MobHarnessKind.GHOST);
+        MobHarnessId character = harness(registry, 502, MobHarnessKind.CHARACTER);
+        MobHarnessId unowned = harness(registry, 503, MobHarnessKind.CHARACTER);
+        var debugMind = registry.createMind(debugSession, debugGhost, ELIGIBLE).orElseThrow();
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.transfer(debugSession, character, debugMind.epoch(), ELIGIBLE));
+        var characterOwner = registry.mind(debugSession).orElseThrow();
+        assertTrue(registry.createCharacterMind(uuid(504), new MindId(uuid(505)), character, ELIGIBLE).isEmpty());
+        assertTrue(registry.createCharacterMind(uuid(506), new MindId(uuid(507)), new MobHarnessId(uuid(508)), ELIGIBLE).isEmpty());
+        assertTrue(registry.createCharacterMind(uuid(506), new MindId(uuid(507)), unowned, target -> false).isEmpty());
+        assertEquals(characterOwner, registry.mind(debugSession).orElseThrow());
+        assertTrue(registry.createCharacterMind(uuid(506), new MindId(uuid(507)), unowned, ELIGIBLE).isEmpty());
+        assertTrue(registry.mind(uuid(506)).isEmpty());
+        assertEquals(characterOwner.epoch(), registry.mind(debugSession).orElseThrow().epoch());
+    }
+
+    @Test
     void transfersGhostToCharacterAndBackWithoutReplacingTheMind() {
         BodyControlRegistry registry = new BodyControlRegistry();
         UUID session = uuid(10);
@@ -306,6 +326,22 @@ class BodyControlRegistryTest {
         assertThrows(ArithmeticException.class, () -> registry.logout(session));
         assertEquals(mind, registry.mind(session).orElseThrow());
         assertTrue(registry.authorizes(session, ghost, mind.epoch(), ELIGIBLE));
+    }
+
+    @Test
+    void debugGhostMindKeepsLegacyTransferReleaseAndLogoutSemantics() {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID session = uuid(600);
+        MobHarnessId ghost = harness(registry, 601, MobHarnessKind.GHOST);
+        MobHarnessId character = harness(registry, 602, MobHarnessKind.CHARACTER);
+        var mind = registry.createMind(session, ghost, ELIGIBLE).orElseThrow();
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.transfer(session, character, mind.epoch(), ELIGIBLE));
+        var transferred = registry.mind(session).orElseThrow();
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.release(session, transferred.epoch(), BodyControlRegistry.ReleaseReason.FAILURE));
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED, registry.logout(session));
+        assertTrue(registry.mind(session).isEmpty());
     }
 
     private static MobHarnessId harness(BodyControlRegistry registry, long id, MobHarnessKind kind) {

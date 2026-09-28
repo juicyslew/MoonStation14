@@ -5,13 +5,18 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -23,10 +28,189 @@ import java.util.Set;
 public final class AtmosphereRoomGameTests {
     private static final double INJECTED_MOLES = 8.0;
     private static final double ROOM_TEMPERATURE_KELVIN = 293.15;
+    private static final int HALLWAY_LENGTH = 31;
+    private static final int HALLWAY_OWNERSHIP_PASS_LIMIT = 40;
+    private static final int HALLWAY_DIFFUSION_PASS_LIMIT = 10;
 
     private AtmosphereRoomGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
+    public static void longHallwayServiceDiffusesTritiumAcrossAll124Cells(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        buildTritiumHallway(helper);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        BlockPos near = helper.absolutePos(new BlockPos(2, 1, 2));
+
+        // Strict samples queue ownership work; keep requesting every cell while the service
+        // classifies the whole room, and do not inject until every cell has a finite claim.
+        for (int x = 2; x <= HALLWAY_LENGTH + 1; x++) {
+            for (int y = 1; y <= 2; y++) {
+                for (int z = 2; z <= 3; z++) {
+                    BlockPos cell = helper.absolutePos(new BlockPos(x, y, z));
+                    level.getChunk(cell); // The 31-cell structure may cross a chunk boundary.
+                    require(service.sample(level, cell).isEmpty(),
+                            "hallway cells must be unknown before ownership classification");
+                }
+            }
+        }
+
+        int ownershipPasses = 0;
+        while (ownershipPasses < HALLWAY_OWNERSHIP_PASS_LIMIT
+                && !hallwayHasFiniteClaims(level, helper)) {
+            ownershipPasses++;
+            service.tick(level, (long) ownershipPasses * AtmosphereService.TICK_CADENCE);
+            for (int x = 2; x <= HALLWAY_LENGTH + 1; x++) {
+                for (int y = 1; y <= 2; y++) {
+                    for (int z = 2; z <= 3; z++)
+                        service.sample(level, helper.absolutePos(new BlockPos(x, y, z)));
+                }
+            }
+        }
+        require(hallwayHasFiniteClaims(level, helper),
+                "all 124 hallway cells must be finitely owned before injection; classification passes="
+                        + ownershipPasses);
+        require(service.sample(level, near).orElseThrow().totalMoles() == 0.0,
+                "classified hallway must begin at vacuum");
+        require(service.addGas(level, near, GasType.TRITIUM, 2.0, ROOM_TEMPERATURE_KELVIN),
+                "TRITIUM injection into the finite hallway must succeed");
+
+        int diffusionPasses = 0;
+        while (diffusionPasses < HALLWAY_DIFFUSION_PASS_LIMIT
+                && !farHallwayHasTritium(service, level, helper)) {
+            diffusionPasses++;
+            service.tick(level, (long) (ownershipPasses + diffusionPasses)
+                    * AtmosphereService.TICK_CADENCE);
+        }
+        require(farHallwayHasTritium(service, level, helper),
+                "TRITIUM must reach every preclassified far-end hallway cell within "
+                        + HALLWAY_DIFFUSION_PASS_LIMIT + " due passes; elapsed=" + diffusionPasses
+                        + " passes");
+
+        double totalTritium = hallwayMoles(service, level, helper, GasType.TRITIUM);
+        require(Math.abs(totalTritium - 2.0) < 1.0e-6,
+                "closed hallway must conserve its 2 mol TRITIUM dose; total=" + totalTritium);
+        require(service.boundaryGasLedger(level).isEmpty(),
+                "airtight hallway must not export any gas to an exterior ledger");
+        helper.succeed();
+    }
+
+    private static void buildTritiumHallway(GameTestHelper helper) {
+        int firstX = 1;
+        int lastX = HALLWAY_LENGTH + 2;
+        for (int x = firstX; x <= lastX; x++) {
+            for (int z = 1; z <= 4; z++) {
+                helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+                helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+            }
+        }
+        for (int y = 1; y <= 2; y++) {
+            for (int x = firstX; x <= lastX; x++) {
+                helper.setBlock(new BlockPos(x, y, 1), Blocks.STONE);
+                helper.setBlock(new BlockPos(x, y, 4), Blocks.STONE);
+            }
+            for (int z = 1; z <= 4; z++) {
+                helper.setBlock(new BlockPos(firstX, y, z), Blocks.STONE);
+                helper.setBlock(new BlockPos(lastX, y, z), Blocks.STONE);
+            }
+        }
+    }
+
+    private static boolean hallwayHasFiniteClaims(ServerLevel level, GameTestHelper helper) {
+        for (int x = 2; x <= HALLWAY_LENGTH + 1; x++) {
+            for (int y = 1; y <= 2; y++) {
+                for (int z = 2; z <= 3; z++) {
+                    BlockPos cell = helper.absolutePos(new BlockPos(x, y, z));
+                    LevelChunk chunk = (LevelChunk) level.getChunk(cell);
+                    var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+                    if (data == null || !data.isFiniteClaimed(cell.getX() & 15, cell.getY(), cell.getZ() & 15))
+                        return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static boolean isFiniteClaimed(ServerLevel level, BlockPos pos) {
+        LevelChunk chunk = (LevelChunk) level.getChunk(pos);
+        var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        return data != null && data.isFiniteClaimed(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+    }
+
+    private static BlockPos firstMissingSealedRoomClaim(ServerLevel level, GameTestHelper helper) {
+        for (int x = 2; x <= 4; x++) {
+            for (int y = 1; y <= 2; y++) {
+                for (int z = 2; z <= 4; z++) {
+                    BlockPos cell = helper.absolutePos(new BlockPos(x, y, z));
+                    if (!isFiniteClaimed(level, cell)) return cell;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void requireGapSamplePresent(AtmosphereService service, ServerLevel level, BlockPos gap,
+                                               BlockPos producer, String stage) {
+        if (service.sample(level, gap).isPresent()) return;
+        ChunkAccess loaded = level.getChunkSource().getChunk(gap.getX() >> 4, gap.getZ() >> 4,
+                ChunkStatus.FULL, false);
+        LevelChunk chunk = loaded instanceof LevelChunk full ? full : null;
+        if (chunk == null) {
+            throw new GameTestAssertException("verified exterior gap sample missing " + stage
+                    + "; gap=" + gap + " chunk=" + chunkCoordinates(gap)
+                    + ", producer=" + producer + " chunk=" + chunkCoordinates(producer)
+                    + ", gapChunkLoaded=false (diagnostics do not load chunks or advance simulation)");
+        }
+        var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        boolean finiteClaimed = data != null
+                && data.isFiniteClaimed(gap.getX() & 15, gap.getY(), gap.getZ() & 15);
+        var state = level.getBlockState(gap);
+        int firstFreeY = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING,
+                gap.getX() & 15, gap.getZ() & 15);
+        throw new GameTestAssertException("verified exterior gap sample missing " + stage
+                + "; gap=" + gap + " chunk=" + chunkCoordinates(gap)
+                + ", producer=" + producer + " chunk=" + chunkCoordinates(producer)
+                + ", firstFreeY=" + firstFreeY + ", gapState=" + state
+                + ", gapPassable=" + AtmosphereTopology.isPassable(level, gap)
+                + ", finiteClaimed=" + finiteClaimed);
+    }
+
+    private static String chunkCoordinates(BlockPos pos) {
+        return "(" + (pos.getX() >> 4) + "," + (pos.getZ() >> 4) + ")";
+    }
+
+    private static double hallwayMoles(AtmosphereService service, ServerLevel level, GameTestHelper helper,
+                                       GasType type) {
+        double total = 0.0;
+        for (int x = 2; x <= HALLWAY_LENGTH + 1; x++) {
+            for (int y = 1; y <= 2; y++) {
+                for (int z = 2; z <= 3; z++) {
+                    BlockPos cell = helper.absolutePos(new BlockPos(x, y, z));
+                    total += service.sample(level, cell)
+                            .orElseThrow(() -> new GameTestAssertException("room cell became unclassified at "
+                                    + cell)).moles(type);
+                }
+            }
+        }
+        return total;
+    }
+
+    private static boolean farHallwayHasTritium(AtmosphereService service, ServerLevel level,
+                                                 GameTestHelper helper) {
+        boolean allPositive = true;
+        for (int x = 28; x <= 32; x++) {
+            for (int y = 1; y <= 2; y++) {
+                for (int z = 2; z <= 3; z++) {
+                    GasMixture mixture = service.sample(level, helper.absolutePos(new BlockPos(x, y, z)))
+                            .orElseThrow(() -> new GameTestAssertException(
+                                    "preclassified far-end hallway cell became non-finite"));
+                    allPositive &= mixture.moles(GasType.TRITIUM) > 0.0;
+                }
+            }
+        }
+        return allPositive;
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_sealed_room", timeoutTicks = 100)
     public static void sealedRoomDiffusesGasAndConservesSpecies(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildSealedRoom(helper);
@@ -41,11 +225,24 @@ public final class AtmosphereRoomGameTests {
         GasMixture initial = classifyUntilSample(service, level, near, 12);
         require(initial.totalMoles() == 0.0,
                 "sealed room must begin at vacuum");
-        LevelChunk roomChunk = (LevelChunk) level.getChunk(near);
-        require(roomChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) != null
-                        && roomChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get())
-                        .isFiniteClaimed(far.getX() & 15, far.getY(), far.getZ() & 15),
-                "classification must persist a finite claim even for an ambient-valued room cell");
+        int ownershipPasses = 0;
+        BlockPos missingClaim;
+        while (ownershipPasses < 12 && (missingClaim = firstMissingSealedRoomClaim(level, helper)) != null) {
+            ownershipPasses++;
+            service.tick(level, (long) (12 + ownershipPasses) * AtmosphereService.TICK_CADENCE);
+            for (int x = 2; x <= 4; x++) {
+                for (int y = 1; y <= 2; y++) {
+                    for (int z = 2; z <= 4; z++)
+                        service.sample(level, helper.absolutePos(new BlockPos(x, y, z)));
+                }
+            }
+        }
+        missingClaim = firstMissingSealedRoomClaim(level, helper);
+        require(missingClaim == null,
+                "all 18 sealed-room cells must have finite claims before injection; missing=" + missingClaim
+                        + ", classification passes=" + ownershipPasses);
+        require(service.sample(level, near).isPresent() && service.sample(level, far).isPresent(),
+                "near and far room cells must both be strictly sampleable after ownership classification");
         require(service.addBreathableAir(level, near, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
                 "breathable gas injection into sealed room must succeed");
 
@@ -73,7 +270,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_covered_exterior", timeoutTicks = 100)
     public static void coveredExteriorSealingAndBreachRespectOwnership(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildCoveredRoomWithSideGap(helper);
@@ -85,7 +282,8 @@ public final class AtmosphereRoomGameTests {
         GasMixture exposed = classifyUntilSample(service, level, roomCell, 12);
         require(Math.abs(exposed.pressureKpa(1.0)) < 1.0e-9,
                 "covered room connected to an open side gap must classify as exterior vacuum");
-        require(service.sample(level, gap).orElseThrow().totalMoles() == 0.0,
+        require(service.sample(level, gap).orElseThrow(() -> new GameTestAssertException(
+                        "open side gap was not classified as exterior at " + gap)).totalMoles() == 0.0,
                 "open side gap must be exterior");
         require(!service.addBreathableAir(level, roomCell, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
                 "exterior-connected covered air must reject injection");
@@ -101,13 +299,13 @@ public final class AtmosphereRoomGameTests {
                 "fully sealed covered room must become finite and accept injection");
 
         double gasBeforeBreach = roomMoles(service, level, helper);
-        double oxygenBeforeBreach = roomMoles(service, level, GasType.OXYGEN, helper);
-        double nitrogenBeforeBreach = roomMoles(service, level, GasType.NITROGEN, helper);
+        double oxygenBeforeBreach = coveredRoomMoles(service, level, GasType.OXYGEN, helper);
+        double nitrogenBeforeBreach = coveredRoomMoles(service, level, GasType.NITROGEN, helper);
         require(gasBeforeBreach > 0.0, "finite room must contain injected gas before breach");
         helper.setBlock(new BlockPos(3, 1, 1), Blocks.AIR);
         service.topologyChanged(level, gap);
         GasMixture retained = service.sample(level, roomCell).orElseThrow(
-                () -> new GameTestAssertException("previous finite claims must survive the breach"));
+                () -> new GameTestAssertException("previous finite claims must survive the breach at " + roomCell));
         require(retained.totalMoles() > 0.0,
                 "breach must not instantly erase gas from the previously finite room cell");
 
@@ -119,27 +317,152 @@ public final class AtmosphereRoomGameTests {
         require(gasAfterDrain < gasBeforeBreach * 0.5,
                 "gas should drain substantially through the exterior edge; before=" + gasBeforeBreach
                         + ", after=" + gasAfterDrain);
-        require(service.sample(level, gap).orElseThrow().totalMoles() == 0.0,
+        require(service.sample(level, gap).orElseThrow(() -> new GameTestAssertException(
+                        "breached exterior gap was not classified at " + gap)).totalMoles() == 0.0,
                 "vacuum exterior must remain ambient rather than accumulating exported gas");
         double oxygenExported = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0);
         double nitrogenExported = service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
-        require(Math.abs(oxygenBeforeBreach - roomMoles(service, level, GasType.OXYGEN, helper)
+        require(Math.abs(oxygenBeforeBreach - coveredRoomMoles(service, level, GasType.OXYGEN, helper)
                 - oxygenExported) < 1.0e-6,
                 "oxygen export ledger must equal removed oxygen");
-        require(Math.abs(nitrogenBeforeBreach - roomMoles(service, level, GasType.NITROGEN, helper)
+        require(Math.abs(nitrogenBeforeBreach - coveredRoomMoles(service, level, GasType.NITROGEN, helper)
                 - nitrogenExported) < 1.0e-6,
                 "nitrogen export ledger must equal removed nitrogen");
         require(oxygenExported >= 0.0 && nitrogenExported >= 0.0
                         && oxygenExported + nitrogenExported <= gasBeforeBreach + 1.0e-6,
                 "boundary exchange must not create gas");
+
+        // Unrelated producer-like updates and broad neighbor notifications must not invalidate a
+        // separately proven covered exterior gap (even momentarily).
+        BlockPos unrelatedProducer = helper.absolutePos(new BlockPos(7, 1, 1));
+        requireGapSamplePresent(service, level, gap, unrelatedProducer, "before unrelated producer stone edit");
+        helper.setBlock(new BlockPos(7, 1, 1), Blocks.STONE);
+        service.topologyChanged(level, unrelatedProducer);
+        requireGapSamplePresent(service, level, gap, unrelatedProducer, "after unrelated producer stone edit");
+        helper.setBlock(new BlockPos(7, 1, 1), Blocks.AIR);
+        service.topologyChanged(level, unrelatedProducer);
+        requireGapSamplePresent(service, level, gap, unrelatedProducer, "after unrelated producer air edit");
+        for (int notify = 0; notify < 4; notify++) {
+            service.topologyChanged(level, unrelatedProducer);
+            requireGapSamplePresent(service, level, gap, unrelatedProducer,
+                    "after unrelated producer notification " + (notify + 1));
+        }
+        double exportedBeforeProducerDose = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0)
+                + service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
+        require(service.addBreathableAir(level, roomCell, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
+                "finite claimed room cell accepts a fresh producer-like gas dose");
+        for (long gameTime = 14L * AtmosphereService.TICK_CADENCE;
+             gameTime <= 30L * AtmosphereService.TICK_CADENCE; gameTime += AtmosphereService.TICK_CADENCE) {
+            service.tick(level, gameTime);
+        }
+        require(service.sample(level, gap).isPresent(),
+                "the active covered boundary must be automatically reclassified without analyzer sampling");
+        double exportedAfterProducerDose = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0)
+                + service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
+        require(exportedAfterProducerDose > exportedBeforeProducerDose + 1.0e-6,
+                "producer-like gas dose must be exported after automatic boundary rediscovery");
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_door_toggle", timeoutTicks = 100)
+    public static void closedDoorToggleAutomaticallyOpensAndClosesExteriorRoute(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        buildCoveredRoomWithSideGap(helper);
+        BlockPos lowerLocal = new BlockPos(3, 1, 1);
+        BlockPos upperLocal = new BlockPos(3, 2, 1);
+        helper.setBlock(upperLocal, Blocks.STONE);
+        helper.setBlock(lowerLocal, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER)
+                .setValue(DoorBlock.OPEN, false));
+        helper.setBlock(upperLocal, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER)
+                .setValue(DoorBlock.OPEN, false));
+
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        BlockPos lower = helper.absolutePos(lowerLocal);
+        BlockPos roomCell = helper.absolutePos(new BlockPos(2, 1, 1));
+        BlockPos gap = helper.absolutePos(lowerLocal);
+        GasMixture closedRoom = classifyUntilSample(service, level, roomCell, 12);
+        require(closedRoom.totalMoles() == 0.0,
+                "closed door must initially enclose a finite vacuum room");
+        require(isFiniteClaimed(level, roomCell),
+                "closed room must have a finite ownership claim before the door is opened");
+        require(service.addBreathableAir(level, roomCell, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
+                "closed room must accept gas before opening the door");
+        double gasBeforeOpening = roomMoles(service, level, helper);
+        service.neighborNotified(level, lower); // Capture closed baseline after proving finite ownership.
+
+        setDoorOpen(helper, lowerLocal, upperLocal, true);
+        service.neighborNotified(level, lower);
+        for (int pass = 1; pass <= 12; pass++)
+            service.tick(level, (long) (pass + 1) * AtmosphereService.TICK_CADENCE);
+        GasMixture afterOpening = service.sample(level, roomCell).orElseThrow(() ->
+                new GameTestAssertException("previous finite room claim was lost when door opened at " + roomCell));
+        require(afterOpening.totalMoles() > 0.0,
+                "opening the door must retain the previously finite room gas claim");
+        require(service.sample(level, gap).isPresent(),
+                "open door gap must be automatically classified exterior without sampling it to trigger work");
+        double gasAfterOpening = roomMoles(service, level, helper);
+        require(gasAfterOpening < gasBeforeOpening,
+                "open door must vent the finite room; before=" + gasBeforeOpening + ", after=" + gasAfterOpening);
+        require(service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0)
+                        + service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0) > 0.0,
+                "open door must record vented gas in the boundary ledger");
+
+        setDoorOpen(helper, lowerLocal, upperLocal, false);
+        service.neighborNotified(level, lower);
+        require(service.sample(level, roomCell).isPresent(),
+                "reclosing the door must preserve the room's established finite ownership");
+        require(isFiniteClaimed(level, roomCell),
+                "reclosing the door must not erase the previously established finite claim");
+
+        setDoorOpen(helper, lowerLocal, upperLocal, true);
+        service.neighborNotified(level, lower);
+        double exportedBeforeReopenDose = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0)
+                + service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
+        require(service.addBreathableAir(level, roomCell, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
+                "reopened finite room must accept a fresh gas dose");
+        for (long gameTime = 14L * AtmosphereService.TICK_CADENCE;
+             gameTime <= 24L * AtmosphereService.TICK_CADENCE; gameTime += AtmosphereService.TICK_CADENCE)
+            service.tick(level, gameTime);
+        GasMixture reopenedGap = service.sample(level, gap).orElseThrow(() ->
+                new GameTestAssertException("reopened door gap was not classified after service ticks at " + gap));
+        require(reopenedGap.totalMoles() == 0.0,
+                "reopening must automatically classify the door gap as ambient exterior after service ticks");
+        double exportedAfterReopenDose = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0)
+                + service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
+        require(exportedAfterReopenDose > exportedBeforeReopenDose + 1.0e-6,
+                "fresh gas dose must resume exporting through the automatically rediscovered open door");
+        helper.succeed();
+    }
+
+    private static void setDoorOpen(GameTestHelper helper, BlockPos lower, BlockPos upper, boolean open) {
+        helper.setBlock(lower, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER)
+                .setValue(DoorBlock.OPEN, open));
+        helper.setBlock(upper, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER)
+                .setValue(DoorBlock.OPEN, open));
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_wall_opening", timeoutTicks = 100)
     public static void fullWallOpeningDrainsMoreThanOneBlockOpening(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildSealedRoom(helper, 0);
         buildSealedRoom(helper, 8);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        BlockPos fullRoom = helper.absolutePos(new BlockPos(3, 1, 3));
+        BlockPos singleRoom = helper.absolutePos(new BlockPos(11, 1, 3));
+        classifyUntilSample(service, level, fullRoom, 12);
+        classifyUntilSample(service, level, singleRoom, 12);
+        require(isFiniteClaimed(level, fullRoom) && isFiniteClaimed(level, singleRoom),
+                "both comparison rooms must be finitely claimed before either wall is opened");
+        require(service.addBreathableAir(level, fullRoom, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
+                "full-opening room should accept gas before the comparison");
+        require(service.addBreathableAir(level, singleRoom, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
+                "single-opening room should accept gas before the comparison");
+        double initialGas = sealedRoomMoles(service, level, helper, 0)
+                + sealedRoomMoles(service, level, helper, 8);
         for (int y = 1; y <= 2; y++) {
             for (int z = 2; z <= 4; z++) {
                 helper.setBlock(new BlockPos(1, y, z), Blocks.AIR);
@@ -153,9 +476,6 @@ public final class AtmosphereRoomGameTests {
             }
         }
 
-        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
-        BlockPos fullRoom = helper.absolutePos(new BlockPos(3, 1, 3));
-        BlockPos singleRoom = helper.absolutePos(new BlockPos(11, 1, 3));
         for (int y = 1; y <= 2; y++) {
             for (int z = 2; z <= 4; z++) {
                 service.topologyChanged(level, helper.absolutePos(new BlockPos(1, y, z)));
@@ -164,13 +484,6 @@ public final class AtmosphereRoomGameTests {
                 }
             }
         }
-        classifyUntilSample(service, level, fullRoom, 12);
-        classifyUntilSample(service, level, singleRoom, 12);
-        require(service.addBreathableAir(level, fullRoom, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
-                "full-opening room should accept gas before the comparison");
-        require(service.addBreathableAir(level, singleRoom, INJECTED_MOLES, ROOM_TEMPERATURE_KELVIN),
-                "single-opening room should accept gas before the comparison");
-
         for (long gameTime = AtmosphereService.TICK_CADENCE;
              gameTime <= 12L * AtmosphereService.TICK_CADENCE; gameTime += AtmosphereService.TICK_CADENCE) {
             service.tick(level, gameTime);
@@ -180,10 +493,16 @@ public final class AtmosphereRoomGameTests {
         require(fullOpeningRemaining < singleOpeningRemaining,
                 "a full-wall opening must export more gas than a one-block opening; full="
                         + fullOpeningRemaining + ", one-block=" + singleOpeningRemaining);
+        double exported = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0)
+                + service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
+        require(Math.abs(fullOpeningRemaining + singleOpeningRemaining + exported - initialGas) < 1.0e-6,
+                "comparison rooms must conserve their combined gas inventory through the boundary ledger; initial="
+                        + initialGas + ", remaining=" + (fullOpeningRemaining + singleOpeningRemaining)
+                        + ", exported=" + exported);
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_sky_exposure", timeoutTicks = 20)
     public static void skyExposedCellUsesAmbientAndRejectsInjection(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());
@@ -253,6 +572,27 @@ public final class AtmosphereRoomGameTests {
             }
         }
         helper.setBlock(new BlockPos(3, 1, 1), Blocks.AIR);
+
+        // The template may include a sky-blocking mask above its declared structure bounds.
+        // Keep the room roof intact, but give this side-gap column direct access to sky so
+        // unrelated edits elsewhere cannot be part of the exterior proof.
+        ServerLevel level = helper.getLevel();
+        BlockPos localGap = new BlockPos(3, 1, 1);
+        BlockPos gap = helper.absolutePos(localGap);
+        int firstFreeY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, gap.getX(), gap.getZ());
+        int maxLocalY = 8;
+        int structureYOffset = gap.getY() - localGap.getY();
+        for (int localY = localGap.getY() + 1;
+             localY < firstFreeY - structureYOffset && localY <= maxLocalY;
+             localY++) {
+            helper.setBlock(new BlockPos(localGap.getX(), localY, localGap.getZ()), Blocks.AIR);
+        }
+        firstFreeY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, gap.getX(), gap.getZ());
+        require(firstFreeY <= gap.getY(),
+                "side gap must have direct sky exposure after clearing its bounded column; gap=" + gap
+                        + ", firstFreeY=" + firstFreeY + ", maximumLocalY=" + maxLocalY);
+        require(AtmosphereTopology.isPassable(level, gap),
+                "direct-sky side gap must be a passable gas cell at " + gap);
     }
 
     private static GasMixture classifyUntilSample(AtmosphereService service, ServerLevel level,
@@ -271,9 +611,25 @@ public final class AtmosphereRoomGameTests {
         for (int x = 2; x <= 4; x++) {
             for (int y = 1; y <= 2; y++) {
                 for (int z = 2; z <= 4; z++) {
-                    total += service.sample(level, helper.absolutePos(new BlockPos(x, y, z)))
-                            .orElseThrow().moles(type);
+                    BlockPos cell = helper.absolutePos(new BlockPos(x, y, z));
+                    total += service.sample(level, cell)
+                            .orElseThrow(() -> new GameTestAssertException("room cell became unclassified at "
+                                    + cell)).moles(type);
                 }
+            }
+        }
+        return total;
+    }
+
+    private static double coveredRoomMoles(AtmosphereService service, ServerLevel level, GasType type,
+                                            GameTestHelper helper) {
+        double total = 0.0;
+        for (int x = 1; x <= 2; x++) {
+            for (int z = 1; z <= 2; z++) {
+                BlockPos cell = helper.absolutePos(new BlockPos(x, 1, z));
+                total += service.sample(level, cell)
+                        .orElseThrow(() -> new GameTestAssertException("covered room cell became unclassified at "
+                                + cell)).moles(type);
             }
         }
         return total;
@@ -287,8 +643,10 @@ public final class AtmosphereRoomGameTests {
         double total = 0.0;
         for (int x = 1; x <= 2; x++) {
             for (int z = 1; z <= 2; z++) {
-                total += service.sample(level, helper.absolutePos(new BlockPos(x + offsetX, 1, z)))
-                        .orElseThrow().totalMoles();
+                BlockPos cell = helper.absolutePos(new BlockPos(x + offsetX, 1, z));
+                total += service.sample(level, cell)
+                        .orElseThrow(() -> new GameTestAssertException("room cell became unclassified at "
+                                + cell)).totalMoles();
             }
         }
         return total;
@@ -300,8 +658,11 @@ public final class AtmosphereRoomGameTests {
         for (int x = 2; x <= 4; x++) {
             for (int y = 1; y <= 2; y++) {
                 for (int z = 2; z <= 4; z++) {
-                    total += service.sample(level, helper.absolutePos(new BlockPos(x + offsetX, y, z)))
-                            .orElseThrow().totalMoles();
+                    BlockPos cell = helper.absolutePos(new BlockPos(x + offsetX, y, z));
+                    total += service.sample(level, cell)
+                            .orElseThrow(() -> new GameTestAssertException("sealed comparison cell became "
+                                    + "unclassified at " + cell))
+                            .totalMoles();
                 }
             }
         }
