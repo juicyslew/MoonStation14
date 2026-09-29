@@ -53,7 +53,7 @@ public final class DamageReducer {
                 positiveOnly.put(key, amount);
             }
         }
-        Map<String, Float> allocation = proportionalAllocation(positiveOnly, finalVanillaDamage * 5f);
+        Map<String, Float> allocation = mitigatedPositiveDelta(positiveOnly, finalVanillaDamage);
         Map<String, Float> changes = new LinkedHashMap<>(allocation);
         for (Map.Entry<String, Float> entry : negative.entrySet()) {
             if (entry.getValue() < 0f) {
@@ -61,6 +61,21 @@ public final class DamageReducer {
             }
         }
         return applyDelta(current, changes);
+    }
+
+    /** Actual post-mitigation positive typed amount, independent of same-transaction healing. */
+    public static Map<String, Float> mitigatedPositiveDelta(Map<String, Float> positiveRequest,
+                                                             float finalVanillaDamage) {
+        if (!Float.isFinite(finalVanillaDamage) || finalVanillaDamage < 0f) {
+            throw new IllegalArgumentException("final damage must be finite and nonnegative");
+        }
+        Map<String, Float> positiveOnly = new LinkedHashMap<>();
+        Map<String, Float> validated = DamageKeys.validateDelta(positiveRequest);
+        for (String key : DamageKeys.ORDER) {
+            float amount = validated.getOrDefault(key, 0f);
+            if (amount > 0f) positiveOnly.put(key, amount);
+        }
+        return proportionalAllocation(positiveOnly, finalVanillaDamage * 5f);
     }
 
     /** Allocates a nonnegative total in canonical key order. */

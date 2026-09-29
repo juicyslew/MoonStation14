@@ -17,14 +17,14 @@ class AdjustTemperatureTest {
     void joulesConvertToKelvinByBoundCharacterHeatCapacity() {
         var body = new BodyTemperatureAttachment(new BodyTemperatureComponent(310.15));
         assertEquals(EffectResult.APPLIED, BodyTemperatureSystem.adjustHeat(body, PROFILE, 1470f, 2f));
-        assertEquals(311.15, body.kelvin(), 1e-12);
+        assertEquals(310.15 + 2940 / PROFILE.bodyHeatCapacityJoulesPerKelvin(), body.kelvin(), 1e-12);
     }
 
     @Test
     void negativeJoulesCoolAndOutOfRangeResultsFailWithoutMutation() {
         var body = new BodyTemperatureAttachment(new BodyTemperatureComponent(310.15));
         assertEquals(EffectResult.APPLIED, BodyTemperatureSystem.adjustHeat(body, PROFILE, -2940f));
-        assertEquals(309.15, body.kelvin(), 1e-12);
+        assertEquals(310.15 - 2940 / PROFILE.bodyHeatCapacityJoulesPerKelvin(), body.kelvin(), 1e-12);
         double before = body.kelvin();
         assertEquals(EffectResult.FAILED, BodyTemperatureSystem.adjustHeat(body, PROFILE, Float.MAX_VALUE));
         assertEquals(before, body.kelvin());

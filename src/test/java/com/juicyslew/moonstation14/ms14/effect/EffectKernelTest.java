@@ -192,10 +192,8 @@ class EffectKernelTest {
                 EffectData.GenericStatusEffect.class, (effect, context) -> EffectResult.APPLIED));
         assertThrows(IllegalArgumentException.class, () -> dispatcher.register(
                 EffectData.PopupMessage.class, (effect, context) -> EffectResult.APPLIED));
-        assertEquals(EffectResult.SKIPPED_UNSUPPORTED, dispatcher.dispatch(
-                new EffectData.ModifyBleed(EffectCommonData.DEFAULT, 1f), null));
-        assertEquals(EffectResult.SKIPPED_UNSUPPORTED, dispatcher.dispatch(
-                new EffectData.ModifyBloodLevel(EffectCommonData.DEFAULT, 1f), null));
+        assertTrue(dispatcher.supportsHandler(new EffectData.ModifyBleed(EffectCommonData.DEFAULT, 1f)));
+        assertTrue(dispatcher.supportsHandler(new EffectData.ModifyBloodLevel(EffectCommonData.DEFAULT, 1f)));
     }
 
     @Test

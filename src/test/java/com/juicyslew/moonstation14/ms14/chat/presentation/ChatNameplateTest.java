@@ -44,7 +44,12 @@ class ChatNameplateTest {
     }
 
     private static String renderer(String relativePath) throws IOException {
-        return Files.readString(Path.of("src/main/java").resolve(RENDERERS + relativePath));
+        // NeoForge runs tests from a game directory below the project root.
+        for (Path directory = Path.of("").toAbsolutePath(); directory != null; directory = directory.getParent()) {
+            Path source = directory.resolve("src/main/java").resolve(RENDERERS + relativePath);
+            if (Files.isRegularFile(source)) return Files.readString(source);
+        }
+        throw new IOException("Renderer source not found above test working directory: " + relativePath);
     }
 
     private static String between(String source, String start, String end) {

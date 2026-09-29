@@ -45,6 +45,15 @@ class DamageReducerTest {
     }
 
     @Test
+    void postMitigationPositiveAllocationIsSeparateFromHealingAndCancellation() {
+        assertEquals(Map.of("blunt", 2f, "slash", 1f),
+                DamageReducer.mitigatedPositiveDelta(Map.of("blunt", 4f, "slash", 2f), 0.6f));
+        assertEquals(Map.of(), DamageReducer.mitigatedPositiveDelta(Map.of("blunt", 4f), 0f));
+        assertEquals(Map.of("blunt", 2f), DamageReducer.applyMitigated(Map.of("blunt", 4f),
+                Map.of("blunt", 4f), 0f, Map.of("blunt", -2f)));
+    }
+
+    @Test
     void evenHealingRedistributesExcessAndKeepsGroupsIsolated() {
         Map<String, Float> state = Map.of("blunt", 2f, "piercing", 10f, "heat", 4f);
         assertEquals(Map.of("piercing", 6f, "heat", 4f),

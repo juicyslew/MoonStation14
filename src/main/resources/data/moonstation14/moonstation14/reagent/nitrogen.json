@@ -60,7 +60,7 @@
             }
           ],
           "ratios":  {
-            "nitrousoxide":  1,
+            "nitrous_oxide":  1,
             "nitrogen":  -1
           }
         }
