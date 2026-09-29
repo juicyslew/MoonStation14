@@ -97,8 +97,14 @@ final class LifecycleSessionPacketRouter {
     }
 
     private synchronized void refreshNetworkingSlot() {
-        if (ghostHandler != null && ghostOwner != null) installNetworkingSlot();
+        if (networkingSlotRequired(characterHandler != null, characterOwner != null,
+                ghostHandler != null, ghostOwner != null)) installNetworkingSlot();
         else GhostControlNetworking.clearLifecycleServerHandler();
+    }
+
+    static boolean networkingSlotRequired(boolean characterHandlerPresent, boolean characterOwnerPresent,
+                                          boolean ghostHandlerPresent, boolean ghostOwnerPresent) {
+        return (characterHandlerPresent && characterOwnerPresent) || (ghostHandlerPresent && ghostOwnerPresent);
     }
 
     private static boolean owns(Predicate<ServerPlayer> predicate, ServerPlayer player) {

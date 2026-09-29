@@ -43,6 +43,7 @@ class CharacterPrototypeTest {
         assertEquals(2.5, data.movement().orElseThrow().walkSpeed());
         assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
                 data.hostEntityTypes());
+        assertEquals(List.of("left", "right"), data.hands());
         var thermal = data.thermal().orElseThrow();
         assertEquals(70.0, thermal.massKg());
         assertEquals(42.0, thermal.specificHeatJoulesPerKgKelvin());
@@ -70,6 +71,7 @@ class CharacterPrototypeTest {
         assertEquals(Optional.empty(), oldData.movement());
         assertEquals(Optional.empty(), oldData.thermal());
         assertTrue(oldData.hostEntityTypes().isEmpty());
+        assertTrue(oldData.hands().isEmpty());
         assertEquals(oldData, CharacterData.CODEC.parse(JsonOps.INSTANCE,
                 CharacterData.CODEC.encodeStart(JsonOps.INSTANCE, oldData).getOrThrow()).getOrThrow());
         assertEquals(oldData, new CharacterData(oldData.slipData()));
@@ -79,6 +81,7 @@ class CharacterPrototypeTest {
         assertEquals(4.0, pig.movement().orElseThrow().walkSpeed());
         assertNotEquals(2.5, pig.movement().orElseThrow().walkSpeed());
         assertEquals(List.of(ResourceLocation.parse("minecraft:pig")), pig.hostEntityTypes());
+        assertTrue(pig.hands().isEmpty(), "pig prototypes do not acquire implicit hands");
         assertFalse(pig.slipData().canReceiveStun());
         assertTrue(pig.slipData().noSlip());
         assertFalse(pig.slipData().standingEligible());
@@ -205,6 +208,49 @@ class CharacterPrototypeTest {
         missingRequired.getAsJsonObject("slip_data").remove("can_receive_stun");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, missingRequired).error().isPresent());
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("null")).error().isPresent());
+    }
+
+    @Test
+    void handsAreOptionalOrderedCapabilityAndMalformedDeclarationsRejectCodecAndReload() throws IOException {
+        JsonObject human = readResource(RESOURCE);
+        assertEquals(List.of("left", "right"), CharacterData.CODEC.parse(JsonOps.INSTANCE, human)
+                .getOrThrow().hands());
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, withHands(human, "[]"))
+                .getOrThrow().hands().isEmpty());
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, withoutHands(human))
+                .getOrThrow().hands().isEmpty());
+
+        String tooLong = "a".repeat(com.juicyslew.moonstation14.ms14.hands.HandState.MAX_ID_LENGTH + 1);
+        for (JsonObject invalid : List.of(
+                withHands(human, "{}"),
+                withHands(human, "[1]"),
+                withHands(human, "[\"left\",\"left\"]"),
+                withHands(human, "[\" \"]"),
+                withHands(human, "[\"" + tooLong + "\"]"),
+                withHands(human, "[" + String.join(",", java.util.Collections.nCopies(
+                        com.juicyslew.moonstation14.ms14.hands.HandState.MAX_HANDS + 1, "\"h\"")) + "]"))) {
+            assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, invalid).error().isPresent(), invalid.toString());
+        }
+        JsonObject unknownField = human.deepCopy();
+        unknownField.addProperty("hand", "left");
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, unknownField).error().isPresent());
+
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, human));
+        for (JsonObject invalid : List.of(withHands(human, "[\"left\",\"left\"]"),
+                withHands(human, "[\"" + tooLong + "\"]"))) {
+            assertThrows(RuntimeException.class,
+                    () -> manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, invalid)));
+        }
+    }
+
+    private static JsonObject withHands(JsonObject source, String json) {
+        JsonObject result = source.deepCopy(); result.add("hands", JsonParser.parseString(json)); return result;
+    }
+
+    private static JsonObject withoutHands(JsonObject source) {
+        JsonObject result = source.deepCopy(); result.remove("hands"); return result;
     }
 
     private static JsonObject withSlip(JsonObject source, String field, boolean value) {

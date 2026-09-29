@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
+import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -88,6 +89,13 @@ public class ModDataAttachments {
             "character_identity", () -> AttachmentType.builder((Supplier<CharacterIdentityAttachment>) CharacterIdentityAttachment::new)
                     .serialize(CharacterIdentityAttachment.CODEC, CharacterIdentityAttachment::isBound)
                     .sync(CharacterIdentityAttachment.STREAM_CODEC)
+                    .build());
+
+    /** Persisted body-owned hand metadata. No default data is materialized until a caller explicitly requests it. */
+    public static final Supplier<AttachmentType<HandAttachment>> HANDS = ATTACHMENT_TYPES.register(
+            "hands", () -> AttachmentType.builder((Supplier<HandAttachment>) HandAttachment::new)
+                    .serialize(HandAttachment.CODEC)
+                    .sync(HandAttachment.STREAM_CODEC)
                     .build());
 
     /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */

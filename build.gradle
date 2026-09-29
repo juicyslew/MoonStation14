@@ -68,6 +68,11 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        client2 {
+            client()
+            programArguments.addAll('--username', 'TestPlayer2')
+        }
+
         server {
             server()
             programArgument '--nogui'
@@ -199,6 +204,100 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 sourceSets.main.resources.srcDir generateModMetadata
 // To avoid having to run "generateModMetadata" manually, make it run on every project reload
 neoForge.ideSyncTask generateModMetadata
+
+// Only the dedicated development server needs this guard. A separate task lets us
+// exercise the same check without launching Minecraft or editing run/server.properties.
+class DevServerPortPreflight {
+static void check(File propertiesFile) {
+    def properties = new Properties()
+    if (propertiesFile.exists() && !propertiesFile.isFile()) {
+        throw new GradleException("Server properties path is not a file: ${propertiesFile}")
+    }
+    if (propertiesFile.isFile()) {
+        propertiesFile.withInputStream { properties.load(it) }
+    }
+
+    def portText = properties.getProperty('server-port', '25565').trim()
+    if (!(portText ==~ /[0-9]+/) || portText.length() > 5) {
+        throw new GradleException("Invalid server-port '${portText}' in ${propertiesFile}; expected 1..65535")
+    }
+    int port = Integer.parseInt(portText)
+    if (port < 1 || port > 65535) {
+        throw new GradleException("Invalid server-port '${portText}' in ${propertiesFile}; expected 1..65535")
+    }
+
+    def host = properties.getProperty('server-ip', '').trim()
+    def address
+    try {
+        // An empty server-ip means the same wildcard address Minecraft binds.
+        address = host ? new java.net.InetSocketAddress(java.net.InetAddress.getByName(host), port)
+                       : new java.net.InetSocketAddress(port)
+    } catch (Exception e) {
+        throw new GradleException("Invalid server-ip '${host}' in ${propertiesFile}", e)
+    }
+
+    try {
+        // A real TCP bind tests the OS's effective IPv4/IPv6 and wildcard conflicts,
+        // rather than relying on a potentially incomplete process listing.
+        new java.net.ServerSocket().withCloseable { socket ->
+            socket.setReuseAddress(false)
+            socket.bind(address)
+        }
+    } catch (java.io.IOException e) {
+        def owner = 'PID/listener details unavailable'
+        if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+            try {
+                // Only a validated numeric port is inserted; no properties text reaches the shell.
+                // Never output command-line arguments: they may contain credentials.
+                // Only extract the fixed-format worktree name, if present.
+                def script = '''$ProgressPreference = 'SilentlyContinue'; Get-NetTCPConnection -State Listen -LocalPort __PORT__ -ErrorAction SilentlyContinue | Select-Object -First 8 | ForEach-Object { $pidText = [string]$_.OwningProcess; $address = [string]$_.LocalAddress; if ($pidText -notmatch '^[0-9]{1,20}$' -or $address -notmatch '^[a-zA-Z0-9:.%_-]{1,80}$') { return }; $command = (Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $pidText) -ErrorAction SilentlyContinue).CommandLine; $worktree = ''; if ($command -match '(?i)MoonStation14-agent-[0-9]{2}(?![a-zA-Z0-9_-])') { $worktree = $Matches[0] }; 'PID=' + $pidText + ' address=' + $address + $(if ($worktree) { ' worktree=' + $worktree } else { '' }) }'''.replace('__PORT__', port.toString())
+                def encoded = Base64.encoder.encodeToString(script.getBytes('UTF-16LE'))
+                def process = new ProcessBuilder('powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded)
+                        .redirectError(ProcessBuilder.Redirect.DISCARD).start()
+                def completed = process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+                if (completed && process.exitValue() == 0) {
+                    def output = new String(process.inputStream.readNBytes(2048), java.nio.charset.StandardCharsets.UTF_8)
+                    def listeners = output.readLines().findAll {
+                        it ==~ /PID=[0-9]{1,20} address=[a-zA-Z0-9:.%_-]{1,80}( worktree=(?i:MoonStation14-agent-[0-9]{2}))?/
+                    }.take(8)
+                    if (listeners) owner = listeners.join('\n')
+                } else {
+                    owner = completed ? 'PID/listener details unavailable (Windows diagnostic failed)' : 'PID/listener details unavailable (Windows diagnostic timed out)'
+                }
+            } catch (Exception diagnosticError) {
+                owner = 'PID/listener details unavailable (Windows diagnostic failed)'
+                // The socket bind result is authoritative even if diagnostics are denied.
+            }
+        }
+        throw new GradleException("Development server TCP port ${port} (${host ?: 'all interfaces'}) cannot be bound: ${e.message}\nListening process: ${owner}\nNo process was stopped and no alternate port was selected.", e)
+    }
+    println "Development server TCP port ${port} (${host ?: 'all interfaces'}) is available (preflight only)."
+}
+}
+
+abstract class DevServerPortCheckTask extends DefaultTask {
+    @org.gradle.api.tasks.Input
+    abstract org.gradle.api.provider.Property<String> getPropertiesPath()
+
+    @org.gradle.api.tasks.TaskAction
+    void check() {
+        DevServerPortPreflight.check(new File(propertiesPath.get()))
+    }
+}
+
+tasks.register('preflightServerPort', DevServerPortCheckTask) {
+    group = 'verification'
+    description = 'Checks the dev server TCP bind without launching Minecraft; optional -Pms14PreflightProperties=<file> for isolated tests.'
+    propertiesPath = project.file(providers.gradleProperty('ms14PreflightProperties').orElse('run/server.properties').get()).absolutePath
+}
+
+tasks.named('runServer') {
+    def serverPropertiesFile = project.file('run/server.properties')
+    doFirst {
+        // Always inspect the actual run directory, regardless of the standalone test override.
+        DevServerPortPreflight.check(serverPropertiesFile)
+    }
+}
 
 // Example configuration to allow publishing using the maven-publish plugin
 publishing {

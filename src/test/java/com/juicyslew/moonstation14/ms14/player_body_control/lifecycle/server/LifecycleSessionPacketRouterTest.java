@@ -37,6 +37,32 @@ class LifecycleSessionPacketRouterTest {
     }
 
     @Test
+    void retainsNetworkingSlotWhenGhostRemovedAndCharacterRemains() {
+        assertTrue(LifecycleSessionPacketRouter.networkingSlotRequired(true, true, false, false));
+    }
+
+    @Test
+    void retainsNetworkingSlotWhenCharacterRemovedAndGhostRemains() {
+        assertTrue(LifecycleSessionPacketRouter.networkingSlotRequired(false, false, true, true));
+    }
+
+    @Test
+    void clearsNetworkingSlotWhenBothRemovedOrOnlyIncompletePairsRemain() {
+        assertFalse(LifecycleSessionPacketRouter.networkingSlotRequired(false, false, false, false));
+        assertFalse(LifecycleSessionPacketRouter.networkingSlotRequired(true, false, false, true));
+        assertFalse(LifecycleSessionPacketRouter.networkingSlotRequired(false, true, true, false));
+    }
+
+    @Test
+    void retainsNetworkingSlotWhenBothHandlersInstalledDespiteAmbiguousOwner() {
+        assertTrue(LifecycleSessionPacketRouter.networkingSlotRequired(true, true, true, true));
+        var reached = new AtomicReference<LifecycleSessionPacketRouter.Route>();
+        assertEquals(LifecycleSessionPacketRouter.Route.AMBIGUOUS,
+                LifecycleSessionPacketRouter.route(true, true, reached::set));
+        assertEquals(null, reached.get());
+    }
+
+    @Test
     void acceptsOneInjectedGhostOwnerAndRejectsNullOrOverlappingInstallation() {
         var router = new LifecycleSessionPacketRouter();
         BiConsumer<CustomPacketPayload, IPayloadContext> handler = (payload, context) -> { };
@@ -44,11 +70,14 @@ class LifecycleSessionPacketRouterTest {
         assertThrows(IllegalArgumentException.class, () -> router.installGhostHandler(null, owner));
         assertThrows(IllegalArgumentException.class, () -> router.installGhostHandler(handler, null));
         router.installGhostHandler(handler, owner);
-        assertNotNull(owner); // The injected owner, rather than packet data, determines ghost ownership.
-        assertThrows(IllegalStateException.class, () -> router.installGhostHandler(handler, owner));
-        router.clearCharacterHandler();
-        assertTrue(router.ghostHandlerInstalled());
-        assertFalse(router.characterHandlerInstalled());
-        router.clearGhostHandler();
+        try {
+            assertNotNull(owner); // The injected owner, rather than packet data, determines ghost ownership.
+            assertThrows(IllegalStateException.class, () -> router.installGhostHandler(handler, owner));
+            router.clearCharacterHandler();
+            assertTrue(router.ghostHandlerInstalled());
+            assertFalse(router.characterHandlerInstalled());
+        } finally {
+            router.clearGhostHandler();
+        }
     }
 }

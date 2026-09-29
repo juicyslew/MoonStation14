@@ -2,13 +2,14 @@ package com.juicyslew.moonstation14.component.codec.json;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.juicyslew.moonstation14.ms14.hands.HandState;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Set;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
-    private static final Set<String> ROOT_FIELDS = Set.of("slip_data", "movement", "host_entity_types", "thermal");
+    private static final Set<String> ROOT_FIELDS = Set.of("slip_data", "movement", "host_entity_types", "thermal", "hands");
     private static final Set<String> MOVEMENT_FIELDS = Set.of("mode", "acceleration", "walk_speed", "sprint_speed",
             "ground_friction_with_input", "ground_friction_without_input", "minimum_friction_speed");
     private static final Set<String> SLIP_FIELDS = Set.of("can_receive_stun", "no_slip",
@@ -34,6 +35,7 @@ public final class CharacterSchemaAudit {
             if (!character.get("thermal").isJsonObject()) fail("$.thermal", "expected object");
             auditThermal(character.getAsJsonObject("thermal"));
         }
+        if (character.has("hands")) auditHands(character.get("hands"));
         if (character.has("host_entity_types")) {
             JsonElement hosts = character.get("host_entity_types");
             if (!hosts.isJsonArray()) fail("$.host_entity_types", "expected array");
@@ -54,6 +56,26 @@ public final class CharacterSchemaAudit {
                 fail("$.movement", "required when host_entity_types is nonempty");
             }
         }
+    }
+
+    private static void auditHands(JsonElement hands) {
+        if (!hands.isJsonArray()) fail("$.hands", "expected array");
+        if (hands.getAsJsonArray().size() > HandState.MAX_HANDS) {
+            fail("$.hands", "at most " + HandState.MAX_HANDS + " hands are allowed");
+        }
+        Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < hands.getAsJsonArray().size(); i++) {
+            JsonElement hand = hands.getAsJsonArray().get(i);
+            String path = "$.hands[" + i + "]";
+            if (!hand.isJsonPrimitive() || !hand.getAsJsonPrimitive().isString()) fail(path, "expected string");
+            String id = hand.getAsString();
+            if (id.isBlank()) fail(path, "hand ID must not be blank");
+            if (id.length() > HandState.MAX_ID_LENGTH) {
+                fail(path, "hand ID must be at most " + HandState.MAX_ID_LENGTH + " characters");
+            }
+            if (!seen.add(id)) fail(path, "duplicate hand ID");
+        }
+        // An explicitly empty list is equivalent to omitting the capability entirely.
     }
 
     public static void audit(ResourceLocation id, JsonObject character) {

@@ -951,6 +951,42 @@ public final class GhostMobHarnessControl {
         return Optional.of(new ActiveHarness(session.mindId, session.kind, living, harnessId, session.epoch));
     }
 
+    /** Read-only exact committed debug binding, independent of camera state. */
+    public static Optional<Entity> committedControlledEntity(ServerPlayer player) {
+        return Optional.ofNullable(committedControlSnapshot(player).owned());
+    }
+
+    public static CommittedSpectatorGuard.Ownership committedControlSnapshot(ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level))
+            return CommittedSpectatorGuard.Ownership.absent();
+        MinecraftServer server = level.getServer();
+        if (server == null || !server.isSameThread() || player instanceof FakePlayer)
+            return CommittedSpectatorGuard.Ownership.absent();
+        RuntimeState state = SERVERS.get(server);
+        Session pinned = state == null ? null : state.sessions.get(player.getUUID());
+        if (pinned == null || pinned.player != player || !pinned.committed)
+            return CommittedSpectatorGuard.Ownership.absent();
+        if (!connected(player) || !player.isAlive()
+                || player.isPassenger() || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR)
+            return CommittedSpectatorGuard.Ownership.unavailable();
+        Entity entity = currentEntity(pinned);
+        MobHarnessId id = pinned.kind == MobHarnessKind.GHOST ? pinned.id : pinned.bodyId;
+        if (entity == null || id == null || !id.value().equals(entity.getUUID())
+                || entity.level() != level || !(entity instanceof LivingEntity)
+                || !(pinned.kind == MobHarnessKind.GHOST ? entity == pinned.ghost && live(pinned.ghost, level)
+                        : pinned.kind == MobHarnessKind.CHARACTER && entity == pinned.body
+                         && eligibleCharacter(pinned, pinned.body, player))) return CommittedSpectatorGuard.Ownership.unavailable();
+        var mind = state.registry.mind(player.getUUID());
+        if (mind.isEmpty() || !pinned.mindId.equals(mind.get().id())
+                || !id.equals(mind.get().harnessId()) || pinned.epoch != mind.get().epoch()
+                || !state.registry.authorizesReadOnly(player.getUUID(), id, pinned.epoch,
+                 target -> target.id().equals(id) && target.kind() == pinned.kind))
+            return CommittedSpectatorGuard.Ownership.unavailable();
+        return state.sessions.get(player.getUUID()) == pinned
+                ? CommittedSpectatorGuard.Ownership.valid(entity)
+                : CommittedSpectatorGuard.Ownership.unavailable();
+    }
+
     /** Returns the active character Mob only; ghost sessions expose no character body. */
     public static Optional<Mob> activeCharacterBody(ServerPlayer player) {
         return activeHarness(player)
