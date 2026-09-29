@@ -18,6 +18,7 @@
   },
   "host_entity_types": ["minecraft:player", "minecraft:villager"],
   "hands": ["left", "right"],
+  "components": ["complex_interaction"],
   "thermal": {
     "mass_kg": 70.0,
     "specific_heat_joules_per_kg_kelvin": 42.0,

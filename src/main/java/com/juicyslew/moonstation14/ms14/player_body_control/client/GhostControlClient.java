@@ -150,8 +150,8 @@ public final class GhostControlClient {
         short wishX = (short) Math.max(-1000, Math.min(1000, Math.round(strafe * 1000d)));
         short wishZ = (short) Math.max(-1000, Math.min(1000, Math.round(forward * 1000d)));
         byte verticalWish = (byte) ((player.input.jumping ? 1 : 0) - (player.input.shiftKeyDown ? 1 : 0));
-        int buttons = (player.input.jumping ? GhostControlPayloads.BUTTON_JUMP : 0)
-                | (player.isSprinting() ? GhostControlPayloads.BUTTON_SPRINT : 0);
+        int buttons = intentButtons(harnessKind, player.input.jumping, player.input.shiftKeyDown,
+                player.isSprinting());
         float yaw = normalizeYaw(player.getYRot());
         float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(player.getXRot())));
         if (!Float.isFinite(yaw)) return;
@@ -351,6 +351,13 @@ public final class GhostControlClient {
     }
 
     private static float finiteOrZero(float value) { return Float.isFinite(value) ? value : 0f; }
+
+    /** CHARACTER uses Shift as walk; GHOST retains Minecraft's sprint input. */
+    static int intentButtons(MobHarnessKind kind, boolean jumping, boolean shiftKeyDown, boolean minecraftSprinting) {
+        boolean fast = kind == MobHarnessKind.CHARACTER ? !shiftKeyDown : minecraftSprinting;
+        return (jumping ? GhostControlPayloads.BUTTON_JUMP : 0)
+                | (fast ? GhostControlPayloads.BUTTON_SPRINT : 0);
+    }
 
     private static void reconcileSnapshot(Minecraft minecraft, LocalPlayer player,
                                           GhostControlPayloads.Snapshot snapshot) {

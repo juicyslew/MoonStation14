@@ -17,6 +17,7 @@ import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
+import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -96,6 +97,12 @@ public class ModDataAttachments {
             "hands", () -> AttachmentType.builder((Supplier<HandAttachment>) HandAttachment::new)
                     .serialize(HandAttachment.CODEC)
                     .sync(HandAttachment.STREAM_CODEC)
+                    .build());
+
+    /** Server-owned capability. Only initialized states (including disabled tombstones) persist. */
+    public static final Supplier<AttachmentType<ComplexInteractionAttachment>> COMPLEX_INTERACTION = ATTACHMENT_TYPES.register(
+            "complex_interaction", () -> AttachmentType.builder(() -> new ComplexInteractionAttachment(false, false))
+                    .serialize(ComplexInteractionAttachment.CODEC, ComplexInteractionAttachment::initialized)
                     .build());
 
     /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */

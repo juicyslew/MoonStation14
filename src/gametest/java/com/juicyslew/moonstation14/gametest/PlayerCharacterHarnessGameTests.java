@@ -204,6 +204,8 @@ public final class PlayerCharacterHarnessGameTests {
         body.readAdditionalSaveData(bindingTag);
         require(CharacterIdentitySystem.enroll(body, helper.getLevel(), ModCharacters.HUMAN_ID),
                 "test attaches the authoritative resolved HUMAN prototype identity");
+        require(com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionSystem.enabled(body),
+                "registered harness can receive human capability through explicit identity enrollment");
         require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID).isEmpty(),
                 "custom body remains absent from host_entity_types");
         BlockPos absolute = helper.absolutePos(new BlockPos(3, 1, 3));

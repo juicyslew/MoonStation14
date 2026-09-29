@@ -9,7 +9,7 @@ import java.util.Set;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
-    private static final Set<String> ROOT_FIELDS = Set.of("slip_data", "movement", "host_entity_types", "thermal", "hands");
+    private static final Set<String> ROOT_FIELDS = Set.of("slip_data", "movement", "host_entity_types", "thermal", "hands", "components");
     private static final Set<String> MOVEMENT_FIELDS = Set.of("mode", "acceleration", "walk_speed", "sprint_speed",
             "ground_friction_with_input", "ground_friction_without_input", "minimum_friction_speed");
     private static final Set<String> SLIP_FIELDS = Set.of("can_receive_stun", "no_slip",
@@ -36,6 +36,20 @@ public final class CharacterSchemaAudit {
             auditThermal(character.getAsJsonObject("thermal"));
         }
         if (character.has("hands")) auditHands(character.get("hands"));
+        if (character.has("components")) {
+            JsonElement components = character.get("components");
+            if (!components.isJsonArray()) fail("$.components", "expected array");
+            Set<String> seen = new java.util.HashSet<>();
+            for (int i = 0; i < components.getAsJsonArray().size(); i++) {
+                JsonElement component = components.getAsJsonArray().get(i);
+                String path = "$.components[" + i + "]";
+                if (!component.isJsonPrimitive() || !component.getAsJsonPrimitive().isString())
+                    fail(path, "expected string");
+                String name = component.getAsString();
+                if (!"complex_interaction".equals(name)) fail(path, "unknown component");
+                if (!seen.add(name)) fail(path, "duplicate component");
+            }
+        }
         if (character.has("host_entity_types")) {
             JsonElement hosts = character.get("host_entity_types");
             if (!hosts.isJsonArray()) fail("$.host_entity_types", "expected array");
