@@ -1,6 +1,11 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.BarotraumaAtmospherePolicy;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
@@ -9,6 +14,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
@@ -26,10 +32,10 @@ public final class HumanHarnessTravelOwnershipGameTests {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 6; z++) helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
         }
-        Villager ownedVillager = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 4, 2));
-        var ownedPig = helper.spawn(EntityType.PIG, new BlockPos(5, 4, 2));
-        Villager vanillaVillager = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 4, 5));
-        var vanillaPig = helper.spawn(EntityType.PIG, new BlockPos(5, 4, 5));
+        Villager ownedVillager = spawnWithoutPressureTick(helper, EntityType.VILLAGER, new BlockPos(2, 4, 2));
+        var ownedPig = spawnWithoutPressureTick(helper, EntityType.PIG, new BlockPos(5, 4, 2));
+        Villager vanillaVillager = spawnWithoutPressureTick(helper, EntityType.VILLAGER, new BlockPos(2, 4, 5));
+        var vanillaPig = spawnWithoutPressureTick(helper, EntityType.PIG, new BlockPos(5, 4, 5));
         vanillaVillager.setNoAi(true);
         vanillaPig.setNoAi(true);
         for (var body : new net.minecraft.world.entity.Mob[]{ownedVillager, ownedPig}) {
@@ -82,6 +88,37 @@ public final class HumanHarnessTravelOwnershipGameTests {
                 });
             });
         });
+    }
+
+    /** Keep the animation observation independent of the real, staggered pressure hazard. */
+    private static <T extends Mob> T spawnWithoutPressureTick(GameTestHelper helper, EntityType<T> type, BlockPos pos) {
+        AtmosphereService atmos = AtmosphereService.INSTANCE;
+        // A pressure update in the first eight ticks (including the spawn tick) can make a
+        // stationary mob play vanilla hurt animation. Retry before any candidate gets a tick.
+        for (int attempt = 0; attempt < 80; attempt++) {
+            T body = helper.spawn(type, pos);
+            if (atmos.isEnabled()) {
+                BlockPos eye = BlockPos.containing(body.getEyePosition());
+                // Strict sample only: an unknown cell is not vacuum, and an exterior cell
+                // cannot be written. Each actor has its own eye cell in this fixture.
+                atmos.sample(helper.getLevel(), eye).ifPresent(mixture -> {
+                    double pressure = mixture.pressureKpa(1.0); // one gas cell is 1 m^3
+                    if (pressure < 30.0) {
+                        // At 293.15 K the missing partial pressure corresponds to these moles
+                        // in 1 m^3. No global policy or exterior inventory is modified.
+                        double moles = (101.325 - pressure) / 101.325 * GasMixture.breathableAir().totalMoles();
+                        atmos.addBreathableAir(helper.getLevel(), eye, moles, 293.15);
+                    }
+                });
+            }
+            int interval = CharacterIdentitySystem.resolveForHost(body).flatMap(CharacterData::barotrauma)
+                    .map(policy -> BarotraumaAtmospherePolicy.CADENCE_TICKS).orElse(0);
+            long untilDue = interval == 0 ? Long.MAX_VALUE
+                    : Math.floorMod(-(helper.getLevel().getGameTime() + (long) body.getId()), interval);
+            if (untilDue >= 8) return body;
+            body.discard();
+        }
+        throw new GameTestAssertException("could not spawn an actor outside the pressure hazard observation window");
     }
 
     @GameTest(template = "empty", timeoutTicks = 30)

@@ -91,7 +91,7 @@ public final class StimulantCadenceGameTests {
         // body dose uses its unmodified 2-second/10-tick duration.
         for (int tick = 0; tick < 20; tick++) StatusEffectSystem.advanceOneTick(character);
         MS14Provider.update(character, MS14Bridges.STOMACH, new ReagentAttachment());
-        MS14Provider.update(character, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(STIMULANTS, .125f)));
+        MS14Provider.update(character, MS14Bridges.BLOODSTREAM, new ReagentAttachment(Map.of(STIMULANTS, .125f)));
         EntityActivitySystem.update(character, EntityActivity.REAGENT_METABOLISM, true);
         TickHooks.runDueActivities(character, level, metabolism);
         assertActiveAt(character, SPEED, 10);
@@ -110,7 +110,7 @@ public final class StimulantCadenceGameTests {
     }
 
     private static float bodyAmount(Villager character) {
-        return MS14Provider.get(character, MS14Bridges.REAGENT).getMap().getOrDefault(STIMULANTS, 0f);
+        return MS14Provider.get(character, MS14Bridges.BLOODSTREAM).getMap().getOrDefault(STIMULANTS, 0f);
     }
 
     private static float stomachAmount(Villager character) {

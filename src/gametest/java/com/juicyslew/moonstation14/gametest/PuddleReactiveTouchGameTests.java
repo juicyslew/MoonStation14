@@ -70,7 +70,8 @@ public final class PuddleReactiveTouchGameTests {
         contents.specificAdd(SPACE_LUBE, 2f, puddle.getCapacity());
         MS14Provider.update(puddle, MS14Bridges.REAGENT, contents);
 
-        EffectData.ModifyBleed unsupported = new EffectData.ModifyBleed(EffectCommonData.DEFAULT, 1f);
+        EffectData.CleanBloodstream unsupported = new EffectData.CleanBloodstream(
+                EffectCommonData.DEFAULT, ModReagents.createKey("water"), 1f);
         require(!ReactiveTouchSystem.supportsTouchPayload(unsupported),
                 "unsupported Touch payload must fail preflight");
         require(MS14Provider.getDetached(puddle, MS14Bridges.REAGENT).totalUnits() == 200,

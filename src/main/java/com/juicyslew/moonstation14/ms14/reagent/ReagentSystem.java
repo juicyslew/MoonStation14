@@ -24,28 +24,63 @@ public class ReagentSystem {
         if (source.holder() == target.holder()) return;
         if (level.isClientSide) return;
 
-        ReagentAttachment srcCont = MS14Provider.getDetached(source.holder(), bridge);
+        SystemLink<ReagentAttachment, ReagentComponent> sourceBridge = bridgeForHolder(source.holder());
+        SystemLink<ReagentAttachment, ReagentComponent> targetBridge = bridgeForHolder(target.holder());
+        // Living entities are not generic reagent holders. If prototype-owned bloodstream
+        // eligibility is absent or legacy migration is conflicted, preserve both endpoints.
+        if (sourceBridge == null || targetBridge == null) return;
+        float targetCapacity = target.trait().getCapacity();
+        Long policyCapacity = null;
+        if (target.holder() instanceof net.minecraft.world.entity.LivingEntity living) {
+            var policy = com.juicyslew.moonstation14.ms14.blood.BloodSystem.resolvePolicy(living);
+            if (policy.isEmpty() || !com.juicyslew.moonstation14.ms14.blood.BloodSystem.reconcile(living)
+                    || com.juicyslew.moonstation14.ms14.blood.BloodSystem.state(living).isEmpty()) return;
+            try {
+                policyCapacity = com.juicyslew.moonstation14.ms14.blood.BloodReducer.capacity(policy.get());
+            } catch (RuntimeException invalidCapacity) { return; }
+        }
+        ReagentAttachment srcCont = MS14Provider.getDetached(source.holder(), sourceBridge);
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(srcCont.getMap(), level,
                 "transfer source " + source.holder().getClass().getSimpleName())) return;
-        ReagentAttachment dstCont = MS14Provider.getDetached(target.holder(), bridge);
+        ReagentAttachment dstCont = MS14Provider.getDetached(target.holder(), targetBridge);
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dstCont.getMap(), level,
                 "transfer destination " + target.holder().getClass().getSimpleName())) return;
         var srcBefore = MS14Provider.snapshot(srcCont);
         var dstBefore = MS14Provider.snapshot(dstCont);
 
-        transfer(level, srcCont, dstCont, amount, target.trait().getCapacity());
+        // Re-check the actual destination before either detached endpoint can be committed.
+        long targetCapacityCents;
+        try { targetCapacityCents = policyCapacity == null
+                ? ReagentUnits.fromFloat(targetCapacity) : policyCapacity; }
+        catch (RuntimeException invalidCapacity) { return; }
+        if (dstCont.totalUnits() > targetCapacityCents) return;
+        transfer(level, srcCont, dstCont, amount, targetCapacityCents);
 
-        MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
-        MS14Provider.updateIfChanged(target.holder(), bridge, dstBefore, dstCont);
+        MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
+        MS14Provider.updateIfChanged(target.holder(), targetBridge, dstBefore, dstCont);
+    }
+
+    /** Living reagent traits use only the prototype-enrolled bloodstream compartment. */
+    public static SystemLink<ReagentAttachment, ReagentComponent> bridgeForHolder(Object holder) {
+        if (!(holder instanceof net.minecraft.world.entity.LivingEntity living)) return bridge;
+        if (com.juicyslew.moonstation14.ms14.blood.BloodSystem.resolvePolicy(living).isEmpty()
+                || !com.juicyslew.moonstation14.ms14.blood.BloodSystem.reconcile(living)
+                || com.juicyslew.moonstation14.ms14.blood.BloodSystem.state(living).isEmpty()) return null;
+        return MS14Bridges.BLOODSTREAM;
     }
 
     static void transfer(Level level, ReagentAttachment srcCont, ReagentAttachment dstCont, float amount, float target_capacity) {
+        transfer(level, srcCont, dstCont, amount, ReagentUnits.fromFloat(target_capacity));
+    }
+
+    private static void transfer(Level level, ReagentAttachment srcCont, ReagentAttachment dstCont,
+                                 float amount, long capacity) {
         // Float APIs bound requested flow to cent precision; once admitted the paired
         // source/destination mutation is exact and capacity-conserving.
         // Spill-solution callers use Float.MAX_VALUE as an "all available" sentinel.
         long requested = amount == Float.MAX_VALUE ? ReagentUnits.MAX_CENTS
                 : ReagentUnits.fromFloat(Math.max(0f, amount));
-        long capacity = ReagentUnits.fromFloat(target_capacity);
+        float target_capacity = ReagentUnits.toFloat(capacity);
         if (dstCont.totalUnits() > capacity) {
             LOGGER.error("Skipping reagent transfer into legacy over-capacity destination: stored {} cents " +
                     "exceeds {} cents; contents are preserved for repair", dstCont.totalUnits(), capacity);
@@ -57,7 +92,8 @@ public class ReagentSystem {
     }
 
     public static InteractionResult handleSpill(TraitHandler<IReagentTrait> source, Level level, BlockPos targetPos, float amount) {
-        // TODO: Make this less item-use-centric Should be possible to spill from a player (vomitting) or even a jug (breaking with melee)
+        // Living sources require an explicit bleed/vomit solution path; never spill their bloodstream generically.
+        if (source.holder() instanceof net.minecraft.world.entity.LivingEntity) return InteractionResult.PASS;
 
         if (amount < .001f){
             return InteractionResult.PASS;
@@ -65,7 +101,9 @@ public class ReagentSystem {
         BlockState puddleTargetState = level.getBlockState(targetPos);
         BlockPos abovePos = targetPos.above();
         BlockState aboveState = level.getBlockState(abovePos);
-        ReagentAttachment srcCont = MS14Provider.getDetached(source.holder(), bridge);
+        SystemLink<ReagentAttachment, ReagentComponent> sourceBridge = bridgeForHolder(source.holder());
+        if (sourceBridge == null) return InteractionResult.PASS;
+        ReagentAttachment srcCont = MS14Provider.getDetached(source.holder(), sourceBridge);
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(srcCont.getMap(), level,
                 "spill source " + source.holder().getClass().getSimpleName())) return InteractionResult.PASS;
         if (puddleTargetState.is(ModBlocks.PUDDLE.get())) {
@@ -77,7 +115,7 @@ public class ReagentSystem {
                 var srcBefore = MS14Provider.snapshot(srcCont);
                 var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, srcCont, dstCont, amount, target.getCapacity());
-                MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
+                MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
                 MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
             }
         }else if (aboveState.is(ModBlocks.PUDDLE.get())) {
@@ -90,7 +128,7 @@ public class ReagentSystem {
                 var srcBefore = MS14Provider.snapshot(srcCont);
                 var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, srcCont, dstCont, amount, target.getCapacity());
-                MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
+                MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
                 MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
             }
         } else if (aboveState.canBeReplaced()) {
@@ -107,7 +145,7 @@ public class ReagentSystem {
                         var dstBefore = MS14Provider.snapshot(dstCont);
                         transfer(level, srcCont, dstCont, amount, target.getCapacity());
 
-                        MS14Provider.updateIfChanged(source.holder(), bridge, srcBefore, srcCont);
+                        MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
                         MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
                     }
                 }
@@ -120,7 +158,8 @@ public class ReagentSystem {
     public static void handleSpillSolution(ReagentAttachment solution, Level level, BlockPos targetPos) {
         // TODO: Make this less item-use-centric Should be possible to spill from a player (vomitting) or even a jug (breaking with melee)
 
-        if (solution.isEmpty()) return;
+        if (level.isClientSide || solution == null || solution.isEmpty()
+                || !level.hasChunkAt(targetPos) || !level.hasChunkAt(targetPos.above())) return;
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(solution.getMap(), level, "spill solution")) return;
 
         BlockState puddleTargetState = level.getBlockState(targetPos);
@@ -147,12 +186,13 @@ public class ReagentSystem {
                 transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
                 MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
             }
-        } else if (aboveState.canBeReplaced()) {
+        } else if (aboveState.canBeReplaced()
+                && ModBlocks.PUDDLE.get().defaultBlockState().canSurvive(level, abovePos)) {
             // Interface Check
             if (!level.isClientSide) {
                 if (!solution.isEmpty()) {
                     // Create the puddle
-                    level.setBlock(abovePos, ModBlocks.PUDDLE.get().defaultBlockState(), 3);
+                    if (!level.setBlock(abovePos, ModBlocks.PUDDLE.get().defaultBlockState(), 3)) return;
 
                     // Transfer data to the new BlockEntity
                     if (level.getBlockEntity(abovePos) instanceof PuddleBlockEntity target) {
@@ -160,6 +200,8 @@ public class ReagentSystem {
                         var dstBefore = MS14Provider.snapshot(dstCont);
                         transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
                         MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
+                    } else if (level.getBlockState(abovePos).is(ModBlocks.PUDDLE.get())) {
+                        level.removeBlock(abovePos, false);
                     }
                 }
             }

@@ -57,7 +57,9 @@ public final class StomachSystem {
                 || level != target.level() || !isEligible(target)) return 0f;
 
         Object sourceHolder = source.holder();
-        ReagentAttachment sourceState = MS14Provider.getDetached(sourceHolder, MS14Bridges.REAGENT);
+        var sourceBridge = ReagentSystem.bridgeForHolder(sourceHolder);
+        if (sourceBridge == null) return 0f;
+        ReagentAttachment sourceState = MS14Provider.getDetached(sourceHolder, sourceBridge);
         if (!com.juicyslew.moonstation14.ms14.reagent.ReagentCatalogValidation
                 .hasOnlyKnownPositiveReagents(sourceState.getMap(), level,
                         "ingestion source " + sourceHolder.getClass().getSimpleName())) return 0f;
@@ -107,7 +109,7 @@ public final class StomachSystem {
         // Refuse any conversion that fails to preserve the integer-cent transaction snapshot.
         if (!ReagentUnits.fromMap(stagedSource.getMap()).equals(nextSource)
                 || !ReagentUnits.fromMap(stagedStomach.getMap()).equals(nextStomach)) return 0f;
-        MS14Provider.updateIfChanged(sourceHolder, MS14Bridges.REAGENT, sourceBefore, stagedSource);
+        MS14Provider.updateIfChanged(sourceHolder, sourceBridge, sourceBefore, stagedSource);
         MS14Provider.updateIfChanged(target, MS14Bridges.STOMACH, stomachBefore, stagedStomach);
         EntityActivitySystem.update(target, EntityActivity.REAGENT_METABOLISM, true);
         return ReagentUnits.toFloat(acceptedCents);

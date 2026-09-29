@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.action;
 
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import org.junit.jupiter.api.Test;
@@ -67,7 +68,7 @@ class BodyActionPolicyTest {
     void prototypeDeclarationCannotRestoreRevokedRuntimeComponent() {
         var prototype = new CharacterData(new CharacterData.SlipTargetData(false, true, false, false,
                 List.of(), List.of()), Optional.empty(), List.of(), Optional.empty(), List.of(),
-                List.of(CharacterData.Capability.COMPLEX_INTERACTION));
+                Optional.empty(), Optional.empty(), List.of(new ComplexInteractionComponent()), Optional.empty());
         var body = new Object();
         var player = new Object();
         var uuid = UUID.randomUUID();

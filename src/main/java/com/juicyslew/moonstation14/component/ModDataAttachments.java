@@ -14,6 +14,8 @@ import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
 import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.blood.BloodAttachment;
+import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
@@ -32,6 +34,25 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<ReagentAttachment>> REAGENT = ATTACHMENT_TYPES.register(
             "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment())
                     .serialize(ReagentAttachment.CODEC, attachment -> !attachment.isEmpty())
+                    .sync(ReagentAttachment.STREAM_CODEC)
+                    .build()
+    );
+
+    /** Authoritative reagent solution for prototype-enrolled living circulation. */
+    public static final Supplier<AttachmentType<ReagentAttachment>> BLOODSTREAM = ATTACHMENT_TYPES.register(
+            "bloodstream", () -> AttachmentType.builder((Supplier<ReagentAttachment>) ReagentAttachment::new)
+                    // Presence is an initialization marker too: an intentionally depleted
+                    // bloodstream must remain authoritative across save/restart.
+                    .serialize(ReagentAttachment.CODEC)
+                    .sync(ReagentAttachment.STREAM_CODEC)
+                    .copyOnDeath()
+                    .build()
+    );
+
+    /** Persisted/synchronized blood already removed from circulation but not yet admitted to a puddle. */
+    public static final Supplier<AttachmentType<ReagentAttachment>> PENDING_BLOOD_SPILL = ATTACHMENT_TYPES.register(
+            "pending_blood_spill", () -> AttachmentType.builder((Supplier<ReagentAttachment>) ReagentAttachment::new)
+                    .serialize(ReagentAttachment.CODEC)
                     .sync(ReagentAttachment.STREAM_CODEC)
                     .build()
     );
@@ -104,6 +125,21 @@ public class ModDataAttachments {
             "complex_interaction", () -> AttachmentType.builder(() -> new ComplexInteractionAttachment(false, false))
                     .serialize(ComplexInteractionAttachment.CODEC, ComplexInteractionAttachment::initialized)
                     .build());
+
+    /** Persisted scalar blood state; presence records one-time initialization, even at zero values. */
+    public static final Supplier<AttachmentType<BloodAttachment>> BLOOD = ATTACHMENT_TYPES.register(
+            "blood", () -> AttachmentType.builder((Supplier<BloodAttachment>) BloodAttachment::new)
+                    .serialize(BloodAttachment.CODEC)
+                    .sync(BloodAttachment.STREAM_CODEC)
+                    .copyOnDeath()
+                    .build());
+
+    /** Persisted/synchronized lung mixture and saturation; zero-gas initialized states are retained. */
+    public static final Supplier<AttachmentType<LungAttachment>> LUNG = ATTACHMENT_TYPES.register(
+            "lung", () -> AttachmentType.builder((Supplier<LungAttachment>) () -> new LungAttachment(
+                            com.juicyslew.moonstation14.ms14.lung.LungComponent.from(
+                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture.vacuum(), 0, false)))
+                    .serialize(LungAttachment.CODEC).sync(LungAttachment.STREAM_CODEC).copyOnDeath().build());
 
     /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */
     public static final Supplier<AttachmentType<EyeDamageAttachment>> EYE_DAMAGE = ATTACHMENT_TYPES.register(

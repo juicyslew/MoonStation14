@@ -12,8 +12,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Mob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +34,6 @@ public final class CharacterIdentitySystem {
 
     /** Called only by the centralized spawn/load enrollment adapter. */
     public static void enrollSupportedActor(LivingEntity actor, ServerLevel level) {
-        if (!(actor instanceof ServerPlayer) && !(actor instanceof Mob)) return;
         ResourceLocation hostType = BuiltInRegistries.ENTITY_TYPE.getKey(actor.getType());
         ModCharacters.characterForHost(level, hostType)
                 .ifPresent(characterId -> enroll(actor, level, characterId));
@@ -79,6 +76,25 @@ public final class CharacterIdentitySystem {
         CharacterIdentityAttachment identity = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
         if (identity == null || !identity.isBound()) return Optional.empty();
         return resolve(level, identity.characterId());
+    }
+
+    /** Resolve only a currently bound prototype that still owns this actor's host type. */
+    public static Optional<CharacterData> resolveForHost(LivingEntity entity) {
+        if (entity == null || !(entity.level() instanceof ServerLevel level)) return Optional.empty();
+        CharacterIdentityAttachment identity = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        if (identity == null || !identity.isBound()) return Optional.empty();
+        ResourceLocation host = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        PrototypeCatalog<CharacterData> catalog = ModCharacters.catalog(level);
+        return resolveForHost(catalog, identity.characterId(), host);
+    }
+
+    /** Pure snapshot seam: stale, absent, or swapped host ownership fails closed. */
+    public static Optional<CharacterData> resolveForHost(PrototypeCatalog<CharacterData> catalog,
+                                                         ResourceLocation boundId, ResourceLocation hostType) {
+        if (catalog == null || boundId == null || hostType == null) return Optional.empty();
+        CharacterData data = catalog.get(boundId);
+        if (data == null || !data.hostEntityTypes().contains(hostType)) return Optional.empty();
+        return ModCharacters.characterForHost(catalog, hostType).filter(boundId::equals).map(ignored -> data);
     }
 
     public static Optional<CharacterData> resolve(ServerLevel level, ResourceLocation id) {

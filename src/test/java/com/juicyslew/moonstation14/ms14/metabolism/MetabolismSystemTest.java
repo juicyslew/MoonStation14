@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -70,6 +71,29 @@ class MetabolismSystemTest {
         assertEquals(MetabolismStage.DIGESTION, report.attempts().get(0).stage());
         assertTrue(stomach.isEmpty());
         assertEquals(Map.of(C, 3f, B, 2f), body.getMap());
+    }
+
+    @Test
+    void exclusionsAreCompartmentLocalAndExcludedReferenceDoesNotConsumeStageCap() {
+        ReagentData source = reagent("blood", MetabolismStage.DIGESTION,
+                new MetabolismData(List.of(), Map.of(B, 1f), 1f));
+        ReagentData ordinary = reagent("ordinary", MetabolismStage.DIGESTION,
+                new MetabolismData(List.of(), Map.of(), 1f));
+        Map<ResourceLocation, ReagentData> catalog = Map.of(A.location(), source, B.location(), ordinary);
+        MetabolizerProfile profile = new MetabolizerProfile(List.of(MetabolismStage.DIGESTION), 1);
+
+        ReagentAttachment bloodstream = new ReagentAttachment(Map.of(A, 2f, B, 1f));
+        MetabolismReport bloodReport = MetabolismSystem.process(bloodstream, bloodstream, catalog, profile,
+                10f, 10f, RandomSource.create(8L), invocation -> { }, Set.of(A));
+        assertEquals(List.of(B), bloodReport.attempts().stream().map(MetabolismReport.MetabolismAttempt::reagent).toList());
+        assertEquals(2f, bloodstream.getMap().get(A));
+
+        // The same reagent is ordinary stomach contents: no bloodstream exclusion is supplied.
+        ReagentAttachment stomach = new ReagentAttachment(Map.of(A, 2f));
+        MetabolismReport stomachReport = MetabolismSystem.process(stomach, new ReagentAttachment(), catalog,
+                profile, 10f, 10f, RandomSource.create(8L), invocation -> { });
+        assertEquals(1, stomachReport.attempts().size());
+        assertEquals(1f, stomachReport.attempts().get(0).actualRemoved());
     }
 
     @Test

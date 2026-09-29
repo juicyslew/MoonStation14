@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.component.codec.json;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -10,10 +11,15 @@ import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.ThermalExposureMath;
 import com.juicyslew.moonstation14.ms14.hands.HandState;
+import com.juicyslew.moonstation14.ms14.character.components.CharacterComponent;
+import com.juicyslew.moonstation14.ms14.character.components.CharacterComponentRegistry;
+import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
+import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -21,7 +27,8 @@ import java.util.Set;
 /** Immutable, data-only character policy. The catalog key supplies identity. */
 public record CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
                             List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
-                            List<String> hands, List<Capability> components) {
+                            List<String> hands, Optional<BloodData> blood, Optional<LungsData> lungs,
+                            List<CharacterComponent> components, Optional<Set<MetabolizerTypeEnum>> metabolizerTypes) {
     private static final Codec<CharacterData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     SlipTargetData.CODEC.fieldOf("slip_data").forGetter(CharacterData::slipData),
@@ -30,13 +37,27 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
                             .forGetter(CharacterData::hostEntityTypes),
                     ThermalData.CODEC.optionalFieldOf("thermal").forGetter(CharacterData::thermal),
                     Codec.list(Codec.STRING).optionalFieldOf("hands", List.of()).forGetter(CharacterData::hands),
-                    Codec.list(Capability.CODEC).optionalFieldOf("components", List.of()).forGetter(CharacterData::components))
+                    BloodData.CODEC.optionalFieldOf("blood").forGetter(CharacterData::blood),
+                    LungsData.CODEC.optionalFieldOf("lungs").forGetter(CharacterData::lungs),
+                    Codec.list(CharacterComponentRegistry.CODEC).optionalFieldOf("components", List.of()).forGetter(CharacterData::components),
+                    Codec.list(MetabolizerTypeEnum.CODEC).xmap(Set::copyOf, List::copyOf)
+                            .optionalFieldOf("metabolizer_types").forGetter(CharacterData::metabolizerTypes))
                     .apply(instance, CharacterData::new));
 
     private static final Decoder<CharacterData> STRICT_DECODER = new Decoder<>() {
         @Override
         public <T> DataResult<Pair<CharacterData, T>> decode(DynamicOps<T> ops, T input) {
             try {
+                // JsonOps conversion can dereference nested JsonNull before the schema audit runs.
+                // Check optional policy blocks on raw JSON before JsonOps can dereference nested nulls.
+                if (input instanceof JsonObject character) {
+                    CharacterSchemaAudit.auditMetabolizerTypes(character);
+                    CharacterSchemaAudit.auditBloodIfPresent(character);
+                    CharacterSchemaAudit.auditLungsIfPresent(character);
+                    CharacterSchemaAudit.auditThermalIfPresent(character);
+                    CharacterSchemaAudit.auditComponentsIfPresent(character);
+                    if (character.has("hands")) CharacterSchemaAudit.auditHands(character.get("hands"));
+                }
                 JsonElement json = ops.convertTo(JsonOps.INSTANCE, input);
                 if (!json.isJsonObject()) {
                     return DataResult.error(() -> "character must be a JSON object");
@@ -59,33 +80,58 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
         Objects.requireNonNull(hostEntityTypes, "hostEntityTypes");
         Objects.requireNonNull(thermal, "thermal");
         Objects.requireNonNull(hands, "hands");
-        Objects.requireNonNull(components, "components");
         hostEntityTypes = List.copyOf(hostEntityTypes);
         hands = List.copyOf(hands);
-        components = List.copyOf(components);
-        if (new HashSet<>(components).size() != components.size())
-            throw new IllegalArgumentException("components must not contain duplicates");
         if (!hands.isEmpty()) HandState.create(hands);
+        Objects.requireNonNull(blood, "blood");
+        Objects.requireNonNull(lungs, "lungs");
+        components = List.copyOf(Objects.requireNonNull(components, "components"));
+        if (components.size() > 16 || components.stream().map(CharacterComponent::type).distinct().count() != components.size())
+            throw new IllegalArgumentException("components must contain at most 16 distinct types");
+        if (components.stream().anyMatch(component -> !CharacterComponentRegistry.registered(component.type())))
+            throw new IllegalArgumentException("components must use registered types");
+        Objects.requireNonNull(metabolizerTypes, "metabolizerTypes");
+        metabolizerTypes = metabolizerTypes.map(Set::copyOf);
     }
 
-    public enum Capability {
-        COMPLEX_INTERACTION;
+    /** Compatibility for callers using the pre-hands record signature. */
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
+                         Optional<BloodData> blood, Optional<LungsData> lungs, List<CharacterComponent> components,
+                         Optional<Set<MetabolizerTypeEnum>> metabolizerTypes) {
+        this(slipData, movement, hostEntityTypes, thermal, List.of(), blood, lungs, components, metabolizerTypes);
+    }
 
-        public static final Codec<Capability> CODEC = Codec.STRING.comapFlatMap(value ->
-                "complex_interaction".equals(value) ? DataResult.success(COMPLEX_INTERACTION)
-                        : DataResult.error(() -> "unknown character component '" + value + "'"),
-                ignored -> "complex_interaction");
+    /** Compatibility for callers using the hands-only record signature. */
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal, List<String> hands) {
+        this(slipData, movement, hostEntityTypes, thermal, hands, Optional.empty(), Optional.empty(), List.of(), Optional.empty());
     }
 
     public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
-                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal, List<String> hands) {
-        this(slipData, movement, hostEntityTypes, thermal, hands, List.of());
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
+                         Optional<BloodData> blood, Optional<LungsData> lungs, List<CharacterComponent> components) {
+        this(slipData, movement, hostEntityTypes, thermal, blood, lungs, components, Optional.empty());
     }
 
-    /** Backward-compatible constructor for character policies predating hand capability. */
+    /** Compatibility for callers using the pre-pressure record signature. */
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
+                         Optional<BloodData> blood, Optional<LungsData> lungs) {
+        this(slipData, movement, hostEntityTypes, thermal, blood, lungs, List.of());
+    }
+
+    /** Backward-compatible constructor for character policies predating blood data. */
     public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
                          List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal) {
         this(slipData, movement, hostEntityTypes, thermal, List.of());
+    }
+
+    /** Backward-compatible constructor for character policies predating lung data. */
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
+                         Optional<BloodData> blood) {
+        this(slipData, movement, hostEntityTypes, thermal, blood, Optional.empty());
     }
 
     /** Backward-compatible constructor for character policies predating thermal data. */
@@ -99,22 +145,172 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
         this(slipData, Optional.empty(), List.of(), Optional.empty(), List.of());
     }
 
+    public <T extends CharacterComponent> Optional<T> component(Class<T> type) {
+        Objects.requireNonNull(type, "type");
+        return components.stream().filter(type::isInstance).map(type::cast).findFirst();
+    }
+
+    public Optional<BarotraumaComponent> barotrauma() { return component(BarotraumaComponent.class); }
+
+    /** Explicit prototype-owned respiratory policy; no gameplay defaults are supplied here. */
+    public record LungsData(double breathIntervalSeconds, double breathVolumeLiters,
+                             double maxLungMoles, double breathMolesToSaturationMultiplier, double maxSaturation,
+                             double initialSaturation, double minSaturation,
+                            double saturationLossPerUpdate, double suffocationThreshold,
+                            double suffocationDamagePerUpdate, double suffocationRecoveryPerUpdate,
+                             boolean suffocationIgnoreResistances,
+                             Map<String, Map<String, Double>> toxicGasDamagePerMole,
+                             double toxicGasDamageCapPerInhale) {
+        private static final Codec<LungsData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.DOUBLE.fieldOf("breath_interval_seconds").forGetter(LungsData::breathIntervalSeconds),
+                 Codec.DOUBLE.fieldOf("breath_volume_liters").forGetter(LungsData::breathVolumeLiters),
+                 Codec.DOUBLE.fieldOf("max_lung_moles").forGetter(LungsData::maxLungMoles),
+                 Codec.DOUBLE.fieldOf("breath_moles_to_saturation_multiplier").forGetter(LungsData::breathMolesToSaturationMultiplier),
+                 Codec.DOUBLE.fieldOf("max_saturation").forGetter(LungsData::maxSaturation),
+                 Codec.DOUBLE.fieldOf("initial_saturation").forGetter(LungsData::initialSaturation),
+                 Codec.DOUBLE.fieldOf("min_saturation").forGetter(LungsData::minSaturation),
+                Codec.DOUBLE.fieldOf("saturation_loss_per_update").forGetter(LungsData::saturationLossPerUpdate),
+                Codec.DOUBLE.fieldOf("suffocation_threshold").forGetter(LungsData::suffocationThreshold),
+                Codec.DOUBLE.fieldOf("suffocation_damage_per_update").forGetter(LungsData::suffocationDamagePerUpdate),
+                Codec.DOUBLE.fieldOf("suffocation_recovery_per_update").forGetter(LungsData::suffocationRecoveryPerUpdate),
+                 Codec.BOOL.fieldOf("suffocation_ignore_resistances").forGetter(LungsData::suffocationIgnoreResistances),
+                 Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(Codec.STRING, Codec.DOUBLE))
+                         .fieldOf("toxic_gas_damage_per_mole").forGetter(LungsData::toxicGasDamagePerMole),
+                 Codec.DOUBLE.fieldOf("toxic_gas_damage_cap_per_inhale").forGetter(LungsData::toxicGasDamageCapPerInhale)
+        ).apply(instance, LungsData::new));
+
+        public static final Codec<LungsData> CODEC = Codec.of(STRUCTURAL_CODEC, new Decoder<>() {
+            @Override
+            public <T> DataResult<Pair<LungsData, T>> decode(DynamicOps<T> ops, T input) {
+                try {
+                    JsonElement json = ops.convertTo(JsonOps.INSTANCE, input);
+                    if (!json.isJsonObject()) return DataResult.error(() -> "lungs must be a JSON object");
+                    CharacterSchemaAudit.auditLungs(json.getAsJsonObject());
+                    return STRUCTURAL_CODEC.decode(ops, input);
+                } catch (RuntimeException exception) {
+                    String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+                    return DataResult.error(() -> message);
+                }
+            }
+        });
+
+        public LungsData {
+            Objects.requireNonNull(toxicGasDamagePerMole, "toxicGasDamagePerMole");
+            toxicGasDamagePerMole = toxicGasDamagePerMole.entrySet().stream().collect(
+                    java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey,
+                            entry -> Map.copyOf(entry.getValue())));
+        }
+
+        /** Programmatic fixture without toxin entries. */
+        public LungsData(double interval, double liters, double maxMoles, double multiplier,
+                         double max, double initial, double min, double loss, double threshold,
+                         double damage, double recovery, boolean ignore) {
+            this(interval, liters, maxMoles, multiplier, max, initial, min, loss, threshold,
+                    damage, recovery, ignore, Map.of(), 0.0);
+        }
+    }
+
+    /** All cadence and gameplay amounts are explicit character prototype policy. */
+    public record BloodData(Map<String, Double> referenceSolution,
+                            List<ResourceLocation> metabolismExclusions,
+                            double maxVolumeModifier, double updateIntervalSeconds,
+                            double bleedDecayPerUpdate, double maxBleedRate,
+                            Map<String, Double> damageBleedMultipliers, double bloodRefreshPerUpdate,
+                             double bloodlossThresholdFraction, Map<String, Double> bloodlossDamagePerUpdate,
+                              Map<String, Double> bloodlossHealPerUpdate,
+                               boolean bloodlossIgnoreResistances, double bleedPuddleThreshold) {
+        private static final Codec<Map<String, Double>> DAMAGE_MAP_CODEC = Codec.unboundedMap(Codec.STRING, Codec.DOUBLE);
+        private static final Codec<Map<String, Double>> SOLUTION_MAP_CODEC = Codec.unboundedMap(Codec.STRING, Codec.DOUBLE);
+        private static final Codec<BloodData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                SOLUTION_MAP_CODEC.fieldOf("reference_solution").forGetter(BloodData::referenceSolution),
+                Codec.list(ResourceLocation.CODEC).fieldOf("metabolism_exclusions").forGetter(BloodData::metabolismExclusions),
+                Codec.DOUBLE.fieldOf("max_volume_modifier").forGetter(BloodData::maxVolumeModifier),
+                Codec.DOUBLE.fieldOf("update_interval_seconds").forGetter(BloodData::updateIntervalSeconds),
+                Codec.DOUBLE.fieldOf("bleed_decay_per_update").forGetter(BloodData::bleedDecayPerUpdate),
+                Codec.DOUBLE.fieldOf("max_bleed_rate").forGetter(BloodData::maxBleedRate),
+                DAMAGE_MAP_CODEC.fieldOf("damage_bleed_multipliers").forGetter(BloodData::damageBleedMultipliers),
+                Codec.DOUBLE.fieldOf("blood_refresh_per_update").forGetter(BloodData::bloodRefreshPerUpdate),
+                Codec.DOUBLE.fieldOf("bloodloss_threshold_fraction").forGetter(BloodData::bloodlossThresholdFraction),
+                DAMAGE_MAP_CODEC.fieldOf("bloodloss_damage_per_update").forGetter(BloodData::bloodlossDamagePerUpdate),
+                DAMAGE_MAP_CODEC.fieldOf("bloodloss_heal_per_update").forGetter(BloodData::bloodlossHealPerUpdate),
+                  Codec.BOOL.fieldOf("bloodloss_ignore_resistances").forGetter(BloodData::bloodlossIgnoreResistances),
+                   Codec.DOUBLE.fieldOf("bleed_puddle_threshold").forGetter(BloodData::bleedPuddleThreshold)
+         ).apply(instance, BloodData::new));
+
+        public static final Codec<BloodData> CODEC = Codec.of(STRUCTURAL_CODEC, new Decoder<>() {
+            @Override
+            public <T> DataResult<Pair<BloodData, T>> decode(DynamicOps<T> ops, T input) {
+                try {
+                    JsonElement json = ops.convertTo(JsonOps.INSTANCE, input);
+                    if (!json.isJsonObject()) return DataResult.error(() -> "blood must be a JSON object");
+                    CharacterSchemaAudit.auditBlood(json.getAsJsonObject());
+                    return STRUCTURAL_CODEC.decode(ops, input);
+                } catch (RuntimeException exception) {
+                    String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+                    return DataResult.error(() -> message);
+                }
+            }
+        });
+
+        public BloodData {
+            referenceSolution = Map.copyOf(Objects.requireNonNull(referenceSolution, "referenceSolution"));
+            metabolismExclusions = List.copyOf(Objects.requireNonNull(metabolismExclusions, "metabolismExclusions"));
+            damageBleedMultipliers = Map.copyOf(Objects.requireNonNull(damageBleedMultipliers, "damageBleedMultipliers"));
+            bloodlossDamagePerUpdate = Map.copyOf(Objects.requireNonNull(bloodlossDamagePerUpdate, "bloodlossDamagePerUpdate"));
+            bloodlossHealPerUpdate = Map.copyOf(Objects.requireNonNull(bloodlossHealPerUpdate, "bloodlossHealPerUpdate"));
+            if (new HashSet<>(metabolismExclusions).size() != metabolismExclusions.size()
+                    || !metabolismExclusions.stream().map(ResourceLocation::toString).collect(java.util.stream.Collectors.toSet())
+                    .containsAll(referenceSolution.keySet())) {
+                throw new IllegalArgumentException("metabolismExclusions must be distinct and include every reference blood reagent");
+            }
+        }
+    }
+
     /** Optional per-character thermal exposure policy. currentKelvin is the initial body temperature. */
     public record ThermalData(double massKg, double specificHeatJoulesPerKgKelvin,
-                              double atmosphereTransferEfficiency, double heatDamageThresholdKelvin,
-                              double coldDamageThresholdKelvin, double currentKelvin,
-                              double heatDamagePerSecond, double coldDamagePerSecond, double damageCap) {
-        private static final Codec<ThermalData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                Codec.DOUBLE.fieldOf("mass_kg").forGetter(ThermalData::massKg),
-                Codec.DOUBLE.fieldOf("specific_heat_joules_per_kg_kelvin").forGetter(ThermalData::specificHeatJoulesPerKgKelvin),
-                Codec.DOUBLE.fieldOf("atmosphere_transfer_efficiency").forGetter(ThermalData::atmosphereTransferEfficiency),
-                Codec.DOUBLE.fieldOf("heat_damage_threshold_kelvin").forGetter(ThermalData::heatDamageThresholdKelvin),
-                Codec.DOUBLE.fieldOf("cold_damage_threshold_kelvin").forGetter(ThermalData::coldDamageThresholdKelvin),
-                Codec.DOUBLE.fieldOf("current_kelvin").forGetter(ThermalData::currentKelvin),
-                Codec.DOUBLE.fieldOf("heat_damage_per_second").forGetter(ThermalData::heatDamagePerSecond),
-                Codec.DOUBLE.fieldOf("cold_damage_per_second").forGetter(ThermalData::coldDamagePerSecond),
-                Codec.DOUBLE.fieldOf("damage_cap").forGetter(ThermalData::damageCap)
-        ).apply(instance, ThermalData::new));
+                               double atmosphereTransferEfficiency, double heatDamageThresholdKelvin,
+                               double coldDamageThresholdKelvin, double currentKelvin,
+                               double heatDamagePerSecond, double coldDamagePerSecond, double damageCap,
+                               double normalBodyTemperatureKelvin, double metabolismHeatJoulesPerSecond,
+                               double radiatedHeatJoulesPerSecond, double implicitHeatRegulationJoulesPerSecond,
+                               double sweatHeatRegulationJoulesPerSecond, double shiveringHeatRegulationJoulesPerSecond,
+                                double thermalRegulationThresholdKelvin,
+                                double spaceHeatCapacityJoulesPerKelvin, double spaceHeatScale,
+                                double spaceTemperatureKelvin) {
+         // All fields are required doubles; the flat map avoids DFU's 16-argument builder ceiling.
+         private static final Codec<ThermalData> STRUCTURAL_CODEC = Codec.unboundedMap(Codec.STRING, Codec.DOUBLE)
+                 .xmap(values -> new ThermalData(
+                         values.get("mass_kg"), values.get("specific_heat_joules_per_kg_kelvin"),
+                         values.get("atmosphere_transfer_efficiency"), values.get("heat_damage_threshold_kelvin"),
+                         values.get("cold_damage_threshold_kelvin"), values.get("current_kelvin"),
+                         values.get("heat_damage_per_second"), values.get("cold_damage_per_second"),
+                         values.get("damage_cap"), values.get("normal_body_temperature_kelvin"),
+                         values.get("metabolism_heat_joules_per_second"), values.get("radiated_heat_joules_per_second"),
+                         values.get("implicit_heat_regulation_joules_per_second"),
+                         values.get("sweat_heat_regulation_joules_per_second"),
+                         values.get("shivering_heat_regulation_joules_per_second"),
+                         values.get("thermal_regulation_threshold_kelvin"),
+                         values.get("space_heat_capacity_joules_per_kelvin"), values.get("space_heat_scale"),
+                         values.get("space_temperature_kelvin")), data -> Map.ofEntries(
+                         Map.entry("mass_kg", data.massKg()),
+                         Map.entry("specific_heat_joules_per_kg_kelvin", data.specificHeatJoulesPerKgKelvin()),
+                         Map.entry("atmosphere_transfer_efficiency", data.atmosphereTransferEfficiency()),
+                         Map.entry("heat_damage_threshold_kelvin", data.heatDamageThresholdKelvin()),
+                         Map.entry("cold_damage_threshold_kelvin", data.coldDamageThresholdKelvin()),
+                         Map.entry("current_kelvin", data.currentKelvin()),
+                         Map.entry("heat_damage_per_second", data.heatDamagePerSecond()),
+                         Map.entry("cold_damage_per_second", data.coldDamagePerSecond()),
+                         Map.entry("damage_cap", data.damageCap()),
+                         Map.entry("normal_body_temperature_kelvin", data.normalBodyTemperatureKelvin()),
+                         Map.entry("metabolism_heat_joules_per_second", data.metabolismHeatJoulesPerSecond()),
+                         Map.entry("radiated_heat_joules_per_second", data.radiatedHeatJoulesPerSecond()),
+                         Map.entry("implicit_heat_regulation_joules_per_second", data.implicitHeatRegulationJoulesPerSecond()),
+                         Map.entry("sweat_heat_regulation_joules_per_second", data.sweatHeatRegulationJoulesPerSecond()),
+                         Map.entry("shivering_heat_regulation_joules_per_second", data.shiveringHeatRegulationJoulesPerSecond()),
+                         Map.entry("thermal_regulation_threshold_kelvin", data.thermalRegulationThresholdKelvin()),
+                         Map.entry("space_heat_capacity_joules_per_kelvin", data.spaceHeatCapacityJoulesPerKelvin()),
+                         Map.entry("space_heat_scale", data.spaceHeatScale()),
+                         Map.entry("space_temperature_kelvin", data.spaceTemperatureKelvin())));
 
         public static final Codec<ThermalData> CODEC = Codec.of(STRUCTURAL_CODEC, new Decoder<>() {
             @Override
@@ -132,7 +328,7 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
         });
 
         public ThermalData {
-            // SS14 Physics.FixturesMass is not available in this Minecraft approximation; mass is explicit policy data.
+             // Fixture mass is source-derived (circle area times fixture density); no runtime SS14 physics fixture exists here.
             ThermalExposureMath.ThermalProfile profile = toProfile(massKg, specificHeatJoulesPerKgKelvin,
                     atmosphereTransferEfficiency, heatDamageThresholdKelvin, coldDamageThresholdKelvin,
                     heatDamagePerSecond, coldDamagePerSecond, damageCap);
@@ -140,12 +336,34 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
                     || currentKelvin <= coldDamageThresholdKelvin || currentKelvin >= heatDamageThresholdKelvin) {
                 throw new IllegalArgumentException("currentKelvin must be finite and between thermal thresholds");
             }
+             new com.juicyslew.moonstation14.ms14.atmos.exposure.ThermalRegulatorMath.Policy(
+                    normalBodyTemperatureKelvin, metabolismHeatJoulesPerSecond, radiatedHeatJoulesPerSecond,
+                    implicitHeatRegulationJoulesPerSecond, sweatHeatRegulationJoulesPerSecond,
+                     shiveringHeatRegulationJoulesPerSecond, thermalRegulationThresholdKelvin);
+             new ThermalExposureMath.VacuumPolicy(spaceHeatCapacityJoulesPerKelvin, spaceHeatScale,
+                     spaceTemperatureKelvin);
+            if (normalBodyTemperatureKelvin <= coldDamageThresholdKelvin
+                    || normalBodyTemperatureKelvin >= heatDamageThresholdKelvin) {
+                throw new IllegalArgumentException("normal body temperature must be between damage thresholds");
+            }
         }
 
         public ThermalExposureMath.ThermalProfile toProfile() {
             return toProfile(massKg, specificHeatJoulesPerKgKelvin, atmosphereTransferEfficiency,
                     heatDamageThresholdKelvin, coldDamageThresholdKelvin, heatDamagePerSecond,
                     coldDamagePerSecond, damageCap);
+        }
+
+        public com.juicyslew.moonstation14.ms14.atmos.exposure.ThermalRegulatorMath.Policy toRegulationPolicy() {
+            return new com.juicyslew.moonstation14.ms14.atmos.exposure.ThermalRegulatorMath.Policy(
+                    normalBodyTemperatureKelvin, metabolismHeatJoulesPerSecond, radiatedHeatJoulesPerSecond,
+                    implicitHeatRegulationJoulesPerSecond, sweatHeatRegulationJoulesPerSecond,
+                    shiveringHeatRegulationJoulesPerSecond, thermalRegulationThresholdKelvin);
+        }
+
+        public ThermalExposureMath.VacuumPolicy toVacuumPolicy() {
+            return new ThermalExposureMath.VacuumPolicy(spaceHeatCapacityJoulesPerKelvin, spaceHeatScale,
+                    spaceTemperatureKelvin);
         }
 
         private static ThermalExposureMath.ThermalProfile toProfile(double massKg, double specificHeat,

@@ -172,6 +172,70 @@ public final class AtmosphereService {
         } catch (IllegalArgumentException exception) { return false; }
     }
 
+    /**
+     * Atomically exchanges a lung's requested inhale and its actual former gas with one cell.
+     * Unknown ownership, unloaded/solid cells, and disabled atmosphere are strict failures.
+     * A proven exterior supplies ambient gas without mutating any finite inventory.
+     */
+    public Optional<BreathExchange> exchangeBreath(ServerLevel level, BlockPos pos,
+                                                    double requestedMoles, GasMixture exhaled) {
+        return exchangeBreath(level, pos, requestedMoles, exhaled, inhaled -> true);
+    }
+
+    /**
+     * Validates the proposed inhaled gas before any finite-cell write. The validator must be
+     * side-effect-free and must not mutate atmosphere; it is invoked exactly once for a valid
+     * exchange, including a proven exterior or a physical no-op. A rejection leaves the room
+     * untouched. This does not make lung and world persistence atomic across a crash.
+     */
+    public Optional<BreathExchange> exchangeBreath(ServerLevel level, BlockPos pos,
+                                                    double requestedMoles, GasMixture exhaled,
+                                                    java.util.function.Predicate<GasMixture> validateInhaled) {
+        if (!enabled || level == null || pos == null || exhaled == null
+                  || validateInhaled == null || !Double.isFinite(requestedMoles)
+                  || requestedMoles < 0.0 || !inBounds(level, pos))
+            return Optional.empty();
+        LevelChunk chunk = loadedChunk(level, pos);
+        if (chunk == null || !AtmosphereTopology.isPassable(level, pos)) return Optional.empty();
+
+        if (!isFiniteClaimed(chunk, pos)) {
+            if (!isExterior(chunk, pos) && !isCachedExterior(level, pos)) {
+                ownership(level, chunk, pos);
+                return Optional.empty();
+            }
+            GasMixture ambient = ambient(level);
+            Optional<GasMixture> portion = ambientPortion(ambient, requestedMoles);
+            if (portion.isEmpty() || !accept(validateInhaled, portion.get())) return Optional.empty();
+            return Optional.of(new BreathExchange(portion.get(), ambient));
+        }
+
+        GasMixture before = sample(level, pos).orElse(null);
+        if (before == null) return Optional.empty();
+        Optional<BreathExchange> candidate = BreathExchange.calculate(before, requestedMoles, exhaled);
+        if (candidate.isEmpty()) return Optional.empty();
+        BreathExchange result = candidate.get();
+        if (!accept(validateInhaled, result.inhaled())) return Optional.empty();
+        // A successful physical no-op must not materialize an ambient override.
+        if (same(before, result.roomAfter())) return candidate;
+        return write(level, pos, result.roomAfter()) ? candidate : Optional.empty();
+    }
+
+    private static boolean accept(java.util.function.Predicate<GasMixture> validator, GasMixture inhaled) {
+        try { return validator.test(inhaled); }
+        catch (RuntimeException invalid) { return false; }
+    }
+
+    private static Optional<GasMixture> ambientPortion(GasMixture ambient, double requestedMoles) {
+        double total = ambient.totalMoles();
+        if (total == 0.0) return Optional.of(new GasMixture(Map.of(), ambient.temperatureKelvin()));
+        try {
+            java.util.EnumMap<GasType, Double> portion = new java.util.EnumMap<>(GasType.class);
+            double scale = requestedMoles / total;
+            ambient.gasMoles().forEach((type, amount) -> portion.put(type, amount * scale));
+            return Optional.of(new GasMixture(portion, ambient.temperatureKelvin()));
+        } catch (IllegalArgumentException exception) { return Optional.empty(); }
+    }
+
     /** Removes up to the requested amount proportionally across all species. */
     public double removeGasUpTo(ServerLevel level, BlockPos pos, double maxMoles) {
         if (!enabled || !Double.isFinite(maxMoles) || maxMoles <= 0.0) return 0.0;

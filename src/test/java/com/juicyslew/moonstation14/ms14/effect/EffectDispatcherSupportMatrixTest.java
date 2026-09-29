@@ -42,13 +42,13 @@ class EffectDispatcherSupportMatrixTest {
             EffectData.AdjustTemperature.class,
             EffectData.SatiateHunger.class,
             EffectData.SatiateThirst.class,
-            EffectData.Emote.class);
+            EffectData.Emote.class,
+            EffectData.ModifyBleed.class,
+            EffectData.ModifyBloodLevel.class,
+            EffectData.Oxygenate.class,
+            EffectData.ModifyLungGas.class);
 
     private static final Set<Class<? extends EffectData>> UNSUPPORTED = Set.of(
-            EffectData.ModifyBleed.class,
-            EffectData.Oxygenate.class,
-            EffectData.ModifyLungGas.class,
-            EffectData.ModifyBloodLevel.class,
             EffectData.CleanBloodstream.class,
             EffectData.ResetNarcolepsy.class,
             EffectData.ReduceRotting.class,
@@ -70,8 +70,8 @@ class EffectDispatcherSupportMatrixTest {
                 .collect(Collectors.toSet());
 
         assertEquals(34, variants.size());
-        assertEquals(21, dispatcher.registeredHandlerTypes().size());
-        assertEquals(13, dispatcher.registeredUnsupportedTypes().size());
+        assertEquals(25, dispatcher.registeredHandlerTypes().size());
+        assertEquals(9, dispatcher.registeredUnsupportedTypes().size());
         assertEquals(FUNCTIONAL, dispatcher.registeredHandlerTypes());
         assertEquals(UNSUPPORTED, dispatcher.registeredUnsupportedTypes().keySet());
         assertEquals(variants, union(dispatcher.registeredHandlerTypes(),
@@ -136,7 +136,7 @@ class EffectDispatcherSupportMatrixTest {
         EffectHandlers.registerDefaults(dispatcher);
 
         List<EffectData> effects = unsupportedEffects();
-        assertEquals(13, effects.size());
+        assertEquals(9, effects.size());
         for (EffectData effect : effects) {
             assertTrue(UNSUPPORTED.contains(effect.getClass()), effect.type());
             assertEquals(EffectResult.SKIPPED_UNSUPPORTED, dispatcher.dispatch(effect, null));
@@ -144,16 +144,35 @@ class EffectDispatcherSupportMatrixTest {
         }
         assertEquals(UNSUPPORTED.stream().map(Class::getSimpleName).collect(Collectors.toSet()),
                 Set.copyOf(warnings));
-        assertEquals(13, warnings.size());
+        assertEquals(9, warnings.size());
+    }
+
+    @Test
+    void bloodEffectsAreRegisteredAsExecutableHandlers() {
+        EffectDispatcher dispatcher = new EffectDispatcher(effect -> { });
+        EffectHandlers.registerDefaults(dispatcher);
+
+        assertTrue(dispatcher.supportsHandler(new EffectData.ModifyBleed(EffectCommonData.DEFAULT, 1f)));
+        assertTrue(dispatcher.supportsHandler(new EffectData.ModifyBloodLevel(EffectCommonData.DEFAULT, 1f)));
+        assertTrue(!dispatcher.registeredUnsupportedTypes().containsKey(EffectData.ModifyBleed.class));
+        assertTrue(!dispatcher.registeredUnsupportedTypes().containsKey(EffectData.ModifyBloodLevel.class));
+    }
+
+    @Test
+    void lungEffectsAreRegisteredAsExecutableHandlers() {
+        EffectDispatcher dispatcher = new EffectDispatcher(effect -> { });
+        EffectHandlers.registerDefaults(dispatcher);
+
+        assertTrue(dispatcher.supportsHandler(new EffectData.Oxygenate(EffectCommonData.DEFAULT, 1f)));
+        assertTrue(dispatcher.supportsHandler(new EffectData.ModifyLungGas(
+                EffectCommonData.DEFAULT, Map.of("carbon_dioxide", 1f))));
+        assertTrue(!dispatcher.registeredUnsupportedTypes().containsKey(EffectData.Oxygenate.class));
+        assertTrue(!dispatcher.registeredUnsupportedTypes().containsKey(EffectData.ModifyLungGas.class));
     }
 
     private static List<EffectData> unsupportedEffects() {
         ResourceKey<ReagentData> water = ModReagents.createKey("water");
         return List.of(
-                new EffectData.ModifyBleed(EffectCommonData.DEFAULT, 1f),
-                new EffectData.Oxygenate(EffectCommonData.DEFAULT, 1f),
-                new EffectData.ModifyLungGas(EffectCommonData.DEFAULT, Map.of(water, 1f)),
-                new EffectData.ModifyBloodLevel(EffectCommonData.DEFAULT, 1f),
                 new EffectData.CleanBloodstream(EffectCommonData.DEFAULT, water, 1f),
                 new EffectData.ResetNarcolepsy(EffectCommonData.DEFAULT),
                 new EffectData.ReduceRotting(EffectCommonData.DEFAULT, 1f),

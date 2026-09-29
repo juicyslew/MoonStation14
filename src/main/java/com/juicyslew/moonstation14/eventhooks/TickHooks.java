@@ -26,6 +26,8 @@ import com.juicyslew.moonstation14.ms14.player_body_control.server.CarrierActivi
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -51,6 +53,11 @@ public class TickHooks {
             return;
         }
         com.juicyslew.moonstation14.ms14.slip.SlipSystem.reconcileTarget(entity);
+        // Resolve policy lazily on entity ticks so entities that joined before
+        // prototype publication retry without eager state on ineligible hosts.
+        com.juicyslew.moonstation14.ms14.blood.BloodSystem.tickIfDue(livingEntity, serverLevel.getGameTime());
+        com.juicyslew.moonstation14.ms14.lung.LungSystem.tickIfDue(livingEntity, serverLevel.getGameTime());
+        com.juicyslew.moonstation14.ms14.atmos.exposure.BarotraumaSystem.tickIfDue(livingEntity, serverLevel.getGameTime());
 
         // Retry prototype-backed thermal enrollment on the same staggered cadence. This
         // covers catalogs populated after an entity's join without resolving every tick.
@@ -160,24 +167,32 @@ public class TickHooks {
 
     static void ReagentUpdate(LivingEntity livingEntity, ServerLevel serverLevel){
         PrototypeCatalog<ReagentData> reagents = PrototypeRuntime.serverReagents();
-        IReagentTrait reagentTrait = (IReagentTrait) livingEntity;
-        TraitHandler<IReagentTrait> source = reagentTrait.toHandleSelf();
-        ReagentAttachment body = MS14Provider.getDetached(livingEntity, MS14Bridges.REAGENT);
+        var bloodPolicy = com.juicyslew.moonstation14.ms14.blood.BloodSystem.resolvePolicy(livingEntity).orElse(null);
+        if (bloodPolicy == null) return;
+        Optional<Set<MetabolizerTypeEnum>> metabolizerTypes = CharacterIdentitySystem.resolve(livingEntity)
+                .flatMap(com.juicyslew.moonstation14.component.codec.json.CharacterData::metabolizerTypes);
+        float bloodCapacity = com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.toFloat(
+                com.juicyslew.moonstation14.ms14.blood.BloodReducer.capacity(bloodPolicy));
+        Set<ResourceKey<ReagentData>> bloodMetabolismExclusions = bloodPolicy.metabolismExclusions().stream()
+                .map(id -> ResourceKey.create(com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY, id))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        ReagentAttachment body = com.juicyslew.moonstation14.ms14.blood.BloodstreamStorage.getDetached(livingEntity);
+        if (body == null) return;
         ReagentAttachment stomach = MS14Provider.getDetached(livingEntity, MS14Bridges.STOMACH);
         var bodyBefore = MS14Provider.snapshot(body);
         var stomachBefore = MS14Provider.snapshot(stomach);
         runWithFinalization(() -> {
             if (!body.isEmpty()) {
-                runMetabolism(livingEntity, serverLevel, source, body, body, reagents,
-                        MetabolizerProfile.SHARED_BODY, reagentTrait.getCapacity(), reagentTrait.getCapacity());
+                runMetabolism(livingEntity, serverLevel, body, body, reagents,
+                         MetabolizerProfile.SHARED_BODY, bloodCapacity, bloodCapacity, bloodMetabolismExclusions, metabolizerTypes);
             }
             if (!stomach.isEmpty()) {
-                runMetabolism(livingEntity, serverLevel, source, stomach, body, reagents,
-                        MetabolizerProfile.STOMACH, StomachSystem.CAPACITY, reagentTrait.getCapacity());
-                StomachDigestionTransfer.transfer(stomach, body, reagents.asMap(), reagentTrait.getCapacity());
+                runMetabolism(livingEntity, serverLevel, stomach, body, reagents,
+                         MetabolizerProfile.STOMACH, StomachSystem.CAPACITY, bloodCapacity, Set.of(), metabolizerTypes);
+                StomachDigestionTransfer.transfer(stomach, body, reagents.asMap(), bloodCapacity);
             }
         }, () -> {
-            MS14Provider.updateIfChanged(livingEntity, MS14Bridges.REAGENT, bodyBefore, body);
+            MS14Provider.updateIfChanged(livingEntity, MS14Bridges.BLOODSTREAM, bodyBefore, body);
             MS14Provider.updateIfChanged(livingEntity, MS14Bridges.STOMACH, stomachBefore, stomach);
             com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem.update(livingEntity,
                     EntityActivity.REAGENT_METABOLISM, !body.isEmpty() || !stomach.isEmpty());
@@ -195,14 +210,16 @@ public class TickHooks {
     }
 
     private static void runMetabolism(LivingEntity livingEntity, ServerLevel serverLevel,
-                                      TraitHandler<IReagentTrait> source,
-                                       ReagentAttachment sourceSolution, ReagentAttachment metaboliteDestination,
-                                       PrototypeCatalog<ReagentData> reagents, MetabolizerProfile profile,
-                                       float sourceCapacity, float destinationCapacity) {
+                                      ReagentAttachment sourceSolution, ReagentAttachment metaboliteDestination,
+                                      PrototypeCatalog<ReagentData> reagents, MetabolizerProfile profile,
+                                      float sourceCapacity, float destinationCapacity,
+                                       Set<ResourceKey<ReagentData>> excludedReagents,
+                                       Optional<Set<MetabolizerTypeEnum>> metabolizerTypes) {
         MetabolismSystem.process(sourceSolution, metaboliteDestination, reagents.asMap(), profile,
                 sourceCapacity, destinationCapacity, serverLevel.getRandom(), invocation -> {
                     TraitHandler<IReagentTrait> effectSource = profile == MetabolizerProfile.STOMACH
-                            ? new TraitHandler<>(livingEntity, () -> StomachSystem.CAPACITY) : source;
+                            ? new TraitHandler<>(livingEntity, () -> StomachSystem.CAPACITY)
+                            : new TraitHandler<>(livingEntity, () -> sourceCapacity);
                     // Ordinary removal has already happened. Keep this baseline once so
                     // each effect can route the pre-removal view plus only later mutations.
                     Map<ResourceKey<ReagentData>, Float> postRemovalBaseline =
@@ -223,7 +240,7 @@ public class TickHooks {
                         }
                         ConditionContext conditionContext = metabolismConditionContext(
                                 invocation.sourceSnapshot(), postRemovalBaseline, sourceSolution.getMap(),
-                                transactionState);
+                                 transactionState, metabolizerTypes);
                         ReagentEffectContext reagentContext = new ReagentEffectContext(
                                 effectSource, sourceSolution, invocation.reagent(), invocation.stage(),
                                 profile, invocation.sourceSnapshot(),
@@ -235,7 +252,7 @@ public class TickHooks {
                                 EffectCause.METABOLISM, Optional.of(reagentContext));
                         EFFECT_SYSTEM.apply(effect, effectContext);
                     });
-                });
+                }, excludedReagents);
     }
 
     /**
@@ -300,7 +317,18 @@ public class TickHooks {
             Map<ResourceKey<ReagentData>, Float> postRemovalBaseline,
             Map<ResourceKey<ReagentData>, Float> liveSource,
             ReagentEffectTransactionState transactionState) {
+        return metabolismConditionContext(sourceSnapshot, postRemovalBaseline, liveSource,
+                transactionState, Optional.empty());
+    }
+
+    public static ConditionContext metabolismConditionContext(
+            MetabolismSystem.SourceSnapshot sourceSnapshot,
+            Map<ResourceKey<ReagentData>, Float> postRemovalBaseline,
+            Map<ResourceKey<ReagentData>, Float> liveSource,
+            ReagentEffectTransactionState transactionState,
+            Optional<Set<MetabolizerTypeEnum>> metabolizerTypes) {
         Objects.requireNonNull(transactionState, "transactionState");
+        Objects.requireNonNull(metabolizerTypes, "metabolizerTypes");
         ConditionContext base = metabolismConditionContext(sourceSnapshot, postRemovalBaseline, liveSource);
         Map<ResourceKey<ReagentData>, Float> routed = new LinkedHashMap<>(
                 base.sourceReagentQuantities().orElseThrow());
@@ -314,9 +342,9 @@ public class TickHooks {
             throw new IllegalArgumentException("virtual source quantity must be finite and nonnegative");
         }
         routed.put(sourceReagent, virtualAmount);
-        return ConditionContext.builder()
-                .sourceReagentQuantities(routed)
-                .build();
+        ConditionContext.Builder builder = ConditionContext.builder().sourceReagentQuantities(routed);
+        metabolizerTypes.ifPresent(builder::metabolizerTypes);
+        return builder.build();
     }
 
     private static Map<ResourceKey<ReagentData>, Float> copyValidatedQuantities(

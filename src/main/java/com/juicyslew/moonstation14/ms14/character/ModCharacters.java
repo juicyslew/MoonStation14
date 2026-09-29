@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeType;
 import com.google.gson.JsonObject;
@@ -16,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
 
 /** Prototype descriptor and side-aware accessors for character policies. */
@@ -70,6 +72,45 @@ public final class ModCharacters {
     public static CharacterData require(Level level, ResourceLocation id) {
         Objects.requireNonNull(level, "level");
         return require(catalog(level), id);
+    }
+
+    /** Validates blood reagent references against the same detached candidate that will be published. */
+    public static void validateReagentReferences(
+            Map<ResourceLocation, Map<ResourceLocation, JsonObject>> encodedCatalogs) {
+        Map<ResourceLocation, JsonObject> reagents = encodedCatalogs.getOrDefault(
+                com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_TYPE.typeId(), Map.of());
+        Set<ResourceLocation> reagentIds = Set.copyOf(reagents.keySet());
+        Map<ResourceLocation, JsonObject> characters = encodedCatalogs.getOrDefault(CHARACTER_TYPE.typeId(), Map.of());
+        for (Map.Entry<ResourceLocation, JsonObject> entry : characters.entrySet()) {
+            ResourceLocation characterId = entry.getKey();
+            JsonObject blood = entry.getValue().getAsJsonObject("blood");
+            if (blood == null) continue;
+
+            JsonObject solution = blood.getAsJsonObject("reference_solution");
+            if (solution != null) {
+                for (String id : solution.keySet()) {
+                    requireReagent(characterId, "$.blood.reference_solution." + id, id, reagentIds);
+                }
+            }
+
+            if (blood.has("metabolism_exclusions") && blood.get("metabolism_exclusions").isJsonArray()) {
+                var exclusions = blood.getAsJsonArray("metabolism_exclusions");
+                for (int i = 0; i < exclusions.size(); i++) {
+                    String id = exclusions.get(i).getAsString();
+                    requireReagent(characterId, "$.blood.metabolism_exclusions[" + i + "]", id, reagentIds);
+                }
+            }
+        }
+    }
+
+    private static void requireReagent(ResourceLocation characterId, String fieldPath, String reagentId,
+                                       Set<ResourceLocation> reagentIds) {
+        ResourceLocation parsed = ResourceLocation.tryParse(reagentId);
+        if (parsed != null && reagentIds.contains(parsed)) return;
+        String resourcePath = "data/" + characterId.getNamespace() + "/" + CHARACTER_TYPE.resourceDirectory()
+                + "/" + characterId.getPath() + ".json";
+        throw new PrototypeLoadException(CHARACTER_TYPE.typeId(), characterId, resourcePath,
+                fieldPath + ": missing reagent prototype '" + reagentId + "'");
     }
 
     /** Returns the character prototype bound to this host type, if any. The index is scoped to this immutable snapshot. */

@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -26,7 +27,7 @@ public final class ComplexInteractionSystem {
         persisted.putBoolean(INITIALIZED_MARKER, true);
         body.setData(ModDataAttachments.COMPLEX_INTERACTION.get(),
                 new ComplexInteractionAttachment(true,
-                        prototype.components().contains(CharacterData.Capability.COMPLEX_INTERACTION)));
+                        prototype.component(ComplexInteractionComponent.class).isPresent()));
     }
 
     /** Read-only: neither a prototype declaration nor an absent attachment grants permission. */
