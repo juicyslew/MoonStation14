@@ -44,6 +44,7 @@ class CharacterPrototypeTest {
         assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
                 data.hostEntityTypes());
         assertEquals(List.of("left", "right"), data.hands());
+        assertEquals(List.of(CharacterData.Capability.COMPLEX_INTERACTION), data.components());
         var thermal = data.thermal().orElseThrow();
         assertEquals(70.0, thermal.massKg());
         assertEquals(42.0, thermal.specificHeatJoulesPerKgKelvin());
@@ -72,6 +73,7 @@ class CharacterPrototypeTest {
         assertEquals(Optional.empty(), oldData.thermal());
         assertTrue(oldData.hostEntityTypes().isEmpty());
         assertTrue(oldData.hands().isEmpty());
+        assertTrue(oldData.components().isEmpty());
         assertEquals(oldData, CharacterData.CODEC.parse(JsonOps.INSTANCE,
                 CharacterData.CODEC.encodeStart(JsonOps.INSTANCE, oldData).getOrThrow()).getOrThrow());
         assertEquals(oldData, new CharacterData(oldData.slipData()));
@@ -82,6 +84,7 @@ class CharacterPrototypeTest {
         assertNotEquals(2.5, pig.movement().orElseThrow().walkSpeed());
         assertEquals(List.of(ResourceLocation.parse("minecraft:pig")), pig.hostEntityTypes());
         assertTrue(pig.hands().isEmpty(), "pig prototypes do not acquire implicit hands");
+        assertTrue(pig.components().isEmpty(), "movement does not grant complex interaction");
         assertFalse(pig.slipData().canReceiveStun());
         assertTrue(pig.slipData().noSlip());
         assertFalse(pig.slipData().standingEligible());
@@ -247,6 +250,24 @@ class CharacterPrototypeTest {
 
     private static JsonObject withHands(JsonObject source, String json) {
         JsonObject result = source.deepCopy(); result.add("hands", JsonParser.parseString(json)); return result;
+    }
+
+    @Test
+    void componentsAreStrictOptionalAndDoNotInferFromHandsOrMovement() throws IOException {
+        JsonObject human = readResource(RESOURCE);
+        JsonObject absent = human.deepCopy();
+        absent.remove("components");
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, absent).getOrThrow().components().isEmpty());
+        for (String invalid : List.of("{}", "[1]", "[\"ComplexInteraction\"]",
+                "[\"unknown\"]", "[\"complex_interaction\",\"complex_interaction\"]")) {
+            JsonObject input = human.deepCopy();
+            input.add("components", JsonParser.parseString(invalid));
+            assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, input).error().isPresent(), invalid);
+            PrototypeManager manager = new PrototypeManager();
+            manager.register(ModCharacters.CHARACTER_TYPE);
+            assertThrows(RuntimeException.class,
+                    () -> manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, input)));
+        }
     }
 
     private static JsonObject withoutHands(JsonObject source) {

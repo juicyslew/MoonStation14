@@ -5,6 +5,8 @@ import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionSystem;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -42,7 +44,8 @@ public final class CharacterIdentitySystem {
 
     /** Existing keys, including unknown/dangling keys, are never replaced. */
     public static boolean enroll(Entity entity, ServerLevel level, ResourceLocation requestedId) {
-        if (entity.level().isClientSide || level.isClientSide) return false;
+        if (entity == null || level == null || requestedId == null || entity.level() != level
+                || entity.isRemoved() || level.getServer() == null || !level.getServer().isSameThread()) return false;
         if (entity.hasData(ModDataAttachments.CHARACTER_IDENTITY.get())) {
             CharacterIdentityAttachment existing = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
             if (existing == null || !existing.isBound()) {
@@ -56,13 +59,17 @@ public final class CharacterIdentitySystem {
                         entity.getStringUUID(), present, requestedId);
                 return false;
             }
-            return resolve(level, present).isPresent();
+            Optional<CharacterData> prototype = resolveHost(entity, level, present);
+            prototype.ifPresent(data -> ComplexInteractionSystem.bootstrap(entity, level, data));
+            return prototype.isPresent();
         }
 
-        if (resolve(level, requestedId).isEmpty()) return false;
+        Optional<CharacterData> prototype = resolveHost(entity, level, requestedId);
+        if (prototype.isEmpty()) return false;
         CharacterIdentityAttachment binding = new CharacterIdentityAttachment();
         binding.bind(requestedId);
         MS14Provider.update(entity, MS14Bridges.CHARACTER_IDENTITY, binding);
+        ComplexInteractionSystem.bootstrap(entity, level, prototype.orElseThrow());
         return true;
     }
 
@@ -84,6 +91,17 @@ public final class CharacterIdentitySystem {
             return Optional.empty();
         }
         return Optional.of(data);
+    }
+
+    /** Explicit enrollment/access host policy; the harness binds human before its account binding is assigned. */
+    public static Optional<CharacterData> resolveHost(Entity entity, ServerLevel level, ResourceLocation id) {
+        if (entity == null || level == null || id == null || entity.level() != level) return Optional.empty();
+        Optional<CharacterData> prototype = resolve(level, id);
+        if (prototype.isEmpty()) return Optional.empty();
+        ResourceLocation host = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        return prototype.orElseThrow().hostEntityTypes().contains(host)
+                || (entity instanceof PlayerCharacterHarnessEntity && ModCharacters.HUMAN_ID.equals(id))
+                ? prototype : Optional.empty();
     }
 
     static boolean shouldWarnUnresolved(PrototypeCatalog<CharacterData> catalog, ResourceLocation id) {

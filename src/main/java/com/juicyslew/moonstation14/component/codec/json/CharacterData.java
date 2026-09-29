@@ -21,7 +21,7 @@ import java.util.Set;
 /** Immutable, data-only character policy. The catalog key supplies identity. */
 public record CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
                             List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
-                            List<String> hands) {
+                            List<String> hands, List<Capability> components) {
     private static final Codec<CharacterData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     SlipTargetData.CODEC.fieldOf("slip_data").forGetter(CharacterData::slipData),
@@ -29,7 +29,8 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
                     Codec.list(ResourceLocation.CODEC).optionalFieldOf("host_entity_types", List.of())
                             .forGetter(CharacterData::hostEntityTypes),
                     ThermalData.CODEC.optionalFieldOf("thermal").forGetter(CharacterData::thermal),
-                    Codec.list(Codec.STRING).optionalFieldOf("hands", List.of()).forGetter(CharacterData::hands))
+                    Codec.list(Codec.STRING).optionalFieldOf("hands", List.of()).forGetter(CharacterData::hands),
+                    Codec.list(Capability.CODEC).optionalFieldOf("components", List.of()).forGetter(CharacterData::components))
                     .apply(instance, CharacterData::new));
 
     private static final Decoder<CharacterData> STRICT_DECODER = new Decoder<>() {
@@ -58,9 +59,27 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
         Objects.requireNonNull(hostEntityTypes, "hostEntityTypes");
         Objects.requireNonNull(thermal, "thermal");
         Objects.requireNonNull(hands, "hands");
+        Objects.requireNonNull(components, "components");
         hostEntityTypes = List.copyOf(hostEntityTypes);
         hands = List.copyOf(hands);
+        components = List.copyOf(components);
+        if (new HashSet<>(components).size() != components.size())
+            throw new IllegalArgumentException("components must not contain duplicates");
         if (!hands.isEmpty()) HandState.create(hands);
+    }
+
+    public enum Capability {
+        COMPLEX_INTERACTION;
+
+        public static final Codec<Capability> CODEC = Codec.STRING.comapFlatMap(value ->
+                "complex_interaction".equals(value) ? DataResult.success(COMPLEX_INTERACTION)
+                        : DataResult.error(() -> "unknown character component '" + value + "'"),
+                ignored -> "complex_interaction");
+    }
+
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal, List<String> hands) {
+        this(slipData, movement, hostEntityTypes, thermal, hands, List.of());
     }
 
     /** Backward-compatible constructor for character policies predating hand capability. */
