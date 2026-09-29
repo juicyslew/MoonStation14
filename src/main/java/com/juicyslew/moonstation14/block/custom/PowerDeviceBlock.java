@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
+import com.juicyslew.moonstation14.ms14.power.ui.ApcMenuService;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -71,10 +72,9 @@ public class PowerDeviceBlock extends Block implements EntityBlock {
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                                           Player player, BlockHitResult hit) {
         if (kind != PowerDeviceKind.APC) return InteractionResult.PASS;
-        if (level.isClientSide) return InteractionResult.sidedSuccess(true);
-        if (!(level.getBlockEntity(pos) instanceof PowerDeviceBlockEntity device)) return InteractionResult.PASS;
-        double distanceSquared = player.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5);
-        if (!device.toggleBreaker(player, distanceSquared)) return InteractionResult.FAIL;
-        return InteractionResult.SUCCESS;
+        if (level.isClientSide) return InteractionResult.SUCCESS;
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
+                || !(level.getBlockEntity(pos) instanceof PowerDeviceBlockEntity device)) return InteractionResult.FAIL;
+        return ApcMenuService.open(serverPlayer, pos, device) ? InteractionResult.CONSUME : InteractionResult.FAIL;
     }
 }

@@ -37,8 +37,21 @@ public final class PowerGraphService {
         if (!PowerSimulationGate.isEnabled()) return;
         LevelState state = STATES.get(level);
         if (state != null) {
+            state.topologyGeneration++;
             state.pending.add(chunk);
         }
+    }
+
+    /** O(1), read-only freshness token for cached topology-derived samples. */
+    public static long topologyGeneration(ServerLevel level) {
+        LevelState state = STATES.get(level);
+        return state == null ? 0 : state.topologyGeneration;
+    }
+
+    /** True only when no mutations are queued and the bounded graph rebuild is complete. */
+    public static boolean topologyReady(ServerLevel level) {
+        LevelState state = STATES.get(level);
+        return state != null && state.pending.isEmpty() && !state.graph.isDirty();
     }
 
     public static LoadedPowerGraph.NodeState state(ServerLevel level, CableFaceNode node) {
@@ -97,6 +110,7 @@ public final class PowerGraphService {
     public static void onChunkLoad(ChunkEvent.Load event) {
         if (PowerSimulationGate.isEnabled() && event.getLevel() instanceof ServerLevel level) {
             LevelState state = state(level);
+            state.topologyGeneration++;
             state.pending.add(event.getChunk().getPos());
             state.graph.setChunkLoaded(event.getChunk().getPos(), true);
             state.graph.invalidate();
@@ -109,6 +123,7 @@ public final class PowerGraphService {
         if (event.getLevel() instanceof ServerLevel level) {
             LevelState state = STATES.get(level);
             if (state != null) {
+                state.topologyGeneration++;
                 state.pending.remove(event.getChunk().getPos());
                 state.validation.remove(event.getChunk().getPos());
                 state.indexed.remove(event.getChunk().getPos());
@@ -176,6 +191,7 @@ public final class PowerGraphService {
                 if (oldNodes == null || !oldNodes.equals(nodes)) {
                     state.indexed.put(pos, java.util.List.copyOf(nodes));
                     state.graph.replaceChunk(pos, nodes);
+                    state.topologyGeneration++;
                 }
                 state.validation.schedule(pos);
                 refreshed++;
@@ -225,6 +241,7 @@ public final class PowerGraphService {
         final ChunkValidationScheduler validation = new ChunkValidationScheduler();
         final Map<ChunkPos, java.util.List<CableFaceNode>> indexed = new java.util.LinkedHashMap<>();
         final Map<BlockPos, CachedLampNode> lampChoices = new java.util.HashMap<>();
+        long topologyGeneration;
     }
     private record CachedLampNode(long revision, CableFaceNode node) { }
 }

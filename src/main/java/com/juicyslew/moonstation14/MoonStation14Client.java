@@ -28,6 +28,9 @@ import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualPendingSna
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualNetworking;
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualPayload;
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualResyncRequest;
+import com.juicyslew.moonstation14.ms14.power.ui.client.ApcScreen;
+import com.juicyslew.moonstation14.ms14.power.ui.ApcNetworking;
+import com.juicyslew.moonstation14.block.ModMenus;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualResyncRequest;
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient;
@@ -50,6 +53,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -92,6 +96,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerItemColors);
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
+        modEventBus.addListener(MoonStation14Client::registerMenuScreens);
 
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
@@ -100,6 +105,9 @@ public class MoonStation14Client {
         PrototypeCatalogNetworking.installClientHandler(MoonStation14Client::handleCatalogPayload);
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
         CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
+        ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
+            if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
+        }));
         MovementClientController.install();
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
     }
@@ -107,6 +115,10 @@ public class MoonStation14Client {
     static void onClientSetup(FMLClientSetupEvent event) {
         ModSpecialProperties.addCustomItemProperties(event);
         // SET ALL BLOCK RENDERTYPES THAT NEED TO BE TRANSPARENT
+    }
+
+    private static void registerMenuScreens(RegisterMenuScreensEvent event) {
+        event.register(ModMenus.APC.get(), ApcScreen::new);
     }
 
     private static void handleCableVisualPayload(CableVisualPayload payload) {

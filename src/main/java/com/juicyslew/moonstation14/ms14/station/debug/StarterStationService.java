@@ -322,6 +322,7 @@ public final class StarterStationService {
             case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION;
             case APC -> ModBlocks.APC;
             case LAMP -> ModBlocks.POWER_LAMP;
+            case DEBUG_LOAD_LAMP -> ModBlocks.HIGH_LOAD_TEST_LAMP;
         };
     }
 

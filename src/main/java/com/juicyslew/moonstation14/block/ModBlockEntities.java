@@ -44,7 +44,8 @@ public class ModBlockEntities {
     );
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PowerDeviceBlockEntity>> POWER_DEVICE = BLOCK_ENTITY_TYPES.register("power_device",
             () -> BlockEntityType.Builder.of(PowerDeviceBlockEntity::new,
-                    ModBlocks.HV_SOURCE.get(), ModBlocks.HV_MV_SUBSTATION.get(), ModBlocks.APC.get(), ModBlocks.POWER_LAMP.get()).build(null)
+                    ModBlocks.HV_SOURCE.get(), ModBlocks.HV_MV_SUBSTATION.get(), ModBlocks.APC.get(),
+                    ModBlocks.POWER_LAMP.get(), ModBlocks.HIGH_LOAD_TEST_LAMP.get()).build(null)
     );
 
     public static void register(IEventBus eventBus){

@@ -1,5 +1,10 @@
 # Third-party emote audio attribution
 
+For new audio imports and unresolved file-specific provenance, see the
+[media reuse and attribution policy](media-use-and-attribution.md) and
+[running unresolved-audio list](audio-unknown-provenance.md). The verified
+per-file credits below remain authoritative for these existing emote sounds.
+
 All source paths below are from SS14 upstream commit
 `c9df5ef5d675b0d1d226828bddf6b78c28502d91` in
 `https://github.com/space-wizards/space-station-14/tree/c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
