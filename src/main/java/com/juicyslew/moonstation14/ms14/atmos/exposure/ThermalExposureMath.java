@@ -46,6 +46,34 @@ public final class ThermalExposureMath {
                 damageAt(newBodyKelvin, profile, seconds));
     }
 
+    /** SS14's empty-space heat capacity is a gameplay coefficient, not gas inventory.
+     * The local equivalent transfers heat out of the body only, never into a mixture. */
+    public static double vacuumBodyKelvin(double bodyKelvin, ThermalProfile body,
+                                          VacuumPolicy space, double seconds) {
+        requirePositiveFinite(bodyKelvin, "bodyKelvin");
+        Objects.requireNonNull(body, "body");
+        Objects.requireNonNull(space, "space");
+        requirePositiveFinite(seconds, "seconds");
+        double cBody = body.bodyHeatCapacityJoulesPerKelvin();
+        double cSpace = space.spaceHeatCapacityJoulesPerKelvin() * space.spaceHeatScale();
+        double joules = (space.spaceTemperatureKelvin() - bodyKelvin)
+                * (cBody * cSpace / (cBody + cSpace)) * body.atmosphereTransferEfficiency() * seconds;
+        double next = Math.max(space.spaceTemperatureKelvin(), bodyKelvin + joules / cBody);
+        if (!Double.isFinite(next)) throw new IllegalArgumentException("non-finite vacuum cooling");
+        return next;
+    }
+
+    public record VacuumPolicy(double spaceHeatCapacityJoulesPerKelvin, double spaceHeatScale,
+                               double spaceTemperatureKelvin) {
+        public VacuumPolicy {
+            requirePositiveFinite(spaceHeatCapacityJoulesPerKelvin, "spaceHeatCapacityJoulesPerKelvin");
+            requirePositiveFinite(spaceHeatScale, "spaceHeatScale");
+            requirePositiveFinite(spaceTemperatureKelvin, "spaceTemperatureKelvin");
+            if (!Double.isFinite(spaceHeatCapacityJoulesPerKelvin * spaceHeatScale))
+                throw new IllegalArgumentException("non-finite space capacity");
+        }
+    }
+
     /** Computes threshold damage from body state alone, independent of an atmosphere sample. */
     public static DamageAmounts damageAt(double bodyKelvin, ThermalProfile profile, double seconds) {
         requirePositiveFinite(bodyKelvin, "bodyKelvin");
@@ -88,7 +116,7 @@ public final class ThermalExposureMath {
                                  double heatDamagePerSecond, double coldDamagePerSecond,
                                  double damageCap) {
         public static final ThermalProfile HUMAN = new ThermalProfile(
-                70.0, 42.0, 0.1, 325.0, 260.0, 1.5, 0.1, 8.0);
+                 Math.PI * 0.35 * 0.35 * 185.0, 42.0, 0.1, 325.0, 260.0, 1.5, 0.1, 8.0);
 
         public ThermalProfile {
             requirePositiveFinite(massKg, "massKg");

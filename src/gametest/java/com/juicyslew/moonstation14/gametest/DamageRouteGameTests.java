@@ -87,7 +87,7 @@ public final class DamageRouteGameTests {
         require(bottle.get(ModDataComponents.REAGENT.get()).contents().isEmpty(), "bottle source must be consumed");
         require(MS14Provider.get(villager, MS14Bridges.STOMACH).getMap().get(POLYTRINIC_ACID) == 5f,
                 "ingestion must place the full dose in stomach");
-        require(MS14Provider.get(villager, MS14Bridges.REAGENT).getMap().isEmpty(),
+        require(MS14Provider.get(villager, MS14Bridges.BLOODSTREAM).getMap().get(POLYTRINIC_ACID) == null,
                 "ingestion must not bypass stomach into bloodstream");
         float initialHealth = villager.getHealth();
         require(!villager.hasData(ModDataAttachments.DAMAGE.get()), "no immediate typed damage before metabolism");
@@ -97,7 +97,7 @@ public final class DamageRouteGameTests {
         TickHooks.runDueActivities(villager, level, metabolism);
         require(Math.abs(MS14Provider.get(villager, MS14Bridges.STOMACH).getMap().get(POLYTRINIC_ACID) - 4.75f) < .000001f,
                 "first metabolism pass transfers 25 stomach cents");
-        require(Math.abs(MS14Provider.get(villager, MS14Bridges.REAGENT).getMap().get(POLYTRINIC_ACID) - .12f) < .000001f,
+        require(Math.abs(MS14Provider.get(villager, MS14Bridges.BLOODSTREAM).getMap().get(POLYTRINIC_ACID) - .12f) < .000001f,
                 "25 stomach cents transfer as 12 body cents");
         require(villager.getHealth() == initialHealth && !villager.hasData(ModDataAttachments.DAMAGE.get()),
                 "stomach transfer occurs after body metabolism, so damage waits for another pass");
@@ -122,7 +122,7 @@ public final class DamageRouteGameTests {
         villager.setNoAi(true);
         villager.setNoGravity(true);
         villager.getAttribute(Attributes.ARMOR).setBaseValue(0f);
-        MS14Provider.update(villager, MS14Bridges.REAGENT,
+        MS14Provider.update(villager, MS14Bridges.BLOODSTREAM,
                 new ReagentAttachment(Map.of(POLYTRINIC_ACID, 3f)));
         EntityActivitySystem.update(villager, EntityActivity.REAGENT_METABOLISM, true);
         float healthBefore = villager.getHealth();

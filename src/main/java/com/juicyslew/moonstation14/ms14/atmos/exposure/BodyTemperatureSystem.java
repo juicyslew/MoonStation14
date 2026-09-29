@@ -15,7 +15,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.npc.Villager;
 
 import java.util.Map;
 import java.util.Optional;
@@ -26,12 +25,12 @@ public final class BodyTemperatureSystem {
     private BodyTemperatureSystem() { }
 
     public static boolean isEligible(LivingEntity entity) {
-        return eligibleForThermal(entity instanceof ServerPlayer || entity instanceof Villager,
+        return eligibleForThermal(true,
                 entity instanceof ServerPlayer && entity.isSpectator(),
                 AtmosphereService.INSTANCE.isEnabled(), profile(entity).isPresent());
     }
 
-    /** Pure policy seam for server-independent eligibility checks. */
+    /** Pure policy seam for server-independent eligibility checks; supportedActor is structural only. */
     public static boolean eligibleForThermal(boolean supportedActor, boolean spectatorPlayer,
                                              boolean atmosphereEnabled, boolean hasThermalProfile) {
         return supportedActor && !spectatorPlayer && atmosphereEnabled && hasThermalProfile;
@@ -64,7 +63,10 @@ public final class BodyTemperatureSystem {
         }
         BodyTemperatureAttachment detached = MS14Provider.getDetached(entity, MS14Bridges.BODY_TEMPERATURE);
         BodyTemperatureComponent before = detached.toComponent();
-        Outcome result = transact(detached, sample.get(), selected.get().toProfile(),
+        boolean provenVacuum = reading.get().status() == AtmosphereReading.Status.EXTERIOR
+                && sample.get().totalMoles() == 0.0;
+        Outcome result = transact(detached, sample.get(), selected.get().toProfile(), selected.get().toRegulationPolicy(),
+                provenVacuum ? selected.get().toVacuumPolicy() : null,
                 energyCommitFor(reading.get().status(), joules -> AtmosphereService.INSTANCE.addEnergy(level, eye, joules)),
                 damage -> DamageSystem.applyHealthChange(entity, damage, 1.0f, true)
                         == DamageSystem.Result.APPLIED);
@@ -176,16 +178,43 @@ public final class BodyTemperatureSystem {
 
     /** Pure preflight + ordered commit seam. Gas energy is committed before body state/damage. */
     public static Outcome transact(BodyTemperatureAttachment detached,
-                                   com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
-                                   ThermalExposureMath.ThermalProfile profile,
-                                   DoublePredicate energyCommit,
-                                   java.util.function.Predicate<Map<String, Float>> damageSink) {
+                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
+                                    ThermalExposureMath.ThermalProfile profile,
+                                    DoublePredicate energyCommit,
+                                    java.util.function.Predicate<Map<String, Float>> damageSink) {
+        return transact(detached, gas, profile, null, energyCommit, damageSink);
+    }
+
+    /** Strict physical sample only. Gas exchange is committed separately from body-only heat terms. */
+    public static Outcome transact(BodyTemperatureAttachment detached,
+                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
+                                    ThermalExposureMath.ThermalProfile profile, ThermalRegulatorMath.Policy regulation,
+                                    DoublePredicate energyCommit,
+                                    java.util.function.Predicate<Map<String, Float>> damageSink) {
+        return transact(detached, gas, profile, regulation, null, energyCommit, damageSink);
+    }
+
+    /** vacuumPolicy must be supplied only for a strict, proven exterior vacuum sample. */
+    public static Outcome transact(BodyTemperatureAttachment detached,
+                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
+                                    ThermalExposureMath.ThermalProfile profile, ThermalRegulatorMath.Policy regulation,
+                                    ThermalExposureMath.VacuumPolicy vacuumPolicy,
+                                    DoublePredicate energyCommit,
+                                    java.util.function.Predicate<Map<String, Float>> damageSink) {
         if (detached == null || gas == null || profile == null || energyCommit == null || damageSink == null) return Outcome.SKIPPED;
         BodyTemperatureComponent old = detached.toComponent();
         ThermalExposureMath.ExposureResult exposure;
         try {
             exposure = ThermalExposureMath.expose(old.kelvin(), gas, profile, 1.0);
-            double next = exposure.bodyTemperatureKelvin();
+            double afterExchange = vacuumPolicy == null ? exposure.bodyTemperatureKelvin()
+                    : gas.totalMoles() == 0.0 && gas.heatCapacity() == 0.0
+                    ? ThermalExposureMath.vacuumBodyKelvin(exposure.bodyTemperatureKelvin(), profile, vacuumPolicy, 1.0)
+                    : exposure.bodyTemperatureKelvin();
+            double next = regulation == null ? afterExchange
+                    : ThermalRegulatorMath.regulate(afterExchange,
+                            profile.bodyHeatCapacityJoulesPerKelvin(), regulation, 1.0, true, true);
+            exposure = new ThermalExposureMath.ExposureResult(next, exposure.environmentEnergyDeltaJoules(),
+                    ThermalExposureMath.damageAt(next, profile, 1.0));
             double delta = next - old.kelvin();
             double energy = exposure.environmentEnergyDeltaJoules();
             if (!Double.isFinite(next) || next < 2.7 || next > 20000 || !Double.isFinite(delta)
@@ -216,12 +245,11 @@ public final class BodyTemperatureSystem {
     }
 
     private static Optional<CharacterData.ThermalData> profile(LivingEntity entity) {
-        return CharacterIdentitySystem.resolve(entity).flatMap(CharacterData::thermal);
+        return CharacterIdentitySystem.resolveForHost(entity).flatMap(CharacterData::thermal);
     }
 
     private static boolean supported(LivingEntity entity) {
-        return entity instanceof ServerPlayer player && !player.isSpectator()
-                || entity instanceof Villager;
+        return !(entity instanceof ServerPlayer player && player.isSpectator());
     }
 
     public enum Outcome { APPLIED, SKIPPED }
