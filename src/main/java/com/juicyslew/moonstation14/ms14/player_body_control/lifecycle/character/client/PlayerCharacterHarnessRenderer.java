@@ -60,14 +60,13 @@ public final class PlayerCharacterHarnessRenderer
 
     @Override
     protected boolean shouldShowName(PlayerCharacterHarnessEntity entity) {
-        return entity.hasOfflineBadge() || super.shouldShowName(entity);
+        // Only the status badge may use the vanilla name-tag rendering path.
+        return entity.hasOfflineBadge();
     }
 
     @Override
     protected void renderNameTag(PlayerCharacterHarnessEntity entity, Component displayName,
                                  PoseStack poseStack, MultiBufferSource buffer, int packedLight, float partialTick) {
-        if (super.shouldShowName(entity))
-            super.renderNameTag(entity, displayName, poseStack, buffer, packedLight, partialTick);
         if (entity.hasOfflineBadge()) {
             poseStack.pushPose();
             poseStack.translate(0.0D, 0.25D, 0.0D);

@@ -21,7 +21,7 @@ import java.util.Set;
 /** Immutable, data-only character policy. The catalog key supplies identity. */
 public record CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
                             List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
-                            List<String> hands) {
+                            List<String> hands, Optional<SpeechData> speech) {
     private static final Codec<CharacterData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     SlipTargetData.CODEC.fieldOf("slip_data").forGetter(CharacterData::slipData),
@@ -29,7 +29,8 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
                     Codec.list(ResourceLocation.CODEC).optionalFieldOf("host_entity_types", List.of())
                             .forGetter(CharacterData::hostEntityTypes),
                     ThermalData.CODEC.optionalFieldOf("thermal").forGetter(CharacterData::thermal),
-                    Codec.list(Codec.STRING).optionalFieldOf("hands", List.of()).forGetter(CharacterData::hands))
+                    Codec.list(Codec.STRING).optionalFieldOf("hands", List.of()).forGetter(CharacterData::hands),
+                    SpeechData.CODEC.optionalFieldOf("speech").forGetter(CharacterData::speech))
                     .apply(instance, CharacterData::new));
 
     private static final Decoder<CharacterData> STRICT_DECODER = new Decoder<>() {
@@ -58,9 +59,45 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
         Objects.requireNonNull(hostEntityTypes, "hostEntityTypes");
         Objects.requireNonNull(thermal, "thermal");
         Objects.requireNonNull(hands, "hands");
+        Objects.requireNonNull(speech, "speech");
         hostEntityTypes = List.copyOf(hostEntityTypes);
         hands = List.copyOf(hands);
         if (!hands.isEmpty()) HandState.create(hands);
+    }
+
+    /** Backward-compatible constructor for character policies predating speech capability. */
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
+                         List<String> hands) {
+        this(slipData, movement, hostEntityTypes, thermal, hands, Optional.empty());
+    }
+
+    /** Local text-speech eligibility only; host mapping (including minecraft:player) is not chat authorization. */
+    public boolean canSpeakText() {
+        return speech.map(SpeechData::enabled).orElse(false);
+    }
+
+    /** Explicit local speech policy; no voice, languages, or message routing are modeled here. */
+    public record SpeechData(boolean enabled) {
+        private static final Codec<SpeechData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(Codec.BOOL.fieldOf("enabled").forGetter(SpeechData::enabled))
+                        .apply(instance, SpeechData::new));
+
+        public static final Codec<SpeechData> CODEC = Codec.of(STRUCTURAL_CODEC, new Decoder<>() {
+            @Override
+            public <T> DataResult<Pair<SpeechData, T>> decode(DynamicOps<T> ops, T input) {
+                try {
+                    JsonElement json = ops.convertTo(JsonOps.INSTANCE, input);
+                    if (!json.isJsonObject()) return DataResult.error(() -> "speech must be a JSON object");
+                    CharacterSchemaAudit.auditSpeech(json.getAsJsonObject());
+                    return STRUCTURAL_CODEC.decode(ops, input);
+                } catch (RuntimeException exception) {
+                    String message = exception.getMessage() == null
+                            ? exception.getClass().getSimpleName() : exception.getMessage();
+                    return DataResult.error(() -> message);
+                }
+            }
+        });
     }
 
     /** Backward-compatible constructor for character policies predating hand capability. */
@@ -139,7 +176,7 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
 
     /**
      * Generic grounded movement parameters; species capability policy remains data-driven.
-     * Speech remains unmodeled in this character codec; movement data alone does not grant or deny speech.
+     * Movement data alone does not grant or deny speech.
      */
     public record MovementData(String mode, double acceleration, double walkSpeed, double sprintSpeed,
                                double groundFrictionWithInput, double groundFrictionWithoutInput,
