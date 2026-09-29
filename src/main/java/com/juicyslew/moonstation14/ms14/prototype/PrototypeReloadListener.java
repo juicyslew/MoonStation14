@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.prototype;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
@@ -75,7 +76,10 @@ public final class PrototypeReloadListener
     @Override
     protected void apply(Map<PrototypeType<?>, Map<ResourceLocation, JsonObject>> rawByType,
                          ResourceManager resourceManager, ProfilerFiller profiler) {
-        manager.stage(rawByType, candidateValidator);
+        manager.stage(rawByType, encodedCatalogs -> {
+            ModCharacters.validateReagentReferences(encodedCatalogs);
+            if (candidateValidator != null) candidateValidator.validate(encodedCatalogs);
+        });
     }
 
     private static ResourceLocation toId(PrototypeType<?> type, FileToIdConverter converter,

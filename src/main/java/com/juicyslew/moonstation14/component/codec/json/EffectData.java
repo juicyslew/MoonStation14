@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectOperation;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import net.minecraft.resources.ResourceKey;
 
 import java.util.List;
@@ -216,10 +217,32 @@ public sealed interface EffectData permits
         @Override public String type() { return "Oxygenate"; }
     }
 
-    record ModifyLungGas(EffectCommonData common, Map<ResourceKey<ReagentData>, Float> ratios) implements EffectData {
-        public static final MapCodec<ModifyLungGas> CODEC = EffectData.common(RecordCodecBuilder.<ModifyLungGas>mapCodec(i -> i.group(Codec.unboundedMap(REAGENT_KEY, Codec.FLOAT).fieldOf("ratios").forGetter(ModifyLungGas::ratios)).apply(i, ratios -> new ModifyLungGas(EffectCommonData.DEFAULT, ratios))), ModifyLungGas::new);
-        public ModifyLungGas(List<ConditionData> conditions, Map<ResourceKey<ReagentData>, Float> ratios) {
+    record ModifyLungGas(EffectCommonData common, Map<String, Float> ratios) implements EffectData {
+        private static final Codec<String> GAS_KEY = Codec.STRING.validate(id -> {
+            try {
+                GasType gas = GasType.fromId(id);
+                return gas.id().equals(id) ? com.mojang.serialization.DataResult.success(id)
+                        : com.mojang.serialization.DataResult.error(() -> "Gas name must be canonical: " + id);
+            } catch (IllegalArgumentException invalid) {
+                return com.mojang.serialization.DataResult.error(() -> invalid.getMessage());
+            }
+        });
+        private static final Codec<Float> FINITE_SIGNED = EffectCodecHelpers.FINITE_FLOAT;
+        public static final MapCodec<ModifyLungGas> CODEC = EffectData.common(RecordCodecBuilder.<ModifyLungGas>mapCodec(i -> i.group(Codec.unboundedMap(GAS_KEY, FINITE_SIGNED).fieldOf("ratios").forGetter(ModifyLungGas::ratios)).apply(i, ratios -> new ModifyLungGas(EffectCommonData.DEFAULT, ratios))), ModifyLungGas::new);
+        public ModifyLungGas(List<ConditionData> conditions, Map<String, Float> ratios) {
             this(new EffectCommonData(conditions, 1f, 0f, true), ratios);
+        }
+        public ModifyLungGas {
+            common = Objects.requireNonNull(common, "common");
+            Objects.requireNonNull(ratios, "ratios");
+            java.util.LinkedHashMap<String, Float> checked = new java.util.LinkedHashMap<>();
+            ratios.forEach((name, value) -> {
+                String canonical = GasType.fromId(Objects.requireNonNull(name, "gas name")).id();
+                if (!canonical.equals(name) || value == null || !Float.isFinite(value))
+                    throw new IllegalArgumentException("lung gas ratios require canonical gas names and finite values");
+                checked.put(name, value);
+            });
+            ratios = Map.copyOf(checked);
         }
         private ModifyLungGas(EffectCommonData common, ModifyLungGas value) { this(common, value.ratios()); }
         @Override public String type() { return "ModifyLungGas"; }
