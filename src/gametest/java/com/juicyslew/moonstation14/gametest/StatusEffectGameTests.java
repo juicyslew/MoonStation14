@@ -18,8 +18,11 @@ import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivity;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivityAttachment;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem;
+import com.juicyslew.moonstation14.ms14.blood.BloodReducer;
+import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
 import com.juicyslew.moonstation14.ms14.status_effect.IStatusEffectTrait;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.status_effect.MovementSpeedProjection;
@@ -169,18 +172,21 @@ public final class StatusEffectGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 80)
     public static void staggeredReagentDispatch(GameTestHelper helper) {
-        ArmorStand bodyOnly = spawn(helper);
-        ArmorStand stomachOnly = spawn(helper);
+        var bodyOnly = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        var stomachOnly = helper.spawn(EntityType.VILLAGER, new BlockPos(4, 1, 1));
         var milk = ModReagents.createKey("milk");
         long[] bodyDueTime = {-1L};
         long[] stomachDueTime = {-1L};
         helper.startSequence()
                 .thenExecute(() -> {
-                    ReagentAttachment reagent = MS14Provider.getDetached(bodyOnly, MS14Bridges.REAGENT);
+                    ReagentAttachment reagent = MS14Provider.getDetached(bodyOnly, MS14Bridges.BLOODSTREAM);
                     var before = MS14Provider.snapshot(reagent);
-                    reagent.specificAdd(milk, 1f, 200_000f);
+                    var policy = BloodSystem.resolvePolicy(bodyOnly).orElseThrow(
+                            () -> new AssertionError("fixture host must resolve its prototype blood policy"));
+                    float capacity = ReagentUnits.toFloat(BloodReducer.capacity(policy));
+                    reagent.specificAdd(milk, 1f, capacity);
                     require(MS14Provider.updateIfChanged(
-                                    bodyOnly, MS14Bridges.REAGENT, before, reagent),
+                                    bodyOnly, MS14Bridges.BLOODSTREAM, before, reagent),
                             "adding body milk must be a change-only update");
                     assertActivity(bodyOnly, EntityActivity.REAGENT_METABOLISM);
 
@@ -203,33 +209,37 @@ public final class StatusEffectGameTests {
                     EnumSet<EntityActivity> bodyDueBefore = TickHooks.dueActivities(
                             bodyOnly.getData(ModDataAttachments.ACTIVE_SYSTEMS.get()), bodyDueTime[0] - 1,
                             bodyOnly.getId());
-                    require(bodyDueBefore.isEmpty(), "body reagent activity must not be due before its bucket");
-                    TickHooks.runDueActivities(bodyOnly, helper.getLevel(), bodyDueBefore);
+                    require(!bodyDueBefore.contains(EntityActivity.REAGENT_METABOLISM),
+                            "body reagent activity must not be due before its bucket");
+                    TickHooks.runDueActivities(bodyOnly, helper.getLevel(), EnumSet.noneOf(EntityActivity.class));
                     require(reagentAmount(bodyOnly, milk) == 1f,
                             "body milk must remain unchanged before its due tick");
 
                     EnumSet<EntityActivity> stomachDueBefore = TickHooks.dueActivities(
                             stomachOnly.getData(ModDataAttachments.ACTIVE_SYSTEMS.get()), stomachDueTime[0] - 1,
                             stomachOnly.getId());
-                    require(stomachDueBefore.isEmpty(), "stomach reagent activity must not be due before its bucket");
-                    TickHooks.runDueActivities(stomachOnly, helper.getLevel(), stomachDueBefore);
+                    require(!stomachDueBefore.contains(EntityActivity.REAGENT_METABOLISM),
+                            "stomach reagent activity must not be due before its bucket");
+                    TickHooks.runDueActivities(stomachOnly, helper.getLevel(), EnumSet.noneOf(EntityActivity.class));
                     require(MS14Provider.get(stomachOnly, MS14Bridges.STOMACH).getMap().get(milk) == 1f,
                             "stomach milk must remain unchanged before its due tick");
 
                     EnumSet<EntityActivity> bodyDue = TickHooks.dueActivities(
                             bodyOnly.getData(ModDataAttachments.ACTIVE_SYSTEMS.get()), bodyDueTime[0], bodyOnly.getId());
-                    require(bodyDue.equals(EnumSet.of(EntityActivity.REAGENT_METABOLISM)),
+                    require(bodyDue.contains(EntityActivity.REAGENT_METABOLISM),
                             "body reagent activity must be due in its controlled bucket");
-                    TickHooks.runDueActivities(bodyOnly, helper.getLevel(), bodyDue);
+                    TickHooks.runDueActivities(bodyOnly, helper.getLevel(),
+                            EnumSet.of(EntityActivity.REAGENT_METABOLISM));
                     require(reagentAmount(bodyOnly, milk) == 1f,
                             "shared body milk must not run the digestion-only metabolism stage");
 
                     EnumSet<EntityActivity> stomachDue = TickHooks.dueActivities(
                             stomachOnly.getData(ModDataAttachments.ACTIVE_SYSTEMS.get()), stomachDueTime[0],
                             stomachOnly.getId());
-                    require(stomachDue.equals(EnumSet.of(EntityActivity.REAGENT_METABOLISM)),
+                    require(stomachDue.contains(EntityActivity.REAGENT_METABOLISM),
                             "stomach reagent activity must be due in its controlled bucket");
-                    TickHooks.runDueActivities(stomachOnly, helper.getLevel(), stomachDue);
+                    TickHooks.runDueActivities(stomachOnly, helper.getLevel(),
+                            EnumSet.of(EntityActivity.REAGENT_METABOLISM));
                     float stomachAmount = MS14Provider.get(stomachOnly, MS14Bridges.STOMACH)
                             .getMap().getOrDefault(milk, 0f);
                     require(Math.abs(stomachAmount - .5f) < .0001f,
@@ -1015,8 +1025,8 @@ public final class StatusEffectGameTests {
         require(actual.equals(expected), "expected status " + expected + " but got " + actual);
     }
 
-    private static float reagentAmount(ArmorStand stand, ResourceKey<ReagentData> key) {
-        return MS14Provider.get(stand, MS14Bridges.REAGENT).toComponent().contents()
+    private static float reagentAmount(LivingEntity stand, ResourceKey<ReagentData> key) {
+        return MS14Provider.get(stand, MS14Bridges.BLOODSTREAM).toComponent().contents()
                 .getOrDefault(key, 0f);
     }
 
