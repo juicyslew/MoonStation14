@@ -29,15 +29,17 @@ import java.util.*;
 /** Bounded server-side device projection. Devices are indexed by lifecycle events, never world-scanned. */
 public final class PowerRuntime {
     public static final int TICKS_PER_SOLVE = 20;
-    public static final double SOURCE_WATTS = 10_000;
-    public static final double SUBSTATION_WATTS = 8_000;
-    public static final double APC_WATTS = 2_000;
+    public static final double SOURCE_WATTS = 25_000;
     public static final double LAMP_WATTS = 100;
-    public static final double BATTERY_RATE_WATTS = 1_000;
     private static final Map<ServerLevel, Set<BlockPos>> DEVICES = new WeakHashMap<>();
     private static final Map<ServerLevel, Long> LAST_SOLVE = new WeakHashMap<>();
+    private static final Set<ServerLevel> RESOLVE_AFTER_TRIP = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<ServerLevel> RESOLVE_AFTER_TOPOLOGY = Collections.newSetFromMap(new WeakHashMap<>());
     private static final Map<ServerLevel, String> LAST_DIAGNOSTIC = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, ApcOutputSample>> APC_OUTPUT_SAMPLES = new WeakHashMap<>();
     private static long serverTickSequence;
+    private record ApcOutputSample(long sampleTick, long topologyGeneration, boolean graphKnown,
+                                   double outputWatts) { }
     private PowerRuntime() { }
 
     public static void register(IEventBus bus) { bus.register(PowerRuntime.class); }
@@ -65,6 +67,8 @@ public final class PowerRuntime {
         PowerGraphService.invalidateLampChoice(level, pos);
         Set<BlockPos> devices = DEVICES.get(level);
         if (devices != null) devices.remove(pos);
+        Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
+        if (samples != null) samples.remove(pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
 
@@ -77,7 +81,7 @@ public final class PowerRuntime {
             for (BlockEntity be : chunk.getBlockEntities().values()) {
                 if (be instanceof PowerDeviceBlockEntity
                         && be.getBlockState().getBlock() instanceof PowerDeviceBlock block
-                        && block.kind() == PowerDeviceKind.LAMP) {
+                         && block.kind().isLamp()) {
                     setLampDark(level, be.getBlockPos());
                 }
             }
@@ -93,6 +97,8 @@ public final class PowerRuntime {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         Set<BlockPos> devices = DEVICES.get(level);
         if (devices != null) devices.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
+        if (samples != null) samples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
     }
 
     @net.neoforged.bus.api.SubscribeEvent
@@ -103,9 +109,16 @@ public final class PowerRuntime {
             // Use this service's event sequence: GameTestServer/world time and the
             // server tick counter can be frozen while the event-driven server loop runs.
             long before = LAST_SOLVE.getOrDefault(level, now - TICKS_PER_SOLVE);
-            if (now - before < TICKS_PER_SOLVE) continue;
-            LAST_SOLVE.put(level, now);
-            solve(level, Math.min(TICKS_PER_SOLVE, Math.max(1, now - before)));
+            boolean scheduledAfterTrip = RESOLVE_AFTER_TRIP.remove(level);
+            boolean scheduledAfterTopology = RESOLVE_AFTER_TOPOLOGY.contains(level)
+                    && PowerGraphService.topologyReady(level);
+            if (scheduledAfterTopology) RESOLVE_AFTER_TOPOLOGY.remove(level);
+            if (scheduledAfterTrip || scheduledAfterTopology || now - before >= TICKS_PER_SOLVE) {
+                LAST_SOLVE.put(level, now);
+                // Early re-solves use the entire elapsed interval to avoid double-billing storage.
+                solve(level, Math.min(TICKS_PER_SOLVE, Math.max(1, now - before)), now);
+            }
+            observeApcOutputs(level, now);
         }
     }
 
@@ -114,12 +127,16 @@ public final class PowerRuntime {
         if (event.getLevel() instanceof ServerLevel level) {
             DEVICES.remove(level);
             LAST_SOLVE.remove(level);
+            RESOLVE_AFTER_TRIP.remove(level);
+            RESOLVE_AFTER_TOPOLOGY.remove(level);
             LAST_DIAGNOSTIC.remove(level);
+            APC_OUTPUT_SAMPLES.remove(level);
         }
     }
     @net.neoforged.bus.api.SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
-        DEVICES.clear(); LAST_SOLVE.clear(); LAST_DIAGNOSTIC.clear(); serverTickSequence = 0;
+        DEVICES.clear(); LAST_SOLVE.clear(); RESOLVE_AFTER_TRIP.clear(); RESOLVE_AFTER_TOPOLOGY.clear();
+        LAST_DIAGNOSTIC.clear(); APC_OUTPUT_SAMPLES.clear(); serverTickSequence = 0;
     }
 
     public static void onSimulationDisabled() {
@@ -128,15 +145,23 @@ public final class PowerRuntime {
         for (Map.Entry<ServerLevel, Set<BlockPos>> entry : DEVICES.entrySet()) {
             ServerLevel level = entry.getKey();
             for (BlockPos pos : entry.getValue()) {
-                if (level.hasChunkAt(pos)) setLampDark(level, pos);
+                if (level.hasChunkAt(pos)) {
+                    BlockEntity be = level.getBlockEntity(pos);
+                    if (be instanceof PowerDeviceBlockEntity apc) apc.observeActualApcOutput(serverTickSequence,
+                            serverTickSequence, false, 0);
+                    setLampDark(level, pos);
+                }
             }
         }
         DEVICES.clear();
         LAST_SOLVE.clear();
+        RESOLVE_AFTER_TRIP.clear();
+        RESOLVE_AFTER_TOPOLOGY.clear();
         LAST_DIAGNOSTIC.clear();
+        APC_OUTPUT_SAMPLES.clear();
     }
 
-    private static void solve(ServerLevel level, long elapsedTicks) {
+    private static void solve(ServerLevel level, long elapsedTicks, long sampleTick) {
         Set<BlockPos> indexed = DEVICES.get(level);
         if (indexed == null || indexed.isEmpty()) return;
         // Snapshot is bounded by the insertion cap; stale or unloaded entries are removed without loading chunks.
@@ -155,7 +180,7 @@ public final class PowerRuntime {
             Map<CableTier, Integer> deviceComponents = new EnumMap<>(CableTier.class);
             Map<CableTier, Boolean> deviceKnown = new EnumMap<>(CableTier.class);
             if (device.getBlockState().getBlock() instanceof PowerDeviceBlock block
-                    && block.kind() == PowerDeviceKind.LAMP) {
+                     && block.kind().isLamp()) {
                 CableFaceNode receiver = PowerGraphService.nearestLampNode(level, device.getBlockPos());
                 LoadedPowerGraph.NodeState receiverState = receiver == null
                         ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1)
@@ -183,7 +208,8 @@ public final class PowerRuntime {
         List<PowerDeviceBlockEntity> sources = byKind(devices, PowerDeviceKind.HV_SOURCE);
         List<PowerDeviceBlockEntity> substations = byKind(devices, PowerDeviceKind.HV_MV_SUBSTATION);
         List<PowerDeviceBlockEntity> apcs = byKind(devices, PowerDeviceKind.APC);
-        List<PowerDeviceBlockEntity> lamps = byKind(devices, PowerDeviceKind.LAMP);
+        List<PowerDeviceBlockEntity> lamps = devices.stream().filter(device ->
+                device.getBlockState().getBlock() instanceof PowerDeviceBlock block && block.kind().isLamp()).toList();
         var input = new PowerLiveLoop.Input(
                 sources.stream().map(source -> new PowerLiveLoop.Source(id(source), component(components, source, CableTier.HV),
                         isKnown(known, source, CableTier.HV), SOURCE_WATTS)).toList(),
@@ -194,8 +220,17 @@ public final class PowerRuntime {
                         isKnown(known, apc, CableTier.MV), component(components, apc, CableTier.APC),
                         isKnown(known, apc, CableTier.APC), apc.breakerClosed(), apc.energyJoules())).toList(),
                 lamps.stream().map(lamp -> new PowerLiveLoop.Lamp(id(lamp), component(components, lamp, CableTier.APC),
-                        isKnown(known, lamp, CableTier.APC))).toList(), elapsedTicks);
+                         isKnown(known, lamp, CableTier.APC),
+                         ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind())).toList(), elapsedTicks);
         PowerLiveLoop.Result result = PowerLiveLoop.solve(input);
+        Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.computeIfAbsent(level,
+                ignored -> new HashMap<>());
+        for (PowerDeviceBlockEntity apc : apcs) {
+            boolean graphKnown = isKnown(known, apc, CableTier.MV) && isKnown(known, apc, CableTier.APC);
+            samples.put(apc.getBlockPos().immutable(), new ApcOutputSample(sampleTick,
+                    PowerGraphService.topologyGeneration(level), graphKnown,
+                    result.apcOutputWatts().getOrDefault(id(apc), 0.0)));
+        }
         LAST_DIAGNOSTIC.put(level, "sourcePorts=" + input.sources().stream()
                 .map(s -> s.component() + "/" + s.known()).toList()
                 + ",subPorts=" + input.substations().stream()
@@ -207,7 +242,37 @@ public final class PowerRuntime {
             apc.setEnergyJoules(result.batteryEnergyJoules().getOrDefault(id(apc), apc.energyJoules()));
         // Each lamp has exactly one final projection, regardless of how many APCs share its component.
         for (PowerDeviceBlockEntity lamp : lamps)
-            setLit(level, lamp.getBlockPos(), result.lampWatts().getOrDefault(id(lamp), 0.0) >= LAMP_WATTS);
+            setLit(level, lamp.getBlockPos(), result.lampWatts().getOrDefault(id(lamp), 0.0)
+                    >= ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind().lampDemandWatts());
+    }
+
+    /** Consume cached solve meters only; this per-tick pass performs no topology query or solve. */
+    private static void observeApcOutputs(ServerLevel level, long serverTick) {
+        Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
+        if (samples == null || samples.isEmpty()) return;
+        Iterator<Map.Entry<BlockPos, ApcOutputSample>> iterator = samples.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<BlockPos, ApcOutputSample> entry = iterator.next();
+            BlockPos pos = entry.getKey();
+            if (!level.hasChunkAt(pos)) { iterator.remove(); continue; }
+            BlockEntity be = level.getBlockEntity(pos);
+            if (!(be instanceof PowerDeviceBlockEntity apc)
+                    || !(be.getBlockState().getBlock() instanceof PowerDeviceBlock block)
+                    || block.kind() != PowerDeviceKind.APC) { iterator.remove(); continue; }
+            ApcOutputSample sample = entry.getValue();
+            boolean knownAndFresh = sample != null && sample.graphKnown()
+                    && sample.topologyGeneration() == PowerGraphService.topologyGeneration(level)
+                    && serverTick >= sample.sampleTick() && serverTick - sample.sampleTick() <= TICKS_PER_SOLVE;
+            if (!knownAndFresh && sample != null
+                    && sample.topologyGeneration() != PowerGraphService.topologyGeneration(level))
+                RESOLVE_AFTER_TOPOLOGY.add(level);
+            boolean wasClosed = apc.breakerClosed();
+            apc.observeActualApcOutput(serverTick, sample == null ? Long.MIN_VALUE : sample.sampleTick(),
+                    knownAndFresh, sample == null ? 0 : sample.outputWatts());
+            if (!apc.breakerClosed()) entry.setValue(new ApcOutputSample(serverTick,
+                    PowerGraphService.topologyGeneration(level), sample != null && sample.graphKnown(), 0));
+            if (wasClosed && !apc.breakerClosed()) RESOLVE_AFTER_TRIP.add(level);
+        }
     }
 
     private static List<PowerDeviceBlockEntity> byKind(List<PowerDeviceBlockEntity> devices, PowerDeviceKind kind) {
@@ -230,7 +295,7 @@ public final class PowerRuntime {
 
     private static void setLampDark(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        if (state.getBlock() instanceof PowerDeviceBlock block && block.kind() == PowerDeviceKind.LAMP
+        if (state.getBlock() instanceof PowerDeviceBlock block && block.kind().isLamp()
                 && state.getValue(PowerDeviceBlock.LIT)) {
             // Update the light/client projection without notifying all neighboring blocks.
             level.setBlock(pos, state.setValue(PowerDeviceBlock.LIT, false), 2);

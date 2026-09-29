@@ -14,6 +14,7 @@ public class ModSounds {
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, MoonStation14.MOD_ID);
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
+    public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),
             java.util.Map.entry("crying", registerSoundEvent("emote/crying")),

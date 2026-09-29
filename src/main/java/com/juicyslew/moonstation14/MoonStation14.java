@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14;
 
 import com.juicyslew.moonstation14.block.ModBlockEntities;
+import com.juicyslew.moonstation14.block.ModMenus;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
@@ -20,6 +21,7 @@ import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualServerHoo
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
+import com.juicyslew.moonstation14.ms14.power.ui.ApcNetworking;
 import com.juicyslew.moonstation14.ms14.station.debug.StarterStationService;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
@@ -75,6 +77,7 @@ public class MoonStation14 {
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
+        ModMenus.MENUS.register(modEventBus);
         ModSounds.register(modEventBus);
         ModDataComponents.register_component(modEventBus);
         ModDataAttachments.register(modEventBus);
@@ -85,6 +88,7 @@ public class MoonStation14 {
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
+        modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
         MovementServerController.install();
         //ModFluids.register(modEventBus);
 

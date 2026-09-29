@@ -1,0 +1,11 @@
+# APC passthrough and overload reachability mapping
+
+## Bounded local mapping
+
+The pure `PowerLiveLoop` now treats actual allocated MV input as an APC-tier source. It is offered exactly once and is consumed before battery discharge; unused source power may charge the battery at the configured 5 kW charge limit. The battery can separately contribute up to the configured 10 kW supply ceiling, bounded by stored joules and demand. The per-APC output meter is the APC-tier allocation actually delivered to loads, split into input-derived and battery-derived contributions. It does not add receiving/input a second time. Open breakers cannot discharge or serve APC loads; they can charge only from that APC's known MV input. Unknown ports still fail closed.
+
+Transfer ratings are ceilings, not generated power: the local fixed debug-source offer is 25 kW, the HV/substation step is limited to 30 kW at 90% efficiency, and each APC's MV input allocation is limited to 30 kW. Thus this 25 kW source can transfer at most 22.5 kW through one substation. It only becomes APC output if known connected load demand consumes it; the wired test supplies 29.8 kW of lamp demand. The unchanged 10 kW starter-source configuration yields at most 9 kW through that path and does not by itself establish threshold reachability. Multiple APCs share source supply and component demand rather than duplicating either.
+
+## Upstream parity and explicit omission
+
+Pinned upstream `BatteryRampPegSolver` offers `min(storage/ramp supply, supplyCap + CurrentReceiving * Efficiency)`, while the overload system observes `CurrentSupply`. This loop preserves the key conservation rule—known receiving power is input-derived passthrough, counted once in delivered output, while storage contributes only the unmet demand. This is not an exact port of the upstream ramp/peg solver: the pure loop has no time-ramped storage supply, upstream network solver state, or continuous sub-tick current telemetry. It uses a per-solve stored-energy bound and a local 10 kW battery supply ceiling instead. Therefore exact transient equality with SS14 is intentionally not claimed; overload decisions only use the local actual delivered-output meter.

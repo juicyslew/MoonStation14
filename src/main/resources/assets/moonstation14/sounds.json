@@ -5,6 +5,7 @@
     ],
     "subtitle": "sounds.moonstation14.crowbar_use"
   },
+  "apc/switch": { "sounds": ["moonstation14:apc/machine_switch"], "subtitle": "sounds.moonstation14.apc.switch" },
   "emote/cough": { "sounds": ["moonstation14:emote/cough/male_cough_1", "moonstation14:emote/cough/male_cough_2", "moonstation14:emote/cough/female_cough_1", "moonstation14:emote/cough/female_cough_2"], "subtitle": "sounds.moonstation14.emote.cough" },
   "emote/crying": { "sounds": ["moonstation14:emote/crying/cry_male_1", "moonstation14:emote/crying/cry_male_2", "moonstation14:emote/crying/cry_male_3", "moonstation14:emote/crying/cry_male_4", "moonstation14:emote/crying/cry_female_1", "moonstation14:emote/crying/cry_female_2", "moonstation14:emote/crying/cry_female_3", "moonstation14:emote/crying/cry_female_4"], "subtitle": "sounds.moonstation14.emote.crying" },
   "emote/hew": { "sounds": ["moonstation14:emote/hew/hew"], "subtitle": "sounds.moonstation14.emote.hew" },
