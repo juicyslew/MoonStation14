@@ -957,6 +957,36 @@ public final class PlayerLifecycleRegistry {
         }
     }
 
+    /** Read-only exact ACTIVE CHARACTER authority check for runtime snapshots. */
+    public synchronized boolean authorizesActiveCharacterReadOnly(UUID accountId, MindId expectedMindId,
+            long expectedGeneration, MobHarnessId bodyId) {
+        synchronized (ownership) {
+            if (accountId == null || expectedMindId == null || bodyId == null) return false;
+            ProfileRecord record = byAccount.get(accountId);
+            if (record == null || !record.active || record.state != LifecycleState.ACTIVE
+                    || record.generation != expectedGeneration || !record.mindId.equals(expectedMindId)
+                    || !record.bodyId.equals(bodyId)) return false;
+            return ownership.authorizesLifecycleReadOnly(accountId, expectedMindId, bodyId,
+                    expectedGeneration, target -> target.id().equals(bodyId)
+                            && target.kind() == MobHarnessKind.CHARACTER, capability);
+        }
+    }
+
+    /** Read-only exact GHOST binding, including lifecycle kind, Mind and connection epoch. */
+    public synchronized boolean authorizesGhostReadOnly(UUID accountId, MindId expectedMindId,
+            long expectedGeneration, MobHarnessId bodyId) {
+        synchronized (ownership) {
+            if (accountId == null || expectedMindId == null || bodyId == null) return false;
+            ProfileRecord record = byAccount.get(accountId);
+            if (record == null || !record.active || !record.deadClaim || record.state != LifecycleState.GHOST
+                    || record.generation != expectedGeneration || !record.mindId.equals(expectedMindId)
+                    || !record.bodyId.equals(bodyId)) return false;
+            return ownership.authorizesLifecycleReadOnly(accountId, expectedMindId, bodyId,
+                    expectedGeneration, target -> target.id().equals(bodyId)
+                            && target.kind() == MobHarnessKind.GHOST, capability);
+        }
+    }
+
     public synchronized Optional<Snapshot> profile(UUID accountId) {
         ProfileRecord record = byAccount.get(Objects.requireNonNull(accountId, "accountId"));
         return record == null ? Optional.empty() : Optional.of(record.snapshot());

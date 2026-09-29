@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import com.juicyslew.moonstation14.ms14.player_body_control.BodyControlRegistry;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
@@ -118,6 +119,33 @@ class LifecycleCharacterSessionControlTest {
         assertFalse(cameraDecision(true, true, true, true, true, true));
     }
 
+    @Test void lifecycleBodySnapshotRequiresEveryExactCommittedAuthorityCheck() {
+        assertTrue(LifecycleCharacterSessionControl.activeCharacterBody(null).isEmpty());
+        assertTrue(snapshotEligible(true, true, true, true, true, true, false, true, true));
+        assertFalse(snapshotEligible(false, true, true, true, true, true, false, true, true));
+        assertFalse(snapshotEligible(true, false, true, true, true, true, false, true, true));
+        assertFalse(snapshotEligible(true, true, false, true, true, true, false, true, true));
+        assertFalse(snapshotEligible(true, true, true, false, true, true, false, true, true));
+        assertFalse(snapshotEligible(true, true, true, true, false, true, false, true, true));
+        assertFalse(snapshotEligible(true, true, true, true, true, false, false, true, true));
+        assertFalse(snapshotEligible(true, true, true, true, true, true, true, true, true));
+        assertFalse(snapshotEligible(true, true, true, true, true, true, false, false, true));
+        assertFalse(snapshotEligible(true, true, true, true, true, true, false, true, false));
+    }
+
+    @Test void lifecycleBodySnapshotRequiresExactAccountProfileAndMindBinding() {
+        var account = java.util.UUID.randomUUID();
+        var mind = new MindId(java.util.UUID.randomUUID());
+        var binding = new PlayerCharacterBinding(account, "main", mind.value());
+        assertTrue(LifecycleCharacterSessionControl.activeBodyBindingMatches(binding, account, "main", mind));
+        assertFalse(LifecycleCharacterSessionControl.activeBodyBindingMatches(null, account, "main", mind));
+        assertFalse(LifecycleCharacterSessionControl.activeBodyBindingMatches(binding,
+                java.util.UUID.randomUUID(), "main", mind));
+        assertFalse(LifecycleCharacterSessionControl.activeBodyBindingMatches(binding, account, "other", mind));
+        assertFalse(LifecycleCharacterSessionControl.activeBodyBindingMatches(binding, account, "main",
+                new MindId(java.util.UUID.randomUUID())));
+    }
+
     @Test void intentGateEnforcesEpochRateAndStrictSequenceWithoutApplyingAnythingWhenUnused() {
         GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
         assertFalse(LifecycleCharacterSessionControl.intentRateAllows(0));
@@ -157,5 +185,37 @@ class LifecycleCharacterSessionControlTest {
         return LifecycleCharacterSessionControl.committedCameraOwnershipMatches(committed,
                 exactConnectedOnSameServer, authorizedCurrentMindEpochAndBody,
                 cameraIsAuthorizedBody, spectator, hasPassenger);
+    }
+
+    @Test void terminalFailureClassificationSeparatesCameraModePassengerConnectionAuthorityAndBody() {
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.CONNECTION_MISMATCH,
+                failure(false, false, true, false, false, false, false));
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.MODE_MISMATCH,
+                failure(true, false, true, false, false, false, false));
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.PLAYER_PASSENGER,
+                failure(true, true, true, true, true, true, true));
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.CAMERA_MISMATCH,
+                failure(true, true, false, false, true, true, true));
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.AUTHORIZATION_REVOKED,
+                failure(true, true, false, true, false, true, true));
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.BODY_NOT_LIVE,
+                failure(true, true, false, true, true, false, false));
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.BODY_NOT_INTENT_ELIGIBLE,
+                failure(true, true, false, true, true, true, false));
+        assertEquals(LifecycleCharacterSessionControl.FailureReason.RUNTIME_INELIGIBLE,
+                failure(true, true, false, true, true, true, true));
+    }
+
+    private static LifecycleCharacterSessionControl.FailureReason failure(boolean connection, boolean spectator,
+            boolean passenger, boolean camera, boolean authorized, boolean live, boolean intentEligible) {
+        return LifecycleCharacterSessionControl.classifyRuntimeFailure(connection, spectator, passenger,
+                camera, authorized, live, intentEligible);
+    }
+
+    private static boolean snapshotEligible(boolean exactSession, boolean committed, boolean exactConnected,
+                                            boolean serverThread, boolean playerAlive, boolean spectator,
+                                            boolean passenger, boolean exactCamera, boolean liveBody) {
+        return LifecycleCharacterSessionControl.activeBodySnapshotEligible(exactSession, committed,
+                exactConnected, serverThread, playerAlive, spectator, passenger, exactCamera, liveBody);
     }
 }

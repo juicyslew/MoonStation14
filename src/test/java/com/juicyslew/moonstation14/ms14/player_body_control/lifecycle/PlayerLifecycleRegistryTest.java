@@ -13,6 +13,27 @@ class PlayerLifecycleRegistryTest {
     @TempDir Path directory;
     private int restoreStoreNumber;
 
+    @Test void activeCharacterReadOnlyAuthorizationRequiresExactActiveCharacterAndPreservesState() {
+        BodyControlRegistry ownership = new BodyControlRegistry();
+        PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(ownership);
+        UUID account = uuid(1700);
+        MobHarnessId body = harnessId(1701), ghost = harnessId(1702);
+        assertTrue(lifecycle.registerHarness(new MobHarness(body, MobHarnessKind.CHARACTER)));
+        assertTrue(lifecycle.registerHarness(new MobHarness(ghost, MobHarnessKind.GHOST)));
+        var active = lifecycle.create(account, "main", new MindId(uuid(1703)), body, ELIGIBLE).orElseThrow();
+
+        assertTrue(lifecycle.authorizesActiveCharacterReadOnly(account, active.mindId(),
+                active.connectionGeneration(), body));
+        assertFalse(lifecycle.authorizesActiveCharacterReadOnly(account, active.mindId(),
+                active.connectionGeneration() - 1, body));
+        assertFalse(lifecycle.authorizesActiveCharacterReadOnly(account, active.mindId(),
+                active.connectionGeneration(), ghost));
+        assertFalse(lifecycle.authorizesActiveCharacterReadOnly(account, new MindId(uuid(1704)),
+                active.connectionGeneration(), body));
+        assertEquals(active.connectionGeneration(), ownership.mind(account).orElseThrow().epoch());
+        assertEquals(body, ownership.mind(account).orElseThrow().harnessId());
+    }
+
     @Test void freshRegistryStagesAndDurablyActivatesDeadClaimOnGhostWithoutChangingCorpseRow() throws Exception {
         UUID account = uuid(1800), mind = uuid(1801), epoch = uuid(1802);
         MobHarnessId corpse = harnessId(1803), ghost = harnessId(1804);

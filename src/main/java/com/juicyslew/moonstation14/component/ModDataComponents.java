@@ -9,6 +9,7 @@ import com.juicyslew.moonstation14.ms14.thirst.ThirstComponent;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
 import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureComponent;
+import com.juicyslew.moonstation14.ms14.hands.HandComponent;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.bus.api.IEventBus;
@@ -48,6 +49,10 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<CharacterIdentityComponent>> CHARACTER_IDENTITY =
             register_component("character_identity", builder -> builder.persistent(CharacterIdentityComponent.CODEC)
                     .networkSynchronized(CharacterIdentityComponent.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<HandComponent>> HANDS =
+            register_component("hands", builder -> builder.persistent(HandComponent.CODEC)
+                    .networkSynchronized(HandComponent.STREAM_CODEC));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<SlidingComponent>> SLIDING =
             register_component("sliding", builder -> builder.persistent(SlidingComponent.CODEC)

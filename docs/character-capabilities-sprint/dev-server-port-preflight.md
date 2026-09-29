@@ -1,0 +1,7 @@
+# Development server port preflight
+
+Run `./gradlew.bat runServer` as usual. Immediately before launching Minecraft, this task reads `run/server.properties` relative to the project root (`server-port`, default 25565 if absent; `server-ip`, empty means all interfaces), validates the port, and briefly attempts a TCP bind. A bind failure aborts the run without stopping any process or choosing another port. On Windows, the error also attempts to show the listening PID, local address, and only an identified `MoonStation14-agent-XX` worktree name. It never prints process command lines, which may contain secrets. If process diagnostics are unavailable, the bind failure still aborts.
+
+To check without starting Minecraft, run `./gradlew.bat preflightServerPort --no-daemon`. For isolated tests, pass `-Pms14PreflightProperties=<path-to-temporary-server.properties>` to **that task only**; relative paths are resolved from the project root. `runServer` always reads the real `run/server.properties`; the override does not change its settings.
+
+This is a preflight, not a reservation: another process can claim the port after the check and before the server binds. An OS bind failure can also reflect an unavailable configured address or OS policy rather than another listener; PID and worktree identification depend on Windows permissions and PowerShell networking/CIM availability. No other run configurations, tests, or builds run this check.
