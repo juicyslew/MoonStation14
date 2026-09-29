@@ -158,7 +158,13 @@
   "gui.moonstation14.apc.breaker_off": "OPEN — OFF",
   "gui.moonstation14.apc.overload_tripped": "OVERLOAD — TRIPPED",
   "gui.moonstation14.apc.waiting": "WAITING FOR SERVER...",
+  "gui.moonstation14.apc.response_timeout": "Response timed out; retry",
+  "gui.moonstation14.apc.pending": "BREAKER CHANGE PENDING...",
+  "gui.moonstation14.apc.ready": "SERVER STATE RECEIVED",
   "gui.moonstation14.apc.battery": "BATTERY CHARGE",
+  "gui.moonstation14.apc.external": "EXTERNAL",
+  "gui.moonstation14.apc.load": "LOAD",
+  "gui.moonstation14.apc.unavailable": "N/A",
   "gui.moonstation14.apc.external_unavailable": "External power: unavailable",
   "gui.moonstation14.apc.load_unavailable": "Load: unavailable"
 }
