@@ -77,6 +77,7 @@ public class ModBlocks {
     public static final DeferredBlock<PowerDeviceBlock> HV_MV_SUBSTATION = registerPowerDevice(PowerDeviceKind.HV_MV_SUBSTATION);
     public static final DeferredBlock<PowerDeviceBlock> APC = registerPowerDevice(PowerDeviceKind.APC);
     public static final DeferredBlock<PowerDeviceBlock> POWER_LAMP = registerPowerDevice(PowerDeviceKind.LAMP);
+    public static final DeferredBlock<PowerDeviceBlock> HIGH_LOAD_TEST_LAMP = registerPowerDevice(PowerDeviceKind.DEBUG_LOAD_LAMP);
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
@@ -92,7 +93,7 @@ public class ModBlocks {
     private static DeferredBlock<PowerDeviceBlock> registerPowerDevice(PowerDeviceKind kind) {
         return registerBlock(kind.id(), () -> new PowerDeviceBlock(kind,
                 BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER).noOcclusion()
-                        .lightLevel(state -> kind == PowerDeviceKind.LAMP && state.getValue(PowerDeviceBlock.LIT) ? 14 : 0)));
+                        .lightLevel(state -> kind.isLamp() && state.getValue(PowerDeviceBlock.LIT) ? 14 : 0)));
     }
 
     private static <T extends Block> void registerBlockItem(String name, DeferredBlock<T> block) {

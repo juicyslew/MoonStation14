@@ -1,0 +1,7 @@
+# APC overload topology freshness proof
+
+`PowerGraphService.topologyGeneration` is a read-only O(1) per-level token. Cable/device mutation notifications, chunk load/unload, and periodic validation that changes a chunk's indexed nodes advance it. The token does not inspect the world or graph. `topologyReady` is likewise an O(1) gate over queued mutations and the graph's dirty flag. Each solved APC output sample records this generation.
+
+Each solved APC output sample stores the token. The per-tick protection observer rejects a sample if its token changed or its age exceeds one solve interval; the APC protection timer therefore resets immediately rather than accumulating stale delivery. A mismatch requests one early runtime solve, deferred until the bounded graph index/rebuild is ready. Normal periodic solves and first-solve startup remain unchanged.
+
+Evidence: `ApcOverloadGameTests.connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt` is an actual connected HV/MV/APC/cable/lamp GameTest fixture with 298 real lamps. After its legitimate overload trip and manual reclose, it waits for the real cable-powered lamp projection to return, allows overload observations to accrue, removes a real MV cable, then waits 85 server ticks (>3 seconds). It asserts the breaker remains closed/unlatched and the zero-battery lamp is dark. This specifically guards against accumulating a trip across a disconnected/invalidated topology; it is an integration GameTest, not a synthetic topology test.

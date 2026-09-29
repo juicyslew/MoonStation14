@@ -1,0 +1,17 @@
+FILE-SPECIFIC LICENSE UNRESOLVED — not MIT; do not assume CC-BY-SA applies to this file.
+
+Upstream: Space Station 14, Resources/Audio/Machines/machine_switch.ogg
+Commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Machines/machine_switch.ogg
+SHA-256 (source and local): e39e881d52afc399f50ac4ed9b79084736a3025cf10cde51460f106a2bace55d
+Size: 7,307 bytes. Copied verbatim without audio edits.
+
+The upstream README says most assets are CC-BY-SA unless otherwise specified,
+but provides no attribution or license specific to this file. The pinned
+Resources/Audio/Machines/attributions.yml has no machine_switch.ogg entry.
+Author, original source and file-specific redistribution terms remain unknown.
+Seek file-specific evidence or rights-holder permission before relying on
+redistribution terms. If terms cannot be established for intended distribution,
+remove this .ogg and this notice, remove its sounds.json entry and ModSounds
+registration, and update docs/audio-unknown-provenance.md (or replace with a
+cleared asset and update the provenance record).
