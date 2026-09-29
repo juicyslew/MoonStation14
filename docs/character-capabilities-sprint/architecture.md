@@ -1,0 +1,80 @@
+# Character Capabilities Sprint — Architecture and parity contract
+
+**Design proposal only.** Target platform: Java 21, Minecraft 1.21.1, NeoForge 21.1.224. Re-audit APIs against that exact dependency before implementation; this document does not claim the current callbacks are compatible with non-player body actors.
+
+## Current local boundary
+
+- `src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/network/GhostControlPayloads.java`: current intent payload is movement-only.
+- `src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/server/GhostMobHarnessControl.java`: `activeHarness` is read-only.
+- `src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleCharacterSessionControl.java`: `activeCharacterBody` is read-only; lifecycle remains incomplete/default-off and connected ghost behavior is not accepted.
+- `src/main/java/com/juicyslew/moonstation14/ms14/hands/HandActorAuthority.java`: resolves both capable CHARACTER-body paths and carries an epoch; treat it as an authority seam to audit, not as an already complete action protocol.
+- `src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/network/GhostControlNetworking.java`: registers movement and routes it to the exact session. New action routing must preserve exact-session resolution and must not authorize the Spectator carrier.
+- Carrier is Spectator. Existing vanilla stun mixins gate the player only; they neither authorize nor establish body action status.
+- The live hands/inventory work presently has token-only hands metadata and grid/ledger math, with no actual `ItemStack` transport or vanilla isolation. Item ownership/transfer is a prerequisite to item transactions in this sprint.
+
+Use the existing per-path authority rather than creating a parallel actor identity service. A small common action intent/validation seam is appropriate only after M0 identifies what can safely be shared. Avoid a broad action framework before there are proven action families.
+
+## Lifecycle ghost-session mismatch boundary
+
+The post-death/reconnect movement kick is documented with unknown exact reason; do not infer a particular validator branch from its player-facing message. The current lifecycle ghost controller has reason-coded end branches but does not establish which caused the earlier incident. The scoped diagnosis, candidate branch map, response taxonomy and owner-only verification boundary are in [ghost-session-mismatch.md](ghost-session-mismatch.md), planned as early M0G. This is a narrow false-kick diagnosis exception to broad ghost-hardening deferral, not authorization to edit lifecycle ownership/recovery, remove movement validation, enable a gate, or reopen lifecycle acceptance. Preserve fail-closed behavior for ambiguous durable ownership and never create a replacement owner/body as recovery.
+
+## Proposed request and commit flow
+
+1. Receive a bounded action intent over the authenticated connection; preserve existing network protocol/version compatibility checks and bind it to that exact player session. Client fields are requests/hints only (for example target position, face, selected operation, sequence), never actor/body authority or a trusted hit result. Reject incompatible protocol versions before action admission.
+2. Resolve the current controlled CHARACTER body and session epoch server-side. Require eligible body state, explicit action capability, live/usable status and applicable action permission. Fail closed if resolution, capability, status, or session state is absent or stale. Ghost control, harness control and lifecycle control remain separate existing ownership paths.
+3. Validate action-specific semantics from current server state: active hand/equipment and item identity; target entity/block; loaded chunk and world border; server raycast/visibility and reach; interaction permissions/protection; operation state and cooldown/DoAfter where appropriate. Do not mutate before validation. SS14's approximately 1.5-unit interaction range is not 1.5 Minecraft blocks; reach conversion requires explicit owner review and platform-specific measurement.
+4. Revalidate mutable facts immediately before commit. Apply the action through an audited NeoForge route/adapter and its normal server-side behavior, preserving event, permission, consumption, drops and cancellation semantics. Commit hand/world ownership atomically where an item moves. Return bounded results/revisions; reject duplicate, replayed, out-of-order, stale-epoch, malformed and over-rate intents without partial mutation.
+5. Bound raycasts, target search, per-request work and queued actions. Avoid per-tick full-world or all-player scans. Define sequence/replay and result synchronization before connected multiplayer use.
+
+There is no approved vanilla carrier fallback. [The targeted M0 block-route audit](audits/m0-block-action-route.md) verifies the `ServerPlayerGameMode.handleBlockBreakAction`/`useItemOn` call chains against the cached generated NeoForge 21.1.224 sources; this is **not** a completed M0 matrix or a compatible body adapter. Spectator carrier use is menu-only, not controlled-body action authority. M0 must still prove a safe server context or narrow adapter for this version. A proxy must not impersonate a `ServerPlayer`, become action authority, bypass event/permission checks, or change ownership. If no safe route exists, stop and return the incompatibility to the owner. A mod-owned no-item block callback after an audited body actor/permission adapter is only a conditional adapted subset; generic empty-hand mining remains blocked until timing, events/protection, harvest and drops are preserved. No instant `Level.destroyBlock` shortcut.
+
+## Capability and action policy
+
+Represent optional per-character action permissions as explicit, schema-validated prototype capabilities, with strict rejection/reporting for malformed or unknown values. Keep tool qualities separate from general action permissions. Data synchronization must make server policy canonical; missing capability means denied, not implicitly enabled. Define the smallest capability vocabulary needed by the accepted matrix (for example break/place/use/interact/attack/pickup/drop/container/craft and separately gated development flight/grant). Do not infer a broad capability import from SS14.
+
+Resolve whether an action needs an empty hand, an active held item, a matching tool quality, equipment, or no item from the action's parity rule. Enforce stun/body usability and intent permissions consistently; a capability alone never overrides status, range, line of sight, target protection or item ownership. Minecraft-specific behavior may differ, but differences must be explicit and owner-reviewed rather than accidental vanilla defaults.
+
+## Upstream references actually inspected
+
+Use these as parity anchors, not as proof that Minecraft has identical mechanics:
+
+- `Content.Shared/Interaction/SharedInteractionSystem.cs`: `UserInteraction`, `InRangeUnobstructed` (about 1.5 upstream units), and `InteractUsing`. `InteractUsing` does **not** perform its own range check; callers/entry points must establish it.
+- `Content.Shared/Hands/EntitySystems/SharedHandsSystem.Pickup.cs`: active-hand pickup and whitelist behavior.
+- `Content.Shared/Hands/EntitySystems/SharedHandsSystem.Drop.cs`: drop behavior.
+- `Content.Shared/Tools/SharedToolSystem.cs`: tool qualities and `DoAfter`-based tool operation.
+- `Content.Shared/Tools/ToolQualityPrototype.cs` and construction graph girder: prototype tool-quality and construction requirements.
+- `Content.Shared/Storage/EntitySystems/SharedStorageSystem.cs`: storage interaction semantics.
+- `Content.Shared/Input/ContentKeyFunctions.cs`: action intent/key-function vocabulary.
+
+The bullets above are the inspected upstream evidence, not proof of Minecraft behavior. The cited excerpts establish interaction/range-call ownership, hand pickup/drop, tool qualities/DoAfter, storage, and input vocabulary only. Do not imply that every action in the inventory below has an inspected SS14 implementation/reference. M0 must record source path/call chain for any additional evidence it claims and label each Minecraft route/adaptation as proposed pending exact-version audit and owner review. In particular, ~1.5 SS14 interaction units are not a Minecraft-block conversion.
+
+## Action inventory and authority/hand contract
+
+The complete per-action accepted/deferred/unsupported state is tracked in [milestones.md](milestones.md). This contract is a planning baseline, not blanket approval: capabilities, status, permissions, range, current body/epoch and exact session apply to every accepted action. “Empty-hand” means the body-owned active hand is empty, not the Spectator carrier's inventory.
+
+| Action | Hand/access contract | Planning state and SS14 evidence versus Minecraft proposal |
+|---|---|---|
+| Block mine | Empty hand can be accepted for a verified empty-hand rule; held tools are item-dependent and deferred. | Requested final scope, but generic empty-hand mining is blocked pending a safe timed body route and owner review. Tool quality/DoAfter evidence exists upstream; block-mining route/timing remains unproven for this platform. |
+| Block use/activation | Per block/action policy: no hand or actual held item; item-dependent use deferred. | Mod-owned no-item subset conditional on audited body actor/permissions; not generic vanilla activation parity. `InteractUsing` range is caller-owned upstream; see [the block-route decision](audits/m0-block-action-route.md). |
+| Block place | Actual body-owned active stack and atomic consumption required. | Deferred pending ownership/isolation; Minecraft placement route proposed pending audit. |
+| Tool use in air / on block | Actual active-hand item, tool quality, durability/consumption and applicable DoAfter required. | Deferred pending ownership; inspected upstream tool-quality/DoAfter evidence, exact Minecraft adapters proposed pending M0. |
+| Eat / drink | Actual owned consumable, quantity/effects and consumption commit required. | Deferred pending ownership; no cited upstream evidence here establishes exact parity; audit/adaptation required. |
+| Entity use / attack | No-hand vs held-item requirement is action-specific; target permission/status/range required; item-backed actions need owned item. | Supported rows remain to be owner-confirmed after audit; no blanket acceptance. Inspect and record applicable upstream evidence; Minecraft entity routes proposed pending M0. |
+| Hand select / swap | Operates only on body-owned hands; no carrier inventory fallback. | Deferred pending actual hand ownership and vanilla isolation; upstream active-hand semantics inspected for pickup, but Minecraft inventory mapping is proposed. |
+| Drop | Body-owned item and atomic hand-to-world transfer. | Deferred pending ownership; upstream drop system inspected; Minecraft transfer/route proposed pending audit. |
+| Click ground pickup | Body-owned hand, whitelist and quantity; atomic world-to-hand transfer. | Recommended SS14-fidelity design, not final approved choice; owner decision required before M4. Upstream active-hand pickup/whitelist inspected; Minecraft click routing/suppression proposed pending audit. |
+| Container / menu / crafting | Actual body-owned slots and body-bound menu session; invalidate on body/epoch/distance changes. | Deferred until actor/menu/inventory route proven and owner reviews each supported row. Upstream storage system inspected; crafting/menu parity and Minecraft routing not established by that reference. |
+| Movement: jump / sprint / crouch | Body movement authority; no item ownership. | In movement ownership, not this action transaction layer; accepted only where existing movement capability/rules support it. Audit/adaptation must be recorded, not assumed from hand references. |
+| Ghost flight | Ghost movement authority, not CHARACTER hand/action authority. | Movement-owned; retain current policy and fail closed where unsupported. No new acceptance implied here. |
+| Development grant | Audited dev permission; transfer directly to the exact currently owned body, never carrier inventory. | Gated/deferred until real hand transfer and durable Creative isolation. Proposed `/ms14dev` give-like server command, exact body target and audit log; owner review required. |
+| Development flight | Audited dev permission and body motor/authority. | Gated/deferred until body motor is proven; no Creative flight/inventory shortcut. Owner review required. |
+
+## Compatibility audit targets
+
+At the pinned NeoForge/Minecraft version, inspect and record call chains, logical-side constraints, events/cancellation, actor assumptions, permissions, item consumption, drops and interaction distances for relevant `Block`, `Item`, `Player` and networking APIs. Audit existing local examples: `src/main/java/com/juicyslew/moonstation14/item/custom/CrowbarItem.java`, `StationFloorTilePryItem.java`, `JugItem.java`, `BottleItem.java`, and `src/main/java/com/juicyslew/moonstation14/block/custom/JugBlock.java`. Their player-parameter signatures are fixtures only. Prefer a native body context if the API supports it; otherwise prove a narrow adapter or server-side context that preserves semantics. Do not “solve” incompatibility by fabricating a `ServerPlayer`, running the carrier's normal interaction, or silently using vanilla fallback.
+
+## Ground items and presentation
+
+SS14's inspected hands path uses explicit active-hand pickup; explicit click is the recommended SS14-fidelity design, not yet the final owner-approved interaction choice. Record that owner decision before M4. Vanilla walk-over pickup is the alternative considered and must be flagged as a parity divergence if selected. M0 must audit all pickup entry points, including `ItemEntity.playerTouch`, mob-loot pickup and direct/API pickup pathways, then prove eligible-session-only suppression without affecting unrelated players or Creative. The explicit server action must validate actor/body/epoch/capability, raycast/reach/visibility, loaded chunk, target still present, hand occupancy/whitelist and quantity, then atomically transfer the item entity's quantity/identity into body-owned hands. Reject races, stale/removed targets and failed commits without loss or duplication. Server pickup proof is separate from the nonblocking final visual decision. Do not create/pick up an item until the hands sprint supplies real ownership and transactional transfer.
+
+For the later client presentation stage, recommend a flat, non-bobbing visual for SS14 mod-owned items only; vanilla item visuals remain unchanged. This is a recommendation, not the final visual decision. A placeholder is acceptable until the owner decides, and asset generation is out of scope. The global vanilla `ItemEntity` renderer was considered but is flagged as an unrelated broad change. Never make renderer behavior an authorization mechanism.

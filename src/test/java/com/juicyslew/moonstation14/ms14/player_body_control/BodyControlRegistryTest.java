@@ -157,6 +157,21 @@ class BodyControlRegistryTest {
     }
 
     @Test
+    void readOnlyAuthorizationDoesNotRevokeAnIneligibleNonLifecycleBinding() {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID session = uuid(501);
+        MobHarnessId ghost = harness(registry, 502, MobHarnessKind.GHOST);
+        var mind = registry.createMind(session, ghost, ELIGIBLE).orElseThrow();
+
+        assertFalse(registry.authorizesReadOnly(session, ghost, mind.epoch(), target -> false));
+        assertEquals(mind, registry.mind(session).orElseThrow(), "read-only query must preserve binding and epoch");
+        assertFalse(registry.authorizes(session, ghost, mind.epoch(), target -> false));
+        var revoked = registry.mind(session).orElseThrow();
+        assertNull(revoked.harnessId());
+        assertEquals(mind.epoch() + 1, revoked.epoch(), "legacy authorizes retains its revocation behavior");
+    }
+
+    @Test
     void removingOwnedHarnessRevokesAuthorizationAndAdvancesEpoch() {
         BodyControlRegistry registry = new BodyControlRegistry();
         UUID session = uuid(60);

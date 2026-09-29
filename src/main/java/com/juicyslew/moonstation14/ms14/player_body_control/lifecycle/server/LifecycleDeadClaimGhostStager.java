@@ -24,7 +24,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.common.util.FakePlayer;
 
+import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Explicit DEAD_CLAIM to durable GHOST staging boundary for trusted login and confirmed-death callers. */
@@ -77,13 +79,15 @@ public final class LifecycleDeadClaimGhostStager {
         if (LifecycleGhostSessionControl.ownsAny(player))
             return Result.failed("lifecycle ghost session already exists");
         LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
-        if (context == null || !context.initialized()) return Result.failed("initialized lifecycle context is unavailable");
+        if (context == null) return Result.failed("initialized lifecycle context is unavailable");
         var memory = context.lifecycle().profile(accountId).orElse(null);
         if (memory != null && (memory.active() || memory.state() != PlayerLifecycleRegistry.LifecycleState.DEAD_CLAIM))
             return Result.failed("account already has an active or conflicting lifecycle profile");
 
         if (saved == null || saved.state() != SavedLifecycleProfile.State.DEAD_CLAIM)
             return Result.failed("no unique current-primary DEAD_CLAIM for this account");
+        saved = validatedCurrentDeadClaim(accountId, saved, context::currentDeadClaim).orElse(null);
+        if (saved == null) return Result.failed("no matching unique current-primary DEAD_CLAIM for this account");
 
         ServerLevel targetLevel = null;
         double x = player.getX(), y = player.getY(), z = player.getZ();
@@ -168,6 +172,25 @@ public final class LifecycleDeadClaimGhostStager {
             return Result.failed("ghost preparation failed before staging; DEAD_CLAIM retained");
         } finally {
             if (!keepGhost) cleanup(context, accountId, ghost, registered);
+        }
+    }
+
+    @FunctionalInterface
+    interface DeadClaimReader {
+        Optional<SavedLifecycleProfile> read(UUID accountId) throws IOException;
+    }
+
+    /** Re-read before world mutation: a caller-supplied row alone is never staging authority. */
+    static Optional<SavedLifecycleProfile> validatedCurrentDeadClaim(UUID accountId, SavedLifecycleProfile supplied,
+                                                                       DeadClaimReader reader) {
+        if (accountId == null || supplied == null || supplied.state() != SavedLifecycleProfile.State.DEAD_CLAIM
+                || !accountId.equals(supplied.accountId()) || reader == null) return Optional.empty();
+        try {
+            var current = reader.read(accountId);
+            return current.filter(row -> row.state() == SavedLifecycleProfile.State.DEAD_CLAIM
+                    && accountId.equals(row.accountId()) && row.equals(supplied));
+        } catch (IOException | RuntimeException failure) {
+            return Optional.empty();
         }
     }
 
