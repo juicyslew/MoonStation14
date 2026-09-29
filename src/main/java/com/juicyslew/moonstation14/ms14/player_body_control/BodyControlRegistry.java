@@ -832,6 +832,31 @@ public final class BodyControlRegistry {
         return false;
     }
 
+    /** Checks current ownership and eligibility without revoking or otherwise mutating a binding. */
+    public synchronized boolean authorizesReadOnly(UUID sessionId, MobHarnessId harnessId, long epoch,
+                                                    TargetEligibility eligibility) {
+        if (sessionId == null || harnessId == null || eligibility == null) return false;
+        MindState mind = mindFor(sessionId);
+        if (mind == null || !mind.connected || mind.epoch != epoch || !harnessId.equals(mind.harnessId)
+                || !mind.id.equals(ownersByHarness.get(harnessId))) return false;
+        MobHarness target = harnesses.get(harnessId);
+        return target != null && eligibility.isEligible(target);
+    }
+
+    /** Exact lifecycle-owned authorization query; this method never performs recovery mutation. */
+    public synchronized boolean authorizesLifecycleReadOnly(UUID sessionId, MindId expectedMindId,
+            MobHarnessId harnessId, long epoch, TargetEligibility eligibility,
+            LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || sessionId == null || expectedMindId == null
+                || harnessId == null || eligibility == null) return false;
+        MindState mind = mindFor(sessionId);
+        if (mind == null || !mind.lifecycleOwned || !mind.id.equals(expectedMindId) || !mind.connected
+                || mind.epoch != epoch || !harnessId.equals(mind.harnessId)
+                || !mind.id.equals(ownersByHarness.get(harnessId))) return false;
+        MobHarness target = harnesses.get(harnessId);
+        return target != null && eligibility.isEligible(target);
+    }
+
     private MobHarness eligibleGhost(MobHarnessId id, TargetEligibility eligibility) {
         MobHarness target = harnesses.get(id);
         return target != null && target.kind() == MobHarnessKind.GHOST && eligibility.isEligible(target)

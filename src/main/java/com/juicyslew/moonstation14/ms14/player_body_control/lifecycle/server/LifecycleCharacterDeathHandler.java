@@ -43,7 +43,7 @@ public final class LifecycleCharacterDeathHandler {
             LifecycleCharacterSessionControl.claimConfirmedDeath(body, context);
             return;
         }
-        if (snapshot.state() != LifecycleStartupRuntime.State.DEFERRED) return;
+        if (!offlineDeathStateEligible(snapshot.state(), context, binding.accountId())) return;
         MobHarness corpse = new MobHarness(new MobHarnessId(body.getUUID()), MobHarnessKind.CHARACTER);
         try {
             SavedLifecycleProfile saved = context.primaryStore().withCurrentPrimary(lease -> {
@@ -72,5 +72,14 @@ public final class LifecycleCharacterDeathHandler {
     static boolean callbackEligible(boolean enabled, boolean conflict, boolean confirmed, boolean serverThread,
                                     boolean exactWorldBody, boolean dead) {
         return enabled && !conflict && confirmed && serverThread && exactWorldBody && dead;
+    }
+
+    /** Startup is immutable: fresh enrollment can leave it EMPTY/UNINITIALIZED after an OFFLINE row is persisted. */
+    static boolean offlineDeathStateEligible(LifecycleStartupRuntime.State state, LifecycleServerContext context,
+                                             java.util.UUID accountId) {
+        if (state == null || context == null || !context.hasReservedClaim(accountId)) return false;
+        return state == LifecycleStartupRuntime.State.DEFERRED
+                || (state == LifecycleStartupRuntime.State.UNINITIALIZED || state == LifecycleStartupRuntime.State.EMPTY)
+                && context.wasCreatedOnThisServer(accountId);
     }
 }

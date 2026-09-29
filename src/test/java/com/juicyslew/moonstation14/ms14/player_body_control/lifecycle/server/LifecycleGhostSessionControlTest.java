@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGate;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifecycleGhostSessionControlTest {
+    @Test void parkRequiresTheSameUniqueSavedDeathClaimIdentityAndGeneration() {
+        UUID account = UUID.randomUUID(), mind = UUID.randomUUID(), corpse = UUID.randomUUID();
+        var saved = new SavedLifecycleProfile(1, account, "person", mind, corpse,
+                "minecraft:overworld", new SavedLifecycleProfile.Location(0, 64, 0),
+                java.util.Map.of(), UUID.randomUUID(), 7, SavedLifecycleProfile.State.DEAD_CLAIM, 2, 1L);
+        assertTrue(LifecycleGhostSessionControl.savedClaimMatches(saved, account, mind, corpse, 7));
+        assertFalse(LifecycleGhostSessionControl.savedClaimMatches(saved, UUID.randomUUID(), mind, corpse, 7));
+        assertFalse(LifecycleGhostSessionControl.savedClaimMatches(saved, account, UUID.randomUUID(), corpse, 7));
+        assertFalse(LifecycleGhostSessionControl.savedClaimMatches(saved, account, mind, UUID.randomUUID(), 7));
+        assertFalse(LifecycleGhostSessionControl.savedClaimMatches(saved, account, mind, corpse, 8));
+        assertFalse(LifecycleGhostSessionControl.savedClaimMatches(null, account, mind, corpse, 7));
+    }
+
     @Test
     void readyRequiresExactEpochUncommittedSessionAndStrictlyBeforeHundredTicks() {
         assertTrue(LifecycleGhostSessionControl.readyDecision(4, 4, false, 0, 100));
@@ -90,6 +104,87 @@ class LifecycleGhostSessionControlTest {
                 Vec3.ZERO, new MovementVector(4.01, -60, 0)));
         MovementVector outsideWorld = new MovementVector(30_000_001, -60, 0);
         assertFalse(LifecycleGhostSessionControl.validMotion(outsideWorld, Vec3.ZERO, outsideWorld));
+    }
+
+    @Test
+    void motionDiagnosticsSeparateBoundToleranceAndResolvedMismatchWithoutUnboundedNumbers() {
+        MovementVector before = new MovementVector(4, -60, 0);
+        MovementVector actual = new MovementVector(4.600001, -60, 0);
+        var oversized = LifecycleGhostSessionControl.motionDiagnostic(before, actual,
+                new Vec3(0.600001, 0, 0), actual);
+        assertTrue(oversized.actualBounded());
+        assertTrue(oversized.displacementFinite());
+        assertTrue(oversized.derivedPriorBounded());
+        assertFalse(oversized.xWithinTolerance());
+        assertTrue(oversized.resolvedWithinTolerance());
+
+        var mismatch = LifecycleGhostSessionControl.motionDiagnostic(before, before, Vec3.ZERO,
+                new MovementVector(4.01, -60, 0));
+        assertTrue(mismatch.xWithinTolerance());
+        assertFalse(mismatch.resolvedWithinTolerance());
+
+        var nonFinite = LifecycleGhostSessionControl.motionDiagnostic(before, before,
+                new Vec3(Double.NaN, 0, 0), before);
+        assertFalse(nonFinite.displacementFinite());
+        assertFalse(nonFinite.derivedPriorBounded());
+        assertTrue(nonFinite.toString().contains("non_finite"));
+        assertFalse(nonFinite.toString().contains("Infinity"));
+
+        var outside = LifecycleGhostSessionControl.motionDiagnostic(before,
+                new MovementVector(30_000_001, -60, 0), Vec3.ZERO, before);
+        assertFalse(outside.actualBounded());
+        assertTrue(outside.toString().contains("outside_world_bound"));
+        var priorOutside = LifecycleGhostSessionControl.motionDiagnostic(before, before,
+                new Vec3(-30_000_001, 0, 0), before);
+        assertFalse(priorOutside.derivedPriorBounded());
+    }
+
+    @Test
+    void authorityDiagnosticsKeepIndependentFailureFacts() {
+        var lostCamera = new LifecycleGhostSessionControl.AuthorityDiagnostic(
+                true, false, true, true, true, false, true, true, true, true);
+        assertTrue(lostCamera.toString().contains("exactConnected=true"));
+        assertTrue(lostCamera.toString().contains("registryAuthorized=true"));
+        assertTrue(lostCamera.toString().contains("cameraOwned=false"));
+        var lostRegistry = new LifecycleGhostSessionControl.AuthorityDiagnostic(
+                true, false, true, true, false, true, true, true, true, true);
+        assertTrue(lostRegistry.toString().contains("registryAuthorized=false"));
+        assertTrue(lostRegistry.cameraOwned());
+    }
+
+    @Test
+    void tickTerminalClassifierSeparatesEachFailureWithoutTreatingAnUncommittedHandshakeAsExpiredEarly() {
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.NONE,
+                tickDiagnostic(true, false, true, true, true, true, false, 99).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.READY_TIMEOUT,
+                tickDiagnostic(true, false, true, true, true, true, false, 100).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.NONE,
+                tickDiagnostic(true, false, true, true, true, true, true, 100).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_GATE_DISABLED,
+                tickDiagnostic(false, false, true, true, true, true, true, 0).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.MOVEMENT_CONFLICT,
+                tickDiagnostic(true, true, true, true, true, true, true, 0).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.CONNECTION_DISCONNECTED,
+                tickDiagnostic(true, false, false, false, true, true, true, 0).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.EXACT_CONNECTION_INVALID,
+                tickDiagnostic(true, false, false, true, true, true, true, 0).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_LEVEL_MISMATCH,
+                tickDiagnostic(true, false, true, true, false, true, true, 0).reasonCode());
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_NOT_LIVE,
+                tickDiagnostic(true, false, true, true, true, false, true, 0).reasonCode());
+        var failed = tickDiagnostic(false, true, false, false, false, false, false, 100);
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_GATE_DISABLED, failed.reasonCode());
+        assertTrue(failed.toString().contains("reasonCode=GHOST_GATE_DISABLED"));
+        assertTrue(failed.toString().contains("readyAccepted=false"));
+        assertTrue(failed.toString().contains("currentGhostLevel=minecraft:the_nether"));
+    }
+
+    private static LifecycleGhostSessionControl.TickTerminalDiagnostic tickDiagnostic(
+            boolean gate, boolean movement, boolean exact, boolean accepting, boolean sameLevel,
+            boolean live, boolean committed, long age) {
+        return new LifecycleGhostSessionControl.TickTerminalDiagnostic(gate, movement, exact, accepting,
+                sameLevel, live, committed, true, false, false, !committed && age >= 100, age,
+                "minecraft:overworld", "minecraft:the_nether");
     }
 
     private static void assertSimulatedMotion(boolean expected, double beforeX, double beforeY,

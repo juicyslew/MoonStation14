@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -12,6 +13,8 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.level.Level;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
+
+import java.util.UUID;
 
 /** Persistent, ordinary-physics Mob type reserved for future player characters. */
 public final class PlayerCharacterHarnessEntity extends Mob {
@@ -27,6 +30,8 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     private static final EntityDataAccessor<Boolean> OFFLINE_BADGE = SynchedEntityData.defineId(
             PlayerCharacterHarnessEntity.class, EntityDataSerializers.BOOLEAN);
     private Long offlineSinceMillis;
+    // Display-only observation: parked OFFLINE/DEAD_CLAIM time is not time spent disconnected.
+    private Long disconnectedSinceMillis;
     private boolean invalidOfflineTimestamp;
     private boolean confirmedDeath;
     private PlayerCharacterBinding playerCharacterBinding;
@@ -111,6 +116,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     public void clearOfflineSinceMillis() {
         offlineSinceMillis = null;
         invalidOfflineTimestamp = false;
+        disconnectedSinceMillis = null;
         entityData.set(OFFLINE_BADGE, false);
     }
 
@@ -119,10 +125,31 @@ public final class PlayerCharacterHarnessEntity extends Mob {
                 && nowMillis - offlineSinceMillis >= OFFLINE_BADGE_DELAY_MILLIS;
     }
 
+    /** Display policy only; neither this nor the transient disconnect timer defines lifecycle state. */
+    public static boolean offlineBadgeVisible(UUID boundAccount, Long persistedOfflineSince,
+                                              Long disconnectedSince, boolean boundAccountConnected,
+                                              long nowMillis) {
+        return boundAccount != null && persistedOfflineSince != null && persistedOfflineSince >= 0
+                && !boundAccountConnected && disconnectedSince != null
+                && offlineBadgeDue(disconnectedSince, nowMillis);
+    }
+
     private void refreshOfflineBadge(long nowMillis) {
         boolean enabled = MindGhostStartupGate.enabledForServer() && !MovementStartupGate.enabledForServer();
-        entityData.set(OFFLINE_BADGE, enabled && (invalidOfflineTimestamp
-                || offlineSinceMillis != null && offlineBadgeDue(offlineSinceMillis, nowMillis)));
+        if (!(level() instanceof ServerLevel serverLevel) || serverLevel.getServer() == null) return;
+        UUID boundAccount = invalidUnbindable || playerCharacterBinding == null
+                ? null : playerCharacterBinding.accountId();
+        if (boundAccount == null || invalidOfflineTimestamp || offlineSinceMillis == null) {
+            disconnectedSinceMillis = null;
+            entityData.set(OFFLINE_BADGE, false);
+            return;
+        }
+        // The server player list is global across dimensions and includes ghosts and Creative operators.
+        boolean connected = serverLevel.getServer().getPlayerList().getPlayer(boundAccount) != null;
+        disconnectedSinceMillis = connected ? null
+                : disconnectedSinceMillis == null ? nowMillis : disconnectedSinceMillis;
+        entityData.set(OFFLINE_BADGE, enabled && offlineBadgeVisible(boundAccount, offlineSinceMillis,
+                disconnectedSinceMillis, connected, nowMillis));
     }
 
     @Override
@@ -156,6 +183,8 @@ public final class PlayerCharacterHarnessEntity extends Mob {
 
     void setPlayerCharacterBinding(PlayerCharacterBinding binding) {
         playerCharacterBinding = binding;
+        disconnectedSinceMillis = null;
+        entityData.set(OFFLINE_BADGE, false);
     }
 
     @Override
@@ -179,6 +208,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         setNoAi(true);
         playerCharacterBinding = null;
         offlineSinceMillis = null;
+        disconnectedSinceMillis = null;
         invalidOfflineTimestamp = false;
         entityData.set(OFFLINE_BADGE, false);
         invalidUnbindable = false;
@@ -225,10 +255,8 @@ public final class PlayerCharacterHarnessEntity extends Mob {
             Tag savedOfflineSince = tag.get(OFFLINE_SINCE_KEY);
             if (savedOfflineSince instanceof net.minecraft.nbt.LongTag longTag && longTag.getAsLong() >= 0) {
                 offlineSinceMillis = longTag.getAsLong();
-                refreshOfflineBadge(System.currentTimeMillis());
             } else {
                 invalidOfflineTimestamp = true;
-                refreshOfflineBadge(System.currentTimeMillis());
             }
         }
     }

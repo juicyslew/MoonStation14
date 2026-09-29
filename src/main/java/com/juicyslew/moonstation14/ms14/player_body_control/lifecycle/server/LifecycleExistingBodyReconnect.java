@@ -58,7 +58,7 @@ public final class LifecycleExistingBodyReconnect {
                         ? rows.get(0) : null;
             }).orElse(null);
         } catch (IOException | RuntimeException failure) { return false; }
-        if (saved == null) return false;
+        if (saved == null || !LifecycleDevelopmentMode.verifiedDetachedOffline(server, player, saved)) return false;
         var observed = MinecraftLoadedBodyAdapter.observe(server, saved);
         if (observed.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
                 || !(observed.candidate().entity() instanceof PlayerCharacterHarnessEntity body)
@@ -72,7 +72,15 @@ public final class LifecycleExistingBodyReconnect {
         double oldX = player.getX(), oldY = player.getY(), oldZ = player.getZ();
         ServerLevel oldLevel = (ServerLevel) player.level();
         float oldYaw = player.getYRot(), oldPitch = player.getXRot();
-        if (!player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR)) return false;
+        // Recheck current primary after observing the body, before moving the Creative carrier.
+        try {
+            if (!saved.equals(context.currentAccountProfile(player.getUUID()).orElse(null))
+                    || !LifecycleDevelopmentMode.verifiedDetachedOffline(server, player, saved)) return false;
+        } catch (IOException | RuntimeException failure) { return false; }
+        if (!LifecycleDevelopmentMode.setReturningBodySpectator(player)) {
+            restoreCreative(player, oldLevel, oldX, oldY, oldZ, oldYaw, oldPitch);
+            return false;
+        }
         player.teleportTo(bodyLevel, saved.location().x(), saved.location().y(), saved.location().z(), oldYaw, oldPitch);
         if (player.level() != bodyLevel || server.getPlayerList().getPlayer(player.getUUID()) != player) {
             restoreCreative(player, oldLevel, oldX, oldY, oldZ, oldYaw, oldPitch);
@@ -116,8 +124,22 @@ public final class LifecycleExistingBodyReconnect {
     private static void restoreCreative(ServerPlayer player, ServerLevel oldLevel, double x, double y, double z,
                                         float yaw, float pitch) {
         if (player.connection == null || !player.connection.isAcceptingMessages()) return;
-        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
-        if (player.level() != oldLevel) player.teleportTo(oldLevel, x, y, z, yaw, pitch);
+        try {
+            if (player.gameMode.getGameModeForPlayer() != net.minecraft.world.level.GameType.CREATIVE
+                    && (!LifecycleDevelopmentMode.restoreDetachedCreative(player)
+                    || player.gameMode.getGameModeForPlayer() != net.minecraft.world.level.GameType.CREATIVE)) {
+                disconnectFailedRestore(player);
+                return;
+            }
+            if (player.level() != oldLevel) player.teleportTo(oldLevel, x, y, z, yaw, pitch);
+        } catch (RuntimeException | Error failure) {
+            disconnectFailedRestore(player);
+        }
+    }
+
+    private static void disconnectFailedRestore(ServerPlayer player) {
+        if (player.connection != null && player.connection.isAcceptingMessages())
+            player.connection.disconnect(Component.literal("Character return could not restore the Creative carrier safely. Reconnect for recovery."));
     }
 
     static void handle(ServerPlayer player, MinecraftServer server, LifecycleServerContext context,
