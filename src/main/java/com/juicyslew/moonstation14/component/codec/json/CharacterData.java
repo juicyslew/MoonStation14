@@ -9,6 +9,7 @@ import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.ThermalExposureMath;
+import com.juicyslew.moonstation14.ms14.hands.HandState;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashSet;
@@ -19,14 +20,16 @@ import java.util.Set;
 
 /** Immutable, data-only character policy. The catalog key supplies identity. */
 public record CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
-                            List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal) {
+                            List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal,
+                            List<String> hands) {
     private static final Codec<CharacterData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     SlipTargetData.CODEC.fieldOf("slip_data").forGetter(CharacterData::slipData),
                     MovementData.CODEC.optionalFieldOf("movement").forGetter(CharacterData::movement),
                     Codec.list(ResourceLocation.CODEC).optionalFieldOf("host_entity_types", List.of())
                             .forGetter(CharacterData::hostEntityTypes),
-                    ThermalData.CODEC.optionalFieldOf("thermal").forGetter(CharacterData::thermal))
+                    ThermalData.CODEC.optionalFieldOf("thermal").forGetter(CharacterData::thermal),
+                    Codec.list(Codec.STRING).optionalFieldOf("hands", List.of()).forGetter(CharacterData::hands))
                     .apply(instance, CharacterData::new));
 
     private static final Decoder<CharacterData> STRICT_DECODER = new Decoder<>() {
@@ -54,18 +57,27 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
         Objects.requireNonNull(movement, "movement");
         Objects.requireNonNull(hostEntityTypes, "hostEntityTypes");
         Objects.requireNonNull(thermal, "thermal");
+        Objects.requireNonNull(hands, "hands");
         hostEntityTypes = List.copyOf(hostEntityTypes);
+        hands = List.copyOf(hands);
+        if (!hands.isEmpty()) HandState.create(hands);
+    }
+
+    /** Backward-compatible constructor for character policies predating hand capability. */
+    public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
+                         List<ResourceLocation> hostEntityTypes, Optional<ThermalData> thermal) {
+        this(slipData, movement, hostEntityTypes, thermal, List.of());
     }
 
     /** Backward-compatible constructor for character policies predating thermal data. */
     public CharacterData(SlipTargetData slipData, Optional<MovementData> movement,
                          List<ResourceLocation> hostEntityTypes) {
-        this(slipData, movement, hostEntityTypes, Optional.empty());
+        this(slipData, movement, hostEntityTypes, Optional.empty(), List.of());
     }
 
     /** Backward-compatible slip-only prototype constructor. */
     public CharacterData(SlipTargetData slipData) {
-        this(slipData, Optional.empty(), List.of(), Optional.empty());
+        this(slipData, Optional.empty(), List.of(), Optional.empty(), List.of());
     }
 
     /** Optional per-character thermal exposure policy. currentKelvin is the initial body temperature. */
@@ -127,8 +139,7 @@ public record CharacterData(SlipTargetData slipData, Optional<MovementData> move
 
     /**
      * Generic grounded movement parameters; species capability policy remains data-driven.
-     * Speech/hands remain unmodeled in this character codec until generic systems implement and enforce those capabilities;
-     * movement data alone does not grant or deny speech.
+     * Speech remains unmodeled in this character codec; movement data alone does not grant or deny speech.
      */
     public record MovementData(String mode, double acceleration, double walkSpeed, double sprintSpeed,
                                double groundFrictionWithInput, double groundFrictionWithoutInput,

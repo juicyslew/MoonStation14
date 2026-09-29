@@ -1,0 +1,5 @@
+# H5 lifecycle authority seam
+
+`LifecycleCharacterSessionControl.activeCharacterBody(player)` exposes an immutable, point-in-time snapshot containing only the exact body, epoch, mind ID, and harness ID of a committed lifecycle CHARACTER session. It returns empty unless called on the server thread for the exact connected, non-fake, living player, in spectator mode without a passenger, with the camera on that exact live body and an ACTIVE profile whose generation, Mind, and registered CHARACTER harness still match. Cheap session/player/entity checks precede the registry query. A generic camera target is never treated as lifecycle authority.
+
+The accessor and its registry authorization query are read-only, including when ownership data is inconsistent: they do not start, revoke, or otherwise change a session or Mind binding. The result is not itself authorization for an inventory/hand action. Consumers must recheck the exact body and epoch before committing an action, since a returned snapshot can become stale after it is read. Existing mutating `authorizes` behavior remains unchanged for its other clients.
