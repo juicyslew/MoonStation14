@@ -41,6 +41,9 @@ public class ModEventHooks {
         if (event.getLevel() instanceof ServerLevel && event.getEntity() instanceof LivingEntity livingEntity) {
             com.juicyslew.moonstation14.ms14.slip.SlipSystem.onEntityJoin(livingEntity);
             CharacterIdentitySystem.enrollSupportedActor(livingEntity, (ServerLevel) event.getLevel());
+            com.juicyslew.moonstation14.ms14.blood.BloodstreamStorage.reconcile(livingEntity);
+            com.juicyslew.moonstation14.ms14.blood.BloodSystem.reconcile(livingEntity);
+            com.juicyslew.moonstation14.ms14.lung.LungSystem.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(livingEntity,
                     (ServerLevel) event.getLevel());
@@ -78,6 +81,8 @@ public class ModEventHooks {
     /** Applies the production clone lifecycle policy; exposed for focused server lifecycle tests. */
     public static void applyPlayerCloneIdentityPolicy(PlayerEvent.Clone event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            com.juicyslew.moonstation14.ms14.blood.BloodSystem.copyToClone(event.getOriginal(), player);
+            com.juicyslew.moonstation14.ms14.lung.LungSystem.copyToClone(event.getOriginal(), player);
             if (event.isWasDeath()) applyPlayerDeathStatusPolicy(player);
             var originalIdentity = event.getOriginal().getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
             if (!player.hasData(ModDataAttachments.CHARACTER_IDENTITY.get())

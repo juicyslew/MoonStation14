@@ -22,6 +22,8 @@ import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectOperation;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivity;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem;
+import com.juicyslew.moonstation14.ms14.blood.BloodReducer;
+import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstComponent;
 import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
@@ -200,11 +202,13 @@ public final class StomachGameTests {
                 "noneligible zombie has no ingestion stomach");
         require(!zombie.hasData(ModDataAttachments.STOMACH.get()), "unsupported ingestion creates no empty stomach attachment");
 
-        // The generic transfer route continues targeting shared REAGENT.
+        // A living entity without a mapped blood policy is not a generic solution container.
         ReagentSystem.handleTransfer(puddle.toHandleSelf(), ((IReagentTrait) zombie).toHandleSelf(),
                 helper.getLevel(), 1f);
-        require(MS14Provider.get(zombie, MS14Bridges.REAGENT).getMap().get(WATER) == 1f,
-                "generic transfer still targets shared reagent contents");
+        require(!zombie.hasData(ModDataAttachments.REAGENT.get())
+                        && !zombie.hasData(ModDataAttachments.BLOODSTREAM.get())
+                        && MS14Provider.get(puddle, MS14Bridges.REAGENT).getMap().get(WATER) == 2f,
+                "unconfigured living targets reject generic transfer without consuming the puddle source");
         helper.succeed();
     }
 
@@ -225,7 +229,8 @@ public final class StomachGameTests {
         require(Math.abs(MS14Provider.get(character, MS14Bridges.THIRST).thirst()
                         - (300f + 4f * (removed / .5f))) < .0001f,
                 "milk thirst effect uses metabolism's actual removal scale");
-        require(MS14Provider.get(character, MS14Bridges.REAGENT).getMap().isEmpty(),
+        require(!character.hasData(ModDataAttachments.REAGENT.get())
+                        && !MS14Provider.get(character, MS14Bridges.BLOODSTREAM).getMap().containsKey(MILK),
                 "milk digestion does not double-process through shared body metabolism");
         require(Math.abs(stomach.getOrDefault(MILK, 0f) - .5f) < .0001f,
                 "one due metabolism pass removes only the configured half-unit rate");
@@ -246,7 +251,7 @@ public final class StomachGameTests {
         TickHooks.runDueActivities(character, (ServerLevel) helper.getLevel(), java.util.Set.of(EntityActivity.REAGENT_METABOLISM));
         require(Math.abs(MS14Provider.get(character, MS14Bridges.STOMACH).getMap().get(SULFURIC_ACID) - .75f) < .000001f,
                 "non-digestion stomach reagent removes at most the quarter-unit transfer rate");
-        require(Math.abs(MS14Provider.get(character, MS14Bridges.REAGENT).getMap().get(SULFURIC_ACID) - .12f) < .000001f,
+        require(Math.abs(MS14Provider.get(character, MS14Bridges.BLOODSTREAM).getMap().get(SULFURIC_ACID) - .12f) < .000001f,
                 "25 source cents floor to 12 body cents at half efficacy (13 cents intentionally lost)");
         require(character.getHealth() == healthBefore, "body metabolism does not run again in the stomach pass");
 
@@ -260,16 +265,28 @@ public final class StomachGameTests {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
         MS14Provider.update(character, MS14Bridges.STOMACH, new ReagentAttachment(Map.of(SULFURIC_ACID, 1f)));
-        MS14Provider.update(character, MS14Bridges.REAGENT,
-                new ReagentAttachment(Map.of(MILK, ((IReagentTrait) character).getCapacity())));
+        var policy = BloodSystem.resolvePolicy(character).orElseThrow(
+                () -> new AssertionError("fixture host must resolve its prototype blood policy"));
+        require(BloodSystem.reconcile(character), "fixture blood must initialize from its selected prototype");
+        var body = MS14Provider.getDetached(character, MS14Bridges.BLOODSTREAM);
+        long bodyCapacity = BloodReducer.capacity(policy);
+        long bodyBefore = body.totalUnits();
+        require(bodyBefore <= bodyCapacity, "prototype reference mixture must fit its configured capacity");
+        var reference = BloodReducer.reference(policy);
+        var fillReagent = reference.keySet().stream().sorted().findFirst().orElseThrow();
+        require(body.admitUnits(fillReagent, bodyCapacity - bodyBefore, bodyCapacity)
+                        == bodyCapacity - bodyBefore,
+                "fixture must fill remaining capacity using a prototype reference reagent");
+        MS14Provider.update(character, MS14Bridges.BLOODSTREAM, body);
+        require(body.totalUnits() == bodyCapacity, "fixture must saturate its prototype-configured body capacity");
+        var fullBodyBefore = MS14Provider.snapshot(body);
         EntityActivitySystem.update(character, EntityActivity.REAGENT_METABOLISM, true);
 
         TickHooks.runDueActivities(character, (ServerLevel) helper.getLevel(), java.util.Set.of(EntityActivity.REAGENT_METABOLISM));
         require(MS14Provider.get(character, MS14Bridges.STOMACH).getMap().get(SULFURIC_ACID) == 1f,
                 "full body retains the stomach source reagent");
-        require(MS14Provider.get(character, MS14Bridges.REAGENT).getMap().get(MILK)
-                        == ((IReagentTrait) character).getCapacity(),
-                "full body remains unchanged");
+        require(MS14Provider.snapshot(MS14Provider.get(character, MS14Bridges.BLOODSTREAM))
+                        .equals(fullBodyBefore), "full body remains unchanged");
         helper.succeed();
     }
 
@@ -281,7 +298,7 @@ public final class StomachGameTests {
         character.setNoAi(true);
         MS14Provider.update(character, MS14Bridges.STOMACH,
                 new ReagentAttachment(Map.of(WATER, 1f, SUGAR, 1f)));
-        MS14Provider.update(character, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(MILK, 7f)));
+        MS14Provider.update(character, MS14Bridges.BLOODSTREAM, new ReagentAttachment(Map.of(MILK, 7f)));
         MS14Provider.update(character, MS14Bridges.HUNGER, new HungerAttachment(new HungerComponent(100f)));
         MS14Provider.update(character, MS14Bridges.THIRST, new ThirstAttachment(new ThirstComponent(100f)));
 
@@ -296,7 +313,7 @@ public final class StomachGameTests {
         require(character.getAttribute(Attributes.MOVEMENT_SPEED).getModifier(
                         MovementSpeedProjection.modifierId(vomitingSlowdown)).amount() == -.5d,
                 "vomit projects 0.5 movement multiplier");
-        require(MS14Provider.get(character, MS14Bridges.REAGENT).getMap().equals(Map.of(MILK, 7f)),
+        require(MS14Provider.get(character, MS14Bridges.BLOODSTREAM).getMap().get(MILK) == 7f,
                 "shared body solution is never purged");
         BlockPos expectedSupport = helper.absolutePos(supportPos);
         require(character.getOnPos().equals(expectedSupport), "vomiting target stands on its owned stone support");
