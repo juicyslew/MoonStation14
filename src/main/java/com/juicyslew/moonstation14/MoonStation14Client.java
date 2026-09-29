@@ -29,6 +29,7 @@ import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualNetworkin
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualPayload;
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualResyncRequest;
 import com.juicyslew.moonstation14.ms14.power.ui.client.ApcScreen;
+import com.juicyslew.moonstation14.ms14.ui.client.gallery.MachineUiGalleryCommands;
 import com.juicyslew.moonstation14.ms14.power.ui.ApcNetworking;
 import com.juicyslew.moonstation14.block.ModMenus;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualResyncRequest;
@@ -110,6 +111,7 @@ public class MoonStation14Client {
         }));
         MovementClientController.install();
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
+        NeoForge.EVENT_BUS.addListener(MachineUiGalleryCommands::register);
     }
 
     static void onClientSetup(FMLClientSetupEvent event) {

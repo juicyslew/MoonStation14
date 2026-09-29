@@ -1,0 +1,9 @@
+# Visual-kit sprint completion
+
+**Owner accepted; implementation complete for the agreed visual-kit scope.** The owner confirmed title drag, resize centering, single server breaker sound and functional gallery, plus two-real-client switch updates and overload trip. This acceptance is not SS14-exact parity or acceptance of unrelated server features. See [implementation handoff](implementation-handoff.md) for full historical test logs and [owner feedback](owner-feedback-and-next-slice.md) for the bounded manual observations.
+
+**Accepted visual risk, not verified:** the owner explicitly waived immediate manual checks of the APC animation and text contrast. The gallery custom-text/search-row fixes and animation/UNKNOWN fallback have not been visually retested; do not mark them empirically checked.
+
+**Remaining debt, separate from scope closure:** the latest isolated dedicated-server GameTest suite ran 171 tests with one failing cable-storage test, `servicepersistsallfacesandfloorfinishdoesnotmutaterecords`; no full-suite green claim. Twenty-player UI render timing and allocations (including animation) are unmeasured; the 20-FakePlayer test bounds slot fanout to 20 × 9, not performance. Numeric load/external-power telemetry is not synchronized. Concurrent machine windows and a dynamic 3D station map are not built. Audio prediction is not built; audio licensing remains unresolved. Broader connected-client lifecycle, accessibility and visual retests remain optional follow-up evidence, not results inferred from owner acceptance.
+
+Four original CC-BY-SA-3.0 APC animation sheets were copied with adjacent notices; preserve [asset provenance and credits](apc-animation-assets.md). New telemetry protocols, machine owners, map/windows and predicted audio require separately authorized work.

@@ -48,6 +48,14 @@ class ApcToggleRequestTest {
     }
 
     @Test
+    void revisionLowWordIsTheCommitMarkerIncludingZeroAfterCarry() {
+        assertEquals(0xffff, ApcMenu.revisionWord(65535L, 0));
+        assertEquals(0, ApcMenu.revisionWord(65536L, 0));
+        assertEquals(1, ApcMenu.revisionWord(65536L, 1));
+        assertEquals(65536L, ApcMenu.assembleRevision(new int[] { 0, 1, 0, 0 }));
+    }
+
+    @Test
     void toggleResponseCarriesAuthoritativeTripLatchSnapshot() {
         UUID session = UUID.randomUUID();
         ApcToggleResponse response = new ApcToggleResponse(4, session, 2, true, true,
