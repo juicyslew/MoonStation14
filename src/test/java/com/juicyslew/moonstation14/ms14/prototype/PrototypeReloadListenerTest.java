@@ -2,6 +2,9 @@ package com.juicyslew.moonstation14.ms14.prototype;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackLocationInfo;
@@ -93,6 +96,43 @@ class PrototypeReloadListenerTest {
                     () -> listener.prepare(resources, InactiveProfiler.INSTANCE));
         }
         assertEquals(new Value(7), manager.snapshot(type).get(id("acme:medicine/antidote")));
+    }
+
+    @Test
+    void missingBloodReagentRejectsDatapackCandidateBeforePublication(@TempDir Path temp) throws IOException {
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        JsonObject human = readCharacterResource("human.json");
+        human.remove("blood");
+        manager.reload(ModCharacters.CHARACTER_TYPE, java.util.Map.of(ModCharacters.HUMAN_ID, human));
+        var published = manager.snapshot(ModCharacters.CHARACTER_TYPE);
+
+        Path pack = temp.resolve("missing-reagent");
+        Path pigFile = pack.resolve("data/moonstation14/moonstation14/character/pig.json");
+        Files.createDirectories(pigFile.getParent());
+        Files.writeString(pigFile, readCharacterResource("pig.json").toString());
+        try (MultiPackResourceManager resources = resources(pack)) {
+            PrototypeReloadListener listener = new PrototypeReloadListener(manager);
+            var prepared = listener.prepare(resources, InactiveProfiler.INSTANCE);
+            PrototypeLoadException failure = assertThrows(PrototypeLoadException.class,
+                    () -> listener.apply(prepared, resources, InactiveProfiler.INSTANCE));
+            assertTrue(failure.getMessage().contains("moonstation14:pig"), failure.getMessage());
+            assertTrue(failure.getMessage().contains("$.blood.reference_solution.moonstation14:blood"),
+                    failure.getMessage());
+            assertTrue(failure.getMessage().contains("data/moonstation14/moonstation14/character/pig.json"),
+                    failure.getMessage());
+        }
+        assertEquals(published, manager.snapshot(ModCharacters.CHARACTER_TYPE));
+        assertTrue(!manager.hasStagedReload());
+    }
+
+    private static JsonObject readCharacterResource(String filename) throws IOException {
+        String path = "data/moonstation14/moonstation14/character/" + filename;
+        try (var stream = PrototypeReloadListenerTest.class.getClassLoader().getResourceAsStream(path)) {
+            if (stream == null) throw new IOException("Missing resource " + path);
+            return JsonParser.parseReader(new java.io.InputStreamReader(stream, java.nio.charset.StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+        }
     }
 
     private static Path writePack(Path root, String json) throws IOException {

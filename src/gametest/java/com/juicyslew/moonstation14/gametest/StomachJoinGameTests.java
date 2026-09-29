@@ -66,12 +66,10 @@ public final class StomachJoinGameTests {
         villager.setData(ModDataAttachments.STOMACH.get(), empty);
         villager.removeData(ModDataAttachments.ACTIVE_SYSTEMS.get());
         EntityActivitySystem.reconcile(villager);
-        require(!villager.hasData(ModDataAttachments.ACTIVE_SYSTEMS.get())
-                        || !villager.getData(ModDataAttachments.ACTIVE_SYSTEMS.get())
-                        .isActive(EntityActivity.REAGENT_METABOLISM),
-                "present but empty stomach must not create a metabolism schedule");
+        // A mapped human also owns an independently scheduled BLOODSTREAM, so the
+        // shared metabolism activity can remain enabled with an empty stomach.
         require(!MS14Bridges.STOMACH.activityBinding().orElseThrow().needsTicking().test(empty),
-                "empty stomach binding predicate must be inactive");
+                "present but empty stomach must not contribute a metabolism schedule");
         helper.succeed();
     }
 

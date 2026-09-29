@@ -50,7 +50,10 @@ public final class GroundedHarnessSlipGameTests {
         body.getPersistentData().putBoolean(GroundedHarnessLease.CONFIGURED_MARKER, true);
         var lease = GroundedHarnessLease.tryAcquire(body).orElseThrow();
 
-        Villager unmarked = helper.spawn(EntityType.VILLAGER, new BlockPos(7, 1, 2));
+        BlockPos vanillaSource = new BlockPos(3, 1, 4);
+        helper.setBlock(vanillaSource, ModBlocks.PUDDLE.get().defaultBlockState());
+        fillSpaceLube(helper, vanillaSource);
+        Villager unmarked = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 4));
         unmarked.setNoAi(true);
         require(!unmarked.hasData(ModDataAttachments.STATUS_EFFECT.get()), "unmarked actor starts unstunned");
 
@@ -92,15 +95,16 @@ public final class GroundedHarnessSlipGameTests {
                 require(body.position().x > beforeX, "motor step must physically advance into source");
 
                 // Ordinary, unowned Mob admission remains through entityInside exactly once.
-                BlockPos vanillaSource = new BlockPos(7, 1, 2);
-                helper.setBlock(vanillaSource, ModBlocks.PUDDLE.get().defaultBlockState());
-                fillSpaceLube(helper, vanillaSource);
-                unmarked.setPos(helper.absolutePos(vanillaSource).getX() + .5d,
-                        helper.absolutePos(vanillaSource).getY(), helper.absolutePos(vanillaSource).getZ() + .5d);
+                // Cross into the pre-filled source from a dry tile. Teleporting onto
+                // the puddle immediately before a short move can miss vanilla's
+                // swept block-inside callback altogether.
                 unmarked.setDeltaMovement(.3d, 0d, 0d);
-                unmarked.move(MoverType.SELF, new Vec3(.1d, 0d, 0d));
+                unmarked.move(MoverType.SELF, new Vec3(1d, 0d, 0d));
                 require(vanillaEvents.get() == 1 && CharacterControlSystem.isStunned(unmarked),
-                        "unmarked Villager must retain ordinary inline puddle admission");
+                        "unmarked Villager must retain ordinary inline puddle admission; events=" + vanillaEvents.get()
+                                + ", stunned=" + CharacterControlSystem.isStunned(unmarked)
+                                + ", position=" + unmarked.position() + ", grounded=" + unmarked.onGround()
+                                + ", puddle=" + helper.getLevel().getBlockState(helper.absolutePos(vanillaSource)));
                 SlipSystem.removeListener(listener);
                 lease.close();
                 helper.succeed();

@@ -18,6 +18,8 @@ import net.minecraft.core.registries.Registries;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.Collections;
 
 /** The only world-mutation boundary for the character damage ledger. */
 public final class DamageSystem {
@@ -30,6 +32,7 @@ public final class DamageSystem {
             ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "reagent_bypass"));
 
     private static final Map<LivingEntity, DamageTransactionStack<DamageSource, PendingTransaction>> PENDING = new IdentityHashMap<>();
+    private static final Set<LivingEntity> PROJECTING = Collections.newSetFromMap(new IdentityHashMap<>());
 
     private DamageSystem() {
     }
@@ -161,27 +164,48 @@ public final class DamageSystem {
         if (stored != null) {
             entity.removeData(ModDataAttachments.DAMAGE.get());
         }
+        Map<String, Float> baseline = missingVanillaBaseline(entity);
+        if (baseline.isEmpty()) {
+            return false;
+        }
+        commit(entity, baseline);
+        return true;
+    }
+
+    /** Previews the ledger a health change would start from, without creating damage state. */
+    public static Map<String, Float> existingOrVanillaBaseline(LivingEntity entity) {
+        if (entity == null || entity.level().isClientSide() || !entity.isAlive()) {
+            return Map.of();
+        }
+        DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        return stored != null && !stored.isEmpty() ? stored.getMap() : missingVanillaBaseline(entity);
+    }
+
+    private static Map<String, Float> missingVanillaBaseline(LivingEntity entity) {
         float maxHealth = entity.getMaxHealth();
         float health = entity.getHealth();
         if (!Float.isFinite(maxHealth) || maxHealth <= 0f || !Float.isFinite(health)
                 || health <= 0f || health >= maxHealth) {
-            return false;
+            return Map.of();
         }
-        commit(entity, Map.of(DamageKeys.BLUNT, (maxHealth - health) * TYPED_PER_HEALTH));
-        return true;
+        float blunt = (maxHealth - health) * TYPED_PER_HEALTH;
+        return Float.isFinite(blunt) ? DamageKeys.validateState(Map.of(DamageKeys.BLUNT, blunt)) : Map.of();
     }
 
     /** Mirrors a completed vanilla damage sequence exactly once. */
     public static void observePost(LivingEntity entity, DamageSource source, float finalDamage) {
-        if (entity == null || entity.level().isClientSide() || source == null || !Float.isFinite(finalDamage)) {
+        if (entity == null || entity.level().isClientSide() || source == null || !Float.isFinite(finalDamage)
+                || PROJECTING.contains(entity)) {
             return;
         }
         float appliedDamage = Math.max(0f, finalDamage);
 
         PendingTransaction pending = takePending(entity, source);
         if (pending != null) {
+            Map<String, Float> committedPositive = DamageReducer.mitigatedPositiveDelta(pending.positive, appliedDamage);
             commit(entity, DamageReducer.applyMitigated(existing(entity), pending.positive,
                     appliedDamage, pending.negative));
+            com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, committedPositive);
             return;
         }
 
@@ -189,7 +213,9 @@ public final class DamageSystem {
             return;
         }
         String key = classify(source);
-        commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, appliedDamage * TYPED_PER_HEALTH)));
+        float typed = appliedDamage * TYPED_PER_HEALTH;
+        commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
+        com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */
@@ -268,7 +294,12 @@ public final class DamageSystem {
         if (!Float.isFinite(maxHealth) || maxHealth < 0f) return;
         float projected = Math.max(0f, Math.min(maxHealth,
                 maxHealth - DamageReducer.total(state) / TYPED_PER_HEALTH));
-        entity.setHealth(projected);
+        PROJECTING.add(entity);
+        try {
+            entity.setHealth(projected);
+        } finally {
+            PROJECTING.remove(entity);
+        }
     }
 
     private static DamageSource reagentSource(Level level) {

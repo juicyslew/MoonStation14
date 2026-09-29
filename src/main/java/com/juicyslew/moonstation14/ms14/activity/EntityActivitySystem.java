@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.fire.FireStackAttachment;
 import com.juicyslew.moonstation14.ms14.fire.FireStackSystem;
+import com.juicyslew.moonstation14.ms14.blood.BloodstreamStorage;
 import com.juicyslew.moonstation14.util.SystemLink;
 import com.juicyslew.moonstation14.util.interfaces.IMS14Attachment;
 import com.juicyslew.moonstation14.util.interfaces.IMS14Component;
@@ -68,10 +69,12 @@ public final class EntityActivitySystem {
                 }
             });
         }
-        var reagent = entity.getExistingDataOrNull(ModDataAttachments.REAGENT.get());
-        if (reagent != null) {
-            MS14Bridges.REAGENT.activityBinding().ifPresent(binding -> {
-                if (binding.needsTicking().test(reagent)) {
+        boolean bloodstreamReconciled = BloodstreamStorage.reconcile(entity);
+        var bloodstream = bloodstreamReconciled
+                ? entity.getExistingDataOrNull(ModDataAttachments.BLOODSTREAM.get()) : null;
+        if (bloodstream != null && com.juicyslew.moonstation14.ms14.blood.BloodSystem.resolvePolicy(entity).isPresent()) {
+            MS14Bridges.BLOODSTREAM.activityBinding().ifPresent(binding -> {
+                if (binding.needsTicking().test(bloodstream)) {
                     desired.add(binding.activity());
                 }
             });

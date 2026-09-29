@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** Pure orchestration for staged metabolism of one reagent compartment. */
 public final class MetabolismSystem {
@@ -68,8 +69,25 @@ public final class MetabolismSystem {
             float destinationCapacity,
             RandomSource random,
             MetabolismEffectCallback effectCallback) {
+        return process(compartment, metaboliteDestination, catalog, profile, sourceCapacity,
+                destinationCapacity, random, effectCallback, Set.of());
+    }
+
+    /** Processes a compartment while leaving the explicitly excluded source reagents untouched. */
+    public static MetabolismReport process(
+            ReagentAttachment compartment,
+            ReagentAttachment metaboliteDestination,
+            Map<ResourceLocation, ReagentData> catalog,
+            MetabolizerProfile profile,
+            float sourceCapacity,
+            float destinationCapacity,
+            RandomSource random,
+            MetabolismEffectCallback effectCallback,
+            Set<ResourceKey<ReagentData>> excludedReagents) {
         validateInputs(compartment, catalog, profile, sourceCapacity, random, effectCallback);
         Objects.requireNonNull(metaboliteDestination, "metaboliteDestination");
+        Objects.requireNonNull(excludedReagents, "excludedReagents");
+        excludedReagents.forEach(key -> Objects.requireNonNull(key, "excluded reagent"));
         validateCompartment(metaboliteDestination, destinationCapacity, "destination");
         long destinationCapacityUnits = ReagentUnits.fromFloat(destinationCapacity);
 
@@ -78,6 +96,7 @@ public final class MetabolismSystem {
             List<ResourceKey<ReagentData>> candidates = currentCandidates(compartment, random);
             int processed = 0;
             for (ResourceKey<ReagentData> key : candidates) {
+                if (excludedReagents.contains(key)) continue;
                 if (processed >= profile.perStageProcessCap()) {
                     break;
                 }
