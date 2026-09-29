@@ -43,6 +43,8 @@ class CharacterPrototypeTest {
         assertEquals(2.5, data.movement().orElseThrow().walkSpeed());
         assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
                 data.hostEntityTypes());
+        assertEquals(Optional.of(new CharacterData.SpeechData(true)), data.speech());
+        assertTrue(data.canSpeakText());
         assertEquals(List.of("left", "right"), data.hands());
         var thermal = data.thermal().orElseThrow();
         assertEquals(70.0, thermal.massKg());
@@ -72,6 +74,8 @@ class CharacterPrototypeTest {
         assertEquals(Optional.empty(), oldData.thermal());
         assertTrue(oldData.hostEntityTypes().isEmpty());
         assertTrue(oldData.hands().isEmpty());
+        assertTrue(oldData.speech().isEmpty());
+        assertFalse(oldData.canSpeakText(), "legacy catalogs must not acquire implicit speech");
         assertEquals(oldData, CharacterData.CODEC.parse(JsonOps.INSTANCE,
                 CharacterData.CODEC.encodeStart(JsonOps.INSTANCE, oldData).getOrThrow()).getOrThrow());
         assertEquals(oldData, new CharacterData(oldData.slipData()));
@@ -81,6 +85,8 @@ class CharacterPrototypeTest {
         assertEquals(4.0, pig.movement().orElseThrow().walkSpeed());
         assertNotEquals(2.5, pig.movement().orElseThrow().walkSpeed());
         assertEquals(List.of(ResourceLocation.parse("minecraft:pig")), pig.hostEntityTypes());
+        assertEquals(Optional.of(new CharacterData.SpeechData(false)), pig.speech());
+        assertFalse(pig.canSpeakText());
         assertTrue(pig.hands().isEmpty(), "pig prototypes do not acquire implicit hands");
         assertFalse(pig.slipData().canReceiveStun());
         assertTrue(pig.slipData().noSlip());
@@ -90,6 +96,37 @@ class CharacterPrototypeTest {
         assertTrue(pig.slipData().reactiveMethods().isEmpty());
         assertEquals(pig, CharacterData.CODEC.parse(JsonOps.INSTANCE,
                 CharacterData.CODEC.encodeStart(JsonOps.INSTANCE, pig).getOrThrow()).getOrThrow());
+    }
+
+    @Test
+    void speechPolicyIsExplicitStrictAndDoesNotFollowHostMappingOrMovement() throws IOException {
+        JsonObject human = readResource(RESOURCE);
+        JsonObject withoutSpeech = human.deepCopy();
+        withoutSpeech.remove("speech");
+        CharacterData mappedButUnspecified = CharacterData.CODEC.parse(JsonOps.INSTANCE, withoutSpeech).getOrThrow();
+        assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
+                mappedButUnspecified.hostEntityTypes());
+        assertFalse(mappedButUnspecified.canSpeakText(),
+                "vanilla player host mapping is not carrier chat authorization");
+        assertEquals(mappedButUnspecified, CharacterData.CODEC.parse(JsonOps.INSTANCE,
+                CharacterData.CODEC.encodeStart(JsonOps.INSTANCE, mappedButUnspecified).getOrThrow()).getOrThrow());
+
+        for (String malformed : List.of("null", "true", "[]", "{}", "{\"enabled\":null}",
+                "{\"enabled\":1}", "{\"enabled\":\"true\"}", "{\"enabled\":false,\"voice\":true}")) {
+            JsonObject invalid = human.deepCopy();
+            invalid.add("speech", JsonParser.parseString(malformed));
+            assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, invalid).error().isPresent(), malformed);
+        }
+        assertTrue(CharacterData.SpeechData.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"enabled\":true,\"extra\":0}")).error().isPresent());
+
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, human));
+        JsonObject invalid = human.deepCopy();
+        invalid.add("speech", JsonParser.parseString("{\"enabled\":\"true\"}"));
+        assertThrows(RuntimeException.class, () -> manager.reload(ModCharacters.CHARACTER_TYPE,
+                Map.of(ModCharacters.HUMAN_ID, invalid)));
     }
 
     @Test

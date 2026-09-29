@@ -9,7 +9,8 @@ import java.util.Set;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
-    private static final Set<String> ROOT_FIELDS = Set.of("slip_data", "movement", "host_entity_types", "thermal", "hands");
+    private static final Set<String> ROOT_FIELDS = Set.of("slip_data", "movement", "host_entity_types", "thermal", "hands", "speech");
+    private static final Set<String> SPEECH_FIELDS = Set.of("enabled");
     private static final Set<String> MOVEMENT_FIELDS = Set.of("mode", "acceleration", "walk_speed", "sprint_speed",
             "ground_friction_with_input", "ground_friction_without_input", "minimum_friction_speed");
     private static final Set<String> SLIP_FIELDS = Set.of("can_receive_stun", "no_slip",
@@ -36,6 +37,10 @@ public final class CharacterSchemaAudit {
             auditThermal(character.getAsJsonObject("thermal"));
         }
         if (character.has("hands")) auditHands(character.get("hands"));
+        if (character.has("speech")) {
+            if (!character.get("speech").isJsonObject()) fail("$.speech", "expected object");
+            auditSpeech(character.getAsJsonObject("speech"));
+        }
         if (character.has("host_entity_types")) {
             JsonElement hosts = character.get("host_entity_types");
             if (!hosts.isJsonArray()) fail("$.host_entity_types", "expected array");
@@ -55,6 +60,15 @@ public final class CharacterSchemaAudit {
             if (!hosts.getAsJsonArray().isEmpty() && !character.has("movement")) {
                 fail("$.movement", "required when host_entity_types is nonempty");
             }
+        }
+    }
+
+    public static void auditSpeech(JsonObject speech) {
+        checkFields(speech, SPEECH_FIELDS, "$.speech");
+        JsonElement enabled = speech.get("enabled");
+        if (enabled == null) fail("$.speech.enabled", "required field is missing");
+        if (!enabled.isJsonPrimitive() || !enabled.getAsJsonPrimitive().isBoolean()) {
+            fail("$.speech.enabled", "expected boolean");
         }
     }
 

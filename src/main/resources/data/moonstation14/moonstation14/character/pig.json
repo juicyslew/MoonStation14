@@ -16,5 +16,6 @@
     "ground_friction_without_input": 20.0,
     "minimum_friction_speed": 0.005
   },
-  "host_entity_types": ["minecraft:pig"]
+  "host_entity_types": ["minecraft:pig"],
+  "speech": {"enabled": false}
 }
