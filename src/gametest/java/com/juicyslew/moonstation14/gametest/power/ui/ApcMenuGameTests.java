@@ -8,10 +8,12 @@ import com.juicyslew.moonstation14.ms14.power.ui.ApcMenuService;
 import com.juicyslew.moonstation14.ms14.power.ui.ApcToggleRequest;
 import com.juicyslew.moonstation14.ms14.power.ui.ApcToggleResponse;
 import com.mojang.authlib.GameProfile;
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.common.util.FakePlayer;
@@ -24,6 +26,58 @@ import java.util.UUID;
 @PrefixGameTestTemplate(false)
 public final class ApcMenuGameTests {
     private ApcMenuGameTests() { }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void initialSnapshotMarkerDistinguishesUnsyncedClientFromServer(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
+        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        PowerDeviceBlockEntity device = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
+        FakePlayer player = player(level, "apc-snapshot", pos);
+        UUID session = UUID.randomUUID();
+        ApcMenu serverMenu = new ApcMenu(1, player.getInventory(), pos, session, level, device);
+        FriendlyByteBuf extraData = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            extraData.writeBlockPos(pos);
+            extraData.writeUUID(session);
+            ApcMenu clientMenu = new ApcMenu(1, player.getInventory(), extraData);
+            require(!clientMenu.hasReceivedInitialSnapshot(), "client zero slots are not a confirmed snapshot");
+            require(serverMenu.hasReceivedInitialSnapshot(), "server menu always has authoritative data");
+            for (int index = 0; index < 7; index++) clientMenu.setData(index, index == 0 ? 1 : 0);
+            require(!clientMenu.hasReceivedInitialSnapshot(), "staged initial values are not yet committed");
+            clientMenu.setData(7, 0);
+            require(clientMenu.hasReceivedInitialSnapshot() && clientMenu.displayedBreaker() == 1
+                            && clientMenu.displayedRevision() == 0 && !clientMenu.displayedTripLatched(),
+                    "revision-zero marker commits the initial snapshot");
+
+            // A battery-only change is independent of breaker/trip convergence.
+            clientMenu.setData(5, 480);
+            require(clientMenu.displayedBatteryPermille() == 480 && clientMenu.displayedRevision() == 0,
+                    "battery updates without a breaker commit");
+
+            stageBreaker(clientMenu, 65535L, 0, true);
+            require(clientMenu.displayedRevision() == 0 && clientMenu.displayedBreaker() == 1
+                            && !clientMenu.displayedTripLatched(), "partial transition stays invisible");
+            clientMenu.setData(7, (short) 65535);
+            require(clientMenu.displayedRevision() == 65535L && clientMenu.displayedBreaker() == 0
+                            && clientMenu.displayedTripLatched(), "signed low-word marker commits trip");
+
+            clientMenu.setData(0, 1);
+            clientMenu.setData(1, 0);
+            clientMenu.setData(6, 0);
+            clientMenu.setData(7, (short) 65535); // stale commit before the high word arrives
+            require(clientMenu.displayedRevision() == 65535L && clientMenu.displayedBreaker() == 0
+                            && clientMenu.displayedTripLatched(), "stale marker cannot commit torn state");
+            clientMenu.setData(2, 1);
+            require(clientMenu.displayedRevision() == 65535L, "high-word update alone cannot commit");
+            clientMenu.setData(7, 0);
+            require(clientMenu.displayedRevision() == 65536L && clientMenu.displayedBreaker() == 1
+                            && !clientMenu.displayedTripLatched(), "zero marker commits carry across 16-bit boundary");
+        } finally {
+            extraData.release();
+        }
+        helper.succeed();
+    }
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void openedServerMenuAllowsOneToggleAndRefreshesAllViewers(GameTestHelper helper) {
@@ -107,6 +161,12 @@ public final class ApcMenuGameTests {
         player.setPos(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5);
         player.getAbilities().instabuild = true;
         return player;
+    }
+
+    private static void stageBreaker(ApcMenu menu, long revision, int breaker, boolean trip) {
+        menu.setData(0, breaker);
+        for (int word = 0; word < 4; word++) menu.setData(word + 1, (short) (revision >>> (16 * word)));
+        menu.setData(6, trip ? 1 : 0);
     }
 
     private static void installMenu(FakePlayer player, BlockPos pos, PowerDeviceBlockEntity device) {

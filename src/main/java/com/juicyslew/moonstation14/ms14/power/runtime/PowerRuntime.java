@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
 import com.juicyslew.moonstation14.ms14.power.topology.DevicePort;
 import com.juicyslew.moonstation14.ms14.power.topology.PowerTopology;
+import com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -39,7 +40,8 @@ public final class PowerRuntime {
     private static final Map<ServerLevel, Map<BlockPos, ApcOutputSample>> APC_OUTPUT_SAMPLES = new WeakHashMap<>();
     private static long serverTickSequence;
     private record ApcOutputSample(long sampleTick, long topologyGeneration, boolean graphKnown,
-                                   double outputWatts) { }
+                                   double outputWatts, PowerDeviceBlockEntity device, long breakerRevision,
+                                   ApcVisualState visualState, long visualTick, long visualGeneration) { }
     private PowerRuntime() { }
 
     public static void register(IEventBus bus) { bus.register(PowerRuntime.class); }
@@ -60,6 +62,25 @@ public final class PowerRuntime {
 
     public static String lastSolveDiagnostic(ServerLevel level) {
         return LAST_DIAGNOSTIC.getOrDefault(level, "no solve yet");
+    }
+
+    /** Constant-time, read-only menu lookup. Never triggers a solve or loads a chunk. */
+    public static ApcVisualState apcVisualState(ServerLevel level, PowerDeviceBlockEntity device) {
+        if (!PowerSimulationGate.isEnabled() || device == null) return ApcVisualState.UNKNOWN;
+        BlockPos pos = device.getBlockPos();
+        Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
+        ApcOutputSample sample = samples == null ? null : samples.get(pos);
+        if (sample == null || sample.device() != device || device.isRemoved()
+                || !(device.getBlockState().getBlock() instanceof PowerDeviceBlock block)
+                || block.kind() != PowerDeviceKind.APC
+                || !(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                        ChunkStatus.FULL, false) instanceof LevelChunk chunk)
+                || chunk.getBlockEntity(pos) != device
+                || !sample.graphKnown() || sample.visualGeneration() != PowerGraphService.topologyGeneration(level)
+                || sample.breakerRevision() != device.breakerRevision()
+                || serverTickSequence < sample.visualTick()
+                || serverTickSequence - sample.visualTick() > TICKS_PER_SOLVE) return ApcVisualState.UNKNOWN;
+        return sample.visualState();
     }
 
     public static void deviceRemoved(ServerLevel level, BlockPos pos) {
@@ -227,9 +248,14 @@ public final class PowerRuntime {
                 ignored -> new HashMap<>());
         for (PowerDeviceBlockEntity apc : apcs) {
             boolean graphKnown = isKnown(known, apc, CableTier.MV) && isKnown(known, apc, CableTier.APC);
+            String apcId = id(apc);
+            double output = result.apcOutputWatts().getOrDefault(apcId, 0.0);
+            ApcVisualState visual = ApcVisualState.fromSolve(isKnown(known, apc, CableTier.MV),
+                    isKnown(known, apc, CableTier.APC), result.apcInputWatts().getOrDefault(apcId, 0.0),
+                    output, apc.energyJoules(), result.batteryEnergyJoules().getOrDefault(apcId, apc.energyJoules()));
             samples.put(apc.getBlockPos().immutable(), new ApcOutputSample(sampleTick,
-                    PowerGraphService.topologyGeneration(level), graphKnown,
-                    result.apcOutputWatts().getOrDefault(id(apc), 0.0)));
+                    PowerGraphService.topologyGeneration(level), graphKnown, output,
+                    apc, apc.breakerRevision(), visual, sampleTick, PowerGraphService.topologyGeneration(level)));
         }
         LAST_DIAGNOSTIC.put(level, "sourcePorts=" + input.sources().stream()
                 .map(s -> s.component() + "/" + s.known()).toList()
@@ -270,7 +296,11 @@ public final class PowerRuntime {
             apc.observeActualApcOutput(serverTick, sample == null ? Long.MIN_VALUE : sample.sampleTick(),
                     knownAndFresh, sample == null ? 0 : sample.outputWatts());
             if (!apc.breakerClosed()) entry.setValue(new ApcOutputSample(serverTick,
-                    PowerGraphService.topologyGeneration(level), sample != null && sample.graphKnown(), 0));
+                    PowerGraphService.topologyGeneration(level), sample != null && sample.graphKnown(), 0,
+                    apc, sample == null ? apc.breakerRevision() : sample.breakerRevision(),
+                    sample == null ? ApcVisualState.UNKNOWN : sample.visualState(),
+                    sample == null ? serverTick : sample.visualTick(),
+                    sample == null ? PowerGraphService.topologyGeneration(level) : sample.visualGeneration()));
             if (wasClosed && !apc.breakerClosed()) RESOLVE_AFTER_TRIP.add(level);
         }
     }
