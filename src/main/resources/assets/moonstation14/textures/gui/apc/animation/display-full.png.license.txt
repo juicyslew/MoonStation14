@@ -1,0 +1,5 @@
+License: CC-BY-SA-3.0
+Copyright: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/9c7d509354ee030300f63c701da63c17928c3b3b and heavily modified by EmoGarbage404 (github)
+Source: space-station-14/Resources/Textures/Structures/Power/apc.rsi/display-full.png
+Source revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Transform: none; original PNG bytes copied unchanged.
