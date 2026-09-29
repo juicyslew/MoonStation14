@@ -107,6 +107,21 @@ class EffectDataCodecTest {
     }
 
     @Test
+    void lungGasRatiosRequireCanonicalKnownGasNamesAndFiniteSignedValues() {
+        EffectData.ModifyLungGas gas = assertInstanceOf(EffectData.ModifyLungGas.class,
+                decode(JsonParser.parseString(
+                        "{\"type\":\"ModifyLungGas\",\"ratios\":{\"carbon_dioxide\":-1,\"oxygen\":2}}")));
+        assertEquals(Map.of("carbon_dioxide", -1f, "oxygen", 2f), gas.ratios());
+        assertEquals(gas, decode(encode(gas)));
+        assertCodecRejects("{\"type\":\"ModifyLungGas\",\"ratios\":{\"carbondioxide\":1}}");
+        assertCodecRejects("{\"type\":\"ModifyLungGas\",\"ratios\":{\"moonstation14:oxygen\":1}}");
+        JsonObject nonFinite = JsonParser.parseString(
+                "{\"type\":\"ModifyLungGas\",\"ratios\":{\"oxygen\":1}}").getAsJsonObject();
+        nonFinite.getAsJsonObject("ratios").add("oxygen", new com.google.gson.JsonPrimitive(Double.NaN));
+        assertTrue(EffectData.CODEC.parse(JsonOps.INSTANCE, nonFinite).error().isPresent());
+    }
+
+    @Test
     void roundTripsZombieInoculationAndCanonicalResistanceField() {
         EffectData.CureZombieInfection cure = assertInstanceOf(
                 EffectData.CureZombieInfection.class,

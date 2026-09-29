@@ -15,6 +15,10 @@ import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstComponent;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
+import com.juicyslew.moonstation14.ms14.blood.BloodAttachment;
+import com.juicyslew.moonstation14.ms14.blood.BloodComponent;
+import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
+import com.juicyslew.moonstation14.ms14.lung.LungComponent;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
@@ -29,6 +33,12 @@ public class MS14Bridges {
             ModDataAttachments.REAGENT,
             ModDataComponents.REAGENT,
             ReagentAttachment::new,
+            new SystemLink.ActivityBinding<>(EntityActivity.REAGENT_METABOLISM, data -> !data.isEmpty())
+    );
+
+    /** Uses the unchanged reagent codecs/component representation under living-only ownership. */
+    public static final SystemLink<ReagentAttachment, ReagentComponent> BLOODSTREAM = new SystemLink<>(
+            ModDataAttachments.BLOODSTREAM, ModDataComponents.REAGENT, ReagentAttachment::new,
             new SystemLink.ActivityBinding<>(EntityActivity.REAGENT_METABOLISM, data -> !data.isEmpty())
     );
 
@@ -59,6 +69,14 @@ public class MS14Bridges {
     public static final SystemLink<CharacterIdentityAttachment, CharacterIdentityComponent> CHARACTER_IDENTITY =
             new SystemLink<>(ModDataAttachments.CHARACTER_IDENTITY, ModDataComponents.CHARACTER_IDENTITY,
                     CharacterIdentityAttachment::new);
+
+    public static final SystemLink<BloodAttachment, BloodComponent> BLOOD = new SystemLink<>(
+            ModDataAttachments.BLOOD, ModDataComponents.BLOOD, BloodAttachment::new);
+
+    public static final SystemLink<LungAttachment, LungComponent> LUNG = new SystemLink<>(
+            ModDataAttachments.LUNG, ModDataComponents.LUNG, () -> new LungAttachment(
+                    LungComponent.from(com.juicyslew.moonstation14.ms14.atmos.core.GasMixture.vacuum(), 0, false)),
+            new SystemLink.ActivityBinding<>(EntityActivity.RESPIRATION_EXPOSURE, ignored -> true));
 
     public static final SystemLink<SlidingAttachment, SlidingComponent> SLIDING =
             new SystemLink<>(ModDataAttachments.SLIDING, ModDataComponents.SLIDING, SlidingAttachment::new);

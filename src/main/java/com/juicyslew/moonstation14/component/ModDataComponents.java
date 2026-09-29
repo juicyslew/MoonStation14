@@ -7,6 +7,8 @@ import com.juicyslew.moonstation14.ms14.alert.AlertComponent;
 import com.juicyslew.moonstation14.ms14.hunger.HungerComponent;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstComponent;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
+import com.juicyslew.moonstation14.ms14.blood.BloodComponent;
+import com.juicyslew.moonstation14.ms14.lung.LungComponent;
 import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureComponent;
 import net.minecraft.core.component.DataComponentType;
@@ -48,6 +50,14 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<CharacterIdentityComponent>> CHARACTER_IDENTITY =
             register_component("character_identity", builder -> builder.persistent(CharacterIdentityComponent.CODEC)
                     .networkSynchronized(CharacterIdentityComponent.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BloodComponent>> BLOOD =
+            register_component("blood", builder -> builder.persistent(BloodComponent.CODEC)
+                    .networkSynchronized(BloodComponent.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<LungComponent>> LUNG =
+            register_component("lung", builder -> builder.persistent(LungComponent.CODEC)
+                    .networkSynchronized(LungComponent.STREAM_CODEC));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<SlidingComponent>> SLIDING =
             register_component("sliding", builder -> builder.persistent(SlidingComponent.CODEC)

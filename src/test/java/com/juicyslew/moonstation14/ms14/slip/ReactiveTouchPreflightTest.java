@@ -12,8 +12,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ReactiveTouchPreflightTest {
     @Test
     void preflightUsesRegisteredHandlersAndRejectsUnsupportedKnockdownProjections() {
-        EffectData.ModifyBleed unsupported = new EffectData.ModifyBleed(EffectCommonData.DEFAULT, 1f);
-        assertFalse(ReactiveTouchSystem.supportsTouchPayload(unsupported));
+        assertTrue(ReactiveTouchSystem.supportsTouchPayload(
+                new EffectData.ModifyBleed(EffectCommonData.DEFAULT, 1f)));
+        assertTrue(ReactiveTouchSystem.supportsTouchPayload(
+                new EffectData.ModifyBloodLevel(EffectCommonData.DEFAULT, 1f)));
 
         EffectData.ModifyKnockdown crawling = knockdown(StatusEffectOperation.ADD, true, false, 2f);
         EffectData.ModifyKnockdown dropping = knockdown(StatusEffectOperation.UPDATE, false, true, 2f);

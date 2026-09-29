@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectOperation;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPayload;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
 import com.juicyslew.moonstation14.ms14.fire.FireStackSystem;
+import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
 import com.juicyslew.moonstation14.ms14.eye.EyeDamageSystem;
 import com.juicyslew.moonstation14.ms14.electrocution.ElectrocutionSystem;
 import net.minecraft.resources.ResourceKey;
@@ -55,14 +56,10 @@ final class EffectHandlers {
         dispatcher.register(EffectData.Extinguish.class, EffectHandlers::extinguish);
         dispatcher.register(EffectData.AdjustTemperature.class, EffectHandlers::adjustTemperature);
 
-        dispatcher.registerUnsupported(EffectData.ModifyBleed.class,
-                "Authoritative blood/bleed state is unavailable; damage substitution is disabled.");
-        dispatcher.registerUnsupported(EffectData.Oxygenate.class,
-                "Authoritative respiration and organ saturation state is unavailable.");
-        dispatcher.registerUnsupported(EffectData.ModifyLungGas.class,
-                "Authoritative lung gas mixture state is unavailable.");
-        dispatcher.registerUnsupported(EffectData.ModifyBloodLevel.class,
-                "Authoritative blood-volume state is unavailable; damage substitution is disabled.");
+        dispatcher.register(EffectData.ModifyBleed.class, EffectHandlers::modifyBleed);
+        dispatcher.register(EffectData.Oxygenate.class, EffectHandlers::oxygenate);
+        dispatcher.register(EffectData.ModifyLungGas.class, EffectHandlers::modifyLungGas);
+        dispatcher.register(EffectData.ModifyBloodLevel.class, EffectHandlers::modifyBloodLevel);
         dispatcher.register(EffectData.SatiateThirst.class, EffectHandlers::satiateThirst);
         dispatcher.registerUnsupported(EffectData.CleanBloodstream.class,
                 "Route-aware bloodstream state and reagent exclusion rules are unavailable.");
@@ -115,6 +112,45 @@ final class EffectHandlers {
     private static EffectResult adjustTemperature(EffectData.AdjustTemperature effect, EffectContext context) {
         return com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.adjustHeat(
                 context.entity(), effect.amount(), context.scale());
+    }
+
+    private static EffectResult modifyBleed(EffectData.ModifyBleed effect, EffectContext context) {
+        if (!(context.entity() instanceof LivingEntity living)) return EffectResult.SKIPPED_UNSUPPORTED;
+        return bloodEffectResult(BloodSystem.applyEffectDelta(living, effect.amount(), context.scale(), true));
+    }
+
+    private static EffectResult modifyBloodLevel(EffectData.ModifyBloodLevel effect, EffectContext context) {
+        if (!(context.entity() instanceof LivingEntity living)) return EffectResult.SKIPPED_UNSUPPORTED;
+        return bloodEffectResult(BloodSystem.applyEffectDelta(living, effect.amount(), context.scale(), false));
+    }
+
+    private static EffectResult oxygenate(EffectData.Oxygenate effect, EffectContext context) {
+        if (!(context.entity() instanceof LivingEntity living)) return EffectResult.SKIPPED_UNSUPPORTED;
+        double amount = (double) effect.factor() * context.scale();
+        return lungEffectResult(com.juicyslew.moonstation14.ms14.lung.LungSystem.oxygenate(living, amount));
+    }
+
+    private static EffectResult modifyLungGas(EffectData.ModifyLungGas effect, EffectContext context) {
+        if (!(context.entity() instanceof LivingEntity living)) return EffectResult.SKIPPED_UNSUPPORTED;
+        return lungEffectResult(com.juicyslew.moonstation14.ms14.lung.LungSystem.modifyLungGas(
+                living, effect.ratios(), context.scale()));
+    }
+
+    private static EffectResult lungEffectResult(
+            com.juicyslew.moonstation14.ms14.lung.LungSystem.EffectAdjustmentResult result) {
+        return switch (result) {
+            case APPLIED -> EffectResult.APPLIED;
+            case SKIPPED_UNSUPPORTED -> EffectResult.SKIPPED_UNSUPPORTED;
+            case FAILED -> EffectResult.FAILED;
+        };
+    }
+
+    private static EffectResult bloodEffectResult(BloodSystem.EffectAdjustmentResult result) {
+        return switch (result) {
+            case APPLIED -> EffectResult.APPLIED;
+            case SKIPPED_UNSUPPORTED -> EffectResult.SKIPPED_UNSUPPORTED;
+            case FAILED -> EffectResult.FAILED;
+        };
     }
 
     private static EffectResult adjustAlert(EffectData.AdjustAlert effect, EffectContext context) {
