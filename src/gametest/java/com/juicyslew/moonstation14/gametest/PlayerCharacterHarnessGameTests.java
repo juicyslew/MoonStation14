@@ -305,6 +305,8 @@ public final class PlayerCharacterHarnessGameTests {
         restored.readAdditionalSaveData(saved);
         require(restored.offlineSinceMillis() == offlineSince,
                 "offline timestamp survives fresh-entity NBT reload");
+        restored.tick();
+        require(!restored.hasOfflineBadge(), "persisted offline timestamp alone cannot label an unbound body");
         restored.clearOfflineSinceMillis();
         require(restored.offlineSinceMillis() == null && !restored.hasOfflineBadge(),
                 "successful reconnect marker clear removes timestamp and synchronized badge");
@@ -319,6 +321,58 @@ public final class PlayerCharacterHarnessGameTests {
         require(malformed.offlineSinceMillis() == null
                         && preservedInvalid.getString("Moonstation14PlayerCharacterOfflineSinceMillis").equals("invalid"),
                 "malformed timestamp fails closed and remains explicit in entity data");
+        malformed.tick();
+        require(!malformed.hasOfflineBadge(), "malformed timestamp cannot enable synchronized badge");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void offlineBadgeRequiresExactAccountDisconnectAndObservedGrace(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        long now = 1_000_000L;
+        long parkedAt = now - 120_000L;
+        long leftAt = now - 59_999L;
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, parkedAt, null, false, now),
+                "an aged persisted timestamp alone is not proof of disconnection");
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, parkedAt, leftAt, true, now),
+                "active character connected as owner cannot show Offline");
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, parkedAt, leftAt, true, now),
+                "parked Creative operator connected as owner cannot show Offline");
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, parkedAt, leftAt - 60_000L, true, now),
+                "connected ghost after corpse death cannot show Offline even after a long park");
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, parkedAt, leftAt, false, now),
+                "real logout still has sixty seconds of display grace from observed departure");
+        require(PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, parkedAt, now - 60_000L, false, now),
+                "real logout shows Offline once observed disconnect grace expires");
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, parkedAt, now - 60_000L, true, now),
+                "reconnecting the same owner clears badge regardless of the persisted timestamp");
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(null, parkedAt, now - 60_000L, false, now),
+                "absent or malformed binding fails closed");
+        require(!PlayerCharacterHarnessEntity.offlineBadgeVisible(owner, null, now - 60_000L, false, now),
+                "no lifecycle offline timestamp fails closed");
+
+        CompoundTag saved = new CompoundTag();
+        CompoundTag binding = new CompoundTag();
+        binding.putUUID("Account", owner);
+        binding.putString("Profile", "main");
+        binding.putUUID("Mind", UUID.randomUUID());
+        saved.put("Moonstation14PlayerCharacterBinding", binding);
+        saved.putLong("Moonstation14PlayerCharacterOfflineSinceMillis", parkedAt);
+        PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(1, 1, 1));
+        body.readAdditionalSaveData(saved);
+        body.tick();
+        require(!body.hasOfflineBadge(), "freshly observed disconnected bound body syncs false despite old NBT");
+        CompoundTag malformed = saved.copy();
+        malformed.putString("Moonstation14PlayerCharacterBinding", "bad-binding");
+        body.readAdditionalSaveData(malformed);
+        body.tick();
+        require(!body.hasOfflineBadge(), "malformed binding syncs false even with old offline timestamp");
+        CompoundTag preserved = new CompoundTag();
+        body.addAdditionalSaveData(preserved);
+        require(preserved.get("Moonstation14PlayerCharacterBinding").equals(
+                malformed.get("Moonstation14PlayerCharacterBinding")),
+                "malformed binding evidence is preserved after badge refresh");
         helper.succeed();
     }
 
