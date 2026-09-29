@@ -50,6 +50,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.HV_MV_SUBSTATION);
                         output.accept(ModBlocks.APC);
                         output.accept(ModBlocks.POWER_LAMP);
+                        output.accept(ModBlocks.HIGH_LOAD_TEST_LAMP);
                         output.accept(ModBlocks.MAGIC_BLOCK);
                         output.accept(ModBlocks.JUG);
                         output.accept(ModBlocks.ATMOS_AIR_PRODUCER);

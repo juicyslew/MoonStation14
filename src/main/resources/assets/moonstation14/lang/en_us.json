@@ -4,10 +4,12 @@
   "block.moonstation14.hv_mv_substation": "HV to MV Substation",
   "block.moonstation14.apc": "Area Power Controller",
   "block.moonstation14.power_lamp": "Power Lamp",
+  "block.moonstation14.high_load_test_lamp": "High-Load Test Lamp (Debug Only, 12 kW)",
   "item.moonstation14.hv_source": "HV Fixed Source",
   "item.moonstation14.hv_mv_substation": "HV to MV Substation",
   "item.moonstation14.apc": "Area Power Controller",
   "item.moonstation14.power_lamp": "Power Lamp",
+  "item.moonstation14.high_load_test_lamp": "High-Load Test Lamp (Debug Only, 12 kW)",
   "item.moonstation14.plastic": "Plastic",
   "item.moonstation14.glass": "Glass",
   "item.moonstation14.paper": "Paper",
@@ -23,11 +25,10 @@
   "item.moonstation14.cable_cutter": "Cable Cutter",
   "message.moonstation14.cable_cutter.ambiguous": "More than one cable tier is attached here; hold the matching cable coil in your offhand to select one.",
   "item.moonstation14.atmosphere_analyzer": "Atmosphere Analyzer",
-
   "item.moonstation14.waffle": "Waffle",
   "item.moonstation14.bottle": "Bottle",
-
   "sounds.moonstation14.crowbar_use": "Crowbar Prying",
+  "sounds.moonstation14.apc.switch": "APC breaker clicks",
   "sounds.moonstation14.emote.cough": "Cough",
   "sounds.moonstation14.emote.crying": "Crying",
   "sounds.moonstation14.emote.hew": "Hew",
@@ -46,7 +47,6 @@
   "moonstation14.emote.weh": "%s wehs!",
   "moonstation14.emote.whistle": "%s whistles.",
   "moonstation14.emote.yawn": "%s yawns.",
-
   "block.moonstation14.steel_wall_block": "Steel Wall",
   "block.moonstation14.station_floor": "Station Floor",
   "block.moonstation14.steel_wall_girder_block": "Steel Wall Girder",
@@ -65,10 +65,8 @@
   "block.moonstation14.atmos_gas_sink": "Atmosphere Gas Sink",
   "block.moonstation14.atmos_heater": "Atmosphere Heater",
   "block.moonstation14.atmos_cooler": "Atmosphere Cooler",
-
   "creativetab.moonstation14.moonstation_items": "Moonstation Items",
   "creativetab.moonstation14.moonstation_blocks": "Moonstation Blocks",
-
   "moonstation14.configuration.title": "Moon Station 14 Configs",
   "moonstation14.configuration.section.moonstation14.common.toml": "Moon Station 14 Configs",
   "moonstation14.configuration.section.moonstation14.common.toml.title": "Moon Station 14 Configs",
@@ -76,7 +74,6 @@
   "moonstation14.configuration.logDirtBlock": "Log Dirt Block",
   "moonstation14.configuration.magicNumberIntroduction": "Magic Number Text",
   "moonstation14.configuration.magicNumber": "Magic Number",
-
   "status-effect.reagent-speed": "Reagent speed",
   "status-effect.vomiting-slowdown": "Vomiting slowdown",
   "alerts-peckish-name": "Peckish",
@@ -93,7 +90,6 @@
   "moonstation14.hud.movement.stunned": "Stunned",
   "moonstation14.hud.movement.slipped": "Slipped",
   "moonstation14.hud.movement.knocked_down": "Knocked Down",
-
   "absinthe-effect-hear-voice": "You hear a tiny voice. \"Tee hee hee!\"",
   "absinthe-effect-feel-tulips": "You feel tulips brush up against your legs.",
   "ammonia-smell": "Something smells pungent!",
@@ -154,5 +150,15 @@
   "norepinephricacid-effect-darkness": "You are plunged into a world of darkness!",
   "norepinephricacid-effect-eye-disconnect": "Your eyes feel like they're disconnecting!",
   "generic-reagent-effect-slicing-insides": "You feel an incredibly sharp pain in your gut!",
-  "generic-reagent-effect-sick": "You feel sick after consuming that..."
+  "generic-reagent-effect-sick": "You feel sick after consuming that...",
+  "container.moonstation14.apc": "Area Power Controller",
+  "gui.moonstation14.apc.title": "APC CONTROL",
+  "gui.moonstation14.apc.breaker": "MAIN BREAKER",
+  "gui.moonstation14.apc.breaker_on": "CLOSED — ON",
+  "gui.moonstation14.apc.breaker_off": "OPEN — OFF",
+  "gui.moonstation14.apc.overload_tripped": "OVERLOAD — TRIPPED",
+  "gui.moonstation14.apc.waiting": "WAITING FOR SERVER...",
+  "gui.moonstation14.apc.battery": "BATTERY CHARGE",
+  "gui.moonstation14.apc.external_unavailable": "External power: unavailable",
+  "gui.moonstation14.apc.load_unavailable": "Load: unavailable"
 }

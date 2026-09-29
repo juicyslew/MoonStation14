@@ -234,6 +234,7 @@ public final class PowerDeviceGameTests {
             case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION.get();
             case APC -> ModBlocks.APC.get();
             case LAMP -> ModBlocks.POWER_LAMP.get();
+            case DEBUG_LOAD_LAMP -> ModBlocks.HIGH_LOAD_TEST_LAMP.get();
         };
         level.setBlock(pos, block.defaultBlockState().setValue(PowerDeviceBlock.FACING, facing), 3);
     }

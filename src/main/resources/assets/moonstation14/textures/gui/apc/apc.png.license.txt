@@ -1,0 +1,10 @@
+This image is licensed under CC-BY-SA-3.0.
+
+Copyright / attribution: Taken from tgstation at commit
+https://github.com/tgstation/tgstation/commit/9c7d509354ee030300f63c701da63c17928c3b3b
+and heavily modified by EmoGarbage404 (github).
+
+Source file: SS14 Resources/Textures/Structures/Power/apc.rsi/static.png
+The file is copied byte-for-byte; no crop, scaling, palette, or alpha transform was applied.
+
+License text: https://creativecommons.org/licenses/by-sa/3.0/legalcode
