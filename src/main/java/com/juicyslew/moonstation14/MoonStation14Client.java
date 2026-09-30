@@ -7,6 +7,11 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient;
+import com.juicyslew.moonstation14.ms14.chat.client.DirectionalCueOverlay;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewKey;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewOverlay;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogSyncAssembler;
@@ -36,6 +41,8 @@ import com.juicyslew.moonstation14.block.ModMenus;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualResyncRequest;
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient;
+import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHealthHudPolicy;
+import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
@@ -65,6 +72,8 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
@@ -81,6 +90,7 @@ import org.joml.Matrix4f;
 // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
 @EventBusSubscriber(modid = MoonStation14.MOD_ID, value = Dist.CLIENT)
 public class MoonStation14Client {
+    private static final BodyHealthHudPolicy BODY_HEALTH_HUD = new BodyHealthHudPolicy();
     private static final AtmosphereVisualClientCache ATMOSPHERE_VISUALS = new AtmosphereVisualClientCache();
     private static final AtmosphereVisualPendingSnapshots ATMOSPHERE_PENDING = new AtmosphereVisualPendingSnapshots();
     private static final CableVisualClientCache CABLE_VISUALS = new CableVisualClientCache();
@@ -103,6 +113,8 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
+        modEventBus.addListener(LocalSpeechReviewKey::register);
+        modEventBus.addListener(BodyHandClient::registerKeys);
 
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
@@ -111,10 +123,12 @@ public class MoonStation14Client {
         PrototypeCatalogNetworking.installClientHandler(MoonStation14Client::handleCatalogPayload);
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
         CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
+        LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
         MovementClientController.install();
+        BodyHandClient.install();
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
         NeoForge.EVENT_BUS.addListener(MachineUiGalleryCommands::register);
     }
@@ -141,6 +155,32 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderCableVisuals(RenderLevelStageEvent event) {
         CableVisualRenderer.render(event, CABLE_VISUALS);
+    }
+
+    @SubscribeEvent
+    public static void renderLocalSpeech(RenderLevelStageEvent event) {
+        DirectionalCueOverlay.capture(event);
+        LocalSpeechClient.render(event);
+    }
+
+    @SubscribeEvent
+    public static void renderSpeechCues(RenderGuiEvent.Post event) {
+        LocalSpeechReviewOverlay.render(event);
+        DirectionalCueOverlay.render(event);
+        LocalSpeechClient.renderCallouts(event);
+    }
+
+    @SubscribeEvent
+    public static void renderSpeechCuesOnChat(ScreenEvent.Render.Post event) {
+        LocalSpeechReviewOverlay.render(event);
+        DirectionalCueOverlay.render(event);
+        LocalSpeechClient.renderCallouts(event);
+    }
+
+    @SubscribeEvent
+    public static void tickLocalSpeech(ClientTickEvent.Post event) {
+        LocalSpeechClient.tick();
+        LocalSpeechReviewKey.tick();
     }
 
     private static void handleAtmospherePayload(AtmosphereVisualPayload payload) {
@@ -460,7 +500,12 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderAlerts(RenderGuiEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.options.hideGui) return;
+        var body = GhostControlClient.isLocalMindCarrier() ? GhostControlClient.ownedCharacterForHud() : null;
+        if (body == null || minecraft.player == null || minecraft.level == null) BODY_HEALTH_HUD.reset();
+        if (minecraft.options.hideGui) {
+            BODY_HEALTH_HUD.reset();
+            return;
+        }
         if (minecraft.player == null || minecraft.level == null) return;
         int y = 12;
         if (serverAtmosVisualsActive && (ATMOSPHERE_VISUALS.isIncomplete() || atmosphereVisualRangeTruncated)) {
@@ -468,7 +513,6 @@ public class MoonStation14Client {
         }
 
         boolean mindCarrier = GhostControlClient.isLocalMindCarrier();
-        var body = mindCarrier ? GhostControlClient.ownedCharacterForHud() : null;
         net.minecraft.world.entity.LivingEntity source = mindCarrier ? body : minecraft.player;
         if (source == null) return;
 
@@ -507,13 +551,14 @@ public class MoonStation14Client {
             int guiWidth = minecraft.getWindow().getGuiScaledWidth();
             int guiHeight = minecraft.getWindow().getGuiScaledHeight();
             int bodyY = 12;
-            float maximum = body.getMaxHealth();
-            float health = body.getHealth();
-            if (Float.isFinite(maximum) && maximum > 0f && Float.isFinite(health)) {
-                maximum = Math.min(maximum, 1_000_000f);
-                health = Math.max(0f, Math.min(maximum, health));
-                String label = "BODY HEALTH " + Math.round(health) + "/" + Math.round(maximum);
-                bodyY = drawBodyHudLabel(event, minecraft, label, 0xffa83232, bodyY, guiWidth, guiHeight);
+            long epoch = GhostControlClient.committedCharacterEpoch();
+            BodyHealthHudPolicy.View healthView = BODY_HEALTH_HUD.observe(epoch > 0
+                            ? new BodyHealthHudPolicy.Key(minecraft.player.getUUID(), epoch, minecraft.level,
+                                    body.getUUID(), body.getId()) : null,
+                    body.getHealth(), body.getMaxHealth(), minecraft.level.getGameTime());
+            if (healthView != null) {
+                bodyY = drawBodyHudLabel(event, minecraft, healthView.label(),
+                        healthView.damageFlash() ? 0xffef2727 : 0xffa83232, bodyY, guiWidth, guiHeight);
             }
 
             var hunger = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent.class)).isPresent()
@@ -530,6 +575,16 @@ public class MoonStation14Client {
                         0xff3186a8, bodyY, guiWidth, guiHeight);
             }
         }
+    }
+
+    @SubscribeEvent
+    public static void renderBodyHands(RenderGuiEvent.Post event) {
+        BodyHandClient.render(event);
+    }
+
+    @SubscribeEvent
+    public static void tickBodyHands(ClientTickEvent.Post event) {
+        BodyHandClient.tick(event);
     }
 
     private static int drawBodyHudLabel(RenderGuiEvent.Post event, Minecraft minecraft, String label, int color,
@@ -780,6 +835,8 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        LocalSpeechClient.clear();
+        BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.resetAtmosphereVisualsForLogin();
         MoonStation14Client.resetCableVisualsForLogin();
@@ -788,6 +845,8 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        LocalSpeechClient.clear();
+        BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();
         MoonStation14Client.clearCableVisuals();

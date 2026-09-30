@@ -17,6 +17,7 @@ import com.juicyslew.moonstation14.ms14.character.components.TemperatureDamageCo
 import com.juicyslew.moonstation14.ms14.character.components.ThermalRegulatorComponent;
 import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StomachPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.SpeechComponent;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
@@ -109,5 +110,8 @@ public record CharacterData(List<ResourceLocation> hostEntityTypes,
     }
 
     public Optional<BarotraumaComponent> barotrauma() { return component(BarotraumaComponent.class); }
+
+    /** Fail closed: text speech requires an explicit Speech component. */
+    public boolean canSpeakText() { return component(SpeechComponent.class).isPresent(); }
 
 }

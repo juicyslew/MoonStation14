@@ -2,6 +2,10 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransition;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
@@ -19,6 +23,7 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /** Production first-account and same-body reconnect join transactions. */
@@ -26,6 +31,7 @@ import java.util.function.Supplier;
 public final class LifecycleFirstJoinHandler {
     private static final String RECONNECT = "Your saved character body could not be safely reconnected. No replacement was spawned; contact an administrator or retry when the saved area is available.";
     private static final String FAILED = "Character enrollment could not be completed safely. Your saved body/reservation was retained; contact an administrator.";
+    private static final String DIRTY_CARRIER = "Character control requires an empty carrier inventory and a valid parked-inventory marker. Your inventory was left untouched; reconnect after recovery.";
 
     private LifecycleFirstJoinHandler() { }
 
@@ -73,11 +79,27 @@ public final class LifecycleFirstJoinHandler {
                     disconnect(player, "A conflicting character or ghost session already exists; reconnect is blocked safely.");
                     return;
                 }
-                if (!player.setGameMode(GameType.SPECTATOR)
-                        || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR) {
+                DeadClaimAdmission admission = admitDeadClaimCarrier(player.gameMode.getGameModeForPlayer(),
+                        player.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get()),
+                        () -> CreativeCarrierTransition.park(player), () -> CarrierHandInventoryGate.allows(player));
+                if (admission == DeadClaimAdmission.DENIED) { disconnect(player, DIRTY_CARRIER); return; }
+                if (admission == DeadClaimAdmission.RECOVERY) { disconnect(player, RECONNECT); return; }
+                boolean newlyParked = admission == DeadClaimAdmission.NEWLY_PARKED;
+                if (!switchDeadClaimCarrier(newlyParked, () -> player.setGameMode(GameType.SPECTATOR),
+                        () -> player.gameMode.getGameModeForPlayer(), () -> CarrierHandInventoryGate.allows(player),
+                        () -> {
+                            try {
+                                var current = context.currentDeadClaim(player.getUUID()).orElse(null);
+                                var memory = context.lifecycle().profile(player.getUUID()).orElse(null);
+                                return saved.equals(current) && (memory == null || !memory.active());
+                            } catch (Exception failure) { return false; }
+                        }, () -> CreativeCarrierTransition.restore(player),
+                        () -> LifecycleDevelopmentMode.syncCarrier(player))) {
                     disconnect(player, "Ghost login could not make the carrier a spectator; reconnect after recovery.");
                     return;
                 }
+                // A mode event can alter carrier slots. Do not create or activate a ghost from a dirty carrier.
+                if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
                 var staged = LifecycleDeadClaimGhostStager.stage(player, server, saved);
                 if (staged.outcome() != LifecycleDeadClaimGhostStager.Outcome.PREPARED || staged.prepared() == null) {
                     MoonStation14.LOGGER.warn("Saved character death could not be prepared for ghost login (account={}): {}",
@@ -114,6 +136,9 @@ public final class LifecycleFirstJoinHandler {
         }
         if (GhostMobHarnessControl.ownsDebugSession(player)) { disconnect(player, FAILED); return; }
         if (!supportedVanillaMode(player.gameMode.getGameModeForPlayer())) { disconnect(player, FAILED); return; }
+        // Login fires after level insertion and inventory-menu initialization. Refuse before reserving
+        // the account: an unsafe carrier must not create a durable claim or change game mode.
+        if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
 
         // Persist PREPARING before changing the carrier: every possible failure after this point
         // retains a durable claim and is intentionally not eligible for a duplicate enrollment.
@@ -136,6 +161,7 @@ public final class LifecycleFirstJoinHandler {
             disconnect(player, FAILED);
             return;
         }
+        if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
         FirstCharacterBodyStager.Result staged = FirstCharacterBodyStager.stageReserved(token, player, server);
         if (staged.outcome() != FirstCharacterBodyStager.Outcome.PREPARED || staged.prepared() == null) {
             disconnect(player, FAILED);
@@ -144,7 +170,19 @@ public final class LifecycleFirstJoinHandler {
         var prepared = staged.prepared();
         PlayerCharacterHarnessEntity body = prepared.body();
         if (!validPrepared(server, player, context, prepared)) { disconnect(player, FAILED); return; }
+        if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
 
+        // Establish the immutable speaker identity while authority remains PREPARING.
+        PlayerCharacterBinding binding = body.playerCharacterBinding();
+        try {
+            ChatIdentitySavedData.forFirstEnrollment(server.overworld()).allocateCharacterDurably(server.overworld(),
+                    new ChatIdentityRegistry.CharacterKey(binding.accountId(), binding.profileKey()));
+        } catch (RuntimeException | Error failure) {
+            MoonStation14.LOGGER.error("Chat identity persistence failed before ACTIVE first enrollment (account={}, profile={})",
+                    binding.accountId(), binding.profileKey(), failure);
+            disconnect(player, "Character enrollment was reserved, but chat identity could not be saved safely. Contact an administrator before reconnecting.");
+            return;
+        }
         final com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.Snapshot active;
         try {
             active = context.promoteFirstCharacter(prepared.accountUUID(), prepared.mindUUID(), prepared.bodyUUID()).orElse(null);
@@ -235,6 +273,44 @@ public final class LifecycleFirstJoinHandler {
 
     enum JoinRoute { VANILLA, INVALID_PLAYER, EXISTING_ACCOUNT, FIRST_ACCOUNT }
     enum AccountRoute { LIVING_RECONNECT, GHOST_LOGIN, FAIL_CLOSED }
+    enum DeadClaimAdmission { DENIED, RECOVERY, READY, NEWLY_PARKED }
+
+    /** Value-level policy only; production callbacks enforce exact connected-player authority. */
+    static DeadClaimAdmission admitDeadClaimCarrier(GameType mode, boolean markerPresent,
+                                                    Supplier<CreativeCarrierTransition.Result> park,
+                                                    BooleanSupplier clean) {
+        try {
+            if (mode == GameType.CREATIVE && !markerPresent) {
+                var result = park.get();
+                if (result == CreativeCarrierTransition.Result.RECOVERY_REQUIRED) return DeadClaimAdmission.RECOVERY;
+                if (result != CreativeCarrierTransition.Result.PARKED) return DeadClaimAdmission.DENIED;
+                return clean.getAsBoolean() ? DeadClaimAdmission.NEWLY_PARKED : DeadClaimAdmission.RECOVERY;
+            }
+            return clean.getAsBoolean() ? DeadClaimAdmission.READY : DeadClaimAdmission.DENIED;
+        } catch (RuntimeException | Error failure) { return DeadClaimAdmission.RECOVERY; }
+    }
+
+    /** A canceled switch restores only this login's newly parked, clean, exact Creative carrier. */
+    static boolean switchDeadClaimCarrier(boolean newlyParked, BooleanSupplier switchMode, Supplier<GameType> actual,
+                                          BooleanSupplier clean, BooleanSupplier exactClaim,
+                                          Supplier<CreativeCarrierTransition.Result> restore, Runnable sync) {
+        boolean switched = false;
+        try {
+            switched = switchMode.getAsBoolean();
+        } catch (RuntimeException | Error failure) {
+            // Even a throwing mode callback might have left the player in Creative.
+        }
+        try {
+            GameType mode = actual.get();
+            if (switched && mode == GameType.SPECTATOR && clean.getAsBoolean()) return true;
+            if (newlyParked && mode == GameType.CREATIVE && clean.getAsBoolean()
+                    && exactClaim.getAsBoolean()
+                    && restore.get() == CreativeCarrierTransition.Result.RESTORED) sync.run();
+        } catch (RuntimeException | Error failure) {
+            // Ambiguous mode, claim or slots: retain any marker and disconnect.
+        }
+        return false;
+    }
 
     static <T> T reserveBeforeMode(Supplier<T> reserve, Consumer<T> modeChange) {
         T token = reserve.get();

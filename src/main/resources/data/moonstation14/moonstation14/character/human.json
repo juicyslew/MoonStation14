@@ -106,6 +106,8 @@
     {"type": "Stomach"},
     {"type": "Flammable", "damage": {"types": {"heat": 1.5}}},
     {"type": "Blindable"},
-    {"type": "Metabolizer", "types": ["human"]}
+    {"type": "ComplexInteraction"},
+    {"type": "Metabolizer", "types": ["human"]},
+    {"type": "Speech"}
   ]
 }

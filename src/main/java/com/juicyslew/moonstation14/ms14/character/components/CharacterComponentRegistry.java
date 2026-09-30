@@ -28,6 +28,7 @@ public final class CharacterComponentRegistry {
 
     private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
             Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),
+            Map.entry(ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC)),
             Map.entry(BlindablePrototypeComponent.TYPE, new Entry<>(BlindablePrototypeComponent.class, BlindablePrototypeComponent.CODEC)),
             Map.entry(BloodstreamComponent.TYPE, new Entry<>(BloodstreamComponent.class, BloodstreamComponent.CODEC)),
             Map.entry(BodyComponent.TYPE, new Entry<>(BodyComponent.class, BodyComponent.CODEC)),
@@ -40,6 +41,7 @@ public final class CharacterComponentRegistry {
             Map.entry(NoSlipComponent.TYPE, new Entry<>(NoSlipComponent.class, NoSlipComponent.CODEC)),
             Map.entry(ReactiveComponent.TYPE, new Entry<>(ReactiveComponent.class, ReactiveComponent.CODEC)),
             Map.entry(RespiratorComponent.TYPE, new Entry<>(RespiratorComponent.class, RespiratorComponent.CODEC)),
+            Map.entry(SpeechComponent.TYPE, new Entry<>(SpeechComponent.class, SpeechComponent.CODEC)),
             Map.entry(StandingStateComponent.TYPE, new Entry<>(StandingStateComponent.class, StandingStateComponent.CODEC)),
             Map.entry(StomachPrototypeComponent.TYPE, new Entry<>(StomachPrototypeComponent.class, StomachPrototypeComponent.CODEC)),
             Map.entry(StunnableComponent.TYPE, new Entry<>(StunnableComponent.class, StunnableComponent.CODEC)),
