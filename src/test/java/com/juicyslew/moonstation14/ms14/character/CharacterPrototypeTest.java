@@ -325,20 +325,18 @@ class CharacterPrototypeTest {
     void metabolizerTypesRequireExplicitCanonicalDistinctPolicy() throws IOException {
         JsonObject valid = readResource(RESOURCE);
         JsonObject absent = valid.deepCopy();
-        absent.getAsJsonArray("components").remove(absent.getAsJsonArray("components").size() - 1);
+        removeComponent(absent, "Metabolizer");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, absent).getOrThrow()
                 .component(MetabolizerPrototypeComponent.class).isEmpty());
         for (String invalidValue : List.of("null", "1", "\"human\"", "[null]", "[1]",
                 "[\"Human\"]", "[\"unknown\"]", "[\"human\",\"human\"]")) {
             JsonObject invalid = valid.deepCopy();
-            invalid.getAsJsonArray("components").get(invalid.getAsJsonArray("components").size() - 1)
-                    .getAsJsonObject().add("types", JsonParser.parseString(invalidValue));
+            component(invalid, "Metabolizer").add("types", JsonParser.parseString(invalidValue));
             var failure = CharacterData.CODEC.parse(JsonOps.INSTANCE, invalid).error().orElseThrow();
             assertTrue(failure.message().contains(".types"), failure.message());
         }
         JsonObject empty = valid.deepCopy();
-        empty.getAsJsonArray("components").get(empty.getAsJsonArray("components").size() - 1)
-                .getAsJsonObject().add("types", JsonParser.parseString("[]"));
+        component(empty, "Metabolizer").add("types", JsonParser.parseString("[]"));
         assertEquals(java.util.Set.of(), CharacterData.CODEC.parse(JsonOps.INSTANCE, empty)
                 .getOrThrow().component(MetabolizerPrototypeComponent.class).orElseThrow().types());
         for (String old : List.of("null", "[]", "[\"human\"]")) {
@@ -358,12 +356,10 @@ class CharacterPrototypeTest {
             assertTrue(failure.getMessage().contains("legacy top-level metabolizer_types"), failure.getMessage());
         }
         JsonObject missing = valid.deepCopy();
-        missing.getAsJsonArray("components").get(missing.getAsJsonArray("components").size() - 1)
-                .getAsJsonObject().remove("types");
+        component(missing, "Metabolizer").remove("types");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, missing).error().orElseThrow().message().contains(".types"));
         JsonObject unknown = valid.deepCopy();
-        unknown.getAsJsonArray("components").get(unknown.getAsJsonArray("components").size() - 1)
-                .getAsJsonObject().addProperty("remove", true);
+        component(unknown, "Metabolizer").addProperty("remove", true);
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, unknown).error().orElseThrow().message().contains(".remove"));
     }
 
@@ -1093,6 +1089,23 @@ class CharacterPrototypeTest {
             assertThrows(RuntimeException.class,
                     () -> manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, input)));
         }
+    }
+
+    private static JsonObject component(JsonObject character, String type) {
+        for (var element : character.getAsJsonArray("components")) {
+            JsonObject component = element.getAsJsonObject();
+            if (type.equals(component.get("type").getAsString())) return component;
+        }
+        throw new AssertionError("Missing component " + type);
+    }
+
+    @Test
+    void speechRequiresExplicitSpeechComponent() throws IOException {
+        CharacterData human = dataFromResource(RESOURCE);
+        CharacterData pig = dataFromResource("data/moonstation14/moonstation14/character/pig.json");
+        assertTrue(human.canSpeakText());
+        assertFalse(pig.canSpeakText());
+        assertFalse(new CharacterData().canSpeakText());
     }
 
     private static JsonObject withHands(JsonObject source, String json) {

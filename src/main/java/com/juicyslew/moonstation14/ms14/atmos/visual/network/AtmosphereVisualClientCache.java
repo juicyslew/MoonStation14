@@ -220,7 +220,7 @@ public final class AtmosphereVisualClientCache {
     }
     private static boolean isClear(AtmosphereVisualPayload.VisualCell cell) {
         return cell.plasmaAlpha() == 0 && cell.tritiumAlpha() == 0 && cell.waterVaporAlpha() == 0
-                && cell.ammoniaAlpha() == 0 && cell.frezonAlpha() == 0;
+                && cell.ammoniaAlpha() == 0 && cell.frezonAlpha() == 0 && cell.fireIntensity() == 0;
     }
 
     public record ChunkKey(ResourceLocation dimension, int x, int z) { }

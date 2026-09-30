@@ -137,6 +137,75 @@ class AtmosphereDeviceRulesTest {
     }
 
     @Test
+    void heaterSkipsNearVacuumAndEnforcesMoleCapacityAndTemperatureLimits() {
+        FakeReceiver receiver = new FakeReceiver(new GasMixture(Map.of(GasType.OXYGEN, 1e-100), 300.0));
+        AtmosphereDeviceRules.tick(true, 2, DEVICE_POS, AtmosphereDeviceRules.Device.HEATER, receiver);
+        assertEquals(0, receiver.writes);
+        GasMixture justBelowCapacity = new GasMixture(Map.of(GasType.OXYGEN, Math.nextDown(0.0003) / 20.0), 300.0);
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(justBelowCapacity, 40000.0));
+        GasMixture atCapacity = new GasMixture(Map.of(GasType.OXYGEN, Math.nextUp(0.0003) / 20.0), 300.0);
+        assertTrue(AtmosphereDeviceRules.heaterOffer(atCapacity, 40000.0) > 0.0);
+
+        GasMixture boundary = new GasMixture(Map.of(GasType.FREZON, 1e-6), 300.0);
+        double capacity = boundary.heatCapacity();
+        assertTrue(capacity >= AtmosphereDeviceRules.HEATER_MIN_HEAT_CAPACITY);
+        assertTrue(AtmosphereDeviceRules.heaterOffer(boundary, 40000.0) > 0.0);
+        GasMixture atCeiling = new GasMixture(boundary.gasMoles(), AtmosphereDeviceRules.HEATER_MAX_TEMPERATURE_KELVIN);
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(atCeiling, 40000.0));
+        GasMixture above = new GasMixture(boundary.gasMoles(), AtmosphereDeviceRules.HEATER_MAX_TEMPERATURE_KELVIN + 1);
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(above, 40000.0));
+    }
+
+    @Test
+    void heaterCapsPreciselyAtTemperatureCeiling() {
+        GasMixture mixture = new GasMixture(Map.of(GasType.OXYGEN, 1.0), 262143.0);
+        double accepted = AtmosphereDeviceRules.heaterOffer(mixture, 40000.0);
+        assertEquals(mixture.heatCapacity() * (262144.0 - mixture.temperatureKelvin()), accepted, 1e-12);
+        assertEquals(262144.0, mixture.withEnergyDelta(accepted).temperatureKelvin(), 1e-9);
+    }
+
+    @Test
+    void heaterOfferUsesRepresentableDetachedEnergyChangeWithinCeiling() {
+        GasMixture nearCeiling = new GasMixture(Map.of(GasType.OXYGEN, 1.0), Math.nextDown(262144.0));
+        double offer = AtmosphereDeviceRules.heaterOffer(nearCeiling, 40000.0);
+        assertTrue(offer >= 0.0);
+        if (offer > 0.0) {
+            GasMixture projected = nearCeiling.withEnergyDelta(offer);
+            assertTrue(projected.temperatureKelvin() <= AtmosphereDeviceRules.HEATER_MAX_TEMPERATURE_KELVIN);
+            assertEquals(projected.thermalEnergy() - nearCeiling.thermalEnergy(), offer);
+        }
+
+        GasMixture ordinary = new GasMixture(Map.of(GasType.OXYGEN, 1.0), 300.0);
+        assertEquals(40000.0, AtmosphereDeviceRules.heaterOffer(ordinary, 40000.0));
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(ordinary, Double.NaN));
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(ordinary, Double.POSITIVE_INFINITY));
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(ordinary, 0.0));
+
+        GasMixture hugeEnergy = new GasMixture(Map.of(GasType.OXYGEN, 1.0), 1.0e300);
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(hugeEnergy, 40000.0));
+    }
+
+    @Test
+    void heaterOfferNearCapSearchRemainsBoundedAndNeverOverspends() {
+        double[] temperatures = {Math.nextDown(262144.0), 262143.0, 262143.999999};
+        double[] moles = {1.0e-6, 0.0003 / 20.0, 1.0};
+        for (double amount : moles) {
+            for (double temperature : temperatures) {
+                GasMixture mixture = new GasMixture(Map.of(GasType.OXYGEN, amount), temperature);
+                double requested = 40000.0;
+                double offer = AtmosphereDeviceRules.heaterOffer(mixture, requested);
+                assertTrue(offer >= 0.0 && offer <= requested);
+                if (offer > 0.0) {
+                    GasMixture projected = mixture.withEnergyDelta(offer);
+                    double actual = projected.thermalEnergy() - mixture.thermalEnergy();
+                    assertTrue(actual > 0.0 && actual <= offer);
+                    assertTrue(projected.temperatureKelvin() <= AtmosphereDeviceRules.HEATER_MAX_TEMPERATURE_KELVIN);
+                }
+            }
+        }
+    }
+
+    @Test
     void tenAtmosphereStepsPreservePerSecondGasAndThermalRates() {
         FakeReceiver receiver = new FakeReceiver(GasMixture.vacuum());
         for (int tick = 0; tick < 20; tick += 2)

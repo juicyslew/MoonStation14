@@ -25,7 +25,7 @@ class AtmosphereVisualPayloadTest {
     @Test
     void codecRoundTripsAllMetadataAndUnsignedAlphaBytes() {
         var payload = new AtmosphereVisualPayload(DIMENSION, -3, 12, 9, true, false,
-                List.of(new AtmosphereVisualPayload.VisualCell(15, -64, 0, 255, 128, 1, 0, 254)));
+                List.of(new AtmosphereVisualPayload.VisualCell(15, -64, 0, 255, 128, 1, 0, 254, 0)));
         assertEquals(payload, roundTrip(AtmosphereVisualPayload.STREAM_CODEC, payload));
         assertEquals(ResourceLocation.fromNamespaceAndPath("moonstation14", "atmosphere_visual"),
                 AtmosphereVisualPayload.TYPE.id());
@@ -33,15 +33,15 @@ class AtmosphereVisualPayloadTest {
 
     @Test
     void boundsDuplicatesAndDeltaFlagsAreValidated() {
-        var cell = new AtmosphereVisualPayload.VisualCell(1, 64, 2, 0, 0, 0, 0, 0);
+        var cell = new AtmosphereVisualPayload.VisualCell(1, 64, 2, 0, 0, 0, 0, 0, 0);
         assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload(
                 DIMENSION, 0, 0, 1, true, true, java.util.Collections.nCopies(257, cell)));
         assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload(
                 DIMENSION, 0, 0, 1, true, true, List.of(cell, cell)));
-        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(-1, 64, 0, 0, 0, 0, 0, 0));
-        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(0, 2048, 0, 0, 0, 0, 0, 0));
-        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(0, 0, 16, 0, 0, 0, 0, 0));
-        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(0, 0, 0, 256, 0, 0, 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(-1, 64, 0, 0, 0, 0, 0, 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(0, 2048, 0, 0, 0, 0, 0, 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(0, 0, 16, 0, 0, 0, 0, 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new AtmosphereVisualPayload.VisualCell(0, 0, 0, 256, 0, 0, 0, 0, 0));
         var continuation = new AtmosphereVisualPayload(DIMENSION, 0, 0, 1, false, false, List.of());
         assertFalse(continuation.resetSnapshot());
         assertFalse(continuation.finalPacket());
@@ -50,7 +50,7 @@ class AtmosphereVisualPayloadTest {
     @Test
     void listIsDefensivelyCopiedAndImmutable() {
         List<AtmosphereVisualPayload.VisualCell> cells = new ArrayList<>();
-        cells.add(new AtmosphereVisualPayload.VisualCell(0, 0, 0, 1, 2, 3, 4, 5));
+        cells.add(new AtmosphereVisualPayload.VisualCell(0, 0, 0, 1, 2, 3, 4, 5, 0));
         var payload = new AtmosphereVisualPayload(DIMENSION, 0, 0, 1, false, true, cells);
         cells.clear();
         assertEquals(1, payload.cells().size());

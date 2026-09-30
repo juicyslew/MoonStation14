@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.atmos.core;
 
+import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -11,6 +12,70 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImmutableAtmosphereBoundaryTest {
+    @Test
+    void heatedFiniteCellIsReplenishedByNonVacuumAmbientWithoutLosingLedgeredMatterOrEnergy() {
+        GasMixture cell = new GasMixture(Map.of(GasType.OXYGEN, 1.0e-100), 300.0);
+        GasMixture ambient = GasMixture.breathableAir();
+        double initialEnergy = cell.thermalEnergy();
+        double heaterEnergy = 0.0;
+        double boundaryEnergyExport = 0.0;
+        double oxygenExport = 0.0;
+        double nitrogenExport = 0.0;
+
+        for (int step = 0; step < 12; step++) {
+            // A sub-threshold residue cannot be heated; first let the open face contact ambient.
+            if (step == 0) {
+                ImmutableAtmosphereBoundary.Result initialExchange = ImmutableAtmosphereBoundary.exchange(
+                        cell, ambient, 0.5, false);
+                assertLedger(cell, initialExchange);
+                oxygenExport += initialExchange.perGasExported().getOrDefault(GasType.OXYGEN, 0.0);
+                nitrogenExport += initialExchange.perGasExported().getOrDefault(GasType.NITROGEN, 0.0);
+                boundaryEnergyExport += initialExchange.energyExportedJoules();
+                cell = initialExchange.finiteAfter();
+            }
+            double offer = AtmosphereDeviceRules.heaterOffer(cell, 40000.0);
+            assertTrue(offer > 0.0);
+            cell = cell.withEnergyDelta(offer);
+            heaterEnergy += offer;
+            assertTrue(cell.temperatureKelvin() <= AtmosphereDeviceRules.HEATER_MAX_TEMPERATURE_KELVIN);
+
+            ImmutableAtmosphereBoundary.Result result = ImmutableAtmosphereBoundary.exchange(
+                    cell, ambient, 0.5, false);
+            assertLedger(cell, result);
+            oxygenExport += result.perGasExported().getOrDefault(GasType.OXYGEN, 0.0);
+            nitrogenExport += result.perGasExported().getOrDefault(GasType.NITROGEN, 0.0);
+            boundaryEnergyExport += result.energyExportedJoules();
+            cell = result.finiteAfter();
+            assertTrue(cell.temperatureKelvin() <= AtmosphereDeviceRules.HEATER_MAX_TEMPERATURE_KELVIN);
+        }
+
+        assertTrue(cell.moles(GasType.OXYGEN) > 1e-100);
+        assertTrue(cell.moles(GasType.NITROGEN) > 1e-100);
+        assertTrue(cell.moles(GasType.OXYGEN) > ambient.moles(GasType.OXYGEN) * 0.1);
+        assertTrue(cell.moles(GasType.NITROGEN) > ambient.moles(GasType.NITROGEN) * 0.1);
+        assertEquals(initialEnergy + heaterEnergy - boundaryEnergyExport, cell.thermalEnergy(), 1e-8);
+        assertEquals(-cell.moles(GasType.OXYGEN) + 1e-100, oxygenExport, 1e-10);
+        assertEquals(-cell.moles(GasType.NITROGEN), nitrogenExport, 1e-10);
+    }
+
+    @Test
+    void heaterDoesNotCreateVacuumAmbientAndBoundaryLedgerAccountsVacuumRemoval() {
+        GasMixture residue = new GasMixture(Map.of(GasType.OXYGEN, 1e-100), 300.0);
+        assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(residue, 40000.0));
+        GasMixture sealed = residue.withEnergyDelta(40000.0);
+        assertEquals(residue.moles(GasType.OXYGEN), sealed.moles(GasType.OXYGEN), 0.0,
+                "thermal mutation of a sealed mixture does not delete its species");
+
+        ImmutableAtmosphereBoundary.Result result = ImmutableAtmosphereBoundary.exchange(
+                sealed, GasMixture.vacuum(), 0.5, true);
+        assertLedger(sealed, result);
+        for (GasType type : GasType.values())
+            assertEquals(sealed.moles(type) - result.finiteAfter().moles(type),
+                    result.perGasExported().getOrDefault(type, 0.0), 0.0);
+        assertEquals(sealed.thermalEnergy() - result.finiteAfter().thermalEnergy(),
+                result.energyExportedJoules(), 0.0);
+    }
+
     @Test
     void finiteAirExportsIntoImmutableVacuum() {
         GasMixture air = GasMixture.breathableAir();

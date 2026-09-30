@@ -2,6 +2,10 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalCharacterIdentityPayload;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
@@ -263,6 +267,7 @@ public final class LifecycleCharacterSessionControl {
             }
             session.committed = true;
             GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
+            sendSavedIdentity(server, session);
             com.juicyslew.moonstation14.MoonStation14.LOGGER.info(
                     "Lifecycle CHARACTER Ready committed (epoch={}, body={})", session.epoch, session.body.getId());
         } else if (payload instanceof GhostControlPayloads.Intent intent) {
@@ -282,6 +287,25 @@ public final class LifecycleCharacterSessionControl {
             if (session.gate.exhausted()) fail(server, session, FailureReason.INTENT_GATE_EXHAUSTED);
         } else if (payload instanceof GhostControlPayloads.Stop stop && stop.epoch() == session.epoch) {
             fail(server, session, FailureReason.CLIENT_STOP);
+        }
+    }
+
+    /** Only the exact committed owner receives the already-saved identity for this bound body. */
+    private static void sendSavedIdentity(MinecraftServer server, Session session) {
+        ServerPlayer player = session.player;
+        if (!server.isSameThread() || !connectedExact(server, player) || !session.committed
+                || session(server, session.accountId) != session || !shouldKeepCharacterCamera(player)
+                || !activeBodyBindingMatches(session.body.playerCharacterBinding(), session.accountId,
+                        session.profileId, session.mindId)) return;
+        try {
+            var identity = ChatIdentitySavedData.existing(server.overworld())
+                    .flatMap(data -> data.character(new ChatIdentityRegistry.CharacterKey(
+                            session.accountId, session.profileId))).orElse(null);
+            if (identity == null) return; // No lookup may create or allocate an identity here.
+            LocalSpeechNetworking.sendIdentity(player, new LocalCharacterIdentityPayload(
+                    identity.name(), identity.rgb(), session.body.level().dimension().location()));
+        } catch (RuntimeException failure) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.warn("Could not load or deliver committed character identity to owner", failure);
         }
     }
 
