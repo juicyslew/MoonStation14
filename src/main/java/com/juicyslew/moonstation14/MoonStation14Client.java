@@ -7,6 +7,11 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient;
+import com.juicyslew.moonstation14.ms14.chat.client.DirectionalCueOverlay;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewKey;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewOverlay;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogSyncAssembler;
@@ -63,6 +68,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -102,6 +108,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
+        modEventBus.addListener(LocalSpeechReviewKey::register);
         modEventBus.addListener(BodyHandClient::registerKeys);
 
         // Allows NeoForge to create a config screen for this mod's configs.
@@ -111,6 +118,7 @@ public class MoonStation14Client {
         PrototypeCatalogNetworking.installClientHandler(MoonStation14Client::handleCatalogPayload);
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
         CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
+        LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
@@ -142,6 +150,32 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderCableVisuals(RenderLevelStageEvent event) {
         CableVisualRenderer.render(event, CABLE_VISUALS);
+    }
+
+    @SubscribeEvent
+    public static void renderLocalSpeech(RenderLevelStageEvent event) {
+        DirectionalCueOverlay.capture(event);
+        LocalSpeechClient.render(event);
+    }
+
+    @SubscribeEvent
+    public static void renderSpeechCues(RenderGuiEvent.Post event) {
+        LocalSpeechReviewOverlay.render(event);
+        DirectionalCueOverlay.render(event);
+        LocalSpeechClient.renderCallouts(event);
+    }
+
+    @SubscribeEvent
+    public static void renderSpeechCuesOnChat(ScreenEvent.Render.Post event) {
+        LocalSpeechReviewOverlay.render(event);
+        DirectionalCueOverlay.render(event);
+        LocalSpeechClient.renderCallouts(event);
+    }
+
+    @SubscribeEvent
+    public static void tickLocalSpeech(ClientTickEvent.Post event) {
+        LocalSpeechClient.tick();
+        LocalSpeechReviewKey.tick();
     }
 
     private static void handleAtmospherePayload(AtmosphereVisualPayload payload) {
@@ -703,6 +737,7 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        LocalSpeechClient.clear();
         BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();
@@ -712,6 +747,7 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        LocalSpeechClient.clear();
         BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();

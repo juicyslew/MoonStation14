@@ -32,6 +32,8 @@
   ],
   "client": [
     "client.MinecraftStunInputMixin",
+    "client.ChatComponentUnifiedViewMixin",
+    "client.ChatListenerSystemNoticeMixin",
     "client.LocalPlayerStunDropMixin",
       "client.LocalPlayerMovementTickMixin",
       "client.LocalPlayerMovementTravelMixin",

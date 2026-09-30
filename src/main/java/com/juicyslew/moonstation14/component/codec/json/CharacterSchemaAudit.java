@@ -270,6 +270,10 @@ public final class CharacterSchemaAudit {
             checkFields(object, Set.of("type"), path);
             return;
         }
+        if ("Speech".equals(type)) {
+            checkFields(object, Set.of("type"), path);
+            return;
+        }
         if ("StandingState".equals(type)) {
             checkFields(object, Set.of("type", "standing_eligible", "prone_eligible"), path);
             for (String field : Set.of("standing_eligible", "prone_eligible")) {
