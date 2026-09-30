@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
 import com.juicyslew.moonstation14.ms14.hands.HandState;
+import com.juicyslew.moonstation14.item.ModItems;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -68,8 +69,11 @@ class BodyHandStatePolicyTest {
         var duplicate = header(2);
         duplicate.writeUtf("same");
         duplicate.writeBoolean(false);
+        duplicate.writeBoolean(false);
         duplicate.writeUtf("same");
         duplicate.writeBoolean(false);
+        duplicate.writeBoolean(false);
+        duplicate.writeVarInt(0);
         assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(duplicate));
         var invalidCount = header(1);
         invalidCount.writeUtf("right");
@@ -77,7 +81,82 @@ class BodyHandStatePolicyTest {
         invalidCount.writeUtf("token");
         invalidCount.writeUtf("minecraft:stone");
         invalidCount.writeVarInt(0);
+        invalidCount.writeBoolean(false);
         assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(invalidCount));
+    }
+
+    @Test void pouchSlotsDistinguishEmptyAndOccupiedAndRejectAliasedOrOversizedChildren() {
+        String pouch = ModItems.POUCH.getId().toString();
+        var empty = new BodyHandStateSnapshot.Hand("left", "pouch-token", pouch, 1, true, null, null, 0);
+        var occupied = new BodyHandStateSnapshot.Hand("left", "pouch-token", pouch, 1,
+                true, "child-token", "minecraft:stone", 64);
+        for (var slot : List.of(empty, occupied)) {
+            var snapshot = ok(List.of(slot, new BodyHandStateSnapshot.Hand("right", null, null, 0)), "left");
+            var buf = buffer();
+            BodyHandStateSnapshot.STREAM_CODEC.encode(buf, snapshot);
+            assertEquals(snapshot, BodyHandStateSnapshot.STREAM_CODEC.decode(buf));
+        }
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
+                "left", "p", "minecraft:stone", 1, true, null, null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
+                "left", "p", pouch, 1));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
+                "left", "p", pouch, 1, true, "p", "minecraft:stone", 1));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
+                "left", "p", pouch, 1, true, "c", "minecraft:stone", 65));
+        assertThrows(IllegalArgumentException.class, () -> ok(List.of(occupied,
+                new BodyHandStateSnapshot.Hand("right", "child-token", "minecraft:stone", 1)), "left"));
+        var forged = header(1);
+        forged.writeUtf("right");
+        forged.writeBoolean(true);
+        forged.writeUtf("pouch-token");
+        forged.writeUtf(pouch);
+        forged.writeVarInt(1);
+        forged.writeBoolean(true);
+        forged.writeBoolean(true);
+        forged.writeUtf("child-token");
+        forged.writeUtf("minecraft:stone");
+        forged.writeVarInt(65);
+        assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(forged));
+    }
+
+    @Test void equipmentRoundTripAndRejectsSpoofedSlotsAndAliasedTokens() {
+        var hand = new BodyHandStateSnapshot.Hand("right", "hand-token", "minecraft:stone", 1);
+        var belt = new BodyHandStateSnapshot.EquipmentSlot("belt", "belt-token",
+                ModItems.BELT.getId().toString(), 1, "child-token", "minecraft:dirt", 64);
+        var back = new BodyHandStateSnapshot.EquipmentSlot("back", null, null, 0, null, null, 0);
+        var snapshot = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK,
+                UUID.randomUUID(), UUID.randomUUID(), 7, 2, "right", List.of(hand), List.of(belt, back));
+        var buf = buffer();
+        BodyHandStateSnapshot.STREAM_CODEC.encode(buf, snapshot);
+        assertEquals(snapshot, BodyHandStateSnapshot.STREAM_CODEC.decode(buf));
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.equipment().clear());
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot(
+                "head", null, null, 0, null, null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot(
+                "back", "x", ModItems.BELT.getId().toString(), 1, null, null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot(
+                "belt", "x", ModItems.BELT.getId().toString(), 1, "y", "minecraft:stone", 65));
+        for (var duplicate : List.of(new BodyHandStateSnapshot.EquipmentSlot("belt", "hand-token",
+                ModItems.BELT.getId().toString(), 1, null, null, 0),
+                new BodyHandStateSnapshot.EquipmentSlot("belt", "belt-token",
+                        ModItems.BELT.getId().toString(), 1, "hand-token", "minecraft:dirt", 1)))
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot(0, 1,
+                    BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), UUID.randomUUID(), 7, 2,
+                    "right", List.of(hand), List.of(duplicate)));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot(0, 1,
+                BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), UUID.randomUUID(), 7, 2,
+                "right", List.of(hand), List.of(back, back)));
+        var absent = header(1);
+        absent.writeUtf("right");
+        absent.writeBoolean(false);
+        absent.writeBoolean(false);
+        assertThrows(RuntimeException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(absent));
+        var rejected = BodyHandStateSnapshot.rejected(new BodyHandStateQuery(0, 3),
+                BodyHandStateSnapshot.Reason.NOT_READY);
+        var rejectionBuf = buffer();
+        BodyHandStateSnapshot.STREAM_CODEC.encode(rejectionBuf, rejected);
+        assertEquals(rejected, BodyHandStateSnapshot.STREAM_CODEC.decode(rejectionBuf));
     }
 
     private static RegistryFriendlyByteBuf buffer() {

@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -50,7 +51,8 @@ public final class BodyHandItemTransfer {
         Vec3 sourcePosition = item.position();
         ItemToken token = new ItemToken(UUID.randomUUID().toString());
         LiveHands.WholeResult transition = before.putWhole(expectedHandRevision, hand, token, source);
-        if (!transition.succeeded() || !authorityValid.getAsBoolean()
+        if (!transition.succeeded() || !BodyHandStateService.representable(transition.state(), body)
+                || !authorityValid.getAsBoolean()
                 || !CharacterControlSystem.canAct(body) || body.level() != level
                 || body.isRemoved() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
                 || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
@@ -68,7 +70,10 @@ public final class BodyHandItemTransfer {
                 || !before.compatible(body) || item.level() != level || item.isRemoved()
                 || !item.isAddedToLevel() || level.getEntity(itemEntityUuid) != item
                 || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
-                || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem()))
+                || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem())
+                || !BodyHandStateService.representable(transition.state(), body)
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || !same(source, item.getItem()))
             return Result.DENIED;
 
         // The entity must stop owning the stack before the attachment starts owning it.
