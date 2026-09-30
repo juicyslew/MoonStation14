@@ -34,6 +34,12 @@ public class ModItems {
     public static final DeferredItem<Item> CLOTH = ITEMS.register("cloth",
             () -> new Item(new Item.Properties().stacksTo(8))
     );
+    public static final DeferredItem<Item> POUCH = ITEMS.register("pouch",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> BAG = ITEMS.register("bag",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> BELT = ITEMS.register("belt",
+            () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> WOOD = ITEMS.register("wood",
             () -> new Item(new Item.Properties().stacksTo(8))
     );

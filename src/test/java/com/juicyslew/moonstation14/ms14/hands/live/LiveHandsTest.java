@@ -119,4 +119,31 @@ class LiveHandsTest {
         assertEquals(Optional.of(reason), result.rejection());
         assertTrue(result.takenStack().isEmpty());
     }
+
+    @Test void switchingAllowsIndependentPickupSlotsWithoutMovingStacks() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        assertTrue(empty.stackCopy(empty.activeHand()).isEmpty());
+        LiveHands first = empty.putWhole(0, "left", TOKEN, new ItemStack(Items.DIAMOND, 3)).state();
+        assertEquals("left", first.activeHand());
+        LiveHands switched = first.selectActive(1, "right").orElseThrow();
+        assertEquals(2, switched.revision());
+        assertEquals("right", switched.activeHand());
+        assertTrue(switched.stackCopy(switched.activeHand()).isEmpty());
+        assertEquals(Optional.of(TOKEN.value()), switched.token("left"));
+        LiveHands both = switched.putWhole(2, "right", new ItemToken("second"),
+                new ItemStack(Items.EMERALD, 2)).state();
+        LiveHands back = both.selectActive(3, "left").orElseThrow();
+        assertEquals(4, back.revision());
+        assertEquals(Optional.of(TOKEN.value()), back.token("left"));
+        assertEquals(Optional.of("second"), back.token("right"));
+        assertEquals(3, back.stackCopy("left").orElseThrow().getCount());
+        assertEquals(2, back.stackCopy("right").orElseThrow().getCount());
+        assertTrue(first.selectActive(0, "right").isEmpty());
+        assertTrue(first.selectActive(1, "left").isEmpty());
+        assertTrue(first.selectActive(1, "missing").isEmpty());
+        assertTrue(parse("{\"hands\":[{\"id\":\"only\"}],\"active\":\"only\",\"revision\":0}")
+                .selectActive(0, "other").isEmpty());
+        assertTrue(parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":9223372036854775807}")
+                .selectActive(Long.MAX_VALUE, "right").isEmpty());
+    }
 }
