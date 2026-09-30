@@ -23,7 +23,9 @@ public final class PlayerCharacterHarnessBinder {
         if (!gatesPermitBinding()) return false;
         if (body == null || !(body.level() instanceof ServerLevel level)
                 || level.getServer() == null || !level.getServer().isSameThread()) return false;
-        if (!(body instanceof PlayerCharacterHarnessEntity harness) || body.isRemoved()
+        if (!(body instanceof PlayerCharacterHarnessEntity harness)
+                || body.getType() != PlayerCharacterHarnessRegistration.getEntityType()
+                || body.isRemoved() || !body.isAddedToLevel()
                 || body.level().isClientSide || level.getEntity(body.getUUID()) != body) return false;
         if (harness.isInvalidUnbindable()) return false;
         if (!isSupportedPrototypeKey(characterPrototypeKey)) return false;
@@ -35,7 +37,8 @@ public final class PlayerCharacterHarnessBinder {
         } catch (RuntimeException invalid) {
             return false;
         }
-        if (CharacterIdentitySystem.resolve(level, characterPrototypeKey).isEmpty()) {
+        if (CharacterIdentitySystem.resolve(level, characterPrototypeKey).isEmpty()
+                || ModCharacters.characterForHost(level, PlayerCharacterHarnessRegistration.ID).isPresent()) {
             return false;
         }
 
@@ -50,7 +53,7 @@ public final class PlayerCharacterHarnessBinder {
 
         if (!CharacterIdentitySystem.enroll(body, level, characterPrototypeKey)) return false;
         if (current == null) harness.setPlayerCharacterBinding(requested);
-        return true;
+        return CharacterIdentitySystem.resolveForActor(body).isPresent();
     }
 
     /** Exact binding inspection; does not resolve or infer ownership from a prototype key. */

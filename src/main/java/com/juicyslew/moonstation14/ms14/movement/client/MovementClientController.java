@@ -1,7 +1,10 @@
 package com.juicyslew.moonstation14.ms14.movement.client;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementCommand;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementMotor;
@@ -14,6 +17,7 @@ import com.juicyslew.moonstation14.ms14.movement.protocol.MovementPayloads;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import com.juicyslew.moonstation14.mixin.client.LivingEntityMovementAnimationInvoker;
 import java.util.Optional;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -27,7 +31,6 @@ public final class MovementClientController {
     private static final double GRAVITY_PER_SECOND_SQUARED = 0.08d * 20d * 20d;
     private static final double JUMP_VELOCITY_PER_SECOND = 0.42d * 20d;
     private static final double VERTICAL_DRAG = 0.98d;
-    private static final CharacterMovementMotor MOTOR = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
     private static long beginEpoch;
     private static long activeEpoch;
     private static long sentSequence;
@@ -65,6 +68,10 @@ public final class MovementClientController {
         if (payload instanceof MovementPayloads.Begin begin) {
             if (begin.epoch() == recentlyExitedEpoch) return;
             if (!committed && !failedClosed && beginEpoch == 0) {
+                if (currentPolicy(player) == null) {
+                    failClosed("client character movement policy unavailable at begin");
+                    return;
+                }
                 clearPendingFrame();
                 clearVisualFacing();
                 beginEpoch = begin.epoch();
@@ -78,6 +85,10 @@ public final class MovementClientController {
         } else if (payload instanceof MovementPayloads.Commit commit) {
             if (commit.epoch() == recentlyExitedEpoch) return;
             if (beginEpoch != 0 && commit.epoch() == beginEpoch && !failedClosed) {
+                if (currentPolicy(player) == null) {
+                    failClosed("client character movement policy unavailable at commit");
+                    return;
+                }
                 activeEpoch = commit.epoch();
                 committedPlayer = player;
                 committed = true;
@@ -89,6 +100,11 @@ public final class MovementClientController {
             }
         } else if (payload instanceof MovementPayloads.Snapshot snapshot) {
             if (snapshot.epoch() == recentlyExitedEpoch || pendingExit) return;
+            CharacterMovementPolicy policy = currentPolicy(player);
+            if (policy == null) {
+                failClosed("client character movement policy unavailable at snapshot");
+                return;
+            }
             if (!committed || snapshot.epoch() != activeEpoch || snapshot.acknowledgedSequence() < acknowledgedSequence
                     || snapshot.acknowledgedSequence() > sentSequence) {
                 failClosed("stale or invalid authoritative snapshot");
@@ -112,7 +128,7 @@ public final class MovementClientController {
             MovementPredictionHistory.Position appliedPosition = null;
             MovementPredictionHistory.Position projected = MovementPredictionHistory.project(authoritative, current,
                     snapshot.onGround(), acknowledgement.predictedEnd(), player.onGround(),
-                    acknowledgement.hasPending(), CharacterMovementPolicy.HUMAN.sprintSpeedPerSecond() * TICK_SECONDS);
+                    acknowledgement.hasPending(), policy.sprintSpeedPerSecond() * TICK_SECONDS);
             if (projected != null && !MovementPredictionHistory.effectivelyEqual(current, projected)) {
                 Vec3 offset = new Vec3(projected.x() - current.x(), projected.y() - current.y(),
                         projected.z() - current.z());
@@ -179,6 +195,10 @@ public final class MovementClientController {
         }
         if (!committed || pendingExit || failedClosed || player != Minecraft.getInstance().player || player.level() == null
                 || player.isPassenger()) return;
+        if (currentPolicy(player) == null) {
+            failClosed("client character movement policy unavailable at tick");
+            return;
+        }
         PendingIntentFrame frame = pendingIntentFrame;
         pendingIntentFrame = null;
         if (frame == null) return;
@@ -201,6 +221,12 @@ public final class MovementClientController {
     public static void onTravel(LocalPlayer player, Vec3 input) {
         if (!owns(player) || pendingExit || failedClosed || player.level() == null || player.isPassenger()
                 || player.input == null) return;
+        CharacterMovementPolicy policy = currentPolicy(player);
+        if (policy == null) {
+            failClosed("client character movement policy unavailable at travel");
+            return;
+        }
+        CharacterMovementMotor motor = new CharacterMovementMotor(policy);
         if (lastTravelPlayer == player && lastTravelTick == player.tickCount) return;
         lastTravelPlayer = player;
         lastTravelTick = player.tickCount;
@@ -245,7 +271,7 @@ public final class MovementClientController {
         };
         CharacterMovementState result;
         try {
-            result = MOTOR.tick(state, command,
+            result = motor.tick(state, command,
                     new CharacterMovementEnvironment(TICK_SECONDS, GRAVITY_PER_SECOND_SQUARED,
                             JUMP_VELOCITY_PER_SECOND, VERTICAL_DRAG, MovementVector.ZERO, 0d, player.maxUpStep(), resolver,
                              SlidingFrictionSystem.frictionFactor(player), voluntarySpeedFactor), false);
@@ -264,6 +290,18 @@ public final class MovementClientController {
 
     public static boolean owns(LocalPlayer player) {
         return committed && player == committedPlayer && player == Minecraft.getInstance().player;
+    }
+
+    private static CharacterMovementPolicy currentPolicy(LocalPlayer player) {
+        if (player == null || player.level() == null) return null;
+        var identity = player.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        if (identity == null || !identity.isBound() || !ModCharacters.HUMAN_ID.equals(identity.characterId())) return null;
+        try {
+            return CharacterIdentitySystem.projectForActor(player)
+                    .map(CharacterMovementPolicy::fromCharacterData).orElse(null);
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return null;
+        }
     }
 
     /** Client-only render pose angles; these never change the player's gameplay yaw. */

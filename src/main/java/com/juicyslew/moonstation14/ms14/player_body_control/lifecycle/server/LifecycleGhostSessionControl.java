@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGa
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
@@ -211,6 +212,7 @@ public final class LifecycleGhostSessionControl {
                 || pinned == null || pinned.player != player || !pinned.committed
                 || !MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
                 || !connectedExact(server, player) || !intentEligible(pinned, level)
+                || !CarrierHandInventoryGate.allows(player)
                 || LifecycleCharacterSessionControl.ownsAny(player)
                 || GhostMobHarnessControl.ownsDebugSession(player)) return Optional.empty();
         var context = LifecycleStartupRuntime.contextFor(server).orElse(null);
@@ -221,7 +223,31 @@ public final class LifecycleGhostSessionControl {
         if (!savedClaimMatches(saved, pinned.accountId, pinned.mindId.value(), pinned.corpseId.value(), pinned.epoch))
             return Optional.empty();
 
-        // No mode/camera/session mutation until exact Mind and retained corpse ownership are returned.
+        // Keep ghost authority until vanilla has actually accepted Creative. The post-mode
+        // hook cannot restore here: the saved death claim has not yet been returned/registered.
+        try {
+            player.setCamera(player);
+            boolean changed = LifecycleDevelopmentMode.setParkingGhostCreative(player);
+            if (!changed || player.gameMode.getGameModeForPlayer() != GameType.CREATIVE) {
+                if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR
+                        && session(server, pinned.accountId) == pinned && authorized(pinned)) {
+                    player.setCamera(pinned.ghost);
+                    return Optional.empty();
+                }
+                failClosedPark(server, pinned);
+                return Optional.empty();
+            }
+        } catch (RuntimeException | Error failure) {
+            if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR
+                    && session(server, pinned.accountId) == pinned && authorized(pinned)) {
+                try { player.setCamera(pinned.ghost); return Optional.empty(); }
+                catch (RuntimeException | Error ignored) { }
+            }
+            failClosedPark(server, pinned);
+            return Optional.empty();
+        }
+
+        // No session removal until exact Mind and retained corpse ownership are returned.
         boolean returned;
         try {
             returned = pinned.lifecycle.returnGhostToDeadClaim(pinned.accountId, pinned.mindId,
@@ -244,11 +270,11 @@ public final class LifecycleGhostSessionControl {
                 throw new IllegalStateException("transient ghost could not be unregistered");
             if (!pinned.ghost.isRemoved()) pinned.ghost.discard();
             clearRouterIfEmpty();
-            if (player.getCamera() == pinned.ghost) player.setCamera(player);
             GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Stop(pinned.epoch));
-            if (player.getCamera() != player || !LifecycleDevelopmentMode.setParkingGhostCreative(player)
-                    || player.gameMode.getGameModeForPlayer() != GameType.CREATIVE)
-                throw new IllegalStateException("creative park did not complete");
+            // Registration precedes the only restore attempt; the post-hook already passed
+            // while the ghost still owned the session and must not restore a second time.
+            if (!LifecycleDevelopmentMode.completeGhostCreativePark(player, saved))
+                throw new IllegalStateException("creative ghost carrier handoff did not complete");
             return Optional.of(saved);
         } catch (RuntimeException | Error failure) {
             failClosedPark(server, pinned);

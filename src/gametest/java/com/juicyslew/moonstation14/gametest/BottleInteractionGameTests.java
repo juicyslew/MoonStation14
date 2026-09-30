@@ -47,10 +47,8 @@ public final class BottleInteractionGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void registeredBottleUseCallbackIngestsOnlyAtSipInterval(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        require(EntityType.PLAYER.is(ThirstSystem.ELIGIBLE_ENTITY_TYPES),
-                "the registered thirst eligibility tag must include players");
-
         Player player = mockPlayer(helper, level, new BlockPos(1, 1, 1));
+        require(StomachSystem.isEligible(player), "bound player must carry the Stomach component");
         ItemStack bottle = new ItemStack(ModItems.BOTTLE.get());
         bottle.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, 20f)));
         player.setItemInHand(InteractionHand.MAIN_HAND, bottle);
@@ -110,6 +108,7 @@ public final class BottleInteractionGameTests {
             }
         };
         player.setPos(helper.absolutePos(pos).getX(), helper.absolutePos(pos).getY(), helper.absolutePos(pos).getZ());
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(player, level);
         return player;
     }
 

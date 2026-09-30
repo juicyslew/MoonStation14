@@ -4,6 +4,8 @@ import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
+import com.juicyslew.moonstation14.ms14.character.components.BloodstreamPolicy;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import org.junit.jupiter.api.Test;
@@ -16,9 +18,9 @@ class BloodReducerTest {
             String path = "data/moonstation14/moonstation14/character/" + species + ".json";
             try (var stream = getClass().getClassLoader().getResourceAsStream(path)) {
                 assertNotNull(stream);
-                var policy = CharacterData.CODEC.parse(JsonOps.INSTANCE,
+                BloodstreamPolicy policy = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                         JsonParser.parseReader(new java.io.InputStreamReader(stream)).getAsJsonObject())
-                        .getOrThrow().blood().orElseThrow();
+                        .getOrThrow().component(BloodstreamComponent.class).map(BloodstreamComponent::policy).orElseThrow();
                 assertEquals(Map.of("bloodloss", 5f), BloodReducer.bloodloss(0, policy, false));
                 assertEquals(0.5f / 0.999f, BloodReducer.bloodloss(.899, policy, false).get("bloodloss"), 1e-6);
                 assertTrue(BloodReducer.bloodloss(.9, policy, false).isEmpty());

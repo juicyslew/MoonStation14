@@ -22,6 +22,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     private static final String APPEARANCE_KEY = "Moonstation14PlayerCharacterAppearance";
     private static final String BODY_SHAPE_KEY = "Moonstation14PlayerCharacterBodyShape";
     private static final String OFFLINE_SINCE_KEY = "Moonstation14PlayerCharacterOfflineSinceMillis";
+    private static final String CONFIRMED_DEATH_KEY = "Moonstation14PlayerCharacterConfirmedDeath";
     public static final long OFFLINE_BADGE_DELAY_MILLIS = 60_000L;
     private static final EntityDataAccessor<Integer> APPEARANCE = SynchedEntityData.defineId(
             PlayerCharacterHarnessEntity.class, EntityDataSerializers.INT);
@@ -29,11 +30,12 @@ public final class PlayerCharacterHarnessEntity extends Mob {
             PlayerCharacterHarnessEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> OFFLINE_BADGE = SynchedEntityData.defineId(
             PlayerCharacterHarnessEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> CONFIRMED_DEATH = SynchedEntityData.defineId(
+            PlayerCharacterHarnessEntity.class, EntityDataSerializers.BOOLEAN);
     private Long offlineSinceMillis;
     // Display-only observation: parked OFFLINE/DEAD_CLAIM time is not time spent disconnected.
     private Long disconnectedSinceMillis;
     private boolean invalidOfflineTimestamp;
-    private boolean confirmedDeath;
     private PlayerCharacterBinding playerCharacterBinding;
     private boolean invalidUnbindable;
     private Tag invalidBindingEvidence;
@@ -47,6 +49,12 @@ public final class PlayerCharacterHarnessEntity extends Mob {
 
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 20.0);
+    }
+
+    /** A character body (including an unclaimed body or corpse) is never a disposable wild Mob. */
+    @Override
+    public boolean requiresCustomPersistence() {
+        return true;
     }
 
     /**
@@ -63,7 +71,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         boolean wasDead = dead;
         super.die(source);
         if (!wasDead && dead && !level().isClientSide) {
-            confirmedDeath = true;
+            entityData.set(CONFIRMED_DEATH, true);
             com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleCharacterDeathHandler
                     .onConfirmedDeath(this);
         }
@@ -71,7 +79,12 @@ public final class PlayerCharacterHarnessEntity extends Mob {
 
     /** True after vanilla has accepted this entity's first server-side death. */
     public boolean hasConfirmedDeath() {
-        return confirmedDeath;
+        return entityData.get(CONFIRMED_DEATH);
+    }
+
+    /** Render only an accepted death, never a disconnected or merely zero-health body. */
+    public boolean shouldRenderCorpsePose() {
+        return hasConfirmedDeath() && !isAlive();
     }
 
     @Override
@@ -80,6 +93,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         builder.define(APPEARANCE, PlayerCharacterAppearance.DEFAULT.index());
         builder.define(BODY_SHAPE, PlayerCharacterBodyShape.WIDE.index());
         builder.define(OFFLINE_BADGE, false);
+        builder.define(CONFIRMED_DEATH, false);
     }
 
     public PlayerCharacterAppearance appearance() {
@@ -198,11 +212,17 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         else tag.putInt(BODY_SHAPE_KEY, bodyShape().index());
         if (invalidOfflineTimestamp) tag.putString(OFFLINE_SINCE_KEY, "invalid");
         else if (offlineSinceMillis != null) tag.putLong(OFFLINE_SINCE_KEY, offlineSinceMillis);
+        if (hasConfirmedDeath()) tag.putBoolean(CONFIRMED_DEATH_KEY, true);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        // Vanilla saves Health and DeathTime, but neither proves that die() was accepted.
+        // Never infer confirmation from them, including on old saves without this key.
+        entityData.set(CONFIRMED_DEATH, tag.contains(CONFIRMED_DEATH_KEY, Tag.TAG_BYTE)
+                && tag.getBoolean(CONFIRMED_DEATH_KEY));
+        if (hasConfirmedDeath()) setHealth(0.0F);
         // A player-controlled character body must never run voluntary Mob AI, even if
         // older or externally edited entity data explicitly saved NoAI as false.
         setNoAi(true);

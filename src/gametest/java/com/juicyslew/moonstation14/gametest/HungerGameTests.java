@@ -27,6 +27,10 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import com.mojang.authlib.GameProfile;
+import net.minecraft.server.level.ServerLevel;
+import java.util.UUID;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -37,7 +41,7 @@ public final class HungerGameTests {
 
     @GameTest(template="empty", timeoutTicks=20)
     public static void fractionalApplyClampAndAttachment(GameTestHelper helper) {
-        ArmorStand character = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(1,1,1));
+        Player character = boundPlayer(helper);
         EffectSystem system = EffectSystem.withDefaults();
         require(HungerSystem.read(character) == 150f && !character.hasData(ModDataAttachments.HUNGER.get()), "default must not materialize");
         require(apply(system, helper, character, 0f, 1f, ConditionContext.unavailable()) == EffectResult.APPLIED,
@@ -63,12 +67,16 @@ public final class HungerGameTests {
         require(HungerSystem.read(character) == 200f, "upper clamp");
         apply(system, helper, character, -500f, 1f, ConditionContext.unavailable());
         require(HungerSystem.read(character) == 0f, "lower clamp");
+        ArmorStand unsupported = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(3,1,1));
+        MS14Provider.update(unsupported, MS14Bridges.HUNGER, new HungerAttachment(new HungerComponent(72f)));
+        require(!HungerSystem.satiate(unsupported, 5f, 1f) && HungerSystem.read(unsupported) == 72f,
+                "saved unsupported hunger remains readable but cannot be satiated");
         helper.succeed();
     }
 
     @GameTest(template="empty", timeoutTicks=20)
     public static void authoritativeAndInjectedHungerConditionsAndUnsupportedTarget(GameTestHelper helper) {
-        ArmorStand character = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(1,1,1));
+        Player character = boundPlayer(helper);
         Entity arrow = helper.spawn(EntityType.ARROW, new BlockPos(3,1,1));
         EffectSystem system = EffectSystem.withDefaults();
         apply(system, helper, character, -50f, 1f, ConditionContext.unavailable()); // 100
@@ -92,7 +100,7 @@ public final class HungerGameTests {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1,1,1));
         villager.setNoAi(true);
         require(HungerSystem.isEligible(villager) && villager.hasData(ModDataAttachments.HUNGER.get()),
-                "tagged villager initializes hunger at join");
+                "bound villager initializes hunger at join");
         float initial = HungerSystem.read(villager);
         require(initial >= 110f && initial < 150f, "initial hunger is in [110,150)");
         require(!HungerSystem.initializeIfEligible(villager, helper.getLevel())
@@ -134,6 +142,17 @@ public final class HungerGameTests {
 
     private static EffectResult apply(EffectSystem system, GameTestHelper helper, Entity entity, float factor, float scale, ConditionContext conditions) {
         return system.apply(new EffectData.SatiateHunger(EffectCommonData.DEFAULT,factor), new EffectContext(helper.getLevel(),entity,scale,RandomSource.create(1),conditions,EffectCause.MANUAL));
+    }
+    private static Player boundPlayer(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        Player player = new Player(level, helper.absolutePos(new BlockPos(1,1,1)), 0f,
+                new GameProfile(UUID.randomUUID(), "hunger-enrollment-test")) {
+            @Override public boolean isCreative() { return false; }
+            @Override public boolean isSpectator() { return false; }
+        };
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(player, level);
+        require(HungerSystem.isEligible(player), "test player must be bound to Hunger");
+        return player;
     }
     private static EffectContext context(GameTestHelper helper, Entity entity, ConditionContext conditions) {
         return new EffectContext(helper.getLevel(),entity,1f,RandomSource.create(1),conditions,EffectCause.MANUAL);

@@ -43,8 +43,12 @@ public final class PuddleSlipGameTests {
         java.util.concurrent.ConcurrentHashMap<java.util.UUID, AtomicInteger> counts = new java.util.concurrent.ConcurrentHashMap<>();
         java.util.function.Consumer<com.juicyslew.moonstation14.ms14.slip.SlipEvent> observer = event ->
                 counts.computeIfAbsent(event.target().getUUID(), ignored -> new AtomicInteger()).incrementAndGet();
+        AtomicReference<FakePlayer> fixturePlayer = new AtomicReference<>();
         require(SlipSystem.addListener(observer), "test slip observer registration");
-        helper.runAfterDelay(59, () -> SlipSystem.removeListener(observer));
+        helper.runAfterDelay(59, () -> {
+            SlipSystem.removeListener(observer);
+            discardFixturePlayer(fixturePlayer.get());
+        });
         BlockPos floor = new BlockPos(2, 0, 2);
         BlockPos puddlePos = floor.above();
         helper.setBlock(floor, Blocks.STONE);
@@ -59,6 +63,7 @@ public final class PuddleSlipGameTests {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 2));
         villager.setNoAi(true);
         FakePlayer fake = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "puddle-slip"));
+        fixturePlayer.set(fake);
         putAt(fake, helper, new BlockPos(1, 1, 2));
         require(helper.getLevel().addFreshEntity(fake), "FakePlayer/ServerPlayer must join the GameTest level");
         var unbound = helper.spawn(EntityType.COW, new BlockPos(4, 1, 2));
@@ -124,6 +129,7 @@ public final class PuddleSlipGameTests {
                                         + ", fakeStunned=" + CharacterControlSystem.isStunned(fake)
                                         + ", source=" + MS14Provider.get(puddle, MS14Bridges.REAGENT).snapshotUnits());
                         SlipSystem.removeListener(observer);
+                        discardFixturePlayer(fake);
                         helper.succeed();
                     });
                 });
@@ -301,6 +307,12 @@ public final class PuddleSlipGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 30)
     public static void stunnedVillagerRetainsInstalledImpulseOnNaturalServerTicks(GameTestHelper helper) {
+        AtomicReference<FakePlayer> baselinePlayerFixture = new AtomicReference<>();
+        AtomicReference<FakePlayer> playerFixture = new AtomicReference<>();
+        helper.runAfterDelay(29, () -> {
+            discardFixturePlayer(baselinePlayerFixture.get());
+            discardFixturePlayer(playerFixture.get());
+        });
         // Four independent, otherwise-identical lanes: the x=1..12 stone runs keep
         // every actor grounded throughout the observation; only the stunned lanes
         // have a source at x=1. Villagers retain their normal AI in both conditions.
@@ -316,9 +328,11 @@ public final class PuddleSlipGameTests {
 
         FakePlayer playerBaseline = new FakePlayer(helper.getLevel(),
                 new GameProfile(UUID.randomUUID(), "unstunned-slip-tick-baseline"));
+        baselinePlayerFixture.set(playerBaseline);
         putAt(playerBaseline, helper, new BlockPos(1, 1, 2));
         require(helper.getLevel().addFreshEntity(playerBaseline), "baseline FakePlayer must join the GameTest level");
         FakePlayer player = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "stunned-slip-tick"));
+        playerFixture.set(player);
         putAt(player, helper, playerPuddlePos);
         require(helper.getLevel().addFreshEntity(player), "diagnostic FakePlayer must join the GameTest level");
         Villager villagerBaseline = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 6));
@@ -422,6 +436,8 @@ public final class PuddleSlipGameTests {
                 require(villagerVelocity.lengthSqr() > 1.0e-12d,
                         "stunned Villager must retain nonzero velocity; values are in diagnostic log; velocity="
                                 + villagerVelocity);
+                discardFixturePlayer(playerBaseline);
+                discardFixturePlayer(player);
                 helper.succeed();
             });
         });
@@ -660,6 +676,10 @@ public final class PuddleSlipGameTests {
             java.util.function.Predicate<SlipSystem.SlipAttempt> gate) {
         SlipSystem.removeAttemptGate(gate);
         SlipSystem.removeListener(observer);
+    }
+
+    private static void discardFixturePlayer(FakePlayer player) {
+        if (player != null && player.isAlive()) player.discard();
     }
 
     private static void require(boolean condition, String message) {

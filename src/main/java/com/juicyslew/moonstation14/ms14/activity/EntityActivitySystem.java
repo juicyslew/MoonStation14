@@ -80,7 +80,8 @@ public final class EntityActivitySystem {
             });
         }
         var stomach = entity.getExistingDataOrNull(ModDataAttachments.STOMACH.get());
-        if (stomach != null && MS14Bridges.STOMACH.activityBinding().orElseThrow()
+        if (stomach != null && com.juicyslew.moonstation14.ms14.stomach.StomachSystem.isEligible(entity)
+                && MS14Bridges.STOMACH.activityBinding().orElseThrow()
                 .needsTicking().test(stomach)) {
             desired.add(EntityActivity.REAGENT_METABOLISM);
         }

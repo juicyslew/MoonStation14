@@ -15,10 +15,15 @@ import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
 import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.blood.BloodAttachment;
+import com.juicyslew.moonstation14.ms14.organ.BodyAttachment;
+import com.juicyslew.moonstation14.ms14.organ.BodyState;
 import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
+import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -119,6 +124,24 @@ public class ModDataAttachments {
                     .sync(HandAttachment.STREAM_CODEC)
                     .build());
 
+    /** Inert persisted ItemStack hand ownership; no sync, death copy, or gameplay insertion. */
+    public static final Supplier<AttachmentType<LiveHands>> LIVE_HANDS = ATTACHMENT_TYPES.register(
+            "live_hands", () -> AttachmentType.builder((Supplier<LiveHands>) () -> {
+                        throw new IllegalStateException("Live hands require explicit prototype initialization");
+                    }).serialize(LiveHands.CODEC).build());
+
+    /** Server-only account park, saved alongside vanilla player Inventory; never on a body. */
+    public static final Supplier<AttachmentType<CreativeParkedInventory>> CREATIVE_PARKED_INVENTORY = ATTACHMENT_TYPES.register(
+            "creative_parked_inventory", () -> AttachmentType.builder((Supplier<CreativeParkedInventory>) () -> {
+                        throw new IllegalStateException("Creative park requires an explicit account and snapshot");
+                    }).serialize(CreativeParkedInventory.CODEC).copyOnDeath().build());
+
+    /** Server-owned capability. Only initialized states (including disabled tombstones) persist. */
+    public static final Supplier<AttachmentType<ComplexInteractionAttachment>> COMPLEX_INTERACTION = ATTACHMENT_TYPES.register(
+            "complex_interaction", () -> AttachmentType.builder(() -> new ComplexInteractionAttachment(false, false))
+                    .serialize(ComplexInteractionAttachment.CODEC, ComplexInteractionAttachment::initialized)
+                    .build());
+
     /** Persisted scalar blood state; presence records one-time initialization, even at zero values. */
     public static final Supplier<AttachmentType<BloodAttachment>> BLOOD = ATTACHMENT_TYPES.register(
             "blood", () -> AttachmentType.builder((Supplier<BloodAttachment>) BloodAttachment::new)
@@ -127,12 +150,16 @@ public class ModDataAttachments {
                     .copyOnDeath()
                     .build());
 
-    /** Persisted/synchronized lung mixture and saturation; zero-gas initialized states are retained. */
+    /** Persisted body authority; even a deliberately empty body is serialized and copied. Server-only in phase B. */
+    public static final Supplier<AttachmentType<BodyAttachment>> BODY = ATTACHMENT_TYPES.register(
+            "body", () -> AttachmentType.builder(() -> new BodyAttachment(BodyState.EMPTY))
+                    .serialize(BodyAttachment.CODEC).copyOnDeath().build());
+
+    /** Legacy save reader only. No default, sync, death copy, or gameplay authority. */
     public static final Supplier<AttachmentType<LungAttachment>> LUNG = ATTACHMENT_TYPES.register(
-            "lung", () -> AttachmentType.builder((Supplier<LungAttachment>) () -> new LungAttachment(
-                            com.juicyslew.moonstation14.ms14.lung.LungComponent.from(
-                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture.vacuum(), 0, false)))
-                    .serialize(LungAttachment.CODEC).sync(LungAttachment.STREAM_CODEC).copyOnDeath().build());
+            "lung", () -> AttachmentType.builder((Supplier<LungAttachment>) () -> {
+                throw new IllegalStateException("Legacy lung must be loaded from saved data");
+            }).serialize(LungAttachment.CODEC).build());
 
     /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */
     public static final Supplier<AttachmentType<EyeDamageAttachment>> EYE_DAMAGE = ATTACHMENT_TYPES.register(

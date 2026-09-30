@@ -28,7 +28,7 @@ class LocalSpeechServerHooksTest {
         assertTrue(LocalSpeechServerHooks.lifecycleSpeechAllowed(ModCharacters.HUMAN_ID, Optional.of(human)));
         assertFalse(LocalSpeechServerHooks.lifecycleSpeechAllowed(ResourceLocation.parse("test:other"), Optional.of(human)));
         assertFalse(LocalSpeechServerHooks.lifecycleSpeechAllowed(ModCharacters.HUMAN_ID, Optional.empty()));
-        CharacterData silent = new CharacterData(human.slipData());
+        CharacterData silent = new CharacterData(human.hostEntityTypes(), java.util.List.of());
         assertFalse(LocalSpeechServerHooks.lifecycleSpeechAllowed(ModCharacters.HUMAN_ID, Optional.of(silent)));
     }
 }

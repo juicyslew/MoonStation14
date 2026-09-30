@@ -10,9 +10,12 @@ import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Pose;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -55,6 +58,45 @@ public final class PlayerCharacterHarnessRenderer
             super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
         } finally {
             model = previousModel;
+        }
+    }
+
+    @Override
+    protected void setupRotations(PlayerCharacterHarnessEntity entity, PoseStack poseStack, float bob,
+                                  float yBodyRot, float partialTick, float scale) {
+        // LivingEntityRenderer only tips when deathTime > 0. That timer is not synced on spawn,
+        // and zero health alone does not mean the server accepted die(). Keep the confirmed pose
+        // at the vanilla flip angle independently of that transient timer.
+        if (entity.deathTime == 0 && !entity.shouldRenderCorpsePose()) {
+            super.setupRotations(entity, poseStack, bob, yBodyRot, partialTick, scale);
+            return;
+        }
+
+        if (isShaking(entity))
+            yBodyRot += (float) (Math.cos((double) entity.tickCount * 3.25) * Math.PI * 0.4F);
+        if (!entity.hasPose(Pose.SLEEPING))
+            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - yBodyRot));
+
+        if (entity.shouldRenderCorpsePose()) {
+            poseStack.mulPose(Axis.ZP.rotationDegrees(getFlipDegrees(entity)));
+        } else if (entity.isAutoSpinAttack()) {
+            poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F - entity.getXRot()));
+            poseStack.mulPose(Axis.YP.rotationDegrees((entity.tickCount + partialTick) * -75.0F));
+        } else if (entity.hasPose(Pose.SLEEPING)) {
+            Direction direction = entity.getBedOrientation();
+            float rotation = direction != null ? switch (direction) {
+                case SOUTH -> 90.0F;
+                case WEST -> 0.0F;
+                case NORTH -> 270.0F;
+                case EAST -> 180.0F;
+                default -> 0.0F;
+            } : yBodyRot;
+            poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(getFlipDegrees(entity)));
+            poseStack.mulPose(Axis.YP.rotationDegrees(270.0F));
+        } else if (isEntityUpsideDown(entity)) {
+            poseStack.translate(0.0F, (entity.getBbHeight() + 0.1F) / scale, 0.0F);
+            poseStack.mulPose(Axis.ZP.rotationDegrees(180.0F));
         }
     }
 

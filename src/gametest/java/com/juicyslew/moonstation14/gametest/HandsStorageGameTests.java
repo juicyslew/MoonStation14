@@ -78,6 +78,35 @@ public final class HandsStorageGameTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void mismatchedBoundHostCannotExposeHandsOrStun(GameTestHelper helper) {
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        Pig foreignHost = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));
+        helper.runAfterDelay(1, () -> {
+            require(HandCapability.resolve(body).orElseThrow().equals(java.util.List.of("left", "right")),
+                    "fixture should initially have a matching character host");
+            HandComponent held = HandComponent.from(HandState.create(java.util.List.of("right", "left"))
+                    .place("left", new ItemToken("preserved-token")).state());
+            MS14Provider.update(body, MS14Bridges.HANDS, held.toAttachment());
+            CharacterIdentityAttachment wrong = new CharacterIdentityAttachment();
+            wrong.bind(net.minecraft.resources.ResourceLocation.parse("moonstation14:pig"));
+            MS14Provider.update(body, MS14Bridges.CHARACTER_IDENTITY, wrong);
+            CharacterIdentityAttachment human = new CharacterIdentityAttachment();
+            human.bind(net.minecraft.resources.ResourceLocation.parse("moonstation14:human"));
+            MS14Provider.update(foreignHost, MS14Bridges.CHARACTER_IDENTITY, human);
+            require(HandCapability.resolve(body).isEmpty(), "foreign bound identity must not expose hands");
+            require(HandCapability.resolve(foreignHost).isEmpty(),
+                    "a foreign host must not acquire the human hand component");
+            require(com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy
+                    .resolveActor(body).isEmpty(), "foreign identity must not expose stun or slip policy");
+            require(com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy
+                    .resolveActor(foreignHost).isEmpty(), "foreign host must not expose human stun policy");
+            require(held.equals(body.getExistingDataOrNull(ModDataAttachments.HANDS.get()).toComponent()),
+                    "inert lookup must preserve stored hand layout and held token");
+            helper.succeed();
+        });
+    }
+
     private static void require(boolean condition, String message) {
         if (!condition) throw new net.minecraft.gametest.framework.GameTestAssertException(message);
     }

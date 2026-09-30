@@ -1,6 +1,10 @@
 # Final local-chat sprint handoff
 
-**Authority:** this is the concise current implementation/design handoff. The [working-tree history and detailed validation chronology](current-status.md) is retained separately; older implementation descriptions there are historical where marked superseded. This is uncommitted work on `agent/03`, not a merge or release, and pixel acceptance is incomplete.
+**Authority:** this is the concise current implementation/design handoff. The [working-tree history and detailed validation chronology](current-status.md) is retained separately; older implementation descriptions there are historical where marked superseded. Main is merged into the `agent/03` working index and conflicts are resolved, but the merge is **not committed**; the owner controls commit. Pixel acceptance is incomplete.
+
+## Integration status
+
+The merged component refactor makes speech authorization explicit: humans have the `Speech` component; pigs do not. Main's component-based host-plus-components schema, hands, respiration, chemistry, and organ prototype registry are preserved alongside the radio catalog. Fresh combined validation passed: `compileJava compileGameTestJava test --no-daemon` (1,563 JUnit tests). Isolated required GameTests passed 319/319 at `build/gametest-chat-component-merge-04`, after cleaning leaked `FakePlayer` test fixtures; earlier `-01`/`-02`/`-03` runs each had one fixture-contamination failure, not a product finding. Fresh connected client/server pixel validation remains outstanding. No remote radio is implemented.
 
 ## Scope and decisions
 
@@ -32,7 +36,7 @@ Not visually accepted after the latest refinements: centered callout rows/header
 
 ## Validation and owner actions
 
-- Latest full automated result after final style change: `./gradlew.bat compileJava compileGameTestJava test --no-daemon` — 1,420 JUnit tests, 0 failures/errors.
+- Earlier speech-only automated result after final style change: `./gradlew.bat compileJava compileGameTestJava test --no-daemon` — 1,420 JUnit tests, 0 failures/errors. The fresh combined result is recorded under Integration status above.
 - Latest isolated run `./gradlew.bat runGameTestServer --no-daemon -Pms14GameTestDir=build/gametest-chat-visible-mentions-01` completed 220 with one finite status-expiry failure (`boundhumanplayerandvillagersharetimedstunpolicy`). Fresh `...visible-mentions-02` passed 220/220 **before** the final presentation-only bold change. Failure root cause is unknown; preserve both results.
 - Owner follow-up: inspect latest callout alignment/visibility, mention cue suppression, shout styling, and two-client acoustic, privacy, feed, GUI and bubble behavior. Confirm client/server match. Radio equipment authority/telecom, safe identity-ledger migration, distant bubble readability, voice/damage cues and deaf accessibility are deferred, with no commitment.
-- **Before merging:** owner must inspect and handle the existing uncommitted working tree. This handoff does not authorize discarding, staging, or merging any changes.
+- The merge is resolved in the working index but remains uncommitted. The owner controls commit; this handoff does not authorize staging or committing additional changes, or discarding any work.

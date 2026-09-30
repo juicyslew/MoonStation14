@@ -4,12 +4,45 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GhostControlClientPolicyTest {
+    @Test
+    void characterDefaultsToFastWithoutModifierOrMinecraftSprint() {
+        assertEquals(GhostControlPayloads.BUTTON_SPRINT,
+                GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, false, false, false));
+    }
+
+    @Test
+    void characterShiftWalksEvenWhenMinecraftReportsSprinting() {
+        assertEquals(0, GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, false, true, true));
+    }
+
+    @Test
+    void characterCtrlSprintDoesNotOverrideShiftWalkOrJump() {
+        assertEquals(GhostControlPayloads.BUTTON_JUMP,
+                GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, true, true, true));
+    }
+
+    @Test
+    void characterWithoutSprintFlagStillMovesFastWhenUnshifted() {
+        assertEquals(GhostControlPayloads.BUTTON_JUMP | GhostControlPayloads.BUTTON_SPRINT,
+                GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, true, false, false));
+    }
+
+    @Test
+    void ghostRetainsMinecraftSprintMappingRegardlessOfShift() {
+        assertEquals(0, GhostControlClient.intentButtons(MobHarnessKind.GHOST, false, true, false));
+        assertEquals(GhostControlPayloads.BUTTON_SPRINT,
+                GhostControlClient.intentButtons(MobHarnessKind.GHOST, false, true, true));
+        assertEquals(GhostControlPayloads.BUTTON_JUMP,
+                GhostControlClient.intentButtons(MobHarnessKind.GHOST, true, false, false));
+    }
+
     @Test
     void customRegisteredCharacterDoesNotDependOnLegacyHostMapping() {
         assertTrue(GhostControlClient.characterBodyRecognized(true, false));

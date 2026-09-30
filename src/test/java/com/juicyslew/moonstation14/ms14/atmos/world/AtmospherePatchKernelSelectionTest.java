@@ -2,6 +2,8 @@ package com.juicyslew.moonstation14.ms14.atmos.world;
 
 import net.minecraft.core.BlockPos;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
+import com.juicyslew.moonstation14.ms14.atmos.core.ImmutableAtmosphereBoundary;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -17,11 +19,34 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AtmospherePatchKernelSelectionTest {
     @Test
-    void onlyVerifiedExteriorFacesSelectSpaceFlow() {
-        assertEquals(AtmosphereService.PatchKernel.NORMAL_EQUALIZATION,
-                AtmosphereService.chooseKernelForPatch(Set.of()));
-        assertEquals(AtmosphereService.PatchKernel.SPACE_FLOW,
-                AtmosphereService.chooseKernelForPatch(Set.of(new BlockPos(4, 10, 2))));
+    void onlyVerifiedExteriorFacesInVacuumDimensionsSelectSpaceFlow() {
+        for (boolean vacuumDimension : new boolean[] {false, true}) {
+            assertEquals(AtmosphereService.PatchKernel.NORMAL_EQUALIZATION,
+                    AtmosphereService.chooseKernelForPatch(Set.of(), vacuumDimension));
+            assertEquals(vacuumDimension ? AtmosphereService.PatchKernel.SPACE_FLOW
+                            : AtmosphereService.PatchKernel.AMBIENT_FLOW,
+                    AtmosphereService.chooseKernelForPatch(Set.of(new BlockPos(4, 10, 2)), vacuumDimension));
+        }
+    }
+
+    @Test
+    void changedBreathablePatchDefersLocalBoundaryExchangeUntilNextCycle() {
+        BlockPos finite = new BlockPos(0, 1, 0);
+        BlockPos exterior = finite.east();
+        assertEquals(AtmosphereService.PatchKernel.AMBIENT_FLOW,
+                AtmosphereService.chooseKernelForPatch(Set.of(exterior), false));
+        AtmosphereService.WorkQueue queue = new AtmosphereService.WorkQueue();
+        Set<BlockPos> handled = new java.util.HashSet<>();
+        AtmosphereService.markMonstermosPatchHandled(List.of(finite), handled, queue);
+        List<BlockPos> deferred = new ArrayList<>();
+        assertTrue(AtmosphereService.deferHandledLindaSource(queue.poll(), handled, deferred));
+        AtmosphereService.requeueDeferredSources(queue, deferred);
+        assertEquals(finite, queue.poll(), "the finite source remains eligible for the next local pass");
+
+        var exchange = ImmutableAtmosphereBoundary.exchange(GasMixture.vacuum(),
+                GasMixture.breathableAir(), 0.125, false);
+        assertTrue(exchange.finiteAfter().moles(GasType.OXYGEN) > 0.0);
+        assertTrue(exchange.finiteAfter().moles(GasType.NITROGEN) > 0.0);
     }
 
     @Test

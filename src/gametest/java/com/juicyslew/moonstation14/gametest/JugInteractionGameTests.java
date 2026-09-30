@@ -55,10 +55,8 @@ public final class JugInteractionGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void registeredHeldJugSneakUseIngestsAtSipBoundaryAndPreservesFullSource(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        require(EntityType.PLAYER.is(com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.ELIGIBLE_ENTITY_TYPES),
-                "the registered thirst eligibility tag must include players");
-
         Player player = mockPlayer(level, helper.absolutePos(new BlockPos(2, 2, 2)), true);
+        require(StomachSystem.isEligible(player), "bound player must carry the Stomach component");
         ItemStack jug = new ItemStack(ModItems.JUG.get());
         jug.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, 20f)));
         player.setItemInHand(InteractionHand.MAIN_HAND, jug);
@@ -212,6 +210,7 @@ public final class JugInteractionGameTests {
             @Override public boolean isShiftKeyDown() { return sneaking; }
         };
         player.setPos(pos.getX(), pos.getY(), pos.getZ());
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(player, level);
         return player;
     }
 
