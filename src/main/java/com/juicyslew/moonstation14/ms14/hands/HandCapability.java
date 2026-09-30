@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.hands;
 
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent;
 import net.minecraft.world.entity.Entity;
 
 import java.util.List;
@@ -18,9 +19,10 @@ public final class HandCapability {
      */
     public static Optional<List<String>> resolve(Entity body) {
         Objects.requireNonNull(body, "body");
-        Optional<CharacterData> character = CharacterIdentitySystem.resolve(body);
-        if (character.isEmpty() || character.orElseThrow().hands().isEmpty()) return Optional.empty();
-        return Optional.of(List.copyOf(character.orElseThrow().hands()));
+        Optional<CharacterData> character = body instanceof net.minecraft.world.entity.LivingEntity living
+                ? CharacterIdentitySystem.resolveForActor(living) : Optional.empty();
+        return character.flatMap(policy -> policy.component(HandsPrototypeComponent.class))
+                .map(HandsPrototypeComponent::hands).filter(ids -> !ids.isEmpty());
     }
 
     /**

@@ -4,6 +4,9 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivity;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem;
 import com.juicyslew.moonstation14.ms14.effect.EffectResult;
+import com.juicyslew.moonstation14.ms14.character.components.FlammablePrototypeComponent;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -18,7 +21,7 @@ public final class FireStackSystem {
 
     public static EffectResult flammable(Entity target, float multiplier,
                                          Float multiplierOnExisting, float scale) {
-        if (!(target instanceof LivingEntity living) || living.fireImmune()) {
+        if (!(target instanceof LivingEntity living) || !supports(living)) {
             return EffectResult.SKIPPED_UNSUPPORTED;
         }
         try {
@@ -38,7 +41,7 @@ public final class FireStackSystem {
     }
 
     public static EffectResult ignite(Entity target, float ignoredScale) {
-        if (!(target instanceof LivingEntity living) || living.fireImmune()) {
+        if (!(target instanceof LivingEntity living) || !supports(living)) {
             return EffectResult.SKIPPED_UNSUPPORTED;
         }
         FireStackComponent current = existing(living);
@@ -54,7 +57,7 @@ public final class FireStackSystem {
     }
 
     public static EffectResult extinguish(Entity target, float adjustment, float scale) {
-        if (!(target instanceof LivingEntity living) || living.fireImmune()) {
+        if (!(target instanceof LivingEntity living) || !supports(living)) {
             return EffectResult.SKIPPED_UNSUPPORTED;
         }
         try {
@@ -73,7 +76,7 @@ public final class FireStackSystem {
 
     /** Applies one due 20-tick drying step without materializing absent state. */
     public static void dry(LivingEntity entity) {
-        if (entity.fireImmune()) {
+        if (!supports(entity)) {
             EntityActivitySystem.update(entity, EntityActivity.FIRE_DRYING, false);
             return;
         }
@@ -94,7 +97,9 @@ public final class FireStackSystem {
     }
 
     public static boolean supports(LivingEntity entity) {
-        return entity != null && !entity.fireImmune();
+        return entity != null && entity.level() instanceof ServerLevel && !entity.fireImmune()
+                && ActiveCharacterPolicy.resolveActor(entity)
+                .flatMap(character -> character.component(FlammablePrototypeComponent.class)).isPresent();
     }
 
     public static FireStackComponent existing(LivingEntity entity) {

@@ -103,7 +103,11 @@ class PrototypeReloadListenerTest {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
         JsonObject human = readCharacterResource("human.json");
-        human.remove("blood");
+        human.getAsJsonArray("components").remove(1);
+        var components = human.getAsJsonArray("components");
+        for (int i = components.size() - 1; i >= 0; i--) {
+            if ("Stomach".equals(components.get(i).getAsJsonObject().get("type").getAsString())) components.remove(i);
+        }
         manager.reload(ModCharacters.CHARACTER_TYPE, java.util.Map.of(ModCharacters.HUMAN_ID, human));
         var published = manager.snapshot(ModCharacters.CHARACTER_TYPE);
 
@@ -117,7 +121,7 @@ class PrototypeReloadListenerTest {
             PrototypeLoadException failure = assertThrows(PrototypeLoadException.class,
                     () -> listener.apply(prepared, resources, InactiveProfiler.INSTANCE));
             assertTrue(failure.getMessage().contains("moonstation14:pig"), failure.getMessage());
-            assertTrue(failure.getMessage().contains("$.blood.reference_solution.moonstation14:blood"),
+            assertTrue(failure.getMessage().contains("$.components[1].reference_solution.moonstation14:blood"),
                     failure.getMessage());
             assertTrue(failure.getMessage().contains("data/moonstation14/moonstation14/character/pig.json"),
                     failure.getMessage());

@@ -6,11 +6,9 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.atmos.world.BreathExchange;
-import com.juicyslew.moonstation14.ms14.MS14Bridges;
-import com.juicyslew.moonstation14.ms14.MS14Provider;
+import com.juicyslew.moonstation14.ms14.organ.*;
 import com.juicyslew.moonstation14.ms14.lung.LungSystem;
 import com.juicyslew.moonstation14.ms14.lung.LungComponent;
-import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.EntityType;
@@ -39,7 +37,7 @@ public final class LungExchangeGameTests {
     private LungExchangeGameTests() { }
 
     @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
-    public static void lateLungAttachmentReconcilesWithoutUnknownBreath(GameTestHelper helper) {
+    public static void lateBodyReconcilesWithoutUnknownBreath(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
         BlockPos origin = new BlockPos(((fixture.getX() >> 4) + 80) * 16,
@@ -53,16 +51,16 @@ public final class LungExchangeGameTests {
         pig.setNoAi(true);
         pig.moveTo(cell.getX() + 0.5, cell.getY(), cell.getZ() + 0.5);
         level.addFreshEntity(pig);
-        // Simulate a join before the prototype was published: the eligible actor has no lung.
-        pig.removeData(ModDataAttachments.LUNG.get());
+        // Simulate a join before the prototype was published: the eligible actor has no body.
+        pig.removeData(ModDataAttachments.BODY.get());
         int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(pig).orElseThrow().breathIntervalSeconds());
         long due = 0;
         while (!LungSystem.isDue(due, pig.getId(), interval)) due++;
         require(service.sample(level, BlockPos.containing(pig.getEyePosition())).isEmpty(),
                 "room must still be unclassified");
         require(!LungSystem.tickIfDue(pig, due, service), "unknown strict sample cannot breathe");
-        LungComponent attached = MS14Provider.getDetached(pig, MS14Bridges.LUNG).component();
-        require(pig.hasData(ModDataAttachments.LUNG.get()) && attached.initialized()
+        LungComponent attached = snapshot(pig);
+        require(pig.hasData(ModDataAttachments.BODY.get()) && attached.initialized()
                         && attached.gasMoles().isEmpty() && attached.saturation() == 5
                         && attached.phase() == LungComponent.Phase.INHALING,
                 "late policy must attach join-equivalent empty state without advancing it");
@@ -70,26 +68,39 @@ public final class LungExchangeGameTests {
         AtmosphereService disabled = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         disabled.configureAtServerStart(false, Set.of(level.dimension()));
         require(!LungSystem.tickIfDue(pig, due, disabled)
-                        && MS14Provider.getDetached(pig, MS14Bridges.LUNG).component().equals(attached),
+                        && snapshot(pig).equals(attached),
                 "disabled atmosphere cannot advance attached lung");
         var retained = LungComponent.from(new GasMixture(Map.of(GasType.NITROGEN, 0.2), TEMPERATURE),
                 98, true, LungComponent.Phase.EXHALING);
-        pig.setData(ModDataAttachments.LUNG.get(), new LungAttachment(retained));
-        require(!LungSystem.tickIfDue(pig, due, service), "unknown sample cannot exhale migrated gas");
-        LungComponent migrated = MS14Provider.getDetached(pig, MS14Bridges.LUNG).component();
-        require(migrated.saturation() == 5 && migrated.phase() == retained.phase()
-                        && migrated.gasMoles().equals(retained.gasMoles())
-                        && migrated.temperatureKelvin() == retained.temperatureKelvin(),
-                "late reconciliation must clamp legacy 98 to five without replacing stored gas or phase");
+        BodyState before = BodySystem.current(pig).orElseThrow();
+        OrganInstance lung = before.find(OrganCategory.LUNGS).orElseThrow();
+        BodyState saved = before.updateLung(lung.id(), LungOrganState.from(retained), ModOrgans.catalog(level))
+                .updateRespiration(RespirationState.from(retained));
+        pig.setData(ModDataAttachments.BODY.get(), new BodyAttachment(saved));
+        require(!LungSystem.tickIfDue(pig, due, service), "unknown sample cannot exhale stored gas");
+        LungComponent reconciled = snapshot(pig);
+        require(reconciled.saturation() == 5 && reconciled.phase() == retained.phase()
+                        && reconciled.gasMoles().equals(retained.gasMoles())
+                        && reconciled.temperatureKelvin() == retained.temperatureKelvin()
+                        && BodySystem.current(pig).orElseThrow().find(OrganCategory.LUNGS).orElseThrow().id().equals(lung.id()),
+                "reconciliation must clamp saved BODY saturation without replacing organ identity, gas or phase");
         require(noOverride(level, cell), "unknown sample cannot exhale stored gas");
         classifyUntilSample(service, level, cell, 12);
         require(LungSystem.tickIfDue(pig, due, service), "strict sample permits the next due exhale");
-        require(MS14Provider.getDetached(pig, MS14Bridges.LUNG).component().phase()
+        require(snapshot(pig).phase()
                         == LungComponent.Phase.INHALING, "valid exhale advances phase");
-        pig.removeData(ModDataAttachments.LUNG.get());
+        OrganInstance detached = BodySystem.current(pig).orElseThrow().find(OrganCategory.LUNGS).orElseThrow();
+        require(BodySystem.detach(pig, detached.id()).isPresent(), "detach lung fixture");
+        BodyState withoutLung = BodySystem.current(pig).orElseThrow();
+        require(LungSystem.tickIfDue(pig, due + interval, service), "known sample depletes mob without lungs");
+        require(BodySystem.current(pig).orElseThrow().organs().isEmpty()
+                        && BodySystem.current(pig).orElseThrow().respiration().saturation() == 1
+                        && BodySystem.current(pig).orElseThrow().respiration().phase() == withoutLung.respiration().phase(),
+                "missing lungs cannot inhale or advance phase but still deplete saturation");
+        pig.removeData(ModDataAttachments.BODY.get());
         pig.setHealth(0);
         require(!LungSystem.tickIfDue(pig, due + interval, service)
-                        && !pig.hasData(ModDataAttachments.LUNG.get()),
+                        && !pig.hasData(ModDataAttachments.BODY.get()),
                 "dead actor must never receive a new lung");
         pig.discard();
         helper.succeed();
@@ -112,7 +123,9 @@ public final class LungExchangeGameTests {
         level.addFreshEntity(actor);
         BlockPos breathCell = BlockPos.containing(actor.getEyePosition());
         require(LungSystem.reconcile(actor), "human lung must be enrolled");
-        require(LungSystem.resolvePolicy(actor).orElseThrow().toxicGasDamagePerMole().containsKey("plasma"),
+        require(com.juicyslew.moonstation14.ms14.organ.ModOrgans.catalog(level)
+                .get(net.minecraft.resources.ResourceLocation.parse("moonstation14:organ_lungs_human"))
+                .lung().orElseThrow().toxicGasDamagePerMole().containsKey("plasma"),
                 "human policy must include plasma");
         int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(actor).orElseThrow().breathIntervalSeconds());
         long due = 0;
@@ -140,7 +153,7 @@ public final class LungExchangeGameTests {
         double poisonBefore = typed(actor, "poison");
         double radiationBefore = typed(actor, "radiation");
         require(LungSystem.tickIfDue(actor, due + 2L * interval, service), "mixed inhale succeeds");
-        double plasmaStored = MS14Provider.getDetached(actor, MS14Bridges.LUNG).component().mixture().moles(GasType.PLASMA);
+        double plasmaStored = snapshot(actor).mixture().moles(GasType.PLASMA);
         require(close(typed(actor, "poison") - poisonBefore, poisonExpected),
                 "plasma poison uses inhaled moles: expected " + poisonExpected + " actual " + (typed(actor, "poison") - poisonBefore)
                         + " stored plasma " + plasmaStored);
@@ -155,9 +168,56 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
+    private static LungComponent snapshot(net.minecraft.world.entity.LivingEntity entity) {
+        BodyState body = BodySystem.current(entity).orElseThrow();
+        LungOrganState lung = body.find(OrganCategory.LUNGS).orElseThrow().lung();
+        RespirationState respiration = body.respiration();
+        return new LungComponent(lung.gasMoles(), lung.temperatureKelvin(), respiration.saturation(),
+                respiration.initialized(), respiration.phase());
+    }
+
     private static float typed(Villager actor, String key) {
         DamageData stored = actor.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
         return stored == null ? 0f : stored.getMap().getOrDefault(key, 0f);
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    public static void zeroKelvinStrictInhaleLeavesRoomAndBodyUnchanged(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
+        BlockPos origin = new BlockPos(((fixture.getX() >> 4) + 96) * 16,
+                fixture.getY(), ((fixture.getZ() >> 4) + 96) * 16);
+        level.getChunk(origin);
+        buildRoom(level, origin);
+        BlockPos cell = origin.offset(2, 1, 2);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        classifyUntilSample(service, level, cell, 12);
+        require(service.addGas(level, cell, GasType.OXYGEN, 1, 0), "fixture needs nonzero gas at zero kelvin");
+        Pig pig = EntityType.PIG.create(level);
+        require(pig != null, "pig fixture required");
+        pig.setNoAi(true);
+        pig.moveTo(cell.getX() + 0.5, cell.getY(), cell.getZ() + 0.5);
+        level.addFreshEntity(pig);
+        require(LungSystem.reconcile(pig), "pig must have initialized BODY");
+        BlockPos eye = BlockPos.containing(pig.getEyePosition());
+        GasMixture beforeRoom = service.sample(level, eye).orElseThrow();
+        require(beforeRoom.totalMoles() > 0 && beforeRoom.temperatureKelvin() == 0,
+                "strict sample must be nonzero gas at zero kelvin");
+        BodyState beforeBody = BodySystem.current(pig).orElseThrow();
+        int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(pig).orElseThrow().breathIntervalSeconds());
+        long due = 0;
+        while (!LungSystem.isDue(due, pig.getId(), interval)) due++;
+        require(!LungSystem.tickIfDue(pig, due, service), "invalid strict inhale must fail without throwing");
+        require(beforeBody.equals(BodySystem.current(pig).orElseThrow()), "invalid inhale must preserve BODY and phase");
+        require(sameMixture(beforeRoom, service.sample(level, eye).orElseThrow()),
+                "invalid inhale must preserve room gas");
+        pig.removeData(ModDataAttachments.BODY.get());
+        require(!LungSystem.tickIfDue(pig, due, service) && !pig.hasData(ModDataAttachments.BODY.get()),
+                "invalid sample must not initialize a missing BODY either");
+        require(sameMixture(beforeRoom, service.sample(level, eye).orElseThrow()),
+                "invalid sample must not change room during late reconciliation");
+        pig.discard();
+        helper.succeed();
     }
 
     @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
@@ -181,7 +241,7 @@ public final class LungExchangeGameTests {
         long due = 0;
         while (!LungSystem.isDue(due, pig.getId(), interval)) due++;
         require(LungSystem.tickIfDue(pig, due, service), "proven vacuum is a valid inhale");
-        LungComponent inhaledVacuum = MS14Provider.getDetached(pig, MS14Bridges.LUNG).component();
+        LungComponent inhaledVacuum = snapshot(pig);
         require(inhaledVacuum.phase() == LungComponent.Phase.EXHALING && inhaledVacuum.gasMoles().isEmpty(),
                 "vacuum inhale advances only phase");
         require(inhaledVacuum.saturation() == 3, "vacuum must deplete saturation by two");
@@ -191,7 +251,7 @@ public final class LungExchangeGameTests {
         require(sameMixture(beforeExhale, service.sample(level, cell).orElseThrow()),
                 "empty exhale does not inhale or change room");
         require(LungSystem.tickIfDue(pig, due + 2L * interval, service), "next phase inhales real room gas");
-        LungComponent full = MS14Provider.getDetached(pig, MS14Bridges.LUNG).component();
+        LungComponent full = snapshot(pig);
         require(full.phase() == LungComponent.Phase.EXHALING && !full.gasMoles().isEmpty(),
                 "inhale fills lung without exhaling");
         require(close(full.mixture().totalMoles(), beforeExhale.totalMoles() * 0.0005),
@@ -202,7 +262,7 @@ public final class LungExchangeGameTests {
         for (GasType type : GasType.values())
             require(close(afterReturn.moles(type), beforeReturn.moles(type) + full.mixture().moles(type)),
                     "exhale returns exactly stored " + type);
-        require(MS14Provider.getDetached(pig, MS14Bridges.LUNG).component().gasMoles().isEmpty(),
+        require(snapshot(pig).gasMoles().isEmpty(),
                 "successful exhale clears lung inventory");
         pig.discard();
         helper.succeed();

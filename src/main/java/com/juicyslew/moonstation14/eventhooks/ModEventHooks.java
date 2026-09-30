@@ -43,6 +43,7 @@ public class ModEventHooks {
             CharacterIdentitySystem.enrollSupportedActor(livingEntity, (ServerLevel) event.getLevel());
             com.juicyslew.moonstation14.ms14.blood.BloodstreamStorage.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.blood.BloodSystem.reconcile(livingEntity);
+            com.juicyslew.moonstation14.ms14.organ.BodySystem.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.lung.LungSystem.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(livingEntity,
@@ -82,7 +83,7 @@ public class ModEventHooks {
     public static void applyPlayerCloneIdentityPolicy(PlayerEvent.Clone event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.juicyslew.moonstation14.ms14.blood.BloodSystem.copyToClone(event.getOriginal(), player);
-            com.juicyslew.moonstation14.ms14.lung.LungSystem.copyToClone(event.getOriginal(), player);
+            com.juicyslew.moonstation14.ms14.organ.BodySystem.copyToClone(event.getOriginal(), player);
             if (event.isWasDeath()) applyPlayerDeathStatusPolicy(player);
             var originalIdentity = event.getOriginal().getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
             if (!player.hasData(ModDataAttachments.CHARACTER_IDENTITY.get())
@@ -92,6 +93,8 @@ public class ModEventHooks {
                 var identity = MS14Provider.getDetached(event.getOriginal(), MS14Bridges.CHARACTER_IDENTITY);
                 MS14Provider.update(player, MS14Bridges.CHARACTER_IDENTITY, identity);
             }
+            // BODY is the clone authority; reconciliation removes any auto-copied legacy lung.
+            com.juicyslew.moonstation14.ms14.organ.BodySystem.reconcile(player);
         }
     }
 

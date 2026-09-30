@@ -59,8 +59,8 @@ class BloodStateTest {
                 Optional.of(ResourceLocation.fromNamespaceAndPath("moonstation14", "other"))).isEmpty());
         assertTrue(BloodSystem.resolvePolicy(policy, identity, pig, Optional.empty()).isEmpty());
         assertTrue(BloodSystem.resolvePolicy(policy, identity, player, Optional.empty()).isEmpty());
-        CharacterData identityBound = new CharacterData(policy.slipData(), policy.movement(), java.util.List.of(),
-                policy.thermal(), policy.blood());
+        CharacterData identityBound = new CharacterData(java.util.List.of(),
+                policy.components());
         assertTrue(BloodSystem.resolvePolicy(identityBound, identity, player, Optional.empty()).isPresent());
         assertTrue(BloodSystem.resolvePolicy(policy, ResourceLocation.fromNamespaceAndPath("moonstation14", "other"),
                 player, Optional.of(identity)).isEmpty());
@@ -85,10 +85,10 @@ class BloodStateTest {
         try (humanStream) {
             CharacterData human = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                     JsonParser.parseReader(new InputStreamReader(humanStream, StandardCharsets.UTF_8))).getOrThrow();
-            assertEquals(human.blood().orElseThrow().updateIntervalSeconds(),
-                    pig.blood().orElseThrow().updateIntervalSeconds());
-            assertNotEquals(human.blood().orElseThrow().referenceSolution(),
-                    pig.blood().orElseThrow().referenceSolution());
+            assertEquals(human.component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).orElseThrow().updateIntervalSeconds(),
+                    pig.component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).orElseThrow().updateIntervalSeconds());
+            assertNotEquals(human.component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).orElseThrow().referenceSolution(),
+                    pig.component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).orElseThrow().referenceSolution());
             assertTrue(BloodSystem.resolvePolicy(pig, identity, ResourceLocation.parse("minecraft:player"),
                     Optional.of(identity)).isEmpty());
         }
@@ -106,13 +106,13 @@ class BloodStateTest {
         }
         var identity = ResourceLocation.fromNamespaceAndPath("moonstation14", "human");
         var configuredNonMobType = ResourceLocation.fromNamespaceAndPath("test", "configured_living_host");
-        CharacterData mapped = new CharacterData(human.slipData(), human.movement(),
-                java.util.List.of(configuredNonMobType), human.thermal(), human.blood());
+        CharacterData mapped = new CharacterData(
+                java.util.List.of(configuredNonMobType), human.components());
         assertTrue(BloodSystem.resolvePolicy(mapped, identity, configuredNonMobType,
                 Optional.of(identity)).isPresent(), "host lookup must not depend on vanilla entity class");
 
-        CharacterData removed = new CharacterData(mapped.slipData(), mapped.movement(),
-                mapped.hostEntityTypes(), mapped.thermal(), Optional.empty());
+        CharacterData removed = new CharacterData(
+                mapped.hostEntityTypes(), java.util.List.of());
         assertTrue(BloodSystem.resolvePolicy(removed, identity, configuredNonMobType,
                 Optional.of(identity)).isEmpty(), "removed blood policy remains inert");
     }
@@ -139,7 +139,7 @@ class BloodStateTest {
         var original = new PrototypeCatalog<>(Map.of(identity, human));
         var removed = new PrototypeCatalog<CharacterData>(Map.of());
         var changed = new PrototypeCatalog<>(Map.of(identity, new CharacterData(
-                human.slipData(), human.movement(), human.hostEntityTypes(), human.thermal(), Optional.empty())));
+                human.hostEntityTypes(), java.util.List.of())));
         var pigStream = getClass().getClassLoader().getResourceAsStream(
                 "data/moonstation14/moonstation14/character/pig.json");
         assertNotNull(pigStream);
@@ -149,7 +149,7 @@ class BloodStateTest {
                     JsonParser.parseReader(new InputStreamReader(pigStream, StandardCharsets.UTF_8))).getOrThrow();
         }
         var replacement = new PrototypeCatalog<>(Map.of(identity, new CharacterData(
-                human.slipData(), human.movement(), human.hostEntityTypes(), human.thermal(), pig.blood())));
+                  human.hostEntityTypes(), pig.components())));
 
         assertTrue(BloodSystem.cacheCurrent(original, original, 1, 0));
         assertFalse(BloodSystem.cacheCurrent(original, original, 20, 0));
@@ -160,7 +160,7 @@ class BloodStateTest {
         assertTrue(BloodSystem.resolvePolicy(changed.get(identity), identity, host,
                 Optional.of(identity)).isEmpty(), "newly removed blood config is immediately inert");
         assertFalse(BloodSystem.cacheCurrent(original, replacement, 1, 0));
-        assertEquals(pig.blood(), BloodSystem.resolvePolicy(replacement.get(identity), identity, host,
+        assertEquals(pig.component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy), BloodSystem.resolvePolicy(replacement.get(identity), identity, host,
                 Optional.of(identity)), "new publication selects its new blood policy");
         assertFalse(BloodSystem.cacheCurrent(removed, original, 1, 0),
                 "new publication must also invalidate cached absence");

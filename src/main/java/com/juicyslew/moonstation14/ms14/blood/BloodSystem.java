@@ -7,6 +7,8 @@ import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
+import com.juicyslew.moonstation14.ms14.character.components.BloodstreamPolicy;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -35,46 +37,37 @@ public final class BloodSystem {
 
     private record PolicyCache(long checkedAt, PrototypeCatalog<CharacterData> catalog,
                                ResourceLocation host, ResourceLocation identity,
-                                Optional<CharacterData.BloodData> policy) { }
+                                 Optional<BloodstreamPolicy> policy) { }
 
     private BloodSystem() { }
 
     /** Result for an effect mutation, keeping unsupported eligibility separate from bad arithmetic. */
     public enum EffectAdjustmentResult { APPLIED, SKIPPED_UNSUPPORTED, FAILED }
 
-    /** Resolve only a bound policy that still agrees with this entity's current prototype host type. */
-    public static Optional<CharacterData.BloodData> resolvePolicy(LivingEntity entity) {
-        if (entity == null || entity.level().isClientSide || !(entity.level() instanceof ServerLevel level)) {
-            return Optional.empty();
-        }
-        Optional<CharacterData> character = CharacterIdentitySystem.resolve(entity);
-        if (character.isEmpty()) return Optional.empty();
-
-        ResourceLocation host = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
-        Optional<ResourceLocation> hostOwner = ModCharacters.characterForHost(level, host);
-        var identity = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
-        return identity == null || !identity.isBound() ? Optional.empty()
-                : resolvePolicy(character.get(), identity.characterId(), host, hostOwner);
+    /** Resolve a policy only through the server actor authority (host-owned or explicit harness). */
+    public static Optional<BloodstreamPolicy> resolvePolicy(LivingEntity entity) {
+        return CharacterIdentitySystem.resolveForActor(entity)
+                .flatMap(data -> data.component(BloodstreamComponent.class).map(BloodstreamComponent::policy));
     }
 
-    /** Pure host/identity consistency seam shared by runtime resolution and fixture tests. */
-    public static Optional<CharacterData.BloodData> resolvePolicy(CharacterData data, ResourceLocation identity,
+    /** Legacy pure host/identity fixture seam; runtime authority is resolveForActor, not this method. */
+    public static Optional<BloodstreamPolicy> resolvePolicy(CharacterData data, ResourceLocation identity,
             ResourceLocation host, Optional<ResourceLocation> hostOwner) {
         if (data == null || identity == null || host == null || hostOwner == null) return Optional.empty();
         if (!data.hostEntityTypes().isEmpty() && !data.hostEntityTypes().contains(host)) return Optional.empty();
         if (hostOwner.isPresent() && !hostOwner.get().equals(identity)) return Optional.empty();
         if (hostOwner.isEmpty() && !data.hostEntityTypes().isEmpty()) return Optional.empty();
-        return data.blood();
+        return data.component(BloodstreamComponent.class).map(BloodstreamComponent::policy);
     }
 
     /** Join-time initialization, or valid-policy reconciliation of a saved state. Missing policy is inert. */
     public static boolean reconcile(LivingEntity entity) {
-        Optional<CharacterData.BloodData> policy = resolvePolicy(entity);
+        Optional<BloodstreamPolicy> policy = resolvePolicy(entity);
         if (policy.isEmpty()) return false;
         return reconcile(entity, policy.get());
     }
 
-    private static boolean reconcile(LivingEntity entity, CharacterData.BloodData policy) {
+    private static boolean reconcile(LivingEntity entity, BloodstreamPolicy policy) {
         try {
             var reference = BloodReducer.reference(policy);
             for (var key : reference.keySet()) ModReagents.require(entity.level(), key.location());
@@ -176,7 +169,7 @@ public final class BloodSystem {
         if (entity == null || entity.level().isClientSide) {
             return EffectAdjustmentResult.SKIPPED_UNSUPPORTED;
         }
-        Optional<CharacterData.BloodData> policy = resolvePolicy(entity);
+        Optional<BloodstreamPolicy> policy = resolvePolicy(entity);
         if (policy.isEmpty()) return EffectAdjustmentResult.SKIPPED_UNSUPPORTED;
 
         float scaled = amount * scale;
@@ -221,7 +214,7 @@ public final class BloodSystem {
     /** Applies only committed positive typed ledger changes; healing and cancellation pass no positive delta. */
     public static void observeTypedDamage(LivingEntity entity, java.util.Map<String, Float> committedPositive) {
         if (entity == null || committedPositive == null || committedPositive.isEmpty()) return;
-        Optional<CharacterData.BloodData> policy = resolvePolicy(entity);
+        Optional<BloodstreamPolicy> policy = resolvePolicy(entity);
         if (policy.isEmpty()) return;
         reconcile(entity);
         if (state(entity).isEmpty()) return;
@@ -248,7 +241,7 @@ public final class BloodSystem {
 
     /** Per-prototype cadence, staggered by entity id; missed ticks are intentionally not replayed. */
     public static boolean tickIfDue(LivingEntity entity, long gameTime) {
-        Optional<CharacterData.BloodData> policy = policyAtCadence(entity, gameTime);
+        Optional<BloodstreamPolicy> policy = policyAtCadence(entity, gameTime);
         if (policy.isEmpty()) return false;
         int interval = intervalTicks(policy.get().updateIntervalSeconds());
         if (!isDue(gameTime, entity.getId(), interval)) return false;
@@ -326,7 +319,7 @@ public final class BloodSystem {
      * Refreshes host mapping at a bounded cadence unless a newly published catalog forces an
      * immediate refresh. The cached immutable policy supplies the configured update interval.
      */
-    static Optional<CharacterData.BloodData> policyAtCadence(LivingEntity entity, long gameTime) {
+    static Optional<BloodstreamPolicy> policyAtCadence(LivingEntity entity, long gameTime) {
         if (entity == null || entity.level().isClientSide || !(entity.level() instanceof ServerLevel level)) {
             return Optional.empty();
         }
@@ -339,7 +332,10 @@ public final class BloodSystem {
             if (cached != null && cacheCurrent(cached.catalog(), catalog, gameTime, cached.checkedAt())
                     && cached.host().equals(host)
                     && java.util.Objects.equals(cached.identity(), identity)) {
-                return cached.policy();
+                // A saved harness binding can disappear or become invalid without changing
+                // the catalog, host, or character identity. Never reuse its old grant.
+                return CharacterIdentitySystem.resolveForActor(entity, catalog)
+                        .flatMap(data -> data.component(BloodstreamComponent.class).map(BloodstreamComponent::policy));
             }
         }
 
@@ -352,9 +348,8 @@ public final class BloodSystem {
         }
         var bound = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
         ResourceLocation boundId = bound != null && bound.isBound() ? bound.characterId() : null;
-        CharacterData character = boundId == null ? null : catalog.get(boundId);
-        Optional<CharacterData.BloodData> policy = character == null ? Optional.empty()
-                : resolvePolicy(character, boundId, host, ModCharacters.characterForHost(catalog, host));
+        Optional<BloodstreamPolicy> policy = CharacterIdentitySystem.resolveForActor(entity, catalog)
+                .flatMap(data -> data.component(BloodstreamComponent.class).map(BloodstreamComponent::policy));
         if (entity.isAlive() && policy.isPresent()) reconcile(entity, policy.get());
         synchronized (POLICY_CACHE) {
             POLICY_CACHE.put(entity, new PolicyCache(gameTime, catalog, host, boundId, policy));
