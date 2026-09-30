@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.hands.HandCapability;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
@@ -18,9 +19,10 @@ public final class BodyHandBootstrap {
         if (body == null || !(body.level() instanceof ServerLevel level) || level.getServer() == null
                 || !level.getServer().isSameThread()) return Result.REJECTED;
 
-        var prototype = HandCapability.resolveHostCharacter(body);
+        var prototype = HandCapability.resolveCharacter(body);
         if (prototype.isEmpty()) return Result.REJECTED;
-        List<String> ids = prototype.orElseThrow().hands();
+        List<String> ids = prototype.orElseThrow().component(HandsPrototypeComponent.class)
+                .map(HandsPrototypeComponent::hands).orElse(List.of());
         LiveHands existing = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (ids.isEmpty()) return existing == null && !body.hasData(ModDataAttachments.LIVE_HANDS.get())
                 ? Result.NO_HANDS : Result.REJECTED;

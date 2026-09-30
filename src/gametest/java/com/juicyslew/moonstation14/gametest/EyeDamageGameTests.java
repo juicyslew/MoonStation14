@@ -10,6 +10,10 @@ import com.juicyslew.moonstation14.ms14.effect.EffectContext;
 import com.juicyslew.moonstation14.ms14.effect.EffectResult;
 import com.juicyslew.moonstation14.ms14.effect.EffectSystem;
 import com.juicyslew.moonstation14.ms14.eye.EyeDamageAttachment;
+import com.juicyslew.moonstation14.ms14.eye.EyeDamageSystem;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -18,6 +22,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -29,7 +34,7 @@ public final class EyeDamageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void thresholdHealingAndCleanupAreAuthoritative(GameTestHelper helper) {
-        ArmorStand character = spawn(helper, 1);
+        Villager character = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
 
         require(apply(effects, helper, character, 1, 1f) == EffectResult.APPLIED,
@@ -40,7 +45,8 @@ public final class EyeDamageGameTests {
             require(apply(effects, helper, character, 1, 1f) == EffectResult.APPLIED,
                     "damage step must apply");
         }
-        require(state(character).isBlind(), "nine eye damage must be blind");
+        require(state(character).isBlind() && EyeDamageSystem.isBlind(character),
+                "nine eye damage must be blind");
 
         EyeDamageAttachment unchanged = state(character);
         require(apply(effects, helper, character, 1, 1f) == EffectResult.APPLIED,
@@ -59,8 +65,9 @@ public final class EyeDamageGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void noOpAndUnsupportedTargetsDoNotMaterialize(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
-        ArmorStand absent = spawn(helper, 1);
+        Villager absent = spawn(helper, 1);
         Entity arrow = helper.spawn(EntityType.ARROW, new BlockPos(3, 1, 1));
+        ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(5, 1, 1));
 
         require(apply(effects, helper, absent, 1, 0f) == EffectResult.APPLIED,
                 "zero scale must be an applied no-op");
@@ -72,12 +79,32 @@ public final class EyeDamageGameTests {
                 "nonliving eye target must be unsupported");
         require(!arrow.hasData(ModDataAttachments.EYE_DAMAGE.get()),
                 "unsupported target must not materialize state");
+        require(apply(effects, helper, stand, 1, 1f) == EffectResult.SKIPPED_UNSUPPORTED,
+                "unbound ArmorStand must not gain eye damage");
+        require(!stand.hasData(ModDataAttachments.EYE_DAMAGE.get()), "unbound target remains unmaterialized");
         helper.succeed();
     }
 
-    private static ArmorStand spawn(GameTestHelper helper, int x) {
-        ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(x, 1, 1));
-        stand.setNoGravity(true);
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void mismatchedHostPreservesRawEyeStateButDoesNotProjectBlindness(GameTestHelper helper) {
+        Villager host = spawn(helper, 1);
+        var saved = new EyeDamageAttachment(new com.juicyslew.moonstation14.ms14.eye.EyeDamageComponent(9));
+        host.setData(ModDataAttachments.EYE_DAMAGE.get(), saved);
+        require(EyeDamageSystem.isBlind(host), "eligible persisted damage projects blindness");
+        var wrong = new CharacterIdentityAttachment();
+        wrong.bind(net.minecraft.resources.ResourceLocation.parse("moonstation14:pig"));
+        host.setData(ModDataAttachments.CHARACTER_IDENTITY.get(), wrong);
+        require(apply(EffectSystem.withDefaults(), helper, host, 1, 1f) == EffectResult.SKIPPED_UNSUPPORTED,
+                "mismatched host must deny mutations");
+        require(state(host) == saved && EyeDamageSystem.damage(host) == 9 && !EyeDamageSystem.isBlind(host),
+                "raw diagnostic state survives while blindness remains inert");
+        helper.succeed();
+    }
+
+    private static Villager spawn(GameTestHelper helper, int x) {
+        Villager stand = helper.spawn(EntityType.VILLAGER, new BlockPos(x, 1, 1));
+        stand.setNoAi(true);
+        CharacterIdentitySystem.enroll(stand, helper.getLevel(), ModCharacters.HUMAN_ID);
         return stand;
     }
 
@@ -88,7 +115,7 @@ public final class EyeDamageGameTests {
                         ConditionContext.unavailable(), EffectCause.MANUAL));
     }
 
-    private static EyeDamageAttachment state(ArmorStand character) {
+    private static EyeDamageAttachment state(Villager character) {
         return character.getExistingDataOrNull(ModDataAttachments.EYE_DAMAGE.get());
     }
 

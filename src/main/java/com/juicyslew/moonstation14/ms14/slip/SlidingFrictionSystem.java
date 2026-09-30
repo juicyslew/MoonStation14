@@ -2,13 +2,10 @@ package com.juicyslew.moonstation14.ms14.slip;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
-import com.juicyslew.moonstation14.component.ModDataAttachments;
-import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
-import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
-import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
@@ -41,14 +38,13 @@ public final class SlidingFrictionSystem {
 
     private static ContactFactor scanContacts(LivingEntity entity) {
         Level level = entity.level();
-        CharacterIdentityAttachment identity = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
-        if (identity == null || !identity.isBound()) return ContactFactor.NONE;
+        // Contact is a read-only client projection or server-authoritative actor query.
+        if ((level.isClientSide ? CharacterIdentitySystem.projectForActor(entity)
+                : CharacterIdentitySystem.resolveForActor(entity)).isEmpty()) return ContactFactor.NONE;
 
         try {
-            PrototypeCatalog<CharacterData> characters = ModCharacters.catalog(level);
             PrototypeCatalog<ReagentData> reagents = ModReagents.catalog(level);
-            if (characters == null || characters.size() == 0 || reagents == null || reagents.size() == 0
-                    || characters.get(identity.characterId()) == null) return ContactFactor.NONE;
+            if (reagents == null || reagents.size() == 0) return ContactFactor.NONE;
 
             AABB bounds = entity.getBoundingBox();
             // Query only a thin feet band; a capped horizontal extent keeps the scan bounded.

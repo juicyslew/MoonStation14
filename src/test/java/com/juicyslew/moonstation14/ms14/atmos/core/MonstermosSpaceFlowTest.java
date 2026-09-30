@@ -20,6 +20,173 @@ class MonstermosSpaceFlowTest {
     private static final double T = 293.15;
 
     @Test
+    void adjacentSameDepthOpeningsExchangeAndExportAcrossRepeatedCycles() {
+        BlockPos left = new BlockPos(0, 0, 0), right = left.east();
+        GasMixture ambient = GasMixture.breathableAir();
+        GasMixture high = new GasMixture(Map.of(GasType.OXYGEN, ambient.moles(GasType.OXYGEN) * 10,
+                GasType.NITROGEN, ambient.moles(GasType.NITROGEN) * 10, GasType.TRITIUM, 2.0), T);
+        Map<BlockPos, GasMixture> state = new LinkedHashMap<>();
+        state.put(left, high);
+        state.put(right, ambient);
+        var leftFace = new MonstermosSpaceFlow.DirectedEdge(left, left.west());
+        var rightFace = new MonstermosSpaceFlow.DirectedEdge(right, right.east());
+        Map<MonstermosSpaceFlow.DirectedEdge, GasMixture> faces = new LinkedHashMap<>();
+        faces.put(rightFace, ambient);
+        faces.put(leftFace, ambient);
+        var edges = graph(state.keySet());
+        EnumMap<GasType, Double> cumulative = new EnumMap<>(GasType.class);
+        double cumulativeEnergy = 0;
+        Map<BlockPos, GasMixture> initial = Map.copyOf(state);
+        for (int cycle = 0; cycle < 8; cycle++) {
+            var result = MonstermosSpaceFlow.runAmbient(state, edges, faces, 800);
+            Map<BlockPos, GasMixture> reversed = new LinkedHashMap<>();
+            reversed.put(right, state.get(right));
+            reversed.put(left, state.get(left));
+            var reordered = MonstermosSpaceFlow.runAmbient(reversed, edges,
+                    Map.of(leftFace, ambient, rightFace, ambient), 800);
+            for (BlockPos pos : state.keySet()) {
+                assertEquals(result.states().get(pos).gasMoles(), reordered.states().get(pos).gasMoles());
+                assertEquals(result.states().get(pos).thermalEnergy(),
+                        reordered.states().get(pos).thermalEnergy(), 1e-9);
+            }
+            assertEquals(result.edgeTransfersMoles(), reordered.edgeTransfersMoles());
+            assertEquals(result.exported(), reordered.exported());
+            assertTrue(result.work().complete());
+            assertTrue(result.work().cellSteps() <= 2 + 2 * 2 + 2 * 2 + 2 + 3);
+            if (cycle == 0) {
+                assertTrue(result.edgeTransfersMoles().getOrDefault(
+                        new MonstermosSpaceFlow.DirectedEdge(left, right), 0.0) > 0,
+                        "equal-depth finite edge must transfer gas");
+                assertTrue(result.edgeTransfersMoles().containsKey(leftFace));
+                assertTrue(result.edgeTransfersMoles().containsKey(rightFace));
+                assertTrue(result.states().get(right).moles(GasType.TRITIUM) > 0,
+                        "species must travel with the donor packet");
+                assertTrue(result.states().get(left).pressureKpa(1) >= result.states().get(right).pressureKpa(1),
+                        "finite relaxation must not reverse the pressure gradient");
+            }
+            for (GasType gas : GasType.values()) {
+                double signed = result.exported().speciesMoles().getOrDefault(gas, 0.0);
+                assertEquals(total(state, gas), total(result.states(), gas) + signed, 1e-8);
+                cumulative.merge(gas, signed, Double::sum);
+            }
+            assertEquals(energy(state), energy(result.states()) + result.exported().thermalEnergyJoules(), 1e-7);
+            cumulativeEnergy += result.exported().thermalEnergyJoules();
+            state = result.states();
+        }
+        for (GasType gas : GasType.values())
+            assertEquals(total(initial, gas), total(state, gas) + cumulative.getOrDefault(gas, 0.0), 1e-8);
+        assertEquals(energy(initial), energy(state) + cumulativeEnergy, 1e-6);
+    }
+
+    @Test
+    void multipleFacesOnOneBoundaryAllReceiveGasInPositionOrder() {
+        BlockPos cell = new BlockPos(0, 0, 0);
+        GasMixture ambient = GasMixture.breathableAir();
+        GasMixture high = new GasMixture(Map.of(GasType.OXYGEN, ambient.moles(GasType.OXYGEN) * 10,
+                GasType.NITROGEN, ambient.moles(GasType.NITROGEN) * 10), T);
+        var west = new MonstermosSpaceFlow.DirectedEdge(cell, cell.west());
+        var east = new MonstermosSpaceFlow.DirectedEdge(cell, cell.east());
+        var result = MonstermosSpaceFlow.runAmbient(Map.of(cell, high), Map.of(cell, Set.of()),
+                Map.of(east, ambient, west, ambient), 800);
+        Map<MonstermosSpaceFlow.DirectedEdge, GasMixture> reversed = new LinkedHashMap<>();
+        reversed.put(west, ambient);
+        reversed.put(east, ambient);
+        assertEquals(result.edgeTransfersMoles(), MonstermosSpaceFlow.runAmbient(Map.of(cell, high),
+                Map.of(cell, Set.of()), reversed, 800).edgeTransfersMoles());
+        for (int cycle = 0; cycle < 3; cycle++) {
+            assertTrue(result.edgeTransfersMoles().getOrDefault(west, 0.0) > 0);
+            assertTrue(result.edgeTransfersMoles().getOrDefault(east, 0.0) > 0);
+            result = MonstermosSpaceFlow.runAmbient(result.states(), Map.of(cell, Set.of()), reversed, 800);
+        }
+        assertTrue(result.states().get(cell).pressureKpa(1) >= ambient.pressureKpa(1));
+    }
+
+    @Test
+    void ambientGraphExportsOverpressureAndInhalesIntoVacuumAcrossRealEdges() {
+        BlockPos inside = new BlockPos(0, 0, 0), door = inside.east(), outside = door.east();
+        GasMixture ambient = GasMixture.breathableAir();
+        Map<BlockPos, Set<BlockPos>> edges = Map.of(inside, Set.of(door), door, Set.of(inside));
+        var faces = Map.of(new MonstermosSpaceFlow.DirectedEdge(door, outside), ambient);
+        GasMixture hot = new GasMixture(Map.of(GasType.OXYGEN, ambient.moles(GasType.OXYGEN) * 10,
+                GasType.NITROGEN, ambient.moles(GasType.NITROGEN) * 10), ambient.temperatureKelvin());
+        Map<BlockPos, GasMixture> before = Map.of(inside, hot, door, hot);
+        var export = MonstermosSpaceFlow.runAmbient(before, edges, faces, 800);
+        assertTrue(export.exported().speciesMoles().get(GasType.OXYGEN) > 0);
+        assertTrue(export.states().get(door).pressureKpa(1) >= ambient.pressureKpa(1));
+        assertEquals(total(before, GasType.OXYGEN), total(export.states(), GasType.OXYGEN)
+                + export.exported().speciesMoles().get(GasType.OXYGEN), 1e-8);
+        assertEquals(energy(before), energy(export.states()) + export.exported().thermalEnergyJoules(), 1e-7);
+        Map<BlockPos, GasMixture> empty = Map.of(inside, GasMixture.vacuum(), door, GasMixture.vacuum());
+        var inhale = MonstermosSpaceFlow.runAmbient(empty, edges, faces, 800);
+        assertTrue(inhale.states().get(inside).moles(GasType.OXYGEN) > 0);
+        assertTrue(inhale.states().get(inside).moles(GasType.NITROGEN) > 0);
+        assertTrue(inhale.exported().speciesMoles().get(GasType.OXYGEN) < 0);
+        assertEquals(0, total(inhale.states(), GasType.OXYGEN)
+                + inhale.exported().speciesMoles().get(GasType.OXYGEN), 1e-8);
+        assertEquals(0, energy(inhale.states()) + inhale.exported().thermalEnergyJoules(), 1e-7);
+        assertEquals(ambient, faces.get(new MonstermosSpaceFlow.DirectedEdge(door, outside)));
+        var equilibrium = MonstermosSpaceFlow.runAmbient(Map.of(inside, ambient, door, ambient), edges, faces, 800);
+        assertTrue(equilibrium.edgeTransfersMoles().isEmpty());
+        assertEquals(0, equilibrium.exported().thermalEnergyJoules());
+    }
+
+    @Test
+    void ambientFacesAreFairDeterministicAndNeverPublishIncompleteWork() {
+        BlockPos left = new BlockPos(0, 0, 0), right = left.east();
+        GasMixture ambient = GasMixture.breathableAir();
+        Map<BlockPos, GasMixture> cells = new LinkedHashMap<>();
+        GasMixture hot = new GasMixture(Map.of(GasType.OXYGEN, ambient.moles(GasType.OXYGEN) * 10,
+                GasType.NITROGEN, ambient.moles(GasType.NITROGEN) * 10), ambient.temperatureKelvin());
+        cells.put(left, hot);
+        cells.put(right, hot);
+        var faces = Map.of(new MonstermosSpaceFlow.DirectedEdge(left, left.west()), ambient,
+                new MonstermosSpaceFlow.DirectedEdge(right, right.east()), ambient);
+        var graph = graph(cells.keySet());
+        var first = MonstermosSpaceFlow.runAmbient(cells, graph, faces, 800);
+        assertTrue(first.edgeTransfersMoles().containsKey(new MonstermosSpaceFlow.DirectedEdge(left, left.west())));
+        assertTrue(first.edgeTransfersMoles().containsKey(new MonstermosSpaceFlow.DirectedEdge(right, right.east())));
+        Map<BlockPos, GasMixture> reordered = new LinkedHashMap<>();
+        reordered.put(right, cells.get(right));
+        reordered.put(left, cells.get(left));
+        var repeated = MonstermosSpaceFlow.runAmbient(reordered, graph, faces, 800);
+        for (BlockPos pos : cells.keySet()) {
+            assertEquals(first.states().get(pos).gasMoles(), repeated.states().get(pos).gasMoles());
+            assertEquals(first.states().get(pos).thermalEnergy(), repeated.states().get(pos).thermalEnergy(), 1e-9);
+        }
+        assertEquals(first.exported(), MonstermosSpaceFlow.runAmbient(reordered, graph, faces, 800).exported());
+        var incomplete = MonstermosSpaceFlow.runAmbient(cells, graph, faces, 1);
+        assertFalse(incomplete.work().complete());
+        assertTrue(incomplete.states().isEmpty());
+        assertEquals(cells.keySet(), MonstermosSpaceFlow.runAmbient(cells, graph, Map.of(), 800).states().keySet());
+    }
+
+    @Test
+    void hotMixedSpeciesPacketsStayPressureDirectedAndConserveEnergy() {
+        BlockPos finite = new BlockPos(0, 0, 0), exterior = finite.east();
+        GasMixture ambient = GasMixture.breathableAir();
+        GasMixture contaminated = new GasMixture(Map.of(GasType.PLASMA, 80.0,
+                GasType.OXYGEN, 20.0), 500.0);
+        Map<BlockPos, GasMixture> before = Map.of(finite, contaminated);
+        var result = MonstermosSpaceFlow.runAmbient(before, Map.of(finite, Set.of()),
+                Map.of(new MonstermosSpaceFlow.DirectedEdge(finite, exterior), ambient), 800);
+        assertTrue(result.states().get(finite).pressureKpa(1) >= ambient.pressureKpa(1));
+        for (GasType gas : GasType.values())
+            assertEquals(contaminated.moles(gas), result.states().get(finite).moles(gas)
+                    + result.exported().speciesMoles().getOrDefault(gas, 0.0), 1e-8);
+        assertEquals(contaminated.thermalEnergy(), result.states().get(finite).thermalEnergy()
+                + result.exported().thermalEnergyJoules(), 1e-7);
+
+        GasMixture warmAmbient = new GasMixture(Map.of(GasType.OXYGEN, 10.0,
+                GasType.NITROGEN, 30.0), 400);
+        GasMixture coldRoom = new GasMixture(Map.of(GasType.TRITIUM, 2.0), 200);
+        var incoming = MonstermosSpaceFlow.runAmbient(Map.of(finite, coldRoom), Map.of(finite, Set.of()),
+                Map.of(new MonstermosSpaceFlow.DirectedEdge(finite, exterior), warmAmbient), 800);
+        assertTrue(incoming.states().get(finite).pressureKpa(1) <= warmAmbient.pressureKpa(1));
+        assertTrue(incoming.states().get(finite).moles(GasType.TRITIUM) > 0);
+        assertTrue(incoming.exported().speciesMoles().get(GasType.OXYGEN) < 0);
+    }
+
+    @Test
     void routesInteriorGasAndExportsWithConservationOfEverySpeciesAndHeat() {
         Map<BlockPos, GasMixture> room = room(4, 4, 3, 1000.0 / 48.0);
         BlockPos holeCell = new BlockPos(0, 3, 0);

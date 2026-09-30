@@ -124,7 +124,10 @@ public final class HumanHarnessTravelOwnershipGameTests {
     @GameTest(template = "empty", timeoutTicks = 30)
     public static void onlyMarkedVillagerLosesVanillaTravelOwnership(GameTestHelper helper) {
         for (int x = 1; x <= 7; x++) {
-            for (int z = 1; z <= 7; z++) helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+            for (int z = 1; z <= 7; z++) {
+                helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+                for (int y = 4; y <= 7; y++) helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
+            }
         }
         Villager owned = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 4, 2));
         Villager vanilla = helper.spawn(EntityType.VILLAGER, new BlockPos(5, 4, 2));
@@ -139,17 +142,14 @@ public final class HumanHarnessTravelOwnershipGameTests {
 
         owned.setDeltaMovement(.25d, 0d, 0d);
         ownedPig.setDeltaMovement(.25d, 0d, 0d);
-        vanilla.setDeltaMovement(.25d, 0d, 0d);
         double ownedX = owned.getX();
         double ownedPigX = ownedPig.getX();
-        double vanillaX = vanilla.getX();
         helper.runAfterDelay(3, () -> {
             require(Math.abs(owned.getX() - ownedX) < 1e-9d,
                     "marked Villager must not receive vanilla travel movement on server ticks");
             require(Math.abs(ownedPig.getX() - ownedPigX) < 1e-9d,
                     "same generic owner marker must cancel vanilla Pig travel");
-            require(vanilla.getX() > vanillaX,
-                    "unmarked control Villager must retain vanilla travel movement");
+            assertUnmarkedVanillaTravel(vanilla, "before adapter step");
 
             GroundedHarnessWorldStep adapter = new GroundedHarnessWorldStep();
             owned.getPersistentData().putBoolean(com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease.CONFIGURED_MARKER, true);
@@ -177,20 +177,39 @@ public final class HumanHarnessTravelOwnershipGameTests {
             helper.runAfterDelay(3, () -> {
                 require(Math.abs(owned.getX() - afterAdapter) < 1e-9d,
                         "marked body must not receive additional vanilla travel between adapter calls");
-                finishOwnershipChecks(helper, owned, vanilla, ownerFlag, vanillaX);
+                finishOwnershipChecks(helper, owned, vanilla, ownerFlag);
             });
         });
     }
 
     private static void finishOwnershipChecks(GameTestHelper helper, Villager owned, Villager vanilla,
-                                              MindControlledMob ownerFlag, double vanillaX) {
+                                               MindControlledMob ownerFlag) {
         ownerFlag.moonstation14$setMovementOwned(false);
         owned.setDeltaMovement(.25d, 0d, 0d);
         double beforeResume = owned.getX();
         owned.travel(Vec3.ZERO);
         require(owned.getX() > beforeResume, "clearing marker must restore vanilla travel immediately");
-        require(vanilla.getX() > vanillaX, "ownership changes must not affect the control Villager");
+        assertUnmarkedVanillaTravel(vanilla, "after clearing owned marker");
         helper.succeed();
+    }
+
+    private static void assertUnmarkedVanillaTravel(Villager vanilla, String phase) {
+        MindControlledMob controlFlag = (MindControlledMob) vanilla;
+        require(!controlFlag.moonstation14$isMovementOwned(),
+                "unmarked control Villager must remain unowned " + phase);
+        // AI ticks need not retain the velocity assigned at spawn; prove vanilla travel directly.
+        vanilla.setDeltaMovement(.25d, 0d, 0d);
+        Vec3 before = vanilla.position();
+        boolean onGround = vanilla.onGround();
+        boolean clearAhead = vanilla.level().noCollision(vanilla, vanilla.getBoundingBox().move(.25d, 0d, 0d));
+        vanilla.travel(Vec3.ZERO);
+        require(vanilla.getX() > before.x,
+                "unmarked control Villager must move through explicit vanilla travel " + phase
+                        + "; before=" + before + ", after=" + vanilla.position()
+                        + ", velocityAfter=" + vanilla.getDeltaMovement()
+                        + ", noAi=" + vanilla.isNoAi() + ", onGroundBefore=" + onGround
+                        + ", clearAheadBefore=" + clearAhead + ", boxAfter=" + vanilla.getBoundingBox()
+                        + ", marker=" + controlFlag.moonstation14$isMovementOwned());
     }
 
     private static void require(boolean condition, String message) {

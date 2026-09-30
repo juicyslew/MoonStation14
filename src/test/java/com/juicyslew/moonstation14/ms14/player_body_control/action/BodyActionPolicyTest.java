@@ -2,12 +2,12 @@ package com.juicyslew.moonstation14.ms14.player_body_control.action;
 
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
+import com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -15,8 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BodyActionPolicyTest {
     private static CharacterData prototype(List<String> hands) {
-        return new CharacterData(new CharacterData.SlipTargetData(false, true, false, false,
-                List.of(), List.of()), Optional.empty(), List.of(), Optional.empty(), hands);
+        return new CharacterData(List.of(), hands.isEmpty()
+                ? List.of() : List.of(new HandsPrototypeComponent(hands)));
     }
 
     private static BodyActionPolicy.Identity identity(Object player, Object body, UUID uuid,
@@ -66,9 +66,7 @@ class BodyActionPolicyTest {
 
     @Test
     void prototypeDeclarationCannotRestoreRevokedRuntimeComponent() {
-        var prototype = new CharacterData(new CharacterData.SlipTargetData(false, true, false, false,
-                List.of(), List.of()), Optional.empty(), List.of(), Optional.empty(), List.of(),
-                Optional.empty(), Optional.empty(), List.of(new ComplexInteractionComponent()), Optional.empty());
+        var prototype = new CharacterData(List.of(), List.of(new ComplexInteractionComponent()));
         var body = new Object();
         var player = new Object();
         var uuid = UUID.randomUUID();
@@ -103,7 +101,7 @@ class BodyActionPolicyTest {
         assertFalse(BodyActionPolicy.same(original, identity(player, body, uuid,
                 BodyActionPolicy.Source.LIFECYCLE, mind, 2, pig, true)));
         assertFalse(BodyActionPolicy.same(original, identity(player, body, uuid,
-                BodyActionPolicy.Source.LIFECYCLE, mind, 1, prototype(List.of()), true)));
+                BodyActionPolicy.Source.LIFECYCLE, mind, 1, prototype(List.of("left", "right")), true)));
         // A live revoke invalidates the old observation despite unchanged session and epoch.
         assertFalse(BodyActionPolicy.same(original, identity(player, body, uuid,
                 BodyActionPolicy.Source.LIFECYCLE, mind, 1, pig, false)));

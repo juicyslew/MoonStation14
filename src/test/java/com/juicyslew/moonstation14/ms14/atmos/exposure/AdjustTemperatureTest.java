@@ -34,6 +34,19 @@ class AdjustTemperatureTest {
     }
 
     @Test
+    void absentLegacyProfileOrBodySkipsWithoutMutation() {
+        var body = new BodyTemperatureAttachment(new BodyTemperatureComponent(310.15));
+        assertEquals(EffectResult.SKIPPED_UNSUPPORTED,
+                BodyTemperatureSystem.adjustHeat(body, (ThermalExposureMath.ThermalProfile) null, 1470f));
+        assertEquals(310.15, body.kelvin());
+        assertEquals(EffectResult.SKIPPED_UNSUPPORTED,
+                BodyTemperatureSystem.adjustHeat(null, PROFILE, 1470f));
+        assertEquals(EffectResult.FAILED,
+                BodyTemperatureSystem.adjustHeat(body, PROFILE, Float.NaN));
+        assertEquals(310.15, body.kelvin());
+    }
+
+    @Test
     void defaultEffectDispatcherNowOwnsAdjustTemperature() {
         var system = EffectSystem.withDefaults();
         assertTrue(system.supportsHandler(new EffectData.AdjustTemperature(EffectCommonData.DEFAULT, 1f)));

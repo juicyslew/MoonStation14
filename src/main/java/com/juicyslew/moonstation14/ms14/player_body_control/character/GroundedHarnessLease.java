@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
@@ -80,8 +81,10 @@ public final class GroundedHarnessLease implements AutoCloseable {
         if (identity == null || !identity.isBound()
                 || ModCharacters.characterForHost(level, BuiltInRegistries.ENTITY_TYPE.getKey(body.getType()))
                 .filter(identity.characterId()::equals).isEmpty()) return false;
-        return CharacterIdentitySystem.resolve(body)
-                .filter(data -> data.movement().filter(movement -> "grounded".equals(movement.mode())).isPresent())
+        // Intentionally mapped-host-only: this legacy configured-Mob lease excludes the explicit custom body.
+        return CharacterIdentitySystem.resolveForHost(body)
+                .filter(data -> data.component(MovementSpeedModifierComponent.class)
+                        .filter(movement -> "grounded".equals(movement.mode())).isPresent())
                 .isPresent();
     }
 

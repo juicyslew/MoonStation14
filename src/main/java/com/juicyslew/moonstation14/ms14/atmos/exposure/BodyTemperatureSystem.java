@@ -2,6 +2,9 @@ package com.juicyslew.moonstation14.ms14.atmos.exposure;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.components.TemperatureComponent;
+import com.juicyslew.moonstation14.ms14.character.components.TemperatureDamageComponent;
+import com.juicyslew.moonstation14.ms14.character.components.ThermalRegulatorComponent;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -39,7 +42,7 @@ public final class BodyTemperatureSystem {
     /** Initializes once from character policy; persisted temperatures are never overwritten. */
     public static void reconcile(LivingEntity entity) {
         if (!supported(entity) || !(entity.level() instanceof ServerLevel) || !AtmosphereService.INSTANCE.isEnabled()) return;
-        Optional<CharacterData.ThermalData> thermal = profile(entity);
+        Optional<TemperatureComponent> thermal = profile(entity);
         if (thermal.isEmpty()) return;
         if (entity.getExistingDataOrNull(ModDataAttachments.BODY_TEMPERATURE.get()) == null) {
             MS14Provider.update(entity, MS14Bridges.BODY_TEMPERATURE,
@@ -49,46 +52,49 @@ public final class BodyTemperatureSystem {
 
     public static Outcome exposeOneSecond(LivingEntity entity, ServerLevel level) {
         if (!supported(entity) || entity.level() != level || !AtmosphereService.INSTANCE.isEnabled()) return Outcome.SKIPPED;
-        Optional<CharacterData.ThermalData> selected = profile(entity);
+        Optional<TemperatureComponent> selected = profile(entity);
         if (selected.isEmpty()) return Outcome.SKIPPED;
         reconcile(entity);
         BlockPos eye = BlockPos.containing(entity.getX(), entity.getEyeY(), entity.getZ());
         var sample = AtmosphereService.INSTANCE.sample(level, eye);
-        if (sample.isEmpty()) return applyStoredBodyDamage(entity, selected.get().toProfile());
+        Optional<TemperatureDamageComponent> damage = damage(entity);
+        if (sample.isEmpty()) return applyStoredBodyDamage(entity, damage);
         // Strict sample supplies the physical mixture. This presentation read is used only
         // for ownership classification; PROVISIONAL is never accepted for physics.
         var reading = AtmosphereService.INSTANCE.readAtmosphere(level, eye);
         if (reading.isEmpty() || reading.get().status() == AtmosphereReading.Status.PROVISIONAL) {
-            return applyStoredBodyDamage(entity, selected.get().toProfile());
+            return applyStoredBodyDamage(entity, damage);
         }
         BodyTemperatureAttachment detached = MS14Provider.getDetached(entity, MS14Bridges.BODY_TEMPERATURE);
         BodyTemperatureComponent before = detached.toComponent();
         boolean provenVacuum = reading.get().status() == AtmosphereReading.Status.EXTERIOR
                 && sample.get().totalMoles() == 0.0;
-        Outcome result = transact(detached, sample.get(), selected.get().toProfile(), selected.get().toRegulationPolicy(),
+        Outcome result = transact(detached, sample.get(), selected.get().toProfile(), damage.map(TemperatureDamageComponent::toProfile).orElse(null),
+                regulator(entity).map(ThermalRegulatorComponent::toPolicy).orElse(null),
                 provenVacuum ? selected.get().toVacuumPolicy() : null,
                 energyCommitFor(reading.get().status(), joules -> AtmosphereService.INSTANCE.addEnergy(level, eye, joules)),
-                damage -> DamageSystem.applyHealthChange(entity, damage, 1.0f, true)
+                 amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true)
                         == DamageSystem.Result.APPLIED);
         if (result == Outcome.APPLIED) MS14Provider.updateIfChanged(entity, MS14Bridges.BODY_TEMPERATURE, before, detached);
         return result;
     }
 
     private static Outcome applyStoredBodyDamage(LivingEntity entity,
-                                                 ThermalExposureMath.ThermalProfile profile) {
+                                                 Optional<TemperatureDamageComponent> damage) {
         BodyTemperatureAttachment stored = entity.getExistingDataOrNull(ModDataAttachments.BODY_TEMPERATURE.get());
         if (stored == null) return Outcome.SKIPPED;
-        applyBodyDamage(stored.kelvin(), profile, 1.0,
-                damage -> DamageSystem.applyHealthChange(entity, damage, 1.0f, true)
+        if (damage.isEmpty()) return Outcome.APPLIED;
+        applyBodyDamage(stored.kelvin(), damage.get().toProfile(), 1.0,
+                amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true)
                         == DamageSystem.Result.APPLIED);
         return Outcome.APPLIED;
     }
 
     /** Applies at most one typed damage transaction for a body-state interval. */
     public static boolean applyBodyDamage(double bodyKelvin,
-                                          ThermalExposureMath.ThermalProfile profile,
-                                          double seconds,
-                                          java.util.function.Predicate<Map<String, Float>> damageSink) {
+                                           ThermalExposureMath.ThermalProfile profile,
+                                           double seconds,
+                                           java.util.function.Predicate<Map<String, Float>> damageSink) {
         if (damageSink == null) return false;
         Map<String, Float> damage;
         try {
@@ -97,6 +103,25 @@ public final class BodyTemperatureSystem {
             return false;
         }
         return damage.isEmpty() || damageSink.test(damage);
+    }
+
+    public static boolean applyBodyDamage(double bodyKelvin, ThermalExposureMath.DamageProfile profile,
+                                          double seconds, java.util.function.Predicate<Map<String, Float>> sink) {
+        if (sink == null) return false;
+        try {
+            Map<String, Float> damage = thresholdDamage(bodyKelvin, profile, seconds);
+            return damage.isEmpty() || sink.test(damage);
+        } catch (IllegalArgumentException ex) { return false; }
+    }
+
+    public static Map<String, Float> thresholdDamage(double kelvin, ThermalExposureMath.DamageProfile profile, double seconds) {
+        var amounts = ThermalExposureMath.damageAt(kelvin, profile, seconds);
+        if (amounts.heat() > Float.MAX_VALUE || amounts.cold() > Float.MAX_VALUE)
+            throw new IllegalArgumentException("thermal damage exceeds typed-damage range");
+        java.util.LinkedHashMap<String, Float> typed = new java.util.LinkedHashMap<>();
+        if (amounts.heat() > 0) typed.put(DamageKeys.HEAT, (float) amounts.heat());
+        if (amounts.cold() > 0) typed.put(DamageKeys.COLD, (float) amounts.cold());
+        return Map.copyOf(typed);
     }
 
     /** Body-state-only typed damage for one scheduler interval; empty means below thresholds. */
@@ -118,13 +143,13 @@ public final class BodyTemperatureSystem {
         if (!(target instanceof LivingEntity living) || !(target.level() instanceof ServerLevel)
                 || !supported(living)) return EffectResult.SKIPPED_UNSUPPORTED;
         if (!AtmosphereService.INSTANCE.isEnabled()) return EffectResult.SKIPPED_UNSUPPORTED;
-        Optional<CharacterData.ThermalData> thermal = profile(living);
+        Optional<TemperatureComponent> thermal = profile(living);
         if (thermal.isEmpty()) return EffectResult.SKIPPED_UNSUPPORTED;
         if (!Float.isFinite(amountJoules) || !Float.isFinite(scale)) return EffectResult.FAILED;
         float scaledJoules = amountJoules * scale;
         if (!Float.isFinite(scaledJoules)) return EffectResult.FAILED;
 
-        ThermalExposureMath.ThermalProfile bodyProfile = thermal.get().toProfile();
+        ThermalExposureMath.TemperatureProfile bodyProfile = thermal.get().toProfile();
         BodyTemperatureAttachment stored = living.getExistingDataOrNull(ModDataAttachments.BODY_TEMPERATURE.get());
         BodyTemperatureAttachment detached = stored == null
                 ? new BodyTemperatureAttachment(new BodyTemperatureComponent(thermal.get().currentKelvin()))
@@ -140,8 +165,16 @@ public final class BodyTemperatureSystem {
 
     /** Pure thermal arithmetic seam: positive joules heat, negative joules cool. */
     public static EffectResult adjustHeat(BodyTemperatureAttachment detached,
-                                          ThermalExposureMath.ThermalProfile profile,
-                                          float amountJoules) {
+                                           ThermalExposureMath.ThermalProfile profile,
+                                           float amountJoules) {
+        if (detached == null || profile == null) return EffectResult.SKIPPED_UNSUPPORTED;
+        return adjustHeat(detached, new ThermalExposureMath.TemperatureProfile(profile.massKg(),
+                profile.specificHeatJoulesPerKgKelvin(), profile.atmosphereTransferEfficiency()), amountJoules);
+    }
+
+    public static EffectResult adjustHeat(BodyTemperatureAttachment detached,
+                                           ThermalExposureMath.TemperatureProfile profile,
+                                           float amountJoules) {
         if (detached == null || profile == null) return EffectResult.SKIPPED_UNSUPPORTED;
         if (!Float.isFinite(amountJoules)) return EffectResult.FAILED;
         double heatCapacity = profile.bodyHeatCapacityJoulesPerKelvin();
@@ -156,11 +189,48 @@ public final class BodyTemperatureSystem {
     }
 
     public static EffectResult adjustHeat(BodyTemperatureAttachment detached,
-                                          ThermalExposureMath.ThermalProfile profile,
-                                          float amountJoules, float scale) {
+                                           ThermalExposureMath.ThermalProfile profile,
+                                           float amountJoules, float scale) {
         if (!Float.isFinite(amountJoules) || !Float.isFinite(scale)) return EffectResult.FAILED;
         float scaledJoules = amountJoules * scale;
         return Float.isFinite(scaledJoules) ? adjustHeat(detached, profile, scaledJoules) : EffectResult.FAILED;
+    }
+
+    public static EffectResult adjustHeat(BodyTemperatureAttachment detached,
+                                           ThermalExposureMath.TemperatureProfile profile,
+                                           float amountJoules, float scale) {
+        if (!Float.isFinite(amountJoules) || !Float.isFinite(scale)) return EffectResult.FAILED;
+        float scaled = amountJoules * scale;
+        return Float.isFinite(scaled) ? adjustHeat(detached, profile, scaled) : EffectResult.FAILED;
+    }
+
+    /** Independent component membership: damage and regulation are both optional. */
+    public static Outcome transact(BodyTemperatureAttachment detached,
+                                   com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
+                                   ThermalExposureMath.TemperatureProfile temperature,
+                                   ThermalExposureMath.DamageProfile damage, ThermalRegulatorMath.Policy regulation,
+                                   ThermalExposureMath.VacuumPolicy vacuum,
+                                   DoublePredicate energyCommit,
+                                   java.util.function.Predicate<Map<String, Float>> damageSink) {
+        if (detached == null || gas == null || temperature == null || energyCommit == null) return Outcome.SKIPPED;
+        double next, energy;
+        Map<String, Float> typed;
+        try {
+            var exchange = ThermalExposureMath.exchange(detached.kelvin(), gas, temperature, 1.0);
+            energy = exchange.environmentEnergyDeltaJoules();
+            next = vacuum != null && gas.totalMoles() == 0 && gas.heatCapacity() == 0
+                    ? ThermalExposureMath.vacuumBodyKelvin(exchange.bodyTemperatureKelvin(), temperature, vacuum, 1.0)
+                    : exchange.bodyTemperatureKelvin();
+            if (regulation != null) next = ThermalRegulatorMath.regulate(next,
+                    temperature.bodyHeatCapacityJoulesPerKelvin(), regulation, 1.0, true, true);
+            if (!Double.isFinite(next) || next < 2.7 || next > 20000) return Outcome.SKIPPED;
+            typed = damage == null ? Map.of() : thresholdDamage(next, damage, 1.0);
+            if (!typed.isEmpty() && damageSink == null) return Outcome.SKIPPED;
+        } catch (IllegalArgumentException | IllegalStateException ex) { return Outcome.SKIPPED; }
+        if (energy != 0 && !energyCommit.test(energy)) return Outcome.SKIPPED;
+        detached.setKelvin(next);
+        if (!typed.isEmpty()) damageSink.test(typed);
+        return Outcome.APPLIED;
     }
 
     /** Selects the thermal reservoir policy; immutable exterior energy is not world-persisted. */
@@ -244,8 +314,14 @@ public final class BodyTemperatureSystem {
         return Outcome.APPLIED;
     }
 
-    private static Optional<CharacterData.ThermalData> profile(LivingEntity entity) {
-        return CharacterIdentitySystem.resolveForHost(entity).flatMap(CharacterData::thermal);
+    private static Optional<TemperatureComponent> profile(LivingEntity entity) {
+        return CharacterIdentitySystem.resolveForActor(entity).flatMap(data -> data.component(TemperatureComponent.class));
+    }
+    private static Optional<TemperatureDamageComponent> damage(LivingEntity entity) {
+        return CharacterIdentitySystem.resolveForActor(entity).flatMap(data -> data.component(TemperatureDamageComponent.class));
+    }
+    private static Optional<ThermalRegulatorComponent> regulator(LivingEntity entity) {
+        return CharacterIdentitySystem.resolveForActor(entity).flatMap(data -> data.component(ThermalRegulatorComponent.class));
     }
 
     private static boolean supported(LivingEntity entity) {

@@ -4,6 +4,9 @@ import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.components.NoSlipComponent;
+import com.juicyslew.moonstation14.ms14.character.components.StandingStateComponent;
+import com.juicyslew.moonstation14.ms14.character.components.StunnableComponent;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
@@ -164,8 +167,8 @@ public final class SlipSystem {
         }
 
         CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
-        if (character == null || !character.slipData().canReceiveStun()
-                || !character.slipData().standingEligible()
+        if (character == null || character.component(StunnableComponent.class).isEmpty()
+                || character.component(StandingStateComponent.class).filter(StandingStateComponent::standingEligible).isEmpty()
                 || !(target instanceof IStatusEffectTrait statusTrait)) return;
         if (!Double.isFinite(speed)) return;
 
@@ -188,7 +191,7 @@ public final class SlipSystem {
         // StepTriggerSystem latches once speed/contact/CanSlip are satisfied. The later
         // slippery attempt, target NoSlip, and knockdown checks do not undo that latch.
         if (!latch(level, actorId, sourcePosition)) return;
-        if (character.slipData().noSlip()) return;
+        if (character.component(NoSlipComponent.class).isPresent()) return;
         boolean knockedDown = StatusEffectSystem.hasStatus(statusTrait.toHandleSelf(), level, KNOCKDOWN);
         if (knockedDown && !profile.superSlippery()) return;
         SlipAttempt attempt = new SlipAttempt(level, position.immutable(), puddle, target, profile, knockedDown);
@@ -221,7 +224,7 @@ public final class SlipSystem {
         }
 
         // The listener observes the pre-slip value; publish only the real transition afterward.
-        if (!wasSliding && profile.knockdownSeconds() > 0d && character.slipData().proneEligible()) {
+        if (!wasSliding && profile.knockdownSeconds() > 0d && character.component(StandingStateComponent.class).map(StandingStateComponent::proneEligible).orElse(false)) {
             SlidingAttachment sliding = new SlidingAttachment();
             sliding.setSliding(true);
             MS14Provider.update(target, MS14Bridges.SLIDING, sliding);
@@ -233,7 +236,7 @@ public final class SlipSystem {
             target.setDeltaMovement(velocity.scale(profile.launchVelocityMultiplier()));
             target.hurtMarked = true;
         }
-        if (character.slipData().proneEligible() && profile.knockdownSeconds() > 0d) {
+        if (character.component(StandingStateComponent.class).map(StandingStateComponent::proneEligible).orElse(false) && profile.knockdownSeconds() > 0d) {
             int duration = StatusEffectSystem.secondsToTicks((float) profile.knockdownSeconds());
             StatusEffectSystem.apply(statusTrait.toHandleSelf(), level, KNOCKDOWN,
                     StatusEffectOperation.SET, java.util.OptionalInt.of(duration), 0);

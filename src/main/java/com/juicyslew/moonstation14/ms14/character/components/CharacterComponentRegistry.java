@@ -26,9 +26,28 @@ public final class CharacterComponentRegistry {
         }
     }
 
-    private static final Map<String, Entry<?>> TYPES = Map.of(
-            BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC),
-            ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC));
+    private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
+            Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),
+            Map.entry(ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC)),
+            Map.entry(BlindablePrototypeComponent.TYPE, new Entry<>(BlindablePrototypeComponent.class, BlindablePrototypeComponent.CODEC)),
+            Map.entry(BloodstreamComponent.TYPE, new Entry<>(BloodstreamComponent.class, BloodstreamComponent.CODEC)),
+            Map.entry(BodyComponent.TYPE, new Entry<>(BodyComponent.class, BodyComponent.CODEC)),
+            Map.entry(FlammablePrototypeComponent.TYPE, new Entry<>(FlammablePrototypeComponent.class, FlammablePrototypeComponent.CODEC)),
+            Map.entry(HandsPrototypeComponent.TYPE, new Entry<>(HandsPrototypeComponent.class, HandsPrototypeComponent.CODEC)),
+            Map.entry(HungerPrototypeComponent.TYPE, new Entry<>(HungerPrototypeComponent.class, HungerPrototypeComponent.CODEC)),
+            Map.entry(InitialBodyComponent.TYPE, new Entry<>(InitialBodyComponent.class, InitialBodyComponent.CODEC)),
+            Map.entry(MetabolizerPrototypeComponent.TYPE, new Entry<>(MetabolizerPrototypeComponent.class, MetabolizerPrototypeComponent.CODEC)),
+            Map.entry(MovementSpeedModifierComponent.TYPE, new Entry<>(MovementSpeedModifierComponent.class, MovementSpeedModifierComponent.CODEC)),
+            Map.entry(NoSlipComponent.TYPE, new Entry<>(NoSlipComponent.class, NoSlipComponent.CODEC)),
+            Map.entry(ReactiveComponent.TYPE, new Entry<>(ReactiveComponent.class, ReactiveComponent.CODEC)),
+            Map.entry(RespiratorComponent.TYPE, new Entry<>(RespiratorComponent.class, RespiratorComponent.CODEC)),
+            Map.entry(StandingStateComponent.TYPE, new Entry<>(StandingStateComponent.class, StandingStateComponent.CODEC)),
+            Map.entry(StomachPrototypeComponent.TYPE, new Entry<>(StomachPrototypeComponent.class, StomachPrototypeComponent.CODEC)),
+            Map.entry(StunnableComponent.TYPE, new Entry<>(StunnableComponent.class, StunnableComponent.CODEC)),
+            Map.entry(ThirstPrototypeComponent.TYPE, new Entry<>(ThirstPrototypeComponent.class, ThirstPrototypeComponent.CODEC)),
+            Map.entry(TemperatureComponent.TYPE, new Entry<>(TemperatureComponent.class, TemperatureComponent.CODEC)),
+            Map.entry(TemperatureDamageComponent.TYPE, new Entry<>(TemperatureDamageComponent.class, TemperatureDamageComponent.CODEC)),
+            Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }
 

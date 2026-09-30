@@ -242,6 +242,151 @@ public final class MonstermosSpaceFlow {
         return new GasMixture(gases, capacity == 0 ? first.temperatureKelvin() : energy / capacity);
     }
 
+    /** Pressure-directed finite graph exchange against immutable, preflighted exterior faces.
+     * Each invocation moves packets across actual adjacent edges only. A second invocation can
+     * carry the pressure wave further; the exterior is never stored in the returned states.
+     */
+    public static Result runAmbient(Map<BlockPos, GasMixture> finiteInputs,
+                                    Map<BlockPos, Set<BlockPos>> finiteAdjacency,
+                                    Map<DirectedEdge, GasMixture> exteriorFaces, int maxCandidateCells) {
+        Objects.requireNonNull(finiteInputs);
+        Objects.requireNonNull(finiteAdjacency);
+        Objects.requireNonNull(exteriorFaces);
+        if (maxCandidateCells <= 0 || maxCandidateCells > MAX_CANDIDATE_CELLS)
+            throw new IllegalArgumentException("Invalid candidate budget");
+        if (finiteInputs.size() > MAX_CANDIDATE_CELLS || exteriorFaces.size() > MAX_EXTERIOR_POSITIONS)
+            throw new IllegalArgumentException("Traversal ceiling exceeded");
+        if (finiteInputs.size() > MAX_APPLIED_CELLS || finiteInputs.size() > maxCandidateCells)
+            return incomplete(finiteInputs.size(), "applied-cell-budget-exceeded");
+        Map<BlockPos, GasMixture> states = new LinkedHashMap<>();
+        finiteInputs.entrySet().stream().sorted(Map.Entry.comparingByKey(POSITION_ORDER)).forEach(e -> {
+            if (e.getKey() == null || e.getValue() == null) throw new IllegalArgumentException("Null finite cell");
+            states.put(e.getKey().immutable(), e.getValue());
+        });
+        Map<BlockPos, List<BlockPos>> graph = new LinkedHashMap<>();
+        for (BlockPos pos : states.keySet()) {
+            List<BlockPos> neighbors = new ArrayList<>();
+            for (BlockPos neighbor : finiteAdjacency.getOrDefault(pos, Set.of())) {
+                if (!states.containsKey(neighbor) || manhattan(pos, neighbor) != 1
+                        || !finiteAdjacency.getOrDefault(neighbor, Set.of()).contains(pos))
+                    throw new IllegalArgumentException("Invalid finite adjacency");
+                neighbors.add(neighbor.immutable());
+            }
+            neighbors.sort(POSITION_ORDER);
+            graph.put(pos, neighbors);
+        }
+        List<DirectedEdge> faces = exteriorFaces.keySet().stream()
+                .sorted(Comparator.comparing(DirectedEdge::from, POSITION_ORDER)
+                        .thenComparing(DirectedEdge::to, POSITION_ORDER)).toList();
+        for (DirectedEdge face : faces) {
+            if (!states.containsKey(face.from()) || states.containsKey(face.to())
+                    || manhattan(face.from(), face.to()) != 1 || exteriorFaces.get(face) == null)
+                throw new IllegalArgumentException("Unverified exterior face");
+        }
+        if (faces.isEmpty()) return unchanged(states, "no-exterior-opening");
+        Set<BlockPos> seeds = new HashSet<>();
+        faces.forEach(face -> seeds.add(face.from()));
+        DistanceSearch search = distances(seeds, graph);
+        Map<BlockPos, Integer> depth = search.distances();
+        List<BlockPos> inward = new ArrayList<>(depth.keySet());
+        inward.sort(Comparator.<BlockPos>comparingInt(depth::get).reversed().thenComparing(POSITION_ORDER));
+        Map<DirectedEdge, Double> transfers = new LinkedHashMap<>();
+        Map<DirectedEdge, List<BlockPos>> paths = new LinkedHashMap<>();
+        Set<DirectedEdge> movedFiniteEdges = new HashSet<>();
+        int calls = 0;
+        int finiteEdgeChecks = 0;
+        // Outward pressure relaxation, deepest first. An unmoved edge can later
+        // carry newly imported gas inward, but never transfers twice in one call.
+        for (BlockPos pos : inward) for (BlockPos neighbor : graph.get(pos)) {
+            if (depth.getOrDefault(neighbor, Integer.MAX_VALUE) >= depth.get(pos)) continue;
+            finiteEdgeChecks++;
+            if (move(states, pos, neighbor, null, transfers, paths)) {
+                movedFiniteEdges.add(finiteEdge(pos, neighbor));
+                calls++;
+            }
+        }
+        // Equal-depth neighbors (including adjacent doorway cells) have no BFS parent.
+        // Relax each such face once before exterior exchange so either opening can export
+        // the packet in this invocation. Position order is independent of input order.
+        for (BlockPos pos : states.keySet()) for (BlockPos neighbor : graph.get(pos)) {
+            if (POSITION_ORDER.compare(pos, neighbor) >= 0 || !depth.containsKey(pos)
+                    || !depth.get(pos).equals(depth.get(neighbor))) continue;
+            finiteEdgeChecks++;
+            if (move(states, pos, neighbor, null, transfers, paths)) {
+                movedFiniteEdges.add(finiteEdge(pos, neighbor));
+                calls++;
+            }
+        }
+        // Faces are sorted; each sees the updated boundary state from preceding exchanges.
+        for (DirectedEdge face : faces)
+            if (move(states, face.from(), face.to(), exteriorFaces.get(face), transfers, paths)) calls++;
+        // Propagate incoming ambient down actual edges, nearest first. Outflow from remote
+        // cells is likewise limited by local pressure rather than routing a remote packet.
+        inward.sort(Comparator.<BlockPos>comparingInt(depth::get).thenComparing(POSITION_ORDER));
+        for (BlockPos pos : inward) for (BlockPos neighbor : graph.get(pos)) {
+            if (depth.getOrDefault(neighbor, Integer.MAX_VALUE) <= depth.get(pos)) continue;
+            finiteEdgeChecks++;
+            DirectedEdge edge = finiteEdge(pos, neighbor);
+            if (!movedFiniteEdges.contains(edge) && move(states, pos, neighbor, null, transfers, paths)) {
+                movedFiniteEdges.add(edge);
+                calls++;
+            }
+        }
+        EnumMap<GasType, Double> exported = new EnumMap<>(GasType.class);
+        for (GasType gas : GasType.values()) {
+            double delta = 0;
+            for (BlockPos pos : states.keySet()) delta += finiteInputs.get(pos).moles(gas) - states.get(pos).moles(gas);
+            if (delta != 0) exported.put(gas, delta);
+        }
+        double energy = 0;
+        for (BlockPos pos : states.keySet()) energy += finiteInputs.get(pos).thermalEnergy() - states.get(pos).thermalEnergy();
+        return new Result(states, new ExportLedger(exported, energy), transfers, paths,
+                new Work(depth.size(), states.size() + search.traversedEdges() + finiteEdgeChecks + faces.size() + calls,
+                        calls, true, "complete"));
+    }
+
+    private static DirectedEdge finiteEdge(BlockPos a, BlockPos b) {
+        return POSITION_ORDER.compare(a, b) < 0 ? new DirectedEdge(a, b) : new DirectedEdge(b, a);
+    }
+
+    private static boolean move(Map<BlockPos, GasMixture> states, BlockPos a, BlockPos b,
+                                GasMixture exterior, Map<DirectedEdge, Double> transfers,
+                                Map<DirectedEdge, List<BlockPos>> paths) {
+        GasMixture left = states.get(a), right = exterior == null ? states.get(b) : exterior;
+        double difference = left.pressureKpa(1.0) - right.pressureKpa(1.0);
+        if (difference == 0) return false;
+        boolean outward = difference > 0;
+        GasMixture donor = outward ? left : right;
+        GasMixture receiver = outward ? right : left;
+        if (donor.totalMoles() <= 0) return false;
+        double cap = Math.min(donor.totalMoles(), Math.min(SPACING_MAX_WIND_KPA, Math.abs(difference))
+                * 1000.0 / (GAS_CONSTANT * Math.max(donor.temperatureKelvin(), 1e-12)));
+        // Bisection handles unequal donor/receiver temperatures and heat capacities: a warm
+        // packet can raise receiver pressure faster than a simple mole-based estimate predicts.
+        double low = 0, high = cap;
+        for (int i = 0; i < 48; i++) {
+            double mid = (low + high) * 0.5;
+            GasMixture packet = donor.withScaledMoles(mid / donor.totalMoles());
+            double receiverPressure = exterior != null && outward ? receiver.pressureKpa(1.0)
+                    : add(receiver, packet).pressureKpa(1.0);
+            double donorPressure = exterior != null && !outward ? donor.pressureKpa(1.0)
+                    : donor.pressureKpa(1.0) * (1.0 - mid / donor.totalMoles());
+            if (receiverPressure <= donorPressure) low = mid;
+            else high = mid;
+        }
+        double amount = low * 0.5; // bounded relaxation, never an equilibrium overshoot
+        if (!(amount > 0)) return false;
+        GasMixture packet = donor.withScaledMoles(amount / donor.totalMoles());
+        BlockPos source = outward ? a : b, target = outward ? b : a;
+        if (exterior == null || outward)
+            states.put(source, donor.withScaledMoles(1.0 - amount / donor.totalMoles()));
+        if (exterior == null || !outward) states.put(target, add(receiver, packet));
+        DirectedEdge edge = new DirectedEdge(source, target);
+        transfers.merge(edge, amount, Double::sum);
+        paths.put(edge, List.of(source, target));
+        return true;
+    }
+
     private static int manhattan(BlockPos a, BlockPos b) {
         return Math.abs(a.getX() - b.getX()) + Math.abs(a.getY() - b.getY()) + Math.abs(a.getZ() - b.getZ());
     }

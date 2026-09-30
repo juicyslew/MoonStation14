@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.gametest;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.hands.HandCapability;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
@@ -32,6 +33,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
+import java.util.UUID;
 
 @GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -115,11 +117,20 @@ public final class BodyHandBootstrapGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void lifecycleHumanHarnessRetainsBodyState(GameTestHelper helper) {
-        PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
-        require(body != null, "harness constructible");
-        CharacterIdentityAttachment human = new CharacterIdentityAttachment();
-        human.bind(ModCharacters.HUMAN_ID);
-        body.setData(ModDataAttachments.CHARACTER_IDENTITY.get(), human);
+        PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(1, 1, 1));
+        CompoundTag owner = new CompoundTag();
+        CompoundTag binding = new CompoundTag();
+        binding.putUUID("Account", UUID.randomUUID());
+        binding.putString("Profile", "main");
+        binding.putUUID("Mind", UUID.randomUUID());
+        owner.put("Moonstation14PlayerCharacterBinding", binding);
+        body.readAdditionalSaveData(owner);
+        require(body.isAddedToLevel() && helper.getLevel().getEntity(body.getUUID()) == body
+                        && body.playerCharacterBinding() != null
+                        && CharacterIdentitySystem.enroll(body, helper.getLevel(), ModCharacters.HUMAN_ID)
+                        && CharacterIdentitySystem.resolveForActor(body).isPresent(),
+                "live, exactly bound human harness resolves as an actor");
         require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED, "human harness initialized");
         LiveHands state = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         require(state != null && state.handIds().equals(List.of("left", "right"))
@@ -135,18 +146,35 @@ public final class BodyHandBootstrapGameTests {
         require(restored != null, "restored harness constructible");
         restored.load(saved);
         LiveHands loaded = restored.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        require(loaded != null && BodyHandBootstrap.ensure(restored) == BodyHandBootstrap.Result.PRESERVED
+        // Codec preservation only: the original UUID still owns the world slot, so this copy is not an actor.
+        require(loaded != null && restored.getUUID().equals(body.getUUID())
+                && restored.playerCharacterBinding().equals(body.playerCharacterBinding())
+                && CharacterIdentitySystem.resolveForActor(restored).isEmpty()
+                && HandCapability.resolve(restored).isEmpty()
+                && BodyHandBootstrap.ensure(restored) == BodyHandBootstrap.Result.REJECTED
                 && restored.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == loaded
-                && loaded.compatible(restored) && loaded.revision() == 7
+                && loaded.revision() == 7
                 && loaded.activeHand().equals("right")
                 && loaded.stackCopy("left").orElseThrow().getCount() == 3,
-                "harness occupied state and revision persist without reset");
-        PlayerCharacterHarnessEntity dangling = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
-        require(dangling != null, "dangling harness constructible");
+                "detached codec copy retains occupied state without acquiring actor authority");
+        PlayerCharacterHarnessEntity unbound = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(2, 1, 1));
+        CharacterIdentityAttachment human = new CharacterIdentityAttachment();
+        human.bind(ModCharacters.HUMAN_ID);
+        unbound.setData(ModDataAttachments.CHARACTER_IDENTITY.get(), human);
+        require(CharacterIdentitySystem.resolveForActor(unbound).isEmpty()
+                && HandCapability.resolve(unbound).isEmpty()
+                && BodyHandBootstrap.ensure(unbound) == BodyHandBootstrap.Result.REJECTED
+                && !unbound.hasData(ModDataAttachments.LIVE_HANDS.get()),
+                "live HUMAN key without owner binding never grants hands");
+        PlayerCharacterHarnessEntity dangling = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(3, 1, 1));
+        dangling.readAdditionalSaveData(owner);
         CharacterIdentityAttachment unknown = new CharacterIdentityAttachment();
         unknown.bind(ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "missing_character"));
         dangling.setData(ModDataAttachments.CHARACTER_IDENTITY.get(), unknown);
-        require(HandCapability.resolve(dangling).isEmpty()
+        require(CharacterIdentitySystem.resolveForActor(dangling).isEmpty()
+                && HandCapability.resolve(dangling).isEmpty()
                 && BodyHandBootstrap.ensure(dangling) == BodyHandBootstrap.Result.REJECTED
                 && !dangling.hasData(ModDataAttachments.LIVE_HANDS.get()), "dangling harness rejected");
         helper.succeed();
