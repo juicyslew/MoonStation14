@@ -11,6 +11,7 @@ import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -38,6 +39,17 @@ public final class GhostMobHarnessRenderer extends MobRenderer<GhostMobHarnessEn
         if (minecraft.getCameraEntity() == entity
                 && minecraft.options.getCameraType() == CameraType.FIRST_PERSON) return;
         super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
+    }
+
+    @Override
+    protected boolean shouldShowName(GhostMobHarnessEntity entity) {
+        return false;
+    }
+
+    @Override
+    protected void renderNameTag(GhostMobHarnessEntity entity, Component displayName,
+                                 PoseStack poseStack, MultiBufferSource buffer, int packedLight, float partialTick) {
+        // Ghost identity is revealed through presentation, never an overhead tag.
     }
 
     @SubscribeEvent

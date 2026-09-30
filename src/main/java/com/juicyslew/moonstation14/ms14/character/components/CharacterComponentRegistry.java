@@ -41,6 +41,7 @@ public final class CharacterComponentRegistry {
             Map.entry(NoSlipComponent.TYPE, new Entry<>(NoSlipComponent.class, NoSlipComponent.CODEC)),
             Map.entry(ReactiveComponent.TYPE, new Entry<>(ReactiveComponent.class, ReactiveComponent.CODEC)),
             Map.entry(RespiratorComponent.TYPE, new Entry<>(RespiratorComponent.class, RespiratorComponent.CODEC)),
+            Map.entry(SpeechComponent.TYPE, new Entry<>(SpeechComponent.class, SpeechComponent.CODEC)),
             Map.entry(StandingStateComponent.TYPE, new Entry<>(StandingStateComponent.class, StandingStateComponent.CODEC)),
             Map.entry(StomachPrototypeComponent.TYPE, new Entry<>(StomachPrototypeComponent.class, StomachPrototypeComponent.CODEC)),
             Map.entry(StunnableComponent.TYPE, new Entry<>(StunnableComponent.class, StunnableComponent.CODEC)),

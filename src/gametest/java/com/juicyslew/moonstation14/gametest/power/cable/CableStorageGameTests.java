@@ -46,15 +46,39 @@ public final class CableStorageGameTests {
         require(!CableStorage.place(level, host, Direction.UP, CableTier.HV), "same tier cannot duplicate on a face");
         require(CableStorage.place(level, host, Direction.UP, CableTier.MV), "different tier coexists on a face");
         require(CableStorage.place(level, host, Direction.UP, CableTier.APC), "LV tier coexists on a face");
+        BlockPos sibling = host.above();
+        require((sibling.getX() >> 4) == (host.getX() >> 4)
+                && (sibling.getZ() >> 4) == (host.getZ() >> 4), "sibling shares owning chunk");
+        level.setBlock(sibling, ModBlocks.STATION_FLOOR.get().defaultBlockState(), 3);
+        require(CableStorage.place(level, sibling, Direction.SOUTH, CableTier.MV), "place sibling host cable");
         var before = chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get()).snapshot();
+        require(before.stream().filter(record -> record.x() == (host.getX() & 15)
+                && record.y() == host.getY() && record.z() == (host.getZ() & 15)).count() == 8,
+                "all six HV faces and both additional UP tiers are present in the raw attachment");
+        require(before.stream().anyMatch(record -> record.x() == (sibling.getX() & 15)
+                && record.y() == sibling.getY() && record.z() == (sibling.getZ() & 15)
+                && record.face() == Direction.SOUTH && record.tier() == CableTier.MV),
+                "sibling cable is present in the raw attachment before replacement");
         level.setBlock(host, level.getBlockState(host).setValue(StationFloorBlock.TILE_FINISH,
                 StationFloorBlock.TileFinish.STEEL), 3);
         require(before.equals(chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get()).snapshot()),
                 "floor finish preserves cable records");
         require(chunk.isUnsaved(), "cable mutation dirties owning chunk for save");
         level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
-        require(chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get()).isEmpty(),
-                "owned floor replacement prunes cable records");
+        var expected = before.stream().filter(record -> record.x() != (host.getX() & 15)
+                || record.y() != host.getY() || record.z() != (host.getZ() & 15)).toList();
+        require(chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get()).snapshot().equals(expected),
+                "owned floor replacement prunes exactly its host, preserving sibling and other chunk records");
+        require(chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get()).snapshot().stream()
+                .anyMatch(record -> record.x() == (sibling.getX() & 15)
+                && record.y() == sibling.getY() && record.z() == (sibling.getZ() & 15)
+                && record.face() == Direction.SOUTH && record.tier() == CableTier.MV),
+                "neighboring host cable remains in the raw attachment");
+        level.setBlock(sibling, Blocks.STONE.defaultBlockState(), 3);
+        var afterCleanup = expected.stream().filter(record -> record.x() != (sibling.getX() & 15)
+                || record.y() != sibling.getY() || record.z() != (sibling.getZ() & 15)).toList();
+        require(chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get()).snapshot().equals(afterCleanup),
+                "sibling cleanup removes only its record");
         helper.succeed();
     }
 

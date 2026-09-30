@@ -198,6 +198,10 @@ public final class MachineUiGalleryScreen extends Screen {
         updateAckButtons();
     }
 
+    @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // The gallery draws its own dim overlay below; Screen's background would blur that and the window.
+    }
+
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0xbb000000);
         MachineWindowRenderer.window(graphics, font, x, y, windowWidth, windowHeight, TITLE);

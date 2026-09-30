@@ -107,6 +107,7 @@
     {"type": "Flammable"},
     {"type": "Blindable"},
     {"type": "ComplexInteraction"},
-    {"type": "Metabolizer", "types": ["human"]}
+    {"type": "Metabolizer", "types": ["human"]},
+    {"type": "Speech"}
   ]
 }

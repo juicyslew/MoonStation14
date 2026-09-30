@@ -6,6 +6,8 @@ import com.juicyslew.moonstation14.component.codec.json.StatusEffectData;
 import com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.chat.radio.ModRadioChannels;
+import com.juicyslew.moonstation14.ms14.chat.radio.RadioChannelData;
 import com.juicyslew.moonstation14.ms14.organ.ModOrgans;
 import com.juicyslew.moonstation14.ms14.organ.OrganCategory;
 import com.juicyslew.moonstation14.ms14.organ.OrganData;
@@ -33,7 +35,8 @@ class PrototypeRuntimeTest {
 
         assertNotSame(server, client);
         var expectedTypes = Set.of(ModReagents.REAGENT_TYPE, ModStatusEffects.STATUS_EFFECT_TYPE,
-                ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE);
+                ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
+                ModRadioChannels.RADIO_CHANNEL_TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -67,7 +70,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllFiveFamiliesIncludingCharacterAndOrganWithoutSharingState() {
+    void runtimeExportImportsAllSixFamiliesIncludingRadioAndOrganWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -85,17 +88,22 @@ class PrototypeRuntimeTest {
                                 java.util.List.of(com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent.ReactiveGroup.ACIDIC),
                                 java.util.List.of(com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent.ReactiveMethod.TOUCH))));
         server.publishDecoded(ModCharacters.CHARACTER_TYPE, Map.of(id("human-test"), character));
+        RadioChannelData radio = new RadioChannelData("radio-channel.moonstation14.common", 'h', 0x98C5E3);
+        server.publishDecoded(ModRadioChannels.RADIO_CHANNEL_TYPE, Map.of(id("common"), radio));
         OrganData lungs = new OrganData(OrganCategory.LUNGS, Optional.of(new OrganData.Lung(6, 1144, Map.of(), 0)));
         server.publishDecoded(ModOrgans.ORGAN_TYPE, Map.of(id("lungs-test"), lungs));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
-                ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId()),
+                ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
+                ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()),
                 exported.keySet());
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
+        assertTrue(exported.get(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()).containsKey(id("common")));
 
         client.publishEncodedCatalogs(exported);
         assertEquals(status, PrototypeRuntime.clientStatusEffects().get(id("status-test")));
         assertEquals(character, PrototypeRuntime.clientCharacters().get(id("human-test")));
+        assertEquals(radio, PrototypeRuntime.clientRadioChannels().get(id("common")));
         assertEquals(lungs, PrototypeRuntime.clientOrgans().get(id("lungs-test")));
         assertEquals(lungs, PrototypeRuntime.serverOrgans().get(id("lungs-test")));
         assertTrue(PrototypeRuntime.clientCharacters().contains(id("human-test")));

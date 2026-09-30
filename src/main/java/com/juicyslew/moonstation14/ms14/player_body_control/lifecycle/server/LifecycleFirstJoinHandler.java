@@ -2,6 +2,8 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransition;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
@@ -170,6 +172,17 @@ public final class LifecycleFirstJoinHandler {
         if (!validPrepared(server, player, context, prepared)) { disconnect(player, FAILED); return; }
         if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
 
+        // Establish the immutable speaker identity while authority remains PREPARING.
+        PlayerCharacterBinding binding = body.playerCharacterBinding();
+        try {
+            ChatIdentitySavedData.forFirstEnrollment(server.overworld()).allocateCharacterDurably(server.overworld(),
+                    new ChatIdentityRegistry.CharacterKey(binding.accountId(), binding.profileKey()));
+        } catch (RuntimeException | Error failure) {
+            MoonStation14.LOGGER.error("Chat identity persistence failed before ACTIVE first enrollment (account={}, profile={})",
+                    binding.accountId(), binding.profileKey(), failure);
+            disconnect(player, "Character enrollment was reserved, but chat identity could not be saved safely. Contact an administrator before reconnecting.");
+            return;
+        }
         final com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.Snapshot active;
         try {
             active = context.promoteFirstCharacter(prepared.accountUUID(), prepared.mindUUID(), prepared.bodyUUID()).orElse(null);
