@@ -2,7 +2,12 @@ package com.juicyslew.moonstation14.ms14.eye.client;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.components.BlindablePrototypeComponent;
 import com.juicyslew.moonstation14.ms14.eye.EyeDamageVision;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.api.distmarker.Dist;
@@ -26,7 +31,8 @@ public final class EyeDamageFogHandler {
             return;
         }
         var attachment = camera.getExistingDataOrNull(ModDataAttachments.EYE_DAMAGE.get());
-        boolean blind = attachment != null && attachment.isBlind();
+        boolean blind = eligibleBlind(CharacterIdentitySystem.projectForActor(camera),
+                attachment != null && attachment.isBlind());
         EyeDamageVision.FogProjection projection = EyeDamageVision.projectFog(
                 event.getNearPlaneDistance(), event.getFarPlaneDistance(), blind, event.isCanceled());
         if (!projection.changed()) {
@@ -37,5 +43,16 @@ public final class EyeDamageFogHandler {
         if (projection.canceled() && !event.isCanceled()) {
             event.setCanceled(true);
         }
+    }
+
+    /** Current client snapshot gates retained synchronized state without creating attachments. */
+    static boolean eligibleBlind(PrototypeCatalog<CharacterData> catalog, ResourceLocation boundId,
+                                  ResourceLocation hostType, boolean rawBlind) {
+        return eligibleBlind(CharacterIdentitySystem.resolveForHost(catalog, boundId, hostType), rawBlind);
+    }
+
+    /** Pure projection predicate; production supplies the central entity-aware client result. */
+    static boolean eligibleBlind(java.util.Optional<CharacterData> projected, boolean rawBlind) {
+        return rawBlind && projected.flatMap(data -> data.component(BlindablePrototypeComponent.class)).isPresent();
     }
 }

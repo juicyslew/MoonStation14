@@ -5,6 +5,11 @@ import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
+import com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.StunnableComponent;
+import com.juicyslew.moonstation14.ms14.character.components.BodyComponent;
+import com.juicyslew.moonstation14.ms14.character.components.BlindablePrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import org.junit.jupiter.api.Test;
 
@@ -79,15 +84,11 @@ class CharacterIdentityTest {
 
     @Test
     void hostResolutionRequiresCurrentOwnerAndMatchingBoundIdentity() {
-        CharacterData base = CharacterData.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
-                {"slip_data":{"can_receive_stun":true,"no_slip":false,"standing_eligible":true,
-                 "prone_eligible":true,"reactive_groups":[],"reactive_methods":[]}}
-                """)).getOrThrow();
         ResourceLocation player = ResourceLocation.parse("minecraft:player");
         ResourceLocation pig = ResourceLocation.parse("minecraft:pig");
         ResourceLocation pigId = ResourceLocation.parse("test:pig");
-        CharacterData human = new CharacterData(base.slipData(), java.util.Optional.empty(), List.of(player));
-        CharacterData animal = new CharacterData(base.slipData(), java.util.Optional.empty(), List.of(pig));
+        CharacterData human = new CharacterData(List.of(player));
+        CharacterData animal = new CharacterData(List.of(pig));
         var catalog = new PrototypeCatalog<>(Map.of(ModCharacters.HUMAN_ID, human, pigId, animal));
 
         assertEquals(java.util.Optional.of(human), CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, player));
@@ -100,6 +101,67 @@ class CharacterIdentityTest {
     }
 
     @Test
+    void explicitHarnessRequiresHumanBindingCurrentCatalogAndUnclaimedHost() {
+        ResourceLocation harness = ResourceLocation.parse("moonstation14:player_character_harness");
+        CharacterData human = new CharacterData(List.of(ResourceLocation.parse("minecraft:player")));
+        var catalog = new PrototypeCatalog<>(Map.of(ModCharacters.HUMAN_ID, human));
+        assertEquals(java.util.Optional.of(human), CharacterIdentitySystem.resolveExplicitHarness(
+                catalog, ModCharacters.HUMAN_ID, harness, true));
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, harness).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(catalog, ModCharacters.HUMAN_ID, harness, false).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(catalog, ResourceLocation.parse("test:other"), harness, true).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(catalog, ModCharacters.HUMAN_ID,
+                ResourceLocation.parse("minecraft:pig"), true).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(new PrototypeCatalog<>(Map.of()),
+                ModCharacters.HUMAN_ID, harness, true).isEmpty());
+        var claimed = new PrototypeCatalog<>(Map.of(ModCharacters.HUMAN_ID, new CharacterData(List.of(harness))));
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(claimed, ModCharacters.HUMAN_ID, harness, true).isEmpty());
+    }
+
+    @Test
+    void explicitHumanProjectionCarriesDeclaredComponentsButNeverGrantsHostOwnership() {
+        var harness = ResourceLocation.parse("moonstation14:player_character_harness");
+        CharacterData human = CharacterData.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
+                {"host_entity_types":["minecraft:player"],"components":[
+                  {"type":"Hands","hands":["left","right"]}, {"type":"Stunnable"},
+                  {"type":"Body"}, {"type":"Blindable"},
+                  {"type":"Metabolizer","types":["human"]}]}
+                """)).getOrThrow();
+        var catalog = new PrototypeCatalog<>(Map.of(ModCharacters.HUMAN_ID, human));
+        var explicit = CharacterIdentitySystem.resolveExplicitHarness(catalog, ModCharacters.HUMAN_ID, harness, true);
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, harness).isEmpty());
+        assertEquals(List.of("left", "right"), explicit.flatMap(c -> c.component(HandsPrototypeComponent.class))
+                .orElseThrow().hands());
+        assertTrue(explicit.flatMap(c -> c.component(StunnableComponent.class)).isPresent());
+        assertTrue(explicit.flatMap(c -> c.component(BodyComponent.class)).isPresent());
+        assertTrue(explicit.flatMap(c -> c.component(BlindablePrototypeComponent.class)).isPresent());
+        assertTrue(explicit.flatMap(c -> c.component(MetabolizerPrototypeComponent.class)).isPresent());
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(catalog, ModCharacters.HUMAN_ID, harness, false).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(catalog, ResourceLocation.parse("test:wrong"), harness, true).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveExplicitHarness(catalog, ModCharacters.HUMAN_ID,
+                ResourceLocation.parse("minecraft:cow"), true).isEmpty());
+    }
+
+    @Test
+    void mismatchedHostCannotExposeHandsOrStunEvenWithBoundComponentIdentity() {
+        ResourceLocation player = ResourceLocation.parse("minecraft:player");
+        ResourceLocation pig = ResourceLocation.parse("minecraft:pig");
+        CharacterData human = CharacterData.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
+                {"host_entity_types":["minecraft:player"],"components":[
+                {"type":"Hands","hands":["left","right"]},{"type":"Stunnable"}]}
+                """)).getOrThrow();
+        var catalog = new PrototypeCatalog<>(Map.of(ModCharacters.HUMAN_ID, human));
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, player)
+                .flatMap(data -> data.component(HandsPrototypeComponent.class)).isPresent());
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, player)
+                .flatMap(data -> data.component(StunnableComponent.class)).isPresent());
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, pig)
+                .flatMap(data -> data.component(HandsPrototypeComponent.class)).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, pig)
+                .flatMap(data -> data.component(StunnableComponent.class)).isEmpty());
+    }
+
+    @Test
     void boundHostUsesOnlyTheCurrentlyPublishedBarotraumaComponent() {
         ResourceLocation host = ResourceLocation.parse("minecraft:player");
         ResourceLocation identity = ModCharacters.HUMAN_ID;
@@ -109,9 +171,7 @@ class CharacterIdentityTest {
                 .flatMap(data -> data.component(BarotraumaComponent.class)).orElseThrow().damage().types());
 
         CharacterData without = CharacterData.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
-                {"slip_data":{"can_receive_stun":true,"no_slip":false,"standing_eligible":true,
-                "prone_eligible":true,"reactive_groups":[],"reactive_methods":[]},
-                "host_entity_types":["minecraft:player"]}
+                {"host_entity_types":["minecraft:player"]}
                 """)).getOrThrow();
         var removed = new PrototypeCatalog<>(Map.of(identity, without));
         assertTrue(CharacterIdentitySystem.resolveForHost(removed, identity, host)
@@ -126,9 +186,7 @@ class CharacterIdentityTest {
 
     private static CharacterData barotraumaHost(ResourceLocation host, double blunt) {
         return CharacterData.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
-                {"slip_data":{"can_receive_stun":true,"no_slip":false,"standing_eligible":true,
-                "prone_eligible":true,"reactive_groups":[],"reactive_methods":[]},
-                "host_entity_types":["%s"],
+                {"host_entity_types":["%s"],
                 "components":[{"type":"Barotrauma","damage":{"types":{"blunt":%s}},"maxDamage":200}]}
                 """.formatted(host, blunt))).getOrThrow();
     }

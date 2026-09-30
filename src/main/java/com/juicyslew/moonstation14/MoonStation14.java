@@ -93,6 +93,7 @@ public class MoonStation14 {
         modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
         MovementServerController.install();
         //ModFluids.register(modEventBus);
 

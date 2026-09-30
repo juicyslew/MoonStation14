@@ -344,7 +344,7 @@ public final class AtmosphereService {
                 }
             }
         }
-        advanceEqualization(level, queue, monstermosHandledThisCycle);
+        advanceEqualization(level, queue, monstermosHandledThisCycle, spaceBoundaryCells);
         processLindaTick(level, queue, spaceBoundaryCells, retrySteps, monstermosHandledThisCycle, gameTime);
     }
 
@@ -440,7 +440,8 @@ public final class AtmosphereService {
     public void clear(ServerLevel level) { queues.remove(level); deferredChunkLoads.remove(level); boundaryLedgers.remove(level); spaceBoundaryCellsThisCycle.remove(level); equalizationJobs.remove(level); prioritySeeds.remove(level); prioritySeedStreaks.remove(level); ownershipWork.remove(level); openableStates.remove(level); excitedGroups.remove(level); nextExcitedCycle.remove(level); }
     public void clearAll() { queues.clear(); deferredChunkLoads.clear(); boundaryLedgers.clear(); spaceBoundaryCellsThisCycle.clear(); equalizationJobs.clear(); prioritySeeds.clear(); prioritySeedStreaks.clear(); ownershipWork.clear(); openableStates.clear(); excitedGroups.clear(); nextExcitedCycle.clear(); }
 
-    private void advanceEqualization(ServerLevel level, WorkQueue queue, Set<BlockPos> monstermosHandledThisCycle) {
+    private void advanceEqualization(ServerLevel level, WorkQueue queue, Set<BlockPos> monstermosHandledThisCycle,
+                                     Set<BlockPos> boundaryCells) {
         EqualizationJob job = equalizationJobs.get(level);
         if (job == null) return;
         BoundedRegionDiscovery.Snapshot result = job.discovery.step(pos -> {
@@ -456,7 +457,7 @@ public final class AtmosphereService {
         }, MAX_DISCOVERY_PROBES_PER_TICK);
         if (result.status() == BoundedRegionDiscovery.Status.PATCH_READY
                 || result.status() == BoundedRegionDiscovery.Status.COMPLETE) {
-            if (!result.cells().isEmpty()) commitPatch(level, queue, job, result.cells(), monstermosHandledThisCycle);
+            if (!result.cells().isEmpty()) commitPatch(level, queue, job, result.cells(), monstermosHandledThisCycle, boundaryCells);
             if (result.status() == BoundedRegionDiscovery.Status.PATCH_READY) {
                 job.discovery.consumePatch();
             } else {
@@ -468,7 +469,7 @@ public final class AtmosphereService {
             // the fair capped seed scheduler instead of repeatedly starting at the old origin.
             // Its overflow is intentionally coalesced per chunk: in an overloaded chunk only one
             // continuation branch is retained until more ordinary activation supplies another.
-            if (!result.cells().isEmpty()) commitPatch(level, queue, job, result.cells(), monstermosHandledThisCycle);
+            if (!result.cells().isEmpty()) commitPatch(level, queue, job, result.cells(), monstermosHandledThisCycle, boundaryCells);
             result.continuationSeeds().forEach(seed -> prioritizeSeed(level, seed));
             equalizationJobs.remove(level);
         } else if (result.status() == BoundedRegionDiscovery.Status.UNKNOWN_CHUNK) {
@@ -481,7 +482,7 @@ public final class AtmosphereService {
     }
 
     private void commitPatch(ServerLevel level, WorkQueue queue, EqualizationJob job, List<BlockPos> cells,
-                             Set<BlockPos> monstermosHandledThisCycle) {
+                             Set<BlockPos> monstermosHandledThisCycle, Set<BlockPos> boundaryCells) {
         if (cells.isEmpty() || cells.size() > MonstermosEqualization.MAX_CELLS) {
             cells.forEach(pos -> prioritizeSeed(level, pos));
             equalizationJobs.remove(level);
@@ -492,6 +493,7 @@ public final class AtmosphereService {
         Map<BlockPos, Set<BlockPos>> adjacency = new java.util.LinkedHashMap<>();
         Set<BlockPos> selected = new HashSet<>(cells);
         Set<BlockPos> exterior = new HashSet<>();
+        Map<MonstermosSpaceFlow.DirectedEdge, GasMixture> exteriorFaces = new java.util.LinkedHashMap<>();
         boolean invalid = false;
         for (BlockPos pos : cells) {
             LevelChunk chunk = loadedChunk(level, pos);
@@ -518,8 +520,12 @@ public final class AtmosphereService {
                         break;
                     }
                     adjacency.get(pos).add(neighbor.immutable());
-                } else if (isLoadedPassableExterior(level, neighbor)) {
+                } else if (isLoadedPassableExterior(level, neighbor)
+                        && AtmosphereTopology.canExchange(level, pos, neighbor)) {
+                    GasMixture snapshot = sample(level, neighbor).orElse(null);
+                    if (snapshot == null) { invalid = true; break; }
                     exterior.add(neighbor.immutable());
+                    exteriorFaces.put(new MonstermosSpaceFlow.DirectedEdge(pos, neighbor), snapshot);
                 }
             }
             if (invalid) break;
@@ -529,14 +535,24 @@ public final class AtmosphereService {
             equalizationJobs.remove(level);
             return;
         }
-        boolean spacePass = chooseKernelForPatch(exterior) == PatchKernel.SPACE_FLOW;
+        // A single graph cannot safely couple a vacuum sink and a replenishing reservoir.
+        boolean vacuumPolicy = vacuumDimensions.contains(level.dimension());
+        if (exteriorFaces.values().stream().anyMatch(g ->
+                (g.pressureKpa(1.0) == 0.0) != vacuumPolicy)) {
+            cells.forEach(pos -> prioritizeSeed(level, pos));
+            equalizationJobs.remove(level);
+            return;
+        }
+        PatchKernel kernel = chooseKernelForPatch(exterior, vacuumPolicy);
+        boolean spacePass = kernel != PatchKernel.NORMAL_EQUALIZATION;
         boolean normalIncomplete = false;
         Map<BlockPos, GasMixture> after;
         MonstermosSpaceFlow.ExportLedger exported = null;
         try {
             if (spacePass) {
-                MonstermosSpaceFlow.Result result = MonstermosSpaceFlow.run(finite, adjacency, exterior,
-                        MonstermosEqualization.MAX_CELLS);
+                MonstermosSpaceFlow.Result result = kernel == PatchKernel.SPACE_FLOW
+                        ? MonstermosSpaceFlow.run(finite, adjacency, exterior, MonstermosEqualization.MAX_CELLS)
+                        : MonstermosSpaceFlow.runAmbient(finite, adjacency, exteriorFaces, MonstermosEqualization.MAX_CELLS);
                 if (!result.work().complete() || result.states().size() != finite.size()) {
                     cells.forEach(pos -> prioritizeSeed(level, pos));
                     equalizationJobs.remove(level);
@@ -568,7 +584,15 @@ public final class AtmosphereService {
         }
         // All predictable validation is completed before this loop. Server-thread execution
         // prevents topology or mixture changes between preflight and writes.
-        if (!applyPatchTransaction(cells, finite, after,
+        boolean snapshotValid = finite.entrySet().stream().allMatch(e -> {
+            GasMixture current = finiteMixture(level, e.getKey());
+            return current != null && same(e.getValue(), current);
+        })
+                && exteriorFaces.entrySet().stream().allMatch(e ->
+                        isLoadedPassableExterior(level, e.getKey().to())
+                                && AtmosphereTopology.canExchange(level, e.getKey().from(), e.getKey().to())
+                                && sample(level, e.getKey().to()).filter(g -> same(e.getValue(), g)).isPresent());
+        if (!snapshotValid || !applyPatchTransaction(cells, finite, after,
                 (pos, state) -> write(level, pos, state, false), () -> { })) {
             cells.forEach(pos -> prioritizeSeed(level, pos));
             equalizationJobs.remove(level);
@@ -656,15 +680,16 @@ public final class AtmosphereService {
         return seen.size() == cells.size();
     }
 
-    static PatchKernel chooseKernelForPatch(Set<BlockPos> verifiedExteriorFaces) {
-        return verifiedExteriorFaces.isEmpty() ? PatchKernel.NORMAL_EQUALIZATION : PatchKernel.SPACE_FLOW;
+    static PatchKernel chooseKernelForPatch(Set<BlockPos> verifiedExteriorFaces, boolean vacuumDimension) {
+        return verifiedExteriorFaces.isEmpty() ? PatchKernel.NORMAL_EQUALIZATION
+                : vacuumDimension ? PatchKernel.SPACE_FLOW : PatchKernel.AMBIENT_FLOW;
     }
 
     static boolean claimBoundaryCellForCycle(Set<BlockPos> cycleCells, BlockPos finiteCell) {
         return cycleCells.add(finiteCell.immutable());
     }
 
-    enum PatchKernel { NORMAL_EQUALIZATION, SPACE_FLOW }
+    enum PatchKernel { NORMAL_EQUALIZATION, SPACE_FLOW, AMBIENT_FLOW }
 
     static List<GasMixture> equalizeCurrentPatch(List<GasMixture> currentMixtures) {
         return BoundedGasEqualizer.equalize(currentMixtures);
@@ -770,6 +795,7 @@ public final class AtmosphereService {
             for (Direction direction : Direction.values()) {
                 BlockPos exterior = source.relative(direction);
                 if (isLoadedPassableExterior(level, exterior)
+                        && AtmosphereTopology.canExchange(level, source, exterior)
                         && exchangeWithExterior(level, queue, source, exterior)) {
                     claimBoundaryCellForCycle(boundaryCells, source);
                     break;

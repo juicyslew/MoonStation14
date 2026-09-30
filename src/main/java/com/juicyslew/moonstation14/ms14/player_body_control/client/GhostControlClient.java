@@ -3,9 +3,7 @@ package com.juicyslew.moonstation14.ms14.player_body_control.client;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
-import com.juicyslew.moonstation14.component.ModDataAttachments;
-import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
-import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy;
@@ -13,7 +11,6 @@ import com.juicyslew.moonstation14.ms14.movement.CharacterMovementState;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessMotor;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessPhysics;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.OwnedHarnessWalkAnimation;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.LivingEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMovementMotor;
@@ -150,8 +147,8 @@ public final class GhostControlClient {
         short wishX = (short) Math.max(-1000, Math.min(1000, Math.round(strafe * 1000d)));
         short wishZ = (short) Math.max(-1000, Math.min(1000, Math.round(forward * 1000d)));
         byte verticalWish = (byte) ((player.input.jumping ? 1 : 0) - (player.input.shiftKeyDown ? 1 : 0));
-        int buttons = (player.input.jumping ? GhostControlPayloads.BUTTON_JUMP : 0)
-                | (player.isSprinting() ? GhostControlPayloads.BUTTON_SPRINT : 0);
+        int buttons = intentButtons(harnessKind, player.input.jumping, player.input.shiftKeyDown,
+                player.isSprinting());
         float yaw = normalizeYaw(player.getYRot());
         float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(player.getXRot())));
         if (!Float.isFinite(yaw)) return;
@@ -248,8 +245,8 @@ public final class GhostControlClient {
         if (minecraft.level == null || id < 0 || kind == null) return null;
         Entity entity = minecraft.level.getEntity(id);
         if (kind == MobHarnessKind.GHOST) return entity instanceof GhostMobHarnessEntity ? entity : null;
-        if (entity instanceof PlayerCharacterHarnessEntity)
-            return characterBodyRecognized(true, false) ? entity : null;
+        if (entity instanceof PlayerCharacterHarnessEntity body)
+            return characterBodyRecognized(characterPolicy(body) != null, false) ? body : null;
         if (!(entity instanceof Mob mob) || entity instanceof GhostMobHarnessEntity) return null;
         return characterBodyRecognized(false, characterPolicy(mob) != null) ? mob : null;
     }
@@ -260,18 +257,8 @@ public final class GhostControlClient {
 
     private static CharacterMovementPolicy characterPolicy(Mob mob) {
         try {
-            CharacterIdentityAttachment identity = mob.getExistingDataOrNull(
-                    ModDataAttachments.CHARACTER_IDENTITY.get());
-            if (identity == null || !identity.isBound()) return null;
-            var characterId = identity.characterId();
-            if (mob instanceof PlayerCharacterHarnessEntity) {
-                if (!ModCharacters.HUMAN_ID.equals(characterId)) return null;
-                var data = ModCharacters.catalog(mob.level()).get(characterId);
-                return data == null ? null : CharacterMovementPolicy.fromCharacterData(data);
-            }
-            var host = BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
-            if (!ModCharacters.characterForHost(mob.level(), host).filter(characterId::equals).isPresent()) return null;
-            return CharacterMovementPolicy.fromCharacterData(ModCharacters.require(mob.level(), characterId));
+            return CharacterIdentitySystem.projectForActor(mob)
+                    .map(CharacterMovementPolicy::fromCharacterData).orElse(null);
         } catch (RuntimeException exception) {
             return null;
         }
@@ -351,6 +338,18 @@ public final class GhostControlClient {
     }
 
     private static float finiteOrZero(float value) { return Float.isFinite(value) ? value : 0f; }
+
+    /** CHARACTER uses Shift as walk; GHOST retains Minecraft's sprint input. */
+    static int intentButtons(MobHarnessKind kind, boolean jumping, boolean shiftKeyDown, boolean minecraftSprinting) {
+        boolean fast = kind == MobHarnessKind.CHARACTER ? !shiftKeyDown : minecraftSprinting;
+        return (jumping ? GhostControlPayloads.BUTTON_JUMP : 0)
+                | (fast ? GhostControlPayloads.BUTTON_SPRINT : 0);
+    }
+
+    /** Epoch of the exact committed CHARACTER camera session, or zero when it is not owned. */
+    public static long committedCharacterEpoch() {
+        return ownedCharacterForHud() == null ? 0 : activeEpoch;
+    }
 
     private static void reconcileSnapshot(Minecraft minecraft, LocalPlayer player,
                                           GhostControlPayloads.Snapshot snapshot) {
