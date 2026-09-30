@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.slip;
 
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent;
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.component.codec.json.ReactiveEffectsData;
@@ -82,7 +83,8 @@ public final class ReactiveTouchSystem {
         LivingEntity target = event.target();
         if (level.isClientSide || target.level() != level || !target.isAlive()) return;
         CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
-        if (character == null || !admitsTouch(character.slipData())) return;
+        ReactiveComponent reactive = character == null ? null : character.component(ReactiveComponent.class).orElse(null);
+        if (!admitsTouch(reactive)) return;
         DispatchKey dispatchKey = new DispatchKey(event.sourcePosition().immutable(), target.getUUID(), level.getGameTime());
         synchronized (DISPATCHED) {
             Set<DispatchKey> dispatched = DISPATCHED.computeIfAbsent(level, ignored -> new HashSet<>());
@@ -109,10 +111,10 @@ public final class ReactiveTouchSystem {
                 ReagentData reagent = PrototypeRuntime.serverReagents().get(entry.getKey().location());
                 if (reagent == null || entry.getValue() <= 0) return;
                 for (Map.Entry<String, ReactiveEffectsData> configured : reagent.reactiveEffects().entrySet()) {
-                    CharacterData.ReactiveGroup group = group(configured.getKey());
+                    ReactiveComponent.ReactiveGroup group = group(configured.getKey());
                     ReactiveEffectsData touch = configured.getValue();
                     if (group == null || !touch.methods().contains("touch")
-                            || !character.slipData().reactiveGroups().contains(group)) continue;
+                            || !reactive.reactiveGroups().contains(group)) continue;
                      if (touch.effects().stream().anyMatch(effect -> !supportsTouchPayload(effect))) return;
                     reactions.add(new Reaction(entry.getKey(), touch.effects()));
                 }
@@ -164,13 +166,13 @@ public final class ReactiveTouchSystem {
         return Float.isFinite(sample) && sample >= 0f && sample < TOUCH_CHANCE;
     }
 
-    private static boolean admitsTouch(CharacterData.SlipTargetData slip) {
-        return slip.reactiveMethods().contains(CharacterData.ReactiveMethod.TOUCH)
+    private static boolean admitsTouch(ReactiveComponent slip) {
+        return slip != null && slip.reactiveMethods().contains(ReactiveComponent.ReactiveMethod.TOUCH)
                 && !slip.reactiveGroups().isEmpty();
     }
 
-    private static CharacterData.ReactiveGroup group(String name) {
-        for (CharacterData.ReactiveGroup group : CharacterData.ReactiveGroup.values())
+    private static ReactiveComponent.ReactiveGroup group(String name) {
+        for (ReactiveComponent.ReactiveGroup group : ReactiveComponent.ReactiveGroup.values())
             if (group.serialized().equals(name)) return group;
         return null;
     }

@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 
 import java.util.Optional;
@@ -17,10 +18,10 @@ public final class ActiveCharacterPolicy {
         return entity instanceof ServerPlayer player && GhostMobHarnessControl.isExperimentalCarrier(player);
     }
 
-    /** Active carriers do not act as character-profile actors; ordinary entities keep legacy resolution. */
+    /** Active carriers do not act as character-profile actors; explicit bodies require live bindings. */
     public static Optional<CharacterData> resolveActor(Entity entity) {
         if (isCarrier(entity)) return Optional.empty();
-        return CharacterIdentitySystem.resolve(entity);
+        return entity instanceof LivingEntity living ? CharacterIdentitySystem.resolveForActor(living) : Optional.empty();
     }
 
     /** Returns only an active character body; ghost sessions and pending handoffs have no body result. */

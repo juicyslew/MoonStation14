@@ -36,4 +36,13 @@ class LungToxicityTest {
         assertTrue(LungToxicity.perInhale(inhaled, Map.of("plasma", Map.of("poison", -1d)), 4).isEmpty());
         assertTrue(LungToxicity.perInhale(inhaled, Map.of("plasma", Map.of("poison", Double.MAX_VALUE)), 4).isEmpty());
     }
+
+    @Test void toxicityUsesOnlyInhaledPortionRatherThanStoredOrganGas() {
+        var stored = new GasMixture(Map.of(GasType.PLASMA, 2d), 300);
+        var inhaled = new GasMixture(Map.of(GasType.NITROGEN, 0.02), 300);
+        assertEquals(Map.of(), LungToxicity.perInhale(inhaled,
+                Map.of("plasma", Map.of("poison", 1d)), 5).orElseThrow());
+        assertEquals(2f, LungToxicity.perInhale(stored,
+                Map.of("plasma", Map.of("poison", 1d)), 5).orElseThrow().get("poison"));
+    }
 }

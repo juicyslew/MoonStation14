@@ -12,6 +12,9 @@ import com.juicyslew.moonstation14.ms14.reagent.ReagentCatalogValidation;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstSystem;
+import com.juicyslew.moonstation14.ms14.character.components.StomachPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.juicyslew.moonstation14.ms14.hunger.HungerSystem;
 import com.juicyslew.moonstation14.ms14.effect.EffectContext;
 import com.juicyslew.moonstation14.ms14.effect.EffectResult;
@@ -39,7 +42,9 @@ public final class StomachSystem {
     private StomachSystem() { }
 
     public static boolean isEligible(LivingEntity entity) {
-        return ThirstSystem.isEligible(entity);
+        return ActiveCharacterPolicy.resolveActor(entity)
+                .filter(character -> character.component(BloodstreamComponent.class).isPresent())
+                .flatMap(character -> character.component(StomachPrototypeComponent.class)).isPresent();
     }
 
     /**
@@ -117,8 +122,7 @@ public final class StomachSystem {
 
     /**
      * Applies the bounded stomach-owned portion of upstream Vomit. Eligibility
-     * temporarily follows thirst enrollment; the tag is a prototype surrogate,
-     * not a claim that every species has the upstream organic/stomach capability.
+     * follows only the stomach component; other needs are independent.
      */
     public static EffectResult vomit(EffectContext context) {
         if (!(context.entity() instanceof LivingEntity target) || !isEligible(target)

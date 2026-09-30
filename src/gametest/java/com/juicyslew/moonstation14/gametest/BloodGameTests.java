@@ -6,11 +6,19 @@ import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
 import com.juicyslew.moonstation14.ms14.blood.BloodComponent;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import java.util.UUID;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
@@ -22,6 +30,41 @@ import com.mojang.serialization.JsonOps;
 @PrefixGameTestTemplate(false)
 public final class BloodGameTests {
     private BloodGameTests() { }
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void explicitBloodPolicyRequiresCurrentSavedBinding(GameTestHelper helper) {
+        var body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(), new BlockPos(1, 1, 1));
+        Zombie unmapped = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 1, 1));
+        CompoundTag saved = new CompoundTag();
+        CompoundTag binding = new CompoundTag();
+        binding.putUUID("Account", UUID.randomUUID());
+        binding.putString("Profile", "main");
+        binding.putUUID("Mind", UUID.randomUUID());
+        saved.put("Moonstation14PlayerCharacterBinding", binding);
+        body.readAdditionalSaveData(saved);
+        if (!CharacterIdentitySystem.enroll(body, helper.getLevel(), ModCharacters.HUMAN_ID))
+            throw new GameTestAssertException("explicit HUMAN fixture must enroll");
+        helper.runAfterDelay(1, () -> {
+            if (BloodSystem.resolvePolicy(body).isEmpty() || !BloodSystem.reconcile(body)
+                    || !body.hasData(ModDataAttachments.BLOODSTREAM.get())
+                    || BloodSystem.resolvePolicy(unmapped).isPresent())
+                throw new GameTestAssertException("saved harness has blood; unmapped vanilla host does not");
+            BloodSystem.tickIfDue(body, helper.getLevel().getGameTime()); // populate cadence cache
+            CompoundTag invalid = new CompoundTag();
+            invalid.putString("Moonstation14PlayerCharacterBinding", "invalid");
+            body.readAdditionalSaveData(invalid);
+            if (BloodSystem.resolvePolicy(body).isPresent()
+                    || BloodSystem.tickIfDue(body, helper.getLevel().getGameTime()))
+                throw new GameTestAssertException("invalid saved binding revokes cached blood policy at the same identity");
+            CharacterIdentityAttachment stale = new CharacterIdentityAttachment();
+            stale.bind(ResourceLocation.parse("test:stale"));
+            body.setData(ModDataAttachments.CHARACTER_IDENTITY.get(), stale);
+            if (BloodSystem.resolvePolicy(body).isPresent()
+                    || BloodSystem.tickIfDue(body, helper.getLevel().getGameTime())
+                    || BloodSystem.state(body).isPresent())
+                throw new GameTestAssertException("stale identity revokes cached blood policy immediately");
+            helper.succeed();
+        });
+    }
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void enrollsOnceIntoAuthoritativeBloodstream(GameTestHelper helper) {
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(1, 1, 1));

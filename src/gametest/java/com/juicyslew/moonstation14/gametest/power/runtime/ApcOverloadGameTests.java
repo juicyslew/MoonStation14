@@ -32,16 +32,16 @@ import java.util.UUID;
 public final class ApcOverloadGameTests {
     private ApcOverloadGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 320)
+    @GameTest(template = "apc_debug_fixture", timeoutTicks = 320)
     public static void twoWiredDebugLampsTripAndGoDarkThenReclose(GameTestHelper helper) {
         DebugFixture fixture = debugFixture(helper, true);
         helper.runAfterDelay(100, () -> {
-            require(PowerGraphService.state(fixture.level(), fixture.output()).knowledge()
-                    == LoadedPowerGraph.Knowledge.KNOWN, "debug fixture output graph must be known");
+            requireConnectedDebugFixture(fixture);
             helper.runAfterDelay(100, () -> {
                 require(!fixture.apc().breakerClosed() && fixture.apc().tripLatched(),
-                        "24 kW actual delivery trips after more than three seconds");
-                require(!fixture.lit(0) && !fixture.lit(1), "post-trip solve darkens both lamps");
+                        "24 kW actual delivery trips after more than three seconds: " + debugState(fixture));
+                require(!fixture.lit(0) && !fixture.lit(1),
+                        "post-trip solve darkens both lamps: " + debugState(fixture));
                 Player player = new Player(fixture.level(), fixture.apcPos(), 0,
                         new GameProfile(UUID.randomUUID(), "debug-load-reclose")) {
                     @Override public boolean isCreative() { return true; }
@@ -50,27 +50,70 @@ public final class ApcOverloadGameTests {
                 player.getAbilities().instabuild = true;
                 require(fixture.apc().toggleBreaker(player, 0), "authorized reclose succeeds");
                 helper.runAfterDelay(25, () -> {
-                    require(fixture.lit(0) && fixture.lit(1), "reclose restores powered lamps");
+                    require(fixture.lit(0) && fixture.lit(1),
+                            "reclose restores powered lamps: " + debugState(fixture));
                     helper.succeed();
                 });
             });
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 200)
+    @GameTest(template = "apc_debug_fixture", timeoutTicks = 200)
     public static void oneWiredDebugLampStaysBelowTripThreshold(GameTestHelper helper) {
         DebugFixture fixture = debugFixture(helper, false);
-        helper.runAfterDelay(125, () -> {
-            require(fixture.lit(0), "single 12 kW lamp is powered");
-            require(fixture.apc().breakerClosed() && !fixture.apc().tripLatched(),
-                    "single lamp stays below 20 kW for more than three seconds");
-            helper.succeed();
+        helper.runAfterDelay(100, () -> {
+            requireConnectedDebugFixture(fixture);
+            helper.runAfterDelay(25, () -> {
+                require(fixture.lit(0), "single 12 kW lamp is powered: " + debugState(fixture));
+                require(fixture.apc().breakerClosed() && !fixture.apc().tripLatched(),
+                        "single lamp stays below 20 kW for more than three seconds: " + debugState(fixture));
+                helper.succeed();
+            });
         });
     }
 
     private record DebugFixture(ServerLevel level, BlockPos apcPos, PowerDeviceBlockEntity apc,
-                                CableFaceNode output, List<BlockPos> lamps) {
+                                CableFaceNode sourcePort, CableFaceNode subHvPort, CableFaceNode subMvPort,
+                                CableFaceNode apcMvPort, CableFaceNode output, List<BlockPos> lamps) {
         boolean lit(int index) { return level.getBlockState(lamps.get(index)).getValue(PowerDeviceBlock.LIT); }
+    }
+
+    private static void requireConnectedDebugFixture(DebugFixture fixture) {
+        var source = PowerGraphService.state(fixture.level(), fixture.sourcePort());
+        var subHv = PowerGraphService.state(fixture.level(), fixture.subHvPort());
+        var subMv = PowerGraphService.state(fixture.level(), fixture.subMvPort());
+        var apcMv = PowerGraphService.state(fixture.level(), fixture.apcMvPort());
+        var output = PowerGraphService.state(fixture.level(), fixture.output());
+        CableFaceNode receiver = PowerGraphService.nearestLampNode(fixture.level(), fixture.lamps().get(0));
+        var lamp = receiver == null ? null : PowerGraphService.state(fixture.level(), receiver);
+        require(source.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                        && subHv.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                        && subMv.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                        && apcMv.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                        && output.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                        && lamp != null && lamp.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                        && source.componentId() == subHv.componentId()
+                        && subMv.componentId() == apcMv.componentId()
+                        && output.componentId() == lamp.componentId(),
+                "debug fixture source -> HV -> substation -> MV -> APC -> lamp graph: " + debugState(fixture));
+    }
+
+    private static String debugState(DebugFixture fixture) {
+        var level = fixture.level();
+        CableFaceNode receiver = PowerGraphService.nearestLampNode(level, fixture.lamps().get(0));
+        return "source=" + PowerGraphService.state(level, fixture.sourcePort())
+                + ",subHV=" + PowerGraphService.state(level, fixture.subHvPort())
+                + ",subMV=" + PowerGraphService.state(level, fixture.subMvPort())
+                + ",apcMV=" + PowerGraphService.state(level, fixture.apcMvPort())
+                + ",output=" + PowerGraphService.state(level, fixture.output())
+                + ",receiver=" + receiver
+                + ",receiverState=" + (receiver == null ? "none" : PowerGraphService.state(level, receiver))
+                + ",breakerClosed=" + fixture.apc().breakerClosed()
+                + ",tripLatched=" + fixture.apc().tripLatched()
+                + ",energyJoules=" + fixture.apc().energyJoules()
+                + ",apcSupplyState=" + PowerRuntime.apcVisualState(level, fixture.apc())
+                + ",indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
+                + ",solve=" + PowerRuntime.lastSolveDiagnostic(level);
     }
 
     /** Compact version of the established source -> HV -> substation -> MV -> APC -> floor-cable path. */
@@ -104,9 +147,14 @@ public final class ApcOverloadGameTests {
         BlockPos second = helper.absolutePos(new BlockPos(5, 1, 7));
         placeDevice(level, first, PowerDeviceKind.DEBUG_LOAD_LAMP, Direction.NORTH);
         if (twoLamps) placeDevice(level, second, PowerDeviceKind.DEBUG_LOAD_LAMP, Direction.NORTH);
+        else require(level.getBlockState(second).isAir(), "single-lamp fixture has no second load");
         PowerDeviceBlockEntity entity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
         entity.setEnergyJoules(100_000);
         return new DebugFixture(level, apc, entity,
+                new CableFaceNode(helper.absolutePos(new BlockPos(4, 1, 2)), Direction.WEST, CableTier.HV),
+                new CableFaceNode(helper.absolutePos(new BlockPos(4, 1, 4)), Direction.WEST, CableTier.HV),
+                new CableFaceNode(helper.absolutePos(new BlockPos(2, 1, 4)), Direction.EAST, CableTier.MV),
+                new CableFaceNode(helper.absolutePos(new BlockPos(2, 1, 6)), Direction.EAST, CableTier.MV),
                 new CableFaceNode(outputHost, Direction.WEST, CableTier.APC), List.of(first, second));
     }
 
@@ -211,7 +259,7 @@ public final class ApcOverloadGameTests {
     }
 
     /** Real connected HV/MV/APC graph with enough live lamps to trip the output meter. */
-    @GameTest(template = "empty", timeoutTicks = 400)
+    @GameTest(template = "power_overload_clear", timeoutTicks = 400)
     public static void connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
@@ -272,11 +320,14 @@ public final class ApcOverloadGameTests {
             require(PowerGraphService.state(level, output).componentId()
                             == PowerGraphService.state(level, spine).componentId(),
                     "APC output lead joins the lamp floor spine");
-            require(PowerRuntime.lastSolveDiagnostic(level).contains("lampWatts="),
-                    "live runtime has solved the connected fixture: " + PowerRuntime.lastSolveDiagnostic(level));
+            BlockPos sampledLamp = helper.absolutePos(new BlockPos(3, 1, 7));
+            require(PowerRuntime.lastSolveDiagnostic(level).contains(",lampWatts=")
+                            && PowerRuntime.lastSolveDiagnostic(level).contains(sampledLamp.toShortString() + "="),
+                    "live runtime has solved the connected fixture: " + overloadState(level, apcEntity, output, spine));
             helper.runAfterDelay(100, () -> {
                 require(!apcEntity.breakerClosed() && apcEntity.tripLatched(),
-                        "actual >20 kW connected lamp delivery trips and latches APC");
+                        "actual >20 kW connected lamp delivery trips and latches APC: "
+                                + overloadState(level, apcEntity, output, spine));
                 helper.runAfterDelay(25, () -> {
                     require(level.getBlockState(helper.absolutePos(new BlockPos(3, 1, 7)))
                                     .getValue(PowerDeviceBlock.LIT) == false,
@@ -314,6 +365,20 @@ public final class ApcOverloadGameTests {
                 });
             });
         });
+    }
+
+    private static String overloadState(ServerLevel level, PowerDeviceBlockEntity apc,
+                                        CableFaceNode output, CableFaceNode spine) {
+        String solve = PowerRuntime.lastSolveDiagnostic(level);
+        int lamps = solve.indexOf(",lampWatts=");
+        // The runtime diagnostic lists every lamp; never copy the 300-lamp map into a failure.
+        String ports = solve.substring(0, Math.min(lamps < 0 ? solve.length() : lamps, 240));
+        return "output=" + PowerGraphService.state(level, output)
+                + ",spine=" + PowerGraphService.state(level, spine)
+                + ",breakerClosed=" + apc.breakerClosed()
+                + ",tripLatched=" + apc.tripLatched()
+                + ",indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
+                + ",solvePorts=" + ports + ",solveDiagnosticLength=" + solve.length();
     }
 
     private static void placeDevice(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {

@@ -15,11 +15,18 @@ import com.juicyslew.moonstation14.eventhooks.TickHooks;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivityAttachment;
 import com.juicyslew.moonstation14.ms14.fire.FireStackAttachment;
 import com.juicyslew.moonstation14.ms14.fire.FireStackComponent;
+import com.juicyslew.moonstation14.ms14.fire.FireStackSystem;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.monster.Blaze;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -35,7 +42,7 @@ public final class FireStackGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void flammableUsesScaleAndExistingMultiplier(GameTestHelper helper) {
-        ArmorStand zombie = spawn(helper, 1);
+        Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
 
         require(apply(effects, helper, zombie,
@@ -52,7 +59,7 @@ public final class FireStackGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 80)
     public static void igniteOnlyChangesAuthoritativeState(GameTestHelper helper) {
-        ArmorStand zombie = spawn(helper, 1);
+        Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
         require(apply(effects, helper, zombie,
                 new EffectData.Flammable(EffectCommonData.DEFAULT, 2f, null), 1f)
@@ -64,42 +71,61 @@ public final class FireStackGameTests {
         require(apply(effects, helper, zombie, new EffectData.Ignite(EffectCommonData.DEFAULT), 99f)
                 == EffectResult.APPLIED, "Ignite must apply");
         assertState(zombie, 2f, true);
+        require(zombie.getHealth() == healthBefore,
+                "Ignite must not deal immediate damage: " + fixtureDiagnostics(zombie, healthBefore));
         require(zombie.isOnFire() == onFireBefore
                         && zombie.getRemainingFireTicks() == ticksBefore,
-                "Ignite must not touch vanilla fire state");
+                "Ignite must not touch vanilla fire state: " + fixtureDiagnostics(zombie, healthBefore));
 
         require(apply(effects, helper, zombie, new EffectData.Ignite(EffectCommonData.DEFAULT), .01f)
                 == EffectResult.APPLIED, "repeated Ignite must be applied idempotently");
         assertState(zombie, 2f, true);
+        require(zombie.getHealth() == healthBefore,
+                "repeated Ignite must not deal immediate damage: " + fixtureDiagnostics(zombie, healthBefore));
 
         long start = zombie.level().getGameTime();
-        helper.startSequence()
-                .thenWaitUntil(() -> {
-                    require(zombie.level().getGameTime() >= start + 40,
-                            "server must advance beyond twenty ticks");
-                    require(zombie.getHealth() == healthBefore,
-                            "authoritative Ignite must not cause vanilla burn damage");
-                    require(zombie.isOnFire() == onFireBefore
-                                    && zombie.getRemainingFireTicks() == ticksBefore,
-                            "Ignite must leave vanilla fire state unchanged over time");
-                    require(apply(effects, helper, zombie,
-                            new EffectData.Extinguish(EffectCommonData.DEFAULT, -1.5f), 0f)
-                                    == EffectResult.APPLIED,
-                            "Extinguish boundary must apply");
-                    require(!zombie.hasData(ModDataAttachments.FIRE_STACK.get())
-                                    && zombie.isOnFire() == onFireBefore
-                                    && zombie.getRemainingFireTicks() == ticksBefore,
-                            "state-only Extinguish must not alter vanilla fire state");
-                    helper.succeed();
-                });
+        monitorIgnite(helper, effects, zombie, healthBefore, onFireBefore, ticksBefore,
+                start + 40, healthBefore);
+    }
+
+    private static void monitorIgnite(GameTestHelper helper, EffectSystem effects, Villager zombie,
+                                      float healthBefore, boolean onFireBefore, int ticksBefore,
+                                      long deadline, float previousHealth) {
+        helper.runAfterDelay(1, () -> {
+            require(zombie.isOnFire() == onFireBefore
+                            && zombie.getRemainingFireTicks() == ticksBefore,
+                    "Ignite must leave vanilla fire state unchanged over time: "
+                            + fixtureDiagnostics(zombie, healthBefore));
+            // Ambient damage (including vacuum) is allowed; only a fire-attributed health loss fails.
+            DamageSource lastDamage = zombie.getLastDamageSource();
+            float health = zombie.getHealth();
+            require(health >= previousHealth || lastDamage == null
+                            || !(lastDamage.is(DamageTypes.ON_FIRE) || lastDamage.is(DamageTypes.IN_FIRE)),
+                    "Ignite must not cause vanilla burn damage: "
+                            + fixtureDiagnostics(zombie, healthBefore));
+            if (zombie.level().getGameTime() < deadline) {
+                monitorIgnite(helper, effects, zombie, healthBefore, onFireBefore, ticksBefore,
+                        deadline, health);
+                return;
+            }
+            require(apply(effects, helper, zombie,
+                    new EffectData.Extinguish(EffectCommonData.DEFAULT, -1.5f), 0f)
+                            == EffectResult.APPLIED,
+                    "Extinguish boundary must apply");
+            require(!zombie.hasData(ModDataAttachments.FIRE_STACK.get())
+                            && zombie.isOnFire() == onFireBefore
+                            && zombie.getRemainingFireTicks() == ticksBefore,
+                    "state-only Extinguish must not alter vanilla fire state");
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void igniteWithoutPositiveStacksIsQuietAndDoesNotMaterialize(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
-        ArmorStand absent = spawn(helper, 1);
-        ArmorStand zero = spawn(helper, 3);
-        ArmorStand negative = spawn(helper, 5);
+        Villager absent = spawn(helper, 1);
+        Villager zero = spawn(helper, 3);
+        Villager negative = spawn(helper, 5);
 
         require(apply(effects, helper, absent, new EffectData.Ignite(EffectCommonData.DEFAULT), 1f)
                 == EffectResult.APPLIED, "absent Ignite must be applied no-op");
@@ -128,7 +154,7 @@ public final class FireStackGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 30)
     public static void zeroScaleExtinguishClearsIgnitedBaseline(GameTestHelper helper) {
-        ArmorStand zombie = spawn(helper, 1);
+        Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
         require(apply(effects, helper, zombie,
                 new EffectData.Flammable(EffectCommonData.DEFAULT, 4f, null), 1f)
@@ -147,7 +173,7 @@ public final class FireStackGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void extinguishAdjustsOffFireStacks(GameTestHelper helper) {
-        ArmorStand zombie = spawn(helper, 1);
+        Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
         require(apply(effects, helper, zombie,
                 new EffectData.Flammable(EffectCommonData.DEFAULT, 4f, null), 1f)
@@ -161,7 +187,7 @@ public final class FireStackGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void newDryingActivityWaitsForNextTickSnapshot(GameTestHelper helper) {
-        ArmorStand stand = spawn(helper, 1);
+        Villager stand = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
         long gameTime = stand.level().getGameTime();
         var due = TickHooks.dueActivities(new EntityActivityAttachment(), gameTime, stand.getId());
@@ -182,6 +208,7 @@ public final class FireStackGameTests {
         EffectSystem effects = EffectSystem.withDefaults();
         Entity projectile = helper.spawn(EntityType.ARROW, new BlockPos(1, 1, 1));
         Blaze blaze = helper.spawn(EntityType.BLAZE, new BlockPos(3, 1, 1));
+        ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(5, 1, 1));
         blaze.setNoAi(true);
 
         EffectData.Flammable flammable =
@@ -192,15 +219,18 @@ public final class FireStackGameTests {
         require(apply(effects, helper, blaze, flammable, 1f)
                         == EffectResult.SKIPPED_UNSUPPORTED,
                 "fire-immune living targets must be unsupported");
+        require(apply(effects, helper, stand, flammable, 1f) == EffectResult.SKIPPED_UNSUPPORTED,
+                "unbound living target must be unsupported");
         require(!projectile.hasData(ModDataAttachments.FIRE_STACK.get())
-                        && !blaze.hasData(ModDataAttachments.FIRE_STACK.get()),
+                        && !blaze.hasData(ModDataAttachments.FIRE_STACK.get())
+                        && !stand.hasData(ModDataAttachments.FIRE_STACK.get()),
                 "unsupported targets must not materialize fire state");
         helper.succeed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 80)
     public static void negativeStacksDryOnePerDueIntervalAndCleanUp(GameTestHelper helper) {
-        ArmorStand zombie = spawn(helper, 1);
+        Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
         require(apply(effects, helper, zombie,
                 new EffectData.Flammable(EffectCommonData.DEFAULT, -2f, null), 1f)
@@ -234,7 +264,7 @@ public final class FireStackGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 60)
     public static void reconcileRehydratesPersistedDryingActivity(GameTestHelper helper) {
-        ArmorStand zombie = spawn(helper, 1);
+        Villager zombie = spawn(helper, 1);
         zombie.setData(ModDataAttachments.FIRE_STACK.get(),
                 new FireStackAttachment(new FireStackComponent(-1f, false)));
         require(!hasActivity(zombie, EntityActivity.FIRE_DRYING),
@@ -273,7 +303,7 @@ public final class FireStackGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void unaffectedLivingEntityNeverMaterializesFireWork(GameTestHelper helper) {
-        ArmorStand zombie = spawn(helper, 1);
+        Villager zombie = spawn(helper, 1);
         long start = zombie.level().getGameTime();
         require(!zombie.hasData(ModDataAttachments.FIRE_STACK.get()),
                 "unaffected entity must begin without fire state");
@@ -291,10 +321,44 @@ public final class FireStackGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    private static ArmorStand spawn(GameTestHelper helper, int x) {
-        ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(x, 1, 1));
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void dormantSavedFireSurvivesStaleDueAndReconciliation(GameTestHelper helper) {
+        Villager host = spawn(helper, 1);
+        FireStackAttachment saved = new FireStackAttachment(new FireStackComponent(-2f, false));
+        host.setData(ModDataAttachments.FIRE_STACK.get(), saved);
+        var wrong = new CharacterIdentityAttachment();
+        wrong.bind(net.minecraft.resources.ResourceLocation.parse("moonstation14:pig"));
+        host.setData(ModDataAttachments.CHARACTER_IDENTITY.get(), wrong);
+        EntityActivitySystem.update(host, EntityActivity.FIRE_DRYING, true);
+        require(!FireStackSystem.supports(host), "mismatched host must fail closed");
+        require(FireStackSystem.ignite(host, 1f) == EffectResult.SKIPPED_UNSUPPORTED,
+                "stale state cannot grant ignition");
+        TickHooks.runDueActivities(host, helper.getLevel(), java.util.Set.of(EntityActivity.FIRE_DRYING));
+        require(host.getExistingDataOrNull(ModDataAttachments.FIRE_STACK.get()) == saved,
+                "stale due work must preserve persisted fire stacks");
+        EntityActivitySystem.reconcile(host);
+        require(!hasActivity(host, EntityActivity.FIRE_DRYING), "reconcile removes dormant work");
+        require(host.getExistingDataOrNull(ModDataAttachments.FIRE_STACK.get()) == saved,
+                "reconcile must not erase dormant state");
+        helper.succeed();
+    }
+
+    private static Villager spawn(GameTestHelper helper, int x) {
+        Villager stand = helper.spawn(EntityType.VILLAGER, new BlockPos(x, 1, 1));
+        stand.setNoAi(true);
+        // The 1x1x1 empty template has no floor at this position; keep the fixture in place.
         stand.setNoGravity(true);
+        CharacterIdentitySystem.enroll(stand, helper.getLevel(), ModCharacters.HUMAN_ID);
         return stand;
+    }
+
+    private static String fixtureDiagnostics(Villager villager, float healthBefore) {
+        DamageSource lastDamage = villager.getLastDamageSource();
+        return "health=" + villager.getHealth() + " (before=" + healthBefore + ")"
+                + ", position=" + villager.position()
+                + ", lastDamage=" + (lastDamage == null ? "none/unknown" : lastDamage.getMsgId())
+                + ", onFire=" + villager.isOnFire()
+                + ", fireTicks=" + villager.getRemainingFireTicks();
     }
 
     private static EffectResult apply(EffectSystem effects, GameTestHelper helper,
@@ -303,19 +367,19 @@ public final class FireStackGameTests {
                 RandomSource.create(7L), ConditionContext.unavailable(), EffectCause.MANUAL));
     }
 
-    private static FireStackComponent state(ArmorStand zombie) {
+    private static FireStackComponent state(Villager zombie) {
         FireStackAttachment attachment =
                 zombie.getExistingDataOrNull(ModDataAttachments.FIRE_STACK.get());
         return attachment == null ? null : attachment.toComponent();
     }
 
-    private static void assertState(ArmorStand zombie, float stacks, boolean ignited) {
+    private static void assertState(Villager zombie, float stacks, boolean ignited) {
         FireStackComponent state = state(zombie);
         require(state != null && state.stacks() == stacks && state.ignited() == ignited,
                 "expected fire state stacks=" + stacks + ", ignited=" + ignited + " but got " + state);
     }
 
-    private static boolean hasActivity(ArmorStand zombie, EntityActivity activity) {
+    private static boolean hasActivity(Villager zombie, EntityActivity activity) {
         var active = zombie.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
         return active != null && active.isActive(activity);
     }

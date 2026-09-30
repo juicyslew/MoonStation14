@@ -2,6 +2,9 @@ package com.juicyslew.moonstation14.ms14.eye;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.effect.EffectResult;
+import com.juicyslew.moonstation14.ms14.character.components.BlindablePrototypeComponent;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -11,7 +14,7 @@ public final class EyeDamageSystem {
     }
 
     public static EffectResult apply(Entity target, int amount, float scale) {
-        if (!(target instanceof LivingEntity living) || living.level().isClientSide()) {
+        if (!(target instanceof LivingEntity living) || !supports(living)) {
             return EffectResult.SKIPPED_UNSUPPORTED;
         }
         try {
@@ -29,12 +32,19 @@ public final class EyeDamageSystem {
         return attachment == null ? EyeDamageComponent.EMPTY : attachment.toComponent();
     }
 
+    /** Raw persisted damage for diagnostics, including dormant state on an ineligible host. */
     public static int damage(Entity entity) {
         return entity instanceof LivingEntity living ? existing(living).damage() : 0;
     }
 
     public static boolean isBlind(Entity entity) {
-        return entity instanceof LivingEntity living && existing(living).isBlind();
+        return entity instanceof LivingEntity living && supports(living) && existing(living).isBlind();
+    }
+
+    public static boolean supports(LivingEntity entity) {
+        return entity != null && entity.level() instanceof ServerLevel
+                && ActiveCharacterPolicy.resolveActor(entity)
+                .flatMap(character -> character.component(BlindablePrototypeComponent.class)).isPresent();
     }
 
     private static void persistIfChanged(LivingEntity entity, EyeDamageComponent before,

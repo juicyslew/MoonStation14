@@ -5,10 +5,13 @@ import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +35,17 @@ public final class CharacterIdentitySystem {
 
     /** Called only by the centralized spawn/load enrollment adapter. */
     public static void enrollSupportedActor(LivingEntity actor, ServerLevel level) {
-        ResourceLocation hostType = BuiltInRegistries.ENTITY_TYPE.getKey(actor.getType());
-        ModCharacters.characterForHost(level, hostType)
+        if (actor.getType() == PlayerCharacterHarnessRegistration.getEntityType()) return;
+        automaticEnrollmentCandidate(ModCharacters.catalog(level), actor.getType())
                 .ifPresent(characterId -> enroll(actor, level, characterId));
+    }
+
+    /** Snapshot seam for host enrollment; the exact custom body type is binder-only even if a reload maps its host. */
+    public static Optional<ResourceLocation> automaticEnrollmentCandidate(PrototypeCatalog<CharacterData> catalog,
+                                                                           EntityType<?> actorType) {
+        if (actorType == PlayerCharacterHarnessRegistration.getEntityType()) return Optional.empty();
+        ResourceLocation hostType = BuiltInRegistries.ENTITY_TYPE.getKey(actorType);
+        return ModCharacters.characterForHost(catalog, hostType);
     }
 
     /** Existing keys, including unknown/dangling keys, are never replaced. */
@@ -79,6 +90,53 @@ public final class CharacterIdentitySystem {
         ResourceLocation host = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
         PrototypeCatalog<CharacterData> catalog = ModCharacters.catalog(level);
         return resolveForHost(catalog, identity.characterId(), host);
+    }
+
+    /** Server authority for a host-owned actor or an explicitly bound, live custom character body. */
+    public static Optional<CharacterData> resolveForActor(LivingEntity entity) {
+        if (entity == null || !(entity.level() instanceof ServerLevel level)) return Optional.empty();
+        return resolveForActor(entity, ModCharacters.catalog(level));
+    }
+
+    /** Server actor authority against the caller's immutable catalog snapshot. */
+    public static Optional<CharacterData> resolveForActor(LivingEntity entity,
+                                                          PrototypeCatalog<CharacterData> catalog) {
+        if (entity == null || !(entity.level() instanceof ServerLevel level) || catalog == null) return Optional.empty();
+        CharacterIdentityAttachment identity = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        if (identity == null || !identity.isBound()) return Optional.empty();
+        ResourceLocation host = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        if (!(entity instanceof PlayerCharacterHarnessEntity harness))
+            return resolveForHost(catalog, identity.characterId(), host);
+        if (entity.getType() != PlayerCharacterHarnessRegistration.getEntityType()
+                || entity.isRemoved() || !entity.isAddedToLevel()
+                || level.getServer() == null || !level.getServer().isSameThread()
+                || level.getEntity(entity.getUUID()) != entity
+                || harness.hasInvalidSavedBinding() || harness.playerCharacterBinding() == null)
+            return Optional.empty();
+        return resolveExplicitHarness(catalog, identity.characterId(), host, true);
+    }
+
+    /** Read-only client projection: a synced HUMAN key is not proof of an owner or saved binding. */
+    public static Optional<CharacterData> projectForActor(LivingEntity entity) {
+        if (entity == null || !entity.level().isClientSide()) return Optional.empty();
+        CharacterIdentityAttachment identity = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        if (identity == null || !identity.isBound()) return Optional.empty();
+        PrototypeCatalog<CharacterData> catalog = ModCharacters.catalog(entity.level());
+        ResourceLocation host = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        if (!(entity instanceof PlayerCharacterHarnessEntity))
+            return resolveForHost(catalog, identity.characterId(), host);
+        return entity.getType() == PlayerCharacterHarnessRegistration.getEntityType()
+                ? resolveExplicitHarness(catalog, identity.characterId(), host, true) : Optional.empty();
+    }
+
+    /** Pure snapshot check; the entity-aware server caller must independently prove the saved binding and live entity. */
+    static Optional<CharacterData> resolveExplicitHarness(PrototypeCatalog<CharacterData> catalog,
+                                                           ResourceLocation boundId, ResourceLocation hostType,
+                                                           boolean validBinding) {
+        if (!validBinding || catalog == null || !ModCharacters.HUMAN_ID.equals(boundId)
+                || !PlayerCharacterHarnessRegistration.ID.equals(hostType)
+                || ModCharacters.characterForHost(catalog, hostType).isPresent()) return Optional.empty();
+        return Optional.ofNullable(catalog.get(ModCharacters.HUMAN_ID));
     }
 
     /** Pure snapshot seam: stale, absent, or swapped host ownership fails closed. */

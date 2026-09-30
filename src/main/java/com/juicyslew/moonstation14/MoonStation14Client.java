@@ -439,6 +439,7 @@ public class MoonStation14Client {
             y = drawMovementHudLabel(event, minecraft, "moonstation14.hud.movement.knocked_down", 0xff67469a, y);
         }
         if (body != null) {
+            var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(body);
             int guiWidth = minecraft.getWindow().getGuiScaledWidth();
             int guiHeight = minecraft.getWindow().getGuiScaledHeight();
             int bodyY = 12;
@@ -451,14 +452,14 @@ public class MoonStation14Client {
                 bodyY = drawBodyHudLabel(event, minecraft, label, 0xffa83232, bodyY, guiWidth, guiHeight);
             }
 
-            var hunger = com.juicyslew.moonstation14.ms14.hunger.HungerSystem.isEligible(body)
+            var hunger = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent.class)).isPresent()
                     ? body.getExistingDataOrNull(ModDataAttachments.HUNGER.get()) : null;
             if (hunger != null && Float.isFinite(hunger.hunger())) {
                 bodyY = drawBodyHudLabel(event, minecraft, "BODY HUNGER " + Math.round(hunger.hunger()),
                         0xffa86b16, bodyY, guiWidth, guiHeight);
             }
 
-            var thirst = com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isEligible(body)
+            var thirst = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.class)).isPresent()
                     ? body.getExistingDataOrNull(ModDataAttachments.THIRST.get()) : null;
             if (thirst != null && Float.isFinite(thirst.thirst())) {
                 drawBodyHudLabel(event, minecraft, "BODY THIRST " + Math.round(thirst.thirst()),
