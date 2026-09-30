@@ -21,6 +21,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHa
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleStartupRuntime;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
@@ -29,6 +30,7 @@ import com.juicyslew.moonstation14.ms14.hunger.HungerSystem;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstSystem;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -208,6 +210,11 @@ public final class GhostMobHarnessControl {
         }
         var data = body.getPersistentData();
         boolean previouslyConfigured = data.getBoolean(GroundedHarnessLease.CONFIGURED_MARKER);
+        if (data.contains(GroundedHarnessLease.CONFIGURED_MARKER) && !previouslyConfigured) {
+            operator.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "Body has an invalid existing configuration marker; refusing first configuration."));
+            return 0;
+        }
         data.putBoolean(GroundedHarnessLease.CONFIGURED_MARKER, true);
         GroundedHarnessLease lease;
         try {
@@ -230,6 +237,7 @@ public final class GhostMobHarnessControl {
         try {
             lease.close();
         } catch (RuntimeException | Error failure) {
+            if (!previouslyConfigured) data.remove(GroundedHarnessLease.CONFIGURED_MARKER);
             MoonStation14.LOGGER.error("[mind ghost] Failed to release validation lease for configured body {}",
                     body.getUUID(), failure);
             MinecraftServer server = operator.level().getServer();
@@ -239,6 +247,36 @@ public final class GhostMobHarnessControl {
             }
             operator.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                     "Configuration validation succeeded, but lease restoration failed; inspect the server log."));
+            return 0;
+        }
+        try {
+            // Derive the display type from the server registry, never from an entity or client display name.
+            var key = BuiltInRegistries.ENTITY_TYPE.getKey(body.getType());
+            if (key == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(key))
+                throw new IllegalStateException("Body has no registered entity type");
+            StringBuilder displayType = new StringBuilder();
+            for (String part : key.getPath().split("_", -1)) {
+                if (!part.matches("[a-z][a-z0-9]*"))
+                    throw new IllegalStateException("Unsupported NPC type path: " + key);
+                displayType.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+            }
+            String type = displayType.toString();
+            var server = operator.level().getServer();
+            if (server == null) throw new IllegalStateException("No server for NPC enrollment");
+            if (previouslyConfigured) {
+                ChatIdentitySavedData.existing(server.overworld())
+                        .orElseThrow(() -> new IllegalStateException("Configured body has no identity ledger"))
+                        .existingNpcDurably(server.overworld(), body.getUUID(), type);
+            } else {
+                ChatIdentitySavedData.forFirstEnrollment(server.overworld())
+                        .allocateNpcDurably(server.overworld(), body.getUUID(), type);
+            }
+        } catch (RuntimeException | Error failure) {
+            if (!previouslyConfigured) data.remove(GroundedHarnessLease.CONFIGURED_MARKER);
+            MoonStation14.LOGGER.error("[mind ghost] Failed to verify durable NPC identity for configured body {}",
+                    body.getUUID(), failure);
+            operator.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "Configuration identity validation failed; body was not newly configured. Inspect the server log."));
             return 0;
         }
         operator.sendSystemMessage(net.minecraft.network.chat.Component.literal(
