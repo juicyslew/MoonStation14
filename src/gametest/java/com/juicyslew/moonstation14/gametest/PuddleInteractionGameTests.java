@@ -51,10 +51,9 @@ public final class PuddleInteractionGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void registeredPuddleEmptyHandDispatcherIngestsFiveAndRejectsEmptyOrFull(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        require(EntityType.PLAYER.is(com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.ELIGIBLE_ENTITY_TYPES),
-                "the registered eligibility tag must include players");
         BlockPos sourcePos = placePuddle(helper, new BlockPos(2, 1, 2), 20f);
         Player player = mockPlayer(level, helper.absolutePos(new BlockPos(2, 2, 2)));
+        require(StomachSystem.isEligible(player), "bound player must carry the Stomach component");
         MS14Provider.update(player, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(SUGAR, 11f)));
 
         InteractionResult drank = dispatchEmptyHand(level, sourcePos, player);
@@ -241,6 +240,7 @@ public final class PuddleInteractionGameTests {
             @Override public boolean isSpectator() { return false; }
         };
         player.setPos(pos.getX(), pos.getY(), pos.getZ());
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(player, level);
         return player;
     }
 

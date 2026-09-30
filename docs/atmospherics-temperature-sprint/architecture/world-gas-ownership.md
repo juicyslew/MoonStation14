@@ -81,3 +81,29 @@ SS14 map/grid atmosphere has finite tile mixtures, implicit map/space defaults, 
 - Measure 800-cell preflight and write costs; exercise concurrent mutation/failure and specify rollback expectations before making any transactionality claim.
 - Obtain owner decisions for mapped exterior policy, topology-edit mass displacement/conservation, and transient boundary ledger persistence/accounting.
 - Profile and benchmark with 20 players. No server-world fixture execution or 20-player result is currently evidenced.
+# Verified exterior opening pressure policy
+
+An airtight finite patch continues to use normal graph equalization. A connected
+patch with a verified exterior opening uses bounded graph flow instead: vacuum
+dimensions keep the existing space-flow decay; breathable dimensions transfer
+donor-composition, donor-enthalpy packets toward lower pressure over real face
+edges, including inward flow from the read-only ambient reservoir. Exterior gas
+is sampled during preflight and is never persisted. Mixed vacuum and non-vacuum
+exterior face snapshots fail closed. Invalid topology or unknown/unloaded faces
+cannot become openings; a failed patch transaction rolls back finite writes and
+does not publish its signed boundary ledger.
+
+For a breathable exterior, the ambient graph route has no bulk transfer at
+equal total pressure and currently no cross-boundary species diffusion at
+equal total pressure, even when the finite gas and ambient have different
+compositions. Equal-pressure composition mixing is intentionally deferred
+future scope, not SS14 parity. The vacuum space-flow behavior is likewise not
+claimed to match SS14 exactly.
+
+The fallback local `exchangeWithExterior` remains available when the graph job
+is unavailable. It exchanges only the immediately adjacent finite cell (and
+uses the legacy local thermal/space behavior), so its short-term gradient and
+heat behavior, including equal-pressure mixing, may differ from the room-scale
+graph pass. Both paths leave the exterior immutable. Graph routing is bounded
+to 800 applied finite cells; an
+oversized/incomplete graph must not publish partial states or ledger changes.

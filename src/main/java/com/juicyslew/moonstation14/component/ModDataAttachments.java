@@ -15,6 +15,8 @@ import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
 import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.blood.BloodAttachment;
+import com.juicyslew.moonstation14.ms14.organ.BodyAttachment;
+import com.juicyslew.moonstation14.ms14.organ.BodyState;
 import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
@@ -148,12 +150,16 @@ public class ModDataAttachments {
                     .copyOnDeath()
                     .build());
 
-    /** Persisted/synchronized lung mixture and saturation; zero-gas initialized states are retained. */
+    /** Persisted body authority; even a deliberately empty body is serialized and copied. Server-only in phase B. */
+    public static final Supplier<AttachmentType<BodyAttachment>> BODY = ATTACHMENT_TYPES.register(
+            "body", () -> AttachmentType.builder(() -> new BodyAttachment(BodyState.EMPTY))
+                    .serialize(BodyAttachment.CODEC).copyOnDeath().build());
+
+    /** Legacy save reader only. No default, sync, death copy, or gameplay authority. */
     public static final Supplier<AttachmentType<LungAttachment>> LUNG = ATTACHMENT_TYPES.register(
-            "lung", () -> AttachmentType.builder((Supplier<LungAttachment>) () -> new LungAttachment(
-                            com.juicyslew.moonstation14.ms14.lung.LungComponent.from(
-                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture.vacuum(), 0, false)))
-                    .serialize(LungAttachment.CODEC).sync(LungAttachment.STREAM_CODEC).copyOnDeath().build());
+            "lung", () -> AttachmentType.builder((Supplier<LungAttachment>) () -> {
+                throw new IllegalStateException("Legacy lung must be loaded from saved data");
+            }).serialize(LungAttachment.CODEC).build());
 
     /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */
     public static final Supplier<AttachmentType<EyeDamageAttachment>> EYE_DAMAGE = ATTACHMENT_TYPES.register(

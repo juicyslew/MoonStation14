@@ -1,6 +1,6 @@
 package com.juicyslew.moonstation14.ms14.blood;
 
-import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.components.BloodstreamPolicy;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
@@ -35,7 +35,7 @@ public final class BloodReducer {
         }
         return minimum;
     }
-    public static Map<ResourceKey<ReagentData>, Long> reference(CharacterData.BloodData policy) {
+    public static Map<ResourceKey<ReagentData>, Long> reference(BloodstreamPolicy policy) {
         Map<ResourceKey<ReagentData>, Long> result = new LinkedHashMap<>();
         policy.referenceSolution().entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> {
             long units = ReagentUnits.fromDouble(e.getValue());
@@ -46,7 +46,7 @@ public final class BloodReducer {
         if (result.isEmpty()) throw new IllegalArgumentException("reference blood must not be empty");
         return Map.copyOf(result);
     }
-    public static long capacity(CharacterData.BloodData policy) {
+    public static long capacity(BloodstreamPolicy policy) {
         if (policy == null || policy.referenceSolution() == null || policy.referenceSolution().isEmpty()
                 || !Double.isFinite(policy.maxVolumeModifier()) || policy.maxVolumeModifier() < 0) {
             throw new IllegalArgumentException("invalid blood capacity policy");
@@ -122,7 +122,7 @@ public final class BloodReducer {
         }
         return initial - remaining;
     }
-    public static Map<String, Float> bloodloss(double fraction, CharacterData.BloodData policy, boolean healing) {
+    public static Map<String, Float> bloodloss(double fraction, BloodstreamPolicy policy, boolean healing) {
         if (!Double.isFinite(fraction) || fraction < 0 || fraction > policy.maxVolumeModifier())
             throw new IllegalArgumentException("invalid usable blood fraction");
         Map<String, Float> result = new LinkedHashMap<>();

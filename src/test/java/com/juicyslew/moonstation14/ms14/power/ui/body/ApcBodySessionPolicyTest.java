@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.power.ui.body;
 
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
+import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionPolicy;
@@ -10,7 +11,6 @@ import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static com.juicyslew.moonstation14.ms14.power.ui.body.ApcBodySessionPolicy.Decision.DENY;
@@ -33,8 +33,7 @@ class ApcBodySessionPolicyTest {
         BlockPos target = new BlockPos(5, 70, 9);
         UUID bodyUuid = UUID.randomUUID();
         MindId mind = new MindId(UUID.randomUUID());
-        CharacterData prototype = new CharacterData(new CharacterData.SlipTargetData(false, true,
-                false, false, List.of(), List.of()), Optional.empty(), List.of(), Optional.empty(), List.of());
+        CharacterData prototype = new CharacterData(List.of(), List.of(new ComplexInteractionComponent()));
         BodyActionPolicy.Identity body = identity(true);
         UUID token = UUID.randomUUID();
         long opened = 100;
@@ -109,8 +108,7 @@ class ApcBodySessionPolicyTest {
         f.body = f.identity(true);
         assertEquals(DENY, ApcBodySessionPolicy.decide(session, f.facts()));
         f = new Fixture(); session = f.session();
-        f.prototype = new CharacterData(new CharacterData.SlipTargetData(false, true,
-                false, false, List.of(), List.of()), Optional.empty(), List.of(), Optional.empty(), List.of());
+        f.prototype = new CharacterData(List.of(), List.of());
         f.body = f.identity(true);
         assertEquals(DENY, ApcBodySessionPolicy.decide(session, f.facts()));
     }

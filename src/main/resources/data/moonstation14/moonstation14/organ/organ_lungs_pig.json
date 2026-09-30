@@ -1,0 +1,9 @@
+{
+  "category": "Lungs",
+  "Lung": {
+    "max_lung_moles": 4.2,
+    "breath_moles_to_saturation_multiplier": 1144.0,
+    "toxic_gas_damage_per_mole": {"plasma": {"poison": 0.6}, "ammonia": {"caustic": 0.3}},
+    "toxic_gas_damage_cap_per_inhale": 2.0
+  }
+}

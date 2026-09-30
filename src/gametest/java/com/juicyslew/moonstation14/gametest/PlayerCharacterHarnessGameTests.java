@@ -1,9 +1,16 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.BodyComponent;
+import com.juicyslew.moonstation14.ms14.character.components.StunnableComponent;
+import com.juicyslew.moonstation14.ms14.hands.HandCapability;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
@@ -15,6 +22,9 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
+import com.juicyslew.moonstation14.ms14.lung.LungSystem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.Entity;
@@ -31,11 +41,62 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.Map;
 
 @GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class PlayerCharacterHarnessGameTests {
     private PlayerCharacterHarnessGameTests() { }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void mappedHarnessHostNeverAutomaticallyEnrollsAnUnboundBody(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var harnessType = PlayerCharacterHarnessRegistration.getEntityType();
+        var candidate = new PrototypeCatalog<>(Map.of(
+                ModCharacters.HUMAN_ID, new CharacterData(List.of(
+                        PlayerCharacterHarnessRegistration.ID, ResourceLocation.parse("minecraft:player"),
+                        ResourceLocation.parse("minecraft:villager"))),
+                ResourceLocation.parse("test:pig"), new CharacterData(List.of(ResourceLocation.parse("minecraft:pig")))));
+        require(ModCharacters.characterForHost(candidate, PlayerCharacterHarnessRegistration.ID)
+                        .filter(ModCharacters.HUMAN_ID::equals).isPresent(),
+                "reload candidate actually maps the custom entity type");
+        require(CharacterIdentitySystem.automaticEnrollmentCandidate(candidate, harnessType).isEmpty(),
+                "mapped reload cannot select the exact registered harness for automatic enrollment");
+        require(CharacterIdentitySystem.automaticEnrollmentCandidate(candidate, EntityType.PLAYER)
+                        .filter(ModCharacters.HUMAN_ID::equals).isPresent(),
+                "mapped player still automatically enrolls");
+        require(CharacterIdentitySystem.automaticEnrollmentCandidate(candidate, EntityType.VILLAGER)
+                        .filter(ModCharacters.HUMAN_ID::equals).isPresent(),
+                "mapped villager still automatically enrolls");
+        require(CharacterIdentitySystem.automaticEnrollmentCandidate(candidate, EntityType.PIG)
+                        .filter(ResourceLocation.parse("test:pig")::equals).isPresent(),
+                "mapped pig still automatically enrolls");
+
+        PlayerCharacterHarnessEntity body = helper.spawn(harnessType, new BlockPos(1, 1, 1));
+        require(body.playerCharacterBinding() == null && !body.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
+                "unbound spawned body starts without an identity");
+        CharacterIdentitySystem.enrollSupportedActor(body, level);
+        require(!body.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
+                "spawn/load enrollment leaves unbound custom body without identity");
+        BloodSystem.tickIfDue(body, level.getGameTime() + 100);
+        LungSystem.tickIfDue(body, level.getGameTime() + 100);
+        require(!body.hasData(ModDataAttachments.CHARACTER_IDENTITY.get()),
+                "late blood/lung retries cannot enroll an unbound custom body");
+
+        require(CharacterIdentitySystem.enroll(body, level, ModCharacters.HUMAN_ID),
+                "explicit test fixture stages an identity without a saved binding");
+        var staged = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        require(CharacterIdentitySystem.resolveForActor(body).isEmpty(),
+                "manual identity alone does not authorize an unbound custom body");
+        CharacterIdentitySystem.enrollSupportedActor(body, level);
+        BloodSystem.tickIfDue(body, level.getGameTime() + 200);
+        LungSystem.tickIfDue(body, level.getGameTime() + 200);
+        require(body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get()) == staged
+                        && CharacterIdentitySystem.resolveForActor(body).isEmpty(),
+                "late retries never replace or authorize a staged unbound identity");
+        helper.succeed();
+    }
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void characterHarnessIsDistinctPersistentMobWithoutAutomaticBinding(GameTestHelper helper) {
@@ -58,9 +119,8 @@ public final class PlayerCharacterHarnessGameTests {
                 "main", UUID.randomUUID(), ModCharacters.HUMAN_ID);
         require(!boundWhileOff && body.playerCharacterBinding() == null,
                 "default-off startup gates prevent instance identity mutation");
-        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID)
-                        .filter(ModCharacters.HUMAN_ID::equals).isPresent(),
-                "dedicated character host maps to the canonical human prototype");
+        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID).isEmpty(),
+                "dedicated character body is binder-only, not a host mapping");
         helper.succeed();
     }
 
@@ -190,7 +250,7 @@ public final class PlayerCharacterHarnessGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void explicitlyBoundMarkedCustomCharacterCanUseWorldStepWithHumanHostMapping(GameTestHelper helper) {
+    public static void explicitlyBoundMarkedCustomCharacterCanUseWorldStepWithoutHostMapping(GameTestHelper helper) {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 8; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
         }
@@ -207,11 +267,48 @@ public final class PlayerCharacterHarnessGameTests {
                 "test attaches the authoritative resolved HUMAN prototype identity");
         require(com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionSystem.enabled(body),
                 "registered harness can receive human capability through explicit identity enrollment");
-        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID)
-                        .filter(ModCharacters.HUMAN_ID::equals).isPresent()
-                        && CharacterIdentitySystem.resolveForHost(body)
+        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID).isEmpty(),
+                "custom body remains absent from host_entity_types");
+        require(CharacterIdentitySystem.resolveForHost(body).isEmpty(),
+                "host-only resolution never admits the custom body");
+        require(CharacterIdentitySystem.resolveForActor(body)
                         .filter(data -> data == ModCharacters.require(helper.getLevel(), ModCharacters.HUMAN_ID)).isPresent(),
-                "custom body resolves the same canonical human prototype through its strict host index");
+                "saved binding and HUMAN identity resolve the canonical human without a host mapping");
+        require(ActiveCharacterPolicy.resolveActor(body).flatMap(c -> c.component(StunnableComponent.class)).isPresent(),
+                "explicit body receives stun component from central server actor policy");
+        require(ActiveCharacterPolicy.resolveActor(body).flatMap(c -> c.component(BodyComponent.class)).isPresent(),
+                "explicit body receives organ body component");
+        require(HandCapability.resolve(body).equals(ActiveCharacterPolicy.resolveActor(body)
+                        .flatMap(c -> c.component(HandsPrototypeComponent.class)).map(HandsPrototypeComponent::hands)),
+                "explicit body hands agree with its authoritative character component");
+        PlayerCharacterHarnessEntity unbound = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(1, 1, 1));
+        require(CharacterIdentitySystem.enroll(unbound, helper.getLevel(), ModCharacters.HUMAN_ID),
+                "unbound fixture carries a HUMAN key");
+        require(CharacterIdentitySystem.resolveForActor(unbound).isEmpty(),
+                "HUMAN identity alone cannot authorize an unbound harness");
+        require(HandCapability.resolve(unbound).isEmpty() && ActiveCharacterPolicy.resolveActor(unbound).isEmpty(),
+                "unbound harness cannot receive declared gameplay components");
+        ((MindControlledMob) (Mob) unbound).moonstation14$setMovementOwned(true);
+        PlayerCharacterHarnessEntity invalid = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(2, 1, 1));
+        CompoundTag malformed = new CompoundTag();
+        malformed.putString("Moonstation14PlayerCharacterBinding", "invalid");
+        invalid.readAdditionalSaveData(malformed);
+        require(CharacterIdentitySystem.enroll(invalid, helper.getLevel(), ModCharacters.HUMAN_ID),
+                "malformed fixture carries a HUMAN key");
+        require(CharacterIdentitySystem.resolveForActor(invalid).isEmpty(),
+                "malformed saved binding cannot authorize an explicit harness");
+        require(HandCapability.resolve(invalid).isEmpty() && ActiveCharacterPolicy.resolveActor(invalid).isEmpty(),
+                "invalid saved binding cannot receive components");
+        ((MindControlledMob) (Mob) invalid).moonstation14$setMovementOwned(true);
+        PlayerCharacterHarnessEntity missingIdentity = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(7, 1, 1));
+        missingIdentity.readAdditionalSaveData(bindingTag);
+        require(CharacterIdentitySystem.resolveForActor(missingIdentity).isEmpty(),
+                "valid saved binding without an identity attachment does not resolve");
+        require(HandCapability.resolve(missingIdentity).isEmpty(), "missing identity has no hands");
+        ((MindControlledMob) (Mob) missingIdentity).moonstation14$setMovementOwned(true);
         BlockPos absolute = helper.absolutePos(new BlockPos(3, 1, 3));
         body.setPos(absolute.getX() + .5d, absolute.getY(), absolute.getZ() + .5d);
         body.setDeltaMovement(Vec3.ZERO);
@@ -220,12 +317,20 @@ public final class PlayerCharacterHarnessGameTests {
         MindControlledMob owner = (MindControlledMob) (Mob) body;
         owner.moonstation14$setMovementOwned(true);
         GroundedHarnessWorldStep step = new GroundedHarnessWorldStep();
+        require(step.step(unbound, 0, 1000, false, false, 0f).isEmpty(),
+                "movement rejects a missing saved binding");
+        require(step.step(invalid, 0, 1000, false, false, 0f).isEmpty(),
+                "movement rejects a malformed saved binding");
+        require(step.step(missingIdentity, 0, 1000, false, false, 0f).isEmpty(),
+                "movement rejects a missing identity attachment");
         double startZ = body.getZ();
         require(step.step(body, 0, 1000, false, false, 0f).isPresent(),
                 "explicit bound and marked custom character passes the alternate eligibility branch");
         require(body.getZ() > startZ, "accepted custom-character intent moves the body authoritatively");
 
         owner.moonstation14$setMovementOwned(false);
+        require(CharacterIdentitySystem.resolveForActor(body).isPresent(),
+                "parked bound bodies resolve without an active movement owner");
         require(step.step(body, 0, 1000, false, false, 0f).isEmpty(),
                 "custom body without movement-owned marker is rejected");
         owner.moonstation14$setMovementOwned(true);
@@ -236,6 +341,9 @@ public final class PlayerCharacterHarnessGameTests {
         wrong.bind(ResourceLocation.fromNamespaceAndPath("test", "not_human"));
         MS14Provider.update(wrongIdentity, MS14Bridges.CHARACTER_IDENTITY, wrong);
         ((MindControlledMob) (Mob) wrongIdentity).moonstation14$setMovementOwned(true);
+        require(CharacterIdentitySystem.resolveForActor(wrongIdentity).isEmpty(),
+                "wrong prototype key fails explicit resolution");
+        require(HandCapability.resolve(wrongIdentity).isEmpty(), "wrong identity has no hands");
         require(step.step(wrongIdentity, 0, 1000, false, false, 0f).isEmpty(),
                 "custom body bound to a non-HUMAN identity is rejected");
         body.remove(Entity.RemovalReason.DISCARDED);

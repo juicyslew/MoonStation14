@@ -35,7 +35,8 @@ public final class FoodDataCharacterGameTests {
             @Override public boolean isCreative() { return false; }
             @Override public boolean isSpectator() { return false; }
         };
-        require(HungerSystem.isEligible(player), "player test body must be temporarily character-eligible");
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(player, level);
+        require(HungerSystem.isEligible(player), "bound player test body must carry Hunger");
         player.getFoodData().setFoodLevel(20);
         player.getFoodData().setSaturation(20f);
         player.getFoodData().setExhaustion(0f);

@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.hands.HandCapability;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
@@ -32,14 +33,18 @@ public final class CharacterBodyDespawnGameTests {
      * Covers vanilla's natural far-player despawn branch with a real Creative server player.
      * This is NOT a chunk-persistence test: GameTest does not provide a safe public API to
      * force its entity chunk to unload and then reload through the server entity inbox.
-     * The remote fixture may not be visible to ServerLevel.getEntity(UUID) until its
-     * chunk becomes entity-visible; only the originally added instance is checked here.
+     * The body is spawned in the structure's entity-visible chunk; only the originally
+     * added instance is checked here.
      */
-    @GameTest(template = "empty", batch = "character_body_despawn", timeoutTicks = 100)
+    @GameTest(template = "empty", batch = "character_body_despawn_creative", timeoutTicks = 100)
     public static void creativeOwnerFarAwayCannotNaturallyDespawnBoundBody(GameTestHelper helper) {
-        // Place away from other batches' lingering FakePlayers, as in the existing despawn test.
+        // Spawn in the GameTest's entity-visible chunk so exact actor lookup can prove this body.
         PlayerCharacterHarnessEntity body = spawnUnforced(helper, 5);
         UUID id = body.getUUID();
+        helper.runAfterDelay(2, () -> checkCreativeBody(helper, body, id));
+    }
+
+    private static void checkCreativeBody(GameTestHelper helper, PlayerCharacterHarnessEntity body, UUID id) {
         UUID account = UUID.randomUUID();
         PlayerCharacterBinding expected = new PlayerCharacterBinding(account, "main", UUID.randomUUID());
         CompoundTag binding = new CompoundTag();
@@ -51,6 +56,11 @@ public final class CharacterBodyDespawnGameTests {
         body.readAdditionalSaveData(owner);
         require(CharacterIdentitySystem.enroll(body, helper.getLevel(), ModCharacters.HUMAN_ID),
                 "body receives HUMAN identity");
+        require(expected.equals(body.playerCharacterBinding())
+                        && CharacterIdentitySystem.resolveForActor(body).isPresent(),
+                "added body has exact binding and actor authority: registered="
+                        + (helper.getLevel().getEntity(body.getUUID()) == body)
+                        + ", added=" + body.isAddedToLevel() + ", binding=" + body.playerCharacterBinding());
         require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED,
                 "body receives live hands");
         LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
@@ -58,7 +68,7 @@ public final class CharacterBodyDespawnGameTests {
 
         FakePlayer creative = new FakePlayer(helper.getLevel(), new GameProfile(account, "creative-owner"));
         creative.gameMode.changeGameModeForPlayer(GameType.CREATIVE);
-        creative.setPos(body.getX() + 200, body.getY(), body.getZ());
+        creative.setPos(body.getX() + 129, body.getY(), body.getZ());
         require(helper.getLevel().addFreshEntity(creative), "Creative owner is registered in the server level");
         try {
             int despawn = body.getType().getCategory().getDespawnDistance();
@@ -75,7 +85,7 @@ public final class CharacterBodyDespawnGameTests {
                     "same added body's UUID and exact owner/Mind binding survive vanilla checkDespawn");
             require(ModCharacters.HUMAN_ID.equals(body.getExistingDataOrNull(
                             ModDataAttachments.CHARACTER_IDENTITY.get()).characterId())
-                            && CharacterIdentitySystem.resolveForHost(body).isPresent()
+                            && CharacterIdentitySystem.resolveForActor(body).isPresent()
                             && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
                             && hands.compatible(body),
                     "same body retains HUMAN prototype and live hands without replacement");
@@ -90,9 +100,15 @@ public final class CharacterBodyDespawnGameTests {
         PlayerCharacterHarnessEntity bound = spawnUnforced(helper, 1);
         PlayerCharacterHarnessEntity unbound = spawnUnforced(helper, 2);
         PlayerCharacterHarnessEntity corpse = spawnUnforced(helper, 3);
-        // Other GameTest batches leave FakePlayers behind near their structures; these bodies
-        // were registered 1000 blocks away so the deliberate player can be nearest.
+        // The structure chunk is entity-visible; a remote loaded chunk alone cannot prove actor identity.
         UUID boundId = bound.getUUID(), unboundId = unbound.getUUID(), corpseId = corpse.getUUID();
+        helper.runAfterDelay(2, () -> checkFarBodies(helper, bound, unbound, corpse,
+                boundId, unboundId, corpseId));
+    }
+
+    private static void checkFarBodies(GameTestHelper helper, PlayerCharacterHarnessEntity bound,
+                                       PlayerCharacterHarnessEntity unbound, PlayerCharacterHarnessEntity corpse,
+                                       UUID boundId, UUID unboundId, UUID corpseId) {
         UUID account = UUID.randomUUID(), mind = UUID.randomUUID();
         CompoundTag binding = new CompoundTag();
         binding.putUUID("Account", account);
@@ -103,15 +119,27 @@ public final class CharacterBodyDespawnGameTests {
         bound.readAdditionalSaveData(owner);
         require(CharacterIdentitySystem.enroll(bound, helper.getLevel(), ModCharacters.HUMAN_ID),
                 "bound body receives HUMAN identity");
+        require(new PlayerCharacterBinding(account, "main", mind).equals(bound.playerCharacterBinding())
+                        && CharacterIdentitySystem.resolveForActor(bound).isPresent(),
+                "added bound fixture resolves as an actor: registered="
+                        + (helper.getLevel().getEntity(bound.getUUID()) == bound)
+                        + ", added=" + bound.isAddedToLevel() + ", binding=" + bound.playerCharacterBinding());
         require(BodyHandBootstrap.ensure(bound) == BodyHandBootstrap.Result.INITIALIZED,
                 "bound body receives real live hands");
+        LiveHands boundHands = bound.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(boundHands != null && boundHands.compatible(bound)
+                        && CharacterIdentitySystem.resolveForActor(unbound).isEmpty()
+                        && HandCapability.resolve(unbound).isEmpty()
+                        && BodyHandBootstrap.ensure(unbound) == BodyHandBootstrap.Result.REJECTED
+                        && !unbound.hasData(ModDataAttachments.LIVE_HANDS.get()),
+                "only the bound live body receives hands");
         bound.setOfflineSinceMillis(12345L);
         corpse.die(helper.getLevel().damageSources().generic());
         require(corpse.hasConfirmedDeath() && !corpse.isRemoved(), "corpse is confirmed and still in world");
 
         // A registered server-level player, not a fabricated distance passed to a pure policy.
         FakePlayer distant = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "far-body-test"));
-        distant.setPos(bound.getX() + 200, bound.getY(), bound.getZ());
+        distant.setPos(bound.getX() - 129, bound.getY(), bound.getZ());
         require(helper.getLevel().addFreshEntity(distant), "distant server player joins level");
         for (PlayerCharacterHarnessEntity body : new PlayerCharacterHarnessEntity[]{bound, unbound, corpse}) {
             require(helper.getLevel().getNearestPlayer(body, -1) == distant,
@@ -135,10 +163,14 @@ public final class CharacterBodyDespawnGameTests {
             require(corpse.hasConfirmedDeath(), "corpse remains confirmed after natural ticks");
             require(bound.playerCharacterBinding().equals(new PlayerCharacterBinding(account, "main", mind)),
                     "exact owner/profile/Mind binding survives distance and ticks");
+            require(CharacterIdentitySystem.resolveForActor(bound).isPresent()
+                            && bound.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == boundHands
+                            && boundHands.compatible(bound),
+                    "same world body keeps actor authority and its live hands after despawn check");
             require(Long.valueOf(12345L).equals(bound.offlineSinceMillis()),
                     "OFFLINE timestamp remains unchanged by despawn protection");
 
-            // Full vanilla entity save/load, including UUID and NeoForge attachments; no replacement is spawned.
+            // Detached codec checks only: the original world body still owns this UUID.
             CompoundTag saved = bound.saveWithoutId(new CompoundTag());
             PlayerCharacterHarnessEntity loaded = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
             require(loaded != null, "registered type can reload saved body");
@@ -148,9 +180,12 @@ public final class CharacterBodyDespawnGameTests {
             require(loaded.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get()) != null
                             && ModCharacters.HUMAN_ID.equals(loaded.getExistingDataOrNull(
                                     ModDataAttachments.CHARACTER_IDENTITY.get()).characterId())
-                            && CharacterIdentitySystem.resolveForHost(loaded).isPresent()
-                            && loaded.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != null,
-                    "save/load preserves HUMAN host and live hands");
+                            && loaded.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != null
+                            && loaded.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).handIds()
+                            .equals(boundHands.handIds())
+                            && CharacterIdentitySystem.resolveForActor(loaded).isEmpty()
+                            && HandCapability.resolve(loaded).isEmpty(),
+                    "detached save/load preserves HUMAN identity and hand data without actor authority");
             require(Long.valueOf(12345L).equals(loaded.offlineSinceMillis()),
                     "OFFLINE claim timestamp survives save/load");
             CompoundTag corpseSave = corpse.saveWithoutId(new CompoundTag());
@@ -173,7 +208,7 @@ public final class CharacterBodyDespawnGameTests {
         // GameTestHelper.spawn() calls setPersistenceRequired() on Mobs, masking the bug.
         PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
         require(body != null, "registered character body creates");
-        BlockPos position = helper.absolutePos(new BlockPos(x + 1000, 1, 1));
+        BlockPos position = helper.absolutePos(new BlockPos(x, 1, 1));
         helper.getLevel().getChunkAt(position);
         body.setPos(position.getX() + .5, position.getY(), position.getZ() + .5);
         require(helper.getLevel().addFreshEntity(body), "unforced character body joins server level");

@@ -3,13 +3,11 @@ package com.juicyslew.moonstation14.ms14.thirst;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.tags.TagKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.EntityType;
+import com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -30,14 +28,11 @@ public final class ThirstSystem {
     public static final ResourceLocation PARCHED_MODIFIER_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "thirst/parched");
     private static final ResourceKey<AlertData> THIRSTY_ALERT = ModAlerts.createKey("thirsty");
     private static final ResourceKey<AlertData> PARCHED_ALERT = ModAlerts.createKey("parched");
-    /** Temporary enrollment until character prototypes can own an equivalent opt-in. */
-    public static final TagKey<EntityType<?>> ELIGIBLE_ENTITY_TYPES = TagKey.create(
-            Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath("moonstation14", "thirst_eligible"));
-
     private ThirstSystem() { }
 
     public static boolean isEligible(LivingEntity entity) {
-        return !ActiveCharacterPolicy.isCarrier(entity) && entity.getType().is(ELIGIBLE_ENTITY_TYPES);
+        return ActiveCharacterPolicy.resolveActor(entity)
+                .flatMap(character -> character.component(ThirstPrototypeComponent.class)).isPresent();
     }
 
     public static boolean needsTicking(ThirstAttachment thirst) {

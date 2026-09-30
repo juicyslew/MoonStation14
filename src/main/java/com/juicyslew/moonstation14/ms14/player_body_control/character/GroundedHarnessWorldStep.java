@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.player_body_control.character;
 
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementState;
@@ -39,7 +40,7 @@ public final class GroundedHarnessWorldStep {
                 || wishZ > GroundedHarnessMotor.INPUT_QUANTIZATION
                 || !Float.isFinite(yaw) || yaw < -180f || yaw > 180f) return Optional.empty();
 
-        var data = CharacterIdentitySystem.resolve(body).orElse(null);
+        var data = CharacterIdentitySystem.resolveForActor(body).orElse(null);
         if (data == null) return Optional.empty();
         CharacterMovementPolicy policy;
         try {
@@ -96,14 +97,9 @@ public final class GroundedHarnessWorldStep {
                 || !(body instanceof MindControlledMob owner) || !owner.moonstation14$isMovementOwned()) {
             return false;
         }
-        var identity = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments
-                .CHARACTER_IDENTITY.get());
-        if (identity == null || !identity.isBound()
-                || !com.juicyslew.moonstation14.ms14.character.ModCharacters.HUMAN_ID.equals(identity.characterId())) {
-            return false;
-        }
-        return CharacterIdentitySystem.resolve(body)
-                .filter(data -> data.movement().filter(movement -> "grounded".equals(movement.mode())).isPresent())
+        return CharacterIdentitySystem.resolveForActor(body)
+                .filter(data -> data.component(MovementSpeedModifierComponent.class)
+                        .filter(movement -> "grounded".equals(movement.mode())).isPresent())
                 .isPresent();
     }
 

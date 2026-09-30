@@ -8,13 +8,11 @@ import com.juicyslew.moonstation14.ms14.alert.AlertSystem;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
-import net.minecraft.core.registries.Registries;
+import com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -30,13 +28,10 @@ public final class HungerSystem {
     public static final ResourceLocation STARVING_MODIFIER_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "hunger/starving");
     private static final ResourceKey<AlertData> PECKISH_ALERT = ModAlerts.createKey("peckish");
     private static final ResourceKey<AlertData> STARVING_ALERT = ModAlerts.createKey("starving");
-    /** Temporary explicit enrollment; future character prototypes should provide the same opt-in. */
-    public static final TagKey<EntityType<?>> ELIGIBLE_ENTITY_TYPES = TagKey.create(
-            Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath("moonstation14", "thirst_eligible"));
-
     private HungerSystem() { }
     public static boolean isEligible(LivingEntity entity) {
-        return !ActiveCharacterPolicy.isCarrier(entity) && entity.getType().is(ELIGIBLE_ENTITY_TYPES);
+        return ActiveCharacterPolicy.resolveActor(entity)
+                .flatMap(character -> character.component(HungerPrototypeComponent.class)).isPresent();
     }
     public static boolean needsTicking(HungerAttachment state) { return state.hunger() > 0f; }
 
@@ -128,7 +123,7 @@ public final class HungerSystem {
         return present ? value : HungerComponent.DEFAULT_HUNGER;
     }
     public static boolean satiate(LivingEntity entity, float factor, float scale) {
-        if (ActiveCharacterPolicy.isCarrier(entity)) return false;
+        if (!isEligible(entity)) return false;
         HungerReducer.Result transition = HungerReducer.satiate(read(entity), factor, scale);
         if (!transition.valid()) return false;
         if (!transition.changed()) return true;
@@ -142,7 +137,8 @@ public final class HungerSystem {
 
     /** Applies an owner-authoritative hunger adjustment only when this character has initialized state. */
     public static boolean satiateIfInitialized(LivingEntity entity, float factor, float scale) {
-        if (ActiveCharacterPolicy.isCarrier(entity)) return false;
+        // A stomach may be enrolled without Hunger; absent capability is a skipped penalty, not a failed vomit.
+        if (!isEligible(entity)) return true;
         if (!entity.hasData(com.juicyslew.moonstation14.component.ModDataAttachments.HUNGER.get())) return true;
         return satiate(entity, factor, scale);
     }

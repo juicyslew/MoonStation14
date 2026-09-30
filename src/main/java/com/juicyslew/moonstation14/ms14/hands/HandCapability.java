@@ -1,11 +1,8 @@
 package com.juicyslew.moonstation14.ms14.hands;
 
-import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
-import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
-import net.minecraft.server.level.ServerLevel;
+import com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -23,21 +20,13 @@ public final class HandCapability {
      */
     public static Optional<List<String>> resolve(Entity body) {
         Objects.requireNonNull(body, "body");
-        return resolveHostCharacter(body).map(CharacterData::hands)
-                .filter(ids -> !ids.isEmpty()).map(List::copyOf);
+        return resolveCharacter(body).flatMap(policy -> policy.component(HandsPrototypeComponent.class))
+                .map(HandsPrototypeComponent::hands).filter(ids -> !ids.isEmpty());
     }
 
-    /** Bound, current host prototype; only the dedicated lifecycle harness may host human exceptionally. */
-    public static Optional<CharacterData> resolveHostCharacter(Entity body) {
-        if (!(body instanceof LivingEntity living) || !(body.level() instanceof ServerLevel level))
-            return Optional.empty();
-        if (body.getClass() == PlayerCharacterHarnessEntity.class) {
-            var identity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
-            if (identity == null || !identity.isBound()
-                    || !ModCharacters.HUMAN_ID.equals(identity.characterId())) return Optional.empty();
-            return CharacterIdentitySystem.resolveHost(body, level, ModCharacters.HUMAN_ID);
-        }
-        return CharacterIdentitySystem.resolveForHost(living);
+    /** Read-only server actor prototype; never treats a carrier or a bare HUMAN key as a body. */
+    public static Optional<CharacterData> resolveCharacter(Entity body) {
+        return body instanceof LivingEntity living ? CharacterIdentitySystem.resolveForActor(living) : Optional.empty();
     }
 
     /**

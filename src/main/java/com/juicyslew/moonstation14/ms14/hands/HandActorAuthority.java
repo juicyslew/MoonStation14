@@ -73,7 +73,10 @@ public final class HandActorAuthority {
                 || !CarrierHandInventoryGate.allows(actor)
                 || !harnessId.value().equals(body.getUUID())) return Optional.empty();
         var capability = HandCapability.resolve(body);
-        return capability.map(ids -> new Snapshot(actor, body, source, mindId, harnessId, epoch, ids));
+        return capability.filter(ids -> compatiblePersisted(
+                        body.hasData(ModDataAttachments.HANDS.get()),
+                        body.getExistingDataOrNull(ModDataAttachments.HANDS.get()), ids))
+                .map(ids -> new Snapshot(actor, body, source, mindId, harnessId, epoch, ids));
     }
 
     /** Re-resolves both authorities and capability; false for any stale, ghost, Creative, or uncapable state. */
@@ -102,6 +105,11 @@ public final class HandActorAuthority {
         return expected != null && current != null && !expected.isEmpty() && expected.equals(current);
     }
 
+    /** No persisted state is acceptable; present state must agree exactly, including order. */
+    static boolean compatiblePersisted(boolean present, HandAttachment attachment, List<String> handIds) {
+        return !present || attachment != null && HandCapability.isCompatible(attachment.toComponent(), handIds);
+    }
+
     private static boolean validActor(ServerPlayer actor) {
         if (actor == null || actor instanceof FakePlayer || !(actor.level() instanceof ServerLevel level)
                 || level.isClientSide || !actor.isAlive() || actor.isRemoved() || actor.isPassenger()
@@ -112,7 +120,8 @@ public final class HandActorAuthority {
     }
 
     private static boolean validBody(ServerPlayer actor, LivingEntity body) {
-        if (body == null || body.level() != actor.level() || body.isRemoved() || !body.isAlive()
+        if (body == null || body instanceof ServerPlayer || body.level() != actor.level()
+                || body.isRemoved() || !body.isAlive()
                 || !body.isAddedToLevel() || body.isPassenger()
                 || !(body.level() instanceof ServerLevel level)) return false;
         return level.getEntity(body.getUUID()) == body;
