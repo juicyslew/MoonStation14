@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.player_body_control;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -169,6 +170,45 @@ class BodyControlRegistryTest {
         var revoked = registry.mind(session).orElseThrow();
         assertNull(revoked.harnessId());
         assertEquals(mind.epoch() + 1, revoked.epoch(), "legacy authorizes retains its revocation behavior");
+    }
+
+    @Test
+    void readOnlyAuthorizationRejectsMissingRegisteredTargetWithoutRevokingMindOrOwner()
+            throws ReflectiveOperationException {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID session = uuid(510);
+        MobHarnessId ghost = harness(registry, 511, MobHarnessKind.GHOST);
+        var mind = registry.createMind(session, ghost, ELIGIBLE).orElseThrow();
+        Map<MobHarnessId, MobHarness> targets = registryMap(registry, "harnesses");
+        Map<MobHarnessId, MindId> owners = registryMap(registry, "ownersByHarness");
+        targets.remove(ghost); // Simulate an inconsistent registry without invoking lifecycle cleanup.
+
+        assertFalse(registry.authorizesReadOnly(session, ghost, mind.epoch(),
+                target -> target.id().equals(ghost) && target.kind() == MobHarnessKind.GHOST));
+        assertEquals(mind, registry.mind(session).orElseThrow());
+        assertEquals(mind.id(), owners.get(ghost));
+    }
+
+    @Test
+    void readOnlyAuthorizationRejectsMissingOwnerWithoutRevokingMindOrTarget()
+            throws ReflectiveOperationException {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID session = uuid(512);
+        MobHarnessId character = harness(registry, 513, MobHarnessKind.CHARACTER);
+        MobHarnessId ghost = harness(registry, 514, MobHarnessKind.GHOST);
+        var initial = registry.createMind(session, ghost, ELIGIBLE).orElseThrow();
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.transfer(session, character, initial.epoch(), ELIGIBLE));
+        var mind = registry.mind(session).orElseThrow();
+        Map<MobHarnessId, MindId> owners = registryMap(registry, "ownersByHarness");
+        Map<MobHarnessId, MobHarness> targets = registryMap(registry, "harnesses");
+        owners.remove(character); // Preserve the Mind snapshot while the ownership index is missing.
+
+        assertFalse(registry.authorizesReadOnly(session, character, mind.epoch(),
+                target -> target.id().equals(character) && target.kind() == MobHarnessKind.CHARACTER));
+        assertEquals(mind, registry.mind(session).orElseThrow());
+        assertEquals(new MobHarness(character, MobHarnessKind.CHARACTER), targets.get(character));
+        assertFalse(owners.containsKey(character));
     }
 
     @Test
@@ -363,6 +403,14 @@ class BodyControlRegistryTest {
         MobHarnessId harnessId = new MobHarnessId(uuid(id));
         assertTrue(registry.registerHarness(new MobHarness(harnessId, kind)));
         return harnessId;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <K, V> Map<K, V> registryMap(BodyControlRegistry registry, String name)
+            throws ReflectiveOperationException {
+        Field field = BodyControlRegistry.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return (Map<K, V>) field.get(registry);
     }
 
     private static UUID uuid(long value) {

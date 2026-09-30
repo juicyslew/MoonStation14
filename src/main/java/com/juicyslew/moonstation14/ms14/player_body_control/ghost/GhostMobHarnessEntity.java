@@ -4,6 +4,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.level.Level;
 
 /**
@@ -22,6 +23,13 @@ public final class GhostMobHarnessEntity extends Mob {
 
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 1.0);
+    }
+
+    /** Observer bodies do not take ordinary or environmental damage. Session owners
+     * still end them explicitly by discarding the transient entity. */
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        return false;
     }
 
     @Override

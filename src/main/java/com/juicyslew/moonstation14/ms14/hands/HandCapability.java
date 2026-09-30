@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,10 +20,13 @@ public final class HandCapability {
      */
     public static Optional<List<String>> resolve(Entity body) {
         Objects.requireNonNull(body, "body");
-        Optional<CharacterData> character = body instanceof net.minecraft.world.entity.LivingEntity living
-                ? CharacterIdentitySystem.resolveForActor(living) : Optional.empty();
-        return character.flatMap(policy -> policy.component(HandsPrototypeComponent.class))
+        return resolveCharacter(body).flatMap(policy -> policy.component(HandsPrototypeComponent.class))
                 .map(HandsPrototypeComponent::hands).filter(ids -> !ids.isEmpty());
+    }
+
+    /** Read-only server actor prototype; never treats a carrier or a bare HUMAN key as a body. */
+    public static Optional<CharacterData> resolveCharacter(Entity body) {
+        return body instanceof LivingEntity living ? CharacterIdentitySystem.resolveForActor(living) : Optional.empty();
     }
 
     /**
