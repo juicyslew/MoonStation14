@@ -120,7 +120,7 @@ public final class FirstCharacterBodyStager {
                     ModDataAttachments.CHARACTER_IDENTITY.get());
             if (binding == null || !binding.equals(new PlayerCharacterBinding(reservation.accountUUID(), PROFILE_KEY, reservation.mindUUID()))
                     || identity == null || !identity.isBound() || !ModCharacters.HUMAN_ID.equals(identity.characterId())
-                    || CharacterIdentitySystem.resolve(body).isEmpty())
+                     || CharacterIdentitySystem.resolveForActor(body).isEmpty())
                 return Result.failed("body account/profile/Mind/HUMAN identity did not verify; PREPARING retained");
 
             MobHarnessId harnessId = new MobHarnessId(reservation.bodyUUID());

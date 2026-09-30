@@ -121,10 +121,10 @@ public final class PowerDeviceGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
+    @GameTest(template = "power_live_chain_clear", timeoutTicks = 400)
     public static void liveSourceSubstationApcBatteryAndLampChain(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        // Shift the requested x=0 device row into the empty template; y and z remain aligned.
+        // Shift the requested x=0 device row into the bounded template; y and z remain aligned.
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
         BlockPos substation = helper.absolutePos(new BlockPos(3, 1, 4));
         BlockPos apc = helper.absolutePos(new BlockPos(3, 1, 6));
@@ -247,8 +247,21 @@ public final class PowerDeviceGameTests {
             throw new GameTestAssertException(message + " (lit=" + lit + ", lampCable=" + graph
                     + ", expectedPorts=" + expectedPortStates(level, lamp)
                     + ", indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
-                    + ", solve=" + PowerRuntime.lastSolveDiagnostic(level) + ")");
+                    + ", solve=" + boundedSolve(level, lamp) + ")");
         }
+    }
+
+    private static String boundedSolve(ServerLevel level, BlockPos lamp) {
+        String solve = PowerRuntime.lastSolveDiagnostic(level);
+        int lamps = solve.indexOf(",lampWatts=");
+        if (lamps < 0) return solve.length() <= 240 ? solve : solve.substring(0, 240) + "...";
+        String lampEntry = lamp.toShortString() + "=";
+        int start = solve.indexOf(lampEntry, lamps);
+        int end = start < 0 ? -1 : solve.indexOf(',', start);
+        if (end < 0) end = solve.indexOf('}', start < 0 ? lamps : start);
+        return solve.substring(0, Math.min(lamps, 240)) + ",lampWatts[" + lampEntry
+                + (start < 0 ? "absent" : solve.substring(start + lampEntry.length(), end))
+                + "] (diagnosticLength=" + solve.length() + ")";
     }
 
     private static String expectedPortStates(ServerLevel level, BlockPos lamp) {

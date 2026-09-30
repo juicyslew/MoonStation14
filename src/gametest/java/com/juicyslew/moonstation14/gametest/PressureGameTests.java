@@ -1,14 +1,21 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BarotraumaSystem;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeResolutionException;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Pig;
@@ -24,6 +31,98 @@ import java.util.Set;
 @PrefixGameTestTemplate(false)
 public final class PressureGameTests {
     private PressureGameTests() { }
+
+    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    public static void boundPigReadsCommittedIsolatedComponentSnapshots(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
+        pig.setNoAi(true);
+        var identity = pig.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        require(identity != null && identity.isBound(), "pig must already be bound by the join adapter");
+        ResourceLocation pigId = identity.characterId();
+        require(pigId.equals(ResourceLocation.parse("moonstation14:pig")), "pig must retain its real identity");
+        var global = ModCharacters.catalog(level);
+        var manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        require(!BarotraumaSystem.tickIfDue(pig, -(long) pig.getId(), vacuum,
+                        manager.snapshot(ModCharacters.CHARACTER_TYPE)) && !pig.hasData(ModDataAttachments.DAMAGE.get()),
+                "bound identity absent from snapshot must remain inert without enrollment");
+        ResourceLocation baseId = ResourceLocation.parse("moonstation14:pressure_test_base");
+        var inherited = pressureCandidate(baseId, pigId, "", "");
+        var initialToken = manager.stage(Map.of(ModCharacters.CHARACTER_TYPE, inherited));
+        require(manager.snapshot(ModCharacters.CHARACTER_TYPE).get(pigId) == null,
+                "staging must not publish the candidate");
+        require(manager.commit(initialToken), "initial isolated commit must succeed");
+        var first = manager.snapshot(ModCharacters.CHARACTER_TYPE);
+        require(first.get(baseId) == null && first.get(pigId).component(BarotraumaComponent.class).isPresent(),
+                "abstract parent must not be published, concrete child must inherit component");
+
+        BlockPos sky = new BlockPos(2, level.getMaxBuildHeight() - 10, 2);
+        level.getChunk(sky);
+        pig.setPos(sky.getX() + 0.5, sky.getY() - pig.getEyeHeight(), sky.getZ() + 0.5);
+        var sample = vacuum.sample(level, BlockPos.containing(pig.getEyePosition()));
+        require(sample.isPresent() && sample.orElseThrow().pressureKpa(1) == 0,
+                "isolated enabled service must prove strict exterior vacuum");
+        long due = -(long) pig.getId();
+        require(!pig.hasData(ModDataAttachments.DAMAGE.get()), "initial pressure read must not enroll damage");
+        require(BarotraumaSystem.tickIfDue(pig, due, vacuum, first), "inherited pressure hit must apply");
+        require(typedBlunt(pig) == 0.6f, "inherited .15 spec must produce one .6 typed hit");
+
+        ResourceLocation componentFreeBaseId = ResourceLocation.parse("moonstation14:pressure_test_component_free_base");
+        var removedToken = manager.stage(Map.of(ModCharacters.CHARACTER_TYPE,
+                pressureCandidate(componentFreeBaseId, pigId, "\"components\":[]", "")));
+        require(manager.snapshot(ModCharacters.CHARACTER_TYPE) == first, "stage must retain published snapshot");
+        require(manager.commit(removedToken), "component-free parent commit must succeed");
+        var removed = manager.snapshot(ModCharacters.CHARACTER_TYPE);
+        require(removed != first && removed.get(pigId).component(BarotraumaComponent.class).isEmpty(),
+                "same pig identity must inherit no pressure policy from component-free parent");
+        require(first.get(pigId).component(BarotraumaComponent.class).isPresent(),
+                "previous snapshot remains immutable");
+        require(!BarotraumaSystem.tickIfDue(pig, due, vacuum, removed) && typedBlunt(pig) == 0.6f,
+                "component-free snapshot cannot apply another hit or damage state");
+
+        var changedToken = manager.stage(Map.of(ModCharacters.CHARACTER_TYPE,
+                pressureCandidate(baseId, pigId, "", ",\"components\":[{\"type\":\"Barotrauma\",\"damage\":{\"types\":{\"blunt\":0.25}}}]")));
+        require(manager.commit(changedToken), "override commit must succeed");
+        var changed = manager.snapshot(ModCharacters.CHARACTER_TYPE);
+        require(changed != removed && removed.get(pigId).component(BarotraumaComponent.class).isEmpty(),
+                "old component-free snapshot must stay immutable");
+        require(BarotraumaSystem.tickIfDue(pig, due, vacuum, changed), "changed component must hit live pig");
+        require(Math.abs(typedBlunt(pig) - 1.6f) < 0.001f
+                        && pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().size() == 1,
+                "override .25 must add exactly 1.0 typed blunt, not a second pressure policy");
+
+        try {
+            manager.stage(Map.of(ModCharacters.CHARACTER_TYPE,
+                    pressureCandidate(baseId, pigId, "",
+                            ",\"components\":[{\"type\":\"Barotrauma\",\"remove\":true}]")));
+            throw new GameTestAssertException("unsupported removal field must fail staging");
+        } catch (PrototypeResolutionException expected) {
+            require(expected.getMessage().contains("$.components[0].remove")
+                            && expected.getMessage().contains("unknown field"),
+                    "removal must fail as an unknown component field");
+            require(manager.snapshot(ModCharacters.CHARACTER_TYPE) == changed && !manager.hasStagedReload(),
+                    "invalid candidate must not replace published snapshot");
+        }
+        require(ModCharacters.catalog(level) == global, "isolated manager must not mutate production catalog");
+        helper.succeed();
+    }
+
+    private static Map<ResourceLocation, JsonObject> pressureCandidate(ResourceLocation baseId, ResourceLocation pigId,
+                                                                          String baseComponents, String childTail) {
+        String base = "{\"abstract\":true,"
+                + (baseComponents.isEmpty() ? "\"components\":[{\"type\":\"Barotrauma\","
+                + "\"damage\":{\"types\":{\"blunt\":0.15}},\"maxDamage\":200}]" : baseComponents) + "}";
+        String child = "{\"parent\":\"" + baseId + "\",\"host_entity_types\":[\"minecraft:pig\"]"
+                + childTail + "}";
+        return Map.of(baseId, JsonParser.parseString(base).getAsJsonObject(),
+                pigId, JsonParser.parseString(child).getAsJsonObject());
+    }
+
+    private static float typedBlunt(Pig pig) {
+        return pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().getOrDefault("blunt", 0f);
+    }
 
     @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
     public static void absentComponentDoesNotEnrollOrDamage(GameTestHelper helper) {

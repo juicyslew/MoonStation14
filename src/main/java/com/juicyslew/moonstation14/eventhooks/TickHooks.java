@@ -63,6 +63,14 @@ public class TickHooks {
         // covers catalogs populated after an entity's join without resolving every tick.
         if (EntityActivity.BODY_TEMPERATURE.isDue(serverLevel.getGameTime(), entity.getId())) {
             com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.reconcile(livingEntity);
+            if (!entity.hasData(ModDataAttachments.HUNGER.get())
+                    && com.juicyslew.moonstation14.ms14.hunger.HungerSystem.isEligible(livingEntity)) {
+                com.juicyslew.moonstation14.ms14.hunger.HungerSystem.initializeIfEligible(livingEntity, serverLevel);
+            }
+            if (!entity.hasData(ModDataAttachments.THIRST.get())
+                    && com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isEligible(livingEntity)) {
+                com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(livingEntity, serverLevel);
+            }
             com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem.reconcile(livingEntity);
         }
 
@@ -77,22 +85,19 @@ public class TickHooks {
                     livingEntity, EntityActivity.HUNGER, false);
             active = entity.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
         }
+        if (!com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isEligible(livingEntity)
+                && entity.getExistingDataOrNull(ModDataAttachments.THIRST.get()) != null) {
+            com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.reconcile(livingEntity, serverLevel);
+            com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem.update(
+                    livingEntity, EntityActivity.THIRST, false);
+            active = entity.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
+        }
         if (active == null) {
             return;
         }
 
         // Entity-type enrollment can change after a transformation. Retain the
         // authoritative attachment, but immediately shed its derived work flag.
-        if (active.isActive(EntityActivity.THIRST)
-                && !com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isEligible(livingEntity)) {
-            // Shed the authoritative scalar's derived projection at the same
-            // tick as its scheduler flag, while retaining the attachment.
-            com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.reconcile(livingEntity, serverLevel);
-            com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem.update(
-                    livingEntity, EntityActivity.THIRST, false);
-            active = entity.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
-            if (active == null) return;
-        }
         if (active.isActive(EntityActivity.HUNGER)
                 && !com.juicyslew.moonstation14.ms14.hunger.HungerSystem.isEligible(livingEntity)) {
             com.juicyslew.moonstation14.ms14.hunger.HungerSystem.reconcile(livingEntity, serverLevel);
@@ -169,8 +174,9 @@ public class TickHooks {
         PrototypeCatalog<ReagentData> reagents = PrototypeRuntime.serverReagents();
         var bloodPolicy = com.juicyslew.moonstation14.ms14.blood.BloodSystem.resolvePolicy(livingEntity).orElse(null);
         if (bloodPolicy == null) return;
-        Optional<Set<MetabolizerTypeEnum>> metabolizerTypes = CharacterIdentitySystem.resolve(livingEntity)
-                .flatMap(com.juicyslew.moonstation14.component.codec.json.CharacterData::metabolizerTypes);
+        Optional<Set<MetabolizerTypeEnum>> metabolizerTypes = CharacterIdentitySystem.resolveForActor(livingEntity)
+                .flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototypeComponent.class))
+                .map(com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototypeComponent::types);
         float bloodCapacity = com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.toFloat(
                 com.juicyslew.moonstation14.ms14.blood.BloodReducer.capacity(bloodPolicy));
         Set<ResourceKey<ReagentData>> bloodMetabolismExclusions = bloodPolicy.metabolismExclusions().stream()
@@ -178,24 +184,27 @@ public class TickHooks {
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         ReagentAttachment body = com.juicyslew.moonstation14.ms14.blood.BloodstreamStorage.getDetached(livingEntity);
         if (body == null) return;
-        ReagentAttachment stomach = MS14Provider.getDetached(livingEntity, MS14Bridges.STOMACH);
+        boolean stomachEligible = StomachSystem.isEligible(livingEntity);
+        ReagentAttachment stomach = stomachEligible
+                ? MS14Provider.getDetached(livingEntity, MS14Bridges.STOMACH) : null;
         var bodyBefore = MS14Provider.snapshot(body);
-        var stomachBefore = MS14Provider.snapshot(stomach);
+        var stomachBefore = stomachEligible ? MS14Provider.snapshot(stomach) : null;
         runWithFinalization(() -> {
             if (!body.isEmpty()) {
                 runMetabolism(livingEntity, serverLevel, body, body, reagents,
                          MetabolizerProfile.SHARED_BODY, bloodCapacity, bloodCapacity, bloodMetabolismExclusions, metabolizerTypes);
             }
-            if (!stomach.isEmpty()) {
+            if (stomachEligible && !stomach.isEmpty()) {
                 runMetabolism(livingEntity, serverLevel, stomach, body, reagents,
                          MetabolizerProfile.STOMACH, StomachSystem.CAPACITY, bloodCapacity, Set.of(), metabolizerTypes);
                 StomachDigestionTransfer.transfer(stomach, body, reagents.asMap(), bloodCapacity);
             }
         }, () -> {
             MS14Provider.updateIfChanged(livingEntity, MS14Bridges.BLOODSTREAM, bodyBefore, body);
-            MS14Provider.updateIfChanged(livingEntity, MS14Bridges.STOMACH, stomachBefore, stomach);
+            if (stomachEligible)
+                MS14Provider.updateIfChanged(livingEntity, MS14Bridges.STOMACH, stomachBefore, stomach);
             com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem.update(livingEntity,
-                    EntityActivity.REAGENT_METABOLISM, !body.isEmpty() || !stomach.isEmpty());
+                    EntityActivity.REAGENT_METABOLISM, !body.isEmpty() || stomachEligible && !stomach.isEmpty());
         });
     }
 

@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands;
 
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
@@ -69,7 +70,10 @@ public final class HandActorAuthority {
         if (mindId == null || harnessId == null || epoch <= 0 || !validBody(actor, body)
                 || !harnessId.value().equals(body.getUUID())) return Optional.empty();
         var capability = HandCapability.resolve(body);
-        return capability.map(ids -> new Snapshot(actor, body, source, mindId, harnessId, epoch, ids));
+        return capability.filter(ids -> compatiblePersisted(
+                        body.hasData(ModDataAttachments.HANDS.get()),
+                        body.getExistingDataOrNull(ModDataAttachments.HANDS.get()), ids))
+                .map(ids -> new Snapshot(actor, body, source, mindId, harnessId, epoch, ids));
     }
 
     /** Re-resolves both authorities and capability; false for any stale, ghost, Creative, or uncapable state. */
@@ -96,6 +100,11 @@ public final class HandActorAuthority {
 
     static boolean sameCapabilityIds(List<String> expected, List<String> current) {
         return expected != null && current != null && !expected.isEmpty() && expected.equals(current);
+    }
+
+    /** No persisted state is acceptable; present state must agree exactly, including order. */
+    static boolean compatiblePersisted(boolean present, HandAttachment attachment, List<String> handIds) {
+        return !present || attachment != null && HandCapability.isCompatible(attachment.toComponent(), handIds);
     }
 
     private static boolean validActor(ServerPlayer actor) {

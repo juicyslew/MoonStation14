@@ -19,12 +19,18 @@ import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.stomach.StomachSystem;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -43,6 +49,66 @@ public final class DamageRouteGameTests {
     private static final ResourceKey<ReagentData> POLYTRINIC_ACID = ModReagents.createKey("polytrinicacid");
 
     private DamageRouteGameTests() { }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void creativePlayerRejectsBothReagentDamageSourcesWithoutCommittingLedger(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        Player creative = player(helper, "creative-reagent-route", true);
+        creative.setHealth(19f);
+        DamageData before = new DamageData(new DamageMap(Map.of(DamageKeys.SLASH, 5f)));
+        creative.setData(ModDataAttachments.DAMAGE.get(), before);
+        float healthBefore = creative.getHealth();
+        require(creative.isCreative() && creative.getAbilities().invulnerable,
+                "fixture must have vanilla Creative invulnerability");
+        creative.invulnerableTime = 0;
+        require(!creative.hurt(level.damageSources().generic(), 2f),
+                "vanilla generic damage must be rejected by the Creative Player.hurt path");
+        var afterGeneric = creative.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        require(creative.getHealth() == healthBefore
+                        && afterGeneric != null && before.getMap().equals(afterGeneric.getMap()),
+                "rejected generic hit must not change health or the pre-existing ledger");
+
+        for (String id : new String[]{"reagent", "reagent_bypass"}) {
+            // Do not let a previous hit's vanilla damage cooldown explain the rejection.
+            creative.invulnerableTime = 0;
+            require(!creative.hurt(reagentSource(level, id), 2f),
+                    id + " must be rejected by the Creative Player.hurt path");
+            creative.invulnerableTime = 0;
+            require(DamageSystem.applyHealthChange(creative, Map.of(DamageKeys.BLUNT, 10f), 1f,
+                            id.equals("reagent_bypass")) == DamageSystem.Result.APPLIED,
+                    id + " must be handled even when vanilla rejects the hit");
+            var after = creative.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+            require(creative.getHealth() == healthBefore && after != null && after.getMap().equals(before.getMap()),
+                    id + " rejected hit must leave both health and pre-existing injury untouched: health="
+                            + creative.getHealth() + ", ledger=" + (after == null ? "null" : after.getMap()));
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void survivalPlayersStillTakeReagentDamageAndBypassIgnoresResistance(GameTestHelper helper) {
+        Player resistible = player(helper, "survival-reagent-route", false);
+        Player bypass = player(helper, "survival-bypass-route", false);
+        resistible.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 0));
+        bypass.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 0));
+        require(!resistible.isInvulnerableTo(reagentSource((ServerLevel) helper.getLevel(), "reagent"))
+                        && !bypass.isInvulnerableTo(reagentSource((ServerLevel) helper.getLevel(), "reagent_bypass")),
+                "Survival fixtures must accept both reagent sources");
+        require(DamageSystem.applyHealthChange(resistible, Map.of(DamageKeys.BLUNT, 10f), 1f, false)
+                        == DamageSystem.Result.APPLIED, "resistible player hit must be handled");
+        require(DamageSystem.applyHealthChange(bypass, Map.of(DamageKeys.BLUNT, 10f), 1f, true)
+                        == DamageSystem.Result.APPLIED, "bypass player hit must be handled");
+        var reduced = resistible.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        var full = bypass.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        float reducedBlunt = reduced == null ? 0f : reduced.getMap().getOrDefault(DamageKeys.BLUNT, 0f);
+        require(reducedBlunt > 0f && reducedBlunt < 10f
+                        && Math.abs(resistible.getHealth() - (20f - reducedBlunt / 5f)) < .001f,
+                "Survival reagent must commit the resisted typed health loss");
+        require(full != null && full.getMap().equals(Map.of(DamageKeys.BLUNT, 10f))
+                        && bypass.getHealth() == 18f,
+                "Survival bypass must ignore Resistance but still commit through vanilla hurt");
+        helper.succeed();
+    }
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void vanillaPlayerFallDamageEntersBluntLedger(GameTestHelper helper) {
@@ -140,5 +206,22 @@ public final class DamageRouteGameTests {
 
     private static void require(boolean condition, String message) {
         if (!condition) throw new GameTestAssertException(message);
+    }
+
+    private static Player player(GameTestHelper helper, String name, boolean creative) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        Player player = new Player(level, helper.absolutePos(new BlockPos(1, 1, 1)), 0f,
+                new GameProfile(UUID.randomUUID(), name)) {
+            @Override public boolean isCreative() { return creative; }
+            @Override public boolean isSpectator() { return false; }
+        };
+        player.getAbilities().invulnerable = creative;
+        return player;
+    }
+
+    private static DamageSource reagentSource(ServerLevel level, String id) {
+        ResourceKey<DamageType> key = ResourceKey.create(Registries.DAMAGE_TYPE,
+                ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, id));
+        return new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(key));
     }
 }

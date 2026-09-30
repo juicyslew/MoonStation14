@@ -7,6 +7,9 @@ import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeType;
+import com.juicyslew.moonstation14.ms14.organ.ModOrgans;
+import com.juicyslew.moonstation14.ms14.organ.OrganData;
+import com.juicyslew.moonstation14.ms14.character.components.InitialBodyComponent;
 import com.google.gson.JsonObject;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
@@ -34,9 +37,22 @@ public final class ModCharacters {
             ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "character"),
             "moonstation14/character",
             CharacterData.CODEC,
+            new CharacterComponentMergeStrategy(),
             (com.juicyslew.moonstation14.ms14.prototype.PrototypeJsonCatalogValidator)
-                    (owned, resolved) -> {
-                        Map<ResourceLocation, ResourceLocation> hosts = new LinkedHashMap<>();
+                     (owned, resolved) -> {
+                           for (ResourceLocation id : owned.keys()) {
+                               try {
+                                   CharacterSchemaAudit.rejectLegacyMovement(owned.get(id));
+                                   CharacterSchemaAudit.rejectLegacyHands(owned.get(id));
+                                  CharacterSchemaAudit.rejectLegacySlip(owned.get(id));
+                                   CharacterSchemaAudit.rejectLegacyBlood(owned.get(id));
+                                   CharacterSchemaAudit.rejectLegacyLungs(owned.get(id));
+                                   CharacterSchemaAudit.rejectLegacyThermal(owned.get(id));
+                             } catch (IllegalArgumentException exception) {
+                                 throw new IllegalArgumentException("Character " + id + ": " + exception.getMessage(), exception);
+                             }
+                         }
+                         Map<ResourceLocation, ResourceLocation> hosts = new LinkedHashMap<>();
                         for (ResourceLocation id : resolved.keys()) {
                             JsonObject json = resolved.get(id);
                             CharacterSchemaAudit.audit(id, json);
@@ -83,23 +99,51 @@ public final class ModCharacters {
         Map<ResourceLocation, JsonObject> characters = encodedCatalogs.getOrDefault(CHARACTER_TYPE.typeId(), Map.of());
         for (Map.Entry<ResourceLocation, JsonObject> entry : characters.entrySet()) {
             ResourceLocation characterId = entry.getKey();
-            JsonObject blood = entry.getValue().getAsJsonObject("blood");
-            if (blood == null) continue;
+            var components = entry.getValue().getAsJsonArray("components");
+            if (components == null) continue;
+            for (int componentIndex = 0; componentIndex < components.size(); componentIndex++) {
+                JsonObject blood = components.get(componentIndex).getAsJsonObject();
+                if (!"Bloodstream".equals(blood.get("type").getAsString())) continue;
+                String path = "$.components[" + componentIndex + "]";
 
-            JsonObject solution = blood.getAsJsonObject("reference_solution");
-            if (solution != null) {
-                for (String id : solution.keySet()) {
-                    requireReagent(characterId, "$.blood.reference_solution." + id, id, reagentIds);
+                JsonObject solution = blood.getAsJsonObject("reference_solution");
+                if (solution != null) {
+                    for (String id : solution.keySet()) {
+                        requireReagent(characterId, path + ".reference_solution." + id, id, reagentIds);
+                    }
+                }
+
+                if (blood.has("metabolism_exclusions") && blood.get("metabolism_exclusions").isJsonArray()) {
+                    var exclusions = blood.getAsJsonArray("metabolism_exclusions");
+                    for (int i = 0; i < exclusions.size(); i++) {
+                        String id = exclusions.get(i).getAsString();
+                        requireReagent(characterId, path + ".metabolism_exclusions[" + i + "]", id, reagentIds);
+                    }
                 }
             }
+        }
+    }
 
-            if (blood.has("metabolism_exclusions") && blood.get("metabolism_exclusions").isJsonArray()) {
-                var exclusions = blood.getAsJsonArray("metabolism_exclusions");
-                for (int i = 0; i < exclusions.size(); i++) {
-                    String id = exclusions.get(i).getAsString();
-                    requireReagent(characterId, "$.blood.metabolism_exclusions[" + i + "]", id, reagentIds);
+    /** Check resolved candidate references against the same candidate organ catalog, never the live snapshot. */
+    public static void validateOrganReferences(Map<ResourceLocation, PrototypeCatalog<?>> catalogs) {
+        PrototypeCatalog<?> characterCatalog = catalogs.get(CHARACTER_TYPE.typeId());
+        PrototypeCatalog<?> organCatalog = catalogs.get(ModOrgans.ORGAN_TYPE.typeId());
+        // Standalone character-only manager fixtures cannot resolve organ links; production registers both.
+        if (characterCatalog == null || organCatalog == null) return;
+        for (Map.Entry<ResourceLocation, ?> entry : characterCatalog.asMap().entrySet()) {
+            CharacterData character = (CharacterData) entry.getValue();
+            ResourceLocation characterId = entry.getKey();
+            character.component(InitialBodyComponent.class).ifPresent(initial -> initial.organs().forEach((category, organId) -> {
+                OrganData organ = organCatalog == null ? null : (OrganData) organCatalog.get(organId);
+                if (organ == null || organ.category() != category) {
+                    String path = "data/" + characterId.getNamespace() + "/" + CHARACTER_TYPE.resourceDirectory()
+                            + "/" + characterId.getPath() + ".json";
+                    throw new PrototypeLoadException(CHARACTER_TYPE.typeId(), characterId, path,
+                            "$.components[InitialBody].organs." + category.serialized() + ": "
+                                    + (organ == null ? "missing organ prototype '" : "wrong-category organ prototype '")
+                                    + organId + "'");
                 }
-            }
+            }));
         }
     }
 
