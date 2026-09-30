@@ -29,6 +29,7 @@ public class AtmosphereTestDeviceBlockEntity extends BlockEntity {
             @Override public boolean addGas(BlockPos targetPos, com.juicyslew.moonstation14.ms14.atmos.core.GasType gas, double moles, double temperature) { return service.addGas(server, targetPos, gas, moles, temperature); }
             @Override public double removeGas(BlockPos targetPos, double moles) { return service.removeGasUpTo(server, targetPos, moles); }
             @Override public boolean addEnergy(BlockPos targetPos, double joules) { return service.addEnergy(server, targetPos, joules); }
+            @Override public boolean addHeaterEnergy(BlockPos targetPos, double joules) { return service.addHeaterEnergy(server, targetPos, joules); }
         };
         AtmosphereDeviceRules.tick(true, gameTime, target, block.device(), block.pureGas(), receiver);
     }

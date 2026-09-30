@@ -8,6 +8,8 @@ import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.organ.ModOrgans;
 import com.juicyslew.moonstation14.ms14.organ.OrganData;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 
@@ -67,6 +69,14 @@ public final class PrototypeRuntime {
         return CLIENT_MANAGER.snapshot(ModOrgans.ORGAN_TYPE);
     }
 
+    public static PrototypeCatalog<GasReactionData> serverGasReactions() {
+        return SERVER_MANAGER.snapshot(ModGasReactions.GAS_REACTION_TYPE);
+    }
+
+    public static PrototypeCatalog<GasReactionData> clientGasReactions() {
+        return CLIENT_MANAGER.snapshot(ModGasReactions.GAS_REACTION_TYPE);
+    }
+
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModReagents.REAGENT_TYPE);
@@ -74,6 +84,7 @@ public final class PrototypeRuntime {
         manager.register(ModAlerts.ALERT_TYPE);
         manager.register(ModCharacters.CHARACTER_TYPE);
         manager.register(ModOrgans.ORGAN_TYPE);
+        manager.register(ModGasReactions.GAS_REACTION_TYPE);
         return manager;
     }
 }

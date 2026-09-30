@@ -253,10 +253,31 @@ public final class CharacterSchemaAudit {
             return;
         }
          if ("Body".equals(type) || "Hunger".equals(type) || "Thirst".equals(type) || "Stomach".equals(type)
-                 || "Flammable".equals(type) || "Blindable".equals(type)) {
-            checkFields(object, Set.of("type"), path);
-            return;
-        }
+                 || "Blindable".equals(type)) {
+             checkFields(object, Set.of("type"), path);
+             return;
+         }
+         if ("Flammable".equals(type)) {
+             checkFields(object, Set.of("type", "firestack_fade", "damage"), path);
+             if (object.has("firestack_fade")) {
+                 JsonElement fade = object.get("firestack_fade");
+                 if (!finiteNumber(fade) || fade.getAsDouble() < -10.0 || fade.getAsDouble() > 0.0)
+                     fail(path + ".firestack_fade", "expected finite number in [-10, 0]");
+              }
+              if (object.has("damage")) {
+                  JsonElement damage = object.get("damage");
+                  String damagePath = path + ".damage";
+                  if (damage == null || !damage.isJsonObject()) fail(damagePath, "expected object");
+                  checkFields(damage.getAsJsonObject(), Set.of("types"), damagePath);
+                  auditDamageMap(damage.getAsJsonObject(), "types", damagePath, false);
+                  for (String key : damage.getAsJsonObject().getAsJsonObject("types").keySet()) {
+                      JsonElement amount = damage.getAsJsonObject().getAsJsonObject("types").get(key);
+                      if (!finiteNumber(amount) || amount.getAsDouble() * 10.0 > Float.MAX_VALUE)
+                          fail(damagePath + ".types." + key, "maximum fire-stack damage overflows");
+                  }
+              }
+              return;
+         }
         if ("MovementSpeedModifier".equals(type)) {
             auditMovement(object, path, complete);
             return;

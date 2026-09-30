@@ -22,6 +22,72 @@ class AtmosphereVisualServerHooksTest {
     private static final ResourceLocation DIMENSION = ResourceLocation.withDefaultNamespace("overworld");
 
     @Test
+    void chunkRotationEventuallySelectsSeventeenthAndHandlesRemovalAndWrap() {
+        List<ChunkPos> watched = new ArrayList<>();
+        for (int i = 0; i < 17; i++) watched.add(new ChunkPos(i, 0));
+        ChunkPos cursor = null;
+        Set<ChunkPos> selected = new java.util.LinkedHashSet<>();
+        for (int tick = 0; tick < 3; tick++) {
+            int start = AtmosphereVisualServerHooks.rotationStart(watched, cursor);
+            for (int i = 0; i < 16; i++) {
+                cursor = watched.get((start + i) % watched.size());
+                selected.add(cursor);
+            }
+        }
+        assertEquals(new java.util.LinkedHashSet<>(watched), selected);
+
+        watched.remove(new ChunkPos(3, 0));
+        assertEquals(0, AtmosphereVisualServerHooks.rotationStart(watched, new ChunkPos(3, 0)));
+        assertEquals(0, AtmosphereVisualServerHooks.rotationStart(watched, watched.get(watched.size() - 1)));
+        assertEquals(1, AtmosphereVisualServerHooks.rotationStart(watched, watched.get(0)));
+    }
+
+    @Test
+    void chunkRotationKeepsPendingPacketPassInStableWatcherOrder() {
+        List<ChunkPos> watched = List.of(new ChunkPos(0, 0), new ChunkPos(1, 0), new ChunkPos(2, 0));
+        assertEquals(List.of(new ChunkPos(0, 0), new ChunkPos(1, 0), new ChunkPos(2, 0)),
+                watched.subList(AtmosphereVisualServerHooks.rotationStart(watched, null), watched.size()));
+        assertEquals(2, AtmosphereVisualServerHooks.rotationStart(watched, new ChunkPos(1, 0)));
+    }
+
+    @Test
+    void mergedSnapshotIncludesFireOnlyAndDeduplicatesGasFireCoordinates() {
+        AtmosphereChunkData data = new AtmosphereChunkData();
+        data.put(2, 12, 3, new GasMixture(Map.of(GasType.TRITIUM, 10.0), 293.15), GasMixture.vacuum());
+        var positions = List.of(new AtmosphereChunkData.CellPosition(1, 10, 1),
+                new AtmosphereChunkData.CellPosition(2, 12, 3));
+        var result = AtmosphereVisualServerHooks.buildSnapshotPacket(DIMENSION, data, new ChunkPos(0, 0), null,
+                false, 1, 10, cursor -> positions.stream().filter(p -> cursor == null || comparePosition(p, cursor) > 0).findFirst(),
+                pos -> 91);
+        assertEquals(2, result.payload().cells().size());
+        assertEquals(2, result.probes());
+        assertEquals(91, result.payload().cells().get(0).fireIntensity());
+        assertEquals(91, result.payload().cells().get(1).fireIntensity());
+    }
+
+    @Test
+    void mergedSnapshotPaginatesAndUsesProbeBudget() {
+        List<AtmosphereChunkData.CellPosition> positions = new ArrayList<>();
+        for (int i = 0; i < 600; i++) positions.add(new AtmosphereChunkData.CellPosition(i & 15, i, (i >> 4) & 15));
+        positions.sort(AtmosphereVisualServerHooksTest::comparePosition);
+        var first = AtmosphereVisualServerHooks.buildSnapshotPacket(DIMENSION, null, new ChunkPos(0, 0), null,
+                false, 2, 300, cursor -> positions.stream().filter(p -> cursor == null || comparePosition(p, cursor) > 0).findFirst(), p -> 8);
+        assertEquals(256, first.payload().cells().size());
+        assertFalse(first.payload().finalPacket());
+        assertTrue(first.payload().resetSnapshot());
+        assertEquals(256, first.probes());
+        var bounded = AtmosphereVisualServerHooks.buildSnapshotPacket(DIMENSION, null, new ChunkPos(0, 0), first.cursor(),
+                true, 2, 7, cursor -> positions.stream().filter(p -> comparePosition(p, cursor) > 0).findFirst(), p -> 8);
+        assertEquals(7, bounded.probes());
+    }
+
+    private static int comparePosition(AtmosphereChunkData.CellPosition a, AtmosphereChunkData.CellPosition b) {
+        int result = Integer.compare(a.x(), b.x());
+        if (result == 0) result = Integer.compare(a.z(), b.z());
+        return result == 0 ? Integer.compare(a.y(), b.y()) : result;
+    }
+
+    @Test
     void pendingPositionsDeduplicateAndOverflowFallsBackToSnapshot() {
         var pending = new AtmosphereVisualServerHooks.PendingChanges();
         ChunkPos chunk = new ChunkPos(2, -3);
@@ -42,7 +108,7 @@ class AtmosphereVisualServerHooksTest {
     void snapshotsSplitAtCellLimitWithSingleRevisionAndCorrectResetFinalFlags() {
         List<AtmosphereVisualPayload.VisualCell> cells = new ArrayList<>();
         for (int i = 0; i < 600; i++) cells.add(new AtmosphereVisualPayload.VisualCell(
-                i & 15, i, (i >> 4) & 15, 255, 0, 0, 0, 0));
+                i & 15, i, (i >> 4) & 15, 255, 0, 0, 0, 0, 0));
         var packets = AtmosphereVisualServerHooks.packetize(DIMENSION, new ChunkPos(-1, 4), 17, cells);
         assertEquals(3, packets.size());
         assertEquals(256, packets.get(0).cells().size());
@@ -98,7 +164,7 @@ class AtmosphereVisualServerHooksTest {
     }
 
     private static AtmosphereVisualPayload.VisualCell cell(int x, int y, int z, int plasma, int tritium) {
-        return new AtmosphereVisualPayload.VisualCell(x, y, z, plasma, tritium, 0, 0, 0);
+        return new AtmosphereVisualPayload.VisualCell(x, y, z, plasma, tritium, 0, 0, 0, 0);
     }
 
     @Test

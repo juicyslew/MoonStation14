@@ -343,6 +343,45 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void reconciliationRestoresOnlyIgnitedFireActivity(GameTestHelper helper) {
+        Villager ignited = spawn(helper, 1);
+        Villager unlit = spawn(helper, 3);
+        require(FireStackSystem.flammable(ignited, 2f, null, 1f) == EffectResult.APPLIED,
+                "ignited fixture setup must apply");
+        require(FireStackSystem.ignite(ignited, 1f) == EffectResult.APPLIED,
+                "ignited fixture must ignite");
+        FireStackComponent savedIgnited = state(ignited);
+        require(savedIgnited != null && savedIgnited.stacks() > 0f && savedIgnited.ignited(),
+                "fixture must hold positive ignited saved stacks");
+
+        // Simulate loading the persisted attachment before derived activity is rebuilt.
+        EntityActivitySystem.update(ignited, EntityActivity.FIRE_DRYING, false);
+        require(!hasActivity(ignited, EntityActivity.FIRE_DRYING),
+                "reload fixture must begin without derived fire activity");
+        EntityActivitySystem.reconcile(ignited);
+        require(hasActivity(ignited, EntityActivity.FIRE_DRYING),
+                "reconcile must restore activity for positive ignited fire stacks");
+        require(state(ignited).equals(savedIgnited),
+                "reconciliation must not rerun the fire hotspot or mutate saved stacks");
+
+        require(FireStackSystem.flammable(unlit, 2f, null, 1f) == EffectResult.APPLIED,
+                "unlit fixture setup must apply");
+        FireStackComponent savedUnlit = state(unlit);
+        require(savedUnlit != null && savedUnlit.stacks() > 0f && !savedUnlit.ignited(),
+                "unlit fixture must hold positive unlit stacks");
+        EntityActivitySystem.reconcile(unlit);
+        require(!hasActivity(unlit, EntityActivity.FIRE_DRYING),
+                "positive unlit stacks must not reconcile to drying activity");
+
+        require(FireStackSystem.extinguish(ignited, -3f, 1f) == EffectResult.APPLIED,
+                "explicit Extinguish must apply");
+        require(!ignited.hasData(ModDataAttachments.FIRE_STACK.get())
+                        && !hasActivity(ignited, EntityActivity.FIRE_DRYING),
+                "explicit Extinguish must remove fire attachment and activity");
+        helper.succeed();
+    }
+
     private static Villager spawn(GameTestHelper helper, int x) {
         Villager stand = helper.spawn(EntityType.VILLAGER, new BlockPos(x, 1, 1));
         stand.setNoAi(true);

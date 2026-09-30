@@ -5,6 +5,7 @@ public enum EntityActivity {
     STATUS_EFFECT(1),
     ALERT(1),
     REAGENT_METABOLISM(20),
+    /** One-second fire lifecycle work: negative-stack drying and ignited stack processing. */
     FIRE_DRYING(20),
     THIRST(20),
     HUNGER(20),

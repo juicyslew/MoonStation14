@@ -16,6 +16,9 @@ public final class AtmosphereDeviceRules {
     public static final double HEATER_JOULES_PER_SECOND = 400000.0;
     public static final double COOLER_JOULES_PER_SECOND = 400000.0;
     public static final double MIN_TEMPERATURE_KELVIN = 2.7;
+    public static final double HEATER_MIN_MOLES = 1.0e-6;
+    public static final double HEATER_MIN_HEAT_CAPACITY = 0.0003;
+    public static final double HEATER_MAX_TEMPERATURE_KELVIN = 262144.0;
     public static final double PRODUCER_TEMPERATURE_KELVIN = 293.15;
 
     private AtmosphereDeviceRules() { }
@@ -75,9 +78,8 @@ public final class AtmosphereDeviceRules {
                     receiver.removeGas(target, Math.min(dosePerStep(), mixture.totalMoles()));
             }
             case HEATER -> {
-                double capacity = mixture.heatCapacity();
-                if (Double.isFinite(capacity) && capacity > 0.0)
-                    receiver.addEnergy(target, energyPerStep(HEATER_JOULES_PER_SECOND));
+                double offer = heaterOffer(mixture, energyPerStep(HEATER_JOULES_PER_SECOND));
+                if (offer > 0.0) receiver.addHeaterEnergy(target, offer);
             }
             case COOLER -> {
                 double capacity = mixture.heatCapacity();
@@ -92,6 +94,47 @@ public final class AtmosphereDeviceRules {
     private static double dosePerStep() { return MOLES_PER_SECOND * TICK_CADENCE / 20.0; }
 
     private static double energyPerStep(double joulesPerSecond) { return joulesPerSecond * TICK_CADENCE / 20.0; }
+
+    /** Positive heater-only input policy; other sources and signed energy paths remain unchanged. */
+    public static double heaterOffer(GasMixture mixture, double requestedJoules) {
+        if (mixture == null || !Double.isFinite(requestedJoules) || requestedJoules <= 0.0
+                || !Double.isFinite(mixture.totalMoles()) || mixture.totalMoles() < HEATER_MIN_MOLES)
+            return 0.0;
+        double capacity = mixture.heatCapacity();
+        double temperature = mixture.temperatureKelvin();
+        if (!Double.isFinite(capacity) || capacity < HEATER_MIN_HEAT_CAPACITY
+                || !Double.isFinite(temperature) || temperature >= HEATER_MAX_TEMPERATURE_KELVIN)
+            return 0.0;
+        double headroom = capacity * (HEATER_MAX_TEMPERATURE_KELVIN - temperature);
+        if (!Double.isFinite(headroom) || headroom <= 0.0) return 0.0;
+        double offer = Math.min(requestedJoules, headroom);
+        double accepted = acceptedHeaterEnergy(mixture, offer);
+        if (accepted > 0.0) return accepted;
+
+        // Search representable positive offers rather than trusting the algebraic headroom:
+        // the detached mixture uses its actual rounded energy and temperature calculations.
+        double low = 0.0;
+        double high = offer;
+        for (int i = 0; i < 64; i++) {
+            double middle = low + (high - low) * 0.5;
+            if (middle <= low || middle >= high) break;
+            if (acceptedHeaterEnergy(mixture, middle) > 0.0) low = middle;
+            else high = middle;
+        }
+        double result = low > 0.0 ? acceptedHeaterEnergy(mixture, low) : 0.0;
+        return result <= offer ? result : 0.0;
+    }
+
+    private static double acceptedHeaterEnergy(GasMixture mixture, double offer) {
+        try {
+            GasMixture projected = mixture.withEnergyDelta(offer);
+            double energyChange = projected.thermalEnergy() - mixture.thermalEnergy();
+            return Double.isFinite(energyChange) && energyChange > 0.0 && energyChange <= offer
+                    && projected.temperatureKelvin() <= HEATER_MAX_TEMPERATURE_KELVIN ? energyChange : 0.0;
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            return 0.0;
+        }
+    }
 
     private static double projectedPressure(GasMixture mixture, double dose, GasType pureGas) {
         GasMixture projected = pureGas == null
@@ -111,5 +154,6 @@ public final class AtmosphereDeviceRules {
         default boolean addGas(BlockPos pos, GasType gas, double moles, double temperatureKelvin) { return false; }
         double removeGas(BlockPos pos, double moles);
         boolean addEnergy(BlockPos pos, double joules);
+        default boolean addHeaterEnergy(BlockPos pos, double requestedJoules) { return addEnergy(pos, requestedJoules); }
     }
 }

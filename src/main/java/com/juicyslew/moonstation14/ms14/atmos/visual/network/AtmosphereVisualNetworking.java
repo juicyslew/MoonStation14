@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 
 /** Common payload registration; the client renderer installs its handler at runtime. */
 public final class AtmosphereVisualNetworking {
-    public static final String PROTOCOL_VERSION = "1";
+    public static final String PROTOCOL_VERSION = "2";
     private static volatile Consumer<AtmosphereVisualPayload> clientHandler;
 
     private AtmosphereVisualNetworking() { }

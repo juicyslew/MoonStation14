@@ -93,7 +93,8 @@ public final class EntityActivitySystem {
         }
         FireStackAttachment fire = entity.getExistingDataOrNull(ModDataAttachments.FIRE_STACK.get());
         if (fire != null && FireStackSystem.supports(entity)
-                && FireStackSystem.needsDrying(fire.toComponent())) {
+                && (FireStackSystem.needsDrying(fire.toComponent())
+                || (fire.toComponent().stacks() > 0f && fire.toComponent().ignited()))) {
             desired.add(EntityActivity.FIRE_DRYING);
         }
         var thirst = entity.getExistingDataOrNull(ModDataAttachments.THIRST.get());

@@ -17,7 +17,7 @@ import java.util.Set;
 
 /** Server-authored visual-only atmosphere state. This schema is not registered or handled here. */
 public record AtmosphereVisualPayload(ResourceLocation dimension, int chunkX, int chunkZ, long revision,
-                                      boolean resetSnapshot, boolean finalPacket, List<VisualCell> cells)
+             boolean resetSnapshot, boolean finalPacket, List<VisualCell> cells)
         implements CustomPacketPayload {
     public static final Type<AtmosphereVisualPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath("moonstation14", "atmosphere_visual"));
@@ -66,6 +66,7 @@ public record AtmosphereVisualPayload(ResourceLocation dimension, int chunkX, in
             buf.writeByte(cell.waterVaporAlpha);
             buf.writeByte(cell.ammoniaAlpha);
             buf.writeByte(cell.frezonAlpha);
+            buf.writeByte(cell.fireIntensity);
         }
     }
 
@@ -84,7 +85,7 @@ public record AtmosphereVisualPayload(ResourceLocation dimension, int chunkX, in
             for (int i = 0; i < count; i++) {
                 cells.add(new VisualCell(buf.readUnsignedByte(), buf.readShort(), buf.readUnsignedByte(),
                         buf.readUnsignedByte(), buf.readUnsignedByte(), buf.readUnsignedByte(),
-                        buf.readUnsignedByte(), buf.readUnsignedByte()));
+                        buf.readUnsignedByte(), buf.readUnsignedByte(), buf.readUnsignedByte()));
             }
             if (buf.isReadable()) throw new IllegalArgumentException("trailing bytes in atmosphere visual payload");
             return new AtmosphereVisualPayload(dimension, chunkX, chunkZ, revision, reset, last, cells);
@@ -97,9 +98,9 @@ public record AtmosphereVisualPayload(ResourceLocation dimension, int chunkX, in
 
     private record PositionKey(int x, int y, int z) { }
 
-    /** Five ordered unsigned opacity bytes: plasma, tritium, water vapor, ammonia, frezon. */
+    /** Five ordered gas opacity bytes followed by server-authoritative fire intensity. */
     public record VisualCell(int localX, int y, int localZ, int plasmaAlpha, int tritiumAlpha,
-                             int waterVaporAlpha, int ammoniaAlpha, int frezonAlpha) {
+                             int waterVaporAlpha, int ammoniaAlpha, int frezonAlpha, int fireIntensity) {
         public VisualCell {
             if (localX < 0 || localX > 15 || localZ < 0 || localZ > 15)
                 throw new IllegalArgumentException("local X/Z must be in [0,15]");
@@ -110,6 +111,7 @@ public record AtmosphereVisualPayload(ResourceLocation dimension, int chunkX, in
             checkAlpha(waterVaporAlpha);
             checkAlpha(ammoniaAlpha);
             checkAlpha(frezonAlpha);
+            checkAlpha(fireIntensity);
         }
 
         /** Uses Minecraft's 1 m^3 atmosphere cell volume. */
@@ -128,7 +130,7 @@ public record AtmosphereVisualPayload(ResourceLocation dimension, int chunkX, in
                     alpha(mixture, GasType.TRITIUM, cellVolumeCubicMeters),
                     alpha(mixture, GasType.WATER_VAPOR, cellVolumeCubicMeters),
                     alpha(mixture, GasType.AMMONIA, cellVolumeCubicMeters),
-                    alpha(mixture, GasType.FREZON, cellVolumeCubicMeters));
+                    alpha(mixture, GasType.FREZON, cellVolumeCubicMeters), 0);
         }
 
         private static int alpha(GasMixture mixture, GasType type, double volume) {
