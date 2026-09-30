@@ -116,7 +116,7 @@ class NeedEnrollmentTest {
             pig = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                     JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))).getOrThrow();
         }
-        assertEquals(21, human.components().size());
+        assertEquals(22, human.components().size());
         assertTrue(human.components().stream().anyMatch(component -> component.type().equals("Speech")),
                 "human speech is explicitly opted in");
         assertTrue(human.component(ComplexInteractionComponent.class).isPresent());

@@ -43,7 +43,7 @@ import java.util.function.Supplier;
 public final class LifecycleExistingBodyReconnect {
     private static final String DEFER = "Your saved character area is not currently loaded. Reconnect was deferred; retry shortly or contact an administrator. No replacement was spawned.";
     private static final String RECOVERY = "Your saved character could not be proven safe to reconnect. No replacement was spawned; contact an administrator for recovery.";
-    private static final String DIRTY_CARRIER = "Character reconnect requires an empty carrier inventory and a valid parked-inventory marker. Your inventory was left untouched; reconnect after recovery.";
+    private static final String DIRTY_CARRIER = "Character reconnect could not verify that the carrier inventory is isolated from character control. Your items were left untouched; contact an administrator for recovery.";
     static final int MAX_PENDING_TICKS = 20;
     private static final Map<MinecraftServer, Map<UUID, Pending>> PENDING = new HashMap<>();
     private static final int MAX_RETURN_WAIT_TICKS = 200;
@@ -265,12 +265,16 @@ public final class LifecycleExistingBodyReconnect {
                     return attempt[0].result();
                 }, () -> CarrierHandInventoryGate.allows(player));
         if (admission == Admission.DENIED) {
+            GameType observedMode = player.gameMode.getGameModeForPlayer();
+            boolean markerPresent = player.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get());
+            boolean forceGameMode = server instanceof net.minecraft.server.dedicated.DedicatedServer dedicated
+                    && dedicated.getProperties().forceGameMode;
             com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
-                    "Creative OFFLINE carrier admission denied: reason={}, noWriteDenial={}",
+                    "OFFLINE carrier admission denied: observedMode={}, markerPresent={}, forceGamemode={}, reason={}, noWriteDenial={}",
+                    observedMode, markerPresent, forceGameMode,
                     attempt[0] == null ? CreativeCarrierSnapshotProbe.reason(player) : attempt[0].reason(),
                     attempt[0] != null && attempt[0].noWriteDenial());
-            if (offlineCreativeRefusalEligible(admission, attempt[0], player.gameMode.getGameModeForPlayer(),
-                    player.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get()))) {
+            if (offlineCreativeRefusalEligible(admission, attempt[0], observedMode, markerPresent)) {
                 CreativeCarrierSnapshotProbe.Reason reason = attempt[0].reason();
                 if (offlineCreativeAdmission(server, player, context, saved)) {
                     player.sendSystemMessage(Component.literal("Creative inventory was not parked (" + reason
@@ -281,7 +285,11 @@ public final class LifecycleExistingBodyReconnect {
         }
         if (admission == Admission.RECOVERY) {
             com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
-                    "Creative OFFLINE carrier admission requires recovery: reason={}",
+                    "OFFLINE carrier admission requires recovery: observedMode={}, markerPresent={}, forceGamemode={}, reason={}",
+                    player.gameMode.getGameModeForPlayer(),
+                    player.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get()),
+                    server instanceof net.minecraft.server.dedicated.DedicatedServer dedicated
+                            && dedicated.getProperties().forceGameMode,
                     attempt[0] == null ? CreativeCarrierSnapshotProbe.reason(player) : attempt[0].reason());
             disconnect.accept(RECOVERY); return;
         }
