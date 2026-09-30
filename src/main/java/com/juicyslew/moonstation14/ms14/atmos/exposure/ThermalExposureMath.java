@@ -9,6 +9,71 @@ public final class ThermalExposureMath {
     private ThermalExposureMath() {
     }
 
+    /** Physical exchange independent of damage membership. */
+    public static ExchangeResult exchange(double currentBodyKelvin, GasMixture gas,
+                                          TemperatureProfile profile, double seconds) {
+        requirePositiveFinite(currentBodyKelvin, "currentBodyKelvin");
+        Objects.requireNonNull(gas, "gas");
+        Objects.requireNonNull(profile, "profile");
+        requirePositiveFinite(seconds, "seconds");
+        double bodyCapacity = profile.bodyHeatCapacityJoulesPerKelvin();
+        double gasCapacity = gas.heatCapacity();
+        double next = currentBodyKelvin;
+        double energy = 0;
+        if (gasCapacity > 0) {
+            requirePositiveFinite(gas.temperatureKelvin(), "gas temperature");
+            double effective = gasCapacity * bodyCapacity / (gasCapacity + bodyCapacity);
+            next = Math.max(Double.MIN_NORMAL, currentBodyKelvin +
+                    (gas.temperatureKelvin() - currentBodyKelvin) * effective
+                            * profile.atmosphereTransferEfficiency() * seconds / bodyCapacity);
+            energy = -(next - currentBodyKelvin) * bodyCapacity;
+        }
+        if (!Double.isFinite(next) || !Double.isFinite(energy)) throw new IllegalArgumentException("invalid exchange");
+        return new ExchangeResult(next, energy);
+    }
+
+    public record ExchangeResult(double bodyTemperatureKelvin, double environmentEnergyDeltaJoules) { }
+
+    public record TemperatureProfile(double massKg, double specificHeatJoulesPerKgKelvin,
+                                     double atmosphereTransferEfficiency) {
+        public TemperatureProfile {
+            requirePositiveFinite(massKg, "massKg");
+            requirePositiveFinite(specificHeatJoulesPerKgKelvin, "specificHeatJoulesPerKgKelvin");
+            if (!Double.isFinite(atmosphereTransferEfficiency) || atmosphereTransferEfficiency < 0
+                    || atmosphereTransferEfficiency > 1 || !Double.isFinite(massKg * specificHeatJoulesPerKgKelvin))
+                throw new IllegalArgumentException("invalid temperature profile");
+        }
+        public double bodyHeatCapacityJoulesPerKelvin() { return massKg * specificHeatJoulesPerKgKelvin; }
+    }
+
+    public record DamageProfile(double heatDamageThresholdKelvin, double coldDamageThresholdKelvin,
+                                double heatDamagePerSecond, double coldDamagePerSecond, double damageCap) {
+        public DamageProfile {
+            requirePositiveFinite(heatDamageThresholdKelvin, "heatDamageThresholdKelvin");
+            requirePositiveFinite(coldDamageThresholdKelvin, "coldDamageThresholdKelvin");
+            requirePositiveFinite(heatDamagePerSecond, "heatDamagePerSecond");
+            requirePositiveFinite(coldDamagePerSecond, "coldDamagePerSecond");
+            requirePositiveFinite(damageCap, "damageCap");
+            if (heatDamageThresholdKelvin <= coldDamageThresholdKelvin || !Double.isFinite(damageCap * damageCap))
+                throw new IllegalArgumentException("invalid damage thresholds/cap");
+        }
+    }
+
+    public static DamageAmounts damageAt(double bodyKelvin, DamageProfile profile, double seconds) {
+        requirePositiveFinite(bodyKelvin, "bodyKelvin");
+        Objects.requireNonNull(profile, "profile");
+        requirePositiveFinite(seconds, "seconds");
+        double heat = bodyKelvin <= profile.heatDamageThresholdKelvin() ? 0 :
+                profile.heatDamagePerSecond() * (2 * profile.damageCap() /
+                        (1 + Math.exp(-0.005 * (bodyKelvin - profile.heatDamageThresholdKelvin()))) - profile.damageCap()) * seconds;
+        double cold = bodyKelvin >= profile.coldDamageThresholdKelvin() ? 0 :
+                profile.coldDamagePerSecond() * Math.sqrt((profile.coldDamageThresholdKelvin() - bodyKelvin)
+                        * profile.damageCap() * profile.damageCap() / profile.coldDamageThresholdKelvin()) * seconds;
+        if (!Double.isFinite(heat) || heat < 0 || !Double.isFinite(cold) || cold < 0)
+            throw new IllegalArgumentException("invalid damage amounts");
+        return new DamageAmounts(heat, cold);
+    }
+
     /**
      * Applies one exposure interval. The reported environment energy delta is the negative of
      * body sensible-energy gain, for a future caller to apply if/when atmosphere coupling is wired.
@@ -49,7 +114,13 @@ public final class ThermalExposureMath {
     /** SS14's empty-space heat capacity is a gameplay coefficient, not gas inventory.
      * The local equivalent transfers heat out of the body only, never into a mixture. */
     public static double vacuumBodyKelvin(double bodyKelvin, ThermalProfile body,
-                                          VacuumPolicy space, double seconds) {
+                                           VacuumPolicy space, double seconds) {
+        return vacuumBodyKelvin(bodyKelvin, new TemperatureProfile(body.massKg(), body.specificHeatJoulesPerKgKelvin(),
+                body.atmosphereTransferEfficiency()), space, seconds);
+    }
+
+    public static double vacuumBodyKelvin(double bodyKelvin, TemperatureProfile body,
+                                           VacuumPolicy space, double seconds) {
         requirePositiveFinite(bodyKelvin, "bodyKelvin");
         Objects.requireNonNull(body, "body");
         Objects.requireNonNull(space, "space");

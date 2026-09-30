@@ -28,6 +28,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.monster.Zombie;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
+import com.juicyslew.moonstation14.eventhooks.TickHooks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
@@ -38,13 +40,57 @@ import net.minecraft.gametest.framework.GameTestHelper;
 public final class ThirstGameTests {
     private ThirstGameTests() { }
 
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void staggeredRetryInitializesAbsentNeedsWithoutRerollingSavedState(GameTestHelper helper) {
+        Villager missing = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        Villager saved = helper.spawn(EntityType.VILLAGER, new BlockPos(4, 1, 1));
+        missing.removeData(ModDataAttachments.HUNGER.get());
+        missing.removeData(ModDataAttachments.THIRST.get());
+        var savedThirst = new ThirstAttachment(new ThirstComponent(0f));
+        saved.setData(ModDataAttachments.THIRST.get(), savedThirst);
+        var savedHunger = new com.juicyslew.moonstation14.ms14.hunger.HungerAttachment(
+                new com.juicyslew.moonstation14.ms14.hunger.HungerComponent(0f));
+        saved.setData(ModDataAttachments.HUNGER.get(), savedHunger);
+        helper.runAfterDelay(22, () -> {
+            require(missing.hasData(ModDataAttachments.HUNGER.get())
+                            && missing.hasData(ModDataAttachments.THIRST.get()),
+                    "retry cadence initializes absent eligible needs");
+            require(saved.getExistingDataOrNull(ModDataAttachments.HUNGER.get()) == savedHunger
+                            && saved.getExistingDataOrNull(ModDataAttachments.THIRST.get()) == savedThirst,
+                    "retry must not reroll saved needs");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void zeroThirstWithoutActivityShedsProjectionOnTick(GameTestHelper helper) {
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
+        zombie.setData(ModDataAttachments.THIRST.get(), new ThirstAttachment(new ThirstComponent(0f)));
+        var saved = zombie.getExistingDataOrNull(ModDataAttachments.THIRST.get());
+        AlertSystem.apply(zombie, helper.getLevel(), ModAlerts.createKey("parched"), false, 0, false);
+        zombie.getAttribute(Attributes.MOVEMENT_SPEED).addTransientModifier(
+                new net.minecraft.world.entity.ai.attributes.AttributeModifier(ThirstSystem.PARCHED_MODIFIER_ID,
+                        -.25, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        EntityActivitySystem.update(zombie, EntityActivity.THIRST, false);
+        TickHooks.onLivingEntityTick(new EntityTickEvent.Pre(zombie));
+        require(!has(zombie, "parched"), "stale alert must clear without a THIRST activity");
+        require(zombie.getAttribute(Attributes.MOVEMENT_SPEED).getModifier(ThirstSystem.PARCHED_MODIFIER_ID) == null,
+                "stale slowdown must clear without a THIRST activity");
+        require(zombie.getExistingDataOrNull(ModDataAttachments.THIRST.get()) == saved,
+                "saved zero scalar must not be replaced");
+        TickHooks.onLivingEntityTick(new EntityTickEvent.Pre(zombie));
+        require(zombie.getExistingDataOrNull(ModDataAttachments.THIRST.get()) == saved,
+                "inert cleanup must not write the scalar on later ticks");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void explicitEligibilityInitializesOnceAndExcludesZombie(GameTestHelper helper) {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         villager.setNoAi(true);
         Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(4, 1, 1));
 
-        require(ThirstSystem.isEligible(villager), "tagged villager must be eligible");
+        require(ThirstSystem.isEligible(villager), "bound villager must carry Thirst");
         require(!ThirstSystem.isEligible(zombie), "zombie must not be enrolled");
         require(villager.hasData(ModDataAttachments.THIRST.get()), "join should initialize villager thirst");
         float initialized = MS14Provider.get(villager, MS14Bridges.THIRST).thirst();

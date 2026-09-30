@@ -38,7 +38,8 @@ public final class PeacefulPlayerRegenerationGameTests {
             @Override public boolean isCreative() { return false; }
             @Override public boolean isSpectator() { return false; }
         };
-        require(HungerSystem.isEligible(player), "player test body must be temporarily character-eligible");
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(player, level);
+        require(HungerSystem.isEligible(player), "bound player test body must carry Hunger");
         player.setHealth(player.getMaxHealth() - 5f);
         player.setData(ModDataAttachments.DAMAGE.get(),
                 new DamageData(new DamageMap(Map.of(DamageKeys.BLUNT, 25f))));

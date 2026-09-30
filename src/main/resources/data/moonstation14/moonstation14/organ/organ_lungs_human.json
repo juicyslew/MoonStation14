@@ -1,0 +1,9 @@
+{
+  "category": "Lungs",
+  "Lung": {
+    "max_lung_moles": 6.0,
+    "breath_moles_to_saturation_multiplier": 1144.0,
+    "toxic_gas_damage_per_mole": {"plasma": {"poison": 1.0}, "tritium": {"radiation": 1.0}, "carbon_dioxide": {"poison": 0.5}},
+    "toxic_gas_damage_cap_per_inhale": 4.0
+  }
+}

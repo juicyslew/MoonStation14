@@ -57,11 +57,11 @@ public final class CharacterIdentityGameTests {
             var pigData = CharacterIdentitySystem.resolve(pig).orElseThrow();
             require(pigIdentity.characterId().equals(ResourceLocation.fromNamespaceAndPath("moonstation14", "pig")),
                     "configured Pig must resolve its data-driven Pig key");
-            var pigMovement = pigData.movement().orElseThrow();
+            var pigMovement = pigData.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).orElseThrow();
             require(pigMovement.walkSpeed() == 4d && pigMovement.sprintSpeed() == 4d,
                     "Pig policy must carry typed 4/4 movement values");
-            require(!pigData.slipData().canReceiveStun() && pigData.slipData().noSlip(),
-                    "Pig provisional local slip_data must disable stun and slipping");
+            require(pigData.component(com.juicyslew.moonstation14.ms14.character.components.StunnableComponent.class).isEmpty() && pigData.component(com.juicyslew.moonstation14.ms14.character.components.NoSlipComponent.class).isPresent(),
+                    "Pig local target components must disable stun and slipping");
             require(villagerKey.equals(playerKey), "villager and player must bind the same key");
             require(villager.level() instanceof ServerLevel && player.level() instanceof ServerLevel
                             && !villager.level().isClientSide && !player.level().isClientSide,
@@ -74,9 +74,8 @@ public final class CharacterIdentityGameTests {
                     "configured Mob keeps its own character policy");
             require(villagerPolicy.equals(playerPolicy),
                     "villager and player must resolve identical character data");
-            require(!villagerPolicy.slipData().reactiveGroups().isEmpty()
-                            && !villagerPolicy.slipData().reactiveMethods().isEmpty(),
-                    "human character data must contain populated slip_data");
+            require(villagerPolicy.component(com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent.class).isPresent(),
+                    "human character data must contain Reactive component");
             require(villagerPolicy.equals(ModCharacters.require(helper.getLevel(), ModCharacters.HUMAN_ID)),
                     "villager must resolve the same populated human policy used by player enrollment");
             require(MS14Provider.getDetached(villager, MS14Bridges.CHARACTER_IDENTITY).characterId()

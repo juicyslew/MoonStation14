@@ -364,6 +364,79 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_breathable_boundary", timeoutTicks = 100)
+    public static void depletedFiniteRoomReplenishesThroughBreathableOpeningAndKeepsSavedState(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        buildCoveredRoomWithSideGap(helper);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());
+        BlockPos gapLocal = new BlockPos(3, 1, 1);
+        BlockPos gap = helper.absolutePos(gapLocal);
+        BlockPos roomCell = helper.absolutePos(new BlockPos(2, 1, 1));
+        helper.setBlock(gapLocal, Blocks.STONE);
+        service.topologyChanged(level, gap);
+        classifyUntilSample(service, level, roomCell, 12);
+        require(isFiniteClaimed(level, roomCell), "sealed room must be finitely claimed before depletion");
+
+        for (int x = 1; x <= 2; x++) {
+            for (int z = 1; z <= 2; z++) {
+                BlockPos cell = helper.absolutePos(new BlockPos(x, 1, z));
+                classifyUntilSample(service, level, cell, 12);
+            }
+        }
+        for (int x = 1; x <= 2; x++) {
+            for (int z = 1; z <= 2; z++) {
+                BlockPos cell = helper.absolutePos(new BlockPos(x, 1, z));
+                GasMixture initial = service.sample(level, cell).orElseThrow();
+                require(service.removeGasUpTo(level, cell, initial.totalMoles()) > 0.0,
+                        "finite room cell must be depleted explicitly at " + cell);
+            }
+        }
+        for (int pass = 1; pass <= 3; pass++)
+            service.tick(level, (long) (pass + 12) * AtmosphereService.TICK_CADENCE);
+        require(coveredRoomMoles(service, level, GasType.OXYGEN, helper) == 0.0
+                        && coveredRoomMoles(service, level, GasType.NITROGEN, helper) == 0.0,
+                "sealed depleted room must not refill from ambient");
+
+        helper.setBlock(gapLocal, Blocks.AIR);
+        service.topologyChanged(level, gap);
+        for (int pass = 1; pass <= 12; pass++)
+            service.tick(level, (long) (pass + 16) * AtmosphereService.TICK_CADENCE);
+        require(coveredRoomMoles(service, level, GasType.OXYGEN, helper) > 0.0
+                        && coveredRoomMoles(service, level, GasType.NITROGEN, helper) > 0.0,
+                "breathable exterior must replenish both gases through the finite boundary");
+        require(service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0) < 0.0
+                        && service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0) < 0.0,
+                "ambient replenishment must be accounted as signed boundary import, not space export");
+
+        // Keep the interior gradient active after the initial import. Each finite equalization
+        // patch can change on every pass, but must not starve the immutable ambient edge.
+        double oxygenImportedBefore = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0);
+        double nitrogenImportedBefore = service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
+        for (int pass = 1; pass <= 8; pass++) {
+            GasMixture boundary = service.sample(level, roomCell).orElseThrow();
+            require(service.removeGasUpTo(level, roomCell, boundary.totalMoles() * 0.5) > 0.0,
+                    "persistent gradient must remove finite boundary gas on pass " + pass);
+            service.tick(level, (long) (pass + 28) * AtmosphereService.TICK_CADENCE);
+        }
+        require(service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0) < oxygenImportedBefore
+                        && service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0) < nitrogenImportedBefore,
+                "persistent changing finite patch must keep importing both ambient species");
+        require(coveredRoomMoles(service, level, GasType.OXYGEN, helper) > 0.0
+                        && coveredRoomMoles(service, level, GasType.NITROGEN, helper) > 0.0,
+                "both imported species must remain in the finite room under repeated gradient");
+
+        helper.setBlock(gapLocal, Blocks.STONE);
+        service.topologyChanged(level, gap);
+        LevelChunk chunk = (LevelChunk) level.getChunk(roomCell);
+        var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        require(isFiniteClaimed(level, roomCell) && data != null
+                        && data.get(roomCell.getX() & 15, roomCell.getY(), roomCell.getZ() & 15) != null,
+                "closing the opening must retain the established finite claim and saved override");
+        require(service.sample(level, roomCell).orElseThrow().moles(GasType.OXYGEN) > 0.0,
+                "reclosed room must retain imported oxygen");
+        helper.succeed();
+    }
+
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_door_toggle", timeoutTicks = 100)
     public static void closedDoorToggleAutomaticallyOpensAndClosesExteriorRoute(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -443,6 +516,66 @@ public final class AtmosphereRoomGameTests {
         helper.setBlock(upper, Blocks.OAK_DOOR.defaultBlockState()
                 .setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER)
                 .setValue(DoorBlock.OPEN, open));
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ambient_door_gradient", timeoutTicks = 120)
+    public static void breathableDoorReplenishesInteriorOxygenThroughFiniteRoom(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        buildCoveredRoomWithSideGap(helper);
+        BlockPos lower = new BlockPos(3, 1, 1), upper = new BlockPos(3, 2, 1);
+        helper.setBlock(upper, Blocks.STONE);
+        setDoorOpen(helper, lower, upper, false);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());
+        BlockPos near = helper.absolutePos(new BlockPos(2, 1, 1));
+        BlockPos deep = helper.absolutePos(new BlockPos(1, 1, 2));
+        for (int x = 1; x <= 2; x++) {
+            for (int z = 1; z <= 2; z++) {
+                BlockPos cell = helper.absolutePos(new BlockPos(x, 1, z));
+                classifyUntilSample(service, level, cell, 12);
+                require(isFiniteClaimed(level, cell),
+                        "each interior cell must belong to the sealed finite room at " + cell);
+            }
+        }
+        double initialOxygen = service.sample(level, deep).orElseThrow().moles(GasType.OXYGEN);
+        for (int x = 1; x <= 2; x++) {
+            for (int z = 1; z <= 2; z++) {
+                BlockPos cell = helper.absolutePos(new BlockPos(x, 1, z));
+                require(service.removeGasUpTo(level, cell, 1_000) > 0,
+                        "each claimed interior cell must accept depletion at " + cell);
+            }
+        }
+        double depletedOxygen = service.sample(level, deep).orElseThrow().moles(GasType.OXYGEN);
+        require(depletedOxygen < initialOxygen, "deep finite interior must start depleted");
+        for (int x = 1; x <= 2; x++) {
+            for (int z = 1; z <= 2; z++) {
+                BlockPos cell = helper.absolutePos(new BlockPos(x, 1, z));
+                require(service.sample(level, cell).orElseThrow().moles(GasType.OXYGEN) <= initialOxygen * 0.01,
+                        "every finite interior oxygen reserve must be depleted before opening at " + cell);
+            }
+        }
+        service.neighborNotified(level, helper.absolutePos(lower));
+        setDoorOpen(helper, lower, upper, true);
+        service.neighborNotified(level, helper.absolutePos(lower));
+        for (int pass = 1; pass <= 12; pass++)
+            service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
+        require(service.sample(level, helper.absolutePos(lower)).isPresent(), "doorway must classify exterior");
+        double firstImport = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0);
+        require(firstImport < 0, "first post-open boundary processing must import oxygen");
+        for (int pass = 13; pass <= 35; pass++) {
+            if (pass >= 28) {
+                GasMixture boundary = service.sample(level, near).orElseThrow();
+                require(service.removeGasUpTo(level, near, boundary.totalMoles() * 0.5) > 0,
+                        "repeated doorway depletion must keep an ambient gradient on pass " + pass);
+            }
+            service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
+        }
+        require(service.sample(level, deep).orElseThrow().moles(GasType.OXYGEN) > depletedOxygen,
+                "breathable exterior must replenish the deep cell after all finite neighbors were depleted");
+        require(service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0) < 0,
+                "inhaled ambient oxygen must publish a negative export ledger");
+        require(service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0) < firstImport,
+                "repeated post-open cycles must keep importing oxygen");
+        helper.succeed();
     }
 
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_wall_opening", timeoutTicks = 100)

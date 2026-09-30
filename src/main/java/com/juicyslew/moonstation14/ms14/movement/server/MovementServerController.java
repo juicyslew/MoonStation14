@@ -44,7 +44,6 @@ public final class MovementServerController {
     // Experimental handshake allowance, not a packet-rate or performance budget.
     private static final long BEGIN_TIMEOUT_TICKS = 5L * 20L;
     private static final AtomicLong NEXT_EPOCH = new AtomicLong(1);
-    private static final CharacterMovementMotor MOTOR = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
     private static final Map<ServerPlayer, PlayerSession> SESSIONS = new IdentityHashMap<>();
 
     private MovementServerController() { }
@@ -55,7 +54,7 @@ public final class MovementServerController {
 
     /** Called after the pinned vanilla packet-position restore point; intentionally not wired until its mixin lands. */
     public static void onAfterVanillaRestore(ServerPlayer player) {
-        if (!MovementStartupGate.enabledForServer() || !isConnectedHuman(player)) return;
+        if (!MovementStartupGate.enabledForServer()) return;
         PlayerSession tracked = SESSIONS.get(player);
         if (tracked == null) {
             if (!eligible(player)) return;
@@ -106,7 +105,8 @@ public final class MovementServerController {
             return;
         }
         if (!session.customOwnsMovement()) return;
-        if (!supportedCustomMode(player)) {
+        CharacterMovementPolicy policy = currentPolicy(player);
+        if (!supportedCustomMode(player) || policy == null) {
             if (session.beginDisable(session.epoch(), true) == MovementSession.Result.ACCEPTED) {
                 tracked.surfaceTrace.reset();
                 tracked.pendingEndTick = player.level().getGameTime();
@@ -118,6 +118,7 @@ public final class MovementServerController {
         }
 
         CharacterMovementCommand command = tracked.lastCommand;
+        CharacterMovementMotor motor = new CharacterMovementMotor(policy);
         if (command == null) command = new CharacterMovementCommand(0, 0, false, false);
         boolean stunned = CharacterControlSystem.isStunned(player);
         double voluntarySpeedFactor = CharacterControlSystem.isKnockedDown(player)
@@ -129,8 +130,8 @@ public final class MovementServerController {
         double wishZ = stunned ? 0d : command.wishZ();
         double wishLength = Math.hypot(wishX, wishZ);
         double wishSpeed = wishLength
-                * (command.sprint() ? MOTOR.policy().sprintSpeedPerSecond()
-                : MOTOR.policy().walkSpeedPerSecond()) * voluntarySpeedFactor;
+                * (command.sprint() ? policy.sprintSpeedPerSecond()
+                : policy.walkSpeedPerSecond()) * voluntarySpeedFactor;
         double preFrictionWishProjection = wishLength == 0d ? 0d
                 : (vanillaVelocity.x * wishX + vanillaVelocity.z * wishZ)
                 / wishLength * 20d;
@@ -169,7 +170,7 @@ public final class MovementServerController {
         }
         CharacterMovementState result;
         try {
-            result = MOTOR.tick(state, command, environment, stunned);
+            result = motor.tick(state, command, environment, stunned);
         } catch (IllegalArgumentException exception) {
             // Entity.move may already have applied its collision-resolved displacement. Do not
             // restore vanilla state or retry; stop this owned tick and disconnect fail-closed.
@@ -208,8 +209,7 @@ public final class MovementServerController {
     }
 
     public static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
-        if (!MovementStartupGate.enabledForServer() || !(context.player() instanceof ServerPlayer player)
-                || !isConnectedHuman(player)) return;
+        if (!MovementStartupGate.enabledForServer() || !(context.player() instanceof ServerPlayer player)) return;
         PlayerSession tracked = SESSIONS.get(player);
         if (tracked == null) return;
         if (tracked.protocol.phase() == MovementSession.Phase.PENDING_END
@@ -394,11 +394,20 @@ public final class MovementServerController {
                 || player.getServer().getPlayerList().getPlayer(player.getUUID()) != player) return false;
         var identity = player.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
         return identity != null && identity.isBound() && ModCharacters.HUMAN_ID.equals(identity.characterId())
-                && CharacterIdentitySystem.resolve(player).isPresent();
+                && CharacterIdentitySystem.resolveForActor(player).isPresent();
     }
 
     private static boolean eligible(ServerPlayer player) {
-        return supportedCustomMode(player) && player.onGround();
+        return supportedCustomMode(player) && currentPolicy(player) != null && player.onGround();
+    }
+
+    private static CharacterMovementPolicy currentPolicy(ServerPlayer player) {
+        try {
+            return CharacterIdentitySystem.resolveForActor(player)
+                    .map(CharacterMovementPolicy::fromCharacterData).orElse(null);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private static boolean supportedCustomMode(ServerPlayer player) {

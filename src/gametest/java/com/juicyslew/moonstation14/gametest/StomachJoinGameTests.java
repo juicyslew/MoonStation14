@@ -18,6 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.monster.Zombie;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -32,6 +33,21 @@ public final class StomachJoinGameTests {
             ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "water"));
 
     private StomachJoinGameTests() { }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void unknownHostRetainsStomachButDoesNotScheduleDigestion(GameTestHelper helper) {
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
+        ReagentAttachment saved = populatedStomach();
+        zombie.setData(ModDataAttachments.STOMACH.get(), saved);
+        EntityActivitySystem.update(zombie, EntityActivity.REAGENT_METABOLISM, true);
+        EntityActivitySystem.reconcile(zombie);
+        require(zombie.getExistingDataOrNull(ModDataAttachments.STOMACH.get()) == saved,
+                "unknown host must retain saved stomach contents");
+        var activities = zombie.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
+        require(activities == null || !activities.isActive(EntityActivity.REAGENT_METABOLISM),
+                "unknown host stomach must not schedule digestion");
+        helper.succeed();
+    }
 
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void stomachReconcilesAfterJoinAndCodecReload(GameTestHelper helper) {

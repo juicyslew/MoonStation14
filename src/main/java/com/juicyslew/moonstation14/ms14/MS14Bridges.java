@@ -17,8 +17,6 @@ import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityComponent;
 import com.juicyslew.moonstation14.ms14.blood.BloodAttachment;
 import com.juicyslew.moonstation14.ms14.blood.BloodComponent;
-import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
-import com.juicyslew.moonstation14.ms14.lung.LungComponent;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
@@ -74,11 +72,6 @@ public class MS14Bridges {
 
     public static final SystemLink<BloodAttachment, BloodComponent> BLOOD = new SystemLink<>(
             ModDataAttachments.BLOOD, ModDataComponents.BLOOD, BloodAttachment::new);
-
-    public static final SystemLink<LungAttachment, LungComponent> LUNG = new SystemLink<>(
-            ModDataAttachments.LUNG, ModDataComponents.LUNG, () -> new LungAttachment(
-                    LungComponent.from(com.juicyslew.moonstation14.ms14.atmos.core.GasMixture.vacuum(), 0, false)),
-            new SystemLink.ActivityBinding<>(EntityActivity.RESPIRATION_EXPOSURE, ignored -> true));
 
     public static final SystemLink<SlidingAttachment, SlidingComponent> SLIDING =
             new SystemLink<>(ModDataAttachments.SLIDING, ModDataComponents.SLIDING, SlidingAttachment::new);
