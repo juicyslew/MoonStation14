@@ -31,7 +31,12 @@ class ConditionSystemTest {
                 assertTrue(ConditionSystem.evaluate(oxygenGate, ConditionContext.builder()
                         .metabolizerTypes(configured.component(MetabolizerPrototypeComponent.class).orElseThrow().types()).build()));
                 var components = raw.getAsJsonArray("components");
-                components.remove(components.size() - 1);
+                for (int index = 0; index < components.size(); index++) {
+                    if ("Metabolizer".equals(components.get(index).getAsJsonObject().get("type").getAsString())) {
+                        components.remove(index);
+                        break;
+                    }
+                }
                 assertEquals(Optional.empty(), CharacterData.CODEC.parse(JsonOps.INSTANCE, raw)
                         .getOrThrow().component(MetabolizerPrototypeComponent.class));
                 assertFalse(ConditionSystem.evaluate(oxygenGate, ConditionContext.unavailable()));

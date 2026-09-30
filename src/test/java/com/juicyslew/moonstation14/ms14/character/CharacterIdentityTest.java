@@ -15,10 +15,36 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.List;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CharacterIdentityTest {
+    @Test
+    void packagedHumanCatalogDoesNotMapLifecycleHarnessOrUnsupportedHosts() throws IOException {
+        String path = "data/moonstation14/moonstation14/character/human.json";
+        CharacterData human;
+        try (var stream = getClass().getClassLoader().getResourceAsStream(path)) {
+            assertNotNull(stream, "missing packaged character resource: " + path);
+            human = CharacterData.CODEC.parse(JsonOps.INSTANCE,
+                    JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))).getOrThrow();
+        }
+        var catalog = new PrototypeCatalog<>(Map.of(ModCharacters.HUMAN_ID, human));
+        ResourceLocation harness = ResourceLocation.parse("moonstation14:player_character_harness");
+        ResourceLocation unsupported = ResourceLocation.parse("minecraft:cow");
+        assertTrue(human.canSpeakText());
+        assertFalse(human.hostEntityTypes().contains(harness));
+        assertTrue(ModCharacters.characterForHost(catalog, harness).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, harness).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ModCharacters.HUMAN_ID, unsupported).isEmpty());
+        assertTrue(ModCharacters.characterForHost(catalog, unsupported).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveForHost(catalog, ResourceLocation.parse("test:wrong"), harness).isEmpty());
+        assertTrue(CharacterIdentitySystem.resolveForHost(new PrototypeCatalog<>(Map.of()),
+                ModCharacters.HUMAN_ID, harness).isEmpty());
+    }
+
     @Test
     void attachmentCodecRoundTripsOnlyThePrototypeKey() {
         CharacterIdentityComponent component = new CharacterIdentityComponent(ModCharacters.HUMAN_ID);

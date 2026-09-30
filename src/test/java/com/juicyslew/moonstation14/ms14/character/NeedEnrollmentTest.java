@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.ms14.character.components.CharacterComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StomachPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
+import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
 import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
@@ -101,7 +102,7 @@ class NeedEnrollmentTest {
         assertEquals(published, manager.snapshot(ModCharacters.CHARACTER_TYPE));
     }
 
-    @Test void shippedHumanHasNineteenComponentsAndPigHasNoNeedMarkers() throws Exception {
+    @Test void shippedHumanHasExpectedComponentsAndPigHasNoNeedMarkers() throws Exception {
         var loader = getClass().getClassLoader();
         CharacterData human;
         CharacterData pig;
@@ -115,7 +116,10 @@ class NeedEnrollmentTest {
             pig = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                     JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))).getOrThrow();
         }
-        assertEquals(19, human.components().size());
+        assertEquals(21, human.components().size());
+        assertTrue(human.components().stream().anyMatch(component -> component.type().equals("Speech")),
+                "human speech is explicitly opted in");
+        assertTrue(human.component(ComplexInteractionComponent.class).isPresent());
         assertEquals(List.of(PLAYER, ResourceLocation.parse("minecraft:villager")), human.hostEntityTypes());
         for (var type : List.of(HungerPrototypeComponent.class, ThirstPrototypeComponent.class, StomachPrototypeComponent.class)) {
             assertTrue(human.component(type).isPresent());

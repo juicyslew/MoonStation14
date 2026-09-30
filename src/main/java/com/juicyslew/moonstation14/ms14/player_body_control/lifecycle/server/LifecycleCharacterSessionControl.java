@@ -2,6 +2,10 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry;
+import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalCharacterIdentityPayload;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
@@ -20,6 +24,8 @@ import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpec
 import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.BodyCarrierIsolationBootstrap;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -238,8 +244,30 @@ public final class LifecycleCharacterSessionControl {
                 return;
             }
             player.setCamera(session.body);
+            try {
+                if (BodyCarrierIsolationBootstrap.ensure(player, session.body)
+                        == BodyCarrierIsolationBootstrap.Result.REJECTED)
+                    com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                            "Lifecycle CHARACTER carrier isolation rejected; hand actions remain denied (body={})",
+                            session.body.getId());
+            } catch (RuntimeException | Error failure) {
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                        "Lifecycle CHARACTER carrier isolation failed; hand actions remain denied (body={})",
+                        session.body.getId(), failure);
+            }
+            try {
+                BodyHandBootstrap.Result hands = BodyHandBootstrap.ensure(session.body);
+                if (hands == BodyHandBootstrap.Result.REJECTED)
+                    com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                            "Lifecycle CHARACTER hand bootstrap rejected; movement remains eligible (body={})", session.body.getId());
+            } catch (RuntimeException | Error failure) {
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                        "Lifecycle CHARACTER hand bootstrap failed; movement remains eligible (body={})",
+                        session.body.getId(), failure);
+            }
             session.committed = true;
             GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
+            sendSavedIdentity(server, session);
             com.juicyslew.moonstation14.MoonStation14.LOGGER.info(
                     "Lifecycle CHARACTER Ready committed (epoch={}, body={})", session.epoch, session.body.getId());
         } else if (payload instanceof GhostControlPayloads.Intent intent) {
@@ -259,6 +287,25 @@ public final class LifecycleCharacterSessionControl {
             if (session.gate.exhausted()) fail(server, session, FailureReason.INTENT_GATE_EXHAUSTED);
         } else if (payload instanceof GhostControlPayloads.Stop stop && stop.epoch() == session.epoch) {
             fail(server, session, FailureReason.CLIENT_STOP);
+        }
+    }
+
+    /** Only the exact committed owner receives the already-saved identity for this bound body. */
+    private static void sendSavedIdentity(MinecraftServer server, Session session) {
+        ServerPlayer player = session.player;
+        if (!server.isSameThread() || !connectedExact(server, player) || !session.committed
+                || session(server, session.accountId) != session || !shouldKeepCharacterCamera(player)
+                || !activeBodyBindingMatches(session.body.playerCharacterBinding(), session.accountId,
+                        session.profileId, session.mindId)) return;
+        try {
+            var identity = ChatIdentitySavedData.existing(server.overworld())
+                    .flatMap(data -> data.character(new ChatIdentityRegistry.CharacterKey(
+                            session.accountId, session.profileId))).orElse(null);
+            if (identity == null) return; // No lookup may create or allocate an identity here.
+            LocalSpeechNetworking.sendIdentity(player, new LocalCharacterIdentityPayload(
+                    identity.name(), identity.rgb(), session.body.level().dimension().location()));
+        } catch (RuntimeException failure) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.warn("Could not load or deliver committed character identity to owner", failure);
         }
     }
 

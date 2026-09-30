@@ -329,6 +329,106 @@ class CharacterMovementMotorTest {
     }
 
     @Test
+    void airbornePerpendicularImpulseRetainsResultantSpeedBeyondDeclaredWishSpeed() throws IOException {
+        CharacterMovementCommand forwardFast = new CharacterMovementCommand(1d, 0d, false, true);
+        for (String prototype : new String[]{"human.json", "pig.json"}) {
+            CharacterMovementPolicy policy = CharacterMovementPolicy.fromCharacterData(readCharacter(prototype));
+            CharacterMovementMotor motor = new CharacterMovementMotor(policy);
+            // Already carrying 3 blocks/s sideways; a separate 1 block/s impulse arrives this tick.
+            CharacterMovementState initial = state(MovementVector.ZERO, new MovementVector(0d, 0d, 3d), false);
+            CharacterMovementEnvironment impulse = env(.05d, 0d, 0d,
+                    new MovementVector(0d, 0d, 1d), 1d, OPEN);
+            CharacterMovementState moving = motor.tick(initial, forwardFast, impulse, false);
+            double wish = policy.sprintSpeedPerSecond();
+
+            assertEquals(wish, moving.velocity().x(), 1e-12, prototype + " projected wish");
+            assertEquals(4d, moving.velocity().z(), 1e-12, prototype + " retained sideways speed");
+            assertEquals(Math.hypot(wish, 4d), moving.velocity().horizontalLength(), 1e-12,
+                    prototype + " resultant speed is not the projected-wish limit");
+            assertEquals(wish * .05d, moving.position().x(), 1e-12);
+            assertEquals(.2d, moving.position().z(), 1e-12);
+
+            CharacterMovementState coasting = motor.tick(moving,
+                    new CharacterMovementCommand(0d, 0d, false, false),
+                    env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
+            assertEquals(moving.velocity().horizontalLength(), coasting.velocity().horizontalLength(), 1e-12,
+                    prototype + " no-input air tick retains both horizontal components");
+        }
+    }
+
+    @Test
+    void jumpingIntoOneBlockWallClipsBlockedAxisUntilClearanceButKeepsLateralMomentum() throws IOException {
+        MovementCollisionResolver wallUntilOneBlockHigh = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(new MovementVector(
+                        position.y() + requested.y() >= 1d ? requested.x() : 0d,
+                        requested.y(), requested.z()), false);
+        for (String prototype : new String[]{"human.json", "pig.json"}) {
+            CharacterMovementPolicy policy = CharacterMovementPolicy.fromCharacterData(readCharacter(prototype));
+            CharacterMovementMotor motor = new CharacterMovementMotor(policy);
+            CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                    .98d, MovementVector.ZERO, 0d, 0d, wallUntilOneBlockHigh);
+            CharacterMovementEnvironment midairImpulse = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                    .98d, new MovementVector(0d, 0d, 3d), 3d, 0d, wallUntilOneBlockHigh);
+            CharacterMovementState current = state(MovementVector.ZERO, MovementVector.ZERO, true);
+            double wish = policy.sprintSpeedPerSecond();
+            for (int tick = 0; tick < 2; tick++) {
+                current = motor.tick(current, new CharacterMovementCommand(1d, 0d, tick == 0, true),
+                        tick == 0 ? environment : midairImpulse, false);
+                assertEquals(0d, current.position().x(), 0d, prototype + " wall blocks horizontal request");
+                assertEquals(0d, current.velocity().x(), 0d, prototype + " blocked velocity cleared");
+                assertEquals(tick == 0 ? 0d : 3d, current.velocity().z(), 1e-12,
+                        prototype + " airborne perpendicular impulse survives the wall");
+            }
+            assertEquals(.7532d, current.position().y(), 1e-12);
+            current = motor.tick(current, new CharacterMovementCommand(1d, 0d, false, true), environment, false);
+            assertEquals(1.001336d, current.position().y(), 1e-12,
+                    "third jump displacement crosses fixture clearance");
+            assertEquals(wish, current.velocity().x(), 1e-12, prototype + " projected wish after wall");
+            assertEquals(3d, current.velocity().z(), 1e-12);
+            assertEquals(Math.hypot(wish, 3d), current.velocity().horizontalLength(), 1e-12,
+                    prototype + " resultant after clearance");
+            assertEquals(wish * .05d, current.position().x(), 1e-12);
+            assertEquals(.3d, current.position().z(), 1e-12);
+        }
+    }
+
+    @Test
+    void landingRetainsAirborneHorizontalSpeedThenNeutralGroundFrictionStopsIt() throws IOException {
+        MovementCollisionResolver floor = (position, requested, grounded) -> {
+            double y = position.y() + requested.y() < 0d ? -position.y() : requested.y();
+            return new MovementCollisionResolver.CollisionResult(
+                    new MovementVector(requested.x(), y, requested.z()), y != requested.y() || grounded);
+        };
+        for (String prototype : new String[]{"human.json", "pig.json"}) {
+            CharacterMovementPolicy policy = CharacterMovementPolicy.fromCharacterData(readCharacter(prototype));
+            CharacterMovementMotor motor = new CharacterMovementMotor(policy);
+            CharacterMovementEnvironment environment = env(.05d, 32d, 8.4d,
+                    MovementVector.ZERO, 0d, floor);
+            double wish = policy.sprintSpeedPerSecond();
+            CharacterMovementState falling = state(new MovementVector(0d, .1d, 0d),
+                    new MovementVector(wish, -4d, 3d), false);
+            CharacterMovementCommand noInput = new CharacterMovementCommand(0d, 0d, false, false);
+            CharacterMovementState landed = motor.tick(falling, noInput, environment, false);
+            assertTrue(landed.onGround());
+            assertEquals(0d, landed.position().y(), 1e-12);
+            assertEquals(0d, landed.velocity().y(), 0d);
+            assertEquals(wish, landed.velocity().x(), 1e-12);
+            assertEquals(3d, landed.velocity().z(), 1e-12);
+            assertEquals(Math.hypot(wish, 3d), landed.velocity().horizontalLength(), 1e-12,
+                    prototype + " landing tick still uses airborne friction rule");
+            assertEquals(wish * .05d, landed.position().x(), 1e-12);
+            assertEquals(.15d, landed.position().z(), 1e-12);
+
+            CharacterMovementState stopped = motor.tick(landed, noInput, environment, false);
+            assertTrue(stopped.onGround());
+            assertEquals(0d, stopped.velocity().horizontalLength(), 0d,
+                    prototype + " 20/s friction at .05s gives factor zero");
+            assertEquals(landed.position().x(), stopped.position().x(), 0d);
+            assertEquals(landed.position().z(), stopped.position().z(), 0d);
+        }
+    }
+
+    @Test
     void groundedStunPreservesSlipUnderLinearFrictionAndGravity() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         MovementCollisionResolver wallAndGround = (position, displacement, grounded) ->

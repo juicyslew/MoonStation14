@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands;
 
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
@@ -68,6 +69,8 @@ public final class HandActorAuthority {
         }
 
         if (mindId == null || harnessId == null || epoch <= 0 || !validBody(actor, body)
+                || !actor.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get())
+                || !CarrierHandInventoryGate.allows(actor)
                 || !harnessId.value().equals(body.getUUID())) return Optional.empty();
         var capability = HandCapability.resolve(body);
         return capability.filter(ids -> compatiblePersisted(
@@ -117,7 +120,8 @@ public final class HandActorAuthority {
     }
 
     private static boolean validBody(ServerPlayer actor, LivingEntity body) {
-        if (body == null || body.level() != actor.level() || body.isRemoved() || !body.isAlive()
+        if (body == null || body instanceof ServerPlayer || body.level() != actor.level()
+                || body.isRemoved() || !body.isAlive()
                 || !body.isAddedToLevel() || body.isPassenger()
                 || !(body.level() instanceof ServerLevel level)) return false;
         return level.getEntity(body.getUUID()) == body;
