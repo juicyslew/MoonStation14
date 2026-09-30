@@ -374,7 +374,7 @@ public final class FireStackGameTests {
         require(!hasActivity(unlit, EntityActivity.FIRE_DRYING),
                 "positive unlit stacks must not reconcile to drying activity");
 
-        require(FireStackSystem.extinguish(ignited, -3f, 1f) == EffectResult.APPLIED,
+        require(FireStackSystem.extinguish(ignited, 0f, 1f) == EffectResult.APPLIED,
                 "explicit Extinguish must apply");
         require(!ignited.hasData(ModDataAttachments.FIRE_STACK.get())
                         && !hasActivity(ignited, EntityActivity.FIRE_DRYING),
