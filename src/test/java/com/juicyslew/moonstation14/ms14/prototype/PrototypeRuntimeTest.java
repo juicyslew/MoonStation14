@@ -6,6 +6,8 @@ import com.juicyslew.moonstation14.component.codec.json.StatusEffectData;
 import com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.chat.radio.ModRadioChannels;
+import com.juicyslew.moonstation14.ms14.chat.radio.RadioChannelData;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import net.minecraft.resources.ResourceLocation;
@@ -27,8 +29,8 @@ class PrototypeRuntimeTest {
         client.clearPublishedCatalogs();
 
         assertNotSame(server, client);
-        assertEquals(4, server.registeredTypes().size());
-        assertEquals(4, client.registeredTypes().size());
+        assertEquals(5, server.registeredTypes().size());
+        assertEquals(5, client.registeredTypes().size());
 
         server.reload(ModReagents.REAGENT_TYPE, Map.of(id("server"), reagent("server")));
         client.reload(ModReagents.REAGENT_TYPE, Map.of(id("client"), reagent("client")));
@@ -44,10 +46,12 @@ class PrototypeRuntimeTest {
         assertTrue(server.registeredTypes().contains(com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.STATUS_EFFECT_TYPE));
         assertTrue(server.registeredTypes().contains(ModAlerts.ALERT_TYPE));
         assertTrue(server.registeredTypes().contains(ModCharacters.CHARACTER_TYPE));
+        assertTrue(server.registeredTypes().contains(ModRadioChannels.RADIO_CHANNEL_TYPE));
         assertTrue(client.registeredTypes().contains(ModReagents.REAGENT_TYPE));
         assertTrue(client.registeredTypes().contains(com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.STATUS_EFFECT_TYPE));
         assertTrue(client.registeredTypes().contains(ModAlerts.ALERT_TYPE));
         assertTrue(client.registeredTypes().contains(ModCharacters.CHARACTER_TYPE));
+        assertTrue(client.registeredTypes().contains(ModRadioChannels.RADIO_CHANNEL_TYPE));
         assertTrue(PrototypeRuntime.serverReagents().asMap().isEmpty());
         assertTrue(PrototypeRuntime.clientReagents().contains(id("client")));
 
@@ -56,7 +60,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllFourFamiliesIncludingCharacterWithoutSharingState() {
+    void runtimeExportImportsAllFiveFamiliesIncludingRadioWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -73,16 +77,20 @@ class PrototypeRuntimeTest {
                         java.util.List.of(com.juicyslew.moonstation14.component.codec.json.CharacterData.ReactiveGroup.ACIDIC),
                         java.util.List.of(com.juicyslew.moonstation14.component.codec.json.CharacterData.ReactiveMethod.TOUCH)));
         server.publishDecoded(ModCharacters.CHARACTER_TYPE, Map.of(id("human-test"), character));
+        RadioChannelData radio = new RadioChannelData("radio-channel.moonstation14.common", 'h', 0x98C5E3);
+        server.publishDecoded(ModRadioChannels.RADIO_CHANNEL_TYPE, Map.of(id("common"), radio));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
-        assertEquals(4, exported.size());
+        assertEquals(5, exported.size());
         assertTrue(exported.containsKey(ModReagents.REAGENT_TYPE.typeId()));
         assertTrue(exported.containsKey(ModStatusEffects.STATUS_EFFECT_TYPE.typeId()));
         assertTrue(exported.containsKey(ModAlerts.ALERT_TYPE.typeId()));
         assertTrue(exported.containsKey(ModCharacters.CHARACTER_TYPE.typeId()));
+        assertTrue(exported.containsKey(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()));
 
         client.publishEncodedCatalogs(exported);
         assertEquals(status, PrototypeRuntime.clientStatusEffects().get(id("status-test")));
         assertEquals(character, PrototypeRuntime.clientCharacters().get(id("human-test")));
+        assertEquals(radio, PrototypeRuntime.clientRadioChannels().get(id("common")));
         assertTrue(PrototypeRuntime.clientCharacters().contains(id("human-test")));
         assertFalse(PrototypeRuntime.clientCharacters().contains(id("missing")));
         assertTrue(PrototypeRuntime.clientReagents().asMap().isEmpty());

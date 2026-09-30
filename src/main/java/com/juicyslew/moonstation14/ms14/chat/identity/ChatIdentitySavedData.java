@@ -3,13 +3,19 @@ package com.juicyslew.moonstation14.ms14.chat.identity;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.LevelResource;
+import net.neoforged.neoforge.common.IOUtilities;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -24,7 +30,7 @@ public final class ChatIdentitySavedData extends SavedData {
     // V2 adds a saved RGB to each NPC. A V1 file must fail closed, never silently recolor NPCs.
     private static final int VERSION = 2;
     private static final int MAX_ENTRIES = 1_000_000;
-    private final ChatIdentityRegistry registry;
+    private ChatIdentityRegistry registry;
 
     public ChatIdentitySavedData() { registry = new ChatIdentityRegistry(); }
     private ChatIdentitySavedData(ChatIdentityRegistry registry) { this.registry = registry; }
@@ -68,12 +74,152 @@ public final class ChatIdentitySavedData extends SavedData {
         return entry;
     }
 
+    /** Server-thread enrollment barrier. Never grant character authority until the disk contains this entry. */
+    public ChatIdentityRegistry.Entry allocateCharacterDurably(ServerLevel overworld, ChatIdentityRegistry.CharacterKey key) {
+        return allocateCharacterDurably(ledgerPath(overworld), key);
+    }
+
+    private Path ledgerPath(ServerLevel overworld) {
+        requireOverworld(overworld);
+        if (!overworld.getServer().isSameThread())
+            throw new IllegalStateException("Durable chat identity enrollment requires the server thread");
+        if (overworld.getDataStorage().get(FACTORY, DATA_NAME) != this)
+            throw new IllegalStateException("Chat identity ledger is not the overworld's cached ledger");
+        return overworld.getServer().getWorldPath(new LevelResource("data")).resolve(DATA_NAME + ".dat");
+    }
+
+    ChatIdentityRegistry.Entry allocateCharacterDurably(Path file, ChatIdentityRegistry.CharacterKey key) {
+        return allocateCharacterDurably(file, key, () -> { });
+    }
+
+    @FunctionalInterface
+    interface BeforeMove { void run() throws IOException; }
+
+    ChatIdentityRegistry.Entry allocateCharacterDurably(Path file, ChatIdentityRegistry.CharacterKey key, BeforeMove beforeMove) {
+        return durableWrite(file, beforeMove, disk -> {
+            if (disk != null && disk.character(key).isPresent()) {
+                ChatIdentityRegistry.Entry entry = character(key).orElseThrow();
+                if (!entry.equals(disk.character(key).orElseThrow()))
+                    throw new IllegalStateException("Chat identity differs from durable entry");
+                return entry;
+            }
+            return null;
+        }, candidate -> candidate.allocateCharacter(key));
+    }
+
+    @FunctionalInterface
+    private interface ExistingEntry<T> { T find(ChatIdentitySavedData disk); }
+
+    private <T> T durableWrite(Path file, BeforeMove beforeMove, ExistingEntry<T> existing,
+                               java.util.function.Function<ChatIdentityRegistry, T> allocate) {
+        // Vanilla's async SavedData writes may already contain an older snapshot. Drain them before
+        // comparing and replacing the file. On the server thread, later saves see the new snapshot.
+        IOUtilities.waitUntilIOWorkerComplete();
+        try {
+            ChatIdentitySavedData disk = validatedDisk(file);
+            T found = existing.find(disk);
+            if (found != null) return found;
+            ChatIdentityRegistry candidate = ChatIdentityRegistry.restore(
+                    registry.charactersSnapshot(), registry.npcsSnapshot());
+            T entry = allocate.apply(candidate);
+            writeAtomic(file, beforeMove, new ChatIdentitySavedData(candidate));
+            // Only publish after the rename. The committed file contains the complete cached snapshot.
+            registry = candidate;
+            setDirty(false);
+            return entry;
+        } catch (IOException failure) {
+            throw new IllegalStateException("Could not durably save chat identity ledger", failure);
+        }
+    }
+
+    private ChatIdentitySavedData validatedDisk(Path file) throws IOException {
+        if (Files.exists(file)) {
+            CompoundTag root = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
+            if (root == null || !root.contains("data", CompoundTag.TAG_COMPOUND))
+                throw new IllegalStateException("Chat identity ledger lacks vanilla data wrapper");
+            ChatIdentitySavedData disk = load(root.getCompound("data"), null);
+            if (!registry.charactersSnapshot().equals(disk.registry.charactersSnapshot())
+                    || !registry.npcsSnapshot().equals(disk.registry.npcsSnapshot()))
+                throw new IllegalStateException("Chat identity ledger differs from cached state");
+            return disk;
+        }
+        if (!registry.charactersSnapshot().isEmpty() || !registry.npcsSnapshot().isEmpty())
+            throw new IllegalStateException("Chat identity ledger disappeared from disk");
+        return null;
+    }
+
+    private void writeAtomic(Path file, BeforeMove beforeMove, ChatIdentitySavedData candidate) throws IOException {
+        Files.createDirectories(file.getParent());
+        Path temporary = Files.createTempFile(file.getParent(), DATA_NAME + "-", ".enrollment-tmp");
+        boolean moved = false;
+        try {
+            CompoundTag root = new CompoundTag();
+            root.put("data", candidate.save(new CompoundTag(), null));
+            NbtUtils.addCurrentDataVersion(root);
+            NbtIo.writeCompressed(root, temporary); // SYNC output; close before the rename.
+            beforeMove.run();
+            Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            moved = true;
+        } finally {
+            // Never turn a completed rename into a reported failure because temporary cleanup failed.
+            if (!moved) Files.deleteIfExists(temporary);
+        }
+    }
+
     public Optional<ChatIdentityRegistry.NpcEntry> npc(UUID persistentEntityId) { return registry.npc(persistentEntityId); }
 
     public ChatIdentityRegistry.NpcEntry allocateNpc(UUID persistentEntityId, String type) {
         boolean absent = registry.npc(persistentEntityId).isEmpty();
         ChatIdentityRegistry.NpcEntry entry = registry.allocateNpc(persistentEntityId, type);
         if (absent) setDirty();
+        return entry;
+    }
+
+    /** Only the explicit first configuration path may allocate an NPC. Existing rows never rewrite the ledger. */
+    public ChatIdentityRegistry.NpcEntry allocateNpcDurably(ServerLevel overworld, UUID entityId, String type) {
+        return allocateNpcDurably(ledgerPath(overworld), entityId, type);
+    }
+
+    ChatIdentityRegistry.NpcEntry allocateNpcDurably(Path file, UUID entityId, String type) {
+        return allocateNpcDurably(file, entityId, type, () -> { });
+    }
+
+    ChatIdentityRegistry.NpcEntry allocateNpcDurably(Path file, UUID entityId, String type, BeforeMove beforeMove) {
+        Objects.requireNonNull(entityId);
+        // Validate the type even if an existing row would avoid allocation.
+        new ChatIdentityRegistry.NpcEntry(type, 1, 0xFFFFFF);
+        return durableWrite(file, beforeMove, disk -> {
+            ChatIdentityRegistry.NpcEntry entry = diskNpc(disk, entityId, type);
+            if (entry == null && npc(entityId).isPresent())
+                throw new IllegalStateException("NPC identity exists only in the unsaved cache");
+            return entry;
+        },
+                candidate -> candidate.allocateNpc(entityId, type));
+    }
+
+    /** Read-only, on-disk-verified lookup: a preconfigured mob must never acquire a fabricated row. */
+    public ChatIdentityRegistry.NpcEntry existingNpcDurably(ServerLevel overworld, UUID entityId, String type) {
+        return existingNpcDurably(ledgerPath(overworld), entityId, type);
+    }
+
+    ChatIdentityRegistry.NpcEntry existingNpcDurably(Path file, UUID entityId, String type) {
+        IOUtilities.waitUntilIOWorkerComplete();
+        try {
+            ChatIdentitySavedData disk = validatedDisk(file);
+            ChatIdentityRegistry.NpcEntry entry = diskNpc(disk, entityId, type);
+            if (entry == null) throw new IllegalStateException("Configured mob has no durable NPC identity");
+            return entry;
+        } catch (IOException failure) {
+            throw new IllegalStateException("Could not read durable NPC identity", failure);
+        }
+    }
+
+    private ChatIdentityRegistry.NpcEntry diskNpc(ChatIdentitySavedData disk, UUID entityId, String type) {
+        if (disk == null) return null;
+        ChatIdentityRegistry.NpcEntry entry = disk.npc(entityId).orElse(null);
+        if (entry == null) return null;
+        if (!entry.type().equals(type) || !entry.equals(npc(entityId).orElse(null)))
+            throw new IllegalStateException("NPC identity differs from durable entry or entity type");
         return entry;
     }
 
