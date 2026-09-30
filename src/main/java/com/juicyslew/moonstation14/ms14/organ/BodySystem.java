@@ -4,6 +4,10 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.components.BodyComponent;
 import com.juicyslew.moonstation14.ms14.character.components.InitialBodyComponent;
+import com.juicyslew.moonstation14.ms14.character.components.RespiratorComponent;
+import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import net.minecraft.world.entity.LivingEntity;
 import java.util.*;
@@ -42,6 +46,10 @@ public final class BodySystem {
             // Saved EMPTY is authoritative. Never regenerate from InitialBody.
             return true;
         }
+        // A loaded legacy attachment blocks fresh initialization, including when the actor is
+        // dead or its current character/organ mapping has become invalid.
+        LungAttachment legacy = entity.getExistingDataOrNull(ModDataAttachments.LUNG.get());
+        if (legacy != null) return migrateLegacy(entity, character.get(), legacy);
         if (!entity.isAlive()) return false;
         var initial = character.get().component(InitialBodyComponent.class);
         if (initial.isEmpty()) return false;
@@ -50,6 +58,31 @@ public final class BodySystem {
         if (candidate.isEmpty()) return false;
         entity.setData(ModDataAttachments.BODY.get(), new BodyAttachment(candidate.get()));
         return true;
+    }
+
+    private static boolean migrateLegacy(LivingEntity entity,
+                                          com.juicyslew.moonstation14.component.codec.json.CharacterData character,
+                                          LungAttachment legacy) {
+        if (!entity.isAlive() || character.component(RespiratorComponent.class).isEmpty()) return false;
+        var initial = character.component(InitialBodyComponent.class);
+        if (initial.isEmpty() || !initial.get().organs().containsKey(OrganCategory.LUNGS)) return false;
+        try {
+            var catalog = ModOrgans.catalog(entity.level());
+            BodyState seed = plan(initial.get(), catalog).orElseThrow();
+            OrganInstance lungs = seed.find(OrganCategory.LUNGS).orElseThrow();
+            BodyState migrated = seed.updateLung(lungs.id(), LungOrganState.from(legacy.component()), catalog)
+                    .updateRespiration(RespirationState.from(legacy.component()));
+            // Check the actual BODY codec before publishing. Keep the old save evidence on failure.
+            Tag saved = BodyAttachment.CODEC.encodeStart(NbtOps.INSTANCE, new BodyAttachment(migrated)).getOrThrow();
+            BodyAttachment decoded = BodyAttachment.CODEC.parse(NbtOps.INSTANCE, saved).getOrThrow();
+            if (!decoded.state().equals(migrated) || entity.hasData(ModDataAttachments.BODY.get())) return false;
+            entity.setData(ModDataAttachments.BODY.get(), decoded);
+            if (!decoded.equals(entity.getExistingDataOrNull(ModDataAttachments.BODY.get()))) return false;
+            entity.removeData(ModDataAttachments.LUNG.get());
+            return true;
+        } catch (RuntimeException invalid) {
+            return false;
+        }
     }
 
     /** Mutations require a present body and a valid current catalog; detached organs retain identity and gas. */

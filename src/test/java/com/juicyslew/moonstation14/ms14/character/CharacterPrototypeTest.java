@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit;
 import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
+import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StandingStateComponent;
 import com.juicyslew.moonstation14.ms14.character.components.NoSlipComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StunnableComponent;
@@ -195,6 +196,7 @@ class CharacterPrototypeTest {
         assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
                 data.hostEntityTypes());
         assertEquals(List.of("left", "right"), data.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class).orElseThrow().hands());
+        assertTrue(data.component(ComplexInteractionComponent.class).isPresent());
         assertEquals(java.util.Set.of(MetabolizerTypeEnum.HUMAN), data.component(MetabolizerPrototypeComponent.class).orElseThrow().types());
         var thermal = data.component(com.juicyslew.moonstation14.ms14.character.components.TemperatureComponent.class).orElseThrow();
         assertEquals(Math.PI * 0.35 * 0.35 * 185, thermal.massKg(), 1e-12);
@@ -251,7 +253,7 @@ class CharacterPrototypeTest {
     }
 
     @Test
-    void legacySlipOnlyAndPigPrototypeRemainTypedAndRoundTrip() throws IOException {
+    void emptyAndPigPrototypeRemainTypedAndRoundTrip() throws IOException {
         JsonObject empty = new JsonObject();
         CharacterData emptyData = CharacterData.CODEC.parse(JsonOps.INSTANCE, empty).getOrThrow();
         assertTrue(emptyData.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).isEmpty());
@@ -270,6 +272,7 @@ class CharacterPrototypeTest {
         assertNotEquals(2.5, pig.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).orElseThrow().walkSpeed());
         assertEquals(List.of(ResourceLocation.parse("minecraft:pig")), pig.hostEntityTypes());
         assertTrue(pig.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class).isEmpty(), "pig prototypes do not acquire implicit hands");
+        assertTrue(pig.component(ComplexInteractionComponent.class).isEmpty(), "movement does not grant complex interaction");
         assertEquals(java.util.Set.of(MetabolizerTypeEnum.ANIMAL), pig.component(MetabolizerPrototypeComponent.class).orElseThrow().types());
         var pigThermal = pig.component(com.juicyslew.moonstation14.ms14.character.components.TemperatureComponent.class).orElseThrow();
         assertEquals(Math.PI * 0.35 * 0.35 * 250, pigThermal.massKg(), 1e-12);
@@ -1054,6 +1057,41 @@ class CharacterPrototypeTest {
                 withHands(human, "[\"" + tooLong + "\"]"))) {
             assertThrows(RuntimeException.class,
                     () -> manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, invalid)));
+        }
+    }
+
+    @Test
+    void componentsAreStrictOptionalAndDoNotInferComplexInteraction() throws IOException {
+        JsonObject human = readResource(RESOURCE);
+        assertEquals(java.util.Set.of("host_entity_types", "components"), human.keySet());
+        assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
+                CharacterData.CODEC.parse(JsonOps.INSTANCE, human).getOrThrow().hostEntityTypes());
+        JsonObject absent = human.deepCopy();
+        absent.remove("components");
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, absent).getOrThrow().components().isEmpty());
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, withoutHands(human)).getOrThrow()
+                .component(ComplexInteractionComponent.class).isPresent());
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, absent).getOrThrow()
+                .component(ComplexInteractionComponent.class).isEmpty());
+        for (String field : List.of("hands", "thermal", "lungs", "blood", "metabolizer_types", "movement", "slip_data")) {
+            JsonObject legacy = human.deepCopy();
+            legacy.add(field, JsonParser.parseString("null"));
+            assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, legacy).error().orElseThrow()
+                    .message().contains("$." + field), field);
+        }
+        CharacterSchemaAudit.auditComponentFragment(JsonParser.parseString("{\"type\":\"ComplexInteraction\"}")
+                .getAsJsonObject(), "$.components[0]");
+        for (String invalid : List.of("{}", "[1]", "[\"ComplexInteraction\"]",
+                "[\"unknown\"]", "[\"complex_interaction\"]", "[{\"type\":\"Unknown\"}]",
+                "[{\"type\":\"ComplexInteraction\",\"enabled\":true}]",
+                "[{\"type\":\"ComplexInteraction\"},{\"type\":\"ComplexInteraction\"}]")) {
+            JsonObject input = human.deepCopy();
+            input.add("components", JsonParser.parseString(invalid));
+            assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, input).error().isPresent(), invalid);
+            PrototypeManager manager = new PrototypeManager();
+            manager.register(ModCharacters.CHARACTER_TYPE);
+            assertThrows(RuntimeException.class,
+                    () -> manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, input)));
         }
     }
 

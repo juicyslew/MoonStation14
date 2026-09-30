@@ -35,6 +35,7 @@ public final class CharacterSchemaAudit {
              "suffocation_threshold", "suffocation_damage_per_update", "suffocation_recovery_per_update",
              "suffocation_ignore_resistances");
     private static final Set<String> BAROTRAUMA_FIELDS = Set.of("type", "damage", "maxDamage");
+    private static final Set<String> COMPLEX_INTERACTION_FIELDS = Set.of("type");
 
     private CharacterSchemaAudit() {
     }
@@ -244,6 +245,10 @@ public final class CharacterSchemaAudit {
             fail(path + ".type", "expected string discriminator");
         String type = discriminator.getAsString();
         if (!CharacterComponentRegistry.registered(type)) fail(path + ".type", "unknown component type");
+        if (com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent.TYPE.equals(type)) {
+            checkFields(object, COMPLEX_INTERACTION_FIELDS, path);
+            return;
+        }
         if ("Bloodstream".equals(type)) {
             auditBlood(object, path, complete);
             return;
