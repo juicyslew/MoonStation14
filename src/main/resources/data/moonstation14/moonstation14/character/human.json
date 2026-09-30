@@ -16,7 +16,7 @@
     "ground_friction_without_input": 20.0,
     "minimum_friction_speed": 0.005
   },
-  "host_entity_types": ["minecraft:player", "minecraft:villager"],
+  "host_entity_types": ["minecraft:player", "minecraft:villager", "moonstation14:player_character_harness"],
   "hands": ["left", "right"],
   "metabolizer_types": ["human"],
   "thermal": {

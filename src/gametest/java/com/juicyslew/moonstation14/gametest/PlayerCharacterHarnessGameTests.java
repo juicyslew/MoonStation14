@@ -58,8 +58,9 @@ public final class PlayerCharacterHarnessGameTests {
                 "main", UUID.randomUUID(), ModCharacters.HUMAN_ID);
         require(!boundWhileOff && body.playerCharacterBinding() == null,
                 "default-off startup gates prevent instance identity mutation");
-        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID).isEmpty(),
-                "custom character path is explicitly bound, not mapped through host_entity_types");
+        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID)
+                        .filter(ModCharacters.HUMAN_ID::equals).isPresent(),
+                "dedicated character host maps to the canonical human prototype");
         helper.succeed();
     }
 
@@ -189,7 +190,7 @@ public final class PlayerCharacterHarnessGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void explicitlyBoundMarkedCustomCharacterCanUseWorldStepWithoutHostMapping(GameTestHelper helper) {
+    public static void explicitlyBoundMarkedCustomCharacterCanUseWorldStepWithHumanHostMapping(GameTestHelper helper) {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 8; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
         }
@@ -206,8 +207,11 @@ public final class PlayerCharacterHarnessGameTests {
                 "test attaches the authoritative resolved HUMAN prototype identity");
         require(com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionSystem.enabled(body),
                 "registered harness can receive human capability through explicit identity enrollment");
-        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID).isEmpty(),
-                "custom body remains absent from host_entity_types");
+        require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID)
+                        .filter(ModCharacters.HUMAN_ID::equals).isPresent()
+                        && CharacterIdentitySystem.resolveForHost(body)
+                        .filter(data -> data == ModCharacters.require(helper.getLevel(), ModCharacters.HUMAN_ID)).isPresent(),
+                "custom body resolves the same canonical human prototype through its strict host index");
         BlockPos absolute = helper.absolutePos(new BlockPos(3, 1, 3));
         body.setPos(absolute.getX() + .5d, absolute.getY(), absolute.getZ() + .5d);
         body.setDeltaMovement(Vec3.ZERO);
@@ -386,6 +390,7 @@ public final class PlayerCharacterHarnessGameTests {
         body.setHealth(0.0F);
         body.die(helper.getLevel().damageSources().generic());
         require(body.hasConfirmedDeath(), "first accepted server death is exposed to a future adapter");
+        require(body.shouldRenderCorpsePose(), "confirmed death selects the corpse pose without a client timer");
         require(!body.isAlive() && body.getHealth() <= 0.0F, "death does not restore health or living state");
 
         body.die(helper.getLevel().damageSources().generic());
@@ -397,8 +402,44 @@ public final class PlayerCharacterHarnessGameTests {
             require(!body.isAlive() && body.getHealth() <= 0.0F,
                     "corpse remains dead and is not resurrected after more than twenty ticks");
             require(body.hasConfirmedDeath(), "corpse retains its accepted-death signal");
+            require(body.shouldRenderCorpsePose(), "corpse pose remains selected past the death timer");
             helper.succeed();
         });
+    }
+
+    @GameTest(template = "empty")
+    public static void confirmedCorpsePoseSurvivesSaveLoadButZeroHealthAloneDoesNot(GameTestHelper helper) {
+        PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(1, 1, 1));
+        require(!body.shouldRenderCorpsePose(), "live body has no corpse pose");
+        body.setHealth(0.0F);
+        require(!body.hasConfirmedDeath() && !body.shouldRenderCorpsePose(),
+                "zero health before accepted death is not confirmation");
+
+        CompoundTag unconfirmed = new CompoundTag();
+        body.addAdditionalSaveData(unconfirmed);
+        require(!unconfirmed.contains("Moonstation14PlayerCharacterConfirmedDeath"),
+                "unconfirmed zero-health body does not save a death claim");
+        PlayerCharacterHarnessEntity oldSave = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
+        require(oldSave != null, "can create unloaded old-save body");
+        oldSave.readAdditionalSaveData(unconfirmed);
+        require(!oldSave.shouldRenderCorpsePose(), "legacy zero-health save is not a confirmed corpse");
+
+        body.die(helper.getLevel().damageSources().generic());
+        CompoundTag saved = new CompoundTag();
+        body.addAdditionalSaveData(saved);
+        require(saved.getBoolean("Moonstation14PlayerCharacterConfirmedDeath"),
+                "accepted death writes its durable confirmation");
+        PlayerCharacterHarnessEntity restored = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
+        require(restored != null, "can create unloaded restored body");
+        restored.readAdditionalSaveData(saved);
+        require(restored.hasConfirmedDeath() && restored.shouldRenderCorpsePose(),
+                "restored confirmed corpse retains the pose policy");
+        require(!restored.isAlive() && restored.getHealth() == 0.0F,
+                "restoring confirmation never revives the corpse");
+        restored.deathTime = 0;
+        require(restored.shouldRenderCorpsePose(), "pose policy does not rely on transient deathTime");
+        helper.succeed();
     }
 
     private static void require(boolean condition, String message) {

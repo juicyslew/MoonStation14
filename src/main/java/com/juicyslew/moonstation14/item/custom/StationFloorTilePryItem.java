@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.item.custom;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
+import com.juicyslew.moonstation14.ms14.power.floor.TilePrySelection;
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualServerHooks;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.core.Direction;
@@ -34,7 +35,8 @@ public class StationFloorTilePryItem extends Item {
             return InteractionResult.FAIL;
         }
         StationFloorBlock.TileFinish finish = state.getValue(StationFloorBlock.TILE_FINISH);
-        if (finish == StationFloorBlock.TileFinish.NONE) {
+        var choice = TilePrySelection.select(context.getClickedFace(), finish);
+        if (choice == TilePrySelection.Result.DENIED) {
             return InteractionResult.FAIL;
         }
         if (level.isClientSide) {
@@ -53,7 +55,7 @@ public class StationFloorTilePryItem extends Item {
         if (level instanceof ServerLevel serverLevel)
             CableVisualServerHooks.noteChanged(serverLevel, new net.minecraft.world.level.ChunkPos(pos));
 
-        var tile = finish == StationFloorBlock.TileFinish.STEEL
+        var tile = choice == TilePrySelection.Result.STEEL_TILE
                 ? ModItems.STATION_FLOOR_TILE.get()
                 : ModItems.STATION_FLOOR_TILE_WHITE.get();
         Block.popResource(level, pos, new ItemStack(tile));

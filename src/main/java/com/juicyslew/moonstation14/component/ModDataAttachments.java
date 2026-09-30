@@ -19,6 +19,8 @@ import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -119,6 +121,18 @@ public class ModDataAttachments {
                     .serialize(HandAttachment.CODEC)
                     .sync(HandAttachment.STREAM_CODEC)
                     .build());
+
+    /** Inert persisted ItemStack hand ownership; no sync, death copy, or gameplay insertion. */
+    public static final Supplier<AttachmentType<LiveHands>> LIVE_HANDS = ATTACHMENT_TYPES.register(
+            "live_hands", () -> AttachmentType.builder((Supplier<LiveHands>) () -> {
+                        throw new IllegalStateException("Live hands require explicit prototype initialization");
+                    }).serialize(LiveHands.CODEC).build());
+
+    /** Server-only account park, saved alongside vanilla player Inventory; never on a body. */
+    public static final Supplier<AttachmentType<CreativeParkedInventory>> CREATIVE_PARKED_INVENTORY = ATTACHMENT_TYPES.register(
+            "creative_parked_inventory", () -> AttachmentType.builder((Supplier<CreativeParkedInventory>) () -> {
+                        throw new IllegalStateException("Creative park requires an explicit account and snapshot");
+                    }).serialize(CreativeParkedInventory.CODEC).copyOnDeath().build());
 
     /** Server-owned capability. Only initialized states (including disabled tombstones) persist. */
     public static final Supplier<AttachmentType<ComplexInteractionAttachment>> COMPLEX_INTERACTION = ATTACHMENT_TYPES.register(
