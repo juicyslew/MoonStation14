@@ -2,7 +2,9 @@ package com.juicyslew.moonstation14.item.custom;
 
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
+import com.juicyslew.moonstation14.ms14.power.cable.CableCutSelection;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
+import java.util.EnumSet;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
@@ -22,15 +24,16 @@ public final class CableCutterItem extends Item {
             return InteractionResult.FAIL;
         var offhand = player.getOffhandItem();
         CableTier selected = tierForSpool(offhand);
-        int count = 0;
+        var existing = EnumSet.noneOf(CableTier.class);
         for (CableTier candidate : CableTier.values())
-            if (CableStorage.has(level, pos, context.getClickedFace(), candidate)) count++;
-        if (selected == null && count > 1) {
+            if (CableStorage.has(level, pos, context.getClickedFace(), candidate)) existing.add(candidate);
+        var choice = CableCutSelection.select(existing, selected);
+        if (choice.refusal() == CableCutSelection.Refusal.AMBIGUOUS) {
             player.displayClientMessage(Component.translatable("message.moonstation14.cable_cutter.ambiguous"), true);
             return InteractionResult.FAIL;
         }
-        CableTier tier = selected == null ? CableStorage.remove(level, pos, context.getClickedFace())
-                : CableStorage.remove(level, pos, context.getClickedFace(), selected);
+        if (!choice.allowed()) return InteractionResult.FAIL;
+        CableTier tier = CableStorage.remove(level, pos, context.getClickedFace(), choice.tier());
         if (tier == null) return InteractionResult.FAIL;
         ItemStack returned = new ItemStack(switch (tier) {
             case HV -> ModItems.HV_CABLE_SPOOL.get();

@@ -20,6 +20,8 @@ import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpec
 import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.BodyCarrierIsolationBootstrap;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -238,6 +240,27 @@ public final class LifecycleCharacterSessionControl {
                 return;
             }
             player.setCamera(session.body);
+            try {
+                if (BodyCarrierIsolationBootstrap.ensure(player, session.body)
+                        == BodyCarrierIsolationBootstrap.Result.REJECTED)
+                    com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                            "Lifecycle CHARACTER carrier isolation rejected; hand actions remain denied (body={})",
+                            session.body.getId());
+            } catch (RuntimeException | Error failure) {
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                        "Lifecycle CHARACTER carrier isolation failed; hand actions remain denied (body={})",
+                        session.body.getId(), failure);
+            }
+            try {
+                BodyHandBootstrap.Result hands = BodyHandBootstrap.ensure(session.body);
+                if (hands == BodyHandBootstrap.Result.REJECTED)
+                    com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                            "Lifecycle CHARACTER hand bootstrap rejected; movement remains eligible (body={})", session.body.getId());
+            } catch (RuntimeException | Error failure) {
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                        "Lifecycle CHARACTER hand bootstrap failed; movement remains eligible (body={})",
+                        session.body.getId(), failure);
+            }
             session.committed = true;
             GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
             com.juicyslew.moonstation14.MoonStation14.LOGGER.info(

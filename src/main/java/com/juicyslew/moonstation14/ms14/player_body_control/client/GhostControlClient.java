@@ -359,6 +359,11 @@ public final class GhostControlClient {
                 | (fast ? GhostControlPayloads.BUTTON_SPRINT : 0);
     }
 
+    /** Epoch of the exact committed CHARACTER camera session, or zero when it is not owned. */
+    public static long committedCharacterEpoch() {
+        return ownedCharacterForHud() == null ? 0 : activeEpoch;
+    }
+
     private static void reconcileSnapshot(Minecraft minecraft, LocalPlayer player,
                                           GhostControlPayloads.Snapshot snapshot) {
         if (!committed || !readySent || owner != player || minecraft.player != player || minecraft.level == null

@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands;
 
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
@@ -67,6 +69,8 @@ public final class HandActorAuthority {
         }
 
         if (mindId == null || harnessId == null || epoch <= 0 || !validBody(actor, body)
+                || !actor.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get())
+                || !CarrierHandInventoryGate.allows(actor)
                 || !harnessId.value().equals(body.getUUID())) return Optional.empty();
         var capability = HandCapability.resolve(body);
         return capability.map(ids -> new Snapshot(actor, body, source, mindId, harnessId, epoch, ids));

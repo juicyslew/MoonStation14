@@ -23,12 +23,18 @@ import com.juicyslew.moonstation14.ms14.player_body_control.character.MindContro
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleStartupRuntime;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.BodyCarrierIsolationBootstrap;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransition;
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem;
 import com.juicyslew.moonstation14.ms14.hunger.HungerSystem;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstSystem;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -267,9 +273,15 @@ public final class GhostMobHarnessControl {
         if (state.sessions.containsKey(player.getUUID())) return 0;
 
         GameType previous = player.gameMode.getGameModeForPlayer();
+        if (!carrierAdmitted(previous, CarrierHandInventoryGate.inspect(player).orElse(null))) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "Mind ghost requires a clean carrier; Survival/Adventure inventory ownership is unsupported. Inventory was not changed."));
+            return 0;
+        }
         GhostMobHarnessEntity ghost = null;
         MobHarnessId id = null;
         boolean modeChanged = false;
+        boolean parkedHere = false;
         boolean harnessRegistered = false;
         boolean mindCreated = false;
         boolean inserted = false;
@@ -292,8 +304,24 @@ public final class GhostMobHarnessControl {
             if (mind.isEmpty()) return 0;
             mindCreated = true;
             if (previous != GameType.SPECTATOR) {
+                // Park while still actually Creative. An inherited park must be clean and account-owned.
+                if (!carrierAdmitted(previous, CarrierHandInventoryGate.inspect(player).orElse(null))) return 0;
+                if (player.getExistingDataOrNull(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get()) == null) {
+                    CreativeCarrierTransition.Result result = CreativeCarrierTransition.park(player);
+                    if (result != CreativeCarrierTransition.Result.PARKED) {
+                        if (result == CreativeCarrierTransition.Result.RECOVERY_REQUIRED) disconnectForCarrierRecovery(player);
+                        return 0;
+                    }
+                    parkedHere = true;
+                }
+                if (!cleanOwnedPark(player)) {
+                    disconnectForCarrierRecovery(player);
+                    return 0;
+                }
+                syncCarrier(player);
                 if (!player.setGameMode(GameType.SPECTATOR)) return 0;
-                modeChanged = true;
+                modeChanged = player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR;
+                if (!modeChanged) return 0;
             }
             long epoch = mind.get().epoch();
             Session session = new Session(player, ghost, id, mind.get().id(), previous, epoch,
@@ -315,8 +343,12 @@ public final class GhostMobHarnessControl {
                 if (mindCreated) state.registry.logout(player.getUUID());
                 if (harnessRegistered) state.registry.unregisterHarness(id);
                 if (ghost != null && !ghost.isRemoved()) ghost.discard();
-                if (modeChanged && connected(player)
-                        && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) player.setGameMode(previous);
+                if (connected(player)) {
+                    if (parkedHere && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR)
+                        player.setGameMode(previous);
+                    if (parkedHere && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE)
+                        restoreCarrierOrDisconnect(player);
+                }
             }
         }
     }
@@ -389,6 +421,26 @@ public final class GhostMobHarnessControl {
                 target.setXRot(player.getXRot());
                 if (target instanceof LivingEntity living) living.setYHeadRot(player.getYRot());
                 player.setCamera(target);
+                if (session.kind == MobHarnessKind.CHARACTER) {
+                    try {
+                        if (BodyCarrierIsolationBootstrap.ensure(player, session.body)
+                                == BodyCarrierIsolationBootstrap.Result.REJECTED)
+                            MoonStation14.LOGGER.warn("[mind ghost] Character carrier isolation rejected; hand actions remain denied body={}",
+                                    session.body.getId());
+                    } catch (RuntimeException | Error failure) {
+                        MoonStation14.LOGGER.error("[mind ghost] Character carrier isolation failed; hand actions remain denied body={}",
+                                session.body.getId(), failure);
+                    }
+                    try {
+                        BodyHandBootstrap.Result hands = BodyHandBootstrap.ensure(session.body);
+                        if (hands == BodyHandBootstrap.Result.REJECTED)
+                            MoonStation14.LOGGER.warn("[mind ghost] Character hand bootstrap rejected; movement remains eligible body={}",
+                                    session.body.getId());
+                    } catch (RuntimeException | Error failure) {
+                        MoonStation14.LOGGER.error("[mind ghost] Character hand bootstrap failed; movement remains eligible body={}",
+                                session.body.getId(), failure);
+                    }
+                }
                 session.committed = true;
                 GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
                 if (session.kind == MobHarnessKind.CHARACTER) finishCharacterCommit(state, session);
@@ -594,7 +646,8 @@ public final class GhostMobHarnessControl {
     private static void cleanupLifecycle(ServerPlayer player) {
         RuntimeState state = SERVERS.get(player.level().getServer());
         Session session = state == null ? null : state.sessions.get(player.getUUID());
-        if (session != null && session.player == player) end(state, session, false);
+        // The new player may already carry a copy of this marker; never restore the old clone as well.
+        if (session != null && session.player == player) end(state, session, false, false);
     }
 
     @SubscribeEvent
@@ -946,9 +999,49 @@ public final class GhostMobHarnessControl {
 
         var mind = state.registry.mind(player.getUUID());
         if (mind.isEmpty() || !session.mindId.equals(mind.get().id())
-                || !harnessId.equals(mind.get().harnessId()) || session.epoch != mind.get().epoch())
+                || !harnessId.equals(mind.get().harnessId()) || session.epoch != mind.get().epoch()
+                || !state.registry.authorizesReadOnly(player.getUUID(), harnessId, session.epoch,
+                    target -> target.id().equals(harnessId) && target.kind() == session.kind))
             return Optional.empty();
-        return Optional.of(new ActiveHarness(session.mindId, session.kind, living, harnessId, session.epoch));
+        return state.sessions.get(player.getUUID()) == session && session.player == player
+                ? Optional.of(new ActiveHarness(session.mindId, session.kind, living, harnessId, session.epoch))
+                : Optional.empty();
+    }
+
+    /** Pure admission policy: no Survival/Adventure carrier is ever promoted to an owned body. */
+    static boolean carrierAdmitted(GameType mode, CarrierHandInventoryGate.Fixture fixture) {
+        if (fixture == null || fixture.account() == null
+                || fixture.markerPresent() != (fixture.existingPark() != null)) return false;
+        if (mode == GameType.CREATIVE && !fixture.markerPresent()) return true; // park() verifies every compartment.
+        return (mode == GameType.CREATIVE || mode == GameType.SPECTATOR)
+                && CarrierHandInventoryGate.allows(fixture);
+    }
+
+    private static boolean cleanOwnedPark(ServerPlayer player) {
+        return CreativeParkedInventory.existingFor(player).isPresent()
+                && CarrierHandInventoryGate.allows(player);
+    }
+
+    private static void syncCarrier(ServerPlayer player) {
+        player.connection.send(new ClientboundSetCarriedItemPacket(player.getInventory().selected));
+        player.inventoryMenu.sendAllDataToRemote();
+    }
+
+    private static void disconnectForCarrierRecovery(ServerPlayer player) {
+        MoonStation14.LOGGER.error("[mind ghost] Ambiguous Creative carrier handoff player={}; retaining marker for recovery",
+                player.getGameProfile().getName());
+        if (player.connection != null && player.connection.isAcceptingMessages())
+            player.connection.disconnect(net.minecraft.network.chat.Component.literal(
+                    "Creative carrier handoff could not be verified. Reconnect for recovery."));
+    }
+
+    private static void restoreCarrierOrDisconnect(ServerPlayer player) {
+        if (!cleanOwnedPark(player)
+                || CreativeCarrierTransition.restore(player) != CreativeCarrierTransition.Result.RESTORED) {
+            disconnectForCarrierRecovery(player);
+            return;
+        }
+        syncCarrier(player);
     }
 
     /** Read-only exact committed debug binding, independent of camera state. */
@@ -999,14 +1092,23 @@ public final class GhostMobHarnessControl {
                                 MobHarnessId harnessId, long epoch) { }
 
     private static void end(RuntimeState state, Session session, boolean connected) {
+        end(state, session, connected, true);
+    }
+
+    private static void end(RuntimeState state, Session session, boolean sendStop, boolean restoreOriginal) {
         if (state.sessions.remove(session.player.getUUID()) == null) return;
-        if (connected) GhostControlNetworking.sendToPlayer(session.player, new GhostControlPayloads.Stop(session.epoch));
+        if (sendStop) GhostControlNetworking.sendToPlayer(session.player, new GhostControlPayloads.Stop(session.epoch));
         if (connected(session.player)) {
             // Ending this exact session must clear even a third-party camera selected while possessing.
             if (session.player.getCamera() != session.player)
                 session.player.setCamera(session.player);
-            if (session.modeChanged && session.player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR)
+            if (restoreOriginal && session.modeChanged && session.player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR)
                 session.player.setGameMode(session.previousGameType);
+            if (restoreOriginal && session.previousGameType == GameType.CREATIVE) {
+                if (session.player.gameMode.getGameModeForPlayer() == GameType.CREATIVE)
+                    restoreCarrierOrDisconnect(session.player);
+                else disconnectForCarrierRecovery(session.player);
+            }
             reconcileCarrierNutrition(session.player);
         }
         state.registry.logout(session.player.getUUID());

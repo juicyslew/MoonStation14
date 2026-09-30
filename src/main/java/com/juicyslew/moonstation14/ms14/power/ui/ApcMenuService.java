@@ -36,11 +36,10 @@ public final class ApcMenuService {
         PowerDeviceBlockEntity device = menu.boundDevice();
         double distance = player.distanceToSqr(menu.devicePos().getX() + .5,
                 menu.devicePos().getY() + .5, menu.devicePos().getZ() + .5);
-        boolean accepted = false;
-        if (menu.currentRevision() == request.expectedRevision()) {
-            accepted = device.breakerClosed() == request.desiredClosed()
-                    || device.toggleBreaker(player, distance);
-        }
+        ApcBreakerIntentPolicy.Decision decision = ApcBreakerIntentPolicy.decide(
+                request.expectedRevision(), menu.currentRevision(), device.breakerClosed(), request.desiredClosed());
+        boolean accepted = decision == ApcBreakerIntentPolicy.Decision.NO_CHANGE
+                || decision == ApcBreakerIntentPolicy.Decision.TOGGLE && device.toggleBreaker(player, distance);
         return result(request, accepted, true, device.breakerClosed(), menu.currentRevision(),
                 ApcMenu.batteryPermille(device.energyJoules()), device.tripLatched());
     }

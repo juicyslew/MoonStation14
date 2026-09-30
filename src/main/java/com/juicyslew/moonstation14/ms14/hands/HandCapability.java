@@ -1,8 +1,13 @@
 package com.juicyslew.moonstation14.ms14.hands;
 
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 
 import java.util.List;
 import java.util.Objects;
@@ -18,9 +23,21 @@ public final class HandCapability {
      */
     public static Optional<List<String>> resolve(Entity body) {
         Objects.requireNonNull(body, "body");
-        Optional<CharacterData> character = CharacterIdentitySystem.resolve(body);
-        if (character.isEmpty() || character.orElseThrow().hands().isEmpty()) return Optional.empty();
-        return Optional.of(List.copyOf(character.orElseThrow().hands()));
+        return resolveHostCharacter(body).map(CharacterData::hands)
+                .filter(ids -> !ids.isEmpty()).map(List::copyOf);
+    }
+
+    /** Bound, current host prototype; only the dedicated lifecycle harness may host human exceptionally. */
+    public static Optional<CharacterData> resolveHostCharacter(Entity body) {
+        if (!(body instanceof LivingEntity living) || !(body.level() instanceof ServerLevel level))
+            return Optional.empty();
+        if (body.getClass() == PlayerCharacterHarnessEntity.class) {
+            var identity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+            if (identity == null || !identity.isBound()
+                    || !ModCharacters.HUMAN_ID.equals(identity.characterId())) return Optional.empty();
+            return CharacterIdentitySystem.resolveHost(body, level, ModCharacters.HUMAN_ID);
+        }
+        return CharacterIdentitySystem.resolveForHost(living);
     }
 
     /**

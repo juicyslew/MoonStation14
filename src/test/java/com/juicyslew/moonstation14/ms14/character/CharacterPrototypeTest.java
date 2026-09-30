@@ -45,7 +45,8 @@ class CharacterPrototypeTest {
                 CharacterData.ReactiveGroup.ACIDIC), slip.reactiveGroups());
         assertEquals(List.of(CharacterData.ReactiveMethod.TOUCH), slip.reactiveMethods());
         assertEquals(2.5, data.movement().orElseThrow().walkSpeed());
-        assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
+        assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager"),
+                        ResourceLocation.parse("moonstation14:player_character_harness")),
                 data.hostEntityTypes());
         assertEquals(List.of("left", "right"), data.hands());
         assertTrue(data.component(ComplexInteractionComponent.class).isPresent());
