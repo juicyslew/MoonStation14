@@ -161,7 +161,8 @@ public class MoonStation14 {
         // Initial datapack loading completes before ServerStartedEvent. This
         // also safely commits an initial candidate if no all-player sync event
         // was emitted during startup.
-        PrototypeRuntime.serverManager().commitStagedReload();
+        if (PrototypeRuntime.serverManager().commitStagedReload())
+            AtmosphereService.INSTANCE.onReactionCatalogReload(event.getServer().getAllLevels());
     }
 
     @SubscribeEvent

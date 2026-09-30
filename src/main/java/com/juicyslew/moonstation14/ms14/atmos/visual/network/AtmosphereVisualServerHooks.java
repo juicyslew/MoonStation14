@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.function.Function;
+import java.util.function.ToIntFunction;
 
 /** Bounded, server-only gas visual synchronization. */
 public final class AtmosphereVisualServerHooks {
@@ -131,8 +133,12 @@ public final class AtmosphereVisualServerHooks {
 
     private static void flush(ServerLevel level, LevelState state) {
         int packets = 0, chunks = 0, probes = 0;
-        for (ChunkPos pos : List.copyOf(state.watchers.keySet())) {
+        List<ChunkPos> watched = List.copyOf(state.watchers.keySet());
+        int start = rotationStart(watched, state.chunkCursor);
+        for (int offset = 0; offset < watched.size(); offset++) {
             if (chunks >= MAX_CHUNKS_PER_TICK || packets >= MAX_PACKETS_PER_LEVEL_PER_TICK || probes >= MAX_OVERRIDE_PROBES_PER_TICK) break;
+            ChunkPos pos = watched.get((start + offset) % watched.size());
+            state.chunkCursor = pos;
             Map<UUID, SnapshotTransfer> transfers = state.transfers.get(pos);
             if (transfers != null && !transfers.isEmpty()) {
                 LevelChunk chunk = loaded(level, pos);
@@ -178,8 +184,12 @@ public final class AtmosphereVisualServerHooks {
             chunks++;
         }
         // Continue a packetized delta without losing later mutations; it stays ahead of subsequent changes.
-        for (ChunkPos pos : List.copyOf(state.watchers.keySet())) {
+        watched = List.copyOf(state.watchers.keySet());
+        start = rotationStart(watched, state.chunkCursor);
+        for (int offset = 0; offset < watched.size(); offset++) {
             if (packets >= MAX_PACKETS_PER_LEVEL_PER_TICK) break;
+            ChunkPos pos = watched.get((start + offset) % watched.size());
+            state.chunkCursor = pos;
             PendingChanges.ChangeSet change = state.changes.get(pos);
             if (change == null || change.pendingPackets == null || state.transfers.containsKey(pos)) continue;
             while (change.nextPacket < change.pendingPackets.size() && packets < MAX_PACKETS_PER_LEVEL_PER_TICK) {
@@ -187,6 +197,13 @@ public final class AtmosphereVisualServerHooks {
             }
             if (change.nextPacket == change.pendingPackets.size()) finishChange(state, pos, change);
         }
+    }
+
+    /** Index immediately after the last visited chunk, retaining insertion order and tolerating removal. */
+    static int rotationStart(List<ChunkPos> watched, ChunkPos cursor) {
+        if (watched.isEmpty() || cursor == null) return 0;
+        int index = watched.indexOf(cursor);
+        return index < 0 || index + 1 == watched.size() ? 0 : index + 1;
     }
 
     private static void finishChange(LevelState state, ChunkPos pos, PendingChanges.ChangeSet change) {
@@ -203,27 +220,52 @@ public final class AtmosphereVisualServerHooks {
     private static BuildResult nextSnapshotPacket(ServerLevel level, LevelChunk chunk, ChunkPos pos,
                                                    SnapshotTransfer transfer, int budget) {
         AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        SnapshotBuild built = buildSnapshotPacket(level.dimension().location(), data, pos, transfer.cursor,
+                transfer.sentAny, transfer.revision, budget,
+                cursor -> AtmosphereService.INSTANCE.nextBurningAfter(level, pos, cursor),
+                absolute -> AtmosphereService.INSTANCE.fireIntensity(level, absolute));
+        transfer.cursor = built.cursor;
+        transfer.done = built.done;
+        if (built.payload != null && !built.payload.cells().isEmpty()) transfer.sentAny = true;
+        return new BuildResult(built.payload, built.probes);
+    }
+
+    static SnapshotBuild buildSnapshotPacket(net.minecraft.resources.ResourceLocation dimension, AtmosphereChunkData data,
+            ChunkPos pos, AtmosphereChunkData.CellPosition cursor, boolean sentAny, long revision, int budget,
+            Function<AtmosphereChunkData.CellPosition, java.util.Optional<AtmosphereChunkData.CellPosition>> fireNextAfter,
+            ToIntFunction<BlockPos> fireIntensity) {
         List<AtmosphereVisualPayload.VisualCell> cells = new ArrayList<>(AtmosphereVisualPayload.MAX_CELLS);
         int probes = 0;
-        while (data != null && probes < budget && cells.size() < AtmosphereVisualPayload.MAX_CELLS) {
-            var next = data.nextAfter(transfer.cursor);
-            if (next.isEmpty()) { transfer.done = true; break; }
-            var entry = next.get(); transfer.cursor = entry.getKey(); probes++;
-            var cellPos = entry.getKey();
+        boolean done = false;
+        while (probes < budget && cells.size() < AtmosphereVisualPayload.MAX_CELLS) {
+            var gasNext = data == null ? java.util.Optional.<Map.Entry<AtmosphereChunkData.CellPosition, com.juicyslew.moonstation14.ms14.atmos.core.GasMixture>>empty() : data.nextAfter(cursor);
+            var fireNext = fireNextAfter.apply(cursor);
+            if (gasNext.isEmpty() && fireNext.isEmpty()) { done = true; break; }
+            var gasCell = gasNext.map(Map.Entry::getKey).orElse(null);
+            var fireCell = fireNext.orElse(null);
+            var cellPos = gasCell == null ? fireCell : fireCell == null || compare(gasCell, fireCell) <= 0 ? gasCell : fireCell;
+            cursor = cellPos; probes++;
             if (cellPos.y() < AtmosphereVisualPayload.MIN_BUILD_Y || cellPos.y() > AtmosphereVisualPayload.MAX_BUILD_Y) continue;
-            var visual = AtmosphereVisualPayload.VisualCell.from(entry.getValue(), new BlockPos(
-                    pos.getMinBlockX() + cellPos.x(), cellPos.y(), pos.getMinBlockZ() + cellPos.z()));
+            var mixture = data == null ? null : data.get(cellPos.x(), cellPos.y(), cellPos.z());
+            BlockPos absolute = new BlockPos(pos.getMinBlockX() + cellPos.x(), cellPos.y(), pos.getMinBlockZ() + cellPos.z());
+            var gas = mixture == null ? new AtmosphereVisualPayload.VisualCell(cellPos.x(), cellPos.y(), cellPos.z(), 0, 0, 0, 0, 0, 0)
+                    : AtmosphereVisualPayload.VisualCell.from(mixture, absolute);
+            int fire = fireIntensity.applyAsInt(absolute);
+            var visual = new AtmosphereVisualPayload.VisualCell(cellPos.x(), cellPos.y(), cellPos.z(), gas.plasmaAlpha(),
+                    gas.tritiumAlpha(), gas.waterVaporAlpha(), gas.ammoniaAlpha(), gas.frezonAlpha(), fire);
             if (hasOpacity(visual)) cells.add(visual);
         }
-        if (data == null) transfer.done = true;
-        if (transfer.done && cells.isEmpty())
-            return new BuildResult(new AtmosphereVisualPayload(level.dimension().location(), pos.x, pos.z,
-                    transfer.revision, !transfer.sentAny, true, List.of()), probes);
-        if (cells.isEmpty()) return new BuildResult(null, probes);
-        boolean reset = !transfer.sentAny;
-        transfer.sentAny = true;
-        return new BuildResult(new AtmosphereVisualPayload(level.dimension().location(), pos.x, pos.z,
-                transfer.revision, reset, transfer.done, cells), probes);
+        if (done && cells.isEmpty()) return new SnapshotBuild(new AtmosphereVisualPayload(dimension, pos.x, pos.z,
+                revision, !sentAny, true, List.of()), cursor, true, probes);
+        if (cells.isEmpty()) return new SnapshotBuild(null, cursor, false, probes);
+        return new SnapshotBuild(new AtmosphereVisualPayload(dimension, pos.x, pos.z,
+                revision, !sentAny, done, cells), cursor, done, probes);
+    }
+
+    private static int compare(AtmosphereChunkData.CellPosition a, AtmosphereChunkData.CellPosition b) {
+        int c = Integer.compare(a.x(), b.x());
+        if (c == 0) c = Integer.compare(a.z(), b.z());
+        return c == 0 ? Integer.compare(a.y(), b.y()) : c;
     }
 
     static List<AtmosphereVisualPayload> packetize(net.minecraft.resources.ResourceLocation dimension, ChunkPos chunk,
@@ -256,13 +298,16 @@ public final class AtmosphereVisualServerHooks {
         List<AtmosphereVisualPayload.VisualCell> cells = new ArrayList<>(changed.size());
         for (BlockPos pos : changed) {
             var mixture = data == null ? null : data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
-            cells.add(mixture == null ? new AtmosphereVisualPayload.VisualCell(pos.getX() & 15, pos.getY(), pos.getZ() & 15, 0, 0, 0, 0, 0)
-                    : AtmosphereVisualPayload.VisualCell.from(mixture, pos));
+            var gas = mixture == null ? new AtmosphereVisualPayload.VisualCell(pos.getX() & 15, pos.getY(), pos.getZ() & 15, 0, 0, 0, 0, 0, 0)
+                    : AtmosphereVisualPayload.VisualCell.from(mixture, pos);
+            int fire = AtmosphereService.INSTANCE.fireIntensity(level, pos);
+            cells.add(new AtmosphereVisualPayload.VisualCell(gas.localX(), gas.y(), gas.localZ(), gas.plasmaAlpha(),
+                    gas.tritiumAlpha(), gas.waterVaporAlpha(), gas.ammoniaAlpha(), gas.frezonAlpha(), fire));
         }
         return packetizeDelta(level.dimension().location(), chunk.getPos(), revision, cells);
     }
     private static boolean hasOpacity(AtmosphereVisualPayload.VisualCell c) {
-        return c.plasmaAlpha() != 0 || c.tritiumAlpha() != 0 || c.waterVaporAlpha() != 0 || c.ammoniaAlpha() != 0 || c.frezonAlpha() != 0;
+        return c.plasmaAlpha() != 0 || c.tritiumAlpha() != 0 || c.waterVaporAlpha() != 0 || c.ammoniaAlpha() != 0 || c.frezonAlpha() != 0 || c.fireIntensity() != 0;
     }
 
     private static final class LevelState {
@@ -270,6 +315,7 @@ public final class AtmosphereVisualServerHooks {
         final Map<ChunkPos, Long> revisions = new LinkedHashMap<>();
         final Map<ChunkPos, Set<UUID>> watchers = new LinkedHashMap<>();
         final Map<ChunkPos, Map<UUID, SnapshotTransfer>> transfers = new LinkedHashMap<>();
+        ChunkPos chunkCursor;
     }
     static final class RequestRateLimit {
         private long windowStart = Long.MIN_VALUE;
@@ -289,6 +335,7 @@ public final class AtmosphereVisualServerHooks {
         SnapshotTransfer(long revision) { this.revision = revision; }
     }
     private record BuildResult(AtmosphereVisualPayload payload, int probes) { }
+    record SnapshotBuild(AtmosphereVisualPayload payload, AtmosphereChunkData.CellPosition cursor, boolean done, int probes) { }
 
     static final class PendingChanges {
         private final LinkedHashMap<ChunkPos, ChangeSet> chunks = new LinkedHashMap<>();

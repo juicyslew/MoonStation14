@@ -48,6 +48,15 @@ public final class FireStackReducer {
         return new FireStackComponent(Math.min(0f, current.stacks() + 1f), false);
     }
 
+    /** Applies one configured decay step to a lit stack, extinguishing at zero. */
+    public static FireStackComponent fadeIgnited(FireStackComponent current, float fade) {
+        Objects.requireNonNull(current, "current");
+        requireFinite(fade, "fade");
+        if (!current.ignited() || current.stacks() <= 0f) return current;
+        float stacks = clamp((double) current.stacks() + fade);
+        return stacks <= 0f ? FireStackComponent.EMPTY : new FireStackComponent(stacks, true);
+    }
+
     private static float clamp(double value) {
         if (!Double.isFinite(value)) {
             throw new IllegalArgumentException("fire stack result must be finite");

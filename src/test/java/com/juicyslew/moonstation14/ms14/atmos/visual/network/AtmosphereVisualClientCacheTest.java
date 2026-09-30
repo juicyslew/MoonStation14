@@ -106,8 +106,8 @@ class AtmosphereVisualClientCacheTest {
     void candidateSelectionIsBoundedAndNearestFirst() {
         cache.apply(new AtmosphereVisualPayload(DIM, 0, 0, 1, true, true, List.of(
                 cell(0, 1, 0, 255),
-                new AtmosphereVisualPayload.VisualCell(1, 1, 0, 0, 255, 0, 0, 0),
-                new AtmosphereVisualPayload.VisualCell(2, 1, 0, 0, 120, 0, 0, 0))));
+                new AtmosphereVisualPayload.VisualCell(1, 1, 0, 0, 255, 0, 0, 0, 0),
+                new AtmosphereVisualPayload.VisualCell(2, 1, 0, 0, 120, 0, 0, 0, 0))));
         var selected = cache.visibleCells(DIM, .5, 1.5, .5, 48, 2);
         assertEquals(2, selected.size());
         assertEquals(0.0, selected.get(0).distanceSquared());
@@ -131,12 +131,12 @@ class AtmosphereVisualClientCacheTest {
                 for (int x = 0; x < 15; x++) {
                     for (int z = 0; z < 15; z++) {
                         int tritium = chunkX == 0 && chunkZ == 0 && x == 0 && z == 0 ? 255 : 0;
-                        cells.add(new AtmosphereVisualPayload.VisualCell(x, 35, z, 255, tritium, 0, 0, 0));
+                        cells.add(new AtmosphereVisualPayload.VisualCell(x, 35, z, 255, tritium, 0, 0, 0, 0));
                     }
                 }
                 if (chunkX == 0 && chunkZ == 0) {
                     cells.add(new AtmosphereVisualPayload.VisualCell(nearbyTritiumX, 0, nearbyTritiumZ,
-                            0, 255, 0, 0, 0));
+                            0, 255, 0, 0, 0, 0));
                 }
                 cache.apply(new AtmosphereVisualPayload(DIM, chunkX, chunkZ, revision++, true, true, cells));
             }
@@ -159,10 +159,10 @@ class AtmosphereVisualClientCacheTest {
     @Test
     void candidateTiesUseTritiumThenStableCoordinatesAndRespectTheLimit() {
         cache.apply(packet(1, true, true,
-                new AtmosphereVisualPayload.VisualCell(1, 0, 0, 255, 100, 0, 0, 0),
-                new AtmosphereVisualPayload.VisualCell(0, 0, 1, 255, 0, 0, 0, 0),
-                new AtmosphereVisualPayload.VisualCell(0, 0, 0, 255, 0, 0, 0, 0),
-                new AtmosphereVisualPayload.VisualCell(1, 0, 1, 255, 0, 0, 0, 0)));
+                new AtmosphereVisualPayload.VisualCell(1, 0, 0, 255, 100, 0, 0, 0, 0),
+                new AtmosphereVisualPayload.VisualCell(0, 0, 1, 255, 0, 0, 0, 0, 0),
+                new AtmosphereVisualPayload.VisualCell(0, 0, 0, 255, 0, 0, 0, 0, 0),
+                new AtmosphereVisualPayload.VisualCell(1, 0, 1, 255, 0, 0, 0, 0, 0)));
         var selected = cache.visibleCells(DIM, 1.0, .5, 1.0, 10, 4);
         assertEquals(4, selected.size());
         assertEquals(100, selected.get(0).cell().tritiumAlpha(), "tritium wins only within the equal-distance band");
@@ -222,6 +222,6 @@ class AtmosphereVisualClientCacheTest {
         return new AtmosphereVisualPayload(DIM, 0, 0, revision, reset, last, List.of(cells));
     }
     private static AtmosphereVisualPayload.VisualCell cell(int x, int y, int z, int alpha) {
-        return new AtmosphereVisualPayload.VisualCell(x, y, z, alpha, 0, 0, 0, 0);
+        return new AtmosphereVisualPayload.VisualCell(x, y, z, alpha, 0, 0, 0, 0, 0);
     }
 }

@@ -69,6 +69,16 @@ class FireStackReducerTest {
     }
 
     @Test
+    void ignitedFadePreservesIgnitionUntilClampedAtZero() {
+        assertEquals(new FireStackComponent(1.9f, true), FireStackReducer.fadeIgnited(
+                new FireStackComponent(2f, true), -0.1f));
+        assertEquals(FireStackComponent.EMPTY, FireStackReducer.fadeIgnited(
+                new FireStackComponent(0.5f, true), -1f));
+        assertEquals(new FireStackComponent(2f, false), FireStackReducer.fadeIgnited(
+                new FireStackComponent(2f, false), -0.1f));
+    }
+
+    @Test
     void codecRoundTripsAndRejectsInvalidStackValues() {
         FireStackComponent value = new FireStackComponent(3.5f, true);
         var encoded = FireStackComponent.CODEC.encodeStart(JsonOps.INSTANCE, value).getOrThrow();

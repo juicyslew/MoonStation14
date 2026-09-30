@@ -104,7 +104,7 @@
     {"type": "Hunger"},
     {"type": "Thirst"},
     {"type": "Stomach"},
-    {"type": "Flammable"},
+    {"type": "Flammable", "damage": {"types": {"heat": 1.5}}},
     {"type": "Blindable"},
     {"type": "Metabolizer", "types": ["human"]}
   ]

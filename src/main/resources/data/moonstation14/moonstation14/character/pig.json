@@ -94,7 +94,7 @@
     {"type": "StandingState", "standing_eligible": false, "prone_eligible": false},
     {"type": "NoSlip"},
     {"type": "MovementSpeedModifier", "mode": "grounded", "acceleration": 20.0, "walk_speed": 4.0, "sprint_speed": 4.0, "ground_friction_with_input": 20.0, "ground_friction_without_input": 20.0, "minimum_friction_speed": 0.005},
-    {"type": "Flammable"},
+    {"type": "Flammable", "damage": {"types": {"heat": 1.5}}},
     {"type": "Blindable"},
     {"type": "Metabolizer", "types": ["animal"]}
   ]
