@@ -88,6 +88,52 @@ public final class CreativeCarrierTransitionGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void zeroCountResiduesAreAbsentAndReferencesRollback(GameTestHelper helper) {
+        ServerPlayer player = fixture(helper, UUID.randomUUID());
+        ItemStack droppedCarrier = new ItemStack(Items.STONE, 4);
+        droppedCarrier.set(DataComponents.CUSTOM_NAME, Component.literal("surviving carrier"));
+        player.getInventory().items.set(2, droppedCarrier);
+        ItemStack dropped = droppedCarrier.split(1);
+        require(droppedCarrier.getCount() == 3 && dropped.getCount() == 1, "split leaves positive carrier");
+        ItemStack zeroOffhand = new ItemStack(Items.STONE, 1);
+        zeroOffhand.setCount(0);
+        player.getInventory().offhand.set(0, zeroOffhand);
+        ItemStack zeroCursor = new ItemStack(Items.DIAMOND, 1);
+        zeroCursor.setCount(0);
+        player.inventoryMenu.setCarried(zeroCursor);
+
+        CreativeInventorySnapshot captured = snapshot(player);
+        List<ItemStack> references = new java.util.ArrayList<>();
+        for (int i = 0; i < CreativeInventorySnapshot.SLOT_COUNT; i++) references.add(slot(player, i));
+        require(CreativeCarrierTransition.parkTrustedFixture(player, captured, onceAt(3))
+                == CreativeCarrierTransition.Result.DENIED, "injected clear failure rolled back");
+        require(marker(player) == null, "failed transaction removes marker");
+        for (int i = 0; i < references.size(); i++)
+            require(slot(player, i) == references.get(i), "rollback preserves exact reference " + i);
+        require(slot(player, 40) == zeroOffhand && slot(player, 41) == zeroCursor,
+                "zero-count residue references preserved");
+
+        require(CreativeCarrierTransition.parkTrustedFixture(player, captured, NO_HOOK)
+                == CreativeCarrierTransition.Result.PARKED, "zero-count snapshot parks");
+        assertEmpty(player);
+        require(CreativeCarrierTransition.restoreTrustedFixture(player, NO_HOOK)
+                == CreativeCarrierTransition.Result.RESTORED, "zero-count snapshot restores");
+        require(marker(player) == null, "restored marker removed");
+        for (int i = 0; i < CreativeInventorySnapshot.SLOT_COUNT; i++) {
+            ItemStack expected = captured.stackCopy(i);
+            ItemStack actual = slot(player, i);
+            require(ItemStack.matches(actual, expected) && actual.getCount() == expected.getCount(),
+                    "roundtrip slot " + i);
+        }
+        require(slot(player, 2).getCount() == 3
+                && slot(player, 2).getHoverName().getString().equals("surviving carrier"),
+                "positive component-bearing carrier conserved once");
+        require(slot(player, 40).isEmpty() && slot(player, 41).isEmpty(),
+                "zero-count residues are absent after roundtrip");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void occupiedTargetsAndInjectedFailures(GameTestHelper helper) {
         ServerPlayer player = fixture(helper, UUID.randomUUID());
         player.getInventory().items.set(0, new ItemStack(Items.DIAMOND, 5));

@@ -102,7 +102,7 @@ class NeedEnrollmentTest {
         assertEquals(published, manager.snapshot(ModCharacters.CHARACTER_TYPE));
     }
 
-    @Test void shippedHumanHasTwentyComponentsAndPigHasNoNeedMarkers() throws Exception {
+    @Test void shippedHumanHasTwentyOneComponentsAndPigHasNoNeedMarkers() throws Exception {
         var loader = getClass().getClassLoader();
         CharacterData human;
         CharacterData pig;
@@ -116,7 +116,7 @@ class NeedEnrollmentTest {
             pig = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                     JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))).getOrThrow();
         }
-        assertEquals(20, human.components().size());
+        assertEquals(21, human.components().size());
         assertTrue(human.component(ComplexInteractionComponent.class).isPresent());
         assertEquals(List.of(PLAYER, ResourceLocation.parse("minecraft:villager")), human.hostEntityTypes());
         for (var type : List.of(HungerPrototypeComponent.class, ThirstPrototypeComponent.class, StomachPrototypeComponent.class)) {
