@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.character.components.CharacterComponentRegistry;
+import com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 
 import java.util.Set;
@@ -108,6 +109,9 @@ public final class CharacterSchemaAudit {
 
     public static void rejectLegacyHands(JsonObject character) {
         if (character.has("hands")) fail("$.hands", "legacy top-level hands is unsupported; use components:[{type:'Hands',hands:[...]}]");
+        // This hook is also called on raw abstract declarations by the character catalog.
+        if (character.has("equipment")) fail("$.equipment", "legacy top-level equipment is unsupported; use components:[{type:'EquipmentSlots',slots:[...]}]");
+        if (character.has("equipment_slots")) fail("$.equipment_slots", "legacy top-level equipment_slots is unsupported; use components:[{type:'EquipmentSlots',slots:[...]}]");
     }
 
     public static void rejectLegacyMovement(JsonObject character) {
@@ -162,6 +166,21 @@ public final class CharacterSchemaAudit {
             if (!seen.add(id)) fail(itemPath, "duplicate hand ID");
         }
         // An explicitly empty list is equivalent to omitting the capability entirely.
+    }
+
+    private static void auditEquipmentSlots(JsonElement slots, String path) {
+        if (slots == null || !slots.isJsonArray()) fail(path, "expected array");
+        if (slots.getAsJsonArray().size() > EquipmentSlotsPrototypeComponent.MAX_SLOTS)
+            fail(path, "at most " + EquipmentSlotsPrototypeComponent.MAX_SLOTS + " equipment slots are allowed");
+        Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < slots.getAsJsonArray().size(); i++) {
+            JsonElement slot = slots.getAsJsonArray().get(i);
+            String itemPath = path + "[" + i + "]";
+            if (!slot.isJsonPrimitive() || !slot.getAsJsonPrimitive().isString()) fail(itemPath, "expected string");
+            String name = slot.getAsString();
+            if (!EquipmentSlotsPrototypeComponent.ALLOWED_SLOTS.contains(name)) fail(itemPath, "unknown or non-canonical equipment slot");
+            if (!seen.add(name)) fail(itemPath, "duplicate equipment slot");
+        }
     }
 
     private static void auditCentVolume(JsonObject blood, String field, boolean strictlyPositive, String parentPath) {
@@ -293,6 +312,11 @@ public final class CharacterSchemaAudit {
         if ("Hands".equals(type)) {
             checkFields(object, Set.of("type", "hands"), path);
             if (complete || object.has("hands")) auditHands(object.get("hands"), path + ".hands");
+            return;
+        }
+        if (EquipmentSlotsPrototypeComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "slots"), path);
+            if (complete || object.has("slots")) auditEquipmentSlots(object.get("slots"), path + ".slots");
             return;
         }
         if ("Metabolizer".equals(type)) {

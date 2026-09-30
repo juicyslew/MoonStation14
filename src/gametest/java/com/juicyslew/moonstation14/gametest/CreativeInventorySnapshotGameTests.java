@@ -27,8 +27,89 @@ public final class CreativeInventorySnapshotGameTests {
     }
 
     private static CreativeInventorySnapshot capture(List<ItemStack> main, List<ItemStack> armor,
-                                                     List<ItemStack> offhand, ItemStack cursor, int selected) {
+                                                      List<ItemStack> offhand, ItemStack cursor, int selected) {
         return CreativeInventorySnapshot.capture(main, armor, offhand, cursor, selected, List.of());
+    }
+
+    @GameTest(template = "empty")
+    public static void invalidStackDiagnosisIsReadOnlyAndMatchesStrictCapture(GameTestHelper helper) {
+        List<ItemStack> main = empty(36);
+        List<ItemStack> armor = empty(4);
+        List<ItemStack> offhand = empty(1);
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, ItemStack.EMPTY, 0) == null,
+                "canonical EMPTY is valid");
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, new ItemStack(Items.AIR, 0), 0) == null,
+                "zero-count observation is absent");
+        main.set(7, new ItemStack(Items.AIR, 0));
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, ItemStack.EMPTY, 0) == null,
+                "zero-count main residue absent");
+        main.set(7, ItemStack.EMPTY);
+        armor.set(2, new ItemStack(Items.AIR, 0));
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, ItemStack.EMPTY, 0) == null,
+                "zero-count armor residue absent");
+        armor.set(2, ItemStack.EMPTY);
+        offhand.set(0, new ItemStack(Items.AIR, 0));
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, ItemStack.EMPTY, 0) == null,
+                "zero-count offhand residue absent");
+        offhand.set(0, ItemStack.EMPTY);
+
+        ItemStack zeroStone = new ItemStack(Items.STONE);
+        zeroStone.setCount(0);
+        main.set(3, zeroStone);
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, ItemStack.EMPTY, 0) == null,
+                "shrunken main residue absent");
+        main.set(3, ItemStack.EMPTY);
+        ItemStack overstack = new ItemStack(Items.DIAMOND_SWORD, 2);
+        require(overstack.getMaxStackSize() == 1, "max-one fixture");
+        assertIssue(main, armor, offhand, overstack, 0,
+                CreativeInventorySnapshot.ValidationCategory.INVALID_COUNT, "cursor", 0);
+        assertIssue(main, armor, offhand, ItemStack.EMPTY, 9,
+                CreativeInventorySnapshot.ValidationCategory.INVALID_SELECTION, "selection", -1);
+        main.set(4, null);
+        assertIssue(main, armor, offhand, ItemStack.EMPTY, 0,
+                CreativeInventorySnapshot.ValidationCategory.NULL, "main", 4);
+        main.set(4, ItemStack.EMPTY);
+        assertIssue(main, armor, offhand, null, 0,
+                CreativeInventorySnapshot.ValidationCategory.NULL, "cursor", 0);
+        ItemStack named = new ItemStack(Items.STONE, 12);
+        named.set(DataComponents.CUSTOM_NAME, Component.literal("must remain unchanged"));
+        main.set(1, named);
+        assertIssue(main, armor, offhand, overstack, 0,
+                CreativeInventorySnapshot.ValidationCategory.INVALID_COUNT, "cursor", 0);
+        require(named.getCount() == 12 && named.getHoverName().getString().equals("must remain unchanged"),
+                "occupied source contents unchanged");
+        main.set(1, ItemStack.EMPTY);
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, ItemStack.EMPTY, 0) == null,
+                "diagnosis clears when second observation is canonical");
+        helper.succeed();
+    }
+
+    private static void assertIssue(List<ItemStack> main, List<ItemStack> armor, List<ItemStack> offhand,
+                                    ItemStack cursor, int selected,
+                                    CreativeInventorySnapshot.ValidationCategory category,
+                                    String compartment, int slot) {
+        List<ItemStack> mainBefore = new ArrayList<>(main);
+        List<ItemStack> armorBefore = new ArrayList<>(armor);
+        List<ItemStack> offhandBefore = new ArrayList<>(offhand);
+        ItemStack cursorBefore = cursor;
+        int cursorCount = cursor == null ? -1 : cursor.getCount();
+        int zeroCount = main.get(3) == null ? -1 : main.get(3).getCount();
+        var issue = CreativeInventorySnapshot.diagnose(main, armor, offhand, cursor, selected);
+        require(issue != null && issue.category() == category && issue.compartment().equals(compartment)
+                && issue.slot() == slot, "diagnosis " + compartment + "[" + slot + "]");
+        if (category == CreativeInventorySnapshot.ValidationCategory.NULL) {
+            try {
+                capture(main, armor, offhand, cursor, selected);
+                throw new net.minecraft.gametest.framework.GameTestAssertException("null input accepted");
+            } catch (NullPointerException expected) {
+                // The strict capture contract uses requireNonNull for malformed sources.
+            }
+        } else expectFailure(() -> capture(main, armor, offhand, cursor, selected));
+        for (int i = 0; i < main.size(); i++) require(main.get(i) == mainBefore.get(i), "main reference " + i);
+        for (int i = 0; i < armor.size(); i++) require(armor.get(i) == armorBefore.get(i), "armor reference " + i);
+        for (int i = 0; i < offhand.size(); i++) require(offhand.get(i) == offhandBefore.get(i), "offhand reference " + i);
+        require(cursor == cursorBefore && (cursor == null || cursor.getCount() == cursorCount), "cursor unchanged");
+        require(main.get(3) == null || main.get(3).getCount() == zeroCount, "main stack count unchanged");
     }
 
     @GameTest(template = "empty")
@@ -95,15 +176,18 @@ public final class CreativeInventorySnapshotGameTests {
         require(zeroStone.isEmpty() && zeroStone.getCount() == 0, "zero-count fixture");
         List<ItemStack> malformedMain = empty(36);
         malformedMain.set(0, zeroStone);
-        expectFailure(() -> capture(malformedMain, empty(4), empty(1), ItemStack.EMPTY, 0));
+        require(capture(malformedMain, empty(4), empty(1), ItemStack.EMPTY, 0).stackCopy(0).isEmpty(),
+                "zero-count residue is absent from detached snapshot");
         ItemStack positiveAir = new ItemStack(Items.AIR, 0);
         positiveAir.setCount(1);
-        // getCount(), like getItem(), reports the canonical empty value for AIR stacks.
+        // The public ItemStack API masks AIR as empty, including its count. Capture cannot
+        // distinguish this from an ordinary zero-count residue and must not claim otherwise.
         require(positiveAir.isEmpty() && positiveAir != ItemStack.EMPTY, "positive-count air fixture");
-        expectFailure(() -> capture(empty(36), empty(4), empty(1), positiveAir, 0));
-        // Vanilla getItem() masks a zero-count STONE as AIR; reject even a separate AIR/0
-        // rather than silently accept one indistinguishable from a malformed source stack.
-        expectFailure(() -> capture(empty(36), empty(4), empty(1), new ItemStack(Items.AIR, 0), 0));
+        require(capture(empty(36), empty(4), empty(1), positiveAir, 0).stackCopy(41).isEmpty(),
+                "AIR masked as empty by public API treated absent");
+        // Zero count is an observational boundary: the underlying item/components are unreadable.
+        require(capture(empty(36), empty(4), empty(1), new ItemStack(Items.AIR, 0), 0).stackCopy(41).isEmpty(),
+                "zero-count cursor treated absent");
         expectFailure(() -> CreativeInventorySnapshot.capture(empty(36), empty(4), empty(1),
                 ItemStack.EMPTY, 0, List.of(zeroStone)));
         CompoundTag base = empty.encode(registries);
@@ -179,6 +263,41 @@ public final class CreativeInventorySnapshotGameTests {
         for (int i = 0; i < 70; i++) padding.putString("padding" + i, "x".repeat(16_000));
         overlimit.put("padding", padding);
         expectFailure(() -> CreativeInventorySnapshot.decode(overlimit, registries));
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void lastItemSplitAndShrinkAreReadOnlyEmptyObservations(GameTestHelper helper) {
+        var registries = helper.getLevel().registryAccess();
+        List<ItemStack> main = empty(36);
+        List<ItemStack> armor = empty(4);
+        List<ItemStack> offhand = empty(1);
+        ItemStack dropped = new ItemStack(Items.STONE);
+        dropped.split(1);
+        main.set(0, dropped);
+        ItemStack hand = new ItemStack(Items.EMERALD);
+        hand.shrink(1);
+        offhand.set(0, hand);
+        ItemStack cursor = new ItemStack(Items.DIAMOND);
+        cursor.shrink(1);
+        ItemStack bag = new ItemStack(Items.BUNDLE);
+        bag.set(DataComponents.CUSTOM_NAME, Component.literal("retained component"));
+        main.set(12, bag);
+        ItemStack surviving = new ItemStack(Items.STONE, 19);
+        main.set(13, surviving);
+        require(CreativeInventorySnapshot.diagnose(main, armor, offhand, cursor, 0) == null,
+                "last-item residues accepted by observation");
+        var snapshot = capture(main, armor, offhand, cursor, 0);
+        var encoded = snapshot.encode(registries);
+        var decoded = CreativeInventorySnapshot.decode(encoded, registries);
+        require(encoded.equals(decoded.encode(registries)), "residue codec roundtrip");
+        require(main.get(0) == dropped && dropped.getCount() == 0 && offhand.get(0) == hand
+                && hand.getCount() == 0 && cursor.getCount() == 0, "source residues unchanged");
+        require(ItemStack.matches(decoded.stackCopy(12), bag)
+                && ItemStack.matches(decoded.stackCopy(13), surviving)
+                && decoded.stackCopy(13).getCount() == 19, "positive items/components preserved");
+        require(decoded.stackCopy(0).isEmpty() && decoded.stackCopy(40).isEmpty()
+                && decoded.stackCopy(41).isEmpty(), "zero-count slots absent in detached value");
         helper.succeed();
     }
 

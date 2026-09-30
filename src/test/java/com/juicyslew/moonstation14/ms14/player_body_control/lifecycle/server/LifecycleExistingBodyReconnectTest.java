@@ -1,14 +1,50 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
+import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransition;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.LoadedBodyResolver;
+import net.minecraft.world.level.GameType;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class LifecycleExistingBodyReconnectTest {
+    @Test void forcedSurvivalWithUnparkedItemsCannotTriggerCreativeParking() {
+        AtomicInteger parks = new AtomicInteger();
+        assertEquals(LifecycleExistingBodyReconnect.Admission.DENIED,
+                LifecycleExistingBodyReconnect.admitCarrier(GameType.SURVIVAL, false, () -> {
+                    parks.incrementAndGet();
+                    return CreativeCarrierTransition.Result.PARKED;
+                }, () -> false));
+        assertEquals(0, parks.get());
+        assertFalse(LifecycleExistingBodyReconnect.offlineCreativeRefusalEligible(
+                LifecycleExistingBodyReconnect.Admission.DENIED, null, GameType.SURVIVAL, false));
+    }
+
+    @Test void onlyUnmarkedActualCreativeAttemptsToParkAndParkedSpectatorRemainsReady() {
+        AtomicInteger parks = new AtomicInteger();
+        assertEquals(LifecycleExistingBodyReconnect.Admission.NEWLY_PARKED,
+                LifecycleExistingBodyReconnect.admitCarrier(GameType.CREATIVE, false, () -> {
+                    parks.incrementAndGet();
+                    return CreativeCarrierTransition.Result.PARKED;
+                }, () -> true));
+        assertEquals(LifecycleExistingBodyReconnect.Admission.READY,
+                LifecycleExistingBodyReconnect.admitCarrier(GameType.SPECTATOR, true, () -> {
+                    parks.incrementAndGet();
+                    return CreativeCarrierTransition.Result.PARKED;
+                }, () -> true));
+        assertEquals(1, parks.get());
+        assertEquals(LifecycleExistingBodyReconnect.Admission.DENIED,
+                LifecycleExistingBodyReconnect.admitCarrier(GameType.SPECTATOR, true, () -> {
+                    parks.incrementAndGet();
+                    return CreativeCarrierTransition.Result.PARKED;
+                }, () -> false));
+        assertEquals(1, parks.get());
+    }
+
     @Test void alreadyLoadedBodyCompletesWithoutWaiting() {
         assertEquals(LifecycleExistingBodyReconnect.PendingDecision.COMPLETE,
                 LifecycleExistingBodyReconnect.pendingDecision(0,

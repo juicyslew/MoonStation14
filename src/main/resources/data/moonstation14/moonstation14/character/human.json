@@ -97,6 +97,7 @@
       "type": "Hands",
       "hands": ["left", "right"]
     },
+    {"type": "EquipmentSlots", "slots": ["belt", "back"]},
     {"type": "StandingState", "standing_eligible": true, "prone_eligible": true},
     {"type": "Stunnable"},
     {"type": "Reactive", "reactive_groups": ["flammable", "extinguish", "acidic"], "reactive_methods": ["touch"]},

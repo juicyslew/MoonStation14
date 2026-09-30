@@ -107,8 +107,8 @@ public final class HandsLiveItemGameTests {
 
             restored.setData(ModDataAttachments.HANDS.get(), new HandAttachment(HandComponent.from(
                     HandState.create(java.util.List.of("left", "right"), "right"))));
-            require(!LiveHands.isEmptyHand(restored, "left") && !LiveHands.isEmptyHand(restored, "right"),
-                    "restored empty slots reject metadata active-hand mismatch");
+            require(LiveHands.isEmptyHand(restored, "left") && LiveHands.isEmptyHand(restored, "right"),
+                    "empty legacy metadata retains its historical active hand without hiding live empty slots");
 
             Pig wrongHost = EntityType.PIG.create(helper.getLevel());
             require(wrongHost != null, "wrong host is constructible");

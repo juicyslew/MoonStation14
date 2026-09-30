@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.client;
 
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -79,8 +80,68 @@ public final class BodyHandClientPolicy {
     }
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
+    /** Screen presentation requires a settled, validated pair; never display stale state during a query. */
+    public record InventoryView(BodyHandStateSnapshot.Hand first, BodyHandStateSnapshot.Hand second,
+                                 String activeHand, PouchView pouch, EquipmentView belt, EquipmentView back) { }
+
+    public record EquipmentView(BodyHandStateSnapshot.EquipmentSlot slot, boolean canEquip,
+                                boolean canUnequip, boolean canStore, boolean canTake) {
+        public boolean allows(BodyHandActionRequest.Action action) {
+            return switch (action) {
+                case EQUIP_BELT, EQUIP_BACK -> canEquip;
+                case UNEQUIP_BELT, UNEQUIP_BACK -> canUnequip;
+                case STORE_BELT, STORE_BACK -> canStore;
+                case TAKE_BELT, TAKE_BACK -> canTake;
+                default -> false;
+            };
+        }
+    }
+
+    private EquipmentView equipmentView(String id, BodyHandStateSnapshot.Hand active) {
+        var slots = snapshot.equipment().stream().filter(slot -> slot.id().equals(id)).toList();
+        if (slots.size() != 1) return null;
+        var slot = slots.getFirst();
+        boolean emptyHand = active.token() == null;
+        boolean emptySlot = slot.token() == null;
+        boolean matching = ("belt".equals(id) ? "moonstation14:belt" : "moonstation14:bag").equals(active.itemId());
+        // Snapshot summaries cannot prove stack components; the server still validates child admission.
+        boolean supported = active.token() != null && active.count() <= 64 && !active.pouch()
+                && !"moonstation14:belt".equals(active.itemId()) && !"moonstation14:bag".equals(active.itemId());
+        return new EquipmentView(slot, emptySlot && matching && active.count() == 1,
+                !emptySlot && emptyHand, !emptySlot && slot.childToken() == null && supported,
+                !emptySlot && slot.childToken() != null && emptyHand);
+    }
+
+    public InventoryView inventoryView() {
+        if (!inputEnabled || pendingQuery != 0 || pendingAction != 0 || snapshot == null
+                || snapshot.hands().size() != 2) return null;
+        var first = snapshot.hands().get(0);
+        var second = snapshot.hands().get(1);
+        if (first.id().equals(second.id()) || !snapshot.activeHand().equals(first.id())
+                && !snapshot.activeHand().equals(second.id())) return null;
+        var active = first.id().equals(snapshot.activeHand()) ? first : second;
+        return new InventoryView(first, second, snapshot.activeHand(), pouchView(),
+                equipmentView("belt", active), equipmentView("back", active));
+    }
     /** Rendering must not expose the last authoritative state while an action is unresolved. */
     public BodyHandStateSnapshot hudSnapshot() { return pendingAction == 0 ? snapshot : null; }
+    public record PouchView(BodyHandStateSnapshot.Hand pouch, boolean canInsert, boolean canExtract) { }
+
+    /** Only a correlated, settled two-hand state can advertise pouch contents or controls. */
+    public PouchView pouchView() {
+        if (!inputEnabled || snapshot == null || pendingQuery != 0 || pendingAction != 0
+                || snapshot.hands().size() != 2) return null;
+        BodyHandStateSnapshot.Hand pouch = null, other = null;
+        for (var hand : snapshot.hands()) {
+            if (hand.pouch()) {
+                if (pouch != null) return null;
+                pouch = hand;
+            } else other = hand;
+        }
+        if (pouch == null || other == null || pouch.token() == null) return null;
+        return new PouchView(pouch, pouch.childToken() == null && other.token() != null,
+                pouch.childToken() != null && other.token() == null);
+    }
     public String feedback() { return feedback; }
 
     /** Presentation only: no candidate was nominated, so no request reached the server. */

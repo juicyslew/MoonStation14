@@ -1,0 +1,22 @@
+# Sprint 10c: bounded item-owned pouch slice
+
+**Status: owner-accepted and closed for the 1-cell slice.** Owner's connected report accepted the current playable one-cell program; they reported no kicks and successful bag/belt storage, logout/login preservation, bag drop/pickup with contents, and belt/item ground handling. They could not store a pouch in a bag or belt. This is not explicit evidence that held-pouch J/K was tested. This is a 1×1 whole-stack cell, not a grid or generic inventory. Body ownership remains limited to hands; the cell travels in its storage item's `ItemStack` component.
+
+## Implemented contract
+
+- An eligible controlled two-hand body holds the pouch in one hand. V toggles the active hand for G pickup / H drop: pick up the pouch with G, press V to select the empty other hand, then G to pick up the second stack. J inserts the entire supported stack from the opposite hand into an empty pouch; K extracts the entire child into an empty opposite hand. No splitting, merging, arbitrary slot selection, nested pouch, or body-owned pocket is provided. The child retains its token and stack; the pouch remains the outer hand/world item.
+- The server resolves/revalidates the authenticated actor's exact controlled body and lease, checks the epoch and request sequence, expected hand revision and tokens, derives the opposite hand from prototype geometry, and commits one new hand revision for a valid transfer. V hand selection is also server-authenticated and revision-checked, limited to eligible two-hand bodies; the client cannot choose hand state unilaterally. Stale or unauthorized requests deny without granting client state authority. Ambiguous commit results can require recovery; this is not crash-atomic persistence across world/playerdata.
+- The hand HUD shows the active hand, a limited pouch contents summary and contextual J/K hints from a correlated state query. G/H act on the active hand for world pickup/drop; V selects the other hand. This is **not** a menu, an open-container interface, or UI approval for generic inventory transport.
+- Admission is bounded to one child stack of 1–64 items, within that item's own maximum stack size. The explicit stack-bearing exclusions include container/container-loot, bundle contents, charged projectiles, block/entity/bucket-entity data, bees, food with a use remainder, and pouch-content-bearing children. A pouch cannot contain another pouch. This is an **explicit exclusion list**, not a proof that arbitrary current or future custom components cannot embed `ItemStack`s. Such components need an audited admission policy before broadening supported items.
+
+## Evidence and outstanding acceptance
+
+Prior validation reported unit tests and compile passed, and an earlier 314/314 required GameTest suite. The latest suite was reported as 325/326 (also described as 326 with one unrelated farplayer fixture failure). This evidence does not override owner manual acceptance. Held-pouch J/K, exhaustive I-screen paths, grid, garments, sudden-crash/power-loss durability, and 20-player load are not established.
+
+The owner has closed this slice based on the connected report recorded in [current handoff](current-handoff.md). Do not reframe unreported held-pouch J/K testing as passed; the inability to nest pouch in bag/belt is the intentional mod admission policy, not a failure of this accepted one-cell scope.
+
+## Dependency boundary
+
+Future multi-cell storage needs its own bounded footprint/occupancy and conservation contract; prototype-declared item sizes and container capabilities need explicit rules rather than extrapolating this single cell. Garments, pockets and wearables require their separate equipment/access/removal policies. Ingestion needs a supported hand-to-consumption authority path, and target-side popup hug needs its separate verified empty active-hand interaction gate. None follows automatically from the pouch. A generic menu or broader SS14 parity claim requires separate design, authorization and connected acceptance; this slice asserts neither.
+
+Follow-up: [sprint 10d equipment and UI](sprint-10d-equipment-ui.md) reuses the one-cell component for registered belt/back items and adds a bounded client-only inventory screen. The owner explicitly accepted the 10c one-cell slice, but did not report connected held-pouch J/K use; 10d's shared component and acceptance do not constitute explicit J/K proof.

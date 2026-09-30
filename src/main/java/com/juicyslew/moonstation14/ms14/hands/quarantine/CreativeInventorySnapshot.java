@@ -30,6 +30,9 @@ import java.util.Objects;
  * The player attachment binds an account and supplies the separate park presence marker.
  */
 public final class CreativeInventorySnapshot {
+    /** Sanitized description of the first invalid observed value; never contains stack data. */
+    public record ValidationIssue(ValidationCategory category, String compartment, int slot) { }
+    public enum ValidationCategory { EMPTY_NON_SINGLETON, INVALID_COUNT, NULL, OBSERVATION_FAILED, INVALID_SELECTION }
     public static final int MAIN = 36;
     public static final int ARMOR = 4;
     public static final int OFFHAND = 1;
@@ -68,9 +71,9 @@ public final class CreativeInventorySnapshot {
         List<ItemStack> detached = new ArrayList<>(SLOT_COUNT);
         for (ItemStack stack : slots) {
             Objects.requireNonNull(stack, "slot");
-            // getItem() masks the actual item as AIR on every empty stack, including zero-count
-            // non-AIR items. Only the known vanilla empty singleton can prove its raw identity.
-            if (stack.isEmpty() ? stack != ItemStack.EMPTY || stack.getCount() != 0
+            // getItem() masks zero-count residues as AIR. Treat that observation as absent in
+            // this detached value only; never mutate the source stack during preflight.
+            if (stack.isEmpty() ? stack.getCount() != 0
                     : stack.getCount() <= 0 || stack.getCount() > stack.getMaxStackSize()
                     || stack.getItem() == Items.AIR)
                 throw new IllegalArgumentException("Invalid or overstacked item");
@@ -99,6 +102,42 @@ public final class CreativeInventorySnapshot {
         all.addAll(offhand);
         all.add(carried);
         return new CreativeInventorySnapshot(all, selected);
+    }
+
+    /** Read-only, bounded diagnosis for the same stack invariants enforced by capture. */
+    public static ValidationIssue diagnose(List<ItemStack> main, List<ItemStack> armor,
+                                           List<ItemStack> offhand, ItemStack carried, int selected) {
+        try {
+            ValidationIssue invalid = inspect("main", main, MAIN, 0);
+            if (invalid != null) return invalid;
+            invalid = inspect("armor", armor, ARMOR, 0);
+            if (invalid != null) return invalid;
+            invalid = inspect("offhand", offhand, OFFHAND, 0);
+            if (invalid != null) return invalid;
+            invalid = inspect("cursor", java.util.Collections.singletonList(carried), 1, 0);
+            if (invalid != null) return invalid;
+            return selected < 0 || selected > 8
+                    ? new ValidationIssue(ValidationCategory.INVALID_SELECTION, "selection", -1) : null;
+        } catch (RuntimeException unreadable) {
+            return new ValidationIssue(ValidationCategory.OBSERVATION_FAILED, "unknown", -1);
+        }
+    }
+
+    private static ValidationIssue inspect(String compartment, List<ItemStack> values, int expected, int offset) {
+        if (values == null || values.size() != expected)
+            return new ValidationIssue(ValidationCategory.OBSERVATION_FAILED, compartment, -1);
+        for (int i = 0; i < expected; i++) {
+            ItemStack stack = values.get(i);
+            if (stack == null) return new ValidationIssue(ValidationCategory.NULL, compartment, i + offset);
+            if (stack.isEmpty()) {
+                if (stack.getCount() != 0)
+                    return new ValidationIssue(ValidationCategory.EMPTY_NON_SINGLETON, compartment, i + offset);
+            } else if (stack.getCount() <= 0 || stack.getCount() > stack.getMaxStackSize()
+                    || stack.getItem() == Items.AIR) {
+                return new ValidationIssue(ValidationCategory.INVALID_COUNT, compartment, i + offset);
+            }
+        }
+        return null;
     }
 
     public int selectedHotbarIndex() { return selected; }

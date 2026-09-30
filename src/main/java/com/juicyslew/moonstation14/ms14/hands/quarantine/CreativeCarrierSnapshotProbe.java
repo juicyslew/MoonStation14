@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands.quarantine;
 
+import com.juicyslew.moonstation14.MoonStation14;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -60,7 +61,24 @@ public final class CreativeCarrierSnapshotProbe {
             try {
                 snapshot = CreativeInventorySnapshot.capture(inventory.items, inventory.armor,
                         inventory.offhand, menu.getCarried(), inventory.selected, java.util.Collections.nCopies(27, ItemStack.EMPTY));
-            } catch (RuntimeException invalidStack) { return Reason.NONCANONICAL_OR_INVALID_STACK; }
+            } catch (RuntimeException invalidStack) {
+                // A second, read-only observation is diagnostic only. Never log the exception,
+                // stack data, or infer that a value remained invalid if it changed between reads.
+                CreativeInventorySnapshot.ValidationIssue issue;
+                try {
+                    issue = CreativeInventorySnapshot.diagnose(
+                            inventory.items, inventory.armor, inventory.offhand, menu.getCarried(), inventory.selected);
+                } catch (RuntimeException unreadable) {
+                    issue = new CreativeInventorySnapshot.ValidationIssue(
+                            CreativeInventorySnapshot.ValidationCategory.OBSERVATION_FAILED, "unknown", -1);
+                }
+                if (issue == null) MoonStation14.LOGGER.warn(
+                        "Creative carrier invalid-stack preflight diagnosis: inconclusive");
+                else MoonStation14.LOGGER.warn(
+                        "Creative carrier invalid-stack preflight diagnosis: category={}, compartment={}, slot={}",
+                        issue.category(), issue.compartment(), issue.slot());
+                return Reason.NONCANONICAL_OR_INVALID_STACK;
+            }
             try {
                 CreativeInventorySnapshot.decode(snapshot.encode(level.registryAccess()), level.registryAccess());
             } catch (RuntimeException codecFailure) { return Reason.CODEC_REJECTED; }
