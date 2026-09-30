@@ -7,6 +7,11 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient;
+import com.juicyslew.moonstation14.ms14.chat.client.DirectionalCueOverlay;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewKey;
+import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewOverlay;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogSyncAssembler;
@@ -21,6 +26,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualClientCache;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualNetworking;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualPayload;
+import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualPendingSnapshots;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualClientCache;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualRenderer;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualResyncScheduler;
@@ -41,6 +47,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.ModelBakery;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -63,6 +72,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -82,6 +92,7 @@ import org.joml.Matrix4f;
 public class MoonStation14Client {
     private static final BodyHealthHudPolicy BODY_HEALTH_HUD = new BodyHealthHudPolicy();
     private static final AtmosphereVisualClientCache ATMOSPHERE_VISUALS = new AtmosphereVisualClientCache();
+    private static final AtmosphereVisualPendingSnapshots ATMOSPHERE_PENDING = new AtmosphereVisualPendingSnapshots();
     private static final CableVisualClientCache CABLE_VISUALS = new CableVisualClientCache();
     private static final CableVisualResyncScheduler CABLE_RESYNC = new CableVisualResyncScheduler();
     private static final CableVisualPendingSnapshots CABLE_PENDING = new CableVisualPendingSnapshots();
@@ -102,6 +113,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
+        modEventBus.addListener(LocalSpeechReviewKey::register);
         modEventBus.addListener(BodyHandClient::registerKeys);
 
         // Allows NeoForge to create a config screen for this mod's configs.
@@ -111,6 +123,7 @@ public class MoonStation14Client {
         PrototypeCatalogNetworking.installClientHandler(MoonStation14Client::handleCatalogPayload);
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
         CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
+        LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
@@ -144,15 +157,59 @@ public class MoonStation14Client {
         CableVisualRenderer.render(event, CABLE_VISUALS);
     }
 
+    @SubscribeEvent
+    public static void renderLocalSpeech(RenderLevelStageEvent event) {
+        DirectionalCueOverlay.capture(event);
+        LocalSpeechClient.render(event);
+    }
+
+    @SubscribeEvent
+    public static void renderSpeechCues(RenderGuiEvent.Post event) {
+        LocalSpeechReviewOverlay.render(event);
+        DirectionalCueOverlay.render(event);
+        LocalSpeechClient.renderCallouts(event);
+    }
+
+    @SubscribeEvent
+    public static void renderSpeechCuesOnChat(ScreenEvent.Render.Post event) {
+        LocalSpeechReviewOverlay.render(event);
+        DirectionalCueOverlay.render(event);
+        LocalSpeechClient.renderCallouts(event);
+    }
+
+    @SubscribeEvent
+    public static void tickLocalSpeech(ClientTickEvent.Post event) {
+        LocalSpeechClient.tick();
+        LocalSpeechReviewKey.tick();
+    }
+
     private static void handleAtmospherePayload(AtmosphereVisualPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || !minecraft.level.dimension().location().equals(payload.dimension())) return;
+        if (minecraft.level == null || minecraft.player == null
+                || !minecraft.level.dimension().location().equals(payload.dimension())
+                || !minecraft.level.hasChunk(payload.chunkX(), payload.chunkZ())) {
+            ATMOSPHERE_PENDING.stage(payload);
+            return;
+        }
+        ATMOSPHERE_PENDING.retainDimension(payload.dimension());
+        ATMOSPHERE_PENDING.flush(payload.dimension(), prior -> prior.chunkX() == payload.chunkX()
+                && prior.chunkZ() == payload.chunkZ() && minecraft.level.hasChunk(prior.chunkX(), prior.chunkZ()),
+                MoonStation14Client::applyAtmospherePayload);
+        applyAtmospherePayload(payload);
+    }
+
+    private static void applyAtmospherePayload(AtmosphereVisualPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.player == null
+                || !minecraft.level.dimension().location().equals(payload.dimension())
+                || !minecraft.level.hasChunk(payload.chunkX(), payload.chunkZ())) return;
         if (!payload.dimension().equals(atmosphereDimension)) {
             ATMOSPHERE_VISUALS.clear();
             atmosphereDimension = payload.dimension();
             warnedIncompleteAtmosphere = false;
         }
-        ATMOSPHERE_VISUALS.apply(payload);
+        ATMOSPHERE_PENDING.noteReset(payload);
+        if (ATMOSPHERE_VISUALS.apply(payload)) ATMOSPHERE_PENDING.acknowledgeApplied(payload);
         serverAtmosVisualsActive = true;
         if (ATMOSPHERE_VISUALS.isIncomplete() && !warnedIncompleteAtmosphere) {
             warnedIncompleteAtmosphere = true;
@@ -226,11 +283,42 @@ public class MoonStation14Client {
                 }
                 BufferUploader.drawWithShader(builder.buildOrThrow());
             }
+
+            boolean fireVisible = visible.stream().anyMatch(candidate -> candidate.cell().fireIntensity() > 0);
+            if (fireVisible) {
+                // Resolve after resource reloads; the vanilla atlas sprite keeps its animated UVs. Transparent
+                // planes can be clipped/overdrawn by nearby geometry and other translucent effects at this stage.
+                TextureAtlasSprite fire = minecraft.getTextureAtlas(TextureAtlas.LOCATION_BLOCKS)
+                        .apply(ModelBakery.FIRE_0.texture());
+                RenderSystem.setShaderTexture(0, TextureAtlas.LOCATION_BLOCKS);
+                RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+                BufferBuilder fireBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS,
+                        DefaultVertexFormat.POSITION_TEX_COLOR);
+                for (var candidate : visible) {
+                    int intensity = candidate.cell().fireIntensity();
+                    if (intensity <= 0) continue;
+                    float cx = (float) (candidate.x() - cameraPosition.x);
+                    float cy = (float) (candidate.y() - cameraPosition.y);
+                    float cz = (float) (candidate.z() - cameraPosition.z);
+                    float strength = intensity / 255.0F;
+                    float halfWidth = .22F + .25F * strength;
+                    float height = .45F + .5F * strength;
+                    int alpha = Math.max(48, Math.min(176, Math.round(48 + 128 * strength)));
+                    int color = alpha << 24 | 0x00ffffff;
+                    // Two intersecting vertical billboards are legible from the sides without making a solid cube.
+                    addFireQuad(fireBuilder, matrix, cx - halfWidth, cy, cz, cx + halfWidth, cy, cz,
+                            cx + halfWidth, cy + height, cz, cx - halfWidth, cy + height, cz, fire, color);
+                    addFireQuad(fireBuilder, matrix, cx, cy, cz - halfWidth, cx, cy, cz + halfWidth,
+                            cx, cy + height, cz + halfWidth, cx, cy + height, cz - halfWidth, fire, color);
+                }
+                BufferUploader.drawWithShader(fireBuilder.buildOrThrow());
+            }
         } finally {
             RenderSystem.depthMask(true);
             RenderSystem.enableCull();
             RenderSystem.disableBlend();
             RenderSystem.setShaderColor(1, 1, 1, 1);
+            RenderSystem.setShaderTexture(0, TextureAtlas.LOCATION_BLOCKS);
         }
     }
 
@@ -252,6 +340,16 @@ public class MoonStation14Client {
         builder.addVertex(matrix, x2, y2, z2).setColor(color.red(), color.green(), color.blue(), alpha);
         builder.addVertex(matrix, x3, y3, z3).setColor(color.red(), color.green(), color.blue(), alpha);
         builder.addVertex(matrix, x4, y4, z4).setColor(color.red(), color.green(), color.blue(), alpha);
+    }
+
+    private static void addFireQuad(BufferBuilder builder, Matrix4f matrix,
+                                    float x1, float y1, float z1, float x2, float y2, float z2,
+                                    float x3, float y3, float z3, float x4, float y4, float z4,
+                                    TextureAtlasSprite sprite, int color) {
+        builder.addVertex(matrix, x1, y1, z1).setUv(sprite.getU0(), sprite.getV1()).setColor(color);
+        builder.addVertex(matrix, x2, y2, z2).setUv(sprite.getU1(), sprite.getV1()).setColor(color);
+        builder.addVertex(matrix, x3, y3, z3).setUv(sprite.getU1(), sprite.getV0()).setColor(color);
+        builder.addVertex(matrix, x4, y4, z4).setUv(sprite.getU0(), sprite.getV0()).setColor(color);
     }
 
     public static void registerMoonSky(RegisterDimensionSpecialEffectsEvent event) {
@@ -579,6 +677,16 @@ public class MoonStation14Client {
 
     static void clearAtmosphereVisuals() {
         ATMOSPHERE_VISUALS.clear();
+        ATMOSPHERE_PENDING.clear();
+        atmosphereDimension = null;
+        serverAtmosVisualsActive = false;
+        warnedIncompleteAtmosphere = false;
+        atmosphereVisualRangeTruncated = false;
+        atmosphereResyncTick = 0;
+    }
+
+    static void resetAtmosphereVisualsForLogin() {
+        ATMOSPHERE_VISUALS.clear();
         atmosphereDimension = null;
         serverAtmosVisualsActive = false;
         warnedIncompleteAtmosphere = false;
@@ -621,6 +729,24 @@ public class MoonStation14Client {
 
     static void unloadAtmosphereChunk(net.minecraft.resources.ResourceLocation dimension, int chunkX, int chunkZ) {
         ATMOSPHERE_VISUALS.unload(dimension, chunkX, chunkZ);
+        ATMOSPHERE_PENDING.unload(dimension, chunkX, chunkZ);
+    }
+
+    static void retainAtmosphereDimension(net.minecraft.resources.ResourceLocation dimension) {
+        ATMOSPHERE_PENDING.retainDimension(dimension);
+    }
+
+    static void flushPendingAtmosphere(ClientLevel level) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != level || minecraft.player == null) return;
+        ATMOSPHERE_PENDING.flush(level.dimension().location(), payload ->
+                level.hasChunk(payload.chunkX(), payload.chunkZ()), MoonStation14Client::applyAtmospherePayload);
+    }
+
+    @SubscribeEvent
+    public static void flushPendingAtmosphereOnTick(ClientTickEvent.Post event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null && minecraft.player != null) flushPendingAtmosphere(minecraft.level);
     }
 
     @SubscribeEvent
@@ -633,8 +759,7 @@ public class MoonStation14Client {
         }
         if (++atmosphereResyncTick < 100) return;
         atmosphereResyncTick = 0;
-        if (!ATMOSPHERE_VISUALS.isIncomplete()) return;
-        for (var key : ATMOSPHERE_VISUALS.resyncCandidates(2)) {
+        if (ATMOSPHERE_VISUALS.isIncomplete()) for (var key : ATMOSPHERE_VISUALS.resyncCandidates(2)) {
             if (!key.dimension().equals(minecraft.level.dimension().location())) continue;
             if (!minecraft.level.hasChunk(key.x(), key.z())) {
                 ATMOSPHERE_VISUALS.unload(key.dimension(), key.x(), key.z());
@@ -642,6 +767,13 @@ public class MoonStation14Client {
             }
             PacketDistributor.sendToServer(new AtmosphereVisualResyncRequest(key.x(), key.z()));
         }
+        ATMOSPHERE_PENDING.resyncCandidates(minecraft.level.dimension().location(), packed -> {
+            var pos = new net.minecraft.world.level.ChunkPos(packed);
+            return minecraft.level.hasChunk(pos.x, pos.z);
+        }, packed -> {
+            var pos = new net.minecraft.world.level.ChunkPos(packed);
+            PacketDistributor.sendToServer(new AtmosphereVisualResyncRequest(pos.x, pos.z));
+        }, 2);
     }
 
     @SubscribeEvent
@@ -703,15 +835,17 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        LocalSpeechClient.clear();
         BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
-        MoonStation14Client.clearAtmosphereVisuals();
+        MoonStation14Client.resetAtmosphereVisualsForLogin();
         MoonStation14Client.resetCableVisualsForLogin();
         MovementClientController.reset();
     }
 
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        LocalSpeechClient.clear();
         BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();
@@ -733,5 +867,6 @@ final class MoonStation14ClientNetworkEvents {
         var position = event.getChunk().getPos();
         MoonStation14Client.prioritizeCableChunk(level.dimension().location(), position.x, position.z);
         MoonStation14Client.flushPendingCableChunk(level, position);
+        MoonStation14Client.flushPendingAtmosphere(level);
     }
 }

@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.atmos.exposure;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereReading;
+import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -81,6 +82,60 @@ class BodyTemperatureSystemTest {
         assertEquals(BodyTemperatureSystem.Outcome.APPLIED, result);
         assertTrue(body.kelvin() > 400);
         assertEquals(java.util.List.of("energy", "damage"), order);
+    }
+
+    @Test
+    void normalHumanInHotFiniteOxygenCrossesHeatThresholdOnlyAfterEnergyCommit() {
+        // Human temperature and regulator values from character/human.json; gas is an already-hot
+        // post-combustion sample, not a fire stack or an in-world reaction.
+        double normalKelvin = 310.15;
+        var profile = ThermalExposureMath.ThermalProfile.HUMAN;
+        var regulator = new ThermalRegulatorMath.Policy(normalKelvin, 800, 100, 500, 2000, 2000, 2);
+        var gas = new GasMixture(Map.of(GasType.OXYGEN, 20.0), 2000.0);
+        var exchange = ThermalExposureMath.expose(normalKelvin, gas, profile, 1.0);
+        double expectedKelvin = ThermalRegulatorMath.regulate(exchange.bodyTemperatureKelvin(),
+                profile.bodyHeatCapacityJoulesPerKelvin(), regulator, 1.0, true, true);
+        assertTrue(expectedKelvin > profile.heatDamageThresholdKelvin());
+        assertTrue(exchange.environmentEnergyDeltaJoules() < 0);
+
+        var rejected = new BodyTemperatureAttachment(new BodyTemperatureComponent(normalKelvin));
+        int[] rejectedWrites = {0};
+        int[] rejectedDamage = {0};
+        assertEquals(BodyTemperatureSystem.Outcome.SKIPPED, BodyTemperatureSystem.transact(rejected,
+                gas, profile, regulator,
+                BodyTemperatureSystem.energyCommitFor(AtmosphereReading.Status.FINITE, energy -> {
+                    rejectedWrites[0]++;
+                    assertEquals(exchange.environmentEnergyDeltaJoules(), energy, 1e-8);
+                    assertEquals(normalKelvin, rejected.kelvin());
+                    return false;
+                }), damage -> { rejectedDamage[0]++; return true; }));
+        assertEquals(1, rejectedWrites[0]);
+        assertEquals(normalKelvin, rejected.kelvin());
+        assertEquals(0, rejectedDamage[0]);
+
+        var accepted = new BodyTemperatureAttachment(new BodyTemperatureComponent(normalKelvin));
+        boolean[] energyWritten = {false};
+        int[] damageCalls = {0};
+        assertEquals(BodyTemperatureSystem.Outcome.APPLIED, BodyTemperatureSystem.transact(accepted,
+                gas, profile, regulator,
+                BodyTemperatureSystem.energyCommitFor(AtmosphereReading.Status.FINITE, energy -> {
+                    assertEquals(exchange.environmentEnergyDeltaJoules(), energy, 1e-8);
+                    assertTrue(energy < 0, "finite gas must be debited before body heating");
+                    assertEquals(normalKelvin, accepted.kelvin());
+                    energyWritten[0] = true;
+                    return true;
+                }), damage -> {
+                    damageCalls[0]++;
+                    assertTrue(energyWritten[0]);
+                    assertEquals(expectedKelvin, accepted.kelvin(), 1e-10);
+                    assertEquals(1, damage.size(), "only typed heat damage, no direct duplicate damage");
+                    assertTrue(damage.getOrDefault(DamageKeys.HEAT, 0.0f) > 0);
+                    return true;
+                }));
+        assertTrue(energyWritten[0]);
+        assertEquals(expectedKelvin, accepted.kelvin(), 1e-10);
+        assertTrue(accepted.kelvin() > 325.0);
+        assertEquals(1, damageCalls[0]);
     }
 
     @Test

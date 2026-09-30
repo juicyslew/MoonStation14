@@ -82,7 +82,10 @@ public final class MovementSlipChainDiagnosticsGameTests {
         require(SlipSystem.addListener(listener), "diagnostic slip listener registration");
         AtomicBoolean cleaned = new AtomicBoolean();
         Runnable cleanup = () -> {
-            if (cleaned.compareAndSet(false, true)) SlipSystem.removeListener(listener);
+            if (cleaned.compareAndSet(false, true)) {
+                SlipSystem.removeListener(listener);
+                player.discard();
+            }
         };
         helper.runAfterDelay(29, cleanup);
 
@@ -277,6 +280,7 @@ public final class MovementSlipChainDiagnosticsGameTests {
             if (cleaned.compareAndSet(false, true)) {
                 SlipSystem.removeListener(listener);
                 SlipSystem.removeListener(allTargetListener);
+                player.discard();
             }
         };
         helper.runAfterDelay(29, cleanup);

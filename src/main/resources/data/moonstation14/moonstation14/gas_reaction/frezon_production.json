@@ -1,0 +1,6 @@
+{
+  "priority": 2,
+  "maximumTemperature": 73.15,
+  "minimumRequirements": {"oxygen": 0.01, "nitrogen": 0.01, "tritium": 0.01},
+  "effects": [{"type": "FrezonProductionReaction"}]
+}

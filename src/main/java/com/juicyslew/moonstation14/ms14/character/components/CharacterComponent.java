@@ -5,7 +5,7 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         BloodstreamComponent, BodyComponent, ComplexInteractionComponent, EquipmentSlotsPrototypeComponent,
         FlammablePrototypeComponent, HandsPrototypeComponent, HungerPrototypeComponent, InitialBodyComponent,
         MetabolizerPrototypeComponent, MovementSpeedModifierComponent, NoSlipComponent, ReactiveComponent,
-        RespiratorComponent, StandingStateComponent, StomachPrototypeComponent, StunnableComponent,
+        RespiratorComponent, SpeechComponent, StandingStateComponent, StomachPrototypeComponent, StunnableComponent,
         TemperatureComponent, TemperatureDamageComponent, ThermalRegulatorComponent, ThirstPrototypeComponent {
     String type();
 }

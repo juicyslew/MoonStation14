@@ -12,6 +12,8 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeReloadListener;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
+import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
+import com.juicyslew.moonstation14.ms14.chat.server.LocalSpeechServerHooks;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereEventHooks;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualNetworking;
@@ -65,6 +67,7 @@ public class MoonStation14 {
         // Note that this is necessary if and only if we want *this* class (MoonStation14) to respond directly to events.
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
+        LocalSpeechServerHooks.register(NeoForge.EVENT_BUS);
         AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
         AtmosphereVisualServerHooks.register(NeoForge.EVENT_BUS);
         CableVisualServerHooks.register(NeoForge.EVENT_BUS);
@@ -85,6 +88,7 @@ public class MoonStation14 {
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
+        modEventBus.addListener(LocalSpeechNetworking::registerPayloadHandlers);
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
@@ -162,7 +166,8 @@ public class MoonStation14 {
         // Initial datapack loading completes before ServerStartedEvent. This
         // also safely commits an initial candidate if no all-player sync event
         // was emitted during startup.
-        PrototypeRuntime.serverManager().commitStagedReload();
+        if (PrototypeRuntime.serverManager().commitStagedReload())
+            AtmosphereService.INSTANCE.onReactionCatalogReload(event.getServer().getAllLevels());
     }
 
     @SubscribeEvent

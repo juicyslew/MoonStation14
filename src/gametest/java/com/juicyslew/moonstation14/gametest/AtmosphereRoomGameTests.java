@@ -4,13 +4,20 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.fire.FireStackSystem;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
@@ -18,9 +25,11 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+import java.util.Map;
 import java.util.Set;
 
 @GameTestHolder(MoonStation14.MOD_ID)
@@ -33,6 +42,276 @@ public final class AtmosphereRoomGameTests {
     private static final int HALLWAY_DIFFUSION_PASS_LIMIT = 10;
 
     private AtmosphereRoomGameTests() { }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_fire_entity", timeoutTicks = 100)
+    public static void committedFiniteFireExposesOnlySupportedSourceOccupants(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        requireIsolatedReactionFixture();
+        buildSealedHotspotCell(helper, 2, 2);
+        BlockPos source = helper.absolutePos(new BlockPos(2, 1, 2));
+        var human = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
+        var blaze = helper.spawn(EntityType.BLAZE, new BlockPos(2, 1, 2));
+        var stand = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(2, 1, 2));
+        var pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
+        for (var mob : new net.minecraft.world.entity.Mob[] {human, blaze, pig}) {
+            mob.setNoAi(true);
+            mob.setNoGravity(true);
+            mob.setPos(source.getX() + 0.5, source.getY(), source.getZ() + 0.5);
+        }
+        stand.setNoGravity(true);
+        stand.setPos(source.getX() + 0.5, source.getY(), source.getZ() + 0.5);
+        CharacterIdentitySystem.enroll(human, level, ModCharacters.HUMAN_ID);
+        require(FireStackSystem.supports(human) && FireStackSystem.supports(pig)
+                        && !FireStackSystem.supports(blaze) && !FireStackSystem.supports(stand),
+                "human and pig are flammable; immune blaze and unbound stand are not");
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        classifyUntilSample(service, level, source, 12);
+        require(isFiniteClaimed(level, source), "source must be finite");
+        classifyUntilSample(service, level, source.above(), 12);
+        require(isFiniteClaimed(level, source.above()), "source headspace must be finite");
+        for (var occupant : new net.minecraft.world.entity.LivingEntity[] {human, blaze, stand, pig}) {
+            BlockPos eye = BlockPos.containing(occupant.getEyePosition());
+            require(new AABB(source).intersects(occupant.getBoundingBox()),
+                    "source occupant must overlap the queried fire cell: " + occupant.getType());
+            require((eye.equals(source) || eye.equals(source.above())) && isFiniteClaimed(level, eye),
+                    "source occupant eye must be inside finite headspace: " + occupant.getType());
+        }
+        require(service.addGas(level, source, GasType.TRITIUM, 12, 900), "fire fuel");
+        require(service.addGas(level, source, GasType.OXYGEN, 12, 900), "fire oxygen");
+        Runnable verify = () -> {
+            require(new AABB(source).intersects(human.getBoundingBox()),
+                    "eligible human must still occupy the source fire cell");
+            require(new AABB(source).intersects(pig.getBoundingBox()),
+                    "eligible pig must still occupy the source fire cell");
+            require(service.reactFiniteCell(level, source).orElseThrow().events().stream()
+                    .anyMatch(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE),
+                    "only committed source fire exposes entities");
+            var first = FireStackSystem.existing(human);
+            var pigFirst = FireStackSystem.existing(pig);
+            require(first.stacks() > 0f && first.ignited(), "eligible human receives fire stacks");
+            require(pigFirst.stacks() > 0f && pigFirst.ignited(), "eligible pig receives fire stacks");
+            require(!human.isOnFire() && !pig.isOnFire(), "exposure does not assign vanilla fire ticks");
+            require(!blaze.hasData(ModDataAttachments.FIRE_STACK.get())
+                            && !stand.hasData(ModDataAttachments.FIRE_STACK.get()),
+                    "immune and unbound entities must remain untouched");
+            require(service.reactFiniteCell(level, source).isEmpty(), "source commits only once per due step");
+            require(FireStackSystem.existing(human).equals(first) && FireStackSystem.existing(pig).equals(pigFirst),
+                    "rejected repeat must not publish exposure");
+            helper.succeed();
+        };
+        if (level.getGameTime() % AtmosphereService.TICK_CADENCE == 0) verify.run();
+        else helper.runAfterDelay(1, verify);
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hotspot_spread", timeoutTicks = 100)
+    public static void finiteOpenFaceHeatsFuelAndOxygenButNotStarvedNeighbor(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        requireIsolatedReactionFixture();
+        // Two sealed, separately claimed pairs. No exterior or entity search participates.
+        for (int start : new int[] {2, 6}) {
+            for (int x = start - 1; x <= start + 2; x++) for (int z = 1; z <= 3; z++) {
+                helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+                helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+                for (int y = 1; y <= 2; y++)
+                    helper.setBlock(new BlockPos(x, y, z),
+                            (x == start || x == start + 1) && z == 2 ? Blocks.AIR : Blocks.STONE);
+            }
+        }
+        // A third source and receiver are finite but separated by a full-height stone wall.
+        for (int x = 9; x <= 13; x++) for (int z = 1; z <= 3; z++) {
+            helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+            helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+            for (int y = 1; y <= 2; y++)
+                helper.setBlock(new BlockPos(x, y, z),
+                        (x == 10 || x == 12) && z == 2 ? Blocks.AIR : Blocks.STONE);
+        }
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        BlockPos source = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos receiver = source.east();
+        BlockPos starvedSource = helper.absolutePos(new BlockPos(6, 1, 2));
+        BlockPos starved = starvedSource.east();
+        BlockPos walledSource = helper.absolutePos(new BlockPos(10, 1, 2));
+        BlockPos walled = helper.absolutePos(new BlockPos(12, 1, 2));
+        var receiverOccupant = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 2));
+        receiverOccupant.setNoAi(true);
+        receiverOccupant.setNoGravity(true);
+        receiverOccupant.setPos(receiver.getX() + 0.5, receiver.getY(), receiver.getZ() + 0.5);
+        CharacterIdentitySystem.enroll(receiverOccupant, level, ModCharacters.HUMAN_ID);
+        require(FireStackSystem.supports(receiverOccupant), "receiver fixture must be flammable");
+        require(level.getBlockState(walledSource.east()).is(Blocks.STONE), "stone must close the third face");
+        for (BlockPos pos : new BlockPos[] {source, receiver, starvedSource, starved, walledSource, walled}) {
+            classifyUntilSample(service, level, pos, 12);
+            require(isFiniteClaimed(level, pos), "fixture needs finite ownership " + pos);
+            classifyUntilSample(service, level, pos.above(), 12);
+            require(isFiniteClaimed(level, pos.above()), "fixture needs finite headspace " + pos.above());
+        }
+        require(new AABB(receiver).intersects(receiverOccupant.getBoundingBox())
+                        && BlockPos.containing(receiverOccupant.getEyePosition()).equals(receiver.above()),
+                "receiver occupant must overlap the receiver with eyes in finite headspace");
+        for (BlockPos pos : new BlockPos[] {source, starvedSource, walledSource}) {
+            require(service.addGas(level, pos, GasType.TRITIUM, 12, 900), "source fuel");
+            require(service.addGas(level, pos, GasType.OXYGEN, 12, 900), "source oxygen");
+        }
+        require(service.addGas(level, receiver, GasType.TRITIUM, 1, 300), "receiver fuel");
+        require(service.addGas(level, receiver, GasType.OXYGEN, 1, 300), "receiver oxygen");
+        require(service.sample(level, starved).orElseThrow().moles(GasType.OXYGEN) == 0.0,
+                "finite vacuum neighbor must start without oxygen");
+        require(service.addGas(level, starved, GasType.TRITIUM, 1, 300), "starved receiver fuel");
+        require(service.addGas(level, walled, GasType.TRITIUM, 1, 300), "walled receiver fuel");
+        require(service.addGas(level, walled, GasType.OXYGEN, 1, 300), "walled receiver oxygen");
+        Runnable verify = () -> {
+            require(new AABB(receiver).intersects(receiverOccupant.getBoundingBox()),
+                    "receiver occupant must still overlap the fire cell");
+            GasMixture before = service.sample(level, receiver).orElseThrow();
+            GasMixture starvedBefore = service.sample(level, starved).orElseThrow();
+            GasMixture walledBefore = service.sample(level, walled).orElseThrow();
+            var sourceFire = service.reactFiniteCell(level, source).orElseThrow(
+                    () -> new GameTestAssertException("open face source must fire"));
+            require(sourceFire.events().stream().anyMatch(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE),
+                    "open face heat must originate in a fire event");
+            GasMixture heated = service.sample(level, receiver).orElseThrow();
+            require(heated.thermalEnergy() > before.thermalEnergy(),
+                    "open finite fuel/oxygen neighbor must receive face heat");
+            require(heated.temperatureKelvin() > 373.15 && heated.temperatureKelvin() <= 423.15,
+                    "spread must make receiver gas fire viable without promising positive entity stacks");
+            require(heated.moles(GasType.TRITIUM) == before.moles(GasType.TRITIUM)
+                            && heated.moles(GasType.OXYGEN) == before.moles(GasType.OXYGEN)
+                            && heated.moles(GasType.WATER_VAPOR) == before.moles(GasType.WATER_VAPOR),
+                    "receiver must only receive heat, not burn, on the source due step");
+            require(service.reactFiniteCell(level, receiver).isEmpty(), "receiver cannot react on source's due step");
+            require(!receiverOccupant.hasData(ModDataAttachments.FIRE_STACK.get()),
+                    "face heat alone must not ignite an occupant of the receiver");
+            require(service.reactFiniteCell(level, starvedSource).isPresent(), "second source must fire");
+            GasMixture starvedAfter = service.sample(level, starved).orElseThrow();
+            require(starvedAfter.moles(GasType.OXYGEN) == 0.0
+                            && starvedAfter.moles(GasType.TRITIUM) == starvedBefore.moles(GasType.TRITIUM)
+                            && Math.abs(starvedAfter.thermalEnergy() - starvedBefore.thermalEnergy()) < 1e-7,
+                    "oxygen-starved finite neighbor must neither ignite nor receive heat");
+            require(service.reactFiniteCell(level, starved).isEmpty(), "starved neighbor cannot ignite");
+            require(service.reactFiniteCell(level, walledSource).isPresent(), "walled source must fire");
+            GasMixture walledAfter = service.sample(level, walled).orElseThrow();
+            require(walledAfter.gasMoles().equals(walledBefore.gasMoles())
+                            && Math.abs(walledAfter.thermalEnergy() - walledBefore.thermalEnergy()) < 1e-7,
+                    "closed stone face must transfer neither heat nor combustion");
+            require(service.reactFiniteCell(level, walled).isEmpty(), "cold walled neighbor cannot ignite");
+            helper.runAfterDelay(AtmosphereService.TICK_CADENCE, () -> {
+                GasMixture beforeNext = service.sample(level, receiver).orElseThrow();
+                require(beforeNext.moles(GasType.TRITIUM) == heated.moles(GasType.TRITIUM),
+                        "receiver must keep its fuel until the next due reaction step");
+                var receiverFire = service.reactFiniteCell(level, receiver).orElseThrow(
+                        () -> new GameTestAssertException("heated receiver must burn on the next due step"));
+                GasMixture afterNext = service.sample(level, receiver).orElseThrow();
+                require(receiverFire.events().stream().anyMatch(event ->
+                                event.effect() == GasReactionData.EffectType.TRITIUM_FIRE
+                                        && event.speciesDelta().getOrDefault(GasType.TRITIUM, 0.0) < 0)
+                                && afterNext.moles(GasType.TRITIUM) < beforeNext.moles(GasType.TRITIUM)
+                                && afterNext.moles(GasType.WATER_VAPOR) > beforeNext.moles(GasType.WATER_VAPOR),
+                        "heated receiver must consume fuel and produce combustion products on next due step");
+                // Spread targets 374.15 K: enough for gas fire, not the >423.15 K entity-stack target.
+                require(service.reactFiniteCell(level, starved).isEmpty()
+                                && service.reactFiniteCell(level, walled).isEmpty(),
+                        "starved and stone-separated neighbors must remain unignited on the next due step");
+                require(Math.abs(service.sample(level, starved).orElseThrow().thermalEnergy()
+                                - starvedBefore.thermalEnergy()) < 1e-7
+                                && Math.abs(service.sample(level, walled).orElseThrow().thermalEnergy()
+                                - walledBefore.thermalEnergy()) < 1e-7,
+                        "starved and stone-separated neighbors must remain unheated on the next due step");
+                helper.succeed();
+            });
+        };
+        if (level.getGameTime() % AtmosphereService.TICK_CADENCE == 0) verify.run();
+        else helper.runAfterDelay(1, verify);
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_commit", timeoutTicks = 100)
+    public static void explicitReactionCommitsOnlyFiniteCell(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        requireIsolatedReactionFixture();
+        buildSealedHotspotCell(helper, 2, 2);
+        BlockPos finite = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos exterior = helper.absolutePos(new BlockPos(5, 100, 5));
+        int firstFreeY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, exterior.getX(), exterior.getZ());
+        if (firstFreeY > exterior.getY()) exterior = new BlockPos(exterior.getX(), firstFreeY + 1, exterior.getZ());
+        require(exterior.getY() < level.getMaxBuildHeight(), "fixture needs a loaded sky cell");
+        level.getChunk(exterior);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        Map<String, GasReactionData.EffectType> baselineReactions = Map.of(
+                "plasma_fire", GasReactionData.EffectType.PLASMA_FIRE,
+                "tritium_fire", GasReactionData.EffectType.TRITIUM_FIRE,
+                "frezon_coolant", GasReactionData.EffectType.FREZON_COOLANT,
+                "frezon_production", GasReactionData.EffectType.FREZON_PRODUCTION,
+                "ammonia_oxygen", GasReactionData.EffectType.AMMONIA_OXYGEN,
+                "n2o_decomposition", GasReactionData.EffectType.N2O_DECOMPOSITION);
+        baselineReactions.forEach((name, effect) -> {
+            var id = ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, name);
+            var definition = PrototypeRuntime.serverGasReactions().get(id);
+            require(definition != null && definition.effects().stream().anyMatch(e -> e.type() == effect),
+                    "server reaction snapshot missing baseline effect " + effect.id() + " at " + id);
+        });
+        classifyUntilSample(service, level, finite, 12);
+        require(isFiniteClaimed(level, finite), "reaction cell must have a finite claim");
+        classifyUntilSample(service, level, finite.above(), 12);
+        require(isFiniteClaimed(level, finite.above()), "reaction cell headspace must be finite");
+        require(service.addGas(level, finite, GasType.TRITIUM, 2, 900), "inject tritium");
+        require(service.addGas(level, finite, GasType.OXYGEN, 4, 900), "inject oxygen");
+        if (level.getGameTime() % AtmosphereService.TICK_CADENCE != 0)
+            require(service.reactFiniteCell(level, finite).isEmpty(), "odd-tick explicit pass must be rejected");
+        BlockPos sky = exterior;
+        Runnable verifyDuePass = () -> {
+        GasMixture before = service.sample(level, finite).orElseThrow();
+        GasMixture skyBefore = service.sample(level, sky).orElseThrow();
+        require(service.reactFiniteCell(level, sky).isEmpty(), "exterior cannot react");
+        var committed = service.reactFiniteCell(level, finite).orElseThrow(
+                () -> new GameTestAssertException("expected a committed finite tritium fire"));
+        GasMixture after = service.sample(level, finite).orElseThrow();
+        var fireEvents = committed.events().stream()
+                .filter(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE).toList();
+        require(fireEvents.size() == 1, "one partial tritium-fire event per explicit step");
+        double fuelConsumed = before.moles(GasType.TRITIUM) - after.moles(GasType.TRITIUM);
+        require(fuelConsumed > 0 && fuelConsumed < before.moles(GasType.TRITIUM) * 0.5,
+                "seeded fire must not consume the whole cell's fuel");
+        require(Math.abs(fireEvents.getFirst().speciesDelta().getOrDefault(GasType.TRITIUM, 0.0)
+                + fuelConsumed) < 1e-9, "fire event must report only committed partial fuel consumption");
+        require(service.reactFiniteCell(level, finite).isEmpty(),
+                "second explicit pass in the same game tick must not commit");
+        require(service.sample(level, finite).orElseThrow().moles(GasType.TRITIUM) == after.moles(GasType.TRITIUM),
+                "second explicit pass must not consume more tritium fuel");
+        require(after.moles(GasType.TRITIUM) < before.moles(GasType.TRITIUM)
+                        && after.moles(GasType.OXYGEN) < before.moles(GasType.OXYGEN)
+                        && after.moles(GasType.WATER_VAPOR) > before.moles(GasType.WATER_VAPOR)
+                        && after.thermalEnergy() > before.thermalEnergy(),
+                "fire must commit products and thermal energy together");
+        require(committed.mixture() == after || committed.mixture().gasMoles().equals(after.gasMoles()),
+                "committed result must match the saved composition");
+        require(service.sample(level, sky).orElseThrow().gasMoles().equals(skyBefore.gasMoles()),
+                "strict exterior remains ambient");
+        LevelChunk skyChunk = (LevelChunk) level.getChunk(sky);
+        var skyData = skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        require(skyData == null || skyData.get(sky.getX() & 15, sky.getY(), sky.getZ() & 15) == null,
+                "reaction must not persist an exterior override");
+        helper.succeed();
+        };
+        if (level.getGameTime() % AtmosphereService.TICK_CADENCE == 0) verifyDuePass.run();
+        else helper.runAfterDelay(1, verifyDuePass);
+    }
+
+    private static void requireIsolatedReactionFixture() {
+        require(!AtmosphereService.INSTANCE.isEnabled(),
+                "isolated reaction GameTests require the global atmosphere service disabled; "
+                        + "otherwise it can tick and mutate the same claimed cells");
+    }
+
+    private static void buildSealedHotspotCell(GameTestHelper helper, int centerX, int centerZ) {
+        for (int x = centerX - 1; x <= centerX + 1; x++) {
+            for (int z = centerZ - 1; z <= centerZ + 1; z++) {
+                helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+                helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+                for (int y = 1; y <= 2; y++)
+                    helper.setBlock(new BlockPos(x, y, z),
+                            x == centerX && z == centerZ ? Blocks.AIR : Blocks.STONE);
+            }
+        }
+    }
 
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
     public static void longHallwayServiceDiffusesTritiumAcrossAll124Cells(GameTestHelper helper) {
@@ -575,6 +854,75 @@ public final class AtmosphereRoomGameTests {
                 "inhaled ambient oxygen must publish a negative export ledger");
         require(service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0) < firstImport,
                 "repeated post-open cycles must keep importing oxygen");
+        helper.succeed();
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_tiny_gas_heater", timeoutTicks = 100)
+    public static void tinyFiniteInventoryRejectsHeaterAndBreathableDoorRecovers(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        requireIsolatedReactionFixture();
+        buildCoveredRoomWithSideGap(helper);
+        BlockPos lower = new BlockPos(3, 1, 1), upper = new BlockPos(3, 2, 1);
+        helper.setBlock(upper, Blocks.STONE);
+        setDoorOpen(helper, lower, upper, false);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());
+        BlockPos near = helper.absolutePos(new BlockPos(2, 1, 1));
+        BlockPos gap = helper.absolutePos(lower);
+        classifyUntilSample(service, level, near, 12);
+        require(isFiniteClaimed(level, near), "sealed room cell must have a finite claim");
+        GasMixture before = service.sample(level, near).orElseThrow();
+        require(service.removeGasUpTo(level, near, before.totalMoles()) > 0.0,
+                "finite cell must accept explicit evacuation");
+        require(service.addGas(level, near, GasType.OXYGEN, 1.0e-100, 293.15),
+                "finite cell must accept a tiny gas inventory");
+        GasMixture tiny = service.sample(level, near).orElseThrow();
+        require(tiny.moles(GasType.OXYGEN) > 0.0 && tiny.totalMoles() < 1.0e-99,
+                "tiny inventory must remain strictly finite");
+        require(!service.addHeaterEnergy(level, near, 40_000.0),
+                "heater must reject a sub-minimum finite gas inventory");
+        GasMixture afterRejectedHeater = service.sample(level, near).orElseThrow();
+        require(afterRejectedHeater.gasMoles().equals(tiny.gasMoles())
+                        && afterRejectedHeater.temperatureKelvin() == tiny.temperatureKelvin()
+                        && afterRejectedHeater.thermalEnergy() == tiny.thermalEnergy(),
+                "rejected heater offer must leave species, temperature, and energy unchanged");
+
+        // Deplete the other finite cells too, so the opening has an ambient gradient to restore.
+        for (int x = 1; x <= 2; x++) {
+            for (int z = 1; z <= 2; z++) {
+                BlockPos cell = helper.absolutePos(new BlockPos(x, 1, z));
+                if (!cell.equals(near))
+                    require(service.removeGasUpTo(level, cell, 1_000) > 0,
+                            "each other finite room cell must accept depletion at " + cell);
+            }
+        }
+
+        service.neighborNotified(level, helper.absolutePos(lower));
+        setDoorOpen(helper, lower, upper, true);
+        service.neighborNotified(level, helper.absolutePos(lower));
+        for (int pass = 1; pass <= 4; pass++)
+            service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
+        require(service.sample(level, gap).isPresent(), "open door must be verified as exterior ambient");
+        double importedOxygen = service.boundaryGasLedger(level).getOrDefault(GasType.OXYGEN, 0.0);
+        double importedNitrogen = service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
+        double importedEnergy = service.boundaryEnergyLedger(level);
+        require(importedOxygen < 0.0 && importedNitrogen < 0.0 && importedEnergy < 0.0,
+                "heater-free ambient import must record negative oxygen, nitrogen, and energy exports");
+
+        for (int pass = 1; pass <= 12; pass++) {
+            service.addHeaterEnergy(level, near, 40_000.0);
+            service.tick(level, (long) (pass + 4) * AtmosphereService.TICK_CADENCE);
+            GasMixture mixture = service.sample(level, near).orElseThrow();
+            require(Double.isFinite(mixture.temperatureKelvin())
+                            && mixture.temperatureKelvin() <= 262_144.0,
+                    "repeated due-step heater offers must not cause non-finite or runaway temperature");
+            require(mixture.moles(GasType.OXYGEN) + mixture.moles(GasType.NITROGEN) > 0.0,
+                    "heater cycling must retain real breathable gas");
+        }
+        GasMixture recovered = service.sample(level, near).orElseThrow();
+        require(recovered.moles(GasType.OXYGEN) + recovered.moles(GasType.NITROGEN) > tiny.totalMoles(),
+                "verified breathable exterior must replenish the finite cell above its tiny inventory");
+        require(importedOxygen < 0.0 && importedNitrogen < 0.0 && importedEnergy < 0.0,
+                "ambient import was measured before heater input");
         helper.succeed();
     }
 

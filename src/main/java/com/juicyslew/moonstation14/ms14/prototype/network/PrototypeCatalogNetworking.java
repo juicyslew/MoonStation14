@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.prototype.network;
 
 import com.google.gson.JsonObject;
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -40,7 +41,8 @@ public final class PrototypeCatalogNetworking {
             // reload event. A joining-player event must never consume a
             // candidate left by a failed aggregate reload.
             if (event.getPlayer() == null) {
-                PrototypeRuntime.serverManager().commitStagedReload();
+                if (PrototypeRuntime.serverManager().commitStagedReload())
+                    AtmosphereService.INSTANCE.onReactionCatalogReload(event.getPlayerList().getServer().getAllLevels());
             }
             Map<ResourceLocation, Map<ResourceLocation, JsonObject>> snapshot =
                     PrototypeRuntime.serverManager().encodePublishedCatalogs();
