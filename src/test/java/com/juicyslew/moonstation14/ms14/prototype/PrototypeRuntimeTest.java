@@ -12,6 +12,10 @@ import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.chat.radio.ModRadioChannels;
 import com.juicyslew.moonstation14.ms14.chat.radio.RadioChannelData;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosiveSources;
 import com.juicyslew.moonstation14.ms14.organ.ModOrgans;
 import com.juicyslew.moonstation14.ms14.organ.OrganCategory;
 import com.juicyslew.moonstation14.ms14.organ.OrganData;
@@ -46,7 +50,8 @@ class PrototypeRuntimeTest {
         assertNotSame(server, client);
         var expectedTypes = Set.of(ModReagents.REAGENT_TYPE, ModStatusEffects.STATUS_EFFECT_TYPE,
                 ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
-                ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE);
+                ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
+                ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -60,6 +65,12 @@ class PrototypeRuntimeTest {
         GasReactionData clientReaction = reaction(GasType.TRITIUM);
         server.publishDecoded(ModGasReactions.GAS_REACTION_TYPE, reactions(id("server-reaction"), serverReaction));
         client.publishDecoded(ModGasReactions.GAS_REACTION_TYPE, reactions(id("client-reaction"), clientReaction));
+        ExplosionData serverExplosion = explosion(2f);
+        ExplosionData clientExplosion = explosion(3f);
+        server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("server-explosion"), serverExplosion));
+        client.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("client-explosion"), clientExplosion));
+        server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("server-source"), new ExplosiveSourceData(380, 3, 10, id("default"))));
+        client.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("client-source"), new ExplosiveSourceData(120, 3, 10, id("default"))));
 
         assertTrue(PrototypeRuntime.serverReagents().contains(id("server")));
         assertFalse(PrototypeRuntime.serverReagents().contains(id("client")));
@@ -73,6 +84,14 @@ class PrototypeRuntimeTest {
         assertFalse(PrototypeRuntime.serverGasReactions().contains(id("client-reaction")));
         assertEquals(clientReaction, PrototypeRuntime.clientGasReactions().get(id("client-reaction")));
         assertFalse(PrototypeRuntime.clientGasReactions().contains(id("server-reaction")));
+        assertEquals(serverExplosion, PrototypeRuntime.serverExplosions().get(id("server-explosion")));
+        assertFalse(PrototypeRuntime.serverExplosions().contains(id("client-explosion")));
+        assertEquals(clientExplosion, PrototypeRuntime.clientExplosions().get(id("client-explosion")));
+        assertFalse(PrototypeRuntime.clientExplosions().contains(id("server-explosion")));
+        assertTrue(PrototypeRuntime.serverExplosiveSources().contains(id("server-source")));
+        assertFalse(PrototypeRuntime.serverExplosiveSources().contains(id("client-source")));
+        assertTrue(PrototypeRuntime.clientExplosiveSources().contains(id("client-source")));
+        assertFalse(PrototypeRuntime.clientExplosiveSources().contains(id("server-source")));
 
         server.clearPublishedCatalogs();
 
@@ -84,13 +103,16 @@ class PrototypeRuntimeTest {
         assertEquals(heart, PrototypeRuntime.clientOrgans().get(id("client-heart")));
         assertTrue(PrototypeRuntime.serverGasReactions().asMap().isEmpty());
         assertEquals(clientReaction, PrototypeRuntime.clientGasReactions().get(id("client-reaction")));
+        assertTrue(PrototypeRuntime.serverExplosions().asMap().isEmpty());
+        assertTrue(PrototypeRuntime.serverExplosiveSources().asMap().isEmpty());
+        assertEquals(clientExplosion, PrototypeRuntime.clientExplosions().get(id("client-explosion")));
 
         server.clearPublishedCatalogs();
         client.clearPublishedCatalogs();
     }
 
     @Test
-    void runtimeExportImportsAllSevenFamiliesIncludingRadioOrganAndReactionsWithoutSharingState() {
+    void runtimeExportImportsAllEightFamiliesIncludingRadioOrganReactionsAndExplosionsWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -114,14 +136,22 @@ class PrototypeRuntimeTest {
         server.publishDecoded(ModOrgans.ORGAN_TYPE, Map.of(id("lungs-test"), lungs));
         GasReactionData reaction = reaction(GasType.PLASMA);
         server.publishDecoded(ModGasReactions.GAS_REACTION_TYPE, reactions(id("reaction-test"), reaction));
+        ExplosionData explosion = explosion(2f);
+        server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
-                ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()),
+                ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
+                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()),
                 exported.keySet());
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
         assertTrue(exported.get(ModGasReactions.GAS_REACTION_TYPE.typeId()).containsKey(id("reaction-test")));
         assertTrue(exported.get(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()).containsKey(id("common")));
+        assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
+        ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
+        server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("source-test"), source));
+        exported = server.encodePublishedCatalogs();
+        assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
         client.publishEncodedCatalogs(exported);
         assertEquals(status, PrototypeRuntime.clientStatusEffects().get(id("status-test")));
@@ -130,7 +160,12 @@ class PrototypeRuntimeTest {
         assertEquals(lungs, PrototypeRuntime.clientOrgans().get(id("lungs-test")));
         assertEquals(lungs, PrototypeRuntime.serverOrgans().get(id("lungs-test")));
         assertEquals(reaction, PrototypeRuntime.clientGasReactions().get(id("reaction-test")));
+        assertEquals(explosion, PrototypeRuntime.clientExplosions().get(id("explosion-test")));
+        assertEquals(source, PrototypeRuntime.clientExplosiveSources().get(id("source-test")));
+        assertEquals(explosion, ModExplosions.EXPLOSION_TYPE.codec().parse(JsonOps.INSTANCE,
+                exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).get(id("explosion-test"))).getOrThrow());
         assertEquals(reaction, PrototypeRuntime.serverGasReactions().get(id("reaction-test")));
+        assertEquals(explosion, PrototypeRuntime.serverExplosions().get(id("explosion-test")));
         assertTrue(PrototypeRuntime.clientCharacters().contains(id("human-test")));
         assertFalse(PrototypeRuntime.clientCharacters().contains(id("missing")));
         assertTrue(PrototypeRuntime.clientReagents().asMap().isEmpty());
@@ -155,6 +190,11 @@ class PrototypeRuntimeTest {
     private static GasReactionData reaction(GasType gas) {
         return new GasReactionData(Map.of(gas, 0.01), 2.7, 1000, 0, 1,
                 java.util.List.of(new GasReactionData.Effect(GasReactionData.EffectType.PLASMA_FIRE)));
+    }
+
+    private static ExplosionData explosion(float damage) {
+        return new ExplosionData(Map.of("blunt", damage), java.util.List.of(0f, 1f),
+                java.util.List.of(0f, 1f), 0.5f);
     }
 
     private static Map<ResourceLocation, GasReactionData> reactions(ResourceLocation extraId, GasReactionData extra) {

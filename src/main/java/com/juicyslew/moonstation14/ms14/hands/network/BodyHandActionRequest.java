@@ -15,7 +15,8 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         implements CustomPacketPayload {
     public enum Action { PICKUP, DROP, INSERT_POUCH, EXTRACT_POUCH, SELECT_HAND,
         EQUIP_BELT, EQUIP_BACK, UNEQUIP_BELT, UNEQUIP_BACK,
-        STORE_BELT, STORE_BACK, TAKE_BELT, TAKE_BACK }
+        STORE_BELT, STORE_BACK, TAKE_BELT, TAKE_BACK,
+        PRIME_GRENADE, THROW_GRENADE }
 
     public static final Type<BodyHandActionRequest> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath("moonstation14", "body_hand_action"));

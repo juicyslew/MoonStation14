@@ -1,0 +1,7 @@
+{
+  "damage_per_intensity": { "heat": 5.0, "blunt": 5.0, "piercing": 5.0 },
+  "break_intensities": [0.0, 10.0, 30.0],
+  "break_chances": [0.0, 0.5, 1.0],
+  "reroll_reduction": 20.0,
+  "temperature_kelvin": 800.0
+}
