@@ -44,7 +44,8 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
             "com/juicyslew/moonstation14/ms14/power/cable/client/CableVisualRenderer.java",
-            "com/juicyslew/moonstation14/ms14/power/ui/client/ApcScreen.java"
+            "com/juicyslew/moonstation14/ms14/power/ui/client/ApcScreen.java",
+            "com/juicyslew/moonstation14/ms14/explosion/grenade/client/GrenadeSoundClient.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"

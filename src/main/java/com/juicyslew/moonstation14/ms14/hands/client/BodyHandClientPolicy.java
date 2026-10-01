@@ -19,6 +19,11 @@ public final class BodyHandClientPolicy {
     private String feedback;
     private long localFeedbackUntil;
     private boolean inputEnabled;
+    private ThrowIntent throwIntent;
+    private long primeAction;
+    private boolean primeSucceeded;
+    private record ThrowIntent(UUID account, UUID body, long epoch, String hand, String token,
+                               long revision, long expires) { }
 
     public void reset() {
         suspend();
@@ -34,6 +39,9 @@ public final class BodyHandClientPolicy {
         feedback = null;
         localFeedbackUntil = 0;
         inputEnabled = false;
+        throwIntent = null;
+        primeAction = 0;
+        primeSucceeded = false;
     }
 
     public void bind(UUID accountId, UUID bodyId, long committedEpoch) {
@@ -72,9 +80,19 @@ public final class BodyHandClientPolicy {
                 || !account.equals(incoming.accountId()) || !body.equals(incoming.bodyId())
                 || epoch != incoming.epoch()) {
             snapshot = null;
+            clearThrowIntent();
             return false;
         }
         snapshot = incoming;
+        if (throwIntent != null) {
+            var active = incoming.hands().stream().filter(hand -> hand.id().equals(incoming.activeHand())).findFirst().orElse(null);
+            if (incoming.epoch() != throwIntent.epoch || !account.equals(throwIntent.account)
+                    || !body.equals(throwIntent.body) || active == null
+                    || !active.id().equals(throwIntent.hand) || !java.util.Objects.equals(active.token(), throwIntent.token)
+                    || incoming.revision() <= throwIntent.revision) {
+                clearThrowIntent();
+            }
+        }
         pendingAction = 0;
         return true;
     }
@@ -180,9 +198,52 @@ public final class BodyHandClientPolicy {
         return pendingAction;
     }
 
+    public boolean requestThrowAfterPrime(long tick) {
+        if (!inputEnabled || tick < 0) return false;
+        if (throwIntent != null) return account.equals(throwIntent.account) && body.equals(throwIntent.body)
+                && epoch == throwIntent.epoch && tick < throwIntent.expires;
+        // A grenade visible in an ordinary snapshot may be unprimed. Only a correlated local
+        // PRIME action can justify buffering M until its result and authoritative refresh.
+        if (primeAction == 0 || primeAccount == null || !account.equals(primeAccount)
+                || !body.equals(primeBody) || epoch != primeEpoch || primeHand == null || primeToken == null
+                || pendingAction != primeAction && !primeSucceeded) return false;
+        throwIntent = new ThrowIntent(primeAccount, primeBody, primeEpoch, primeHand, primeToken, primeRevision, tick + 40);
+        return true;
+    }
+
+    private UUID primeAccount, primeBody;
+    private long primeEpoch, primeRevision;
+    private String primeHand, primeToken;
+    public void markPrime(long sequence) {
+        if (snapshot == null || sequence == 0) return;
+        var active = snapshot.hands().stream().filter(hand -> hand.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        if (active == null || active.token() == null || !"moonstation14:grenade".equals(active.itemId())) return;
+        primeAction = sequence; primeAccount = account; primeBody = body; primeEpoch = epoch;
+        primeHand = active.id(); primeToken = active.token(); primeRevision = snapshot.revision();
+    }
+    public boolean takeReadyThrow(long tick) {
+        if (throwIntent == null) return false;
+        if (tick >= throwIntent.expires) { clearThrowIntent(); return false; }
+        if (!primeSucceeded || pendingQuery != 0 || snapshot == null
+                || snapshot.revision() <= throwIntent.revision) return false;
+        var active = snapshot.hands().stream().filter(hand -> hand.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        if (active == null || !active.id().equals(throwIntent.hand) || !java.util.Objects.equals(active.token(), throwIntent.token)) {
+            clearThrowIntent(); return false;
+        }
+        return true;
+    }
+    public void throwSent() { clearThrowIntent(); }
+    public void cancelThrowIntent() { clearThrowIntent(); }
+    private void clearThrowIntent() { throwIntent = null; primeAction = 0; primeSucceeded = false;
+        primeAccount = primeBody = null; primeEpoch = primeRevision = 0; primeHand = primeToken = null; }
+
     public boolean result(BodyHandActionResult incoming, long tick) {
         if (!inputEnabled || pendingAction == 0 || incoming.sequence() != pendingAction || incoming.epoch() != epoch) return false;
         pendingAction = 0;
+        if (incoming.sequence() == primeAction) {
+            if (incoming.reason() == BodyHandActionResult.Reason.OK) primeSucceeded = true;
+            else clearThrowIntent();
+        }
         snapshot = null;
         pendingQuery = 0;
         lastQueryTick = Long.MIN_VALUE;
@@ -202,6 +263,7 @@ public final class BodyHandClientPolicy {
             localFeedbackUntil = 0;
         }
         if (pendingAction != 0 && tick - sentActionTick >= 80) {
+            if (pendingAction == primeAction) clearThrowIntent();
             pendingAction = 0;
             snapshot = null;
             pendingQuery = 0;

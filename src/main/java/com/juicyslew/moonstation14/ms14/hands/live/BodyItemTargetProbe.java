@@ -108,7 +108,6 @@ public final class BodyItemTargetProbe {
             ItemEntity first = null;
             Vec3 firstHit = null;
             double firstDistance = Double.POSITIVE_INFINITY;
-            boolean ambiguous = false;
             // ServerLevel's entity index enumerates loaded entities; do not use Level.clip or chunk lookups.
             for (ItemEntity item : level.getEntities(net.minecraft.world.entity.EntityType.ITEM,
                     new AABB(from, to).inflate(TARGET_MARGIN), entity -> true)) {
@@ -126,16 +125,15 @@ public final class BodyItemTargetProbe {
                         + (look.z >= 0 ? box.minZ : box.maxZ) * look.z - from.dot(look);
                 if (!Double.isFinite(distance) || distance >= blockerDistance * blockerDistance
                         || nearFace >= blockerDistance || distance > reach * reach) continue;
-                // Equal-distance hits are ambiguous; never pick based on entity iteration order.
-                if (distance == firstDistance) ambiguous = true;
-                if (distance < firstDistance) {
+                // UUID ordering makes exact overlaps deterministic without allowing farther nominations.
+                if (distance < firstDistance || distance == firstDistance
+                        && (first == null || item.getUUID().compareTo(first.getUUID()) < 0)) {
                     first = item;
                     firstHit = hit;
                     firstDistance = distance;
-                    ambiguous = false;
                 }
             }
-            return !ambiguous && first == nominated ? new Target(nominated.getUUID(), firstHit) : null;
+            return first == nominated ? new Target(nominated.getUUID(), firstHit) : null;
         } catch (MissingChunk ignored) {
             return null;
         }

@@ -14,6 +14,10 @@ import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosiveSources;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -87,6 +91,12 @@ public final class PrototypeRuntime {
         return CLIENT_MANAGER.snapshot(ModGasReactions.GAS_REACTION_TYPE);
     }
 
+    public static PrototypeCatalog<ExplosionData> serverExplosions() { return SERVER_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
+    public static PrototypeCatalog<ExplosionData> clientExplosions() { return CLIENT_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
+
+    public static PrototypeCatalog<ExplosiveSourceData> serverExplosiveSources() { return SERVER_MANAGER.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE); }
+    public static PrototypeCatalog<ExplosiveSourceData> clientExplosiveSources() { return CLIENT_MANAGER.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE); }
+
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModReagents.REAGENT_TYPE);
@@ -96,6 +106,8 @@ public final class PrototypeRuntime {
         manager.register(ModRadioChannels.RADIO_CHANNEL_TYPE);
         manager.register(ModOrgans.ORGAN_TYPE);
         manager.register(ModGasReactions.GAS_REACTION_TYPE);
+        manager.register(ModExplosions.EXPLOSION_TYPE);
+        manager.register(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
         return manager;
     }
 }

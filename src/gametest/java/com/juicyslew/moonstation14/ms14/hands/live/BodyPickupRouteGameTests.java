@@ -73,6 +73,41 @@ public final class BodyPickupRouteGameTests {
         helper.succeed();
     }
 
+    public static void coincidentItemsTransferToBothHands(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = EntityType.VILLAGER.create(level);
+        require(body != null, "body created");
+        body.setNoAi(true);
+        body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+        body.setYRot(-90);
+        body.setYHeadRot(-90);
+        body.setXRot(0);
+        require(level.addFreshEntity(body), "body spawned");
+        require(LiveHands.initialize(body).isPresent(), "hands initialized");
+
+        ItemEntity overlapA = grenade(level, origin);
+        ItemEntity overlapB = grenade(level, origin);
+        LiveHands overlapRevision = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemEntity firstOverlap = overlapA.getUUID().compareTo(overlapB.getUUID()) < 0 ? overlapA : overlapB;
+        ItemEntity secondOverlap = firstOverlap == overlapA ? overlapB : overlapA;
+        require(BodyItemTargetProbe.probe(level, body, firstOverlap, 5) != null,
+                "stable UUID winner is allowed for coincident items");
+        require(BodyItemTargetProbe.probe(level, body, secondOverlap, 5) == null,
+                "other coincident item cannot be nominated ahead of UUID winner");
+        require(BodyHandItemTransfer.pickupOwned(body, firstOverlap.getUUID(), "left",
+                overlapRevision.revision(), () -> true) == BodyHandItemTransfer.Result.SUCCESS,
+                "first coincident grenade transfers");
+        LiveHands afterOverlap = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(firstOverlap.isRemoved() && !secondOverlap.isRemoved()
+                        && BodyItemTargetProbe.probe(level, body, secondOverlap, 5) != null
+                        && BodyHandItemTransfer.pickupOwned(body, secondOverlap.getUUID(), "right",
+                        afterOverlap.revision(), () -> true) == BodyHandItemTransfer.Result.SUCCESS
+                        && secondOverlap.isRemoved(),
+                "remaining coincident grenade transfers with fresh revision to opposite hand");
+        helper.succeed();
+    }
+
     private static boolean denied(Villager body, ItemEntity target, LiveHands before) {
         return BodyHandItemTransfer.pickupOwned(body, target.getUUID(), "left", before.revision(), () -> true)
                 == BodyHandItemTransfer.Result.DENIED
@@ -84,6 +119,14 @@ public final class BodyPickupRouteGameTests {
         ItemEntity item = new ItemEntity(level, origin.getX() + .5 + offset, origin.getY() + 1.5,
                 origin.getZ() + .5, new ItemStack(Items.DIAMOND, 3));
         require(level.addFreshEntity(item), "item spawned");
+        return item;
+    }
+
+    private static ItemEntity grenade(ServerLevel level, BlockPos origin) {
+        ItemEntity item = new ItemEntity(level, origin.getX() + 2.5, origin.getY() + 1.5,
+                origin.getZ() + .5, new ItemStack(com.juicyslew.moonstation14.item.ModItems.GRENADE.get(), 1));
+        item.setNoPickUpDelay();
+        require(level.addFreshEntity(item), "coincident grenade spawned");
         return item;
     }
 

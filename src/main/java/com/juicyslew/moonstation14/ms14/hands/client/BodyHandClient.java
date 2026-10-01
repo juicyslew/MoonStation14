@@ -30,6 +30,11 @@ public final class BodyHandClient {
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.moonstation14");
     private static final net.minecraft.client.KeyMapping INVENTORY = new net.minecraft.client.KeyMapping("key.moonstation14.body_inventory",
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_I, "key.categories.moonstation14");
+    // Temporary grenade-specific controls; replace with item-driven use dispatch in a later sprint.
+    private static final net.minecraft.client.KeyMapping PRIME_GRENADE = new net.minecraft.client.KeyMapping("key.moonstation14.prime_grenade",
+            com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.categories.moonstation14");
+    private static final net.minecraft.client.KeyMapping THROW_GRENADE = new net.minecraft.client.KeyMapping("key.moonstation14.throw_grenade",
+            com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, "key.categories.moonstation14");
     private static final BodyHandClientPolicy POLICY = new BodyHandClientPolicy();
     private static Object connection, level, player;
     private static Mob cameraBody;
@@ -50,6 +55,8 @@ public final class BodyHandClient {
         event.register(INSERT_POUCH);
         event.register(EXTRACT_POUCH);
         event.register(INVENTORY);
+        event.register(PRIME_GRENADE);
+        event.register(THROW_GRENADE);
     }
 
     public static void reset() {
@@ -65,6 +72,8 @@ public final class BodyHandClient {
         while (INSERT_POUCH.consumeClick()) { }
         while (EXTRACT_POUCH.consumeClick()) { }
         while (INVENTORY.consumeClick()) { }
+        while (PRIME_GRENADE.consumeClick()) { }
+        while (THROW_GRENADE.consumeClick()) { }
     }
 
     private static Mob currentBody() {
@@ -110,6 +119,8 @@ public final class BodyHandClient {
             while (INSERT_POUCH.consumeClick()) { }
             while (EXTRACT_POUCH.consumeClick()) { }
             while (INVENTORY.consumeClick()) { }
+            while (PRIME_GRENADE.consumeClick()) { }
+            while (THROW_GRENADE.consumeClick()) { }
             return;
         }
         boolean inventory = INVENTORY.consumeClick();
@@ -127,12 +138,24 @@ public final class BodyHandClient {
         boolean select = SELECT_HAND.consumeClick();
         boolean insert = INSERT_POUCH.consumeClick();
         boolean extract = EXTRACT_POUCH.consumeClick();
-        if (mc.screen != null) return;
+        boolean prime = PRIME_GRENADE.consumeClick();
+        boolean throwGrenade = THROW_GRENADE.consumeClick();
+        if (mc.screen != null) {
+            POLICY.cancelThrowIntent();
+            return;
+        }
         if (pickup) request(BodyHandActionRequest.Action.PICKUP);
         else if (drop) request(BodyHandActionRequest.Action.DROP);
         else if (select) selectHand();
         else if (insert) requestPouch(BodyHandActionRequest.Action.INSERT_POUCH);
         else if (extract) requestPouch(BodyHandActionRequest.Action.EXTRACT_POUCH);
+        else if (prime) {
+            request(BodyHandActionRequest.Action.PRIME_GRENADE);
+            if (throwGrenade) POLICY.requestThrowAfterPrime(clock);
+        } else if (throwGrenade) {
+            if (!POLICY.requestThrowAfterPrime(clock)) request(BodyHandActionRequest.Action.THROW_GRENADE);
+        }
+        if (POLICY.takeReadyThrow(clock) && request(BodyHandActionRequest.Action.THROW_GRENADE)) POLICY.throwSent();
     }
 
     private static void selectHand() {
@@ -208,22 +231,24 @@ public final class BodyHandClient {
                 sequence, snapshot.revision(), null, view.pouch().token()));
     }
 
-    private static void request(BodyHandActionRequest.Action action) {
+    private static boolean request(BodyHandActionRequest.Action action) {
         BodyHandStateSnapshot snapshot = POLICY.snapshot();
-        if (snapshot == null) return;
+        if (snapshot == null) return false;
         BodyHandStateSnapshot.Hand active = snapshot.hands().stream()
                 .filter(hand -> hand.id().equals(snapshot.activeHand())).findFirst().orElse(null);
-        if (active == null) return;
+        if (active == null) return false;
         UUID target = null;
         if (action == BodyHandActionRequest.Action.PICKUP) {
-            if (active.token() != null) return;
+            if (active.token() != null) return false;
             target = lookTarget(cameraBody);
-            if (target == null) { POLICY.noItemUnderCursor(clock); return; }
-        } else if (active.token() == null) return;
+            if (target == null) { POLICY.noItemUnderCursor(clock); return false; }
+        } else if (active.token() == null) return false;
         long sequence = POLICY.action(clock);
-        if (sequence == 0) return;
+        if (sequence == 0) return false;
         PacketDistributor.sendToServer(new BodyHandActionRequest(action, active.id(), snapshot.epoch(),
-                sequence, snapshot.revision(), target, action == BodyHandActionRequest.Action.DROP ? active.token() : null));
+                sequence, snapshot.revision(), target, action == BodyHandActionRequest.Action.PICKUP ? null : active.token()));
+        if (action == BodyHandActionRequest.Action.PRIME_GRENADE) POLICY.markPrime(sequence);
+        return true;
     }
 
     /** Only a nomination: server ray, reach, block occlusion, and item identity are authoritative. */
@@ -249,10 +274,11 @@ public final class BodyHandClient {
                     + (look.z >= 0 ? box.minZ : box.maxZ) * look.z - start.dot(look);
             if (nearFace >= blockerDistance) continue;
             double distance = hit.orElseThrow().distanceToSqr(start);
-            if (distance == maxDistance && candidate != null) ambiguous = true;
-            if (distance < maxDistance) { maxDistance = distance; candidate = item.getUUID(); ambiguous = false; }
+            if (distance < maxDistance) { maxDistance = distance; candidate = item.getUUID(); }
+            else if (distance == maxDistance && candidate != null && item.getUUID().compareTo(candidate) < 0)
+                candidate = item.getUUID();
         }
-        return ambiguous ? null : candidate;
+        return candidate;
     }
 
     private static void onSnapshot(BodyHandStateSnapshot snapshot) {

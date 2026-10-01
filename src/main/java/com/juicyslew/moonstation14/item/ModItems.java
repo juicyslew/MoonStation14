@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.item.custom.StationFloorTileItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTilePryItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
 import com.juicyslew.moonstation14.item.custom.CableCutterItem;
+import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import net.minecraft.world.item.Item;
@@ -76,6 +77,8 @@ public class ModItems {
     );
     public static final DeferredItem<JugItem> JUG = ITEMS.register("jug",
             () -> new JugItem(ModBlocks.JUG.get(), new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<GrenadeItem> GRENADE = ITEMS.register("grenade",
+            () -> new GrenadeItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<AtmosphereAnalyzerItem> ATMOSPHERE_ANALYZER = ITEMS.register("atmosphere_analyzer",
             () -> new AtmosphereAnalyzerItem(new Item.Properties().stacksTo(1)));
 

@@ -13,6 +13,7 @@ import com.juicyslew.moonstation14.ms14.prototype.PrototypeReloadListener;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
 import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
+import com.juicyslew.moonstation14.ms14.explosion.grenade.network.GrenadeSoundNetworking;
 import com.juicyslew.moonstation14.ms14.chat.server.LocalSpeechServerHooks;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereEventHooks;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -30,6 +31,7 @@ import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
 import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
 import com.juicyslew.moonstation14.ms14.status_effect.prototype.StatusEffectReferenceValidator;
 import com.juicyslew.moonstation14.ms14.alert.prototype.AlertReferenceValidator;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadeHeldFuseService;
 import com.juicyslew.moonstation14.recipe.ModRecipes;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -74,6 +76,7 @@ public class MoonStation14 {
         PowerGraphService.register(NeoForge.EVENT_BUS);
         PowerRuntime.register(NeoForge.EVENT_BUS);
         StarterStationService.register(NeoForge.EVENT_BUS);
+        BodyGrenadeHeldFuseService.register(NeoForge.EVENT_BUS);
 
         ModCreativeModeTabs.register(modEventBus);
 
@@ -89,6 +92,7 @@ public class MoonStation14 {
         ModEntities.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
         modEventBus.addListener(LocalSpeechNetworking::registerPayloadHandlers);
+        modEventBus.addListener(GrenadeSoundNetworking::registerPayloadHandlers);
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);

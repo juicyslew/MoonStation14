@@ -22,6 +22,111 @@ class BodyHandClientPolicyTest {
                 reason, false, 0, null, null, null, 0);
     }
 
+    private static BodyHandStateSnapshot grenade(long requested, long sequence, long revision) {
+        return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, revision, "left", List.of(new BodyHandStateSnapshot.Hand(
+                "left", "grenade-token", "moonstation14:grenade", 1)));
+    }
+
+    @Test void standaloneThrowDoesNotQueueAnUncorrelatedGrenade() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        assertFalse(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.action(2) > 0); // caller may send THROW immediately; server decides if armed
+    }
+
+    @Test void pendingPrimeRejectsStaleSnapshotAndChangedHandOrToken() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+        assertFalse(policy.accept(grenade(0, prime, 4))); // stale pre-prime reply cannot settle refresh
+        long refresh = policy.query(3);
+        var changed = new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 4, "right", List.of(
+                new BodyHandStateSnapshot.Hand("left", "different-token", "moonstation14:grenade", 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)));
+        assertTrue(policy.accept(changed));
+        assertFalse(policy.takeReadyThrow(4));
+    }
+
+    @Test void explicitThrowSurvivesPrimeResultAndWaitsForCorrelatedNewerSnapshot() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+        assertFalse(policy.takeReadyThrow(3));
+        assertTrue(policy.requestThrowAfterPrime(4)); // M after PRIME result, while refresh is pending
+        long refresh = policy.query(4);
+        assertFalse(policy.accept(grenade(0, refresh + 1, 4)));
+        assertTrue(policy.accept(grenade(0, refresh, 4)));
+        assertTrue(policy.takeReadyThrow(5));
+        assertTrue(policy.takeReadyThrow(5)); // readiness does not consume intent before send
+        policy.throwSent();
+        assertFalse(policy.takeReadyThrow(5));
+    }
+
+    @Test void explicitThrowCanBeCancelledByUiPresence() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+
+        policy.cancelThrowIntent(); // UI open, including the body inventory screen
+        assertFalse(policy.requestThrowAfterPrime(4));
+        long refresh = policy.query(4);
+        assertTrue(policy.accept(grenade(0, refresh, 4)));
+        assertFalse(policy.takeReadyThrow(5));
+    }
+
+    @Test void failedCorrelatedQueryCancelsExplicitThrowIntent() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+
+        long failedQuery = policy.query(3);
+        var failed = new BodyHandStateSnapshot(0, failedQuery, BodyHandStateSnapshot.Reason.NO_AUTHORITY,
+                null, null, 0, 0, null, List.of());
+        assertFalse(policy.accept(failed));
+        long unrelated = policy.query(43);
+        assertTrue(policy.accept(grenade(0, unrelated, 4)));
+        assertFalse(policy.takeReadyThrow(44));
+    }
+
+    @Test void throwIntentExpiresOrCancelsOnRejectedPrimeAndIdentityChange() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.DENIED), 3));
+        assertFalse(policy.requestThrowAfterPrime(4));
+
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(5), 3)));
+        prime = policy.action(6);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(6));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 7));
+        assertFalse(policy.takeReadyThrow(46)); // expires after 40 ticks
+        assertFalse(policy.requestThrowAfterPrime(47));
+    }
+
     private static BodyHandStateSnapshot pouchSnapshot(long requested, long sequence, boolean filled,
                                                        BodyHandStateSnapshot.Hand other) {
         return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
