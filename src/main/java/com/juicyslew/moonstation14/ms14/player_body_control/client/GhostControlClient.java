@@ -55,6 +55,7 @@ public final class GhostControlClient {
     private static LocalPlayer owner;
     private static Level ownerLevel;
     private static GhostPredictionHistory predictionHistory;
+    private static boolean characterPredictionStopped;
     private static GhostControlPayloads.Begin deferredBegin;
 
     static {
@@ -97,6 +98,7 @@ public final class GhostControlClient {
                 committed = true;
                 sentSequence = 0;
                 predictionHistory = new GhostPredictionHistory(activeEpoch, ghostEntityId, harnessKind);
+                characterPredictionStopped = false;
             }
         } else if (payload instanceof GhostControlPayloads.Stop stop) {
             if (pendingEpoch == stop.epoch() && owner == player) clearSession(minecraft, true);
@@ -280,6 +282,7 @@ public final class GhostControlClient {
         offeredKind = null;
         offerReadySent = false;
         predictionHistory = null;
+        characterPredictionStopped = false;
         latestSurfaceFactor = 1f;
         latestVoluntaryFactor = 1f;
         latestStunned = false;
@@ -343,6 +346,7 @@ public final class GhostControlClient {
     static int intentButtons(MobHarnessKind kind, boolean jumping, boolean shiftKeyDown, boolean minecraftSprinting) {
         boolean fast = kind == MobHarnessKind.CHARACTER ? !shiftKeyDown : minecraftSprinting;
         return (jumping ? GhostControlPayloads.BUTTON_JUMP : 0)
+                | (kind == MobHarnessKind.CHARACTER && shiftKeyDown ? GhostControlPayloads.BUTTON_SNEAK : 0)
                 | (fast ? GhostControlPayloads.BUTTON_SPRINT : 0);
     }
 
@@ -363,6 +367,7 @@ public final class GhostControlClient {
 
         GhostPredictionHistory.SnapshotResult result = predictionHistory.reconcile(snapshot);
         if (result.status() == GhostPredictionHistory.SnapshotStatus.REJECTED) return;
+        if (characterPredictionStopped) predictionHistory.onAuthorityBarrier();
 
         float visualYaw = entity.getYRot();
         float visualPitch = entity.getXRot();
@@ -376,7 +381,7 @@ public final class GhostControlClient {
                 snapshot.velocityX() / 20d, snapshot.velocityY() / 20d, snapshot.velocityZ() / 20d));
         if (entity instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, snapshot.yaw(), snapshot.pitch());
         else if (entity instanceof Mob mob) setOwnedBodyLook(mob, snapshot.yaw(), snapshot.pitch());
-        if (result.status() == GhostPredictionHistory.SnapshotStatus.REPLAY) {
+        if (result.status() == GhostPredictionHistory.SnapshotStatus.REPLAY && !characterPredictionStopped) {
             for (GhostControlPayloads.Intent intent : result.replayFrames()) predict(entity, intent, false);
         }
         // Preserve the local view; movement replay still uses each intent's quantized yaw.
@@ -399,7 +404,7 @@ public final class GhostControlClient {
                 });
         ghost.setDeltaMovement(Vec3.ZERO);
         } else if (body instanceof Mob mob) {
-            predictCharacter(mob, intent, animate);
+            if (!characterPredictionStopped) predictCharacter(mob, intent, animate);
         }
     }
 
@@ -422,12 +427,21 @@ public final class GhostControlClient {
                     body.move(MoverType.SELF, new Vec3(requested.x(), requested.y(), requested.z()));
                     Vec3 actual = body.position().subtract(old);
                     return new MovementCollisionResolver.CollisionResult(
-                            new MovementVector(actual.x, actual.y, actual.z), body.onGround());
+                            CharacterPredictionFailurePolicy.postMoveDisplacement(actual.x, actual.y, actual.z),
+                            body.onGround());
                 }, surface, voluntary);
-        CharacterMovementState result = new GroundedHarnessMotor(policy).tick(state, intent.wishX(), intent.wishZ(),
-                (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
-                (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
-                intent.yaw(), environment, latestStunned);
+        CharacterMovementState result = CharacterPredictionFailurePolicy.run(() ->
+                new GroundedHarnessMotor(policy).tick(state, intent.wishX(), intent.wishZ(),
+                        (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
+                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
+                        intent.yaw(), environment, latestStunned), predictionHistory);
+        if (result == null) {
+            // The resolver may already have moved the entity. Never retry, roll back, or replay this frame.
+            characterPredictionStopped = true;
+            MoonStation14.LOGGER.error("[ghost control client] CHARACTER prediction stopped after post-move collision rejection; epoch={} entityId={} sequence={} phase={}; awaiting authoritative snapshots",
+                    activeEpoch, ghostEntityId, intent.sequence(), animate ? "tick" : "replay");
+            return;
+        }
         body.setDeltaMovement(result.velocity().x() / 20d, result.velocity().y() / 20d,
                 result.velocity().z() / 20d);
         if (animate) OwnedHarnessWalkAnimation.update(body, body.position().subtract(initialPosition));

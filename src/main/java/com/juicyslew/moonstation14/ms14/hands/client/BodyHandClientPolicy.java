@@ -3,22 +3,27 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Main-thread client correlation gate. Only a matching full query reply can enable an action. */
 public final class BodyHandClientPolicy {
+    private static final long REQUEST_TIMEOUT_TICKS = 80;
     // Packet replies have no connection nonce. Never reuse a correlation ID, even after logout.
     private static final AtomicLong QUERY_IDS = new AtomicLong();
     private static final AtomicLong ACTION_IDS = new AtomicLong();
     private UUID account, body;
-    private long epoch, querySequence, actionSequence, pendingQuery, pendingAction, lastQueryTick = Long.MIN_VALUE;
+    private long epoch, querySequence, actionSequence, pendingQuery, pendingAction, pendingBlockUse, lastQueryTick = Long.MIN_VALUE;
     private long pendingQueryEpoch;
     private long sentActionTick;
+    private long sentBlockUseTick;
+    private long sentQueryTick;
     private BodyHandStateSnapshot snapshot;
     private String feedback;
     private long localFeedbackUntil;
     private boolean inputEnabled;
+    private boolean refreshRequired;
 
     public void reset() {
         suspend();
@@ -28,7 +33,8 @@ public final class BodyHandClientPolicy {
     /** Drop all proof and outstanding correlations without rewinding this connection's sequence history. */
     public void suspend() {
         account = body = null;
-        epoch = pendingQuery = pendingAction = pendingQueryEpoch = 0;
+        epoch = pendingQuery = pendingAction = pendingBlockUse = pendingQueryEpoch = 0;
+        refreshRequired = false;
         lastQueryTick = Long.MIN_VALUE;
         snapshot = null;
         feedback = null;
@@ -52,13 +58,14 @@ public final class BodyHandClientPolicy {
     }
 
     public long query(long tick) {
-        if (!inputEnabled || epoch == 0 || pendingAction != 0 || querySequence == Long.MAX_VALUE
-                || (lastQueryTick != Long.MIN_VALUE && tick - lastQueryTick < 40)) return 0;
+        if (!inputEnabled || epoch == 0 || pendingAction != 0 || pendingBlockUse != 0 || pendingQuery != 0 || querySequence == Long.MAX_VALUE
+                || (!refreshRequired && lastQueryTick != Long.MIN_VALUE && tick - lastQueryTick < 40)) return 0;
         long sequence = next(QUERY_IDS);
         if (sequence == Long.MAX_VALUE) return 0;
         lastQueryTick = tick;
         pendingQueryEpoch = queryEpoch();
         pendingQuery = querySequence = sequence;
+        sentQueryTick = tick;
         return pendingQuery;
     }
 
@@ -72,9 +79,12 @@ public final class BodyHandClientPolicy {
                 || !account.equals(incoming.accountId()) || !body.equals(incoming.bodyId())
                 || epoch != incoming.epoch()) {
             snapshot = null;
+            refreshRequired = true;
+            lastQueryTick = Long.MIN_VALUE;
             return false;
         }
         snapshot = incoming;
+        refreshRequired = false;
         pendingAction = 0;
         return true;
     }
@@ -129,7 +139,7 @@ public final class BodyHandClientPolicy {
 
     /** Only a correlated, settled two-hand state can advertise pouch contents or controls. */
     public PouchView pouchView() {
-        if (!inputEnabled || snapshot == null || pendingQuery != 0 || pendingAction != 0
+        if (!inputEnabled || snapshot == null || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0
                 || snapshot.hands().size() != 2) return null;
         BodyHandStateSnapshot.Hand pouch = null, other = null;
         for (var hand : snapshot.hands()) {
@@ -180,6 +190,33 @@ public final class BodyHandClientPolicy {
         return pendingAction;
     }
 
+    /** Allocate a server action-gate ID for block use without opening an action-result barrier. */
+    public long blockUseSequence(long tick) {
+        if (!inputEnabled || epoch == 0 || snapshot == null || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0
+                || actionSequence == Long.MAX_VALUE || snapshot.hands().stream()
+                .noneMatch(hand -> hand.id().equals(snapshot.activeHand()))) return 0;
+        long sequence = next(ACTION_IDS);
+        if (sequence == Long.MAX_VALUE) return 0;
+        actionSequence = sequence;
+        pendingBlockUse = sequence;
+        sentBlockUseTick = tick;
+        return sequence;
+    }
+
+    public boolean blockUseResult(BodyBlockUseResult incoming) {
+        if (!inputEnabled || pendingBlockUse == 0 || incoming.sequence() != pendingBlockUse || incoming.epoch() != epoch) return false;
+        pendingBlockUse = 0;
+        if (incoming.outcome() == BodyBlockUseResult.Outcome.PLACED
+                || incoming.outcome() == BodyBlockUseResult.Outcome.RECOVERY_REQUIRED
+                || incoming.outcome() == BodyBlockUseResult.Outcome.DENIED) {
+            snapshot = null;
+            pendingQuery = 0;
+            refreshRequired = true;
+            lastQueryTick = Long.MIN_VALUE;
+        }
+        return true;
+    }
+
     public boolean result(BodyHandActionResult incoming, long tick) {
         if (!inputEnabled || pendingAction == 0 || incoming.sequence() != pendingAction || incoming.epoch() != epoch) return false;
         pendingAction = 0;
@@ -201,13 +238,26 @@ public final class BodyHandClientPolicy {
             feedback = null;
             localFeedbackUntil = 0;
         }
-        if (pendingAction != 0 && tick - sentActionTick >= 80) {
+        if (pendingAction != 0 && tick - sentActionTick >= REQUEST_TIMEOUT_TICKS) {
             pendingAction = 0;
             snapshot = null;
             pendingQuery = 0;
             lastQueryTick = Long.MIN_VALUE;
             feedback = null;
             localFeedbackUntil = 0;
+        }
+        if (pendingBlockUse != 0 && tick - sentBlockUseTick >= REQUEST_TIMEOUT_TICKS) {
+            pendingBlockUse = 0;
+            snapshot = null;
+            pendingQuery = 0;
+            lastQueryTick = Long.MIN_VALUE;
+            refreshRequired = true;
+        }
+        if (pendingQuery != 0 && tick - sentQueryTick >= REQUEST_TIMEOUT_TICKS) {
+            pendingQuery = 0;
+            snapshot = null;
+            lastQueryTick = Long.MIN_VALUE;
+            refreshRequired = true;
         }
     }
 }

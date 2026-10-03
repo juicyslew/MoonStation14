@@ -1,6 +1,8 @@
 package com.juicyslew.moonstation14.ms14.hands.client;
 
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
@@ -30,6 +32,8 @@ public final class BodyHandClient {
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.moonstation14");
     private static final net.minecraft.client.KeyMapping INVENTORY = new net.minecraft.client.KeyMapping("key.moonstation14.body_inventory",
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_I, "key.categories.moonstation14");
+    private static final net.minecraft.client.KeyMapping BLOCK_USE = new net.minecraft.client.KeyMapping("key.moonstation14.body_block_use",
+            com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.moonstation14");
     private static final BodyHandClientPolicy POLICY = new BodyHandClientPolicy();
     private static Object connection, level, player;
     private static Mob cameraBody;
@@ -41,6 +45,7 @@ public final class BodyHandClient {
     public static void install() {
         BodyHandStateSnapshot.setClientHandler(BodyHandClient::onSnapshot);
         BodyHandActionResult.setClientHandler(BodyHandClient::onResult);
+        BodyBlockUseResult.setClientHandler(BodyHandClient::onBlockUseResult);
     }
 
     public static void registerKeys(net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent event) {
@@ -50,6 +55,7 @@ public final class BodyHandClient {
         event.register(INSERT_POUCH);
         event.register(EXTRACT_POUCH);
         event.register(INVENTORY);
+        event.register(BLOCK_USE);
     }
 
     public static void reset() {
@@ -65,6 +71,7 @@ public final class BodyHandClient {
         while (INSERT_POUCH.consumeClick()) { }
         while (EXTRACT_POUCH.consumeClick()) { }
         while (INVENTORY.consumeClick()) { }
+        while (BLOCK_USE.consumeClick()) { }
     }
 
     private static Mob currentBody() {
@@ -110,6 +117,7 @@ public final class BodyHandClient {
             while (INSERT_POUCH.consumeClick()) { }
             while (EXTRACT_POUCH.consumeClick()) { }
             while (INVENTORY.consumeClick()) { }
+            while (BLOCK_USE.consumeClick()) { }
             return;
         }
         boolean inventory = INVENTORY.consumeClick();
@@ -127,12 +135,30 @@ public final class BodyHandClient {
         boolean select = SELECT_HAND.consumeClick();
         boolean insert = INSERT_POUCH.consumeClick();
         boolean extract = EXTRACT_POUCH.consumeClick();
+        boolean blockUse = BLOCK_USE.consumeClick();
         if (mc.screen != null) return;
         if (pickup) request(BodyHandActionRequest.Action.PICKUP);
         else if (drop) request(BodyHandActionRequest.Action.DROP);
         else if (select) selectHand();
         else if (insert) requestPouch(BodyHandActionRequest.Action.INSERT_POUCH);
         else if (extract) requestPouch(BodyHandActionRequest.Action.EXTRACT_POUCH);
+        else if (blockUse) requestBlockUse();
+    }
+
+    private static void requestBlockUse() {
+        var snapshot = POLICY.snapshot();
+        if (snapshot == null || cameraBody == null) return;
+        var hand = snapshot.hands().stream().filter(slot -> slot.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        if (hand == null) return;
+        var start = cameraBody.getEyePosition();
+        var end = start.add(cameraBody.getLookAngle().scale(6.0));
+        var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
+        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return;
+        long sequence = POLICY.blockUseSequence(clock);
+        if (sequence == 0) return;
+        PacketDistributor.sendToServer(new BodyBlockUseRequest(snapshot.epoch(), sequence, snapshot.revision(),
+                hand.id(), hand.token(), hit.getBlockPos(), hit.getDirection(),
+                net.minecraft.client.Minecraft.getInstance().player.input.shiftKeyDown));
     }
 
     private static void selectHand() {
@@ -265,6 +291,17 @@ public final class BodyHandClient {
         POLICY.result(result, clock);
     }
 
+    private static void onBlockUseResult(BodyBlockUseResult result) {
+        reconcile();
+        if (!POLICY.blockUseResult(result)) return;
+        if (result.outcome() == BodyBlockUseResult.Outcome.PLACED
+                || result.outcome() == BodyBlockUseResult.Outcome.RECOVERY_REQUIRED
+                || result.outcome() == BodyBlockUseResult.Outcome.DENIED) {
+            long sequence = POLICY.query(clock);
+            if (sequence != 0) PacketDistributor.sendToServer(new BodyHandStateQuery(POLICY.queryEpoch(), sequence));
+        }
+    }
+
     public static void render(net.neoforged.neoforge.client.event.RenderGuiEvent.Post event) {
         var mc = net.minecraft.client.Minecraft.getInstance();
         Mob body = currentBody();
@@ -320,6 +357,17 @@ public final class BodyHandClient {
             feedback = feedback.replaceFirst("^Hands: ", "");
             drawHudLine(graphics, mc, feedback, x, nextY, width);
         }
+    }
+
+    public static void renderBlockOutline(net.neoforged.neoforge.client.event.RenderLevelStageEvent event) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.options.hideGui || mc.screen != null || mc.player == null || !mc.player.isSpectator()) return;
+        reconcile();
+        long epoch = GhostControlClient.committedCharacterEpoch();
+        Mob body = currentBody();
+        if (body == null || body != cameraBody || epoch == 0 || epoch != cameraEpoch
+                || body.level() != mc.level || POLICY.snapshot() == null) return;
+        BodyBlockOutlineRenderer.render(event, body);
     }
 
     private static int drawHudLine(net.minecraft.client.gui.GuiGraphics graphics, net.minecraft.client.Minecraft mc,

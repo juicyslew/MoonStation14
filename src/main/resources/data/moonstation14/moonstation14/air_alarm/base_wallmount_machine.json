@@ -1,0 +1,6 @@
+{
+  "abstract": true,
+  "parent": "base_wallmount_metallic",
+  "apcPowerReceiver": { "requestedWatts": 100.0 },
+  "extensionCableReceiver": { "localReachBlocks": 3 }
+}

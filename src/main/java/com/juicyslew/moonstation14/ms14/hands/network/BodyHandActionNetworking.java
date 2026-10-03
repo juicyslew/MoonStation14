@@ -1,6 +1,11 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
 import net.minecraft.server.level.ServerPlayer;
+import com.juicyslew.moonstation14.ms14.atmos.piping.FunctionalExposedPipePlacement;
+import com.juicyslew.moonstation14.ms14.atmos.piping.FunctionalVentilationDevicePlacement;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.FunctionalAirAlarmPlacement;
+import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -16,6 +21,37 @@ public final class BodyHandActionNetworking {
         NeoForge.EVENT_BUS.addListener(BodyHandRequestService::logout);
         NeoForge.EVENT_BUS.addListener(BodyHandStateService::logout);
         event.registrar("1").executesOn(HandlerThread.MAIN)
+                .playToServer(BodyBlockUseRequest.TYPE, BodyBlockUseRequest.STREAM_CODEC, (request, context) -> {
+                    if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
+                    if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
+                    var admission = BodyHandRequestService.admitBlockUse(actor, request);
+                    BodyBlockUseResult.Outcome outcome = BodyBlockUseResult.Outcome.DENIED;
+                    if (admission != null) {
+                        var held = admission.hands().stackCopy(request.handId()).orElse(null);
+                        if (held != null && (held.is(ModItems.GAS_VENT.get()) || held.is(ModItems.GAS_SCRUBBER.get()))) {
+                            var result = FunctionalVentilationDevicePlacement.place(actor, request, admission);
+                            outcome = result == FunctionalVentilationDevicePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                    : result == FunctionalVentilationDevicePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                        } else if (held != null && held.is(ModItems.AIR_ALARM.get())) {
+                            var result = FunctionalAirAlarmPlacement.place(actor, request, admission);
+                            outcome = result == FunctionalAirAlarmPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                    : result == FunctionalAirAlarmPlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                        } else if (held != null && (held.is(ModItems.GAS_PIPE_SEGMENT.get())
+                                || held.is(ModItems.GAS_PIPE_SEGMENT_SECONDARY.get())
+                                || held.is(ModItems.GAS_PIPE_SEGMENT_TERTIARY.get()))) {
+                            var result = FunctionalExposedPipePlacement.place(actor, request, admission);
+                            outcome = result == FunctionalExposedPipePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                    : result == FunctionalExposedPipePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                        } else {
+                            boolean opened = AirAlarmMenuService.open(actor, request, admission);
+                            if (opened) outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                        }
+                    }
+                    if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
+                        PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), outcome));
+                })
+                .playToClient(BodyBlockUseResult.TYPE, BodyBlockUseResult.STREAM_CODEC,
+                        (result, context) -> { if (FMLEnvironment.dist == Dist.CLIENT) BodyBlockUseResult.deliverClient(result); })
                 .playToServer(BodyHandActionRequest.TYPE, BodyHandActionRequest.STREAM_CODEC, (request, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     // Never acknowledge a displaced connection or an actor not currently online.

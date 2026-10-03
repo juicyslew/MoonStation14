@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.client;
 
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
 import org.junit.jupiter.api.Test;
 
@@ -227,6 +228,83 @@ class BodyHandClientPolicyTest {
         assertTrue(policy.action(5) > action);
     }
 
+    @Test void blockUseSequenceKeepsPresentationAndDoesNotReplaceActionResultCorrelation() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        long initial = policy.query(1);
+        var hands = new BodyHandStateSnapshot(0, initial, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 3, "left", List.of(
+                new BodyHandStateSnapshot.Hand("left", "token", "minecraft:stick", 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)));
+        assertTrue(policy.accept(hands));
+        long blockUse = policy.blockUseSequence(2);
+        assertTrue(blockUse > 0);
+        assertNotNull(policy.hudSnapshot());
+        assertNotNull(policy.inventoryView());
+        assertEquals(0, policy.blockUseSequence(3)); // one outstanding use until correlated completion
+        assertTrue(policy.blockUseResult(new com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult(
+                7, blockUse, com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult.Outcome.PLACED)));
+        assertNull(policy.hudSnapshot());
+        long refresh = policy.query(3); // placement completion bypasses the periodic throttle
+        assertTrue(refresh > initial);
+        assertEquals(0, policy.blockUseSequence(3));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 4, "left", hands.hands())));
+
+        long action = policy.action(4);
+        assertTrue(action > blockUse);
+        assertNull(policy.hudSnapshot());
+        assertEquals(0, policy.blockUseSequence(5)); // cannot overwrite an ordinary pending action
+        assertFalse(policy.result(result(7, blockUse, BodyHandActionResult.Reason.OK), 6));
+        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 6));
+
+        long actionRefresh = policy.query(6);
+        assertTrue(actionRefresh > 0);
+        assertNull(policy.inventoryView());
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, actionRefresh, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 3, "left", hands.hands())));
+        assertNotNull(policy.inventoryView());
+
+        long query = policy.query(46);
+        assertEquals(0, policy.blockUseSequence(47));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(7, query, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 3, "left", hands.hands())));
+        policy.suspend();
+        assertEquals(0, policy.blockUseSequence(48));
+    }
+
+    @Test void lostBlockUseAckAndQueryTimeoutFailClosedAndRetryOnce() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var hands = List.of(new BodyHandStateSnapshot.Hand("left", "token", "minecraft:stick", 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, policy.query(1), BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 3, "left", hands)));
+        long use = policy.blockUseSequence(2);
+        assertTrue(use > 0);
+        policy.timeout(82);
+        assertNull(policy.hudSnapshot());
+        assertFalse(policy.blockUseResult(new BodyBlockUseResult(7, use, BodyBlockUseResult.Outcome.PLACED)));
+        long fresh = policy.query(82);
+        assertTrue(fresh > 0);
+        assertEquals(0, policy.query(83));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, fresh, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 4, "left", hands)));
+        assertNotNull(policy.hudSnapshot());
+
+        long unanswered = policy.query(123);
+        assertTrue(unanswered > 0);
+        assertEquals(0, policy.query(124));
+        policy.timeout(203);
+        assertNull(policy.hudSnapshot());
+        long retry = policy.query(204);
+        assertTrue(retry > unanswered);
+        assertEquals(0, policy.query(205));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, retry, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 4, "left", hands)));
+        assertNotNull(policy.hudSnapshot());
+    }
+
     @Test void timedOutActionRetriesQueryWithoutTransientStatus() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);
@@ -273,12 +351,15 @@ class BodyHandClientPolicyTest {
         assertFalse(policy.accept(snapshot(7, query, ACCOUNT, BODY, 7)));
         assertNull(policy.snapshot());
         assertEquals(0, policy.action(2));
-        long retry = policy.query(41);
+        policy.timeout(81);
+        long retry = policy.query(81);
         assertFalse(policy.accept(snapshot(0, query, ACCOUNT, BODY, 7)));
         assertFalse(policy.accept(snapshot(0, retry, ACCOUNT, BODY, 8)));
-        long next = policy.query(81);
+        policy.timeout(161);
+        long next = policy.query(161);
         assertFalse(policy.accept(snapshot(0, next, ACCOUNT, UUID.randomUUID(), 7)));
-        long valid = policy.query(121);
+        policy.timeout(241);
+        long valid = policy.query(241);
         assertTrue(policy.accept(snapshot(0, valid, ACCOUNT, BODY, 7)));
         assertTrue(policy.action(122) > 0);
     }

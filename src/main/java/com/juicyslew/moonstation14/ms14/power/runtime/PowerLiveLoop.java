@@ -18,6 +18,10 @@ public final class PowerLiveLoop {
     private static final double BATTERY_CAPACITY = 1_000_000;
     private static final double SUBSTATION_EFFICIENCY = .9;
     private static final double BATTERY_CHARGE_RATE = 5_000;
+    /** Pinned SS14 unary vent/scrubber ApcPowerReceiver default desired power (5 W). */
+    public static final double SS14_UNARY_ATMOS_POWER_WATTS = 5.0;
+    /** Solver validation bound only; this is not device demand or a provisional SS14 value. */
+    public static final double VENT_MAX_DEMAND_WATTS = 5_000;
 
     private PowerLiveLoop() { }
 
@@ -34,16 +38,64 @@ public final class PowerLiveLoop {
             this(id, component, known, PowerDeviceKind.LAMP);
         }
     }
+    public record VentLoad(String id, int apcComponent, boolean known, double demandWatts) {
+        public VentLoad {
+            if (id == null || id.isBlank()) throw new IllegalArgumentException("Vent id required");
+            if (!Double.isFinite(demandWatts) || demandWatts <= 0 || demandWatts > VENT_MAX_DEMAND_WATTS)
+                throw new IllegalArgumentException("Vent demand must be positive and at most " + VENT_MAX_DEMAND_WATTS);
+        }
+
+        /** Default unary.yml vent/scrubber load; both use the same APC solver path. */
+        public static VentLoad defaultUnaryAtmos(String id, int apcComponent, boolean known) {
+            return new VentLoad(id, apcComponent, known, SS14_UNARY_ATMOS_POWER_WATTS);
+        }
+    }
+    /** Resolved air-alarm APC receiver; not a ventilation/gas-work grant. */
+    public record AlarmLoad(String id, int apcComponent, boolean known, double demandWatts) {
+        public AlarmLoad {
+            if (id == null || id.isBlank() || !Double.isFinite(demandWatts)
+                    || demandWatts <= 0 || demandWatts > VENT_MAX_DEMAND_WATTS)
+                throw new IllegalArgumentException("Invalid air alarm demand");
+        }
+    }
     public record Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
-                        List<Lamp> lamps, long elapsedTicks) {
+                         List<Lamp> lamps, List<VentLoad> vents, List<AlarmLoad> alarms, long elapsedTicks) {
         public Input {
             sources = List.copyOf(sources); substations = List.copyOf(substations);
-            apcs = List.copyOf(apcs); lamps = List.copyOf(lamps);
+            apcs = List.copyOf(apcs); lamps = List.copyOf(lamps); vents = List.copyOf(vents); alarms = List.copyOf(alarms);
+            Set<String> ids = new HashSet<>();
+            for (Source value : sources) unique(ids, value.id());
+            for (Substation value : substations) unique(ids, value.id());
+            for (Apc value : apcs) unique(ids, value.id());
+            for (Lamp value : lamps) unique(ids, value.id());
+            for (VentLoad value : vents) unique(ids, value.id());
+            for (AlarmLoad value : alarms) unique(ids, value.id());
+        }
+        public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
+                     List<Lamp> lamps, List<VentLoad> vents, long elapsedTicks) {
+            this(sources, substations, apcs, lamps, vents, List.of(), elapsedTicks);
+        }
+        public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
+                     List<Lamp> lamps, long elapsedTicks) {
+            this(sources, substations, apcs, lamps, List.of(), List.of(), elapsedTicks);
         }
     }
     public record Result(Map<String, Double> substationInputWatts, Map<String, Double> apcInputWatts,
-                         Map<String, Double> lampWatts, Map<String, Double> apcOutputWatts,
-                         Map<String, Double> batteryEnergyJoules) { }
+                          Map<String, Double> lampWatts, Map<String, Double> apcOutputWatts,
+                           Map<String, Double> batteryEnergyJoules, Map<String, Double> ventWatts,
+                           Map<String, Double> alarmWatts) {
+        public Result {
+            substationInputWatts = Map.copyOf(substationInputWatts); apcInputWatts = Map.copyOf(apcInputWatts);
+            lampWatts = Map.copyOf(lampWatts); apcOutputWatts = Map.copyOf(apcOutputWatts);
+            batteryEnergyJoules = Map.copyOf(batteryEnergyJoules); ventWatts = Map.copyOf(ventWatts);
+            alarmWatts = Map.copyOf(alarmWatts);
+        }
+    }
+
+    private static void unique(Set<String> ids, String id) {
+        if (id == null || id.isBlank() || !ids.add(id))
+            throw new IllegalArgumentException("Missing or duplicate power allocation id: " + id);
+    }
 
     public static Result solve(Input input) {
         Map<String, Double> hvInputs = new HashMap<>();
@@ -76,10 +128,16 @@ public final class PowerLiveLoop {
 
         Map<Integer, List<Apc>> apcsByApc = group(input.apcs(), Apc::apcKnown, Apc::apcComponent);
         Map<Integer, List<Lamp>> lampsByApc = group(input.lamps(), Lamp::known, Lamp::component);
+        Map<Integer, List<VentLoad>> ventsByApc = group(input.vents(), VentLoad::known, VentLoad::apcComponent);
+        Map<Integer, List<AlarmLoad>> alarmsByApc = group(input.alarms(), AlarmLoad::known, AlarmLoad::apcComponent);
         Map<String, Double> lampWatts = new HashMap<>();
+        Map<String, Double> ventWatts = new HashMap<>();
+        Map<String, Double> alarmWatts = new HashMap<>();
         Map<String, Double> apcOutputWatts = new HashMap<>();
         Map<String, Double> energies = new HashMap<>();
         for (Lamp lamp : input.lamps()) lampWatts.put(lamp.id(), 0.0);
+        for (VentLoad vent : input.vents()) ventWatts.put(vent.id(), 0.0);
+        for (AlarmLoad alarm : input.alarms()) alarmWatts.put(alarm.id(), 0.0);
         for (Apc apc : input.apcs()) {
             energies.put(apc.id(), validEnergy(apc.energyJoules()));
             apcOutputWatts.put(apc.id(), 0.0);
@@ -93,6 +151,8 @@ public final class PowerLiveLoop {
                     && apc.mvKnown()
                     && apcInputs.getOrDefault(apc.id(), 0.0) > 0).toList();
             List<Lamp> loads = lampsByApc.getOrDefault(entry.getKey(), List.of());
+            List<VentLoad> ventLoads = ventsByApc.getOrDefault(entry.getKey(), List.of());
+            List<AlarmLoad> alarmLoads = alarmsByApc.getOrDefault(entry.getKey(), List.of());
             double activeStored = active.stream().mapToDouble(apc -> validEnergy(apc.energyJoules())).sum();
             double seconds = Math.max(0, Math.min((double) input.elapsedTicks(),
                     PowerAllocation.MAX_VALUE)) / PowerAllocation.TICKS_PER_SECOND;
@@ -104,10 +164,16 @@ public final class PowerLiveLoop {
                     activeStored, activeStored, 0, batteryDischargeLimit, 1, 1);
             List<PowerAllocation.Source> offers = active.stream().map(apc -> new PowerAllocation.Source(apc.id(),
                     APC_INPUT_LIMIT, Math.min(APC_INPUT_LIMIT, apcInputs.getOrDefault(apc.id(), 0.0)))).toList();
+            List<PowerAllocation.Load> demands = new ArrayList<>();
+            loads.forEach(lamp -> demands.add(new PowerAllocation.Load(lamp.id(), lamp.kind().lampDemandWatts())));
+            if (!active.isEmpty()) ventLoads.forEach(vent -> demands.add(new PowerAllocation.Load(vent.id(), vent.demandWatts())));
+            if (!active.isEmpty()) alarmLoads.forEach(alarm -> demands.add(new PowerAllocation.Load(alarm.id(), alarm.demandWatts())));
             var allocation = PowerAllocation.solve(new PowerAllocation.Network(PowerAllocation.Tier.APC, true,
-                     offers, loads.stream().map(lamp -> new PowerAllocation.Load(lamp.id(), lamp.kind().lampDemandWatts())).toList(),
-                    battery), input.elapsedTicks());
-            allocation.deliveredWatts().forEach(lampWatts::put);
+                     offers, demands,
+                     battery), input.elapsedTicks());
+            for (Lamp lamp : loads) lampWatts.put(lamp.id(), allocation.deliveredWatts().getOrDefault(lamp.id(), 0.0));
+            for (VentLoad vent : ventLoads) ventWatts.put(vent.id(), allocation.deliveredWatts().getOrDefault(vent.id(), 0.0));
+            for (AlarmLoad alarm : alarmLoads) alarmWatts.put(alarm.id(), allocation.deliveredWatts().getOrDefault(alarm.id(), 0.0));
             Map<String, Double> sourceUsed = allocateSourceUse(active, apcInputs,
                     allocation.sourceUsedWatts());
             Map<String, Double> batteryUsed = allocateBatteryUse(active,
@@ -137,7 +203,7 @@ public final class PowerLiveLoop {
             }
         }
         return new Result(Map.copyOf(hvInputs), Map.copyOf(apcInputs), Map.copyOf(lampWatts),
-                Map.copyOf(apcOutputWatts), Map.copyOf(energies));
+                 Map.copyOf(apcOutputWatts), Map.copyOf(energies), Map.copyOf(ventWatts), Map.copyOf(alarmWatts));
     }
 
     /**

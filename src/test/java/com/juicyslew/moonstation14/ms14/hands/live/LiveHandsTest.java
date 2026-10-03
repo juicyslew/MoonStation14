@@ -120,6 +120,43 @@ class LiveHandsTest {
         assertTrue(result.takenStack().isEmpty());
     }
 
+    @Test
+    void consumeOneConsumesOnlyExactActiveHandItemAndKeepsRemainingOwnershipToken() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        ItemStack one = new ItemStack(Items.DIAMOND);
+        LiveHands single = empty.putWhole(0, "left", TOKEN, one).state();
+        LiveHands removed = single.consumeOne(1, "left", TOKEN.value(), one).orElseThrow();
+        assertTrue(removed.stackCopy("left").isEmpty());
+        assertEquals(2, removed.revision());
+        assertEquals(1, single.stackCopy("left").orElseThrow().getCount());
+
+        ItemStack three = new ItemStack(Items.DIAMOND, 3);
+        LiveHands stacked = empty.putWhole(0, "left", TOKEN, three).state();
+        LiveHands remainder = stacked.consumeOne(1, "left", TOKEN.value(), three).orElseThrow();
+        assertEquals(2, remainder.stackCopy("left").orElseThrow().getCount());
+        assertEquals(Optional.of(TOKEN.value()), remainder.token("left"));
+        assertEquals(3, stacked.stackCopy("left").orElseThrow().getCount());
+        assertEquals("left", remainder.activeHand());
+    }
+
+    @Test
+    void consumeOneRejectsMismatchWrongHandOverflowAndOversizedExpectedStackWithoutMutation() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        ItemStack stack = new ItemStack(Items.DIAMOND, 3);
+        LiveHands occupied = empty.putWhole(0, "left", TOKEN, stack).state();
+        assertTrue(occupied.consumeOne(1, "right", TOKEN.value(), stack).isEmpty());
+        assertTrue(occupied.consumeOne(1, "left", "wrong-token", stack).isEmpty());
+        assertTrue(occupied.consumeOne(1, "left", TOKEN.value(), new ItemStack(Items.EMERALD, 3)).isEmpty());
+        assertTrue(occupied.consumeOne(1, "left", TOKEN.value(), new ItemStack(Items.DIAMOND, 2)).isEmpty());
+        assertTrue(occupied.consumeOne(Long.MAX_VALUE, "left", TOKEN.value(), stack).isEmpty());
+        assertTrue(occupied.consumeOne(1, "left", TOKEN.value(), new ItemStack(Items.DIAMOND, 65)).isEmpty());
+        assertEquals(3, occupied.stackCopy("left").orElseThrow().getCount());
+        assertEquals(1, occupied.revision());
+
+        LiveHands overflow = parse("{\"hands\":[{\"id\":\"left\"}],\"active\":\"left\",\"revision\":9223372036854775807}");
+        assertTrue(overflow.consumeOne(Long.MAX_VALUE, "left", TOKEN.value(), stack).isEmpty());
+    }
+
     @Test void switchingAllowsIndependentPickupSlotsWithoutMovingStacks() {
         LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
         assertTrue(empty.stackCopy(empty.activeHand()).isEmpty());

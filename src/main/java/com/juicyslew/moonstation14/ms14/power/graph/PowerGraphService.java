@@ -71,19 +71,29 @@ public final class PowerGraphService {
         return state.graph.nodesNear(center, radius, tier);
     }
 
-    /** Cached nearest-node choice; cache entries are invalidated by every graph revision. */
-    public static CableFaceNode nearestLampNode(ServerLevel level, BlockPos center) {
+    /** Cached loaded-known APC extension receiver for lamps and local ventilation devices. */
+    public static CableFaceNode nearestApcExtensionNode(ServerLevel level, BlockPos center) {
+        return nearestApcExtensionNode(level, center, 3);
+    }
+
+    /** Prototype-configured receiver reach; cache identity includes the radius. */
+    public static CableFaceNode nearestApcExtensionNode(ServerLevel level, BlockPos center, int radius) {
+        if (radius < 1 || radius > 16) return null;
         LevelState state = STATES.get(level);
         if (!PowerSimulationGate.isEnabled() || state == null || !state.pending.isEmpty()) return null;
         long revision = state.graph.revision();
         CachedLampNode cached = state.lampChoices.get(center);
-        if (cached != null && cached.revision == revision) return cached.node;
-        java.util.List<CableFaceNode> nearby = state.graph.nodesNear(center, 3,
+        if (cached != null && cached.revision == revision && cached.radius == radius) return cached.node;
+        java.util.List<CableFaceNode> nearby = state.graph.nodesNear(center, radius,
                 com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC);
         if (nearby == null) return null;
         CableFaceNode nearest = nearestKnownLampNode(state.graph, center, nearby);
-        state.lampChoices.put(center.immutable(), new CachedLampNode(revision, nearest));
+        state.lampChoices.put(center.immutable(), new CachedLampNode(revision, radius, nearest));
         return nearest;
+    }
+
+    public static CableFaceNode nearestLampNode(ServerLevel level, BlockPos center) {
+        return nearestApcExtensionNode(level, center);
     }
 
     static CableFaceNode nearestKnownLampNode(LoadedPowerGraph graph, BlockPos center,
@@ -243,5 +253,5 @@ public final class PowerGraphService {
         final Map<BlockPos, CachedLampNode> lampChoices = new java.util.HashMap<>();
         long topologyGeneration;
     }
-    private record CachedLampNode(long revision, CableFaceNode node) { }
+    private record CachedLampNode(long revision, int radius, CableFaceNode node) { }
 }

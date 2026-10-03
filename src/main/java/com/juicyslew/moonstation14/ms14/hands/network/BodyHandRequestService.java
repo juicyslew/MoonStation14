@@ -19,12 +19,54 @@ import java.util.Map;
 /** Main-thread-only request gate; neither a menu nor a carrier-inventory route. */
 public final class BodyHandRequestService {
     private static final Map<ServerPlayer, SequenceGate> GATES = new IdentityHashMap<>();
+    private static final Map<ServerPlayer, SequenceGate> BLOCK_USE_GATES = new IdentityHashMap<>();
 
     private BodyHandRequestService() { }
 
     public static void logout(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) GATES.remove(player);
+        if (event.getEntity() instanceof ServerPlayer player) { GATES.remove(player); BLOCK_USE_GATES.remove(player); }
     }
+
+    /** Read-only admission only: deliberately does not invoke block use, item use, or protection callbacks. */
+    public static boolean probeBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        return admitBlockUse(actor, request) != null;
+    }
+
+    /** Package-private authenticated read-only admission snapshot for narrowly scoped dispatchers. */
+    public static BlockUseAdmission admitBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        if (request == null) return null;
+        var resolved = HandActorAuthority.resolve(actor);
+        if (resolved.isEmpty()) return null;
+        var authority = resolved.orElseThrow();
+        if (!BodyHandStateService.hasIssued(actor, authority)) return null;
+        var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
+        if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null) return null;
+        LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || !request.handId().equals(hands.activeHand())
+                || !hands.handIds().contains(request.handId()) || !authority.handIds().contains(request.handId())
+                || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision()) return null;
+        var token = hands.token(request.handId());
+        var stack = hands.stackCopy(request.handId());
+        if (!blockUseHandStateMatches(request.expectedToken(), token.isPresent(), stack.isPresent(), token.orElse(null)))
+            return null;
+        if (!(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                || !HandActorAuthority.revalidate(actor, authority)) return null;
+        // No reliable controlled-body crouch authority is currently defined. The hint is intentionally ignored.
+        var hit = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
+        return hit != null && HandActorAuthority.revalidate(actor, authority)
+                && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
+                && hands.revision() == request.expectedRevision()
+                ? new BlockUseAdmission(authority, hands, hit) : null;
+    }
+
+    static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
+                                            String actualToken) {
+        return expectedToken == null ? !tokenPresent && !stackPresent
+                : tokenPresent && stackPresent && expectedToken.equals(actualToken);
+    }
+
+    public record BlockUseAdmission(HandActorAuthority.Snapshot authority, LiveHands hands,
+                                   BodyBlockUseTargetProbe.Target hit) { }
 
     public static BodyHandActionResult apply(ServerPlayer actor, BodyHandActionRequest request) {
         // resolve includes exact player-list identity, main thread, non-fake actor, marker and clean carrier.

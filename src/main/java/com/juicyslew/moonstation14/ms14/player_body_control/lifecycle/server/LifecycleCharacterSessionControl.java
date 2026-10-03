@@ -209,6 +209,18 @@ public final class LifecycleCharacterSessionControl {
         return Optional.of(new ActiveCharacterBody(pinned.body, pinned.epoch, pinned.mindId, pinned.bodyId));
     }
 
+    /** Read-only Shift state from an intent that this exact committed body successfully applied this tick. */
+    public static boolean hasAppliedSneak(ServerPlayer player, PlayerCharacterHarnessEntity body, long epoch) {
+        if (player == null || body == null || !(player.level() instanceof ServerLevel level)
+                || level.getServer() == null || !level.getServer().isSameThread()) return false;
+        Session session = session(level.getServer(), player.getUUID());
+        return session != null && session.player == player && session.body == body && session.epoch == epoch
+                && session.committed && com.juicyslew.moonstation14.ms14.player_body_control.action.CharacterAppliedSneak
+                        .freshAppliedSneak(session.appliedSneak, session.appliedIntentTick, level.getGameTime())
+                && authorized(session)
+                && connectedExact(level.getServer(), player) && live(body, level);
+    }
+
     /** Immutable point-in-time authority view for the lifecycle-owned CHARACTER body. */
     public record ActiveCharacterBody(PlayerCharacterHarnessEntity body, long epoch,
                                       MindId mindId, MobHarnessId harnessId) { }
@@ -335,6 +347,8 @@ public final class LifecycleCharacterSessionControl {
                 body.setXRot(intent.pitch());
                 body.setYHeadRot(intent.yaw());
                 session.lastAppliedSequence = intent.sequence();
+                session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
+                session.appliedIntentTick = level.getGameTime();
             } catch (RuntimeException | Error failure) {
                 fail(server, session, FailureReason.WORLD_STEP_ERROR);
                 return;
@@ -818,6 +832,7 @@ public final class LifecycleCharacterSessionControl {
         final MindId mindId; final MobHarnessId bodyId; boolean committed, beginSent;
         final GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
         long intentTick = Long.MIN_VALUE, lastAppliedSequence, lastSnapshotTick = Long.MIN_VALUE;
+        long appliedIntentTick = Long.MIN_VALUE; boolean appliedSneak;
         int intentCount;
         Session(ServerPlayer player, PlayerCharacterHarnessEntity body, PlayerLifecycleRegistry lifecycle,
                  long epoch) {
