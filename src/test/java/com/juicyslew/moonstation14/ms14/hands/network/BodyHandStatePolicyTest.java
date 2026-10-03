@@ -82,42 +82,40 @@ class BodyHandStatePolicyTest {
         invalidCount.writeUtf("minecraft:stone");
         invalidCount.writeVarInt(0);
         invalidCount.writeBoolean(false);
+        invalidCount.writeBoolean(false);
         assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(invalidCount));
     }
 
-    @Test void pouchSlotsDistinguishEmptyAndOccupiedAndRejectAliasedOrOversizedChildren() {
-        String pouch = ModItems.POUCH.getId().toString();
-        var empty = new BodyHandStateSnapshot.Hand("left", "pouch-token", pouch, 1, true, null, null, 0);
-        var occupied = new BodyHandStateSnapshot.Hand("left", "pouch-token", pouch, 1,
-                true, "child-token", "minecraft:stone", 64);
-        for (var slot : List.of(empty, occupied)) {
-            var snapshot = ok(List.of(slot, new BodyHandStateSnapshot.Hand("right", null, null, 0)), "left");
-            var buf = buffer();
-            BodyHandStateSnapshot.STREAM_CODEC.encode(buf, snapshot);
-            assertEquals(snapshot, BodyHandStateSnapshot.STREAM_CODEC.decode(buf));
-        }
+    @Test void snapshotRejectsPouchItemAndForgedLegacyBoolean() {
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
-                "left", "p", "minecraft:stone", 1, true, null, null, 0));
+                "left", "p", "moonstation14:pouch", 1));
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
-                "left", "p", pouch, 1));
-        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
-                "left", "p", pouch, 1, true, "p", "minecraft:stone", 1));
-        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.Hand(
-                "left", "p", pouch, 1, true, "c", "minecraft:stone", 65));
-        assertThrows(IllegalArgumentException.class, () -> ok(List.of(occupied,
-                new BodyHandStateSnapshot.Hand("right", "child-token", "minecraft:stone", 1)), "left"));
+                "left", "bag-token", ModItems.BAG.getId().toString(), 1,
+                false, "child", "moonstation14:pouch", 1));
         var forged = header(1);
         forged.writeUtf("right");
         forged.writeBoolean(true);
-        forged.writeUtf("pouch-token");
-        forged.writeUtf(pouch);
+        forged.writeUtf("token");
+        forged.writeUtf("minecraft:stone");
         forged.writeVarInt(1);
         forged.writeBoolean(true);
-        forged.writeBoolean(true);
-        forged.writeUtf("child-token");
-        forged.writeUtf("minecraft:stone");
-        forged.writeVarInt(65);
+        forged.writeBoolean(false);
+        forged.writeVarInt(0);
+        forged.writeVarInt(0);
         assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(forged));
+    }
+
+    @Test void legacyBagAndBeltChildrenRoundTripWithoutBecomingPouches() {
+        for (String host : List.of(ModItems.BAG.getId().toString(), ModItems.BELT.getId().toString())) {
+            var held = new BodyHandStateSnapshot.Hand("right", "host-token", host, 1,
+                    false, "child-token", "minecraft:diamond_pickaxe", 1);
+            var snapshot = ok(List.of(held, new BodyHandStateSnapshot.Hand("left", null, null, 0)), "right");
+            var buf = buffer();
+            BodyHandStateSnapshot.STREAM_CODEC.encode(buf, snapshot);
+            var decoded = BodyHandStateSnapshot.STREAM_CODEC.decode(buf);
+            assertEquals(snapshot, decoded);
+            assertFalse(decoded.hands().getFirst().pouch());
+        }
     }
 
     @Test void equipmentRoundTripAndRejectsSpoofedSlotsAndAliasedTokens() {
@@ -157,6 +155,59 @@ class BodyHandStatePolicyTest {
         var rejectionBuf = buffer();
         BodyHandStateSnapshot.STREAM_CODEC.encode(rejectionBuf, rejected);
         assertEquals(rejected, BodyHandStateSnapshot.STREAM_CODEC.decode(rejectionBuf));
+    }
+
+    @Test void explicitGridHostRoundTripsRotationAndRequiresMatchingOwner() {
+        var bag = new BodyHandStateSnapshot.Hand("right", "bag-token", ModItems.BAG.getId().toString(), 1);
+        var grid = new BodyHandStateSnapshot.GridHost("bag-token", "bag", 7, 4,
+                List.of(new BodyHandStateSnapshot.GridEntry("child", "minecraft:stone", 2, 0, 0, 270)));
+        var snapshot = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK,
+                UUID.randomUUID(), UUID.randomUUID(), 7, 2, "right", List.of(bag), List.of(), List.of(grid));
+        var buf = buffer();
+        BodyHandStateSnapshot.STREAM_CODEC.encode(buf, snapshot);
+        assertEquals(snapshot, BodyHandStateSnapshot.STREAM_CODEC.decode(buf));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot(0, 1,
+                BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), UUID.randomUUID(), 7, 2, "right",
+                List.of(new BodyHandStateSnapshot.Hand("right", "other", "minecraft:stone", 1)), List.of(), List.of(grid)));
+        var collidingGrid = new BodyHandStateSnapshot.GridHost("bag-token", "bag", 7, 4,
+                List.of(new BodyHandStateSnapshot.GridEntry("child", "minecraft:stone", 1, 0, 0, 0)));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot(0, 1,
+                BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), UUID.randomUUID(), 7, 2, "right",
+                List.of(bag, new BodyHandStateSnapshot.Hand("left", "child", "minecraft:stone", 1)), List.of(), List.of(collidingGrid)));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.GridEntry(
+                "bad", "minecraft:stone", -1, 0, 0, 0));
+    }
+
+    @Test void gridValidationChecksFootprintsOwnershipAndTrailingData() {
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
+                List.of(new BodyHandStateSnapshot.GridEntry("pick", "moonstation14:pickaxe", 1, 5, 0, 0))));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
+                List.of(new BodyHandStateSnapshot.GridEntry("pick", "moonstation14:pickaxe", 1, 0, 0, 0),
+                        new BodyHandStateSnapshot.GridEntry("other", "minecraft:stone", 1, 1, 1, 0))));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
+                java.util.Collections.nCopies(33, new BodyHandStateSnapshot.GridEntry("x", "minecraft:stone", 1, 0, 0, 0))));
+        var belt = new BodyHandStateSnapshot.EquipmentSlot("belt", "belt-token", ModItems.BELT.getId().toString(), 1, null, null, 0);
+        var wrong = new BodyHandStateSnapshot.GridHost("belt-token", "bag", 7, 4, List.of());
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK,
+                UUID.randomUUID(), UUID.randomUUID(), 7, 0, "right", List.of(new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of(belt), List.of(wrong)));
+        var trailing = buffer();
+        BodyHandStateSnapshot.STREAM_CODEC.encode(trailing, BodyHandStateSnapshot.rejected(new BodyHandStateQuery(0, 4), BodyHandStateSnapshot.Reason.REPLAY));
+        trailing.writeByte(0);
+        assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(trailing));
+    }
+
+    @Test void rejectsGridChildAliasingAnyHandOrEquipmentChild() {
+        var bag = new BodyHandStateSnapshot.Hand("right", "bag", ModItems.BAG.getId().toString(), 1);
+        var hand = new BodyHandStateSnapshot.Hand("left", "hand", "minecraft:stone", 1);
+        var equipment = new BodyHandStateSnapshot.EquipmentSlot("belt", "belt", ModItems.BELT.getId().toString(),
+                1, "worn-child", "minecraft:diamond", 1);
+        for (String collision : List.of("hand", "worn-child")) {
+            var host = new BodyHandStateSnapshot.GridHost("bag", "bag", 7, 4,
+                    List.of(new BodyHandStateSnapshot.GridEntry(collision, "minecraft:diamond_pickaxe", 1, 0, 0, 0)));
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot(0, 1,
+                    BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), UUID.randomUUID(), 7, 0,
+                    "right", List.of(bag, hand), List.of(equipment), List.of(host)));
+        }
     }
 
     private static RegistryFriendlyByteBuf buffer() {

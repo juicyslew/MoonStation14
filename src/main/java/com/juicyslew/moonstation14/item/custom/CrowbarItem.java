@@ -15,10 +15,15 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyMetalTool;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyUseItemContext;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Map;
 
-public class CrowbarItem extends Item {
+public class CrowbarItem extends Item implements BodyMetalTool {
     private static final Map<Block, ConstructionResult> CROWBAR_MAP =
             Map.of(
                     ModBlocks.STEEL_WALL_BLOCK.get(), new ConstructionResult(
@@ -37,6 +42,41 @@ public class CrowbarItem extends Item {
 
     public CrowbarItem(Properties properties){
         super(properties);
+    }
+
+    @Override public boolean supports(ItemStack stack) { return stack != null && !stack.isEmpty() && stack.getItem() == this; }
+
+    @Override public BodyBlockUseResult.Outcome use(BodyUseItemContext context) {
+        if (!supports(context.stack()) || !(context.authority().body().level() instanceof ServerLevel level)) return BodyBlockUseResult.Outcome.DENIED;
+        BlockState old = level.getBlockState(context.pos());
+        ConstructionResult result = CROWBAR_MAP.get(old.getBlock());
+        if (result == null || !level.hasChunkAt(context.pos()) || !level.getWorldBorder().isWithinBounds(context.pos())
+                || level.isOutsideBuildHeight(context.pos()) || !level.mayInteract(context.actor(), context.pos())) return BodyBlockUseResult.Outcome.DENIED;
+        ItemStack before = context.stack(), after = before.copy();
+        if (after.getMaxDamage() > 0) after.setDamageValue(after.getDamageValue() + 1);
+        if (BodyHeldItemMutation.preview(context.actor(), context.authority(), context.hands(), context.handId(), context.token(), context.revision(), before, after).isEmpty()) return BodyBlockUseResult.Outcome.DENIED;
+        BlockState replacement = result.resultBlock.defaultBlockState();
+        if (!level.setBlock(context.pos(), replacement, Block.UPDATE_ALL)) return BodyBlockUseResult.Outcome.DENIED;
+        ItemEntity drop = null;
+        if (result.extraDropItem != null) {
+            drop = new ItemEntity(level, context.authority().body().getX(), context.authority().body().getY(), context.authority().body().getZ(), new ItemStack(result.extraDropItem, result.extraDropAmount));
+            drop.setDefaultPickUpDelay();
+            if (!level.addFreshEntity(drop)) {
+                if (level.getBlockState(context.pos()) == replacement && level.getBlockEntity(context.pos()) == null
+                        && level.setBlock(context.pos(), old, Block.UPDATE_ALL)) return BodyBlockUseResult.Outcome.DENIED;
+                return BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+            }
+        }
+        var committed = BodyHeldItemMutation.commit(context.actor(), context.authority(), context.hands(), context.handId(), context.token(), context.revision(), before, after);
+        if (committed != BodyHeldItemMutation.Result.SUCCESS) {
+            if (drop != null && drop.isAlive() && level.getEntity(drop.getUUID()) == drop) drop.discard();
+            if (level.getBlockState(context.pos()) == replacement && level.getBlockEntity(context.pos()) == null
+                    && !level.setBlock(context.pos(), old, Block.UPDATE_ALL)) return BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+            if (level.getBlockState(context.pos()) != old) return BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+            return committed == BodyHeldItemMutation.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+        }
+        level.playSound(null, context.pos(), result.interactionSound, SoundSource.BLOCKS);
+        return BodyBlockUseResult.Outcome.PLACED;
     }
 
     @Override

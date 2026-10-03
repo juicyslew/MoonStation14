@@ -141,12 +141,20 @@ public final class PuddleSlipGameTests {
     public static void acceptedPlayerEndpointIgnoresCrossingsAndNearbyMisses(GameTestHelper helper) {
         AtomicInteger events = new AtomicInteger();
         AtomicReference<UUID> crossingId = new AtomicReference<>();
+        AtomicReference<FakePlayer> crossingFixture = new AtomicReference<>();
+        AtomicReference<FakePlayer> parallelFixture = new AtomicReference<>();
+        AtomicReference<FakePlayer> aboveFixture = new AtomicReference<>();
         java.util.function.Consumer<com.juicyslew.moonstation14.ms14.slip.SlipEvent> observer = event ->
                 {
                     if (event.target().getUUID().equals(crossingId.get())) events.incrementAndGet();
                 };
         require(SlipSystem.addListener(observer), "endpoint-contact observer registration");
-        helper.runAfterDelay(29, () -> SlipSystem.removeListener(observer));
+        helper.runAfterDelay(29, () -> {
+            SlipSystem.removeListener(observer);
+            discardFixturePlayer(crossingFixture.get());
+            discardFixturePlayer(parallelFixture.get());
+            discardFixturePlayer(aboveFixture.get());
+        });
 
         BlockPos floor = new BlockPos(2, 0, 2);
         BlockPos puddlePos = floor.above();
@@ -156,13 +164,16 @@ public final class PuddleSlipGameTests {
         net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
 
         FakePlayer crossing = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "swept-crossing"));
+        crossingFixture.set(crossing);
         putAt(crossing, helper, new BlockPos(3, 1, 2));
         require(level.addFreshEntity(crossing), "crossing FakePlayer must join the GameTest level");
         crossingId.set(crossing.getUUID());
         FakePlayer parallel = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "swept-parallel"));
+        parallelFixture.set(parallel);
         putAt(parallel, helper, new BlockPos(3, 1, 3));
         require(level.addFreshEntity(parallel), "parallel FakePlayer must join the GameTest level");
         FakePlayer above = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "swept-above"));
+        aboveFixture.set(above);
         putAt(above, helper, new BlockPos(3, 2, 2));
         require(level.addFreshEntity(above), "above FakePlayer must join the GameTest level");
 
@@ -178,6 +189,9 @@ public final class PuddleSlipGameTests {
             require(!CharacterControlSystem.isStunned(parallel) && !CharacterControlSystem.isStunned(above),
                     "parallel z miss and vertically separated sweep must remain inert");
             SlipSystem.removeListener(observer);
+            discardFixturePlayer(crossing);
+            discardFixturePlayer(parallel);
+            discardFixturePlayer(above);
             helper.succeed();
         });
     }

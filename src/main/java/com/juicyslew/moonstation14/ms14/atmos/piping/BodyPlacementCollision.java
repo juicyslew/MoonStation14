@@ -15,10 +15,15 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /** Read-only collision preflight for newly introduced placement geometry, not selection outlines. */
-final class BodyPlacementCollision {
+public final class BodyPlacementCollision {
     private BodyPlacementCollision() { }
 
     static boolean deviceIntersects(ServerLevel level, LivingEntity body, BlockPos pos, BlockState placement) {
+        return intersects(placement.getCollisionShape(level, pos, CollisionContext.of(body)), pos, body.getBoundingBox());
+    }
+
+    /** Collision preflight for a complete newly placed block shape. */
+    public static boolean blockIntersects(ServerLevel level, LivingEntity body, BlockPos pos, BlockState placement) {
         return intersects(placement.getCollisionShape(level, pos, CollisionContext.of(body)), pos, body.getBoundingBox());
     }
 

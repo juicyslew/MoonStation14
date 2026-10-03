@@ -1,0 +1,14 @@
+Source repository: https://github.com/space-wizards/space-station-14
+Pinned source commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Upstream path: Resources/Audio/Effects/beep1.ogg
+Destination path: src/main/resources/assets/moonstation14/sounds/grenade/beep1.ogg
+Source bytes: 6244
+Destination bytes: 6244
+Source SHA-256: 25302068e2faa0d87eedbabbba988cbcf07b5494970e1afc768f991d018dd46c
+Destination SHA-256: 25302068e2faa0d87eedbabbba988cbcf07b5494970e1afc768f991d018dd46c
+The local file is byte-for-byte identical to the source and was not edited.
+
+License: CC0-1.0
+Copyright: "beep1.wav" by thisusernameis of Freesound.org. Mixed from stereo to mono.
+Source URL: https://freesound.org/people/thisusernameis/sounds/426891/
+Upstream modification: Mixed from stereo to mono (as recorded in upstream metadata); this copy introduces no further modification.

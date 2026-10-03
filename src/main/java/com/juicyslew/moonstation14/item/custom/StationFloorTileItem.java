@@ -28,6 +28,9 @@ public class StationFloorTileItem extends Item {
         this.finish = Objects.requireNonNull(finish);
     }
 
+    /** Existing Minecraft floor adaptation finish used by the body-owned tool path. */
+    public StationFloorBlock.TileFinish bodyUseFinish() { return finish; }
+
     @Override
     public InteractionResult useOn(UseOnContext context) {
         if (context.getClickedFace() != Direction.UP) {

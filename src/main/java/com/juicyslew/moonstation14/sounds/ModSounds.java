@@ -15,6 +15,11 @@ public class ModSounds {
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
+    // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
+    // both end at 32 blocks, independently of the quieter playback gain at each call site.
+    public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);
+    public static final Supplier<SoundEvent> GRENADE_EXPLODE = registerFixedRangeSoundEvent("grenade/explode", 32.0F);
+    public static final Supplier<SoundEvent> GRENADE_EXPLODE_FAR = registerSoundEvent("grenade/explode_far");
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),
             java.util.Map.entry("crying", registerSoundEvent("emote/crying")),
@@ -35,6 +40,11 @@ public class ModSounds {
     private static Supplier<SoundEvent> registerSoundEvent(String name){
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));
+    }
+
+    private static Supplier<SoundEvent> registerFixedRangeSoundEvent(String name, float range) {
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, name);
+        return SOUND_EVENTS.register(name, () -> SoundEvent.createFixedRangeEvent(id, range));
     }
 
     public static void register(IEventBus eventBus) {

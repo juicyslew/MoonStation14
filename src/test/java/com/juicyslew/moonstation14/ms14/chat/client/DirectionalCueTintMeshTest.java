@@ -21,7 +21,7 @@ class DirectionalCueTintMeshTest {
         LocalSpeechReviewOverlay.clear();
         try {
             int width = 854, height = 480;
-            var point = new DirectionalCueGeometry.Point(838, 390, false, 0, false, false);
+            var point = new DirectionalCueGeometry.Point(838, 48, false, 0, false, false);
             var panel = LocalSpeechReviewOverlay.layout(width, height, false);
             assertTrue(point.x() >= panel.left() && point.x() <= panel.right());
             assertTrue(point.y() >= panel.top() && point.y() <= panel.bottom());

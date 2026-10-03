@@ -157,6 +157,38 @@ class LiveHandsTest {
         assertTrue(overflow.consumeOne(Long.MAX_VALUE, "left", TOKEN.value(), stack).isEmpty());
     }
 
+    @Test
+    void activeUseMutationPreservesOwnerAndOtherHandsAndBoundsQuantityAndType() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        LiveHands original = empty.putWhole(0, "left", TOKEN, new ItemStack(Items.DIAMOND, 3)).state()
+                .putWhole(1, "right", new ItemToken("other"), new ItemStack(Items.EMERALD)).state();
+        ItemStack before = original.stackCopy("left").orElseThrow();
+        ItemStack after = before.copy();
+        after.set(DataComponents.CUSTOM_NAME, Component.literal("used"));
+        LiveHands updated = original.replaceActiveUseStack(2, "left", TOKEN.value(), before, after).orElseThrow();
+        assertEquals(3, updated.stackCopy("left").orElseThrow().getCount());
+        assertEquals("used", updated.stackCopy("left").orElseThrow().getHoverName().getString());
+        assertEquals(Optional.of(TOKEN.value()), updated.token("left"));
+        assertTrue(ItemStack.isSameItemSameComponents(original.stackCopy("right").orElseThrow(),
+                updated.stackCopy("right").orElseThrow()));
+        assertEquals(original.token("right"), updated.token("right"));
+        assertEquals("left", updated.activeHand());
+        assertEquals(3, updated.revision());
+        ItemStack smaller = before.copy(); smaller.setCount(2);
+        assertTrue(original.replaceActiveUseStack(2, "left", TOKEN.value(), before, smaller).isPresent());
+        assertTrue(original.replaceActiveUseStack(2, "left", TOKEN.value(), before, ItemStack.EMPTY).isPresent());
+        assertTrue(original.replaceActiveUseStack(2, "left", TOKEN.value(), before,
+                new ItemStack(Items.DIAMOND, 4)).isEmpty());
+        assertTrue(original.replaceActiveUseStack(2, "left", TOKEN.value(), before,
+                new ItemStack(Items.EMERALD)).isEmpty());
+        assertTrue(empty.replaceActiveUseStack(0, "left", "new-token", ItemStack.EMPTY,
+                new ItemStack(Items.DIAMOND)).isEmpty());
+        assertTrue(original.replaceActiveUseStack(1, "left", TOKEN.value(), before, after).isEmpty());
+        assertTrue(original.replaceActiveUseStack(2, "right", TOKEN.value(), before, after).isEmpty());
+        assertTrue(original.replaceActiveUseStack(2, "left", "wrong", before, after).isEmpty());
+        assertTrue(original.replaceActiveUseStack(2, "left", TOKEN.value(), new ItemStack(Items.EMERALD, 3), after).isEmpty());
+    }
+
     @Test void switchingAllowsIndependentPickupSlotsWithoutMovingStacks() {
         LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
         assertTrue(empty.stackCopy(empty.activeHand()).isEmpty());

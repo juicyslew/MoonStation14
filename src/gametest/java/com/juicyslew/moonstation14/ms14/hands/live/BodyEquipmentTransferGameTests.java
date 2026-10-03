@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
@@ -91,7 +92,7 @@ public final class BodyEquipmentTransferGameTests {
         helper.runAfterDelay(1, () -> {
             LiveHands empty = LiveHands.initialize(body).orElseThrow();
             for (ItemStack candidate : List.of(new ItemStack(Items.DIAMOND_CHESTPLATE),
-                    new ItemStack(ModItems.POUCH.get()), new ItemStack(ModItems.BAG.get()))) {
+                    new ItemStack(ModItems.BAG.get()))) {
                 LiveHands held = empty.putWhole(0, "left", new ItemToken("test"), candidate).state();
                 body.setData(ModDataAttachments.LIVE_HANDS.get(), held);
                 require(BodyEquipmentTransfer.transferOwned(body, "left", "belt", "test", 1, true, () -> true)
@@ -105,6 +106,25 @@ public final class BodyEquipmentTransferGameTests {
             require(BodyEquipmentTransfer.transferOwned(body, "left", "belt", "hostile", 1, true, () -> true)
                     == BodyEquipmentTransfer.Result.DENIED && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == held,
                     "native container cannot enter equipment");
+            ItemStack dual = PouchContents.put(new ItemStack(ModItems.BELT.get()), "child",
+                    new ItemStack(Items.APPLE)).orElseThrow();
+            dual.set(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get(), GridContents.empty());
+            LiveHands dualHeld = empty.putWhole(0, "left", new ItemToken("dual"), dual).state();
+            body.setData(ModDataAttachments.LIVE_HANDS.get(), dualHeld);
+            require(BodyEquipmentTransfer.transferOwned(body, "left", "belt", "dual", 1, true, () -> true)
+                    == BodyEquipmentTransfer.Result.DENIED
+                    && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == dualHeld,
+                    "dual storage components cannot enter equipment");
+            ItemStack gridBag = new ItemStack(ModItems.BAG.get());
+            gridBag.set(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get(), GridContents.empty());
+            LiveHands gridHeld = empty.putWhole(0, "left", new ItemToken("grid"), gridBag).state();
+            body.setData(ModDataAttachments.LIVE_HANDS.get(), gridHeld);
+            require(BodyEquipmentTransfer.transferOwned(body, "left", "back", "grid", 1, true, () -> true)
+                    == BodyEquipmentTransfer.Result.SUCCESS, "valid grid bag accepted in back");
+            require(BodyEquipmentTransfer.transferOwned(body, "left", "back", "grid", 2, false, () -> true)
+                    == BodyEquipmentTransfer.Result.SUCCESS
+                    && GridContents.read(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())
+                    .stackCopy("left").orElseThrow()).isPresent(), "grid bag unequips intact");
             LiveHands bag = empty.putWhole(0, "left", new ItemToken("bag"), new ItemStack(ModItems.BAG.get())).state();
             body.setData(ModDataAttachments.LIVE_HANDS.get(), bag);
             require(BodyEquipmentTransfer.transferOwned(body, "left", "back", "bag", 1, true, () -> true)

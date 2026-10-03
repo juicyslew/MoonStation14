@@ -11,6 +11,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -32,8 +33,8 @@ public class AtmosphereAnalyzerItem extends Item {
         var stack = player.getItemInHand(hand);
         if (level.isClientSide) return InteractionResultHolder.sidedSuccess(stack, true);
         if (level instanceof ServerLevel serverLevel) {
-            BlockPos target = BlockPos.containing(player.getEyePosition());
-            report(serverLevel, player, target, null);
+            BlockPos target = eyeTarget(player.getEyePosition());
+            reportForBody(serverLevel, player, player, target, null);
         }
         return InteractionResultHolder.sidedSuccess(stack, false);
     }
@@ -43,24 +44,29 @@ public class AtmosphereAnalyzerItem extends Item {
         Level level = context.getLevel();
         if (level.isClientSide) return InteractionResult.sidedSuccess(true);
         if (level instanceof ServerLevel serverLevel && context.getPlayer() != null) {
-            report(serverLevel, context.getPlayer(), context.getClickedPos(), context.getClickedFace());
+            reportForBody(serverLevel, context.getPlayer(), context.getPlayer(), context.getClickedPos(), context.getClickedFace());
         }
         return InteractionResult.sidedSuccess(false);
     }
 
-    private static void report(ServerLevel level, Player player, BlockPos clicked, Direction face) {
+    public static void reportForBody(ServerLevel level, Player recipient, LivingEntity body, BlockPos clicked, Direction face) {
         if (!AtmosphereService.INSTANCE.isEnabled()) {
-            player.sendSystemMessage(Component.literal(DISABLED_MESSAGE));
+            recipient.sendSystemMessage(Component.literal(DISABLED_MESSAGE));
             return;
         }
 
         TargetSample<AtmosphereReading> result = sampleTarget(true, clicked, face,
                 pos -> AtmosphereService.INSTANCE.readAtmosphere(level, pos));
         if (result.sample().isPresent()) {
-            player.sendSystemMessage(Component.literal(AtmosphereSampleFormatter.format(result.sample().get())));
+            recipient.sendSystemMessage(Component.literal(AtmosphereSampleFormatter.format(result.sample().get())));
         } else {
-            player.sendSystemMessage(Component.literal(face == null ? UNAVAILABLE_MESSAGE : "No gas cell on the clicked side"));
+            recipient.sendSystemMessage(Component.literal(face == null ? UNAVAILABLE_MESSAGE : "No gas cell on the clicked side"));
         }
+    }
+
+    /** Selects a probe cell from the represented body's eye position, not its carrier's camera. */
+    public static BlockPos eyeTarget(net.minecraft.world.phys.Vec3 eyePosition) {
+        return BlockPos.containing(eyePosition);
     }
 
     /** Pure target policy seam: reads clicked first, then at most its clicked-face neighbor. */

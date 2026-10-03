@@ -1,0 +1,16 @@
+Source repository: https://github.com/space-wizards/space-station-14
+Pinned source commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Upstream path: Resources/Audio/Effects/explosion1.ogg
+Destination path: src/main/resources/assets/moonstation14/sounds/grenade/explosion1.ogg
+Source bytes: 32761
+Destination bytes: 32761
+Source SHA-256: a8a3badd75daaca70a5006faa973dd6f1608f1aa6b10a16db85df4140dde6f7a
+Destination SHA-256: a8a3badd75daaca70a5006faa973dd6f1608f1aa6b10a16db85df4140dde6f7a
+The local file is byte-for-byte identical to the source and was not edited.
+
+License: CC-BY-SA-3.0
+Copyright: vgstation at c5edbfd7179288080f081e2b8ac2496b7e4455db
+Source URL: https://github.com/vgstation-coders/vgstation13/tree/c5edbfd7179288080f081e2b8ac2496b7e4455db/sound/effects
+Upstream modification: No per-file modification is recorded in the pinned SS14 metadata; this copy introduces no modification.
+
+Attribution and share-alike: retain the above credit and license notice when redistributing this sound. Adaptations, if any, must be shared under CC-BY-SA-3.0 (or a compatible license as permitted by its terms).

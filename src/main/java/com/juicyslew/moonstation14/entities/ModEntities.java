@@ -31,6 +31,13 @@ public class ModEntities {
                     .updateInterval(10)
                     .build("thrown_jug"));
 
+    public static final DeferredHolder<EntityType<?>, EntityType<ThrownGrenadeEntity>> THROWN_GRENADE =
+            ENTITIES.register("thrown_grenade", () -> EntityType.Builder.<ThrownGrenadeEntity>of(ThrownGrenadeEntity::new, MobCategory.MISC)
+                    .sized(0.25f, 0.25f)
+                    .clientTrackingRange(4)
+                    .updateInterval(10)
+                    .build("thrown_grenade"));
+
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
     }

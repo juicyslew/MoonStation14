@@ -1,0 +1,4 @@
+pickaxe.png is redistributed from Space Station 14, Resources/Textures/Objects/Weapons/Melee/pickaxe.rsi/pickaxe.png.
+Upstream commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Original metadata: CC-BY-SA-3.0; taken from tgstation (https://github.com/tgstation/tgstation/pull/29929/commits/8c0509a4725602d0be2e9a7b29b556a39fb5cca2); inhands created by EmoGarbage404 (GitHub).
+Source PNG SHA-256: 0254B75F7FD5E28BCC3643FB47DBAB3FA3FB08893D4EC2695E6490012CCFC274

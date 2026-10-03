@@ -23,7 +23,12 @@ public final class BodyDropCompensationGameTestEntry {
     }
 
     @GameTest(template = "empty")
-    public static void blockedForwardDropFallsBackToFeet(GameTestHelper helper) {
-        BodyDropCompensationGameTests.blockedForwardDropFallsBackToFeet(helper);
+    public static void blockedForwardDropStaysNearSide(GameTestHelper helper) {
+        BodyDropCompensationGameTests.blockedForwardDropStaysNearSide(helper);
+    }
+
+    @GameTest(template = "empty")
+    public static void blockedForwardAndUnsafeFeetFallbackPreservesConservation(GameTestHelper helper) {
+        BodyDropCompensationGameTests.blockedForwardAndUnsafeFeetFallbackPreservesConservation(helper);
     }
 }

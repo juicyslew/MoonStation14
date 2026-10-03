@@ -1,0 +1,6 @@
+Asset: belt.png (32x32), copied unchanged from Space Station 14:
+Resources/Textures/Clothing/Belt/waistbag_leather.rsi/icon.png
+Space Station 14 commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Upstream meta.json license: CC-BY-SA-3.0
+Upstream attribution: Taken from tgstation at commit https://github.com/tgstation/commit/bb7fbdc95eb79ca8bdaa2e046b99267f2cfe4247
+SHA-256: 2D4EC98422E210CDE1EED0252043385867DD4670AF47154B78B1841A500B26A3

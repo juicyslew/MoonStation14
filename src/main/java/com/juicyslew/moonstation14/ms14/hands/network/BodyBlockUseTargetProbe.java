@@ -24,7 +24,7 @@ public final class BodyBlockUseTargetProbe {
     private static final int MAX_CHUNKS = 16;
     private BodyBlockUseTargetProbe() { }
 
-    public record Target(BlockPos pos, Direction face) {
+    public record Target(BlockPos pos, Direction face, Vec3 location) {
         public Target { pos = pos.immutable(); }
     }
 
@@ -54,7 +54,7 @@ public final class BodyBlockUseTargetProbe {
                     && hit.getDirection() == nominatedFace && finite(hit.getLocation())
                     && level.getWorldBorder().isWithinBounds(hit.getLocation())
                     && from.distanceToSqr(hit.getLocation()) <= MAX_REACH * MAX_REACH
-                    ? new Target(nominated, hit.getDirection()) : null;
+                    ? new Target(nominated, hit.getDirection(), hit.getLocation()) : null;
         } catch (MissingChunk ignored) {
             return null;
         } catch (PipeGasTransaction.RecoveryRequiredException recoveryRequired) {

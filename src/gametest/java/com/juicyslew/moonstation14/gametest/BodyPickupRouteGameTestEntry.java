@@ -16,4 +16,24 @@ public final class BodyPickupRouteGameTestEntry {
     public static void firstHitDenialsAndWorldToHandConservation(GameTestHelper helper) {
         BodyPickupRouteGameTests.firstHitDenialsAndWorldToHandConservation(helper);
     }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void nearestOverridesHintAndStaleState(GameTestHelper helper) {
+        BodyPickupRouteGameTests.nearestOverridesHintAndStaleState(helper);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void tiedItemsLowFirst(GameTestHelper helper) {
+        BodyPickupRouteGameTests.tiedItemsTransferLowerUuid(helper, true);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void tiedItemsHighFirst(GameTestHelper helper) {
+        BodyPickupRouteGameTests.tiedItemsTransferLowerUuid(helper, false);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void coincidentItemsTransferToBothHands(GameTestHelper helper) {
+        BodyPickupRouteGameTests.coincidentItemsTransferToBothHands(helper);
+    }
 }

@@ -1,13 +1,21 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyEquipmentTransfer;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyEquippedStorageTransfer;
-import com.juicyslew.moonstation14.ms14.hands.live.BodyPouchTransfer;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHeldGridTransfer;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyBodyGridTransfer;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandTransfer;
+import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadePrime;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadeThrow;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -115,14 +123,196 @@ public final class BodyHandRequestService {
         if (request.action() == BodyHandActionRequest.Action.PICKUP) {
             if (!HandActorAuthority.revalidate(actor, authority))
                 return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            java.util.concurrent.atomic.AtomicReference<java.util.UUID> source = new java.util.concurrent.atomic.AtomicReference<>();
             BodyHandItemTransfer.Result outcome = BodyHandItemTransfer.pickup(actor, request.pickupTarget(),
-                    request.handId(), request.expectedRevision());
-            return result(request, reason(outcome), authority);
+                    request.handId(), request.expectedRevision(), source::set);
+            BodyHandActionResult.Reason pickupReason = reason(outcome);
+            BodyHandActionResult.HostTransition transition = null;
+            if (pickupReason == BodyHandActionResult.Reason.OK) {
+                LiveHands committedHands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                var committedTransition = pickupTransition(committedHands, source.get(), request.handId(),
+                        HandActorAuthority.revalidate(actor, authority), authority.body());
+                if (committedTransition.isEmpty())
+                    pickupReason = BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+                else transition = committedTransition.orElseThrow();
+            }
+            return result(request, pickupReason, authority, transition);
+        }
+
+        if (request.action() == BodyHandActionRequest.Action.TRANSFER_HAND) {
+            if (authority.handIds().size() != 2 || !hands.handIds().equals(authority.handIds())
+                    || !authority.handIds().contains(request.destinationHostId()))
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            if (!HandActorAuthority.revalidate(actor, authority)
+                    || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                    || hands.revision() != request.expectedRevision())
+                return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            var outcome = BodyHandTransfer.transfer(actor, request.handId(), request.destinationHostId(),
+                    request.expectedToken(), request.expectedRevision());
+            BodyHandActionResult response = result(request, switch (outcome) {
+                case SUCCESS -> BodyHandActionResult.Reason.OK;
+                case DENIED -> BodyHandActionResult.Reason.DENIED;
+                case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+            }, authority);
+            if (outcome != BodyHandTransfer.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+
+        if (request.action() == BodyHandActionRequest.Action.HELD_GRID_STORE
+                || request.action() == BodyHandActionRequest.Action.HELD_GRID_TAKE
+                || request.action() == BodyHandActionRequest.Action.HELD_GRID_MOVE) {
+            if (authority.handIds().size() != 2 || !hands.handIds().equals(authority.handIds()))
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var otherHands = authority.handIds().stream().filter(id -> !id.equals(request.handId())).toList();
+            if (otherHands.size() != 1) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            String otherHand = otherHands.getFirst();
+            String hostToken = hands.token(request.handId()).orElse(null);
+            String otherToken = hands.token(otherHand).orElse(null);
+            var host = hands.stackCopy(request.handId()).orElse(null);
+            var contents = host == null ? null : GridContents.read(host).orElse(null);
+            boolean storing = request.action() == BodyHandActionRequest.Action.HELD_GRID_STORE;
+            boolean moving = request.action() == BodyHandActionRequest.Action.HELD_GRID_MOVE;
+            if (hostToken == null || !hostToken.equals(request.expectedToken()) || host == null
+                    || !(host.is(ModItems.BAG) || host.is(ModItems.BELT)) || contents == null
+                    || storing && (!request.expectedChildOrSourceToken().equals(otherToken))
+                    || !storing && !request.expectedChildOrSourceToken().equals(moving
+                        ? contents.entries().stream().filter(e -> e.token().equals(request.expectedChildOrSourceToken())
+                            && e.x() == request.oldCellX() && e.y() == request.oldCellY()
+                            && e.rotation().degrees() == request.oldRotation()).map(GridContents.Entry::token).findFirst().orElse(null)
+                        : contents.entries().stream().filter(e -> e.token().equals(request.expectedChildOrSourceToken())
+                            && e.x() == request.cellX() && e.y() == request.cellY()).map(GridContents.Entry::token).findFirst().orElse(null))
+                    || !storing && !moving && otherToken != null)
+                return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            if (!HandActorAuthority.revalidate(actor, authority)
+                    || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                    || hands.revision() != request.expectedRevision())
+                return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            var rotation = storing || moving ? java.util.Arrays.stream(GridGeometry.Rotation.values())
+                    .filter(r -> r.degrees() == request.rotation()).findFirst().orElseThrow() : null;
+            BodyHeldGridTransfer.Result outcome = storing
+                    ? BodyHeldGridTransfer.store(actor, request.handId(), hostToken, otherHand,
+                        request.expectedChildOrSourceToken(), request.expectedRevision(),
+                        new GridGeometry.Cell(request.cellX(), request.cellY()), rotation)
+                    : moving ? BodyHeldGridTransfer.move(actor, request.handId(), hostToken,
+                        request.expectedChildOrSourceToken(), request.expectedRevision(),
+                        new GridGeometry.Cell(request.oldCellX(), request.oldCellY()),
+                        java.util.Arrays.stream(GridGeometry.Rotation.values()).filter(r -> r.degrees() == request.oldRotation()).findFirst().orElseThrow(),
+                        new GridGeometry.Cell(request.cellX(), request.cellY()), rotation)
+                    : BodyHeldGridTransfer.take(actor, request.handId(), hostToken, otherHand,
+                        request.expectedChildOrSourceToken(), request.expectedRevision(),
+                        new GridGeometry.Cell(request.cellX(), request.cellY()));
+            BodyHandActionResult response = result(request, reason(outcome), authority);
+            if (outcome == BodyHeldGridTransfer.Result.SUCCESS) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+
+         if (request.action() == BodyHandActionRequest.Action.GRID_BODY_WORN_TO_HELD
+                 || request.action() == BodyHandActionRequest.Action.GRID_BODY_HELD_TO_WORN
+                 || request.action() == BodyHandActionRequest.Action.GRID_BODY_HELD_TO_HELD) {
+             if (!hands.handIds().equals(authority.handIds()))
+                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
+             var handSlots = BodyHandStateService.slots(hands, authority.handIds());
+             var equipment = handSlots == null ? null : BodyHandStateService.equipment(hands, authority.body(), handSlots);
+             if (equipment == null) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+             boolean fromWorn = request.action() == BodyHandActionRequest.Action.GRID_BODY_WORN_TO_HELD;
+             boolean toWorn = request.action() == BodyHandActionRequest.Action.GRID_BODY_HELD_TO_WORN;
+             String fromId = request.sourceHostId(), toId = request.destinationHostId();
+             if ((!fromWorn && !hands.handIds().contains(fromId)) || (!toWorn && !hands.handIds().contains(toId))
+                     || (fromWorn && equipment.stream().noneMatch(s -> s.id().equals(fromId)))
+                     || (toWorn && equipment.stream().noneMatch(s -> s.id().equals(toId))))
+                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
+             var liveEquipment = LiveHands.equipmentSnapshot(authority.body()).orElse(null);
+             if (liveEquipment == null || !liveEquipment.persisted())
+                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
+             var from = new LiveHands.GridHost(fromWorn, fromId, request.expectedToken());
+             var to = new LiveHands.GridHost(toWorn, toId, request.destinationHostToken());
+             var source = fromWorn ? liveEquipment.slots().stream().filter(s -> s.id().equals(fromId)
+                     && s.token().filter(request.expectedToken()::equals).isPresent())
+                     .findFirst().flatMap(LiveHands.EquipmentSlot::stack).orElse(null)
+                     : hands.token(fromId).filter(request.expectedToken()::equals).flatMap(t -> hands.stackCopy(fromId)).orElse(null);
+             var destination = toWorn ? liveEquipment.slots().stream().filter(s -> s.id().equals(toId)
+                     && s.token().filter(request.destinationHostToken()::equals).isPresent())
+                     .findFirst().flatMap(LiveHands.EquipmentSlot::stack).orElse(null)
+                     : hands.token(toId).filter(request.destinationHostToken()::equals).flatMap(t -> hands.stackCopy(toId)).orElse(null);
+             var contents = source == null ? null : GridContents.read(source).orElse(null);
+             if (contents == null || destination == null || GridContents.read(destination).isEmpty()
+                     || contents.entries().stream().noneMatch(e -> e.token().equals(request.expectedChildOrSourceToken())
+                         && e.x() == request.oldCellX() && e.y() == request.oldCellY()
+                         && e.rotation().degrees() == request.oldRotation()))
+                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+             if (!HandActorAuthority.revalidate(actor, authority)
+                     || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                     || !equipment.equals(BodyHandStateService.equipment(hands, authority.body(), handSlots)))
+                 return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+             var oldRotation = java.util.Arrays.stream(GridGeometry.Rotation.values())
+                     .filter(r -> r.degrees() == request.oldRotation()).findFirst().orElseThrow();
+             var newRotation = java.util.Arrays.stream(GridGeometry.Rotation.values())
+                     .filter(r -> r.degrees() == request.rotation()).findFirst().orElseThrow();
+             var outcome = BodyBodyGridTransfer.move(actor, from, to, request.expectedChildOrSourceToken(),
+                     request.expectedRevision(), new GridGeometry.Cell(request.oldCellX(), request.oldCellY()), oldRotation,
+                     new GridGeometry.Cell(request.cellX(), request.cellY()), newRotation);
+             BodyHandActionResult response = result(request, switch (outcome) {
+                 case SUCCESS -> BodyHandActionResult.Reason.OK;
+                 case DENIED -> BodyHandActionResult.Reason.DENIED;
+                 case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+             }, authority);
+             if (outcome != BodyBodyGridTransfer.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+             return response;
+         }
+
+         if (request.action() == BodyHandActionRequest.Action.GRID_CROSS_BELT_TO_BACK
+                || request.action() == BodyHandActionRequest.Action.GRID_CROSS_BACK_TO_BELT) {
+            if (!hands.handIds().equals(authority.handIds()))
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var handSlots = BodyHandStateService.slots(hands, authority.handIds());
+            if (handSlots == null) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var equipment = BodyHandStateService.equipment(hands, authority.body(), handSlots);
+            if (equipment == null) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            String from = request.action() == BodyHandActionRequest.Action.GRID_CROSS_BELT_TO_BACK ? "belt" : "back";
+            String to = from.equals("belt") ? "back" : "belt";
+            var source = equipment.stream().filter(slot -> slot.id().equals(from)).findFirst();
+            var destination = equipment.stream().filter(slot -> slot.id().equals(to)).findFirst();
+            if (source.isEmpty() || destination.isEmpty())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            if (!request.expectedToken().equals(source.orElseThrow().token())
+                    || !request.destinationHostToken().equals(destination.orElseThrow().token()))
+                return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var liveEquipment = LiveHands.equipmentSnapshot(authority.body());
+            if (liveEquipment.isEmpty() || !liveEquipment.orElseThrow().persisted())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var sourceHost = liveEquipment.orElseThrow().slots().stream().filter(s -> s.id().equals(from))
+                    .findFirst().flatMap(LiveHands.EquipmentSlot::stack).orElse(null);
+            var destinationHost = liveEquipment.orElseThrow().slots().stream().filter(s -> s.id().equals(to))
+                    .findFirst().flatMap(LiveHands.EquipmentSlot::stack).orElse(null);
+            var contents = sourceHost == null ? null : GridContents.read(sourceHost).orElse(null);
+            if (contents == null || destinationHost == null || GridContents.read(destinationHost).isEmpty()
+                    || contents.entries().stream().noneMatch(entry -> entry.token().equals(request.expectedChildOrSourceToken())
+                        && entry.x() == request.oldCellX() && entry.y() == request.oldCellY()
+                        && entry.rotation().degrees() == request.oldRotation()))
+                return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            if (!HandActorAuthority.revalidate(actor, authority)
+                    || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                    || hands.revision() != request.expectedRevision()
+                    || !equipment.equals(BodyHandStateService.equipment(hands, authority.body(), handSlots)))
+                return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            var oldRotation = java.util.Arrays.stream(GridGeometry.Rotation.values())
+                    .filter(r -> r.degrees() == request.oldRotation()).findFirst().orElseThrow();
+            var newRotation = java.util.Arrays.stream(GridGeometry.Rotation.values())
+                    .filter(r -> r.degrees() == request.rotation()).findFirst().orElseThrow();
+            var outcome = BodyEquippedStorageTransfer.moveGridBetweenHosts(actor, from, request.expectedToken(),
+                    to, request.destinationHostToken(), request.expectedChildOrSourceToken(), request.expectedRevision(),
+                    new GridGeometry.Cell(request.oldCellX(), request.oldCellY()), oldRotation,
+                    new GridGeometry.Cell(request.cellX(), request.cellY()), newRotation);
+            BodyHandActionResult response = result(request, reason(outcome), authority);
+            if (outcome == BodyEquippedStorageTransfer.Result.SUCCESS
+                    || outcome == BodyEquippedStorageTransfer.Result.RECOVERY_REQUIRED)
+                BodyHandStateService.requireFreshQuery(actor);
+            return response;
         }
 
         String equipmentSlot = switch (request.action()) {
-            case EQUIP_BELT, UNEQUIP_BELT, STORE_BELT, TAKE_BELT -> "belt";
-            case EQUIP_BACK, UNEQUIP_BACK, STORE_BACK, TAKE_BACK -> "back";
+            case EQUIP_BELT, UNEQUIP_BELT, STORE_BELT, TAKE_BELT, GRID_STORE_BELT, GRID_TAKE_BELT, GRID_MOVE_BELT, SMART_STORE_BELT, SMART_TAKE_BELT -> "belt";
+            case EQUIP_BACK, UNEQUIP_BACK, STORE_BACK, TAKE_BACK, GRID_STORE_BACK, GRID_TAKE_BACK, GRID_MOVE_BACK, SMART_STORE_BACK, SMART_TAKE_BACK -> "back";
             default -> null;
         };
         if (equipmentSlot != null) {
@@ -139,15 +329,88 @@ public final class BodyHandRequestService {
                     || request.action() == BodyHandActionRequest.Action.EQUIP_BACK;
             boolean unequipping = request.action() == BodyHandActionRequest.Action.UNEQUIP_BELT
                     || request.action() == BodyHandActionRequest.Action.UNEQUIP_BACK;
+            boolean storingAction = request.action() == BodyHandActionRequest.Action.STORE_BELT
+                    || request.action() == BodyHandActionRequest.Action.STORE_BACK;
+            boolean smartAction = request.action() == BodyHandActionRequest.Action.SMART_STORE_BELT
+                    || request.action() == BodyHandActionRequest.Action.SMART_STORE_BACK
+                    || request.action() == BodyHandActionRequest.Action.SMART_TAKE_BELT
+                    || request.action() == BodyHandActionRequest.Action.SMART_TAKE_BACK;
+            boolean gridAction = request.action() == BodyHandActionRequest.Action.GRID_STORE_BELT
+                    || request.action() == BodyHandActionRequest.Action.GRID_STORE_BACK
+                    || request.action() == BodyHandActionRequest.Action.GRID_TAKE_BELT
+                    || request.action() == BodyHandActionRequest.Action.GRID_TAKE_BACK
+                    || request.action() == BodyHandActionRequest.Action.GRID_MOVE_BELT
+                    || request.action() == BodyHandActionRequest.Action.GRID_MOVE_BACK;
             String handToken = hands.token(request.handId()).orElse(null);
-            if (equipping ? !request.expectedToken().equals(handToken) || slot.token() != null
-                    : !request.expectedToken().equals(slot.token())
-                            || (unequipping ? handToken != null
-                                    : request.action() == BodyHandActionRequest.Action.STORE_BELT
-                                            || request.action() == BodyHandActionRequest.Action.STORE_BACK
-                                            ? handToken == null || slot.childToken() != null
-                                            : handToken != null || slot.childToken() == null))
+            boolean smartStoreAction = request.action() == BodyHandActionRequest.Action.SMART_STORE_BELT
+                    || request.action() == BodyHandActionRequest.Action.SMART_STORE_BACK;
+            if (smartAction ? !request.expectedToken().equals(slot.token())
+                    || (smartStoreAction ? !request.expectedChildOrSourceToken().equals(handToken) : handToken != null)
+                    : !equipmentPrecheck(request.action(), request.expectedToken(), handToken, slot.token(), slot.childToken()))
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var liveEquipment = LiveHands.equipmentSnapshot(authority.body()).orElse(null);
+            var liveSlot = liveEquipment == null ? null : liveEquipment.slots().stream()
+                    .filter(candidate -> candidate.id().equals(equipmentSlot)).findFirst().orElse(null);
+            if (!gridAction && (request.action() == BodyHandActionRequest.Action.STORE_BELT
+                    || request.action() == BodyHandActionRequest.Action.STORE_BACK
+                    || request.action() == BodyHandActionRequest.Action.TAKE_BELT
+                    || request.action() == BodyHandActionRequest.Action.TAKE_BACK)
+                    && liveSlot != null && liveSlot.stack().filter(stack -> stack.has(ModDataComponents.GRID_CONTENTS.get())).isPresent())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            if (gridAction) {
+                boolean storing = request.action() == BodyHandActionRequest.Action.GRID_STORE_BELT
+                        || request.action() == BodyHandActionRequest.Action.GRID_STORE_BACK;
+                boolean moving = request.action() == BodyHandActionRequest.Action.GRID_MOVE_BELT
+                        || request.action() == BodyHandActionRequest.Action.GRID_MOVE_BACK;
+                var host = liveSlot == null ? null : liveSlot.stack().orElse(null);
+                var contents = host == null ? null : GridContents.read(host).orElse(null);
+                var anchor = new GridGeometry.Cell(request.cellX(), request.cellY());
+                if (contents == null
+                        || storing && !request.expectedChildOrSourceToken().equals(handToken)
+                        || storing && request.action() != BodyHandActionRequest.Action.GRID_STORE_BELT
+                            && request.action() != BodyHandActionRequest.Action.GRID_STORE_BACK
+                        || !storing && !moving && (handToken != null || contents.entries().stream().noneMatch(entry ->
+                            entry.token().equals(request.expectedChildOrSourceToken()) && entry.x() == request.cellX()
+                                    && entry.y() == request.cellY()))
+                        || moving && contents.entries().stream().noneMatch(entry -> entry.token().equals(request.expectedChildOrSourceToken())
+                            && entry.x() == request.oldCellX() && entry.y() == request.oldCellY() && entry.rotation().degrees() == request.oldRotation()))
+                    return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+                if (!HandActorAuthority.revalidate(actor, authority)
+                        || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                        || hands.revision() != request.expectedRevision()
+                        || !equipment.equals(BodyHandStateService.equipment(hands, authority.body(), handSlots)))
+                    return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+                BodyEquippedStorageTransfer.Result gridOutcome = storing
+                        ? BodyEquippedStorageTransfer.storeGrid(actor, equipmentSlot, request.expectedToken(), request.handId(),
+                            request.expectedChildOrSourceToken(), request.expectedRevision(), anchor,
+                            java.util.Arrays.stream(GridGeometry.Rotation.values()).filter(r -> r.degrees() == request.rotation()).findFirst().orElseThrow())
+                        : moving ? BodyEquippedStorageTransfer.moveGrid(actor, equipmentSlot, request.expectedToken(),
+                            request.expectedChildOrSourceToken(), request.expectedRevision(), new GridGeometry.Cell(request.oldCellX(), request.oldCellY()),
+                            java.util.Arrays.stream(GridGeometry.Rotation.values()).filter(r -> r.degrees() == request.oldRotation()).findFirst().orElseThrow(),
+                            anchor, java.util.Arrays.stream(GridGeometry.Rotation.values()).filter(r -> r.degrees() == request.rotation()).findFirst().orElseThrow())
+                        : BodyEquippedStorageTransfer.takeGrid(actor, equipmentSlot, request.expectedToken(), request.handId(),
+                            request.expectedChildOrSourceToken(), anchor, request.expectedRevision());
+                BodyHandActionResult response = result(request, reason(gridOutcome), authority);
+                if (gridOutcome == BodyEquippedStorageTransfer.Result.SUCCESS) BodyHandStateService.requireFreshQuery(actor);
+                return response;
+            }
+            if (smartAction) {
+                if (!HandActorAuthority.revalidate(actor, authority)
+                        || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                        || hands.revision() != request.expectedRevision()
+                        || !equipment.equals(BodyHandStateService.equipment(hands, authority.body(), handSlots)))
+                    return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+                boolean storingSmart = request.action() == BodyHandActionRequest.Action.SMART_STORE_BELT
+                        || request.action() == BodyHandActionRequest.Action.SMART_STORE_BACK;
+                var outcome = storingSmart
+                        ? BodyEquippedStorageTransfer.smartStore(actor, equipmentSlot, request.expectedToken(), request.handId(),
+                            request.expectedChildOrSourceToken(), request.expectedRevision())
+                        : BodyEquippedStorageTransfer.smartTake(actor, equipmentSlot, request.expectedToken(), request.handId(),
+                            request.expectedChildOrSourceToken(), request.expectedRevision());
+                BodyHandActionResult response = result(request, reason(outcome), authority);
+                if (outcome == BodyEquippedStorageTransfer.Result.SUCCESS) BodyHandStateService.requireFreshQuery(actor);
+                return response;
+            }
             if (!HandActorAuthority.revalidate(actor, authority)
                     || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
                     || hands.revision() != request.expectedRevision()
@@ -169,50 +432,76 @@ public final class BodyHandRequestService {
             return response;
         }
 
+        if (request.action() == BodyHandActionRequest.Action.INSERT_POUCH
+                || request.action() == BodyHandActionRequest.Action.EXTRACT_POUCH)
+            return result(request, BodyHandActionResult.Reason.DENIED, authority);
+
         if (hands.token(request.handId()).filter(request.expectedToken()::equals).isEmpty())
             return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
-        if (request.action() == BodyHandActionRequest.Action.INSERT_POUCH
-                || request.action() == BodyHandActionRequest.Action.EXTRACT_POUCH) {
-            // Prototype geometry, not a client-selected hand. Require the exact same attachment and revision
-            // after reading the full server-side pouch snapshot and before invoking the atomic transfer.
-            if (authority.handIds().size() != 2 || !hands.handIds().equals(authority.handIds()))
-                return result(request, BodyHandActionResult.Reason.DENIED, authority);
-            var others = authority.handIds().stream().filter(id -> !id.equals(request.handId())).toList();
-            if (others.size() != 1) return result(request, BodyHandActionResult.Reason.DENIED, authority);
-            var slots = BodyHandStateService.slots(hands, authority.handIds());
-            if (slots == null) return result(request, BodyHandActionResult.Reason.DENIED, authority);
-            var pouch = slots.stream().filter(slot -> slot.id().equals(request.handId())).findFirst();
-            var other = slots.stream().filter(slot -> slot.id().equals(others.getFirst())).findFirst();
-            if (pouch.isEmpty() || other.isEmpty() || !pouch.orElseThrow().pouch()
-                    || !request.expectedToken().equals(pouch.orElseThrow().token()))
-                return result(request, BodyHandActionResult.Reason.DENIED, authority);
-            String token = request.action() == BodyHandActionRequest.Action.INSERT_POUCH
-                    ? other.orElseThrow().token() : pouch.orElseThrow().childToken();
-            if (token == null || request.action() == BodyHandActionRequest.Action.EXTRACT_POUCH
-                    && other.orElseThrow().token() != null
-                    || request.action() == BodyHandActionRequest.Action.INSERT_POUCH
-                    && pouch.orElseThrow().childToken() != null)
-                return result(request, BodyHandActionResult.Reason.DENIED, authority);
-            if (!HandActorAuthority.revalidate(actor, authority)
-                    || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
-                    || hands.revision() != request.expectedRevision())
-                return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
-            BodyPouchTransfer.Result outcome = request.action() == BodyHandActionRequest.Action.INSERT_POUCH
-                    ? BodyPouchTransfer.insert(actor, request.handId(), request.expectedToken(), others.getFirst(),
-                            token, request.expectedRevision())
-                    : BodyPouchTransfer.extract(actor, request.handId(), request.expectedToken(), others.getFirst(),
-                            token, request.expectedRevision());
-            // The result only describes the top-level hand. Require a new full query for child state.
-            BodyHandActionResult response = result(request, reason(outcome), authority);
-            if (outcome == BodyPouchTransfer.Result.SUCCESS) BodyHandStateService.requireFreshQuery(actor);
-            return response;
-        }
         if (!HandActorAuthority.revalidate(actor, authority))
             return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
 
+        java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
+        if (request.action() == BodyHandActionRequest.Action.USE_HELD
+                || request.action() == BodyHandActionRequest.Action.THROW) {
+            var outcome = request.action() == BodyHandActionRequest.Action.USE_HELD
+                    ? heldUseReason(actor, request, hands)
+                    : grenadeReason(BodyGrenadeThrow.throwGrenade(actor, request.handId(), request.expectedToken(),
+                            request.expectedRevision()));
+            BodyHandActionResult response = result(request, outcome, authority);
+            if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+
+        if (request.action() == BodyHandActionRequest.Action.ACTIVATE_HELD)
+            return result(request, BodyHeldItemActions.activate(actor, request), authority);
+
+        if (!isDropAction(request.action()))
+            return result(request, BodyHandActionResult.Reason.DENIED, authority);
         BodyHandItemTransfer.Result outcome = BodyHandItemTransfer.drop(actor, request.handId(),
-                request.expectedToken(), request.expectedRevision());
-        return result(request, reason(outcome), authority);
+                request.expectedToken(), request.expectedRevision(), spawned::set);
+        BodyHandActionResult.Reason dropReason = reason(outcome);
+        if (dropReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
+            BodyWorldGridService.authorizeTransferredOpen(actor, authority, spawned.get());
+        return result(request, dropReason, authority, dropReason == BodyHandActionResult.Reason.OK && spawned.get() != null
+                 ? new BodyHandActionResult.HostTransition(BodyHandActionResult.HostTransition.Direction.DROP,
+                     spawned.get(), request.expectedToken()) : null);
+    }
+
+    private static BodyHandActionResult.Reason heldUseReason(ServerPlayer actor, BodyHandActionRequest request, LiveHands hands) {
+        var stack = hands.stackCopy(request.handId()).orElse(null);
+        return stack != null && stack.is(ModItems.GRENADE.get())
+                ? grenadeReason(BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(), request.expectedRevision()))
+                : BodyHeldItemActions.use(actor, request);
+    }
+
+    static java.util.Optional<BodyHandActionResult.HostTransition> pickupTransition(
+            LiveHands committedHands, java.util.UUID selectedSource, String handId,
+            boolean authorityValid, LivingEntity body) {
+        if (!authorityValid || selectedSource == null || committedHands == null
+                || !committedHands.compatible(body) || !committedHands.handIds().contains(handId))
+            return java.util.Optional.empty();
+        return committedHands.token(handId).map(token -> new BodyHandActionResult.HostTransition(
+                BodyHandActionResult.HostTransition.Direction.PICKUP, selectedSource, token));
+    }
+
+    static boolean equipmentPrecheck(BodyHandActionRequest.Action action, String expectedToken,
+                                     String handToken, String slotToken, String childToken) {
+        boolean equipping = action == BodyHandActionRequest.Action.EQUIP_BELT
+                || action == BodyHandActionRequest.Action.EQUIP_BACK;
+        boolean unequipping = action == BodyHandActionRequest.Action.UNEQUIP_BELT
+                || action == BodyHandActionRequest.Action.UNEQUIP_BACK;
+        boolean gridAction = action == BodyHandActionRequest.Action.GRID_STORE_BELT
+                || action == BodyHandActionRequest.Action.GRID_STORE_BACK
+                || action == BodyHandActionRequest.Action.GRID_TAKE_BELT
+                || action == BodyHandActionRequest.Action.GRID_TAKE_BACK
+                || action == BodyHandActionRequest.Action.GRID_MOVE_BELT || action == BodyHandActionRequest.Action.GRID_MOVE_BACK;
+        boolean storingAction = action == BodyHandActionRequest.Action.STORE_BELT
+                || action == BodyHandActionRequest.Action.STORE_BACK;
+        if (equipping) return expectedToken.equals(handToken) && slotToken == null;
+        return expectedToken.equals(slotToken) && (gridAction || (unequipping ? handToken == null
+                : storingAction ? handToken != null && childToken == null
+                : handToken == null && childToken != null));
     }
 
     /** Final pre-publication policy after authority callbacks; never changes either attachment. */
@@ -223,14 +512,6 @@ public final class BodyHandRequestService {
     }
 
     private static BodyHandActionResult.Reason reason(BodyHandItemTransfer.Result outcome) {
-        return switch (outcome) {
-            case SUCCESS -> BodyHandActionResult.Reason.OK;
-            case DENIED -> BodyHandActionResult.Reason.DENIED;
-            case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
-        };
-    }
-
-    private static BodyHandActionResult.Reason reason(BodyPouchTransfer.Result outcome) {
         return switch (outcome) {
             case SUCCESS -> BodyHandActionResult.Reason.OK;
             case DENIED -> BodyHandActionResult.Reason.DENIED;
@@ -254,8 +535,42 @@ public final class BodyHandRequestService {
         };
     }
 
+    static boolean isDropAction(BodyHandActionRequest.Action action) {
+        return action == BodyHandActionRequest.Action.DROP;
+    }
+
+    private static BodyHandActionResult.Reason grenadeReason(BodyGrenadePrime.Result outcome) {
+        return switch (outcome) {
+            case SUCCESS -> BodyHandActionResult.Reason.OK;
+            case DENIED -> BodyHandActionResult.Reason.DENIED;
+            case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+        };
+    }
+
+    private static BodyHandActionResult.Reason grenadeReason(BodyGrenadeThrow.Result outcome) {
+        return switch (outcome) {
+            case SUCCESS -> BodyHandActionResult.Reason.OK;
+            case DENIED -> BodyHandActionResult.Reason.DENIED;
+            case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+        };
+    }
+
+    private static BodyHandActionResult.Reason reason(BodyHeldGridTransfer.Result outcome) {
+        return switch (outcome) {
+            case SUCCESS -> BodyHandActionResult.Reason.OK;
+            case DENIED -> BodyHandActionResult.Reason.DENIED;
+            case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+        };
+    }
+
     private static BodyHandActionResult result(BodyHandActionRequest request, BodyHandActionResult.Reason reason,
-                                                HandActorAuthority.Snapshot authority) {
+                                                 HandActorAuthority.Snapshot authority) {
+        return result(request, reason, authority, null);
+    }
+
+    private static BodyHandActionResult result(BodyHandActionRequest request, BodyHandActionResult.Reason reason,
+                                                 HandActorAuthority.Snapshot authority,
+                                                 BodyHandActionResult.HostTransition transition) {
         if (authority != null && HandActorAuthority.revalidate(authority.actor(), authority)) {
             LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             if (hands != null && hands.compatible(authority.body()) && hands.handIds().contains(request.handId())) {
@@ -267,19 +582,19 @@ public final class BodyHandRequestService {
                     // Snapshot encoding must never fail after a successful ownership transfer.
                     if (itemId.isBlank() || itemId.length() > 256) {
                         return new BodyHandActionResult(request.epoch(), request.sequence(),
-                                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0);
+                                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, transition);
                     }
                     return new BodyHandActionResult(request.epoch(), request.sequence(),
                             reason == BodyHandActionResult.Reason.OK, reason, true, hands.revision(),
-                            hands.activeHand(), token.orElseThrow(), itemId, item.getCount());
+                            hands.activeHand(), token.orElseThrow(), itemId, item.getCount(), transition);
                 }
                 return new BodyHandActionResult(request.epoch(), request.sequence(),
                         reason == BodyHandActionResult.Reason.OK, reason, true, hands.revision(),
-                        hands.activeHand(), null, null, 0);
+                        hands.activeHand(), null, null, 0, null);
             }
         }
         return new BodyHandActionResult(request.epoch(), request.sequence(),
-                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0);
+                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, null);
     }
 
     /** Pure dispatch policy; never serves as proof of a real authenticated player. */

@@ -18,6 +18,10 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmDat
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData;
+import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosiveSources;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -106,6 +110,11 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<AirAlarmData> clientAirAlarms() {
         return CLIENT_MANAGER.snapshot(ModAirAlarms.AIR_ALARM_TYPE);
     }
+    public static PrototypeCatalog<ExplosionData> serverExplosions() { return SERVER_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
+    public static PrototypeCatalog<ExplosionData> clientExplosions() { return CLIENT_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
+
+    public static PrototypeCatalog<ExplosiveSourceData> serverExplosiveSources() { return SERVER_MANAGER.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE); }
+    public static PrototypeCatalog<ExplosiveSourceData> clientExplosiveSources() { return CLIENT_MANAGER.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -118,6 +127,8 @@ public final class PrototypeRuntime {
         manager.register(ModGasReactions.GAS_REACTION_TYPE);
         manager.register(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
         manager.register(ModAirAlarms.AIR_ALARM_TYPE);
+        manager.register(ModExplosions.EXPLOSION_TYPE);
+        manager.register(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
         return manager;
     }
 }
