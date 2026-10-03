@@ -82,6 +82,40 @@ public final class BodyItemTargetProbeGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
+    public static void equalDistanceUuidWinsWhenLowSpawnsFirst(GameTestHelper helper) {
+        tie(helper, true);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void equalDistanceUuidWinsWhenHighSpawnsFirst(GameTestHelper helper) {
+        tie(helper, false);
+    }
+
+    private static void tie(GameTestHelper helper, boolean lowFirst) {
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = body(level, origin);
+        UUID lowId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID highId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        ItemEntity low = new ItemEntity(level, origin.getX() + 2.5, origin.getY() + 1.5,
+                origin.getZ() + .5, new ItemStack(Items.DIAMOND));
+        ItemEntity high = new ItemEntity(level, origin.getX() + 2.5, origin.getY() + 1.5,
+                origin.getZ() + .5, new ItemStack(Items.EMERALD));
+        low.setUUID(lowId);
+        high.setUUID(highId);
+        require(level.addFreshEntity(lowFirst ? low : high), "first tie item spawned");
+        require(level.addFreshEntity(lowFirst ? high : low), "second tie item spawned");
+        require(lowId.equals(BodyItemTargetProbe.nearestVisible(level, body, 4).itemId()),
+                "lower UUID wins exact tie regardless of spawn order");
+        require(BodyItemTargetProbe.probe(level, body, low, 4) != null, "tie does not deny winner");
+        require(BodyItemTargetProbe.probe(level, body, high, 4) == null, "higher UUID not first");
+        low.discard();
+        high.discard();
+        body.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
     public static void absentShapeMarginDeniesWithoutLoading(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));

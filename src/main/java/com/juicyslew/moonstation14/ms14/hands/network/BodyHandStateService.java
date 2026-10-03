@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.HandState;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
@@ -58,17 +59,27 @@ public final class BodyHandStateService {
         if (hands == null || !hands.handIds().equals(authority.handIds())
                 || !representable(hands, authority.body()))
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
-        List<BodyHandStateSnapshot.Hand> slots = slots(hands, authority.handIds());
-        if (slots == null) return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
-        List<BodyHandStateSnapshot.EquipmentSlot> equipment = equipment(hands, authority.body(), slots);
-        if (equipment == null) return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
+        List<BodyHandStateSnapshot.Hand> slots;
+        List<BodyHandStateSnapshot.EquipmentSlot> equipment;
+        List<BodyHandStateSnapshot.GridHost> grids;
+        BodyHandStateSnapshot summary;
+        try {
+            slots = slots(hands, authority.handIds());
+            if (slots == null) return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
+            equipment = equipment(hands, authority.body(), slots);
+            if (equipment == null) return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
+            grids = grids(hands, authority.body());
+            summary = new BodyHandStateSnapshot(query.epoch(), query.sequence(), BodyHandStateSnapshot.Reason.OK,
+                    actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(), slots, equipment, grids);
+        } catch (RuntimeException invalidSummary) {
+            return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
+        }
         if (!HandActorAuthority.revalidate(actor, authority)
                 || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands)
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NO_AUTHORITY);
         gate.issuedEpoch = authority.epoch();
         gate.issuedBody = authority.body();
-        return new BodyHandStateSnapshot(query.epoch(), query.sequence(), BodyHandStateSnapshot.Reason.OK,
-                actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(), slots, equipment);
+        return summary;
     }
 
     /** Read-only, bounded admission for a prospective body owner. Also applies to loaded evidence at query time. */
@@ -77,7 +88,10 @@ public final class BodyHandStateService {
                 || hands.handIds().size() > HandState.MAX_HANDS) return false;
         try {
             List<BodyHandStateSnapshot.Hand> handSlots = slots(hands, hands.handIds());
-            if (handSlots == null || equipment(hands, body, handSlots) == null) return false;
+            if (handSlots == null) return false;
+            var equipmentSlots = equipment(hands, body, handSlots);
+            if (equipmentSlots == null) return false;
+            var gridHosts = grids(hands, body);
             for (String id : hands.handIds()) {
                 if (hands.stackCopy(id).filter(stack -> !visibleStack(stack)).isPresent()) return false;
             }
@@ -85,13 +99,17 @@ public final class BodyHandStateService {
             if (worn.isPresent()) for (var slot : worn.orElseThrow().slots()) {
                 if (slot.stack().filter(stack -> !visibleStack(stack)).isPresent()) return false;
             }
+            new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, java.util.UUID.randomUUID(),
+                    java.util.UUID.randomUUID(), 1, hands.revision(), hands.activeHand(), handSlots, equipmentSlots, gridHosts);
             return true;
-        } catch (IllegalArgumentException invalid) {
+        } catch (RuntimeException invalid) {
             return false;
         }
     }
 
     private static boolean visibleStack(ItemStack stack) {
+        if ("moonstation14:pouch".equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) return false;
+        if (stack.has(ModDataComponents.POUCH_CONTENTS.get()) && stack.has(ModDataComponents.GRID_CONTENTS.get())) return false;
         // These components can conceal independently owned stacks; only our registered single-cell
         // hosts are modeled by the snapshot. POUCH_CONTENTS on anything else is not a host.
         if (stack.has(DataComponents.CONTAINER) || stack.has(DataComponents.CONTAINER_LOOT)
@@ -100,9 +118,13 @@ public final class BodyHandStateService {
                 || stack.has(DataComponents.BUCKET_ENTITY_DATA) || stack.has(DataComponents.BEES)
                 || stack.has(DataComponents.FOOD) && stack.get(DataComponents.FOOD).usingConvertsTo().isPresent())
             return false;
-        if (stack.is(ModItems.POUCH) || stack.is(ModItems.BAG) || stack.is(ModItems.BELT))
+        if (stack.is(ModItems.BAG) || stack.is(ModItems.BELT)) {
+            if (stack.has(ModDataComponents.GRID_CONTENTS.get())) return GridContents.read(stack).isPresent();
+            if (stack.has(ModDataComponents.POUCH_CONTENTS.get())) return PouchContents.read(stack).isPresent();
             return PouchContents.read(stack).isPresent();
-        return !stack.has(ModDataComponents.POUCH_CONTENTS.get());
+        }
+        return !stack.has(ModDataComponents.POUCH_CONTENTS.get())
+                && !stack.has(ModDataComponents.GRID_CONTENTS.get());
     }
 
     /** Only the current body attachment supplies pouch contents; never a request payload. */
@@ -120,18 +142,21 @@ public final class BodyHandStateService {
                 String itemId = BuiltInRegistries.ITEM.getKey(item.getItem()).toString();
                 if (itemId.isBlank() || itemId.length() > 256 || item.getCount() > 99)
                     return null;
-                if (item.is(ModItems.POUCH)) {
-                    var contents = PouchContents.read(item);
-                    if (contents.isEmpty()) return null;
-                    var child = contents.orElseThrow().child();
-                    if (child.isPresent()) {
-                        var value = child.orElseThrow();
-                        String childId = BuiltInRegistries.ITEM.getKey(value.stack().getItem()).toString();
-                        if (childId.isBlank() || childId.length() > 256) return null;
-                        slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(),
-                                true, value.token(), childId, value.stack().getCount()));
-                    } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(),
-                            true, null, null, 0));
+                if (item.is(ModItems.BAG) || item.is(ModItems.BELT)) {
+                    if (item.has(ModDataComponents.GRID_CONTENTS.get())) {
+                        if (GridContents.read(item).isEmpty()) return null;
+                        slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount()));
+                    } else {
+                        var contents = PouchContents.read(item);
+                        if (contents.isEmpty()) return null;
+                        var child = contents.orElseThrow().child();
+                        if (child.isPresent()) {
+                            var value = child.orElseThrow();
+                            String childId = BuiltInRegistries.ITEM.getKey(value.stack().getItem()).toString();
+                            slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(),
+                                    false, value.token(), childId, value.stack().getCount()));
+                        } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount()));
+                    }
                 } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount()));
             }
         }
@@ -149,13 +174,12 @@ public final class BodyHandStateService {
         for (var hand : handsSlots) {
             if (hand.token() != null && !tokens.add(hand.token())) return null;
             if (hand.childToken() != null && !tokens.add(hand.childToken())) return null;
-            // Bag/belt children in a hand are not displayable as a pouch hand cell, but still own tokens.
+            // Grid children are validated for conservation even though the old summary cannot represent them.
             var stack = hands.stackCopy(hand.id());
             if (stack.isPresent() && (stack.orElseThrow().is(ModItems.BAG) || stack.orElseThrow().is(ModItems.BELT))) {
-                var contents = PouchContents.read(stack.orElseThrow());
-                if (contents.isEmpty()) return null;
-                if (contents.orElseThrow().child().isPresent()
-                        && !tokens.add(contents.orElseThrow().child().orElseThrow().token())) return null;
+                if (stack.orElseThrow().has(ModDataComponents.GRID_CONTENTS.get())
+                        && GridContents.read(stack.orElseThrow()).isEmpty()) return null;
+                // Grid child identity is admitted and emitted by grids(); never count it twice here.
             }
         }
         // compatible() already rejects a persisted equipment layout without a matching prototype.
@@ -170,17 +194,22 @@ public final class BodyHandStateService {
             var stack = slot.stack().orElseThrow();
             if (!("belt".equals(slot.id()) && stack.is(ModItems.BELT)
                     || "back".equals(slot.id()) && stack.is(ModItems.BAG))) return null;
-            var contents = PouchContents.read(stack);
-            if (contents.isEmpty() || !tokens.add(slot.token().orElseThrow())) return null;
-            var child = contents.orElseThrow().child();
+            if (!tokens.add(slot.token().orElseThrow())) return null;
             String childToken = null, childId = null;
             int childCount = 0;
-            if (child.isPresent()) {
-                var value = child.orElseThrow();
-                childToken = value.token();
-                childId = BuiltInRegistries.ITEM.getKey(value.stack().getItem()).toString();
-                childCount = value.stack().getCount();
-                if (!tokens.add(childToken)) return null;
+            if (stack.has(ModDataComponents.GRID_CONTENTS.get())) {
+                if (GridContents.read(stack).isEmpty()) return null;
+            } else {
+                var legacy = PouchContents.read(stack);
+                if (legacy.isEmpty()) return null;
+                var childContents = legacy.orElseThrow().child();
+                if (childContents.isPresent()) {
+                    var child = childContents.orElseThrow();
+                    childToken = child.token();
+                    childId = BuiltInRegistries.ITEM.getKey(child.stack().getItem()).toString();
+                    childCount = child.stack().getCount();
+                    if (!tokens.add(childToken)) return null;
+                }
             }
             try {
                 result.add(new BodyHandStateSnapshot.EquipmentSlot(slot.id(), slot.token().orElseThrow(),
@@ -189,6 +218,40 @@ public final class BodyHandStateService {
             } catch (IllegalArgumentException invalid) { return null; }
         }
         return result;
+    }
+
+    private static List<BodyHandStateSnapshot.GridHost> grids(LiveHands hands, LivingEntity body) {
+        var result = new ArrayList<BodyHandStateSnapshot.GridHost>();
+        var seen = new HashSet<String>();
+        for (String id : hands.handIds()) {
+            var stack = hands.stackCopy(id);
+            if (stack.isPresent() && (stack.orElseThrow().is(ModItems.BAG) || stack.orElseThrow().is(ModItems.BELT))) {
+                var host = stack.orElseThrow();
+                addGrid(result, seen, hands.token(id).orElse(null), host);
+            }
+        }
+        var equipment = LiveHands.equipmentSnapshot(body);
+        if (equipment.isPresent()) for (var slot : equipment.orElseThrow().slots()) {
+            if (slot.stack().isPresent() && (slot.stack().orElseThrow().is(ModItems.BAG)
+                    || slot.stack().orElseThrow().is(ModItems.BELT)))
+                addGrid(result, seen, slot.token().orElse(null), slot.stack().orElseThrow());
+        }
+        return result;
+    }
+
+    private static void addGrid(List<BodyHandStateSnapshot.GridHost> result, Set<String> seen, String token, ItemStack stack) {
+        if (token == null || !seen.add(token)) throw new IllegalArgumentException("Ambiguous grid host");
+        // Preserve legacy ownership summaries without asking grid migration to validate legacy contents.
+        // In particular, valid oversized legacy children need not fit the projected grid dimensions.
+        if (!stack.has(ModDataComponents.GRID_CONTENTS.get()) && stack.has(ModDataComponents.POUCH_CONTENTS.get())) {
+            var legacy = PouchContents.read(stack).orElseThrow(() -> new IllegalArgumentException("Invalid legacy pouch host"));
+            if (legacy.child().isPresent()) return;
+        }
+        var content = GridContents.read(stack).orElseThrow(() -> new IllegalArgumentException("Invalid grid host"));
+        var entries = content.entries().stream().map(e -> new BodyHandStateSnapshot.GridEntry(e.token(),
+                BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString(), e.stack().getCount(), e.x(), e.y(), e.rotation().degrees())).toList();
+        result.add(new BodyHandStateSnapshot.GridHost(token, stack.is(ModItems.BAG) ? "bag" : "belt",
+                stack.is(ModItems.BAG) ? 7 : 8, stack.is(ModItems.BAG) ? 4 : 2, entries));
     }
 
     /** Bounded replay history keyed by the exact player identity and requested epoch (including bootstrap zero). */

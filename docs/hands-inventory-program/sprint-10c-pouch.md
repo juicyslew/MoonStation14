@@ -1,5 +1,7 @@
 # Sprint 10c: bounded item-owned pouch slice
 
+> **Historical / superseded (Oct 1, 2026):** the user retired the custom one-cell pouch. This report is preserved as a record of the earlier design and behavior, not the current product state. No registered pouch item or playable pouch UI/client action is current. The internally named `PouchContents` / `pouch_contents` component remains only for historical/legacy bag and belt contents. Pouch art was not imported because there is no corresponding standalone SS14 item. This annotation does not assert live connected acceptance or old-save pouch migration.
+
 **Status: owner-accepted and closed for the 1-cell slice.** Owner's connected report accepted the current playable one-cell program; they reported no kicks and successful bag/belt storage, logout/login preservation, bag drop/pickup with contents, and belt/item ground handling. They could not store a pouch in a bag or belt. This is not explicit evidence that held-pouch J/K was tested. This is a 1×1 whole-stack cell, not a grid or generic inventory. Body ownership remains limited to hands; the cell travels in its storage item's `ItemStack` component.
 
 ## Implemented contract

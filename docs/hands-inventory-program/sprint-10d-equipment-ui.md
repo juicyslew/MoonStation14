@@ -1,5 +1,7 @@
 # Sprint 10d: bounded equipment and inventory screen
 
+> **Pouch sections are historical / superseded (Oct 1, 2026):** the user retired the custom one-cell pouch. This report's pouch-specific descriptions are preserved as historical, not current behavior. There is no registered pouch item or playable pouch UI/client action; internal `PouchContents` / `pouch_contents` remains only for historical/legacy bag and belt contents. Pouch art was not imported because there is no corresponding standalone SS14 item. This annotation does not claim live connected acceptance or old-save pouch migration.
+
 **Status: current one-cell playable slice closed by owner decision; connected subset accepted.** Owner reports no kicks, equipped bag and belt, stored objects in both, preserved the same state across logout/login, dropped and recovered the bag with its contained item intact, and removed the belt item before dropping belt and item. They could not store a pouch in a bag or belt; nesting is deliberately denied by this mod. This does not claim held-pouch J/K, every I-screen button or Creative-tab path, or two-client acceptance. The screen's exhaustive acceptance and untested paths remain caveats. This is not a full SS14 inventory or general Minecraft container menu.
 
 ## Implemented boundary

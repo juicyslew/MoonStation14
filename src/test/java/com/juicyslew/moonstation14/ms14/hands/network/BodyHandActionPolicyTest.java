@@ -11,6 +11,46 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Synthetic input/pure sequence policy only; does not claim real ServerPlayer packet authorization. */
 class BodyHandActionPolicyTest {
+    @Test void directBodyHostActionsAppendLocationsWithoutChangingOldPackets() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.GRID_BODY_WORN_TO_HELD,
+                BodyHandActionRequest.Action.GRID_BODY_HELD_TO_WORN, BodyHandActionRequest.Action.GRID_BODY_HELD_TO_HELD}) {
+            String from = action == BodyHandActionRequest.Action.GRID_BODY_WORN_TO_HELD ? "belt" : "left";
+            String to = action == BodyHandActionRequest.Action.GRID_BODY_HELD_TO_WORN ? "back" : "right";
+            var intent = new BodyHandActionRequest(action, "left", 7, 2, 9, null, "from-token", "child",
+                    1, 0, 90, 0, 0, 0, "to-token", from, to);
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, intent);
+            assertEquals(intent, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+            assertFalse(buf.isReadable());
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(action, "left", 7, 2, 9,
+                    null, "from-token", "child", 1, 0, 90, 0, 0, 0, "from-token", from, to));
+            var trailing = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(trailing, intent);
+            trailing.writeByte(1);
+            assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(trailing));
+        }
+    }
+    @Test void crossHostIntentAppendsOnlyDestinationTokenAndBoundsGeometry() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.GRID_CROSS_BELT_TO_BACK,
+                BodyHandActionRequest.Action.GRID_CROSS_BACK_TO_BELT}) {
+            var request = new BodyHandActionRequest(action, "left", 7, 2, 9, null,
+                    "source", "child", 1, 1, 90, 0, 0, 270, "destination");
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+            assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+            assertFalse(buf.isReadable());
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(action, "left", 7, 2, 9,
+                    null, "source", "child", 1, 1, 90, 0, 0, 270, "source"));
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(action, "left", 7, 2, 9,
+                    null, "source", "child", 8, 0, 90, 0, 0, 270, "destination"));
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(action, "left", 7, 2, 9,
+                    null, "source", "child", 1, 1, 90, 0, 0, 45, "destination"));
+            var truncated = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(truncated, request);
+            truncated.writerIndex(truncated.writerIndex() - 1);
+            assertThrows(RuntimeException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(truncated));
+        }
+    }
     @Test void rejectsMalformedIntent() {
         assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
                 BodyHandActionRequest.Action.PICKUP, "a", 0, 1, 0, UUID.randomUUID(), null));
@@ -40,6 +80,8 @@ class BodyHandActionPolicyTest {
 
     @Test void pouchActionsKeepTheDropShapeAndRejectClientSuppliedTargets() {
         for (var action : BodyHandActionRequest.Action.values()) {
+            if (action == BodyHandActionRequest.Action.TRANSFER_HAND || action.name().startsWith("GRID_") || action.name().startsWith("HELD_GRID_")
+                    || action.name().startsWith("SMART_")) continue;
             var request = new BodyHandActionRequest(action, "left", 7, 1, 9,
                     action == BodyHandActionRequest.Action.PICKUP ? UUID.randomUUID() : null,
                     action == BodyHandActionRequest.Action.PICKUP || action == BodyHandActionRequest.Action.SELECT_HAND
@@ -63,6 +105,49 @@ class BodyHandActionPolicyTest {
             malformed.writeUtf("");
             assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(malformed));
         }
+    }
+
+    @Test void gridActionsRoundTripRotation270AndRejectMalformedGeometry() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.GRID_STORE_BELT,
+                BodyHandActionRequest.Action.GRID_STORE_BACK, BodyHandActionRequest.Action.GRID_TAKE_BELT,
+                BodyHandActionRequest.Action.GRID_TAKE_BACK}) {
+            boolean store = action.name().contains("STORE");
+            var request = new BodyHandActionRequest(action, "left", 7, 1, 9, null, "host-token",
+                    "child-token", 2, 1, store ? 270 : -1);
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+            assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+            assertFalse(buf.isReadable());
+        }
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                BodyHandActionRequest.Action.GRID_STORE_BELT, "left", 7, 1, 9, null, "host", "child", 0, 0, 45));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                BodyHandActionRequest.Action.GRID_TAKE_BACK, "left", 7, 1, 9, null, "host", null, 0, 0, -1));
+        var truncated = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        truncated.writeEnum(BodyHandActionRequest.Action.GRID_STORE_BELT);
+        truncated.writeUtf("left"); truncated.writeVarLong(7); truncated.writeVarLong(1); truncated.writeVarLong(9);
+        truncated.writeUtf("host"); truncated.writeUtf("child"); truncated.writeVarInt(0);
+        assertThrows(RuntimeException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(truncated));
+    }
+
+    @Test void gridMoveCarriesBothPlacementsAndRotationAndRejectsTrailingData() {
+        for (int rotation : new int[]{90, 270}) {
+            var request = new BodyHandActionRequest(BodyHandActionRequest.Action.GRID_MOVE_BACK, "left", 7, 1, 9,
+                    null, "host-token", "child-token", 2, 1, rotation, 0, 0, 270);
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+            assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+            assertFalse(buf.isReadable());
+        }
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                BodyHandActionRequest.Action.GRID_MOVE_BACK, "left", 7, 1, 9, null, "host", "child", 0, 0, 90, 8, 0, 0));
+        var extra = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        var request = new BodyHandActionRequest(BodyHandActionRequest.Action.GRID_MOVE_BACK, "left", 7, 1, 9,
+                null, "host", "child", 1, 1, 90, 0, 0, 270);
+        BodyHandActionRequest.STREAM_CODEC.encode(extra, request); extra.writeByte(1);
+        assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(extra));
+        assertTrue(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.GRID_MOVE_BACK, "host", "occupied", "host", null));
+        assertFalse(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.GRID_MOVE_BACK, "wrong", "occupied", "host", null));
     }
 
     @Test void selectHandRequiresPayloadFreeIntentAndSequenceGate() {
@@ -106,6 +191,54 @@ class BodyHandActionPolicyTest {
             BodyHandActionRequest.STREAM_CODEC.encode(extra, request);
             extra.writeUtf("forged-slot");
             assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(extra));
+        }
+    }
+
+    @Test void equipmentRoutePrecheckSeparatesLegacyAndGridTransfers() {
+        assertTrue(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.GRID_STORE_BACK, "host", "unique-hand", "host", null));
+        assertTrue(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.GRID_STORE_BACK, "host", "unique-hand", "host", "legacy-child"));
+        assertTrue(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.GRID_TAKE_BACK, "host", null, "host", null));
+        assertFalse(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.GRID_STORE_BACK, "stale-host", "unique-hand", "host", null));
+        assertTrue(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.GRID_TAKE_BACK, "host", "occupied", "host", "legacy-child"));
+        assertTrue(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.STORE_BACK, "host", "unique-hand", "host", null));
+        assertFalse(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.STORE_BACK, "host", "unique-hand", "host", "child"));
+        assertTrue(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.TAKE_BACK, "host", null, "host", "child"));
+        assertFalse(BodyHandRequestService.equipmentPrecheck(BodyHandActionRequest.Action.TAKE_BACK, "host", null, "host", null));
+    }
+
+    @Test void heldGridActionsRoundTripAndRejectTrailingPayload() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.HELD_GRID_STORE,
+                BodyHandActionRequest.Action.HELD_GRID_TAKE, BodyHandActionRequest.Action.HELD_GRID_MOVE}) {
+            boolean store = action == BodyHandActionRequest.Action.HELD_GRID_STORE;
+            boolean move = action == BodyHandActionRequest.Action.HELD_GRID_MOVE;
+            var request = new BodyHandActionRequest(action, "left", 7, 2, 9, null, "host-token", "child-token",
+                    2, 1, store || move ? 270 : -1, move ? 0 : -1, move ? 0 : -1, move ? 90 : -1);
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+            assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+            assertFalse(buf.isReadable());
+            var extra = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(extra, request);
+            extra.writeByte(1);
+            assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(extra));
+        }
+    }
+
+    @Test void smartEquipmentActionsRoundTripWithoutClientGeometry() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.SMART_STORE_BELT,
+                BodyHandActionRequest.Action.SMART_STORE_BACK, BodyHandActionRequest.Action.SMART_TAKE_BELT,
+                BodyHandActionRequest.Action.SMART_TAKE_BACK}) {
+            var request = new BodyHandActionRequest(action, "left", 7, 2, 9, null, "host-token",
+                    "source-or-last-child", -1, -1, -1);
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+            assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+            assertFalse(buf.isReadable());
+            buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+            buf.writeByte(1);
+            var trailing = buf;
+            assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(trailing));
         }
     }
 }

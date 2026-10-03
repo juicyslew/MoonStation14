@@ -219,7 +219,8 @@ class DirectionalCueGeometryTest {
             var point = DirectionalCueOverlay.selectedPoints(PROJECTION, new Quaternionf(), 320, 180, 2000).getFirst();
             var panel = LocalSpeechReviewOverlay.layout(320, 180, false);
             assertTrue(point.x() >= panel.left() && point.x() <= panel.right());
-            assertTrue(point.y() >= panel.top() && point.y() <= panel.bottom());
+            // The cue remains in place even when the relocated viewer no longer covers it.
+            assertTrue(point.y() >= panel.bottom());
             assertEquals(1, DirectionalCueOverlay.selected(PROJECTION, new Quaternionf(), 320, 180, 2000));
             LocalSpeechReviewOverlay.toggle();
             assertEquals(point, DirectionalCueOverlay.selectedPoints(PROJECTION, new Quaternionf(), 320, 180, 2000).getFirst());

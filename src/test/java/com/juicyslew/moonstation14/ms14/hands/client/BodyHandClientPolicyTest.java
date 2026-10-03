@@ -22,176 +22,58 @@ class BodyHandClientPolicyTest {
                 reason, false, 0, null, null, null, 0);
     }
 
-    private static BodyHandStateSnapshot pouchSnapshot(long requested, long sequence, boolean filled,
-                                                       BodyHandStateSnapshot.Hand other) {
-        return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
-                ACCOUNT, BODY, 7, 3, other.id(), List.of(other,
-                new BodyHandStateSnapshot.Hand("pouch-hand", "pouch-token", "moonstation14:pouch", 1,
-                        true, filled ? "child-token" : null, filled ? "minecraft:stick" : null,
-                        filled ? 2 : 0)));
-    }
-
-    private static BodyHandStateSnapshot equipmentSnapshot(long requested, long sequence,
-                                                             BodyHandStateSnapshot.Hand active,
-                                                             List<BodyHandStateSnapshot.EquipmentSlot> equipment) {
-        return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
-                ACCOUNT, BODY, 7, 3, "left", List.of(active,
-                new BodyHandStateSnapshot.Hand("right", null, null, 0)), equipment);
-    }
-
-    private static BodyHandStateSnapshot.EquipmentSlot slot(String id, boolean worn, boolean filled) {
-        return new BodyHandStateSnapshot.EquipmentSlot(id, worn ? id + "-token" : null,
-                worn ? (id.equals("belt") ? "moonstation14:belt" : "moonstation14:bag") : null,
-                worn ? 1 : 0, filled ? id + "-child" : null,
-                filled ? "minecraft:stick" : null, filled ? 2 : 0);
-    }
-
-    @Test void equipmentButtonsRequireDeclaredSlotActiveHandAndFreshProof() {
+    @Test void successfulSelectionKeepsPresentationOnlyUntilFreshSnapshot() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);
-        var belt = new BodyHandStateSnapshot.Hand("left", "held", "moonstation14:belt", 1);
-        var bag = new BodyHandStateSnapshot.Hand("left", "held", "moonstation14:bag", 1);
-        var stick = new BodyHandStateSnapshot.Hand("left", "held", "minecraft:stick", 2);
-        var empty = new BodyHandStateSnapshot.Hand("left", null, null, 0);
-        long q = policy.query(1);
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        long select = policy.selectionAction(2);
+        assertTrue(policy.presentationPending() == false);
         assertNull(policy.inventoryView());
-        assertFalse(policy.accept(equipmentSnapshot(0, q + 1, belt, List.of(slot("belt", false, false)))));
-        assertTrue(policy.accept(equipmentSnapshot(0, q, belt, List.of(slot("belt", false, false)))));
-        assertTrue(policy.inventoryView().belt().canEquip());
-        assertNull(policy.inventoryView().back()); // missing is unavailable, never an empty slot
-        assertFalse(policy.inventoryView().belt().canStore());
-        assertFalse(policy.inventoryView().belt().canUnequip());
-        assertFalse(policy.inventoryView().belt().canTake());
-        assertEquals(0, policy.query(2));
-        long pending = policy.query(41);
+        assertTrue(policy.result(result(7, select, BodyHandActionResult.Reason.OK), 3));
+        assertNull(policy.snapshot());
         assertNull(policy.inventoryView());
-        assertEquals(0, policy.action(41));
-        assertTrue(policy.accept(equipmentSnapshot(7, pending, bag, List.of(slot("back", false, false)))));
-        assertTrue(policy.inventoryView().back().canEquip());
-        assertNull(policy.inventoryView().belt());
-        assertFalse(policy.inventoryView().back().canUnequip());
-        long next = policy.query(81);
-        assertTrue(policy.accept(equipmentSnapshot(7, next, stick, List.of(slot("belt", true, false)))));
-        assertTrue(policy.inventoryView().belt().canStore());
-        assertFalse(policy.inventoryView().belt().canEquip());
-        assertFalse(policy.inventoryView().belt().canUnequip());
-        long action = policy.action(82);
-        assertNull(policy.inventoryView());
-        assertEquals(0, policy.action(82));
-        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 83));
-        assertNull(policy.inventoryView());
-        long refresh = policy.query(83);
-        assertTrue(policy.accept(equipmentSnapshot(0, refresh, empty, List.of(slot("belt", true, true)))));
-        assertTrue(policy.inventoryView().belt().canTake());
-        assertTrue(policy.inventoryView().belt().canUnequip());
-        assertFalse(policy.inventoryView().belt().canStore());
-        policy.bind(ACCOUNT, BODY, 8);
-        assertNull(policy.inventoryView());
-        policy.suspend();
-        assertEquals(0, policy.action(84));
+        long refresh = policy.query(4);
+        assertFalse(policy.presentationPending());
+        assertTrue(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)));
+        assertFalse(policy.presentationPending());
     }
 
-    @Test void equipmentDoesNotOfferNestedStorageOrWrongHandAndRejectsOldEpoch() {
+    @Test void selectionPresentationExceptionClearsOnFailureTimeoutAndReset() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);
-        var pouch = new BodyHandStateSnapshot.Hand("left", "held", "moonstation14:pouch", 1,
-                true, null, null, 0);
-        long q = policy.query(1);
-        assertTrue(policy.accept(equipmentSnapshot(0, q, pouch, List.of(slot("belt", true, false)))));
-        assertFalse(policy.inventoryView().belt().canStore());
-        long next = policy.query(41);
-        var filled = slot("back", true, true);
-        assertTrue(policy.accept(equipmentSnapshot(7, next,
-                new BodyHandStateSnapshot.Hand("left", "held", "minecraft:stick", 65), List.of(filled))));
-        assertFalse(policy.inventoryView().back().canStore());
-        assertFalse(policy.inventoryView().back().canTake());
-        assertFalse(policy.inventoryView().back().canUnequip());
-        policy.suspend();
-        assertNull(policy.inventoryView());
-        policy.bind(ACCOUNT, BODY, 8);
-        assertFalse(policy.accept(equipmentSnapshot(7, next, pouch, List.of(slot("belt", true, false)))));
-        assertNull(policy.inventoryView());
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        long denied = policy.selectionAction(2);
+        assertTrue(policy.result(result(7, denied, BodyHandActionResult.Reason.DENIED), 3));
+        assertFalse(policy.presentationPending()); // retained snapshot is normal presentation after failure
+        long retry = policy.query(4);
+        assertTrue(retry > 0);
+        assertTrue(policy.presentationPending()); // stale retained snapshot dims during fresh query
+        assertTrue(policy.accept(snapshot(0, retry, ACCOUNT, BODY, 7)));
+        assertFalse(policy.presentationPending()); // confirmed presentation is retained once no query is pending
+        long timed = policy.selectionAction(45);
+        policy.timeout(125);
+        assertFalse(policy.presentationPending());
+        assertFalse(policy.result(result(7, timed, BodyHandActionResult.Reason.OK), 126));
+        policy.reset();
+        assertTrue(policy.presentationPending()); // reset removes presentation entirely
     }
 
-    @Test void pouchEligibilityRequiresCorrelatedTwoHandStateAndConcealsDuringPending() {
+    @Test void ordinaryMutationStillDimsPresentation() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);
-        var occupied = new BodyHandStateSnapshot.Hand("other", "other-token", "minecraft:stick", 1);
-        var empty = new BodyHandStateSnapshot.Hand("other", null, null, 0);
-        long query = policy.query(1);
-        assertNull(policy.pouchView());
-        assertFalse(policy.accept(pouchSnapshot(0, query + 1, false, occupied)));
-        assertNull(policy.pouchView());
-        assertTrue(policy.accept(pouchSnapshot(0, query, false, occupied)));
-        assertTrue(policy.pouchView().canInsert());
-        assertFalse(policy.pouchView().canExtract());
-        long action = policy.action(2);
-        assertNull(policy.pouchView());
-        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 3));
-        assertNull(policy.pouchView());
-        long refresh = policy.query(3);
-        assertTrue(policy.accept(pouchSnapshot(0, refresh, true, empty)));
-        assertFalse(policy.pouchView().canInsert());
-        assertTrue(policy.pouchView().canExtract());
-        assertEquals("minecraft:stick", policy.pouchView().pouch().childItemId());
-        long pendingQuery = policy.query(43);
-        assertTrue(pendingQuery > 0);
-        assertNull(policy.pouchView());
-        assertEquals(0, policy.action(44));
-        assertTrue(policy.accept(pouchSnapshot(7, pendingQuery, true, empty)));
-        policy.suspend();
-        assertNull(policy.pouchView());
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        assertTrue(policy.action(2) > 0);
+        assertTrue(policy.presentationPending());
     }
 
-    @Test void screenPresenterConcealsHandsAndPouchUntilVerifiedRefresh() {
-        var policy = new BodyHandClientPolicy();
-        policy.bind(ACCOUNT, BODY, 7);
-        var other = new BodyHandStateSnapshot.Hand("other", "other-token", "minecraft:stick", 2);
-        long initial = policy.query(1);
-        assertNull(policy.inventoryView());
-        assertTrue(policy.accept(pouchSnapshot(0, initial, false, other)));
-        var view = policy.inventoryView();
-        assertEquals("minecraft:stick", view.first().itemId());
-        assertEquals(2, view.first().count());
-        assertEquals("other", view.activeHand());
-        assertTrue(view.pouch().canInsert());
-        long pending = policy.query(41);
-        assertNull(policy.inventoryView());
-        assertTrue(policy.accept(pouchSnapshot(7, pending, false, other)));
-        long action = policy.action(42);
-        assertNull(policy.inventoryView());
-        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 43));
-        assertNull(policy.inventoryView());
-        long refresh = policy.query(43);
-        assertTrue(policy.accept(pouchSnapshot(0, refresh, false, other)));
-        assertNotNull(policy.inventoryView());
-        policy.bind(ACCOUNT, BODY, 8);
-        assertNull(policy.inventoryView());
-        policy.suspend();
-        assertNull(policy.inventoryView());
+    @Test void nominatedGridStoreUsesExactHandProofRatherThanActiveHand() {
+        var nominated = new BodyHandStateSnapshot.Hand("inactive", "item-token", "minecraft:stone", 3);
+        assertTrue(BodyHandClientPolicy.nominatedGridStoreEligible(nominated, "item-token", "minecraft:stone", 3));
+        assertFalse(BodyHandClientPolicy.nominatedGridStoreEligible(nominated, "other-token", "minecraft:stone", 3));
+        assertFalse(BodyHandClientPolicy.nominatedGridStoreEligible(nominated, "item-token", "minecraft:stone", 2));
     }
 
-    @Test void pouchEligibilityRejectsAmbiguousOrUnsuitableGeometry() {
-        var policy = new BodyHandClientPolicy();
-        policy.bind(ACCOUNT, BODY, 7);
-        var empty = new BodyHandStateSnapshot.Hand("other", null, null, 0);
-        long q = policy.query(1);
-        assertTrue(policy.accept(pouchSnapshot(0, q, false, empty)));
-        assertFalse(policy.pouchView().canInsert());
-        assertFalse(policy.pouchView().canExtract());
-        policy.suspend();
-        policy.bind(ACCOUNT, BODY, 7);
-        q = policy.query(2);
-        var secondPouch = new BodyHandStateSnapshot.Hand("another", "another-token", "moonstation14:pouch",
-                1, true, null, null, 0);
-        assertTrue(policy.accept(pouchSnapshot(0, q, false, secondPouch)));
-        assertNull(policy.pouchView());
-        policy.suspend();
-        policy.bind(ACCOUNT, BODY, 7);
-        q = policy.query(3);
-        assertTrue(policy.accept(snapshot(0, q, ACCOUNT, BODY, 7)));
-        assertNull(policy.pouchView());
-    }
+
 
     @Test void hudHidesOldHandThroughActionAndRefreshWithoutSyncingText() {
         var policy = new BodyHandClientPolicy();
@@ -203,23 +85,23 @@ class BodyHandClientPolicyTest {
         assertNotNull(policy.hudSnapshot());
 
         long action = policy.action(2);
-        assertNull(policy.hudSnapshot());
+        assertNotNull(policy.hudSnapshot());
         assertNull(policy.feedback());
         policy.noItemUnderCursor(2); // repeated G while the first action is unresolved
         assertNull(policy.feedback());
         assertEquals(0, policy.query(2));
         assertFalse(policy.result(result(8, action, BodyHandActionResult.Reason.OK), 3));
-        assertNull(policy.hudSnapshot());
+        assertNotNull(policy.hudSnapshot());
         assertFalse(policy.result(result(7, action + 1, BodyHandActionResult.Reason.OK), 3));
         assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 4));
-        assertNull(policy.hudSnapshot());
+        assertNotNull(policy.hudSnapshot());
         assertNull(policy.feedback());
         assertEquals(0, policy.action(4));
 
         long refresh = policy.query(4);
         assertFalse(policy.accept(snapshot(0, initial, ACCOUNT, BODY, 7)));
         assertFalse(policy.accept(snapshot(7, refresh, ACCOUNT, BODY, 7)));
-        assertNull(policy.hudSnapshot());
+        assertNotNull(policy.hudSnapshot());
         assertTrue(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)));
         assertNotNull(policy.hudSnapshot());
         assertFalse(policy.result(result(7, action, BodyHandActionResult.Reason.DENIED), 5));
@@ -233,7 +115,7 @@ class BodyHandClientPolicyTest {
         assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
         long action = policy.action(2);
         policy.timeout(82);
-        assertNull(policy.hudSnapshot());
+        assertNotNull(policy.hudSnapshot());
         assertNull(policy.feedback());
         assertFalse(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 83));
         long retry = policy.query(83);
@@ -248,7 +130,7 @@ class BodyHandClientPolicyTest {
         assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
         long action = policy.action(2);
         assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.RECOVERY_REQUIRED), 10));
-        assertNull(policy.hudSnapshot());
+        assertNotNull(policy.hudSnapshot());
         assertEquals("Hands: RECOVERY_REQUIRED", policy.feedback());
         long refresh = policy.query(11);
         assertTrue(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)));
@@ -258,7 +140,7 @@ class BodyHandClientPolicyTest {
         assertNull(policy.feedback());
         long denied = policy.action(71);
         assertTrue(policy.result(result(7, denied, BodyHandActionResult.Reason.DENIED), 72));
-        assertNull(policy.hudSnapshot());
+        assertNotNull(policy.hudSnapshot());
         assertEquals("Hands: server DENIED", policy.feedback());
         policy.timeout(132);
         assertNull(policy.feedback());

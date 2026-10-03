@@ -25,42 +25,62 @@ public final class BodyHandItemTransfer {
     public enum Result { SUCCESS, DENIED, RECOVERY_REQUIRED }
 
     public static Result pickup(ServerPlayer actor, UUID itemEntityUuid, String hand, long expectedHandRevision) {
+        return pickup(actor, itemEntityUuid, hand, expectedHandRevision, ignored -> { });
+    }
+
+    public static Result pickup(ServerPlayer actor, UUID itemEntityUuid, String hand, long expectedHandRevision,
+                                java.util.function.Consumer<UUID> committedSource) {
         var authority = HandActorAuthority.resolve(actor);
         if (authority.isEmpty() || itemEntityUuid == null) return Result.DENIED;
         LivingEntity body = authority.orElseThrow().body();
         return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision,
-                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()));
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource);
     }
 
     // Trusted fixture seam only: tests use a real spawned body and world item, never a fake actor authority.
     static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
                               BooleanSupplier authorityValid) {
+        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { });
+    }
+
+    private static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
+                                      BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource) {
         if (body == null || itemEntityUuid == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || !CharacterControlSystem.canAct(body)) return Result.DENIED;
         if (!level.getServer().isSameThread() || body.isRemoved() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body) return Result.DENIED;
-        Entity entity = level.getEntity(itemEntityUuid);
-        if (!(entity instanceof ItemEntity item) || item.isRemoved() || !item.isAddedToLevel()
-                || item.level() != level || item.getTarget() != null || item.hasPickUpDelay()
-                 || !reachable(body, item.position())) return Result.DENIED;
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (before == null || !before.compatible(body) || before.revision() != expectedHandRevision)
             return Result.DENIED;
+        // The packet UUID is only a hint. The body-eye ray selects the actual source on this tick.
+        // A reserved/delayed first item blocks a farther pickup rather than being skipped.
+        Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
+        BodyItemTargetProbe.Target selected = BodyItemTargetProbe.nearestVisible(level, body,
+                BodyItemTargetProbe.MAX_REACH);
+        if (selected == null) return Result.DENIED;
+        UUID sourceId = selected.itemId();
+        Entity entity = level.getEntity(sourceId);
+        if (!(entity instanceof ItemEntity item) || item.isRemoved() || !item.isAddedToLevel()
+                || item.level() != level || item.getTarget() != null || item.hasPickUpDelay()
+                 || !reachable(body, item.position())) return Result.DENIED;
         ItemStack source = item.getItem().copy();
         if (!valid(source)) return Result.DENIED;
         Vec3 sourcePosition = item.position();
         ItemToken token = new ItemToken(UUID.randomUUID().toString());
         LiveHands.WholeResult transition = before.putWhole(expectedHandRevision, hand, token, source);
+        BodyItemTargetProbe.Target confirmed = transition.succeeded()
+                ? BodyItemTargetProbe.nearestVisible(level, body, BodyItemTargetProbe.MAX_REACH) : null;
         if (!transition.succeeded() || !BodyHandStateService.representable(transition.state(), body)
                 || !authorityValid.getAsBoolean()
                 || !CharacterControlSystem.canAct(body) || body.level() != level
                 || body.isRemoved() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
                 || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
-                || level.getEntity(itemEntityUuid) != item || item.level() != level
+                 || level.getEntity(sourceId) != item || item.level() != level
                 || item.isRemoved() || !item.isAddedToLevel()
                 || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem())
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body)
-                || BodyItemTargetProbe.probe(level, body, item, BodyItemTargetProbe.MAX_REACH) == null
+                 || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
+                 || confirmed == null || !sourceId.equals(confirmed.itemId())
                 // Shape callbacks are not assumed pure: the checked source and attachment must still
                 // be the exact live owners immediately after the probe, before clearing the source.
                 || !authorityValid.getAsBoolean() || !CharacterControlSystem.canAct(body)
@@ -68,12 +88,21 @@ public final class BodyHandItemTransfer {
                 || level.getEntity(body.getUUID()) != body
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body) || item.level() != level || item.isRemoved()
-                || !item.isAddedToLevel() || level.getEntity(itemEntityUuid) != item
+                 || !item.isAddedToLevel() || level.getEntity(sourceId) != item
                 || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
-                || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem())
-                || !BodyHandStateService.representable(transition.state(), body)
-                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
-                || !same(source, item.getItem()))
+                 || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem())
+                 || !BodyHandStateService.representable(transition.state(), body)
+                 || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
+                 || BodyItemTargetProbe.probe(level, body, item, BodyItemTargetProbe.MAX_REACH) == null
+                 || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
+                 || !authorityValid.getAsBoolean() || !CharacterControlSystem.canAct(body)
+                 || body.level() != level || body.isRemoved() || !body.isAddedToLevel()
+                 || level.getEntity(body.getUUID()) != body || item.level() != level
+                 || item.isRemoved() || !item.isAddedToLevel() || level.getEntity(sourceId) != item
+                 || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
+                 || item.getTarget() != null || item.hasPickUpDelay()
+                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                 || !same(source, item.getItem()))
             return Result.DENIED;
 
         // The entity must stop owning the stack before the attachment starts owning it.
@@ -81,7 +110,7 @@ public final class BodyHandItemTransfer {
             item.setItem(ItemStack.EMPTY);
         } catch (RuntimeException failure) {
             return item.level() == level && !item.isRemoved() && item.isAddedToLevel()
-                    && level.getEntity(itemEntityUuid) == item && sourcePosition.equals(item.position())
+                     && level.getEntity(sourceId) == item && sourcePosition.equals(item.position())
                     && body.level() == level && !body.isRemoved() && body.isAddedToLevel()
                     && level.getEntity(body.getUUID()) == body
                     && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
@@ -89,7 +118,7 @@ public final class BodyHandItemTransfer {
         }
         if (!item.getItem().isEmpty() || item.level() != level || !sourcePosition.equals(item.position())
                 || item.getTarget() != null || item.hasPickUpDelay()
-                || level.getEntity(itemEntityUuid) != item || item.isRemoved() || !item.isAddedToLevel()
+                 || level.getEntity(sourceId) != item || item.isRemoved() || !item.isAddedToLevel()
                 || body.level() != level || body.isRemoved() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before)
@@ -106,22 +135,39 @@ public final class BodyHandItemTransfer {
         } catch (RuntimeException failure) {
             return Result.RECOVERY_REQUIRED;
         }
-        return item.isRemoved() && level.getEntity(itemEntityUuid) != item
-                ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+        if (item.isRemoved() && level.getEntity(sourceId) != item) { committedSource.accept(sourceId); return Result.SUCCESS; }
+        return Result.RECOVERY_REQUIRED;
     }
 
     public static Result drop(ServerPlayer actor, String hand, String expectedToken, long expectedHandRevision) {
+        return drop(actor, hand, expectedToken, expectedHandRevision, ignored -> { });
+    }
+
+    public static Result drop(ServerPlayer actor, String hand, String expectedToken, long expectedHandRevision,
+                              java.util.function.Consumer<UUID> committedWorldEntity) {
         var authority = HandActorAuthority.resolve(actor);
         if (authority.isEmpty() || expectedToken == null) return Result.DENIED;
         LivingEntity body = authority.orElseThrow().body();
-        return dropOwned(body, hand, expectedToken, expectedHandRevision,
-                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()));
+        return dropOwned(body, actor, hand, expectedToken, expectedHandRevision,
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedWorldEntity);
     }
 
     // Fixture seam: the public route alone resolves the actor. Tests exercise the same world/attachment transfer
     // on a real spawned body, without synthesizing a controller or changing the production authorization route.
     static Result dropOwned(LivingEntity body, String hand, String expectedToken, long expectedHandRevision,
                             BooleanSupplier authorityValid) {
+        return dropOwned(body, null, hand, expectedToken, expectedHandRevision, authorityValid, ignored -> { });
+    }
+
+    /** Fixture overload accepts only an explicitly designated excluded carrier; it is never inferred by type. */
+    static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
+                            long expectedHandRevision, BooleanSupplier authorityValid) {
+        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, ignored -> { });
+    }
+
+    private static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
+                            long expectedHandRevision, BooleanSupplier authorityValid,
+                            java.util.function.Consumer<UUID> committedWorldEntity) {
         if (expectedToken == null || body == null || body.isRemoved() || !body.isAddedToLevel()) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || !CharacterControlSystem.canAct(body)
                 || level.getEntity(body.getUUID()) != body
@@ -142,12 +188,20 @@ public final class BodyHandItemTransfer {
                 || level.getEntity(body.getUUID()) != body
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body))
             return Result.DENIED;
-        Vec3 forward = BodyItemTargetProbe.forwardDropSpot(level, body);
-        Vec3 position = forward == null ? body.position() : forward;
+        Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
+        BodyItemTargetProbe.DropPlacement placement = BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier);
+        if (placement == null || !sourceEye.equals(body.getEyePosition())
+                || !sourceLook.equals(body.getLookAngle()) || !authorityValid.getAsBoolean()
+                || !CharacterControlSystem.canAct(body) || body.level() != level || body.isRemoved()
+                || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || !before.compatible(body)) return Result.DENIED;
+        Vec3 position = placement.position();
         ItemEntity dropped;
         try {
             dropped = new ItemEntity(level, position.x, position.y, position.z, stack.copy());
-            dropped.setDeltaMovement(Vec3.ZERO);
+            dropped.setDeltaMovement(placement.velocity());
+            dropped.setUnlimitedLifetime();
         } catch (RuntimeException failure) {
             return Result.DENIED;
         }
@@ -170,10 +224,13 @@ public final class BodyHandItemTransfer {
             return compensateUnspawnedDrop(body, level, dropped, before, transition.state(),
                     hand, token, stack);
         }
-        return level.getEntity(dropped.getUUID()) == dropped && dropped.isAddedToLevel()
+        if (level.getEntity(dropped.getUUID()) == dropped && dropped.isAddedToLevel()
                 && !dropped.isRemoved() && same(stack, dropped.getItem())
-                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == transition.state()
-                ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == transition.state()) {
+            committedWorldEntity.accept(dropped.getUUID());
+            return Result.SUCCESS;
+        }
+        return Result.RECOVERY_REQUIRED;
     }
 
     private static Result compensateUnspawnedDrop(LivingEntity body, ServerLevel level, ItemEntity dropped,
