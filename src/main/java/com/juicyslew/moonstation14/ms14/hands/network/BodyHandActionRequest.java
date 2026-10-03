@@ -23,8 +23,9 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         GRID_STORE_BELT, GRID_STORE_BACK, GRID_TAKE_BELT, GRID_TAKE_BACK, GRID_MOVE_BELT, GRID_MOVE_BACK,
         HELD_GRID_STORE, HELD_GRID_TAKE, HELD_GRID_MOVE,
         SMART_STORE_BELT, SMART_STORE_BACK, SMART_TAKE_BELT, SMART_TAKE_BACK,
-         GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
-          GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD, TRANSFER_HAND }
+        GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
+        GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
+        TRANSFER_HAND, PRIME_GRENADE, THROW_GRENADE }
 
     public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
             UUID pickupTarget, String expectedToken, String child, int x, int y, int rotation,
@@ -51,7 +52,6 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                                  UUID pickupTarget, String expectedToken, String child, int x, int y, int rotation) {
         this(action, handId, epoch, sequence, expectedRevision, pickupTarget, expectedToken, child, x, y, rotation, -1, -1, -1);
     }
-
     public static final Type<BodyHandActionRequest> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath("moonstation14", "body_hand_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, BodyHandActionRequest> STREAM_CODEC =

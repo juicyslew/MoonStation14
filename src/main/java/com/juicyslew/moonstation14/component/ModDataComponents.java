@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.slip.SlidingComponent;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureComponent;
 import com.juicyslew.moonstation14.ms14.hands.HandComponent;
 import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
+import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -71,6 +72,10 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<GridContents>> GRID_CONTENTS =
             register_component("grid_contents", builder -> builder.persistent(GridContents.CODEC)
                     .networkSynchronized(GridContents.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<GrenadeFuseData>> GRENADE_FUSE =
+            register_component("grenade_fuse", builder -> builder.persistent(GrenadeFuseData.CODEC)
+                    .networkSynchronized(GrenadeFuseData.STREAM_CODEC));
 
 
     private static <T>DeferredHolder<DataComponentType<?>, DataComponentType<T>> register_component(

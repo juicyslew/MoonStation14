@@ -20,7 +20,7 @@ public class ModCreativeModeTabs {
             ModItems.CROWBAR, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
             ModItems.APC_CABLE_SPOOL, ModItems.CABLE_CUTTER, ModItems.WAFFLE, ModItems.BOTTLE,
-            ModItems.ATMOSPHERE_ANALYZER, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE);
+            ModItems.ATMOSPHERE_ANALYZER, ModItems.GRENADE, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
             ModBlocks.STEEL_WALL_BLOCK, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,

@@ -82,6 +82,23 @@ public final class BodyItemTargetProbeGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
+    public static void itemOverlappingEyeRemainsVisibleAtZeroDistanceBlockHit(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = body(level, origin);
+        Vec3 eye = body.getEyePosition();
+        ItemEntity overlap = new ItemEntity(level, eye.x, eye.y - .1, eye.z,
+                new ItemStack(Items.DIAMOND));
+        require(level.addFreshEntity(overlap), "overlapping item spawned");
+        level.setBlock(BlockPos.containing(eye), Blocks.STONE.defaultBlockState(), 3);
+        require(BodyItemTargetProbe.probe(level, body, overlap, 4) != null,
+                "eye-overlapping item remains eligible when collider hit is at eye");
+        overlap.discard();
+        body.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
     public static void equalDistanceUuidWinsWhenLowSpawnsFirst(GameTestHelper helper) {
         tie(helper, true);
     }

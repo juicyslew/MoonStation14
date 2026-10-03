@@ -196,11 +196,13 @@ public final class BodyItemTargetProbe {
                 double nearFace = (look.x >= 0 ? box.minX : box.maxX) * look.x
                         + (look.y >= 0 ? box.minY : box.maxY) * look.y
                         + (look.z >= 0 ? box.minZ : box.maxZ) * look.z - from.dot(look);
-                if (!Double.isFinite(distance) || distance >= blockerDistance * blockerDistance
-                        || nearFace >= blockerDistance || distance > reach * reach) continue;
+                boolean eyeOverlap = box.contains(from);
+                if (!Double.isFinite(distance)
+                        || (distance >= blockerDistance * blockerDistance && !(distance == 0 && eyeOverlap))
+                        || (nearFace >= blockerDistance && !eyeOverlap) || distance > reach * reach) continue;
                 // Exact hit-distance ties use UUID ordering, never the entity index's iteration order.
                 if (distance < firstDistance || distance == firstDistance
-                        && first != null && item.getUUID().compareTo(first.getUUID()) < 0) {
+                        && (first == null || item.getUUID().compareTo(first.getUUID()) < 0)) {
                     first = item;
                     firstHit = hit;
                     firstDistance = distance;

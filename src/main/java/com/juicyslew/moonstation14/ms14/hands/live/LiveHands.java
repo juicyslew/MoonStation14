@@ -270,6 +270,74 @@ public final class LiveHands {
         return new WholeResult(new LiveHands(next, active, revision + 1, equipment), Optional.empty(), Optional.empty());
     }
 
+    /** Pure single-stack component replacement, preserving the exact owner's token. */
+    Optional<LiveHands> replaceOwnedStack(long expectedRevision, String hand, ItemToken expectedToken,
+                                          ItemStack replacement) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || hand == null || expectedToken == null
+                || replacement == null || replacement.isEmpty() || replacement.getCount() != 1
+                || !replacement.is(ModItems.GRENADE)) return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0) return Optional.empty();
+        Optional<Occupant> current = hands.get(index).occupant();
+        if (current.isEmpty() || !current.orElseThrow().token().equals(expectedToken.value())) return Optional.empty();
+        ItemStack original = current.orElseThrow().stack();
+        if (!original.is(ModItems.GRENADE) || original.getCount() != 1
+                || !replacement.is(ModItems.GRENADE)) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        next.set(index, new Slot(hand, Optional.of(new Occupant(expectedToken.value(), replacement))));
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
+    /** Internal fuse progress only: records one monotonic beep flag without changing ownership revision. */
+    Optional<LiveHands> advanceOwnedGrenadeBeep(long expectedRevision, String hand, ItemToken expectedToken,
+                                                ItemStack replacement) {
+        if (revision != expectedRevision || hand == null || expectedToken == null || replacement == null
+                || replacement.isEmpty() || replacement.getCount() != 1 || !replacement.is(ModItems.GRENADE))
+            return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0) return Optional.empty();
+        Optional<Occupant> current = hands.get(index).occupant();
+        if (current.isEmpty() || !current.orElseThrow().token().equals(expectedToken.value())) return Optional.empty();
+        ItemStack original = current.orElseThrow().stack();
+        if (!original.is(ModItems.GRENADE) || original.getCount() != 1) return Optional.empty();
+        var beforeFuse = original.get(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get());
+        var afterFuse = replacement.get(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get());
+        if (beforeFuse == null || afterFuse == null
+                || beforeFuse.phase() != com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuse.Phase.ARMED
+                || afterFuse.phase() != beforeFuse.phase() || afterFuse.deadline() != beforeFuse.deadline()
+                || beforeFuse.beepedAtPrime() && !afterFuse.beepedAtPrime()
+                || beforeFuse.beepedAtForty() && !afterFuse.beepedAtForty()
+                || beforeFuse.beepedAtPrime() == afterFuse.beepedAtPrime()
+                && beforeFuse.beepedAtForty() == afterFuse.beepedAtForty()) return Optional.empty();
+        ItemStack normalized = replacement.copy();
+        normalized.set(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get(), beforeFuse);
+        if (!ItemStack.isSameItemSameComponents(original, normalized)) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        next.set(index, new Slot(hand, Optional.of(new Occupant(expectedToken.value(), replacement))));
+        return Optional.of(new LiveHands(next, active, revision, equipment));
+    }
+
+    /** Pure, single-revision movement into the pouch component; no intermediate ownership state. */
+    Optional<LiveHands> insertPouch(long expectedRevision, String pouchHand, String pouchToken,
+                                    String sourceHand, String sourceToken) {
+        int pouchIndex = handIds().indexOf(pouchHand);
+        int sourceIndex = handIds().indexOf(sourceHand);
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || hands.size() != 2
+                || pouchIndex < 0 || sourceIndex < 0 || pouchIndex == sourceIndex
+                || pouchToken == null || sourceToken == null || pouchToken.equals(sourceToken)) return Optional.empty();
+        Optional<Occupant> pouch = hands.get(pouchIndex).occupant();
+        Optional<Occupant> source = hands.get(sourceIndex).occupant();
+        if (pouch.isEmpty() || source.isEmpty() || !pouch.orElseThrow().token().equals(pouchToken)
+                || !source.orElseThrow().token().equals(sourceToken)) return Optional.empty();
+        Optional<ItemStack> filled = PouchContents.put(pouch.orElseThrow().stack(), sourceToken,
+                source.orElseThrow().stack());
+        if (filled.isEmpty()) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        next.set(pouchIndex, new Slot(pouchHand, Optional.of(new Occupant(pouchToken, filled.orElseThrow()))));
+        next.set(sourceIndex, new Slot(sourceHand, Optional.empty()));
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
     /** Pure one-cell transfer into an already worn container; the equipment owner never changes. */
     Optional<LiveHands> insertEquippedStorage(long expectedRevision, List<String> declared, String slot,
                                                String containerToken, String hand, String sourceToken) {

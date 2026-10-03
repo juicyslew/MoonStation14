@@ -241,4 +241,29 @@ class BodyHandActionPolicyTest {
             assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(trailing));
         }
     }
+    @Test void grenadeIntentsCarryOnlyTheActiveHandToken() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.PRIME_GRENADE,
+                BodyHandActionRequest.Action.THROW_GRENADE}) {
+            var request = new BodyHandActionRequest(action, "left", 7, 2, 9, null, "grenade-token");
+            var encoded = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(encoded, request);
+            assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(encoded));
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                    action, "left", 7, 2, 9, UUID.randomUUID(), "grenade-token"));
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                    action, "left", 7, 2, 9, null, null));
+            var malformed = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            malformed.writeEnum(action);
+            malformed.writeUtf("left");
+            malformed.writeVarLong(7);
+            malformed.writeVarLong(2);
+            malformed.writeVarLong(9);
+            malformed.writeUtf("");
+            assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(malformed));
+            var extra = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(extra, request);
+            extra.writeByte(42);
+            assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(extra));
+        }
+    }
 }

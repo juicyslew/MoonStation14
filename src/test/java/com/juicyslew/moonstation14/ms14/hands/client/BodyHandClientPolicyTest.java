@@ -22,6 +22,135 @@ class BodyHandClientPolicyTest {
                 reason, false, 0, null, null, null, 0);
     }
 
+    private static BodyHandStateSnapshot grenade(long requested, long sequence, long revision) {
+        return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, revision, "left", List.of(new BodyHandStateSnapshot.Hand(
+                "left", "grenade-token", "moonstation14:grenade", 1)));
+    }
+
+    @Test void standaloneThrowDoesNotQueueAnUncorrelatedGrenade() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        assertFalse(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.action(2) > 0); // caller may send THROW immediately; server decides if armed
+    }
+
+    @Test void pendingPrimeRejectsStaleSnapshotAndChangedHandOrToken() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+        assertFalse(policy.accept(grenade(0, prime, 4))); // stale pre-prime reply cannot settle refresh
+        long refresh = policy.query(3);
+        var changed = new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 4, "right", List.of(
+                new BodyHandStateSnapshot.Hand("left", "different-token", "moonstation14:grenade", 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)));
+        assertTrue(policy.accept(changed));
+        assertFalse(policy.takeReadyThrow(4));
+    }
+
+    @Test void explicitThrowSurvivesPrimeResultAndWaitsForCorrelatedNewerSnapshot() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+        assertFalse(policy.takeReadyThrow(3));
+        assertTrue(policy.requestThrowAfterPrime(4)); // M after PRIME result, while refresh is pending
+        long refresh = policy.query(4);
+        assertFalse(policy.accept(grenade(0, refresh + 1, 4)));
+        assertTrue(policy.accept(grenade(0, refresh, 4)));
+        assertTrue(policy.takeReadyThrow(5));
+        assertTrue(policy.takeReadyThrow(5)); // readiness does not consume intent before send
+        policy.throwSent();
+        assertFalse(policy.takeReadyThrow(5));
+    }
+
+    @Test void explicitThrowCanBeCancelledByUiPresence() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+
+        policy.cancelThrowIntent(); // UI open, including the body inventory screen
+        assertFalse(policy.requestThrowAfterPrime(4));
+        long refresh = policy.query(4);
+        assertTrue(policy.accept(grenade(0, refresh, 4)));
+        assertFalse(policy.takeReadyThrow(5));
+    }
+
+    @Test void failedCorrelatedQueryCancelsExplicitThrowIntent() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 3));
+
+        long failedQuery = policy.query(3);
+        var failed = new BodyHandStateSnapshot(0, failedQuery, BodyHandStateSnapshot.Reason.NO_AUTHORITY,
+                null, null, 0, 0, null, List.of());
+        assertFalse(policy.accept(failed));
+        long unrelated = policy.query(43);
+        assertTrue(policy.accept(grenade(0, unrelated, 4)));
+        assertFalse(policy.takeReadyThrow(44));
+    }
+
+    @Test void throwIntentExpiresOrCancelsOnRejectedPrimeAndIdentityChange() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long prime = policy.action(2);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.DENIED), 3));
+        assertFalse(policy.requestThrowAfterPrime(4));
+
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(5), 3)));
+        prime = policy.action(6);
+        policy.markPrime(prime);
+        assertTrue(policy.requestThrowAfterPrime(6));
+        assertTrue(policy.result(result(7, prime, BodyHandActionResult.Reason.OK), 7));
+        assertFalse(policy.takeReadyThrow(46)); // expires after 40 ticks
+        assertFalse(policy.requestThrowAfterPrime(47));
+    }
+
+    private static BodyHandStateSnapshot pouchSnapshot(long requested, long sequence, boolean filled,
+                                                       BodyHandStateSnapshot.Hand other) {
+        return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 3, other.id(), List.of(other,
+                new BodyHandStateSnapshot.Hand("pouch-hand", "pouch-token", "moonstation14:pouch", 1,
+                        true, filled ? "child-token" : null, filled ? "minecraft:stick" : null,
+                        filled ? 2 : 0)));
+    }
+
+    private static BodyHandStateSnapshot equipmentSnapshot(long requested, long sequence,
+                                                             BodyHandStateSnapshot.Hand active,
+                                                             List<BodyHandStateSnapshot.EquipmentSlot> equipment) {
+        return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 3, "left", List.of(active,
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)), equipment);
+    }
+
+    private static BodyHandStateSnapshot.EquipmentSlot slot(String id, boolean worn, boolean filled) {
+        return new BodyHandStateSnapshot.EquipmentSlot(id, worn ? id + "-token" : null,
+                worn ? (id.equals("belt") ? "moonstation14:belt" : "moonstation14:bag") : null,
+                worn ? 1 : 0, filled ? id + "-child" : null,
+                filled ? "minecraft:stick" : null, filled ? 2 : 0);
+    }
+
     @Test void successfulSelectionKeepsPresentationOnlyUntilFreshSnapshot() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);
@@ -36,6 +165,30 @@ class BodyHandClientPolicyTest {
         assertFalse(policy.presentationPending());
         assertTrue(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)));
         assertFalse(policy.presentationPending());
+    }
+
+    @Test void equipmentButtonsRequireDeclaredSlotActiveHandAndFreshProof() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var heldBelt = new BodyHandStateSnapshot.Hand("left", "belt-token", "moonstation14:belt", 1);
+        long q = policy.query(1);
+        assertFalse(policy.accept(equipmentSnapshot(0, q + 1, heldBelt, List.of(slot("belt", false, false)))));
+        assertTrue(policy.accept(equipmentSnapshot(0, q, heldBelt, List.of(slot("belt", false, false)))));
+        assertTrue(policy.inventoryView().belt().canEquip());
+        assertNull(policy.inventoryView().back());
+        long action = policy.action(2);
+        assertNull(policy.inventoryView());
+        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 3));
+        assertNull(policy.inventoryView());
+        long refresh = policy.query(3);
+        var empty = new BodyHandStateSnapshot.Hand("left", null, null, 0);
+        assertTrue(policy.accept(equipmentSnapshot(0, refresh, empty, List.of(slot("belt", true, true)))));
+        assertTrue(policy.inventoryView().belt().canUnequip());
+        assertFalse(policy.inventoryView().belt().canStore());
+        policy.bind(ACCOUNT, BODY, 8);
+        assertNull(policy.inventoryView());
+        policy.suspend();
+        assertEquals(0, policy.action(4));
     }
 
     @Test void selectionPresentationExceptionClearsOnFailureTimeoutAndReset() {

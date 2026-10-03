@@ -31,4 +31,9 @@ public final class BodyPickupRouteGameTestEntry {
     public static void tiedItemsHighFirst(GameTestHelper helper) {
         BodyPickupRouteGameTests.tiedItemsTransferLowerUuid(helper, false);
     }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void coincidentItemsTransferToBothHands(GameTestHelper helper) {
+        BodyPickupRouteGameTests.coincidentItemsTransferToBothHands(helper);
+    }
 }
