@@ -90,6 +90,65 @@ public final class ExplosionAtmosphereGameTests {
         }
     }
 
+    @GameTest(template = "atmos_large_empty", batch = "explosion_atmos_hotspot", timeoutTicks = 100)
+    public static void defaultBlastPrimesFiniteReactiveCellWithoutInstantHeating(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        AtmosphereService global = AtmosphereService.INSTANCE;
+        boolean startupEnabled = Config.ENABLE_ATMOSPHERICS.get();
+        Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> startupVacuumDimensions =
+                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get());
+        require(global.isEnabled() == startupEnabled, "global atmosphere must match startup configuration before fixture");
+
+        // One sealed, loaded, passable cell; bedrock keeps the default blast from
+        // breaching the shell while it exposes the gas cell to the hotspot.
+        for (int x = 1; x <= 3; x++) for (int z = 1; z <= 3; z++) {
+            helper.setBlock(new BlockPos(x, 0, z), Blocks.BEDROCK);
+            helper.setBlock(new BlockPos(x, 2, z), Blocks.BEDROCK);
+            helper.setBlock(new BlockPos(x, 1, z), x == 2 && z == 2 ? Blocks.AIR : Blocks.BEDROCK);
+        }
+        BlockPos cell = helper.absolutePos(new BlockPos(2, 1, 2));
+        try {
+            global.configureAtServerStart(true, Set.of(level.dimension()));
+            require(classifyUntilSample(global, level, cell, 20), "sealed blast cell must classify as finite");
+            require(global.addGas(level, cell, GasType.TRITIUM, 4, 293.15), "inject finite tritium");
+            require(global.addGas(level, cell, GasType.OXYGEN, 4, 293.15), "inject finite oxygen");
+            var before = global.sample(level, cell).orElseThrow();
+            require(before.temperatureKelvin() < 800 && before.moles(GasType.TRITIUM) >= 4
+                            && before.moles(GasType.OXYGEN) >= 4,
+                    "cell starts cold with enough tritium and oxygen");
+
+            var result = ServerExplosionService.execute(level, cell, ModExplosions.DEFAULT_ID, PROPOSAL);
+            require(result.status() == ServerExplosionService.Status.APPLIED, "server blast applied: " + result);
+            var immediatelyAfter = global.sample(level, cell).orElseThrow();
+            require(before.gasMoles().equals(immediatelyAfter.gasMoles())
+                            && before.thermalEnergy() == immediatelyAfter.thermalEnergy(),
+                    "blast queues a hotspot but does not instantly mutate finite-cell gas or energy");
+
+            helper.runAfterDelay(4, () -> commitBlastHotspot(helper, global, level,
+                    cell, before, startupEnabled, startupVacuumDimensions));
+        } catch (RuntimeException failure) {
+            global.configureAtServerStart(startupEnabled, startupVacuumDimensions);
+            throw failure;
+        }
+    }
+
+    private static void commitBlastHotspot(GameTestHelper helper, AtmosphereService service, ServerLevel level,
+                                           BlockPos cell, com.juicyslew.moonstation14.ms14.atmos.core.GasMixture before,
+                                           boolean startupEnabled,
+                                           Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> startupVacuumDimensions) {
+        try {
+            var after = service.sample(level, cell).orElseThrow();
+            require(after.moles(GasType.TRITIUM) < before.moles(GasType.TRITIUM)
+                            && after.moles(GasType.OXYGEN) < before.moles(GasType.OXYGEN)
+                            && after.thermalEnergy() > before.thermalEnergy()
+                            && after.temperatureKelvin() < 800,
+                    "server atmosphere ticks burn real finite gas and add energy without heating the whole cell to 800 K");
+            helper.succeed();
+        } finally {
+            service.configureAtServerStart(startupEnabled, startupVacuumDimensions);
+        }
+    }
+
     private static boolean classifyUntilSample(AtmosphereService service, ServerLevel level, BlockPos pos, int passes) {
         for (int i = 1; i <= passes; i++) {
             if (service.sample(level, pos).isPresent()) return true;

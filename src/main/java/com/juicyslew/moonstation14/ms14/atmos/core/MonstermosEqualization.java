@@ -102,6 +102,7 @@ public final class MonstermosEqualization {
             outer: for (BlockPos donor : donors) {
                 double donorInitialSurplus = states.get(donor).totalMoles() - target;
                 double donorAvailable = donorInitialSurplus;
+                RoutingSearch routing = new RoutingSearch(donor, graph);
                 while (donorAvailable > 0.0 && ri < receivers.size()) {
                     BlockPos receiver = receivers.get(ri);
                     receiverNeed = Math.max(0.0, target - states.get(receiver).totalMoles());
@@ -109,12 +110,11 @@ public final class MonstermosEqualization {
                         ri++;
                         continue;
                     }
-                    Search search = shortestPath(donor, receiver, graph, MAX_EDGE_SEARCH_WORK - searchWork);
-                    if (search == null) {
+                    List<BlockPos> path = routing.pathTo(receiver, MAX_EDGE_SEARCH_WORK - searchWork);
+                    searchWork += routing.takeNewExpansions();
+                    if (path == null) {
                         complete = false; status = "edge-search-budget-exhausted"; break outer;
                     }
-                    List<BlockPos> path = search.path;
-                    searchWork += search.expanded;
                     if (path.size() - 1 > MAX_TRANSFER_OPERATIONS - operations) {
                         complete = false; status = "transfer-budget-exhausted"; break outer;
                     }
@@ -158,26 +158,43 @@ public final class MonstermosEqualization {
         if (seen.size() != cells.size()) throw new IllegalArgumentException("Finite patch must be connected");
     }
 
-    private record Search(List<BlockPos> path, int expanded) { }
+    private static final class RoutingSearch {
+        private final BlockPos root;
+        private final Map<BlockPos, List<BlockPos>> graph;
+        private final ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        private final Map<BlockPos, BlockPos> previous = new HashMap<>();
+        private final Set<BlockPos> seen = new LinkedHashSet<>();
+        private final Set<BlockPos> expanded = new LinkedHashSet<>();
+        private int unreportedExpansions;
 
-    private static Search shortestPath(BlockPos start, BlockPos goal, Map<BlockPos, List<BlockPos>> graph, int remainingWork) {
-        if (remainingWork <= 0) return null;
-        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-        Map<BlockPos, BlockPos> previous = new HashMap<>();
-        Set<BlockPos> seen = new LinkedHashSet<>();
-        queue.add(start); seen.add(start);
-        int expanded = 0;
-        while (!queue.isEmpty()) {
-            BlockPos current = queue.remove();
-            if (++expanded > remainingWork) return null;
-            if (current.equals(goal)) break;
-            for (BlockPos neighbor : graph.get(current)) if (seen.add(neighbor)) { previous.put(neighbor, current); queue.add(neighbor); }
+        private RoutingSearch(BlockPos root, Map<BlockPos, List<BlockPos>> graph) {
+            this.root = root;
+            this.graph = graph;
+            queue.add(root);
+            seen.add(root);
         }
-        if (!seen.contains(goal)) return null;
+
+        private List<BlockPos> pathTo(BlockPos goal, int remainingWork) {
+            while (!expanded.contains(goal)) {
+                if (queue.isEmpty() || unreportedExpansions >= remainingWork) return null;
+                BlockPos current = queue.remove();
+                expanded.add(current);
+                unreportedExpansions++;
+                for (BlockPos neighbor : graph.get(current)) {
+                    if (seen.add(neighbor)) { previous.put(neighbor, current); queue.add(neighbor); }
+                }
+            }
         List<BlockPos> path = new ArrayList<>();
-        for (BlockPos at = goal; at != null; at = previous.get(at)) { path.add(at); if (at.equals(start)) break; }
+            for (BlockPos at = goal; at != null; at = previous.get(at)) { path.add(at); if (at.equals(root)) break; }
         java.util.Collections.reverse(path);
-        return new Search(path, expanded);
+            return path;
+        }
+
+        private int takeNewExpansions() {
+            int count = unreportedExpansions;
+            unreportedExpansions = 0;
+            return count;
+        }
     }
 
     private static GasMixture add(GasMixture mixture, GasMixture packet) {

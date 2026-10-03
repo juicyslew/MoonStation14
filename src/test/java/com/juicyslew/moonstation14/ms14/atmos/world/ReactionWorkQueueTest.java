@@ -155,10 +155,14 @@ class ReactionWorkQueueTest {
             queue.setBurning(COLD, 128);
             queue.offer(COLD);
             assertEquals(COLD, queue.poll());
-            assertFalse(AtmosphereService.schedulerReactionEligible(queue, COLD, quench, catalog.asMap().values()));
-            assertNull(queue.hotspot(COLD));
-            assertEquals(0, queue.fireIntensity(COLD));
-            // Scheduler gate only touches transient state; the supplied mixture is unchanged.
+            assertTrue(AtmosphereService.schedulerReactionEligible(queue, COLD, quench, catalog.asMap().values()));
+            assertSame(grown, queue.hotspot(COLD));
+            // The scheduler admits a finite hotspot; the pure reaction pass decides to quench it.
+            GasReactionStep.Result quenched = GasReactionStep.evaluate(catalog, quench, grown);
+            assertTrue(quenched.nextState().isEmpty());
+            assertEquals(128, queue.fireIntensity(COLD));
+            queue.setHotspot(COLD, Optional.empty());
+            queue.setBurning(COLD, 0);
             assertTrue(AtmosphereService.schedulerReactionEligible(queue, COLD, hot, catalog.asMap().values()));
             var fresh = HotspotKernel.evaluate(hot, catalog, queue.hotspot(COLD));
             var stale = HotspotKernel.evaluate(hot, catalog, grown);
@@ -177,6 +181,21 @@ class ReactionWorkQueueTest {
             assertFalse(AtmosphereService.schedulerReactionEligible(queue, COLD, quench, catalog.asMap().values()));
             assertNull(queue.hotspot(COLD));
         }
+    }
+
+    @Test void schedulerSelectsColdBulkHotspotAndDefersReceiverOnlyForCurrentDueStep() {
+        ReactionWorkQueue queue = new ReactionWorkQueue();
+        GasMixture pocket = new GasMixture(Map.of(GasType.TRITIUM, 1., GasType.OXYGEN, 1.), 350);
+        HotspotKernel.HotspotState hotspot = new HotspotKernel.HotspotState(.25, 765);
+        queue.setHotspot(COLD, Optional.of(hotspot));
+        assertTrue(AtmosphereService.schedulerReactionEligible(queue, COLD, pocket, List.of()));
+        assertSame(hotspot, queue.hotspot(COLD));
+        assertFalse(AtmosphereService.schedulerReactionEligible(queue, COLD, null, List.of()));
+        assertSame(hotspot, queue.hotspot(COLD)); // No finite snapshot is not evidence to quench.
+
+        queue.deferReceiver(4, COLD);
+        assertTrue(queue.reacted(4, COLD));
+        assertFalse(queue.reacted(5, COLD));
     }
 
     @Test void stampCapacityNeverEvictsAnEarlierSuccessWithinTheTick() {

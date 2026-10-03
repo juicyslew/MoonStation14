@@ -28,7 +28,7 @@ class AtmosphereHotspotSpreadTest {
     private static final GasMixture COLD = new GasMixture(Map.of(GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0), 300);
 
     private static GasReactionStep.Result step(boolean fire) {
-        return new GasReactionStep.Result(HOT, Map.of(), 7, List.of(), Optional.empty(), fire);
+        return new GasReactionStep.Result(HOT, Map.of(), 7, List.of(), Optional.empty(), fire, 0, fire);
     }
 
     @Test
@@ -59,17 +59,16 @@ class AtmosphereHotspotSpreadTest {
 
     @Test
     void committedFireExposesPreSpreadHeatEvenWhenFaceTransferCoolsSourceBelowStackThreshold() {
-        // The receiver takes almost all heat above the source's 374.15 K spread reserve.
-        GasMixture receiver = new GasMixture(Map.of(GasType.TRITIUM, 12.0 * 7.09,
-                GasType.OXYGEN, 12.0 * 7.09), 300);
+        GasMixture receiver = COLD;
         GasMixture sourceBefore = new GasMixture(HOT.gasMoles(), 800);
         var fire = new GasReactionEvaluator.Event(ResourceLocation.parse("moonstation14:exposure_test"),
                 GasReactionData.EffectType.TRITIUM_FIRE, 1, Map.of(), 7);
-        var reaction = new GasReactionStep.Result(HOT, Map.of(), 7, List.of(fire), Optional.empty(), true);
+        var reaction = new GasReactionStep.Result(HOT, Map.of(), 7, List.of(fire), Optional.empty(), true, 0, true);
         for (boolean rejectReceiver : List.of(false, true)) {
             Map<BlockPos, GasMixture> cells = new HashMap<>(Map.of(SOURCE, sourceBefore, EAST, receiver));
             AtomicInteger publications = new AtomicInteger();
             AtomicInteger receiverWrites = new AtomicInteger();
+            java.util.concurrent.atomic.AtomicReference<com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel.HotspotState> receiverState = new java.util.concurrent.atomic.AtomicReference<>();
             var committed = AtmosphereService.commitHotspotSpreadWithTemperature(SOURCE, sourceBefore, null,
                     ignored -> reaction, List.of(new HotspotSpread.Neighbor(EAST, Direction.EAST, receiver)),
                     () -> true, (pos, gas) -> {
@@ -77,7 +76,7 @@ class AtmosphereHotspotSpreadTest {
                         cells.put(pos, gas);
                         return true;
                     }, changed -> publications.incrementAndGet(), state -> publications.incrementAndGet(),
-                    (pos, state) -> publications.incrementAndGet(), heat -> publications.incrementAndGet());
+                    (pos, state) -> { receiverState.set(state); publications.incrementAndGet(); }, heat -> publications.incrementAndGet());
             if (rejectReceiver) {
                 assertTrue(committed.isEmpty());
                 assertSame(sourceBefore, cells.get(SOURCE));
@@ -91,9 +90,11 @@ class AtmosphereHotspotSpreadTest {
                 assertEquals(7, result.energyDeltaJoules());
                 assertEquals(900, committed.orElseThrow().preSpreadTemperature());
                 assertTrue(HotspotEntityExposure.target(committed.orElseThrow().preSpreadTemperature()) > 0f);
-                assertEquals(0f, HotspotEntityExposure.target(result.mixture().temperatureKelvin()));
-                assertEquals(374.15, result.mixture().temperatureKelvin(), 0.2);
-                assertTrue(cells.get(EAST).temperatureKelvin() > 373.15);
+                assertEquals(.25, receiverState.get().fraction());
+                assertEquals(765, receiverState.get().temperatureKelvin());
+                double transferred = cells.get(EAST).thermalEnergy() - receiver.thermalEnergy();
+                assertTrue(transferred > 0);
+                assertEquals(HOT.thermalEnergy() - transferred, result.mixture().thermalEnergy(), 1e-5);
                 assertEquals(4, publications.get());
             }
         }
@@ -157,6 +158,18 @@ class AtmosphereHotspotSpreadTest {
                 state -> fail(), (pos, state) -> fail(), heat -> fail()).isEmpty());
         assertTrue(AtmosphereService.commitHotspotSpread(SOURCE, COLD, null, ignored -> step(true),
                 List.of(neighbor), () -> false, (pos, gas) -> { writes.incrementAndGet(); return true; }, changed -> fail(),
+                state -> fail(), (pos, state) -> fail(), heat -> fail()).isEmpty());
+        assertEquals(0, writes.get());
+    }
+
+    @Test
+    void fireWithoutSpreadEligibilityDoesNotSpread() {
+        GasReactionStep.Result ineligibleFire = new GasReactionStep.Result(HOT, Map.of(), 7, List.of(),
+                Optional.empty(), true, 0, false);
+        AtomicInteger writes = new AtomicInteger();
+        assertTrue(AtmosphereService.commitHotspotSpread(SOURCE, HOT, null, ignored -> ineligibleFire,
+                List.of(new HotspotSpread.Neighbor(EAST, Direction.EAST, COLD)), () -> true,
+                (pos, gas) -> { writes.incrementAndGet(); return true; }, changed -> fail(),
                 state -> fail(), (pos, state) -> fail(), heat -> fail()).isEmpty());
         assertEquals(0, writes.get());
     }

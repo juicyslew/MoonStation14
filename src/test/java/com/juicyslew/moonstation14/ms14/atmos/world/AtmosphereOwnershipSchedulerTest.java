@@ -157,8 +157,12 @@ class AtmosphereOwnershipSchedulerTest {
         assertEquals(0, plan.advance(1, ignored -> fail("cancelled claim plan must not commit stale cells")));
         assertTrue(work.isVerifiedExterior(completedExterior),
                 "restarting unfinished work must preserve unrelated completed exterior proofs");
-        assertEquals(java.util.Set.of(activeSeed, planSeed), new java.util.HashSet<>(retrySeeds),
-                "both interrupted proofs must be scheduled for reclassification");
+        assertEquals(java.util.List.of(activeSeed), retrySeeds,
+                "active search seed must be retried; finite plan retries its uncommitted positions");
+        java.util.List<BlockPos> tail = new java.util.ArrayList<>();
+        assertEquals(1, work.retryCandidates.drain(2, pos -> { tail.add(pos); return true; }));
+        assertEquals(java.util.List.of(planSeed.above()), tail,
+                "the already-committed prefix must not be retried");
     }
 
     @Test
@@ -200,17 +204,43 @@ class AtmosphereOwnershipSchedulerTest {
         assertTrue(work.queueClaimPlan(planSeed, plan));
         work.rememberExteriorProof(exterior, java.util.List.of(exterior, proofCell));
 
-        assertEquals(java.util.List.of(seed, planSeed), work.retryForChunkLifecycle(new ChunkPos(0, 0)));
-        assertEquals(2, work.queuedSeedCount(), "both invalidated jobs must be requeued");
+        assertEquals(java.util.List.of(seed), work.retryForChunkLifecycle(new ChunkPos(0, 0)));
+        assertEquals(1, work.queuedSeedCount(), "active interrupted search is requeued");
         assertTrue(search.step(ignored -> fail("dependent search was not cancelled"), 1).status()
                 == AtmosphereOwnershipSearch.Status.CANCELLED);
         assertTrue(plan.isCancelled());
         assertEquals(seed, work.startNext());
         work.finishActive();
-        assertEquals(planSeed, work.startNext(), "the finite plan seed must not be lost during unload retry");
+        java.util.List<BlockPos> retryTail = new java.util.ArrayList<>();
+        assertEquals(2, work.retryCandidates.drain(2, pos -> { retryTail.add(pos); return true; }));
+        assertEquals(java.util.List.of(planSeed, planSeed.above()), retryTail,
+                "the finite plan tail must be retried as fresh candidates");
+        retryTail.forEach(work::offer);
+        assertEquals(planSeed, work.startNext());
         work.finishActive();
         assertTrue(work.invalidateChunk(new ChunkPos(3, 0)).contains(exterior));
         assertFalse(work.isVerifiedExterior(exterior), "unload of a proof dependency must fail closed");
+    }
+
+    @Test
+    void staleFiniteHeadAndRetryCandidatesShareBudgetWithoutQueueRescanStarvation() {
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        BlockPos staleFinite = BlockPos.ZERO;
+        BlockPos stillUnknown = new BlockPos(1, 64, 0);
+        work.offer(staleFinite);
+        work.offer(stillUnknown);
+        for (int i = 0; i < 500; i++) work.offer(new BlockPos(1000 + i, 64, 0));
+        work.retryCandidates.add(java.util.List.of(new BlockPos(10, 64, 0), new BlockPos(100, 64, 0),
+                new BlockPos(200, 64, 0)));
+
+        int retryChecks = work.retryCandidates.drain(2, pos -> true);
+        int seedChecks = work.startNextSkippingFinite(4 - retryChecks, pos -> pos.equals(staleFinite));
+
+        assertEquals(2, retryChecks);
+        assertEquals(2, seedChecks, "drop the stale head and stop after activating the first fresh seed");
+        assertTrue(work.hasActive());
+        assertEquals(500, work.queuedSeedCount(), "hundreds of nonfinite queued seeds stay queued for later");
+        assertFalse(work.retryCandidates.isEmpty(), "bounded drain leaves remaining candidates pending");
     }
 
     @Test

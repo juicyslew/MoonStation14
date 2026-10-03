@@ -84,6 +84,31 @@ class OwnershipClaimPlanTest {
         assertEquals(stored.temperatureKelvin(), data.get(0, 0, 0).temperatureKelvin());
     }
 
+    @Test
+    void exposesOnlyUncommittedCandidatesAfterCancellationIncludingZeroCommit() {
+        List<BlockPos> positions = positions(500);
+        OwnershipClaimPlan partial = new OwnershipClaimPlan(positions);
+        assertEquals(128, partial.advance(128, pos -> true));
+        partial.cancel();
+        assertEquals(positions.subList(128, 500), partial.uncommittedPositions());
+
+        OwnershipClaimPlan zeroCommit = new OwnershipClaimPlan(positions);
+        zeroCommit.cancel();
+        assertEquals(positions, zeroCommit.uncommittedPositions());
+    }
+
+    @Test
+    void cancelledCandidatesDoNotIncludeCommittedPrefixOrImplyProofValidity() {
+        List<BlockPos> positions = positions(4);
+        OwnershipClaimPlan plan = new OwnershipClaimPlan(positions);
+        assertEquals(2, plan.advance(2, pos -> true));
+        assertFalse(plan.advance(1, pos -> false) > 0);
+        assertEquals(positions.subList(2, 4), plan.uncommittedPositions());
+        // This accessor supplies seed candidates; it does not clear cancellation or resume the old proof.
+        assertTrue(plan.isCancelled());
+        assertEquals(0, plan.advance(4, pos -> fail("cancelled proof cannot resume")));
+    }
+
     private static List<BlockPos> positions(int count) {
         List<BlockPos> positions = new ArrayList<>(count);
         for (int i = 0; i < count; i++) positions.add(new BlockPos(i, 64, 0));

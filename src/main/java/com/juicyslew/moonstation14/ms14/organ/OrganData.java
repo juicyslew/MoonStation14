@@ -18,13 +18,16 @@ import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 /** Prototype identity comes from its catalog key; Lung owns gas processing tuning. */
 public record OrganData(OrganCategory category, Optional<Lung> lung) {
     public record Lung(double maxLungMoles, double breathMolesToSaturationMultiplier,
-                       Map<String, Map<String, Double>> toxicGasDamagePerMole, double toxicGasDamageCapPerInhale) {
+                       Map<String, Map<String, Double>> toxicGasDamagePerMole, double toxicGasDamageCapPerInhale,
+                       Map<String, Double> toxicGasMinimumMolesPerInhale) {
         private static final Codec<Lung> STRUCTURAL = RecordCodecBuilder.create(i -> i.group(
                 Codec.DOUBLE.fieldOf("max_lung_moles").forGetter(Lung::maxLungMoles),
                 Codec.DOUBLE.fieldOf("breath_moles_to_saturation_multiplier").forGetter(Lung::breathMolesToSaturationMultiplier),
                 Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(Codec.STRING, Codec.DOUBLE))
                         .fieldOf("toxic_gas_damage_per_mole").forGetter(Lung::toxicGasDamagePerMole),
-                Codec.DOUBLE.fieldOf("toxic_gas_damage_cap_per_inhale").forGetter(Lung::toxicGasDamageCapPerInhale)
+                Codec.DOUBLE.fieldOf("toxic_gas_damage_cap_per_inhale").forGetter(Lung::toxicGasDamageCapPerInhale),
+                Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).fieldOf("toxic_gas_minimum_moles_per_inhale")
+                        .forGetter(Lung::toxicGasMinimumMolesPerInhale)
         ).apply(i, Lung::new));
         public static final Codec<Lung> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
             @Override public <T> DataResult<Pair<Lung, T>> decode(DynamicOps<T> ops, T input) {
@@ -45,6 +48,12 @@ public record OrganData(OrganCategory category, Optional<Lung> lung) {
                     || !Double.isFinite(toxicGasDamageCapPerInhale) || toxicGasDamageCapPerInhale < 0
                     || toxicGasDamageCapPerInhale > 1_000_000) throw new IllegalArgumentException("invalid Lung tuning");
             if (toxicGasDamagePerMole == null) throw new IllegalArgumentException("missing toxic gas map");
+            if (toxicGasMinimumMolesPerInhale == null) throw new IllegalArgumentException("missing toxic gas threshold map");
+            for (var entry : toxicGasMinimumMolesPerInhale.entrySet())
+                if (java.util.Arrays.stream(GasType.values()).noneMatch(g -> g.id().equals(entry.getKey()))
+                        || entry.getValue() == null || !Double.isFinite(entry.getValue()) || entry.getValue() < 0 || entry.getValue() > 1_000_000)
+                    throw new IllegalArgumentException("invalid Lung gas threshold: " + entry.getKey());
+            toxicGasMinimumMolesPerInhale = Map.copyOf(toxicGasMinimumMolesPerInhale);
             for (var entry : toxicGasDamagePerMole.entrySet()) {
                 if (java.util.Arrays.stream(GasType.values()).noneMatch(g -> g.id().equals(entry.getKey())))
                     throw new IllegalArgumentException("unknown Lung gas: " + entry.getKey());
@@ -56,6 +65,10 @@ public record OrganData(OrganCategory category, Optional<Lung> lung) {
             }
             toxicGasDamagePerMole = toxicGasDamagePerMole.entrySet().stream().collect(
                     java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> Map.copyOf(e.getValue())));
+        }
+        public Lung(double maxLungMoles, double breathMolesToSaturationMultiplier,
+                    Map<String, Map<String, Double>> toxicGasDamagePerMole, double toxicGasDamageCapPerInhale) {
+            this(maxLungMoles, breathMolesToSaturationMultiplier, toxicGasDamagePerMole, toxicGasDamageCapPerInhale, Map.of());
         }
     }
 
@@ -86,7 +99,7 @@ public record OrganData(OrganCategory category, Optional<Lung> lung) {
         if (json == null || !json.isJsonObject()) throw new IllegalArgumentException("Lung must be an object");
         JsonObject fields = json.getAsJsonObject();
         Set<String> allowed = Set.of("max_lung_moles", "breath_moles_to_saturation_multiplier",
-                "toxic_gas_damage_per_mole", "toxic_gas_damage_cap_per_inhale");
+                "toxic_gas_damage_per_mole", "toxic_gas_damage_cap_per_inhale", "toxic_gas_minimum_moles_per_inhale");
         for (String key : fields.keySet()) if (!allowed.contains(key)) throw new IllegalArgumentException("unknown Lung field: " + key);
         for (String key : allowed) if (!fields.has(key) || fields.get(key).isJsonNull())
             throw new IllegalArgumentException("missing or null Lung field: " + key);
@@ -97,7 +110,12 @@ public record OrganData(OrganCategory category, Optional<Lung> lung) {
                 if (!damage.getValue().isJsonPrimitive() || !damage.getValue().getAsJsonPrimitive().isNumber())
                     throw new IllegalArgumentException("invalid Lung damage: " + damage.getKey());
         }
+        if (!fields.get("toxic_gas_minimum_moles_per_inhale").isJsonObject()) throw new IllegalArgumentException("invalid Lung threshold map");
+        for (var threshold : fields.getAsJsonObject("toxic_gas_minimum_moles_per_inhale").entrySet())
+            if (!threshold.getValue().isJsonPrimitive() || !threshold.getValue().getAsJsonPrimitive().isNumber())
+                throw new IllegalArgumentException("invalid Lung threshold: " + threshold.getKey());
         for (String key : allowed) if (!key.equals("toxic_gas_damage_per_mole")
+                && !key.equals("toxic_gas_minimum_moles_per_inhale")
                 && (!fields.get(key).isJsonPrimitive() || !fields.get(key).getAsJsonPrimitive().isNumber()))
             throw new IllegalArgumentException("invalid Lung number: " + key);
     }

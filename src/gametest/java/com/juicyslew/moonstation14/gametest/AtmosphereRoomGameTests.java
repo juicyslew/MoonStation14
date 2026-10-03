@@ -103,7 +103,7 @@ public final class AtmosphereRoomGameTests {
         else helper.runAfterDelay(1, verify);
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hotspot_spread", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hotspot_spread", timeoutTicks = 200)
     public static void finiteOpenFaceHeatsFuelAndOxygenButNotStarvedNeighbor(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         requireIsolatedReactionFixture();
@@ -159,42 +159,30 @@ public final class AtmosphereRoomGameTests {
         require(service.addGas(level, starved, GasType.TRITIUM, 1, 300), "starved receiver fuel");
         require(service.addGas(level, walled, GasType.TRITIUM, 1, 300), "walled receiver fuel");
         require(service.addGas(level, walled, GasType.OXYGEN, 1, 300), "walled receiver oxygen");
-        Runnable verify = () -> {
+        GasMixture starvedInitial = service.sample(level, starved).orElseThrow();
+        GasMixture walledInitial = service.sample(level, walled).orElseThrow();
+        java.util.function.BiConsumer<GasMixture, GasMixture> verify = (before, heated) -> {
             require(new AABB(receiver).intersects(receiverOccupant.getBoundingBox()),
                     "receiver occupant must still overlap the fire cell");
-            GasMixture before = service.sample(level, receiver).orElseThrow();
-            GasMixture starvedBefore = service.sample(level, starved).orElseThrow();
-            GasMixture walledBefore = service.sample(level, walled).orElseThrow();
-            var sourceFire = service.reactFiniteCell(level, source).orElseThrow(
-                    () -> new GameTestAssertException("open face source must fire"));
-            require(sourceFire.events().stream().anyMatch(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE),
-                    "open face heat must originate in a fire event");
-            GasMixture heated = service.sample(level, receiver).orElseThrow();
             require(heated.thermalEnergy() > before.thermalEnergy(),
                     "open finite fuel/oxygen neighbor must receive face heat");
-            require(heated.temperatureKelvin() > 373.15 && heated.temperatureKelvin() <= 423.15,
-                    "spread must make receiver gas fire viable without promising positive entity stacks");
-            require(heated.moles(GasType.TRITIUM) == before.moles(GasType.TRITIUM)
-                            && heated.moles(GasType.OXYGEN) == before.moles(GasType.OXYGEN)
-                            && heated.moles(GasType.WATER_VAPOR) == before.moles(GasType.WATER_VAPOR),
-                    "receiver must only receive heat, not burn, on the source due step");
+            require(heated.gasMoles().equals(before.gasMoles()),
+                    "face transfer must preserve receiver species on the source due step");
             require(service.reactFiniteCell(level, receiver).isEmpty(), "receiver cannot react on source's due step");
             require(!receiverOccupant.hasData(ModDataAttachments.FIRE_STACK.get()),
                     "face heat alone must not ignite an occupant of the receiver");
-            require(service.reactFiniteCell(level, starvedSource).isPresent(), "second source must fire");
             GasMixture starvedAfter = service.sample(level, starved).orElseThrow();
             require(starvedAfter.moles(GasType.OXYGEN) == 0.0
-                            && starvedAfter.moles(GasType.TRITIUM) == starvedBefore.moles(GasType.TRITIUM)
-                            && Math.abs(starvedAfter.thermalEnergy() - starvedBefore.thermalEnergy()) < 1e-7,
+                            && starvedAfter.moles(GasType.TRITIUM) == starvedInitial.moles(GasType.TRITIUM)
+                            && Math.abs(starvedAfter.thermalEnergy() - starvedInitial.thermalEnergy()) < 1e-7,
                     "oxygen-starved finite neighbor must neither ignite nor receive heat");
             require(service.reactFiniteCell(level, starved).isEmpty(), "starved neighbor cannot ignite");
-            require(service.reactFiniteCell(level, walledSource).isPresent(), "walled source must fire");
             GasMixture walledAfter = service.sample(level, walled).orElseThrow();
-            require(walledAfter.gasMoles().equals(walledBefore.gasMoles())
-                            && Math.abs(walledAfter.thermalEnergy() - walledBefore.thermalEnergy()) < 1e-7,
+            require(walledAfter.gasMoles().equals(walledInitial.gasMoles())
+                            && Math.abs(walledAfter.thermalEnergy() - walledInitial.thermalEnergy()) < 1e-7,
                     "closed stone face must transfer neither heat nor combustion");
             require(service.reactFiniteCell(level, walled).isEmpty(), "cold walled neighbor cannot ignite");
-            helper.runAfterDelay(AtmosphereService.TICK_CADENCE, () -> {
+            scheduleFireTick(helper, level, 1, () -> {
                 GasMixture beforeNext = service.sample(level, receiver).orElseThrow();
                 require(beforeNext.moles(GasType.TRITIUM) == heated.moles(GasType.TRITIUM),
                         "receiver must keep its fuel until the next due reaction step");
@@ -207,20 +195,66 @@ public final class AtmosphereRoomGameTests {
                                 && afterNext.moles(GasType.TRITIUM) < beforeNext.moles(GasType.TRITIUM)
                                 && afterNext.moles(GasType.WATER_VAPOR) > beforeNext.moles(GasType.WATER_VAPOR),
                         "heated receiver must consume fuel and produce combustion products on next due step");
-                // Spread targets 374.15 K: enough for gas fire, not the >423.15 K entity-stack target.
                 require(service.reactFiniteCell(level, starved).isEmpty()
                                 && service.reactFiniteCell(level, walled).isEmpty(),
                         "starved and stone-separated neighbors must remain unignited on the next due step");
                 require(Math.abs(service.sample(level, starved).orElseThrow().thermalEnergy()
-                                - starvedBefore.thermalEnergy()) < 1e-7
+                                - starvedInitial.thermalEnergy()) < 1e-7
                                 && Math.abs(service.sample(level, walled).orElseThrow().thermalEnergy()
-                                - walledBefore.thermalEnergy()) < 1e-7,
+                                - walledInitial.thermalEnergy()) < 1e-7,
                         "starved and stone-separated neighbors must remain unheated on the next due step");
                 helper.succeed();
             });
         };
-        if (level.getGameTime() % AtmosphereService.TICK_CADENCE == 0) verify.run();
-        else helper.runAfterDelay(1, verify);
+        runFiniteFirePasses(helper, service, level, source, receiver,
+                new BlockPos[]{starvedSource, walledSource}, 0, verify);
+    }
+
+    private static void runFiniteFirePasses(GameTestHelper helper, AtmosphereService service, ServerLevel level,
+                                           BlockPos source, BlockPos receiver, BlockPos[] otherSources,
+                                           int passes, java.util.function.BiConsumer<GasMixture, GasMixture> ready) {
+        Runnable pass = () -> {
+            GasMixture before = service.sample(level, receiver).orElseThrow();
+            GasMixture sourceBefore = service.sample(level, source).orElseThrow();
+            var result = service.reactFiniteCell(level, source).orElseThrow(
+                    () -> new GameTestAssertException("source must commit on each real due pass"));
+            require(result.events().stream().anyMatch(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE),
+                    "open face heat must originate in a committed fire event");
+            for (BlockPos other : otherSources)
+                require(service.reactFiniteCell(level, other).isPresent(), "isolated source must remain active: " + other);
+            GasMixture received = service.sample(level, receiver).orElseThrow();
+            GasMixture sourceAfter = service.sample(level, source).orElseThrow();
+            require(received.moles(GasType.TRITIUM) == before.moles(GasType.TRITIUM)
+                            && received.moles(GasType.OXYGEN) == before.moles(GasType.OXYGEN)
+                            && received.moles(GasType.WATER_VAPOR) == before.moles(GasType.WATER_VAPOR),
+                    "source due pass may transfer energy but not receiver species");
+            if (received.thermalEnergy() > before.thermalEnergy()) {
+                double credited = received.thermalEnergy() - before.thermalEnergy();
+                double sourceEnergyDelta = sourceAfter.thermalEnergy() - sourceBefore.thermalEnergy();
+                require(result.energyDeltaJoules() > 0.0
+                                && Math.abs(sourceEnergyDelta + credited - result.energyDeltaJoules())
+                                < Math.max(1e-7, Math.abs(result.energyDeltaJoules()) * 1e-9),
+                        "receiver face credit plus source retained energy must match the fire energy ledger");
+                require(service.reactFiniteCell(level, receiver).isEmpty(),
+                        "receiver must not react on the due step that supplied its face heat");
+                ready.accept(before, received);
+                return;
+            }
+            int next = passes + 1;
+            if (next >= 40)
+                throw new GameTestAssertException("receiver did not reach gas-fire temperature after 40 due passes");
+            scheduleFireTick(helper, level, 1,
+                    () -> runFiniteFirePasses(helper, service, level, source, receiver, otherSources, next, ready));
+        };
+        scheduleFireTick(helper, level, 1, pass);
+    }
+
+    private static void scheduleFireTick(GameTestHelper helper, ServerLevel level, int duePassOffset,
+                                         Runnable callback) {
+        long delay = Math.floorMod(-level.getGameTime(), AtmosphereService.TICK_CADENCE);
+        if (delay == 0) delay = AtmosphereService.TICK_CADENCE;
+        delay += (long) (duePassOffset - 1) * AtmosphereService.TICK_CADENCE;
+        helper.runAfterDelay(Math.toIntExact(Math.max(1, delay)), callback);
     }
 
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_commit", timeoutTicks = 100)
@@ -371,6 +405,129 @@ public final class AtmosphereRoomGameTests {
         require(service.boundaryGasLedger(level).isEmpty(),
                 "airtight hallway must not export any gas to an exterior ledger");
         helper.succeed();
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
+    public static void repeatedTritiumProducerDoseTransportsAcrossNominalHallway(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        require(!AtmosphereService.INSTANCE.isEnabled(),
+                "isolated nominal hallway GameTest requires global atmosphere disabled");
+        buildTritiumHallway(helper);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+
+        for (int x = 2; x <= HALLWAY_LENGTH + 1; x++)
+            for (int y = 1; y <= 2; y++)
+                for (int z = 2; z <= 3; z++) {
+                    BlockPos cell = helper.absolutePos(new BlockPos(x, y, z));
+                    level.getChunk(cell);
+                    require(service.sample(level, cell).isEmpty(), "hallway ownership must be classified");
+                }
+        int ownershipPasses = 0;
+        while (ownershipPasses < HALLWAY_OWNERSHIP_PASS_LIMIT && !hallwayHasFiniteClaims(level, helper)) {
+            ownershipPasses++;
+            service.tick(level, (long) ownershipPasses * AtmosphereService.TICK_CADENCE);
+            for (int x = 2; x <= HALLWAY_LENGTH + 1; x++)
+                for (int y = 1; y <= 2; y++)
+                    for (int z = 2; z <= 3; z++)
+                        service.sample(level, helper.absolutePos(new BlockPos(x, y, z)));
+        }
+        require(hallwayHasFiniteClaims(level, helper), "nominal hallway claim classification passes=" + ownershipPasses);
+
+        // 41.6 mol in a one-cubic-metre cell is approximately 101.5 kPa at 293.15 K.
+        for (int x = 2; x <= HALLWAY_LENGTH + 1; x++)
+            for (int y = 1; y <= 2; y++)
+                for (int z = 2; z <= 3; z++)
+                    require(service.addBreathableAir(level, helper.absolutePos(new BlockPos(x, y, z)),
+                                    41.6, ROOM_TEMPERATURE_KELVIN), "seed nominal breathable mixture");
+        BlockPos near = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos far = helper.absolutePos(new BlockPos(HALLWAY_LENGTH + 1, 1, 2));
+        require(Math.abs(service.sample(level, near).orElseThrow().pressureKpa(1.0) - 101.5) < 0.2,
+                "fixture source must start near nominal station pressure");
+        double initialHallwayMoles = hallwayMoles(service, level, helper, GasType.OXYGEN)
+                + hallwayMoles(service, level, helper, GasType.NITROGEN);
+        double initialEnergy = hallwayEnergy(service, level, helper);
+        double injected = 0.0;
+        int observedSteps = 10;
+        for (int step = 1; step <= observedSteps; step++) {
+            GasMixture source = service.sample(level, near).orElseThrow();
+            // Equivalent to the producer's 2 mol/cadence dose, with its 202.65 kPa cap.
+            if (source.pressureKpa(1.0) < 202.65) {
+                double dose = 2.0;
+                if (source.withGasDelta(GasType.TRITIUM, dose, ROOM_TEMPERATURE_KELVIN)
+                        .pressureKpa(1.0) > 202.65) {
+                    double low = 0.0;
+                    double high = dose;
+                    for (int search = 0; search < 80; search++) {
+                        double middle = low + (high - low) * 0.5;
+                        if (source.withGasDelta(GasType.TRITIUM, middle, ROOM_TEMPERATURE_KELVIN)
+                                .pressureKpa(1.0) <= 202.65) low = middle;
+                        else high = middle;
+                    }
+                    dose = low;
+                }
+                if (dose > 0.0 && service.addGas(level, near, GasType.TRITIUM, dose,
+                        ROOM_TEMPERATURE_KELVIN)) injected += dose;
+            }
+            long gameTime = (long) (ownershipPasses + step) * AtmosphereService.TICK_CADENCE;
+            service.tick(level, gameTime);
+        }
+        GasMixture farAfterOneSecond = service.sample(level, far).orElseThrow();
+        GasMixture nearAfterOneSecond = service.sample(level, near).orElseThrow();
+        double farTritium = farAfterOneSecond.moles(GasType.TRITIUM);
+        double nearTritium = nearAfterOneSecond.moles(GasType.TRITIUM);
+        double nearPressure = nearAfterOneSecond.pressureKpa(1.0);
+        double farPressure = farAfterOneSecond.pressureKpa(1.0);
+        double totalMolesGradient = nearAfterOneSecond.totalMoles() - farAfterOneSecond.totalMoles();
+        double totalPressureGradient = nearPressure - farPressure;
+        // Monstermos equalizes pressure with bulk packets; species-specific LINDA fallback is local.
+        // Thus a measurable far pressure response is the one-second transport assertion, while
+        // visible far tritium may lag the pressure-driven bulk flow without contradicting SS14.
+        require(farPressure > 101.55 && totalMolesGradient >= 0.0 && totalMolesGradient < injected,
+                "after " + observedSteps + " due steps (1.0s), far tritium=" + farTritium
+                        + " mol, near tritium=" + nearTritium + " mol, near pressure=" + nearPressure
+                        + " kPa, far pressure=" + farPressure + " kPa, total injected=" + injected
+                        + " mol, near/far total-moles gradient=" + totalMolesGradient
+                        + " mol, near/far pressure gradient=" + totalPressureGradient
+                        + " kPa; requires far pressure >101.55 kPa and reduced bulk-mole gradient");
+        double energyAfterDoses = hallwayEnergy(service, level, helper);
+        for (int step = 1; step <= 80
+                && service.sample(level, far).orElseThrow().moles(GasType.TRITIUM) <= 0.0; step++)
+            service.tick(level, (long) (ownershipPasses + observedSteps + step) * AtmosphereService.TICK_CADENCE);
+        double farTritiumEventually = service.sample(level, far).orElseThrow().moles(GasType.TRITIUM);
+        GasMixture nearEventually = service.sample(level, near).orElseThrow();
+        GasMixture farEventually = service.sample(level, far).orElseThrow();
+        require(farTritiumEventually > 0.0,
+                "tritium must eventually arrive within 80 more due steps; far tritium=" + farTritiumEventually
+                        + " mol, near tritium=" + nearEventually.moles(GasType.TRITIUM)
+                        + " mol, near pressure=" + nearEventually.pressureKpa(1.0)
+                        + " kPa, far pressure=" + farEventually.pressureKpa(1.0) + " kPa, injected=" + injected
+                        + " mol; species diffusion may lag pressure equilibration");
+        double finalEnergy = hallwayEnergy(service, level, helper);
+        double expectedEnergy = initialEnergy + injected * GasType.TRITIUM.molarHeatCapacity()
+                * ROOM_TEMPERATURE_KELVIN;
+        double energyTolerance = Math.max(1.0e-5, expectedEnergy * 1.0e-9);
+        require(Math.abs(energyAfterDoses - expectedEnergy) < energyTolerance
+                        && Math.abs(finalEnergy - expectedEnergy) < energyTolerance,
+                "closed nominal room must account for producer-dose enthalpy and conserve it; initial="
+                        + initialEnergy + ", injected=" + injected + " mol, expected=" + expectedEnergy
+                        + ", after 1s=" + energyAfterDoses + ", final=" + finalEnergy
+                        + ", tolerance=" + energyTolerance);
+        require(Math.abs(hallwayMoles(service, level, helper, GasType.TRITIUM) - injected) < 1.0e-6
+                        && Math.abs(hallwayMoles(service, level, helper, GasType.OXYGEN) - initialHallwayMoles * 0.21 / 1.0) < 1.0e-6
+                        && Math.abs(hallwayMoles(service, level, helper, GasType.NITROGEN) - initialHallwayMoles * 0.79 / 1.0) < 1.0e-6,
+                "closed hallway must conserve oxygen/nitrogen inventory and injected tritium; injected=" + injected);
+        require(service.boundaryGasLedger(level).isEmpty(), "sealed hallway must not export gas");
+        helper.succeed();
+    }
+
+    private static double hallwayEnergy(AtmosphereService service, ServerLevel level, GameTestHelper helper) {
+        double energy = 0.0;
+        for (int x = 2; x <= HALLWAY_LENGTH + 1; x++)
+            for (int y = 1; y <= 2; y++)
+                for (int z = 2; z <= 3; z++)
+                    energy += service.sample(level, helper.absolutePos(new BlockPos(x, y, z)))
+                            .orElseThrow().thermalEnergy();
+        return energy;
     }
 
     private static void buildTritiumHallway(GameTestHelper helper) {

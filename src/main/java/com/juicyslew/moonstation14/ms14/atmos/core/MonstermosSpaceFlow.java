@@ -363,15 +363,29 @@ public final class MonstermosSpaceFlow {
                 * 1000.0 / (GAS_CONSTANT * Math.max(donor.temperatureKelvin(), 1e-12)));
         // Bisection handles unequal donor/receiver temperatures and heat capacities: a warm
         // packet can raise receiver pressure faster than a simple mole-based estimate predicts.
+        double donorMoles = donor.totalMoles();
+        double donorCapacity = donor.heatCapacity();
+        double donorEnergy = donor.thermalEnergy();
+        double receiverMoles = receiver.totalMoles();
+        double receiverCapacity = receiver.heatCapacity();
+        double receiverEnergy = receiver.thermalEnergy();
+        double donorPressure = donor.pressureKpa(1.0);
         double low = 0, high = cap;
         for (int i = 0; i < 48; i++) {
             double mid = (low + high) * 0.5;
-            GasMixture packet = donor.withScaledMoles(mid / donor.totalMoles());
-            double receiverPressure = exterior != null && outward ? receiver.pressureKpa(1.0)
-                    : add(receiver, packet).pressureKpa(1.0);
-            double donorPressure = exterior != null && !outward ? donor.pressureKpa(1.0)
-                    : donor.pressureKpa(1.0) * (1.0 - mid / donor.totalMoles());
-            if (receiverPressure <= donorPressure) low = mid;
+            double ratio = mid / donorMoles;
+            double trialReceiverPressure;
+            if (exterior != null && outward) {
+                trialReceiverPressure = receiver.pressureKpa(1.0);
+            } else {
+                double capacity = receiverCapacity + donorCapacity * ratio;
+                double energy = receiverEnergy + donorEnergy * ratio;
+                double temperature = capacity == 0.0 ? receiver.temperatureKelvin() : energy / capacity;
+                trialReceiverPressure = (receiverMoles + mid) * GAS_CONSTANT * temperature / 1000.0;
+            }
+            double trialDonorPressure = exterior != null && !outward
+                    ? donorPressure : donorPressure * (1.0 - ratio);
+            if (trialReceiverPressure <= trialDonorPressure) low = mid;
             else high = mid;
         }
         double amount = low * 0.5; // bounded relaxation, never an equilibrium overshoot
