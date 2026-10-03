@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.item.custom.StationFloorTileItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTilePryItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
 import com.juicyslew.moonstation14.item.custom.CableCutterItem;
+import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import net.minecraft.world.item.Item;
@@ -76,6 +77,26 @@ public class ModItems {
     );
     public static final DeferredItem<JugItem> JUG = ITEMS.register("jug",
             () -> new JugItem(ModBlocks.JUG.get(), new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<CreativeGasPipeVisualItem> GAS_PIPE_VISUAL = ITEMS.register("gas_pipe_visual",
+            () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 1));
+    public static final DeferredItem<CreativeGasPipeVisualItem> GAS_PIPE_VISUAL_SECONDARY = ITEMS.register("gas_pipe_visual_secondary",
+            () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 2));
+    public static final DeferredItem<CreativeGasPipeVisualItem> GAS_PIPE_VISUAL_TERTIARY = ITEMS.register("gas_pipe_visual_tertiary",
+            () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 4));
+    public static final DeferredItem<Item> GAS_VENT = ITEMS.register("gas_vent",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> GAS_SCRUBBER = ITEMS.register("gas_scrubber",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> AIR_ALARM = ITEMS.register("air_alarm",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> GAS_PIPE_SEGMENT = ITEMS.register("gas_pipe_segment",
+            () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> GAS_PIPE_SEGMENT_SECONDARY = ITEMS.register("gas_pipe_segment_secondary",
+            () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> GAS_PIPE_SEGMENT_TERTIARY = ITEMS.register("gas_pipe_segment_tertiary",
+            () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> T_RAY_SCANNER = ITEMS.register("t_ray_scanner",
+            () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<AtmosphereAnalyzerItem> ATMOSPHERE_ANALYZER = ITEMS.register("atmosphere_analyzer",
             () -> new AtmosphereAnalyzerItem(new Item.Properties().stacksTo(1)));
 

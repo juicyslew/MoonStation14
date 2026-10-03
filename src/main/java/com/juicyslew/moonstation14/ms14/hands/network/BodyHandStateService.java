@@ -38,7 +38,7 @@ public final class BodyHandStateService {
         return gate != null && gate.issuedEpoch == authority.epoch() && gate.issuedBody == authority.body();
     }
 
-    static void requireFreshQuery(ServerPlayer actor) {
+    public static void requireFreshQuery(ServerPlayer actor) {
         QueryGate gate = GATES.get(actor);
         if (gate != null) gate.clearIssued();
     }

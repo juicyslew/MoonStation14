@@ -67,6 +67,7 @@ public class MoonStation14 {
         // Note that this is necessary if and only if we want *this* class (MoonStation14) to respond directly to events.
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.fixture.VentilationFixtureCommands::registerCommands);
         LocalSpeechServerHooks.register(NeoForge.EVENT_BUS);
         AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
         AtmosphereVisualServerHooks.register(NeoForge.EVENT_BUS);
@@ -93,6 +94,7 @@ public class MoonStation14 {
         modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
         MovementServerController.install();
         //ModFluids.register(modEventBus);

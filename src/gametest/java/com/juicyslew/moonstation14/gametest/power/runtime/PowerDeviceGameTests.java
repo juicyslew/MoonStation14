@@ -257,7 +257,7 @@ public final class PowerDeviceGameTests {
         if (lamps < 0) return solve.length() <= 240 ? solve : solve.substring(0, 240) + "...";
         String lampEntry = lamp.toShortString() + "=";
         int start = solve.indexOf(lampEntry, lamps);
-        int end = start < 0 ? -1 : solve.indexOf(',', start);
+        int end = solve.indexOf(',', start < 0 ? lamps : start);
         if (end < 0) end = solve.indexOf('}', start < 0 ? lamps : start);
         return solve.substring(0, Math.min(lamps, 240)) + ",lampWatts[" + lampEntry
                 + (start < 0 ? "absent" : solve.substring(start + lampEntry.length(), end))

@@ -74,7 +74,7 @@ public final class DraftFieldModel {
 
     /** Acknowledgements must refer to a revision newer than the submitted base revision. */
     public boolean resolve(long requestId, long revision, String value, boolean accepted) {
-        if (pending == null || pending.requestId() != requestId || revision <= pending.baseRevision()
+        if (pending == null || pending.requestId() != requestId || (accepted && revision <= pending.baseRevision())
                 || revision < this.revision || (revision == this.revision && !authority.equals(value))) return false;
         snapshot(revision, value);
         // Equal-revision acknowledgements are valid if the snapshot arrived first.
@@ -86,6 +86,15 @@ public final class DraftFieldModel {
             draft = authority;
             state = State.REJECTED;
         }
+        return true;
+    }
+
+    /** Releases a correlated edit when its request is rejected locally or times out. */
+    public boolean cancelPending(long requestId) {
+        if (pending == null || pending.requestId() != requestId) return false;
+        pending = null;
+        draft = authority;
+        state = State.REJECTED;
         return true;
     }
 

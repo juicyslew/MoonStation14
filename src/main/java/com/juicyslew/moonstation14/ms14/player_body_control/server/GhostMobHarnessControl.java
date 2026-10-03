@@ -424,6 +424,19 @@ public final class GhostMobHarnessControl {
                 && eligible(state, session, player);
     }
 
+    /** Read-only Shift state from an intent successfully simulated for this exact committed CHARACTER session. */
+    public static boolean hasAppliedSneak(ServerPlayer player, Mob body, long epoch) {
+        if (player == null || body == null || player.level().getServer() == null
+                || !player.level().getServer().isSameThread()) return false;
+        RuntimeState state = SERVERS.get(player.level().getServer());
+        Session session = state == null ? null : state.sessions.get(player.getUUID());
+        return session != null && session.player == player && session.body == body && session.epoch == epoch
+                && session.committed && session.kind == MobHarnessKind.CHARACTER
+                && com.juicyslew.moonstation14.ms14.player_body_control.action.CharacterAppliedSneak
+                        .freshAppliedSneak(session.appliedSneak, session.appliedIntentTick, player.level().getGameTime())
+                && eligible(state, session, player);
+    }
+
     private static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player) || player instanceof FakePlayer) return;
         RuntimeState state = SERVERS.get(player.level().getServer());
@@ -617,12 +630,16 @@ public final class GhostMobHarnessControl {
                         (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
                         (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw());
                 // The world step can partially move before returning empty; acknowledge it and never retry.
-                session.lastAppliedSequence = intent.sequence();
                 if (result.isEmpty() && !eligibleCharacter(session, session.body, player)) {
                     MoonStation14.LOGGER.warn("[mind ghost] Character world step rejected an invalid body; ending possession player={} body={} sequence={} epoch={}",
                             player.getGameProfile().getName(), session.bodyId, intent.sequence(), session.epoch);
                     if (!recoverLostCharacterBody(state, session)) end(state, session, true);
                     return;
+                }
+                if (result.isPresent()) {
+                    session.lastAppliedSequence = intent.sequence();
+                    session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
+                    session.appliedIntentTick = player.level().getGameTime();
                 }
                 session.body.setYRot(intent.yaw());
                 session.body.setXRot(intent.pitch());
@@ -991,6 +1008,8 @@ public final class GhostMobHarnessControl {
         session.lastSnapshotTick = Long.MIN_VALUE;
         session.intentTick = Long.MIN_VALUE;
         session.intentCount = 0;
+        session.appliedSneak = false;
+        session.appliedIntentTick = Long.MIN_VALUE;
         session.committed = false;
         session.ready = false;
         session.startedTick = player.level().getGameTime();
@@ -1387,6 +1406,8 @@ public final class GhostMobHarnessControl {
         boolean floodLogged;
         boolean acceptedMovementLogged;
         long lastAppliedSequence;
+        long appliedIntentTick = Long.MIN_VALUE;
+        boolean appliedSneak;
         long lastSnapshotTick = Long.MIN_VALUE;
         MobHarnessKind kind = MobHarnessKind.GHOST;
         Mob body;

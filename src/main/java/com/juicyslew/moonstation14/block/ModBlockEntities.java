@@ -5,6 +5,9 @@ import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.AtmosphereTestDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
+import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
+import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
@@ -47,6 +50,15 @@ public class ModBlockEntities {
                     ModBlocks.HV_SOURCE.get(), ModBlocks.HV_MV_SUBSTATION.get(), ModBlocks.APC.get(),
                     ModBlocks.POWER_LAMP.get(), ModBlocks.HIGH_LOAD_TEST_LAMP.get()).build(null)
     );
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<VisualPipeBlockEntity>> VISUAL_PIPE = BLOCK_ENTITY_TYPES.register("visual_pipe",
+            () -> BlockEntityType.Builder.of(VisualPipeBlockEntity::new, ModBlocks.GAS_PIPE_VISUAL.get()).build(null)
+    );
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<VentilationDeviceBlockEntity>> VENTILATION_DEVICE = BLOCK_ENTITY_TYPES.register("ventilation_device",
+            () -> BlockEntityType.Builder.of(VentilationDeviceBlockEntity::new,
+                    ModBlocks.GAS_VENT.get(), ModBlocks.GAS_SCRUBBER.get()).build(null)
+    );
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AirAlarmBlockEntity>> AIR_ALARM = BLOCK_ENTITY_TYPES.register("air_alarm",
+            () -> BlockEntityType.Builder.of(AirAlarmBlockEntity::new, ModBlocks.AIR_ALARM.get()).build(null));
 
     public static void register(IEventBus eventBus){
         BLOCK_ENTITY_TYPES.register(eventBus);

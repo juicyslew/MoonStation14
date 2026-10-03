@@ -251,6 +251,34 @@ public final class LiveHands {
                 Optional.of(occupant.orElseThrow().stack()), Optional.empty());
     }
 
+    /** Pure consumption of exactly one unit from the exact active hand. */
+    Optional<LiveHands> consumeOne(long expectedRevision, String hand, String expectedToken, ItemStack expectedItem) {
+        if (expectedRevision != revision || revision == Long.MAX_VALUE || hand == null
+                || !active.equals(hand) || expectedToken == null || expectedItem == null || expectedItem.isEmpty())
+            return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0) return Optional.empty();
+        Optional<Occupant> occupant = hands.get(index).occupant();
+        if (occupant.isEmpty()) return Optional.empty();
+        Occupant current = occupant.orElseThrow();
+        ItemStack stack = current.stack();
+        if (!current.token().equals(expectedToken) || !sameItem(stack, expectedItem)
+                || stack.getCount() != expectedItem.getCount() || stack.getCount() > stack.getMaxStackSize())
+            return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        if (stack.getCount() == 1) {
+            next.set(index, new Slot(hand, Optional.empty()));
+        } else {
+            stack.shrink(1);
+            next.set(index, new Slot(hand, Optional.of(new Occupant(current.token(), stack))));
+        }
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
+    private static boolean sameItem(ItemStack first, ItemStack second) {
+        return ItemStack.isSameItemSameComponents(first, second);
+    }
+
     /** Pure, single-revision movement into the pouch component; no intermediate ownership state. */
     Optional<LiveHands> insertPouch(long expectedRevision, String pouchHand, String pouchToken,
                                     String sourceHand, String sourceToken) {
