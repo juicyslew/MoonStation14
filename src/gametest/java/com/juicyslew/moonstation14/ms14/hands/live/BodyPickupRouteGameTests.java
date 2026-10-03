@@ -12,6 +12,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 
+import java.util.UUID;
+
 public final class BodyPickupRouteGameTests {
     private BodyPickupRouteGameTests() { }
 
@@ -30,7 +32,11 @@ public final class BodyPickupRouteGameTests {
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         ItemEntity target = item(level, origin, 3);
         ItemEntity nearer = item(level, origin, 2);
-        require(denied(body, target, before), "nearer item must win");
+        nearer.setPickUpDelay(30);
+        require(denied(body, target, before), "delayed first item blocks farther item");
+        nearer.setNoPickUpDelay();
+        nearer.setTarget(java.util.UUID.randomUUID());
+        require(denied(body, target, before), "reserved first item blocks farther item");
         nearer.discard();
         body.setYRot(90);
         body.setYHeadRot(90);
@@ -73,6 +79,92 @@ public final class BodyPickupRouteGameTests {
         helper.succeed();
     }
 
+    public static void nearestOverridesHintAndStaleState(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = fixtureBody(level, origin);
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemEntity far = item(level, origin, 3), near = item(level, origin, 2);
+        require(BodyHandItemTransfer.pickupOwned(body, far.getUUID(), "left", before.revision() + 1, () -> true)
+                == BodyHandItemTransfer.Result.DENIED, "stale revision denies without consuming either source");
+        require(!near.isRemoved() && !far.isRemoved() && near.getItem().getCount() == 3
+                && far.getItem().getCount() == 3, "stale request retains both items");
+        require(BodyHandItemTransfer.pickupOwned(body, far.getUUID(), "left", before.revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "server chooses nearer source despite farther hint");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(near.isRemoved() && !far.isRemoved() && far.getItem().getCount() == 3
+                && after != null && after.stackCopy("left").orElseThrow().getCount() == 3,
+                "only nearest source transferred");
+        require(BodyHandItemTransfer.pickupOwned(body, far.getUUID(), "left", after.revision(), () -> true)
+                == BodyHandItemTransfer.Result.DENIED && !far.isRemoved(), "occupied hand retains farther item");
+        far.discard();
+        body.discard();
+        helper.succeed();
+    }
+
+    public static void tiedItemsTransferLowerUuid(GameTestHelper helper, boolean lowFirst) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = fixtureBody(level, origin);
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemEntity low = new ItemEntity(level, origin.getX() + 2.5, origin.getY() + 1.5,
+                origin.getZ() + .5, new ItemStack(Items.DIAMOND, 3));
+        ItemEntity high = new ItemEntity(level, origin.getX() + 2.5, origin.getY() + 1.5,
+                origin.getZ() + .5, new ItemStack(Items.EMERALD, 3));
+        low.setUUID(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        high.setUUID(UUID.fromString("00000000-0000-0000-0000-000000000004"));
+        require(level.addFreshEntity(lowFirst ? low : high), "first spawned");
+        require(level.addFreshEntity(lowFirst ? high : low), "second spawned");
+        require(BodyHandItemTransfer.pickupOwned(body, high.getUUID(), "left", before.revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "exact tie cannot deny pickup despite higher UUID hint");
+        require(low.isRemoved() && !high.isRemoved() && high.getItem().is(Items.EMERALD)
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())
+                        .stackCopy("left").orElseThrow().is(Items.DIAMOND), "lower UUID owns hand, other remains world-owned");
+        high.discard();
+        body.discard();
+        helper.succeed();
+    }
+
+    public static void coincidentItemsTransferToBothHands(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = fixtureBody(level, origin);
+
+        ItemEntity overlapA = grenade(level, origin);
+        ItemEntity overlapB = grenade(level, origin);
+        LiveHands overlapRevision = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemEntity firstOverlap = overlapA.getUUID().compareTo(overlapB.getUUID()) < 0 ? overlapA : overlapB;
+        ItemEntity secondOverlap = firstOverlap == overlapA ? overlapB : overlapA;
+        require(BodyItemTargetProbe.probe(level, body, firstOverlap, 5) != null,
+                "stable UUID winner is allowed for coincident items");
+        require(BodyItemTargetProbe.probe(level, body, secondOverlap, 5) == null,
+                "other coincident item cannot be nominated ahead of UUID winner");
+        require(BodyHandItemTransfer.pickupOwned(body, firstOverlap.getUUID(), "left",
+                overlapRevision.revision(), () -> true) == BodyHandItemTransfer.Result.SUCCESS,
+                "first coincident grenade transfers");
+        LiveHands afterOverlap = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(firstOverlap.isRemoved() && !secondOverlap.isRemoved()
+                        && BodyItemTargetProbe.probe(level, body, secondOverlap, 5) != null
+                        && BodyHandItemTransfer.pickupOwned(body, secondOverlap.getUUID(), "right",
+                        afterOverlap.revision(), () -> true) == BodyHandItemTransfer.Result.SUCCESS
+                        && secondOverlap.isRemoved(),
+                "remaining coincident grenade transfers with fresh revision to opposite hand");
+        helper.succeed();
+    }
+
+    private static Villager fixtureBody(ServerLevel level, BlockPos origin) {
+        Villager body = EntityType.VILLAGER.create(level);
+        require(body != null, "body created");
+        body.setNoAi(true);
+        body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+        body.setYRot(-90);
+        body.setYHeadRot(-90);
+        body.setXRot(0);
+        require(level.addFreshEntity(body), "body spawned");
+        require(LiveHands.initialize(body).isPresent(), "hands initialized");
+        return body;
+    }
+
     private static boolean denied(Villager body, ItemEntity target, LiveHands before) {
         return BodyHandItemTransfer.pickupOwned(body, target.getUUID(), "left", before.revision(), () -> true)
                 == BodyHandItemTransfer.Result.DENIED
@@ -84,6 +176,14 @@ public final class BodyPickupRouteGameTests {
         ItemEntity item = new ItemEntity(level, origin.getX() + .5 + offset, origin.getY() + 1.5,
                 origin.getZ() + .5, new ItemStack(Items.DIAMOND, 3));
         require(level.addFreshEntity(item), "item spawned");
+        return item;
+    }
+
+    private static ItemEntity grenade(ServerLevel level, BlockPos origin) {
+        ItemEntity item = new ItemEntity(level, origin.getX() + 2.5, origin.getY() + 1.5,
+                origin.getZ() + .5, new ItemStack(com.juicyslew.moonstation14.item.ModItems.GRENADE.get(), 1));
+        item.setNoPickUpDelay();
+        require(level.addFreshEntity(item), "coincident grenade spawned");
         return item;
     }
 

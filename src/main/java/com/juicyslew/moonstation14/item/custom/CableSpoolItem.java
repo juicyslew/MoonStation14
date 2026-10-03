@@ -10,6 +10,7 @@ import net.minecraft.world.item.context.UseOnContext;
 public final class CableSpoolItem extends Item {
     private final CableTier tier;
     public CableSpoolItem(Properties properties, CableTier tier) { super(properties); this.tier = tier; }
+    public CableTier bodyUseTier() { return tier; }
 
     @Override public InteractionResult useOn(UseOnContext context) {
         if (context.getLevel().isClientSide) return InteractionResult.SUCCESS;

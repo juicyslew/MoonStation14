@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -86,7 +87,7 @@ public final class BodyEquipmentTransfer {
         return stack != null && stack.getCount() == 1
                 && (slot.equals("belt") && stack.is(ModItems.BELT)
                     || slot.equals("back") && stack.is(ModItems.BAG))
-                && PouchContents.read(stack).isPresent();
+                && (GridContents.read(stack).isPresent() || PouchContents.read(stack).isPresent());
     }
 
     private static boolean live(LivingEntity body, ServerLevel level) {

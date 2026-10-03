@@ -1,0 +1,13 @@
+Source: SS14 commit c9df5ef5d675b0d1d226828bddf6b78c28502d91, Resources/Audio/Effects/explosionfar.ogg
+Source URL: https://github.com/vgstation-coders/vgstation13/tree/c5edbfd7179288080f081e2b8ac2496b7e4455db/sound/effects
+Original work attribution: vgstation, commit c5edbfd7179288080f081e2b8ac2496b7e4455db
+License: CC-BY-SA-3.0
+Source size: 12252 bytes
+Destination size: 12252 bytes
+Source SHA-256: 0DFDDACEDE1CFD5B2C3FCD0F347268480107DDE2C14CBE62C45623C455196D7F
+Destination SHA-256: 0DFDDACEDE1CFD5B2C3FCD0F347268480107DDE2C14CBE62C45623C455196D7F
+Modifications: None; imported unmodified.
+
+This work is licensed under CC-BY-SA-3.0. Credit vgstation and retain this notice
+when redistributing. Any adaptations must be distributed under CC-BY-SA-3.0 or a
+compatible license permitted by its terms.

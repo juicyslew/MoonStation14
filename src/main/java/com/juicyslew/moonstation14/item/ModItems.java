@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.item.custom.StationFloorTilePryItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
 import com.juicyslew.moonstation14.item.custom.CableCutterItem;
 import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
+import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import net.minecraft.world.item.Item;
@@ -35,14 +36,15 @@ public class ModItems {
     public static final DeferredItem<Item> CLOTH = ITEMS.register("cloth",
             () -> new Item(new Item.Properties().stacksTo(8))
     );
-    public static final DeferredItem<Item> POUCH = ITEMS.register("pouch",
-            () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> BAG = ITEMS.register("bag",
             () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> BELT = ITEMS.register("belt",
             () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> WOOD = ITEMS.register("wood",
             () -> new Item(new Item.Properties().stacksTo(8))
+    );
+    public static final DeferredItem<Item> PICKAXE = ITEMS.register("pickaxe",
+            () -> new Item(new Item.Properties().durability(250))
     );
 
     // Food
@@ -97,6 +99,8 @@ public class ModItems {
             () -> new Item(new Item.Properties()));
     public static final DeferredItem<Item> T_RAY_SCANNER = ITEMS.register("t_ray_scanner",
             () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<GrenadeItem> GRENADE = ITEMS.register("grenade",
+            () -> new GrenadeItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<AtmosphereAnalyzerItem> ATMOSPHERE_ANALYZER = ITEMS.register("atmosphere_analyzer",
             () -> new AtmosphereAnalyzerItem(new Item.Properties().stacksTo(1)));
 
