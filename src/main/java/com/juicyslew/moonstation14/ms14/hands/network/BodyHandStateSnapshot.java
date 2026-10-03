@@ -7,6 +7,9 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
+import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.HashSet;
 import java.util.List;
@@ -15,13 +18,51 @@ import java.util.function.Consumer;
 
 /** Read-only, account-bound full state. No stack NBT/components or client-supplied ownership. */
 public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
-                                    UUID bodyId, long epoch, long revision, String activeHand,
-                                    List<Hand> hands, List<EquipmentSlot> equipment) implements CustomPacketPayload {
+                                     UUID bodyId, long epoch, long revision, String activeHand,
+                                     List<Hand> hands, List<EquipmentSlot> equipment, List<GridHost> grids) implements CustomPacketPayload {
     public enum Reason { OK, NO_AUTHORITY, RATE_LIMITED, REPLAY, NOT_READY }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                  UUID bodyId, long epoch, long revision, String activeHand, List<Hand> hands) {
-        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of());
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of(), List.of());
+    }
+
+    public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
+                                 UUID bodyId, long epoch, long revision, String activeHand,
+                                 List<Hand> hands, List<EquipmentSlot> equipment) {
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, List.of());
+    }
+
+    public record GridEntry(String token, String itemId, int count, int x, int y, int rotation) {
+        public GridEntry {
+            if (token == null || token.isBlank() || token.length() > ItemToken.MAX_LENGTH || itemId == null || itemId.isBlank()
+                    || itemId.length() > 256 || count < 1 || count > 99 || x < 0 || x > 7 || y < 0 || y > 3
+                    || rotation != 0 && rotation != 90 && rotation != 180 && rotation != 270)
+                throw new IllegalArgumentException("Invalid grid entry");
+        }
+    }
+
+    public record GridHost(String hostToken, String kind, int width, int height, List<GridEntry> entries) {
+        public GridHost {
+            if (hostToken == null || hostToken.isBlank() || hostToken.length() > ItemToken.MAX_LENGTH
+                    || !("bag".equals(kind) || "belt".equals(kind)) || width != ("bag".equals(kind) ? 7 : 8)
+                    || height != ("bag".equals(kind) ? 4 : 2) || entries == null || entries.size() > 32)
+                throw new IllegalArgumentException("Invalid grid host");
+            entries = List.copyOf(entries);
+            var tokens = new HashSet<String>();
+            var occupied = GridGeometry.Snapshot.empty(GridGeometry.StorageMask.rectangle(width, height));
+            for (GridEntry entry : entries) {
+                if (!tokens.add(entry.token())) throw new IllegalArgumentException("Duplicate grid token");
+                ResourceLocation id = ResourceLocation.tryParse(entry.itemId());
+                if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) throw new IllegalArgumentException("Unregistered grid item");
+                if (entry.itemId().equals("moonstation14:pouch") || entry.itemId().equals(ModItems.BAG.getId().toString())
+                        || entry.itemId().equals(ModItems.BELT.getId().toString())) throw new IllegalArgumentException("Nested grid host");
+                var rotation = GridGeometry.Rotation.values()[entry.rotation() / 90];
+                var placed = occupied.place(entry.token(), ItemFootprints.forId(id), new GridGeometry.Cell(entry.x(), entry.y()), rotation);
+                if (!placed.accepted()) throw new IllegalArgumentException("Invalid grid placement");
+                occupied = placed.snapshot();
+            }
+        }
     }
 
     public record EquipmentSlot(String id, String token, String itemId, int count,
@@ -36,7 +77,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                                     : childToken.isBlank() || childToken.length() > ItemToken.MAX_LENGTH
                                             || childToken.equals(token) || childItemId == null || childItemId.isBlank()
                                             || childItemId.length() > 256 || childCount < 1 || childCount > 64
-                                            || childItemId.equals(ModItems.POUCH.getId().toString())
+                                            || childItemId.equals("moonstation14:pouch")
                                             || childItemId.equals(ModItems.BELT.getId().toString())
                                             || childItemId.equals(ModItems.BAG.getId().toString()))))
                 throw new IllegalArgumentException("Invalid equipment snapshot slot");
@@ -54,14 +95,17 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     || (token == null ? itemId != null || count != 0
                     : token.isBlank() || token.length() > ItemToken.MAX_LENGTH || itemId == null
                              || itemId.isBlank() || itemId.length() > 256 || count <= 0 || count > 99)
-                    || (pouch && (token == null || !ModItems.POUCH.getId().toString().equals(itemId) || count != 1))
-                    || (!pouch && token != null && ModItems.POUCH.getId().toString().equals(itemId))
-                    || (!pouch && (childToken != null || childItemId != null || childCount != 0))
+                    || pouch
+                    || (token != null && "moonstation14:pouch".equals(itemId))
                     || (childToken == null ? childItemId != null || childCount != 0
-                            : !pouch || childToken.isBlank() || childToken.length() > ItemToken.MAX_LENGTH
+                            : !(pouch || token != null && (ModItems.BAG.getId().toString().equals(itemId)
+                                    || ModItems.BELT.getId().toString().equals(itemId)))
+                                    || childToken.isBlank() || childToken.length() > ItemToken.MAX_LENGTH
                                     || childToken.equals(token) || childItemId == null || childItemId.isBlank()
-                                    || childItemId.length() > 256 || childItemId.equals(ModItems.POUCH.getId().toString())
-                                    || childCount < 1 || childCount > 64))
+                                     || childItemId.length() > 256 || childItemId.equals("moonstation14:pouch")
+                                    || childItemId.equals(ModItems.BAG.getId().toString()) || childItemId.equals(ModItems.BELT.getId().toString())
+                                     || childCount < 1 || childCount > 64
+                                     || "moonstation14:pouch".equals(childItemId)))
                 throw new IllegalArgumentException("Invalid hand snapshot slot");
         }
     }
@@ -89,7 +133,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                             buf.writeVarInt(hand.count());
                         }
                         buf.writeBoolean(hand.pouch());
-                        if (hand.pouch()) {
+                        if (hand.token() != null) {
                             buf.writeBoolean(hand.childToken() != null);
                             if (hand.childToken() != null) {
                                 buf.writeUtf(hand.childToken(), ItemToken.MAX_LENGTH);
@@ -112,6 +156,16 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                                 buf.writeUtf(slot.childItemId(), 256);
                                 buf.writeVarInt(slot.childCount());
                             }
+                        }
+                    }
+                    buf.writeVarInt(snapshot.grids.size());
+                    for (GridHost grid : snapshot.grids) {
+                        buf.writeUtf(grid.hostToken(), ItemToken.MAX_LENGTH);
+                        buf.writeUtf(grid.kind(), 4);
+                        buf.writeByte(grid.width()); buf.writeByte(grid.height()); buf.writeVarInt(grid.entries().size());
+                        for (GridEntry entry : grid.entries()) {
+                            buf.writeUtf(entry.token(), ItemToken.MAX_LENGTH); buf.writeUtf(entry.itemId(), 256);
+                            buf.writeVarInt(entry.count()); buf.writeByte(entry.x()); buf.writeByte(entry.y()); buf.writeVarInt(entry.rotation());
                         }
                     }
                 }
@@ -138,7 +192,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     String itemId = occupied ? buf.readUtf(256) : null;
                     int count = occupied ? buf.readVarInt() : 0;
                     boolean pouch = buf.readBoolean();
-                    boolean child = pouch && buf.readBoolean();
+                    boolean child = occupied && buf.readBoolean();
                     slots.add(new Hand(id, token, itemId, count, pouch,
                             child ? buf.readUtf(ItemToken.MAX_LENGTH) : null,
                             child ? buf.readUtf(256) : null, child ? buf.readVarInt() : 0));
@@ -157,16 +211,31 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                             child ? buf.readUtf(ItemToken.MAX_LENGTH) : null,
                             child ? buf.readUtf(256) : null, child ? buf.readVarInt() : 0));
                 }
+                int gridCount = buf.isReadable() ? buf.readVarInt() : 0;
+                if (gridCount < 0 || gridCount > size + equipmentSize) throw new IllegalArgumentException("Invalid grid host count");
+                var grids = new java.util.ArrayList<GridHost>(gridCount);
+                int totalEntries = 0;
+                for (int i = 0; i < gridCount; i++) {
+                    String host = buf.readUtf(ItemToken.MAX_LENGTH), kind = buf.readUtf(4);
+                    int width = buf.readUnsignedByte(), height = buf.readUnsignedByte(), count = buf.readVarInt();
+                    totalEntries += count;
+                    if (count < 0 || count > 32 || totalEntries > 32 * (HandState.MAX_HANDS + 2)) throw new IllegalArgumentException("Invalid grid entry count");
+                    var entries = new java.util.ArrayList<GridEntry>(count);
+                    for (int j = 0; j < count; j++) entries.add(new GridEntry(buf.readUtf(ItemToken.MAX_LENGTH), buf.readUtf(256),
+                            buf.readVarInt(), buf.readUnsignedByte(), buf.readUnsignedByte(), buf.readVarInt()));
+                    grids.add(new GridHost(host, kind, width, height, entries));
+                }
                 if (buf.isReadable()) throw new IllegalArgumentException("Unexpected snapshot payload");
                 return new BodyHandStateSnapshot(requestedEpoch, sequence, reason, account, body,
-                        epoch, revision, active, slots, equipment);
+                        epoch, revision, active, slots, equipment, grids);
             });
 
     public BodyHandStateSnapshot {
-        if (requestedEpoch < 0 || sequence <= 0 || reason == null || hands == null || equipment == null)
+        if (requestedEpoch < 0 || sequence <= 0 || reason == null || hands == null || equipment == null || grids == null)
             throw new IllegalArgumentException("Invalid hand state snapshot");
         hands = List.copyOf(hands);
         equipment = List.copyOf(equipment);
+        grids = List.copyOf(grids);
         if (reason == Reason.OK) {
             if (accountId == null || bodyId == null || epoch <= 0 || revision < 0
                     || hands.isEmpty() || hands.size() > HandState.MAX_HANDS) throw new IllegalArgumentException("Invalid binding");
@@ -187,9 +256,28 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                         || slot.childToken() != null && !tokens.add(slot.childToken()))
                     throw new IllegalArgumentException("Duplicate equipment slot or token");
             }
+            var gridHosts = new HashSet<String>();
+            if (grids.size() > hands.size() + equipment.size()) throw new IllegalArgumentException("Too many grid hosts");
+            for (GridHost grid : grids) {
+                boolean matching = hands.stream().anyMatch(h -> grid.hostToken().equals(h.token())
+                        && hostKind(h.itemId()) != null && grid.kind().equals(hostKind(h.itemId())))
+                        || equipment.stream().anyMatch(e -> grid.hostToken().equals(e.token())
+                        && hostKind(e.itemId()) != null && grid.kind().equals(hostKind(e.itemId())));
+                if (!matching || !gridHosts.add(grid.hostToken())) throw new IllegalArgumentException("Invalid or duplicate grid host");
+                if (hands.stream().anyMatch(h -> grid.hostToken().equals(h.token()) && h.childToken() != null)
+                        || equipment.stream().anyMatch(e -> grid.hostToken().equals(e.token()) && e.childToken() != null))
+                    throw new IllegalArgumentException("Grid host also has legacy child summary");
+                for (GridEntry entry : grid.entries()) if (!tokens.add(entry.token())) throw new IllegalArgumentException("Duplicate grid entry token");
+            }
             if (!ids.contains(activeHand)) throw new IllegalArgumentException("Unknown active hand");
         } else if (accountId != null || bodyId != null || epoch != 0 || revision != 0
-                || activeHand != null || !hands.isEmpty() || !equipment.isEmpty()) throw new IllegalArgumentException("Invalid rejection");
+                || activeHand != null || !hands.isEmpty() || !equipment.isEmpty() || !grids.isEmpty()) throw new IllegalArgumentException("Invalid rejection");
+    }
+
+    private static String hostKind(String itemId) {
+        if (ModItems.BAG.getId().toString().equals(itemId)) return "bag";
+        if (ModItems.BELT.getId().toString().equals(itemId)) return "belt";
+        return null;
     }
 
     public static BodyHandStateSnapshot rejected(BodyHandStateQuery query, Reason reason) {

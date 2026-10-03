@@ -102,7 +102,7 @@ public final class BodyPouchWorldRoundTripGameTests {
         AtomicInteger canceled = new AtomicInteger();
         Consumer<EntityJoinLevelEvent> listener = event -> {
             if (event.getLevel() == helper.getLevel() && event.getEntity() instanceof ItemEntity item
-                    && item.getItem().is(ModItems.POUCH)) {
+                    && item.getItem().is(ModItems.BAG)) {
                 canceled.incrementAndGet();
                 event.setCanceled(true);
             }
@@ -165,13 +165,13 @@ public final class BodyPouchWorldRoundTripGameTests {
                 held.token("left").orElseThrow()).orElseThrow();
         body.setData(ModDataAttachments.LIVE_HANDS.get(), equipped);
         require(BodyHandStateService.representable(equipped, body), "equipped filled bag is ready");
-        deniedWorldStack(helper, body, equipped, PouchContents.put(new ItemStack(ModItems.POUCH.get()),
+        deniedWorldStack(helper, body, equipped, PouchContents.put(new ItemStack(ModItems.BAG.get()),
                 "unique-bag-child", new ItemStack(Items.APPLE)).orElseThrow());
-        deniedWorldStack(helper, body, equipped, PouchContents.put(new ItemStack(ModItems.POUCH.get()),
+        deniedWorldStack(helper, body, equipped, PouchContents.put(new ItemStack(ModItems.BAG.get()),
                 held.token("left").orElseThrow(), new ItemStack(Items.APPLE)).orElseThrow());
 
         // A pre-existing malformed attachment is evidence, not permission to replace it with an empty state.
-        ItemStack corrupt = new ItemStack(ModItems.POUCH.get());
+        ItemStack corrupt = new ItemStack(ModItems.BAG.get());
         corrupt.set(DataComponents.CONTAINER,
                 ItemContainerContents.fromItems(List.of(new ItemStack(Items.APPLE))));
         LiveHands loadedCorrupt = empty.putWhole(0, "right", new ItemToken("old-corrupt"), corrupt).state();
@@ -212,12 +212,12 @@ public final class BodyPouchWorldRoundTripGameTests {
     }
 
     private static ItemStack filled() {
-        return PouchContents.put(new ItemStack(ModItems.POUCH.get()), "tagged-child",
+        return PouchContents.put(new ItemStack(ModItems.BAG.get()), "tagged-child",
                 new ItemStack(Items.DIAMOND, 7)).orElseThrow();
     }
 
     private static void assertFilled(ItemStack stack) {
-        require(stack.is(ModItems.POUCH) && stack.getCount() == 1, "single pouch stack");
+        require(stack.is(ModItems.BAG) && stack.getCount() == 1, "single pouch stack");
         PouchContents.Child child = PouchContents.read(stack).orElseThrow().child().orElseThrow();
         require(child.token().equals("tagged-child") && child.stack().is(Items.DIAMOND)
                 && child.stack().getCount() == 7, "one tagged child retained");
@@ -235,7 +235,7 @@ public final class BodyPouchWorldRoundTripGameTests {
 
     private static List<ItemEntity> pouches(GameTestHelper helper, Villager body) {
         return helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
-                item -> item.getItem().is(ModItems.POUCH));
+                item -> item.getItem().is(ModItems.BAG));
     }
 
     private static void assertNoLooseChild(GameTestHelper helper, Villager body) {

@@ -3,6 +3,10 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
+import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.BuiltInRegistries;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -16,9 +20,12 @@ public final class BodyHandClientPolicy {
     private long pendingQueryEpoch;
     private long sentActionTick;
     private BodyHandStateSnapshot snapshot;
+    private BodyHandStateSnapshot presentationSnapshot;
     private String feedback;
     private long localFeedbackUntil;
     private boolean inputEnabled;
+    private boolean selectionPresentation;
+    private boolean pendingSelection;
 
     public void reset() {
         suspend();
@@ -31,9 +38,11 @@ public final class BodyHandClientPolicy {
         epoch = pendingQuery = pendingAction = pendingQueryEpoch = 0;
         lastQueryTick = Long.MIN_VALUE;
         snapshot = null;
+        presentationSnapshot = null;
         feedback = null;
         localFeedbackUntil = 0;
         inputEnabled = false;
+        selectionPresentation = pendingSelection = false;
     }
 
     public void bind(UUID accountId, UUID bodyId, long committedEpoch) {
@@ -62,6 +71,16 @@ public final class BodyHandClientPolicy {
         return pendingQuery;
     }
 
+    /** Invalidate any pre-action proof/correlation and bypass the ordinary query throttle. */
+    public long forceFreshQuery(long tick) {
+        if (!inputEnabled || epoch == 0 || pendingAction != 0 || querySequence == Long.MAX_VALUE) return 0;
+        snapshot = null;
+        pendingQuery = 0;
+        pendingQueryEpoch = 0;
+        lastQueryTick = Long.MIN_VALUE;
+        return query(tick);
+    }
+
     public long queryEpoch() { return snapshot == null ? 0 : epoch; }
 
     public boolean accept(BodyHandStateSnapshot incoming) {
@@ -72,17 +91,127 @@ public final class BodyHandClientPolicy {
                 || !account.equals(incoming.accountId()) || !body.equals(incoming.bodyId())
                 || epoch != incoming.epoch()) {
             snapshot = null;
+            presentationSnapshot = null;
+            selectionPresentation = pendingSelection = false;
             return false;
         }
         snapshot = incoming;
+        presentationSnapshot = incoming;
         pendingAction = 0;
+        pendingSelection = false;
+        selectionPresentation = false;
         return true;
     }
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
     /** Screen presentation requires a settled, validated pair; never display stale state during a query. */
     public record InventoryView(BodyHandStateSnapshot.Hand first, BodyHandStateSnapshot.Hand second,
-                                 String activeHand, PouchView pouch, EquipmentView belt, EquipmentView back) { }
+                                 String activeHand, EquipmentView belt, EquipmentView back,
+                                 GridView beltGrid, GridView backGrid) { }
+
+    /** A display-only reconstruction from one full host summary, never from local inventory. */
+    public record GridView(BodyHandStateSnapshot.GridHost host, GridGeometry.Snapshot<String> occupancy,
+                           boolean canStore, boolean canTake) {
+        public BodyHandStateSnapshot.GridEntry entryAt(int x, int y) {
+            var cell = new GridGeometry.Cell(x, y);
+            for (var entry : host.entries()) {
+                var placement = occupancy.placement(entry.token());
+                if (placement != null && placement.occupiedCells().contains(cell)) return entry;
+            }
+            return null;
+        }
+
+        public GridGeometry.Cell proposed(String itemId, String token, int rotation, int x, int y) {
+            if (!canStore || token == null || itemId == null || rotation < 0 || rotation > 270 || rotation % 90 != 0)
+                return null;
+            var id = ResourceLocation.tryParse(itemId);
+            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
+            var cell = new GridGeometry.Cell(x, y);
+            return occupancy.place(token, ItemFootprints.forId(id), cell,
+                    GridGeometry.Rotation.values()[rotation / 90]).accepted() ? cell : null;
+        }
+    }
+
+    /** Validates an explicitly nominated hand from the settled snapshot, independent of active-hand projection. */
+    static boolean nominatedGridStoreEligible(BodyHandStateSnapshot.Hand hand, String token,
+                                               String itemId, int count) {
+        if (hand == null || token == null || !token.equals(hand.token()) || itemId == null
+                || !itemId.equals(hand.itemId()) || count != hand.count() || count <= 0 || count > 64
+                || hand.pouch() || "moonstation14:bag".equals(itemId) || "moonstation14:belt".equals(itemId))
+            return false;
+        var id = ResourceLocation.tryParse(itemId);
+        return id != null && BuiltInRegistries.ITEM.containsKey(id)
+                && BuiltInRegistries.ITEM.get(id) != net.minecraft.world.item.Items.AIR;
+    }
+
+    /** Explicit grid-child TAKE nomination is independent of the active-hand projection. */
+    static boolean nominatedGridTakeEligible(BodyHandStateSnapshot.Hand destination,
+            BodyHandStateSnapshot.GridEntry nominatedChild, BodyHandStateSnapshot.GridEntry snapshotChild,
+            String heldHostHandId) {
+        return destination != null && destination.token() == null && nominatedChild != null
+                && nominatedChild.equals(snapshotChild)
+                && (heldHostHandId == null || !heldHostHandId.equals(destination.id()));
+    }
+
+    private GridView gridView(BodyHandStateSnapshot source, String kind, BodyHandStateSnapshot.EquipmentSlot slot, BodyHandStateSnapshot.Hand active) {
+        if (slot == null || slot.token() == null)
+            return null;
+        return gridView(source, kind, slot.token(), slot.childToken(), slot.childItemId(), slot.childCount(), active);
+    }
+
+    private GridView gridView(BodyHandStateSnapshot source, String kind, String hostToken,
+                              String childToken, String childItemId, int childCount, BodyHandStateSnapshot.Hand sourceHand) {
+        var matchingHosts = source.grids().stream().filter(g -> g.hostToken().equals(hostToken)).toList();
+        if (matchingHosts.size() > 1) return null;
+        BodyHandStateSnapshot.GridHost host;
+        if (matchingHosts.size() == 1) {
+            host = matchingHosts.getFirst();
+            if (!host.kind().equals(kind)) return null;
+        } else {
+            // Legacy one-cell contents are an authoritative placement summary, not proof of
+            // arbitrary grid ownership. Use them only as a display-time migration proposal.
+            var entries = new java.util.ArrayList<BodyHandStateSnapshot.GridEntry>();
+            if (childToken != null) {
+                var id = ResourceLocation.tryParse(childItemId);
+                if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
+                entries.add(new BodyHandStateSnapshot.GridEntry(childToken, childItemId,
+                        childCount, 0, 0, 0));
+            }
+            try {
+                host = new BodyHandStateSnapshot.GridHost(hostToken, kind,
+                        "bag".equals(kind) ? 7 : 8, "bag".equals(kind) ? 4 : 2, entries);
+            } catch (IllegalArgumentException malformedLegacyContents) {
+                return null;
+            }
+        }
+        var occupancy = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(host.width(), host.height()));
+        for (var entry : host.entries()) {
+            var id = ResourceLocation.tryParse(entry.itemId());
+            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
+            var result = occupancy.place(entry.token(), ItemFootprints.forId(id),
+                    new GridGeometry.Cell(entry.x(), entry.y()), GridGeometry.Rotation.values()[entry.rotation() / 90]);
+            if (!result.accepted()) return null;
+            occupancy = result.snapshot();
+        }
+        boolean supported = sourceHand.token() != null && sourceHand.count() <= 64 && !sourceHand.pouch()
+                && !"moonstation14:belt".equals(sourceHand.itemId()) && !"moonstation14:bag".equals(sourceHand.itemId());
+        return new GridView(host, occupancy, supported, sourceHand.token() == null);
+    }
+
+    /** Resolve by exact held token, not by item ID or whichever hand is active. */
+    public GridView heldGrid(String token, boolean presentation) {
+        var source = presentation ? presentationSnapshot : snapshot;
+        if (!inputEnabled || source == null || !presentation && (pendingQuery != 0 || pendingAction != 0)
+                || source.hands().size() != 2 || token == null) return null;
+        var hosts = source.hands().stream().filter(h -> token.equals(h.token())
+                && h.count() == 1 && ("moonstation14:bag".equals(h.itemId()) || "moonstation14:belt".equals(h.itemId()))).toList();
+        if (hosts.size() != 1) return null;
+        var host = hosts.getFirst();
+        var other = source.hands().get(0) == host ? source.hands().get(1) : source.hands().get(0);
+        var result = gridView(source, "moonstation14:bag".equals(host.itemId()) ? "bag" : "belt",
+                token, host.childToken(), host.childItemId(), host.childCount(), other);
+        return presentation && (snapshot != source || pendingQuery != 0 || pendingAction != 0) ? disable(result) : result;
+    }
 
     public record EquipmentView(BodyHandStateSnapshot.EquipmentSlot slot, boolean canEquip,
                                 boolean canUnequip, boolean canStore, boolean canTake) {
@@ -97,8 +226,8 @@ public final class BodyHandClientPolicy {
         }
     }
 
-    private EquipmentView equipmentView(String id, BodyHandStateSnapshot.Hand active) {
-        var slots = snapshot.equipment().stream().filter(slot -> slot.id().equals(id)).toList();
+    private EquipmentView equipmentView(BodyHandStateSnapshot source, String id, BodyHandStateSnapshot.Hand active) {
+        var slots = source.equipment().stream().filter(slot -> slot.id().equals(id)).toList();
         if (slots.size() != 1) return null;
         var slot = slots.getFirst();
         boolean emptyHand = active.token() == null;
@@ -107,9 +236,10 @@ public final class BodyHandClientPolicy {
         // Snapshot summaries cannot prove stack components; the server still validates child admission.
         boolean supported = active.token() != null && active.count() <= 64 && !active.pouch()
                 && !"moonstation14:belt".equals(active.itemId()) && !"moonstation14:bag".equals(active.itemId());
+        boolean gridHost = source.grids().stream().anyMatch(grid -> grid.hostToken().equals(slot.token()));
         return new EquipmentView(slot, emptySlot && matching && active.count() == 1,
-                !emptySlot && emptyHand, !emptySlot && slot.childToken() == null && supported,
-                !emptySlot && slot.childToken() != null && emptyHand);
+                !emptySlot && emptyHand, !gridHost && !emptySlot && slot.childToken() == null && supported,
+                !gridHost && !emptySlot && slot.childToken() != null && emptyHand);
     }
 
     public InventoryView inventoryView() {
@@ -120,27 +250,41 @@ public final class BodyHandClientPolicy {
         if (first.id().equals(second.id()) || !snapshot.activeHand().equals(first.id())
                 && !snapshot.activeHand().equals(second.id())) return null;
         var active = first.id().equals(snapshot.activeHand()) ? first : second;
-        return new InventoryView(first, second, snapshot.activeHand(), pouchView(),
-                equipmentView("belt", active), equipmentView("back", active));
+        var belt = equipmentView(snapshot, "belt", active);
+        var back = equipmentView(snapshot, "back", active);
+        return new InventoryView(first, second, snapshot.activeHand(), belt, back,
+                gridView(snapshot, "belt", belt == null ? null : belt.slot(), active),
+                gridView(snapshot, "bag", back == null ? null : back.slot(), active));
     }
+    /** Last confirmed display data; controls are disabled until current proof settles. */
+    public InventoryView presentationView() {
+        if (!inputEnabled || presentationSnapshot == null || presentationSnapshot.hands().size() != 2) return null;
+        var source = presentationSnapshot;
+        var first = source.hands().get(0);
+        var second = source.hands().get(1);
+        if (first.id().equals(second.id()) || !source.activeHand().equals(first.id()) && !source.activeHand().equals(second.id())) return null;
+        var active = first.id().equals(source.activeHand()) ? first : second;
+        var belt = equipmentView(source, "belt", active); var back = equipmentView(source, "back", active);
+        var view = new InventoryView(first, second, source.activeHand(), belt, back,
+                gridView(source, "belt", belt == null ? null : belt.slot(), active),
+                gridView(source, "bag", back == null ? null : back.slot(), active));
+        return snapshot == source && pendingQuery == 0 && pendingAction == 0 ? view : disabled(view);
+    }
+    private InventoryView disabled(InventoryView view) {
+        EquipmentView belt = disable(view.belt()), back = disable(view.back());
+        return new InventoryView(view.first(), view.second(), view.activeHand(), belt, back,
+                disable(view.beltGrid()), disable(view.backGrid()));
+    }
+    private EquipmentView disable(EquipmentView v) { return v == null ? null : new EquipmentView(v.slot(), false, false, false, false); }
+    private GridView disable(GridView v) { return v == null ? null : new GridView(v.host(), v.occupancy(), false, false); }
     /** Rendering must not expose the last authoritative state while an action is unresolved. */
-    public BodyHandStateSnapshot hudSnapshot() { return pendingAction == 0 ? snapshot : null; }
-    public record PouchView(BodyHandStateSnapshot.Hand pouch, boolean canInsert, boolean canExtract) { }
-
-    /** Only a correlated, settled two-hand state can advertise pouch contents or controls. */
-    public PouchView pouchView() {
-        if (!inputEnabled || snapshot == null || pendingQuery != 0 || pendingAction != 0
-                || snapshot.hands().size() != 2) return null;
-        BodyHandStateSnapshot.Hand pouch = null, other = null;
-        for (var hand : snapshot.hands()) {
-            if (hand.pouch()) {
-                if (pouch != null) return null;
-                pouch = hand;
-            } else other = hand;
-        }
-        if (pouch == null || other == null || pouch.token() == null) return null;
-        return new PouchView(pouch, pouch.childToken() == null && other.token() != null,
-                pouch.childToken() != null && other.token() == null);
+    public BodyHandStateSnapshot hudSnapshot() { return inputEnabled ? presentationSnapshot : null; }
+    /** Snapshot-only HUD presentation; unlike controls this remains available while proof is pending. */
+    public BodyHandStateSnapshot presentationSnapshot() { return inputEnabled ? presentationSnapshot : null; }
+    /** Presentation chrome changes only when no confirmed display exists or an action is unresolved. */
+    public boolean presentationPending() {
+        return !inputEnabled || presentationSnapshot == null
+                || (pendingAction != 0 || pendingQuery != 0) && !selectionPresentation;
     }
     public String feedback() { return feedback; }
 
@@ -169,11 +313,20 @@ public final class BodyHandClientPolicy {
     }
 
     public long action(long tick) {
+        return action(tick, false);
+    }
+
+    /** A SELECT_HAND may preserve presentation only; it never preserves action proof. */
+    public long selectionAction(long tick) { return action(tick, true); }
+
+    private long action(long tick, boolean selection) {
         if (!inputEnabled || snapshot == null || pendingQuery != 0 || pendingAction != 0
                 || actionSequence == Long.MAX_VALUE) return 0;
         long sequence = next(ACTION_IDS);
         if (sequence == Long.MAX_VALUE) return 0;
         pendingAction = actionSequence = sequence;
+        selectionPresentation = selection;
+        pendingSelection = selection;
         sentActionTick = tick;
         feedback = null;
         localFeedbackUntil = 0;
@@ -183,6 +336,11 @@ public final class BodyHandClientPolicy {
     public boolean result(BodyHandActionResult incoming, long tick) {
         if (!inputEnabled || pendingAction == 0 || incoming.sequence() != pendingAction || incoming.epoch() != epoch) return false;
         pendingAction = 0;
+        if (pendingSelection) {
+            if (incoming.reason() == BodyHandActionResult.Reason.OK) selectionPresentation = true;
+            else selectionPresentation = false;
+            pendingSelection = false;
+        } else selectionPresentation = false;
         snapshot = null;
         pendingQuery = 0;
         lastQueryTick = Long.MIN_VALUE;
@@ -203,6 +361,7 @@ public final class BodyHandClientPolicy {
         }
         if (pendingAction != 0 && tick - sentActionTick >= 80) {
             pendingAction = 0;
+            selectionPresentation = pendingSelection = false;
             snapshot = null;
             pendingQuery = 0;
             lastQueryTick = Long.MIN_VALUE;

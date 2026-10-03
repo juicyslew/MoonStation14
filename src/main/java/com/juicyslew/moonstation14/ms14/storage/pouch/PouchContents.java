@@ -91,12 +91,13 @@ public final class PouchContents {
     }
 
     private static boolean isStorageItem(ItemStack stack) {
-        return stack.is(ModItems.POUCH) || stack.is(ModItems.BAG) || stack.is(ModItems.BELT);
+        return stack.is(ModItems.BAG) || stack.is(ModItems.BELT);
     }
 
     /** Explicit stack-bearing components in 1.21.1; FOOD.usingConvertsTo is this version's use remainder. */
     private static boolean hasForeignStorage(ItemStack stack) {
-        return stack.has(DataComponents.CONTAINER) || stack.has(DataComponents.CONTAINER_LOOT)
+        return stack.has(ModDataComponents.GRID_CONTENTS.get())
+                || stack.has(DataComponents.CONTAINER) || stack.has(DataComponents.CONTAINER_LOOT)
                 || stack.has(DataComponents.BUNDLE_CONTENTS)
                 || stack.has(DataComponents.CHARGED_PROJECTILES)
                 || stack.has(DataComponents.BLOCK_ENTITY_DATA) || stack.has(DataComponents.ENTITY_DATA)
@@ -110,7 +111,8 @@ public final class PouchContents {
                     || stack.isEmpty() || stack.getCount() < 1 || stack.getCount() > 64
                     || stack.getCount() > stack.getMaxStackSize() || isStorageItem(stack)
                     || hasForeignStorage(stack)
-                    || stack.has(ModDataComponents.POUCH_CONTENTS.get()))
+                    || stack.has(ModDataComponents.POUCH_CONTENTS.get())
+                    || stack.has(ModDataComponents.GRID_CONTENTS.get()))
                 throw new IllegalArgumentException("invalid pouch child");
             stack = stack.copy();
         }

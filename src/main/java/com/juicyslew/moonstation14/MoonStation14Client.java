@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient;
 import com.juicyslew.moonstation14.ms14.chat.client.DirectionalCueOverlay;
 import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewKey;
 import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewOverlay;
+import com.juicyslew.moonstation14.ms14.chat.client.TopRightHudLayout;
 import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
@@ -507,9 +508,9 @@ public class MoonStation14Client {
             return;
         }
         if (minecraft.player == null || minecraft.level == null) return;
-        int y = 12;
+        var rows = new java.util.ArrayList<HudStatus>();
         if (serverAtmosVisualsActive && (ATMOSPHERE_VISUALS.isIncomplete() || atmosphereVisualRangeTruncated)) {
-            y = drawMovementHudLabel(event, minecraft, "Gas visuals incomplete", 0xffa83232, y);
+            rows.add(new HudStatus("Gas visuals incomplete", 0xffa83232));
         }
 
         boolean mindCarrier = GhostControlClient.isLocalMindCarrier();
@@ -530,49 +531,64 @@ public class MoonStation14Client {
                 long remaining = Math.max(0, instance.deadline().getAsLong() - minecraft.level.getGameTime());
                 label += " " + ((remaining + 19) / 20) + "s";
             }
-            int width = minecraft.font.width(label);
-            int x = minecraft.getWindow().getGuiScaledWidth() - width - 20;
-            event.getGuiGraphics().fill(x - 3, y - 2, x + width + 3, y + 11, 0x99000000 | (prototype.color() & 0x00ffffff));
-            event.getGuiGraphics().drawString(minecraft.font, label, x, y, 0xffffffff, false);
-            y += 13;
+            rows.add(new HudStatus(label, prototype.color()));
         }
 
         if (CharacterControlSystem.isClientActionBlocked(source)) {
-            y = drawMovementHudLabel(event, minecraft, "moonstation14.hud.movement.stunned", 0xffa83232, y);
+            rows.add(new HudStatus(net.minecraft.network.chat.Component.translatable("moonstation14.hud.movement.stunned").getString(), 0xffa83232));
         }
         if (SlipSystem.isSliding(source)) {
-            y = drawMovementHudLabel(event, minecraft, "moonstation14.hud.movement.slipped", 0xffa86b16, y);
+            rows.add(new HudStatus(net.minecraft.network.chat.Component.translatable("moonstation14.hud.movement.slipped").getString(), 0xffa86b16));
         }
         if (CharacterControlSystem.isKnockedDown(source)) {
-            y = drawMovementHudLabel(event, minecraft, "moonstation14.hud.movement.knocked_down", 0xff67469a, y);
+            rows.add(new HudStatus(net.minecraft.network.chat.Component.translatable("moonstation14.hud.movement.knocked_down").getString(), 0xff67469a));
         }
         if (body != null) {
             var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(body);
-            int guiWidth = minecraft.getWindow().getGuiScaledWidth();
-            int guiHeight = minecraft.getWindow().getGuiScaledHeight();
-            int bodyY = 12;
             long epoch = GhostControlClient.committedCharacterEpoch();
             BodyHealthHudPolicy.View healthView = BODY_HEALTH_HUD.observe(epoch > 0
                             ? new BodyHealthHudPolicy.Key(minecraft.player.getUUID(), epoch, minecraft.level,
                                     body.getUUID(), body.getId()) : null,
                     body.getHealth(), body.getMaxHealth(), minecraft.level.getGameTime());
             if (healthView != null) {
-                bodyY = drawBodyHudLabel(event, minecraft, healthView.label(),
-                        healthView.damageFlash() ? 0xffef2727 : 0xffa83232, bodyY, guiWidth, guiHeight);
+                rows.add(0, new HudStatus(healthView.label(),
+                        healthView.damageFlash() ? 0xffef2727 : 0xffa83232));
             }
 
             var hunger = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent.class)).isPresent()
                     ? body.getExistingDataOrNull(ModDataAttachments.HUNGER.get()) : null;
             if (hunger != null && Float.isFinite(hunger.hunger())) {
-                bodyY = drawBodyHudLabel(event, minecraft, "BODY HUNGER " + Math.round(hunger.hunger()),
-                        0xffa86b16, bodyY, guiWidth, guiHeight);
+                rows.add(new HudStatus("BODY HUNGER " + Math.round(hunger.hunger()), 0xffa86b16));
             }
 
             var thirst = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.class)).isPresent()
                     ? body.getExistingDataOrNull(ModDataAttachments.THIRST.get()) : null;
             if (thirst != null && Float.isFinite(thirst.thirst())) {
-                drawBodyHudLabel(event, minecraft, "BODY THIRST " + Math.round(thirst.thirst()),
-                        0xff3186a8, bodyY, guiWidth, guiHeight);
+                rows.add(new HudStatus("BODY THIRST " + Math.round(thirst.thirst()), 0xff3186a8));
+            }
+        }
+        int guiWidth = event.getGuiGraphics().guiWidth();
+        int guiHeight = event.getGuiGraphics().guiHeight();
+        var panel = TopRightHudLayout.chat(guiWidth, guiHeight);
+        int count = Math.min(rows.size(), TopRightHudLayout.statusRows(guiWidth, guiHeight));
+        int maxTextWidth = Math.max(0, (int) Math.floor((panel.width() - 8) / TopRightHudLayout.STATUS_FONT_SCALE));
+        for (int i = 0; i < count && maxTextWidth > 0; i++) {
+            HudStatus row = rows.get(i);
+            String label = minecraft.font.plainSubstrByWidth(row.label(), maxTextWidth);
+            var bounds = TopRightHudLayout.statusRow(guiWidth, guiHeight, i);
+            int textWidth = (int) Math.ceil(minecraft.font.width(label) * TopRightHudLayout.STATUS_FONT_SCALE);
+            int x = bounds.right() - textWidth - 4;
+            int y = bounds.top() + 1;
+            event.getGuiGraphics().fill(x - 3, bounds.top(), bounds.right(), bounds.bottom(),
+                    0x99000000 | (row.color() & 0x00ffffff));
+            event.getGuiGraphics().pose().pushPose();
+            try {
+                event.getGuiGraphics().pose().translate(x, y, 0);
+                event.getGuiGraphics().pose().scale(TopRightHudLayout.STATUS_FONT_SCALE,
+                        TopRightHudLayout.STATUS_FONT_SCALE, 1);
+                event.getGuiGraphics().drawString(minecraft.font, label, 0, 0, 0xffffffff, false);
+            } finally {
+                event.getGuiGraphics().pose().popPose();
             }
         }
     }
@@ -587,27 +603,12 @@ public class MoonStation14Client {
         BodyHandClient.tick(event);
     }
 
-    private static int drawBodyHudLabel(RenderGuiEvent.Post event, Minecraft minecraft, String label, int color,
-                                        int y, int guiWidth, int guiHeight) {
-        int width = minecraft.font.width(label);
-        int x = Math.max(3, Math.min(6, guiWidth - width - 3));
-        int lineHeight = minecraft.font.lineHeight;
-        int clampedY = Math.max(2, Math.min(y, Math.max(2, guiHeight - lineHeight - 2)));
-        event.getGuiGraphics().fill(x - 3, clampedY - 2, x + width + 3, clampedY + lineHeight + 2,
-                0x99000000 | (color & 0x00ffffff));
-        event.getGuiGraphics().drawString(minecraft.font, label, x, clampedY, 0xffffffff, false);
-        return clampedY + lineHeight + 3;
+    @SubscribeEvent
+    public static void bodyHandMouseInput(net.neoforged.neoforge.client.event.InputEvent.MouseButton.Pre event) {
+        BodyHandClient.mouseButton(event);
     }
 
-    private static int drawMovementHudLabel(RenderGuiEvent.Post event, Minecraft minecraft,
-                                            String translationKey, int color, int y) {
-        String label = net.minecraft.network.chat.Component.translatable(translationKey).getString();
-        int width = minecraft.font.width(label);
-        int x = minecraft.getWindow().getGuiScaledWidth() - width - 20;
-        event.getGuiGraphics().fill(x - 3, y - 2, x + width + 3, y + 11, 0x99000000 | (color & 0x00ffffff));
-        event.getGuiGraphics().drawString(minecraft.font, label, x, y, 0xffffffff, false);
-        return y + 13;
-    }
+    private record HudStatus(String label, int color) { }
 
     public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
         event.register((stack, tintIndex) -> {

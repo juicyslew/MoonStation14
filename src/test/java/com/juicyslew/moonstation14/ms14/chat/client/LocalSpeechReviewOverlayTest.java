@@ -78,33 +78,32 @@ class LocalSpeechReviewOverlayTest {
     }
 
     @Test
-    void rightEdgeLayoutStaysBottomAnchoredInGameplayAndChatAtSupportedSizes() {
-        for (int height : List.of(100, 180, 240, 480)) {
-            for (int width : List.of(320, 390, 480, 640, 854)) {
+    void rightEdgeLayoutStaysTopAnchoredInGameplayAndChatAtSupportedSizes() {
+        for (int height : List.of(140, 180, 240, 450, 480)) {
+            for (int width : List.of(180, 320, 390, 480, 640, 800, 854)) {
                 LocalSpeechReviewOverlay.Layout playing = LocalSpeechReviewOverlay.layout(width, height, false);
                 LocalSpeechReviewOverlay.Layout typing = LocalSpeechReviewOverlay.layout(width, height, true);
                 assertEquals(playing, typing);
                 assertEquals(width - 6, playing.right());
-                assertEquals(height - 22, playing.bottom());
-                assertEquals(8, (height - 14) - playing.bottom()); // Gap above the T input.
-                assertTrue(playing.top() >= 6);
-                assertEquals(210, playing.width());
-                assertEquals(Math.min(95, height - 28), playing.height());
-                assertEquals(0.8f, playing.fontScale());
-                assertEquals(245, playing.textWidth());
-                assertEquals((playing.height() - 10) / 9, playing.capacity(false));
-                assertEquals((playing.height() - 19) / 9, playing.capacity(true));
+                assertTrue(playing.bottom() <= height - TopRightHudLayout.BOTTOM_RESERVE);
+                assertEquals(6, playing.top());
+                assertEquals(Math.min(155, width - 12), playing.width());
+                assertEquals(Math.min(78, Math.max(0, height - 6 - 34 - 5 - 30)), playing.height());
+                assertEquals(0.5f, playing.fontScale());
+                assertEquals(Math.max(1, Math.round((playing.width() - 14) / 0.5f)), playing.textWidth());
+                assertEquals(Math.max(1, (playing.height() - 10) / 6), playing.capacity(false));
+                assertEquals(Math.max(1, (playing.height() - 16) / 6), playing.capacity(true));
             }
         }
     }
 
     @Test
-    void resizingAcrossFormerSideColumnThresholdKeepsBottomOffsetAndTextCapacity() {
+    void resizingAcrossFormerSideColumnThresholdKeepsTopOffsetAndTextCapacity() {
         for (boolean chatOpen : List.of(false, true)) {
             LocalSpeechReviewOverlay.Layout wide = LocalSpeechReviewOverlay.layout(480, 180, chatOpen);
             LocalSpeechReviewOverlay.Layout narrow = LocalSpeechReviewOverlay.layout(390, 180, chatOpen);
-            assertEquals(new LocalSpeechReviewOverlay.Layout(264, 63, 474, 158, 0.8f), wide);
-            assertEquals(new LocalSpeechReviewOverlay.Layout(174, 63, 384, 158, 0.8f), narrow);
+            assertEquals(new LocalSpeechReviewOverlay.Layout(319, 6, 474, 84, 0.5f), wide);
+            assertEquals(new LocalSpeechReviewOverlay.Layout(229, 6, 384, 84, 0.5f), narrow);
             assertEquals(wide.bottom(), narrow.bottom());
             assertEquals(wide.textWidth(), narrow.textWidth());
             assertEquals(wide.capacity(false), narrow.capacity(false));
@@ -113,29 +112,46 @@ class LocalSpeechReviewOverlayTest {
     }
 
     @Test
-    void shortGuiClampsTopWithoutLosingInputClearance() {
-        LocalSpeechReviewOverlay.Layout shortScreen = LocalSpeechReviewOverlay.layout(320, 100, true);
-        assertEquals(new LocalSpeechReviewOverlay.Layout(104, 6, 314, 78, 0.8f), shortScreen);
-        assertEquals(6, shortScreen.capacity(false));
-        assertEquals(5, shortScreen.capacity(true));
-        assertEquals(new LocalSpeechReviewOverlay.Layout(104, 6, 314, 6, 0.8f),
+    void shortGuiReservesSpaceForStatusesAndInput() {
+        LocalSpeechReviewOverlay.Layout shortScreen = LocalSpeechReviewOverlay.layout(180, 140, true);
+        assertEquals(new LocalSpeechReviewOverlay.Layout(19, 6, 174, 71, 0.5f), shortScreen);
+        assertEquals(9, shortScreen.capacity(false));
+        assertEquals(8, shortScreen.capacity(true));
+        assertEquals(new LocalSpeechReviewOverlay.Layout(159, 6, 314, 6, 0.5f),
                 LocalSpeechReviewOverlay.layout(320, 20, false));
     }
 
     @Test
     void scaledRowsDetermineWrappingAndPageCapacity() {
         LocalSpeechReviewOverlay.Layout layout = LocalSpeechReviewOverlay.layout(640, 240, false);
-        assertEquals(245, layout.textWidth()); // 196 GUI pixels at 0.8 scale.
-        assertEquals(9, layout.capacity(false));
-        assertEquals(8, layout.capacity(true));
+        assertEquals(282, layout.textWidth()); // 141 GUI pixels at 0.5 scale.
+        assertEquals(11, layout.capacity(false));
+        assertEquals(10, layout.capacity(true));
         List<Integer> rows = Collections.nCopies(30, 1);
-        assertEquals(new LocalSpeechReviewOverlay.Window(21, 30, 9),
+        assertEquals(new LocalSpeechReviewOverlay.Window(19, 30, 11),
                 LocalSpeechReviewOverlay.window(rows, 0, layout.capacity(false)));
-        assertEquals(9, LocalSpeechReviewOverlay.pageOffset(rows, 0, 1, layout.capacity(false)));
-        assertEquals(8, LocalSpeechReviewOverlay.pageOffset(rows, 0, 1, layout.capacity(true)));
-        LocalSpeechReviewOverlay.Layout shortScreen = LocalSpeechReviewOverlay.layout(320, 100, true);
-        assertEquals(6, shortScreen.capacity(false));
-        assertEquals(5, shortScreen.capacity(true));
+        assertEquals(11, LocalSpeechReviewOverlay.pageOffset(rows, 0, 1, layout.capacity(false)));
+        assertEquals(10, LocalSpeechReviewOverlay.pageOffset(rows, 0, 1, layout.capacity(true)));
+        LocalSpeechReviewOverlay.Layout shortScreen = LocalSpeechReviewOverlay.layout(180, 140, true);
+        assertEquals(9, shortScreen.capacity(false));
+        assertEquals(8, shortScreen.capacity(true));
+    }
+
+    @Test
+    void compactViewerKeepsPagingAndChatInputClearAtGuiZooms() {
+        for (int[] size : new int[][] {{180, 140}, {320, 240}, {800, 450}}) {
+            var playing = LocalSpeechReviewOverlay.layout(size[0], size[1], false);
+            var typing = LocalSpeechReviewOverlay.layout(size[0], size[1], true);
+            assertEquals(playing, typing);
+            assertEquals(155, typing.width());
+            assertEquals(Math.min(78, size[1] - 75), typing.height());
+            assertTrue(typing.bottom() < size[1] - 14); // Vanilla chat input remains unobscured.
+            assertEquals(typing.height() < 78 ? 9 : 11, typing.capacity(false));
+            assertEquals(typing.height() < 78 ? 8 : 10, typing.capacity(true));
+            assertEquals(new LocalSpeechReviewOverlay.Window(20 - typing.capacity(false), 20,
+                            typing.capacity(false)),
+                    LocalSpeechReviewOverlay.window(Collections.nCopies(20, 1), 0, typing.capacity(false)));
+        }
     }
 
     @Test
@@ -148,6 +164,9 @@ class LocalSpeechReviewOverlayTest {
         assertTrue(LocalSpeechReviewOverlay.renderInPhase(chat, true));
         assertFalse(LocalSpeechReviewOverlay.renderInPhase(menu, false));
         assertFalse(LocalSpeechReviewOverlay.renderInPhase(menu, true));
+        Screen storage = new com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen(null);
+        assertFalse(LocalSpeechReviewOverlay.renderInPhase(storage, false));
+        assertTrue(LocalSpeechReviewOverlay.renderInPhase(storage, true));
     }
 
     @Test

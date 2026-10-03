@@ -17,6 +17,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMoveme
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostPredictionHistory;
+import com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import net.minecraft.client.Minecraft;
@@ -140,15 +141,20 @@ public final class GhostControlClient {
             return;
         }
 
-        double strafe = player.input.leftImpulse;
-        double forward = player.input.forwardImpulse;
+        // A vanilla Screen suppresses LocalPlayer.input; sample only the committed CHARACTER popup.
+        var popup = harnessKind == MobHarnessKind.CHARACTER && minecraft.screen instanceof StoragePopupScreen screen
+                ? screen.movementIntent() : null;
+        double strafe = popup == null ? player.input.leftImpulse : popup.left();
+        double forward = popup == null ? player.input.forwardImpulse : popup.forward();
         double length = Math.hypot(strafe, forward);
         if (length > 1d) { strafe /= length; forward /= length; }
         short wishX = (short) Math.max(-1000, Math.min(1000, Math.round(strafe * 1000d)));
         short wishZ = (short) Math.max(-1000, Math.min(1000, Math.round(forward * 1000d)));
-        byte verticalWish = (byte) ((player.input.jumping ? 1 : 0) - (player.input.shiftKeyDown ? 1 : 0));
-        int buttons = intentButtons(harnessKind, player.input.jumping, player.input.shiftKeyDown,
-                player.isSprinting());
+        boolean jumping = popup == null ? player.input.jumping : popup.jump();
+        boolean shifting = popup == null ? player.input.shiftKeyDown : popup.shift();
+        byte verticalWish = (byte) ((jumping ? 1 : 0) - (shifting ? 1 : 0));
+        int buttons = intentButtons(harnessKind, jumping, shifting,
+                popup == null ? player.isSprinting() : popup.sprint());
         float yaw = normalizeYaw(player.getYRot());
         float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(player.getXRot())));
         if (!Float.isFinite(yaw)) return;
