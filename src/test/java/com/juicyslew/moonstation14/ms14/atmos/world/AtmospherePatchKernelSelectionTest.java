@@ -126,6 +126,21 @@ class AtmospherePatchKernelSelectionTest {
     }
 
     @Test
+    void normalPatchRequeuesForLindaWithoutMarkingCellsHandledButBoundaryPatchStillDefers() {
+        BlockPos normal = new BlockPos(4, 2, 1);
+        BlockPos boundary = new BlockPos(5, 2, 1);
+        AtmosphereService.WorkQueue queue = new AtmosphereService.WorkQueue();
+        Set<BlockPos> handled = new java.util.HashSet<>();
+        AtmosphereService.markMonstermosPatchHandled(List.of(normal), handled, queue, false);
+        assertTrue(handled.isEmpty(), "normal finite patches are eligible for same-cycle LINDA/heat stages");
+        assertEquals(normal, queue.poll(), "normal patch cell remains requeued");
+        AtmosphereService.markMonstermosPatchHandled(List.of(boundary), handled, queue, true);
+        assertEquals(Set.of(boundary), handled, "boundary-kernel participants remain excluded");
+        List<BlockPos> deferred = new ArrayList<>();
+        assertTrue(AtmosphereService.deferHandledLindaSource(boundary, handled, deferred));
+    }
+
+    @Test
     void throwingPatchWriterRollsBackPriorWritesAndDoesNotPublishLedger() {
         BlockPos first = new BlockPos(0, 0, 0);
         BlockPos second = new BlockPos(1, 0, 0);

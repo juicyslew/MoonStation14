@@ -21,6 +21,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +30,7 @@ import java.util.Set;
 @GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class AtmosphereReactionGameTests {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AtmosphereReactionGameTests.class);
     private static final Map<String, GasReactionData.EffectType> BUNDLED = Map.of(
             "plasma_fire", GasReactionData.EffectType.PLASMA_FIRE,
             "tritium_fire", GasReactionData.EffectType.TRITIUM_FIRE,
@@ -73,6 +76,98 @@ public final class AtmosphereReactionGameTests {
             positiveEnergy(step);
             helper.succeed();
         });
+    }
+
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_fractional_spread", timeoutTicks = 120)
+    public static void tritiumHotspotAccumulatesBeforeEnergyBackedNeighborIgnition(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        require(!AtmosphereService.INSTANCE.isEnabled(), "isolated spread fixture requires singleton atmosphere disabled");
+        // Fully enclosed three-cell hallway; the only passable cells are x=2..4,y=1,z=1.
+        for (int x = 1; x <= 5; x++) for (int y = 0; y <= 2; y++) for (int z = 0; z <= 2; z++)
+            helper.setBlock(new BlockPos(x, y, z), x >= 2 && x <= 4 && y == 1 && z == 1
+                    ? Blocks.AIR : Blocks.STONE);
+        BlockPos source = helper.absolutePos(new BlockPos(2, 1, 1));
+        BlockPos receiver = source.east();
+        BlockPos far = receiver.east();
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        for (BlockPos cell : new BlockPos[]{source, receiver, far}) {
+            service.sample(level, cell);
+            for (int pass = 1; pass <= 40 && !claimed(level, cell); pass++) {
+                service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
+                service.sample(level, cell);
+            }
+            require(claimed(level, cell), "hallway cell must be finite before injection: " + cell);
+        }
+        require(service.addGas(level, source, GasType.TRITIUM, 2, 500), "source tritium injection");
+        require(service.addGas(level, source, GasType.OXYGEN, 4, 500), "source oxygen injection");
+        require(service.addGas(level, receiver, GasType.TRITIUM, 2, 100), "receiver tritium injection");
+        require(service.addGas(level, receiver, GasType.OXYGEN, 4, 100), "receiver oxygen injection");
+        int[] dueAttempts = {0};
+        int[] firstPartialIntensity = {-1};
+        int[] firstPartialPass = {-1};
+        boolean[] intensityGrew = {false};
+        boolean[] receiverCheckScheduled = {false};
+        var sequence = helper.startSequence();
+        sequence.thenExecuteFor(100, () -> {
+            if (receiverCheckScheduled[0] || level.getGameTime() % AtmosphereService.TICK_CADENCE != 0) return;
+            require(++dueAttempts[0] <= 40, "no fractional hotspot spread/receiver ignition within 40 due passes");
+            int sourceIntensityBefore = service.fireIntensity(level, source);
+            var before = service.sample(level, receiver).orElseThrow();
+            var sourceBefore = service.sample(level, source).orElseThrow();
+            var result = service.reactFiniteCell(level, source).orElseThrow(
+                    () -> new GameTestAssertException("tritium source must react on due pass " + dueAttempts[0]));
+            var after = service.sample(level, receiver).orElseThrow();
+            var sourceAfter = service.sample(level, source).orElseThrow();
+            int sourceIntensityAfter = service.fireIntensity(level, source);
+            if (firstPartialIntensity[0] < 0 && sourceIntensityAfter > 0 && sourceIntensityAfter < 255) {
+                firstPartialIntensity[0] = sourceIntensityAfter;
+                firstPartialPass[0] = dueAttempts[0];
+            } else if (firstPartialIntensity[0] > 0 && sourceIntensityAfter > firstPartialIntensity[0]) {
+                intensityGrew[0] = true;
+            }
+            LOGGER.info("Fractional spread pass {} tick={} gameTime={} fireIntensity={}->{} events={} reactionEnergy={} sourceEnergy={}->{} receiverEnergy={}->{}",
+                    dueAttempts[0], helper.getTick(), level.getGameTime(), sourceIntensityBefore, sourceIntensityAfter,
+                    result.events().size(),
+                    result.energyDeltaJoules(), sourceBefore.thermalEnergy(), sourceAfter.thermalEnergy(),
+                    before.thermalEnergy(), after.thermalEnergy());
+            require(service.boundaryGasLedger(level).values().stream().allMatch(amount -> close(amount, 0)),
+                    "sealed hallway must not export gas to exterior");
+            if (after.thermalEnergy() > before.thermalEnergy()) {
+                require(firstPartialIntensity[0] > 0 && firstPartialPass[0] < dueAttempts[0] && intensityGrew[0],
+                        "source must establish and grow a partial hotspot before first receiver energy credit; initial intensity="
+                                + firstPartialIntensity[0] + " at pass " + firstPartialPass[0]);
+                require(dueAttempts[0] > 1 && sourceIntensityBefore == 255,
+                        "receiver energy may only be offered after source has reached full fire intensity; pass="
+                                + dueAttempts[0] + ", source intensity=" + sourceIntensityBefore);
+                require(after.gasMoles().equals(before.gasMoles()), "face heating must not alter receiver species");
+                require(after.temperatureKelvin() < 373.15, "partial hotspot heat must remain below ignition threshold");
+                double credited = after.thermalEnergy() - before.thermalEnergy();
+                double sourceLocalEnergyDelta = sourceAfter.thermalEnergy() - sourceBefore.thermalEnergy();
+                require(credited > 0 && result.energyDeltaJoules() > 0
+                                && close(sourceLocalEnergyDelta + credited, result.energyDeltaJoules()),
+                        "receiver face credit plus source retained energy must equal chemistry energy");
+                require(service.fireIntensity(level, receiver) == 0,
+                        "receiver must not ignite on its heating due pass");
+                require(service.reactFiniteCell(level, receiver).isEmpty(),
+                        "direct same-due receiver reaction must be suppressed");
+                receiverCheckScheduled[0] = true;
+                helper.runAfterDelay(AtmosphereService.TICK_CADENCE, () -> {
+                    require(level.getGameTime() % AtmosphereService.TICK_CADENCE == 0, "receiver check must be due");
+                    var fire = service.reactFiniteCell(level, receiver).orElseThrow(
+                            () -> new GameTestAssertException("heated receiver did not ignite on later due pass"));
+                    var event = fire.events().stream().filter(e -> e.effect() == GasReactionData.EffectType.TRITIUM_FIRE)
+                            .findFirst().orElseThrow(() -> new GameTestAssertException("receiver lacks tritium fire event"));
+                    require(event.speciesDelta().getOrDefault(GasType.TRITIUM, 0.0) < 0
+                                    && close(fire.energyDeltaJoules(), event.energyDeltaJoules()),
+                            "receiver fire species and energy ledgers must agree");
+                    require(close(fire.speciesDelta().getOrDefault(GasType.TRITIUM, 0.0),
+                                    event.speciesDelta().getOrDefault(GasType.TRITIUM, 0.0)),
+                            "receiver committed chemistry must match its event species delta");
+                    helper.succeed();
+                });
+            }
+        }).thenExecute(() -> require(receiverCheckScheduled[0],
+                "fractional hotspot never delivered energy to the receiver in forty due passes"));
     }
 
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_plasma", timeoutTicks = 100)
@@ -201,7 +296,8 @@ public final class AtmosphereReactionGameTests {
             GasMixture saved = loadedService.sample(f.level(), f.cell()).orElseThrow();
             require(saved.gasMoles().equals(first.after().gasMoles()),
                     "new service must read the decoded chunk attachment, not old in-memory gas");
-            var expectedSeed = HotspotKernel.evaluate(saved, PrototypeRuntime.serverGasReactions(), null);
+            var expectedSeed = HotspotKernel.evaluate(saved, PrototypeRuntime.serverGasReactions(),
+                    (HotspotKernel.HotspotState) null);
             require(expectedSeed.totalFireExtentMoles() > 0, "saved gas must remain a fire candidate");
             // A GameTest cannot restart the server or trigger an isolated service's private
             // chunk-load hook. Advance real game time by one due step; no synthetic downtime ticks.

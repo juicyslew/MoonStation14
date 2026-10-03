@@ -187,6 +187,105 @@ class MonstermosSpaceFlowTest {
     }
 
     @Test
+    void ambientBisectionMatchesPacketReferenceForHotMixedAndVacuumExchanges() {
+        BlockPos cell = new BlockPos(0, 0, 0), outside = cell.east();
+        var face = new MonstermosSpaceFlow.DirectedEdge(cell, outside);
+        java.util.Random random = new java.util.Random(0x51aceL);
+        GasMixture[] receivers = { GasMixture.vacuum(), GasMixture.breathableAir(),
+                new GasMixture(Map.of(GasType.PLASMA, 0.7, GasType.TRITIUM, 1.3), 200_000) };
+        for (int i = 0; i < 100; i++) {
+            GasMixture donor = new GasMixture(Map.of(GasType.OXYGEN, 0.1 + random.nextDouble() * 20,
+                    GasType.PLASMA, random.nextDouble() * 10, GasType.TRITIUM, random.nextDouble() * 3),
+                    i == 0 ? 200_000 : 2.7 + random.nextDouble() * 2_000);
+            GasMixture receiver = receivers[i % receivers.length];
+            // Both directions are exercised; exterior is immutable and never part of returned state.
+            GasMixture finite = i % 2 == 0 ? donor : receiver;
+            GasMixture exterior = i % 2 == 0 ? receiver : donor;
+            double expected = referenceAmbientAmount(finite, exterior);
+            var result = MonstermosSpaceFlow.runAmbient(Map.of(cell, finite), Map.of(cell, Set.of()),
+                    Map.of(face, exterior), 800);
+            assertMatchesReference(result, cell, face, finite, exterior, expected, "iteration " + i);
+        }
+        // Equal pressure does no exchange even when the gas composition and temperatures differ.
+        GasMixture equalPressure = new GasMixture(Map.of(GasType.PLASMA, 10.0), 300.0);
+        GasMixture differentComposition = new GasMixture(Map.of(GasType.OXYGEN, 10.0), 300.0);
+        assertEquals(equalPressure.pressureKpa(1), differentComposition.pressureKpa(1), 1e-12);
+        assertAmbientMatchesReference(cell, face, equalPressure, differentComposition, "equal pressure");
+        // Pressure differences below and just above numerical resolution still follow the same 48-step reference.
+        GasMixture barelyHigher = new GasMixture(Map.of(GasType.PLASMA, 10.0), Math.nextUp(300.0));
+        assertAmbientMatchesReference(cell, face, barelyHigher, equalPressure, "near tie");
+        // Empty finite receiver has zero heat capacity: reference add() retains its vacuum temperature.
+        assertAmbientMatchesReference(cell, face, GasMixture.vacuum(),
+                new GasMixture(Map.of(GasType.OXYGEN, 10.0, GasType.PLASMA, 4.0), 200_000),
+                "zero-capacity receiver fallback");
+    }
+
+    private static void assertAmbientMatchesReference(BlockPos cell, MonstermosSpaceFlow.DirectedEdge face,
+                                                      GasMixture finite, GasMixture exterior, String label) {
+        double amount = referenceAmbientAmount(finite, exterior);
+        var result = MonstermosSpaceFlow.runAmbient(Map.of(cell, finite), Map.of(cell, Set.of()),
+                Map.of(face, exterior), 800);
+        assertMatchesReference(result, cell, face, finite, exterior, amount, label);
+        assertEquals(exterior, Map.of(face, exterior).get(face), "exterior must remain immutable");
+    }
+
+    private static void assertMatchesReference(MonstermosSpaceFlow.Result result, BlockPos cell,
+                                               MonstermosSpaceFlow.DirectedEdge face, GasMixture finite,
+                                               GasMixture exterior, double amount, String label) {
+        GasMixture donor = finite.pressureKpa(1) > exterior.pressureKpa(1) ? finite : exterior;
+        GasMixture receiver = donor == finite ? exterior : finite;
+        boolean outward = donor == finite;
+        GasMixture packet = donor.withScaledMoles(amount / Math.max(donor.totalMoles(), 1e-300));
+        GasMixture expected = outward ? donor.withScaledMoles(1 - amount / donor.totalMoles())
+                : addForTest(receiver, packet);
+        MonstermosSpaceFlow.DirectedEdge directedTransfer = outward ? face
+                : new MonstermosSpaceFlow.DirectedEdge(face.to(), face.from());
+        assertEquals(amount, result.edgeTransfersMoles().getOrDefault(directedTransfer, 0.0), 1e-11,
+                label + " transfer");
+        GasMixture actual = result.states().get(cell);
+        for (GasType gas : GasType.values())
+            assertEquals(expected.moles(gas), actual.moles(gas), 1e-10, label + " " + gas);
+        assertEquals(expected.temperatureKelvin(), actual.temperatureKelvin(), 1e-7, label + " temperature");
+        assertEquals(expected.thermalEnergy(), actual.thermalEnergy(), 1e-7, label + " energy");
+        for (GasType gas : GasType.values())
+            assertEquals(finite.moles(gas) - expected.moles(gas),
+                    result.exported().speciesMoles().getOrDefault(gas, 0.0), 1e-10, label + " ledger " + gas);
+        assertEquals(finite.thermalEnergy() - expected.thermalEnergy(),
+                result.exported().thermalEnergyJoules(), 1e-7, label + " energy ledger");
+        assertTrue(amount <= donor.totalMoles(), label + " donor cap");
+    }
+
+    private static double referenceAmbientAmount(GasMixture finite, GasMixture exterior) {
+        double difference = finite.pressureKpa(1) - exterior.pressureKpa(1);
+        if (difference == 0) return 0;
+        boolean outward = difference > 0;
+        GasMixture donor = outward ? finite : exterior;
+        GasMixture receiver = outward ? exterior : finite;
+        if (donor.totalMoles() <= 0) return 0;
+        double cap = Math.min(donor.totalMoles(), Math.min(500.0, Math.abs(difference)) * 1000 /
+                (8.31446261815324 * Math.max(donor.temperatureKelvin(), 1e-12)));
+        double low = 0, high = cap;
+        for (int iteration = 0; iteration < 48; iteration++) {
+            double mid = (low + high) * 0.5;
+            GasMixture packet = donor.withScaledMoles(mid / donor.totalMoles());
+            double receiverPressure = outward ? receiver.pressureKpa(1) : addForTest(receiver, packet).pressureKpa(1);
+            double donorPressure = outward ? donor.pressureKpa(1) * (1 - mid / donor.totalMoles())
+                    : donor.pressureKpa(1);
+            if (receiverPressure <= donorPressure) low = mid; else high = mid;
+        }
+        return low * 0.5;
+    }
+
+    private static GasMixture addForTest(GasMixture first, GasMixture second) {
+        EnumMap<GasType, Double> gases = new EnumMap<>(GasType.class);
+        gases.putAll(first.gasMoles());
+        second.gasMoles().forEach((gas, amount) -> gases.merge(gas, amount, Double::sum));
+        double energy = first.thermalEnergy() + second.thermalEnergy();
+        double capacity = gases.entrySet().stream().mapToDouble(e -> e.getValue() * e.getKey().molarHeatCapacity()).sum();
+        return new GasMixture(gases, capacity == 0 ? first.temperatureKelvin() : energy / capacity);
+    }
+
+    @Test
     void routesInteriorGasAndExportsWithConservationOfEverySpeciesAndHeat() {
         Map<BlockPos, GasMixture> room = room(4, 4, 3, 1000.0 / 48.0);
         BlockPos holeCell = new BlockPos(0, 3, 0);

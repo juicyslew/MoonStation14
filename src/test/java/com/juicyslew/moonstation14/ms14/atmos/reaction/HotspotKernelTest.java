@@ -67,6 +67,7 @@ class HotspotKernelTest {
         assertEquals(2, result.mixture().moles(GasType.NITROUS_OXIDE));
         assertEquals(284, result.events().getFirst().energyDeltaJoules(), 1e-8);
         assertEquals(.14, result.nextState().orElseThrow().fraction(), 1e-12);
+        assertFalse(result.spreadEligibleThisPass());
         budget(gas, result);
     }
 
@@ -75,18 +76,93 @@ class HotspotKernelTest {
         var near = HotspotKernel.evaluate(gas, CATALOG, new HotspotKernel.HotspotState(.94, 400));
         assertEquals(.0094, near.totalFireExtentMoles(), 1e-12);
         assertEquals(1, near.nextState().orElseThrow().fraction());
+        assertFalse(near.spreadEligibleThisPass(), "crossing the threshold is not eligible until the next pass");
         budget(gas, near);
         var full = HotspotKernel.evaluate(near.mixture(), CATALOG, near.nextState().orElseThrow());
         assertTrue(full.totalFireExtentMoles() > near.totalFireExtentMoles());
+        assertEquals(full.mixture().temperatureKelvin() > 423.15, full.spreadEligibleThisPass(),
+                "the following full-cell pass spreads only if its post-fire temperature crosses the gate");
         assertEquals(1, full.nextState().orElseThrow().fraction());
         budget(near.mixture(), full);
     }
 
+    @Test void explosionEvaluationCannotUseItsDetachedFullFractionToQualify() {
+        var gas = mix(400, 1, 0, 1, 0);
+        var exposure = new ExplosionHotspotExposure.Decision(true, 800, 1);
+        var seeded = HotspotKernel.evaluateExplosionExposure(gas, CATALOG, null, exposure);
+        assertFalse(seeded.spreadEligibleThisPass());
+        var partial = HotspotKernel.evaluateExplosionExposure(gas, CATALOG,
+                new HotspotKernel.HotspotState(.95, 400), exposure);
+        assertFalse(partial.spreadEligibleThisPass());
+    }
+
+    @Test void onlyPreviouslyFullHotspotAbovePostFireTemperatureGateQualifies() {
+        var hot = mix(1643.15, 1, 0, 1, 0);
+        var result = HotspotKernel.evaluate(hot, CATALOG, new HotspotKernel.HotspotState(.96, 1643.15));
+        assertTrue(result.spreadEligibleThisPass());
+        var atGate = HotspotKernel.evaluate(mix(423.15, 1, 0, 1, 0), CATALOG,
+                new HotspotKernel.HotspotState(.96, 423.15));
+        assertEquals(atGate.mixture().temperatureKelvin() > 423.15, atGate.spreadEligibleThisPass(),
+                "spread gate uses the post-fire temperature");
+    }
+
+    @Test void subcellHotTemperatureBurnsBelowBulkIgnitionAndConservesPartitionEnergy() {
+        var gas = mix(300, 1, 0, 1, 0);
+        var state = new HotspotKernel.HotspotState(.25, 400);
+        double coldTemperature = (gas.thermalEnergy() - .25 * gas.heatCapacity() * 400)
+                / (.75 * gas.heatCapacity());
+        assertEquals(266.6666666667, coldTemperature, 1e-8);
+        var result = HotspotKernel.evaluate(gas, CATALOG, state);
+        assertFalse(result.events().isEmpty());
+        assertFalse(result.spreadEligibleThisPass());
+        assertEquals(.0025, result.totalFireExtentMoles(), 1e-12);
+        budget(gas, result);
+    }
+
+    @Test void compositionChangingPartitionProjectsHotEnergyAcrossPasses() {
+        var gas = mix(300, 1, 0, 1, 0);
+        var state = new HotspotKernel.HotspotState(.25, 400);
+        for (int pass = 0; pass < 3; pass++) {
+            var result = HotspotKernel.evaluate(gas, CATALOG, state);
+            budget(gas, result);
+            if (result.nextState().isEmpty()) break;
+            state = result.nextState().orElseThrow();
+            double hotBudget = state.fraction() * result.mixture().heatCapacity() * state.temperatureKelvin();
+            assertTrue(hotBudget <= result.mixture().thermalEnergy() + 1e-9);
+            assertEquals(result.mixture().thermalEnergy(), hotBudget
+                    + (result.mixture().thermalEnergy() - hotBudget), 1e-9);
+            gas = result.mixture();
+        }
+    }
+
+    @Test void externalHeatTransferReconcilesOrRejectsPartitionWithoutAddingHeat() {
+        var before = mix(500, 1, 0, 1, 0);
+        var cooled = before.withThermalEnergy(before.thermalEnergy() * .5);
+        var state = new HotspotKernel.HotspotState(.25, 600);
+        var after = HotspotKernel.reconcileAfterHeatTransfer(before, cooled, state).orElseThrow();
+        double hotEnergy = after.fraction() * cooled.heatCapacity() * after.temperatureKelvin();
+        assertTrue(hotEnergy <= cooled.thermalEnergy());
+        assertEquals(.5 * state.fraction() * before.heatCapacity() * state.temperatureKelvin(), hotEnergy, 1e-9);
+        assertTrue(HotspotKernel.reconcileAfterHeatTransfer(before, GasMixture.vacuum(), state).isEmpty());
+        assertTrue(HotspotKernel.reconcileAfterHeatTransfer(before, before,
+                new HotspotKernel.HotspotState(.25, 2001)).isEmpty());
+    }
+
+    @Test void impossibleHotPartitionCollapsesWithoutChangingEnergy() {
+        var gas = mix(300, 1, 0, 1, 0);
+        var invalid = HotspotKernel.evaluate(gas, CATALOG, new HotspotKernel.HotspotState(.25, 1201));
+        assertTrue(invalid.events().isEmpty());
+        assertTrue(invalid.nextState().isEmpty());
+        assertSame(gas, invalid.mixture());
+        assertEquals(gas.thermalEnergy(), invalid.mixture().thermalEnergy());
+    }
+
     @Test void reconcilesStaleTemperatureWithoutAddingHeatAndRejectsInvalidState() {
         var gas = mix(400, 1, 0, 1, 0);
-        var stale = HotspotKernel.evaluate(gas, CATALOG, new HotspotKernel.HotspotState(.1, 500));
+        var stale = HotspotKernel.evaluate(gas, CATALOG, new HotspotKernel.HotspotState(.1, 5000));
+        assertTrue(stale.events().isEmpty());
+        assertTrue(stale.nextState().isEmpty());
         budget(gas, stale);
-        assertEquals(stale.mixture().temperatureKelvin(), stale.nextState().orElseThrow().temperatureKelvin());
         assertThrows(IllegalArgumentException.class, () -> new HotspotKernel.HotspotState(Double.NaN, 400));
         assertThrows(IllegalArgumentException.class, () -> new HotspotKernel.HotspotState(-1, 400));
         var tiny = mix(400, .001, 0, .001, 0);
@@ -106,7 +182,7 @@ class HotspotKernelTest {
         var at = HotspotKernel.evaluate(mix(400, 1, 0, 1, 0), CATALOG,
                 new HotspotKernel.HotspotState(.95, 400));
         assertTrue(below.totalFireExtentMoles() < at.totalFireExtentMoles());
-        assertEquals(.01, at.totalFireExtentMoles(), 1e-12);
+        assertEquals(.0095, at.totalFireExtentMoles(), 1e-12);
     }
 
     @Test void mixedFuelSkipsNonburningPlasmaSeedAndIgnitesEligibleTritium() {

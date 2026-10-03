@@ -230,7 +230,8 @@ public final class LungSystem {
           if (next == null) return false;
           writeBody(entity, next);
          if (old.phase() == LungComponent.Phase.INHALING && !incapacitated && inhaled[0] != null) {
-              LungToxicity.perInhale(inhaled[0], lung.toxicGasDamagePerMole(), lung.toxicGasDamageCapPerInhale())
+              LungToxicity.perInhale(inhaled[0], lung.toxicGasDamagePerMole(),
+                              lung.toxicGasMinimumMolesPerInhale(), lung.toxicGasDamageCapPerInhale())
                      .filter(damage -> !damage.isEmpty())
                      .ifPresent(damage -> DamageSystem.applyHealthChange(entity, damage, 1f, false));
          }

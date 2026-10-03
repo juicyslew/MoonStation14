@@ -81,6 +81,77 @@ class MonstermosEqualizationTest {
     }
 
     @Test
+    void branchedAnnulusRoutesPressureAndConservesGasAcrossRepeatedCallsAndReversedSource() {
+        assertAnnulusRouting(new BlockPos(0, 6, 0), new BlockPos(13, 6, 0), "left source");
+        assertAnnulusRouting(new BlockPos(13, 6, 0), new BlockPos(0, 6, 0), "right source");
+    }
+
+    private static void assertAnnulusRouting(BlockPos source, BlockPos opposite, String label) {
+        Map<BlockPos, GasMixture> cells = new LinkedHashMap<>();
+        Map<BlockPos, Set<BlockPos>> topology = new LinkedHashMap<>();
+        // A two-cell-thick square annulus leaves a solid 10x10 center; the spur is a non-cyclic branch.
+        for (int x = 0; x < 14; x++) for (int y = 0; y < 14; y++) {
+            if (x < 2 || x >= 12 || y < 2 || y >= 12) addBreathableCell(cells, topology, new BlockPos(x, y, 0));
+        }
+        for (int x = 14; x < 18; x++) addBreathableCell(cells, topology, new BlockPos(x, 6, 0));
+        assertEquals(100, cells.size(), label + " finite 1m3 cells");
+        assertTrue(hasPath(cells.keySet(), topology, source, opposite, true), label + " upper annulus route");
+        assertTrue(hasPath(cells.keySet(), topology, source, opposite, false), label + " lower annulus route");
+        cells.put(source, cells.get(source).withGasDelta(GasType.TRITIUM, 12.0));
+
+        var first = MonstermosEqualization.equalize(cells, topology, 200);
+        assertWorkBounded(first.work(), label + " first call");
+        String work = "complete=" + first.work().complete() + ", status=" + first.work().status()
+                + ", edgeSearchWork=" + first.work().edgeSearchWork()
+                + ", transferOperations=" + first.work().transferOperations();
+        assertTrue(first.work().complete(), label + " first invocation: " + work);
+        assertEquals(100, first.work().discoveredCells());
+        assertTrue(first.states().get(opposite).totalMoles() > 41.6, label + " opposite side must receive pressure");
+        assertTrue(first.states().get(opposite).moles(GasType.TRITIUM) > 0,
+                label + " opposite side must receive some routed tritium without requiring homogenization");
+        assertConserved(cells, first.states(), label + " first call");
+
+        var second = MonstermosEqualization.equalize(first.states(), topology, 200);
+        assertWorkBounded(second.work(), label + " second call");
+        assertTrue(second.work().complete(), label + " second invocation complete=" + second.work().complete()
+                + ", status=" + second.work().status() + ", edgeSearchWork=" + second.work().edgeSearchWork()
+                + ", transferOperations=" + second.work().transferOperations());
+        assertConserved(cells, second.states(), label + " successive call");
+        assertEquals(first.states().get(opposite).totalMoles(), second.states().get(opposite).totalMoles(), 1e-9);
+    }
+
+    private static void addBreathableCell(Map<BlockPos, GasMixture> cells, Map<BlockPos, Set<BlockPos>> topology,
+                                          BlockPos pos) {
+        cells.put(pos, new GasMixture(Map.of(GasType.OXYGEN, 8.736, GasType.NITROGEN, 32.864), 293.15));
+        Set<BlockPos> neighbors = new LinkedHashSet<>();
+        for (int[] direction : new int[][]{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}}) {
+            BlockPos neighbor = pos.offset(direction[0], direction[1], 0);
+            if (cells.containsKey(neighbor)) {
+                neighbors.add(neighbor);
+                topology.get(neighbor).add(pos);
+            }
+        }
+        topology.put(pos, neighbors);
+    }
+
+    private static boolean hasPath(Set<BlockPos> cells, Map<BlockPos, Set<BlockPos>> topology,
+                                   BlockPos source, BlockPos target, boolean upper) {
+        Set<BlockPos> seen = new LinkedHashSet<>();
+        java.util.ArrayDeque<BlockPos> pending = new java.util.ArrayDeque<>();
+        pending.add(source);
+        seen.add(source);
+        while (!pending.isEmpty()) {
+            BlockPos current = pending.remove();
+            if (current.equals(target)) return true;
+            for (BlockPos neighbor : topology.get(current)) {
+                if (!cells.contains(neighbor) || (upper ? neighbor.getY() > 6 : neighbor.getY() < 6)) continue;
+                if (seen.add(neighbor)) pending.add(neighbor);
+            }
+        }
+        return false;
+    }
+
+    @Test
     void producerPulseReachesPatchAverageInOnePassAndEachTenHzPulseAddsTwoMoles() {
         Map<BlockPos, GasMixture> cells = new LinkedHashMap<>();
         Map<BlockPos, Set<BlockPos>> topology = new LinkedHashMap<>();

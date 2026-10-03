@@ -13,8 +13,18 @@ public final class LungToxicity {
 
     public static Optional<Map<String, Float>> perInhale(GasMixture inhaled,
             Map<String, Map<String, Double>> rates, double cap) {
-        if (inhaled == null || rates == null || !Double.isFinite(cap) || cap < 0) return Optional.empty();
+        return perInhale(inhaled, rates, Map.of(), cap);
+    }
+
+    public static Optional<Map<String, Float>> perInhale(GasMixture inhaled,
+            Map<String, Map<String, Double>> rates, Map<String, Double> minimumMoles, double cap) {
+        if (inhaled == null || rates == null || minimumMoles == null || !Double.isFinite(cap) || cap < 0) return Optional.empty();
         try {
+            for (var threshold : minimumMoles.entrySet()) {
+                GasType gas = GasType.fromId(threshold.getKey());
+                if (!gas.id().equals(threshold.getKey()) || threshold.getValue() == null
+                        || !Double.isFinite(threshold.getValue()) || threshold.getValue() < 0) return Optional.empty();
+            }
             Map<String, Double> totals = new LinkedHashMap<>();
             double total = 0;
             for (var gasEntry : rates.entrySet()) {
@@ -22,6 +32,7 @@ public final class LungToxicity {
                 if (!gas.id().equals(gasEntry.getKey()) || gasEntry.getValue() == null) return Optional.empty();
                 double moles = inhaled.moles(gas);
                 if (!Double.isFinite(moles) || moles < 0) return Optional.empty();
+                if (moles < minimumMoles.getOrDefault(gas.id(), 0d)) continue;
                 for (var damageEntry : gasEntry.getValue().entrySet()) {
                     DamageKeys.requireCanonical(damageEntry.getKey());
                     Double rate = damageEntry.getValue();

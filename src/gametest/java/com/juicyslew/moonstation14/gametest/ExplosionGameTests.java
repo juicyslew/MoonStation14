@@ -78,6 +78,49 @@ public final class ExplosionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
+    public static void blastKnocksLivingTargetsOutwardAndSkipsIneligibleTargets(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos source = pos(helper, 5, 2, 5);
+        Zombie east = helper.spawn(EntityType.ZOMBIE, pos(helper, 6, 2, 5));
+        Zombie west = helper.spawn(EntityType.ZOMBIE, pos(helper, 4, 2, 5));
+        Zombie immovable = helper.spawn(EntityType.ZOMBIE, pos(helper, 5, 2, 6));
+        east.setNoAi(true); west.setNoAi(true); immovable.setNoAi(true);
+        east.setNoGravity(true); west.setNoGravity(true); immovable.setNoGravity(true);
+        // Keep the east target in voxel X6 while its center is west of that voxel's center.
+        // Voxel-origin knockback incorrectly points it back toward the blast at X5.
+        east.setPos(source.getX() + 0.75, source.getY(), source.getZ() + 0.5);
+        west.setPos(source.getX() - 0.75, source.getY(), source.getZ() + 0.5);
+        immovable.noPhysics = true;
+        helper.runAfterDelay(2, () -> {
+            east.setDeltaMovement(10, 0, 0);
+            var result = ServerExplosionService.execute(level, source, ModExplosions.DEFAULT_ID, PROPOSAL);
+            require(result.status() == ServerExplosionService.Status.APPLIED, "blast applied: " + result);
+            require(east.getDeltaMovement().x > 0 && west.getDeltaMovement().x < 0,
+                    "opposite targets move outward: east=" + east.getDeltaMovement() + " west=" + west.getDeltaMovement());
+            require(east.getDeltaMovement().length() <= 1.500001 && west.getDeltaMovement().length() <= 1.500001,
+                    "blast impulse is bounded");
+            require(immovable.getDeltaMovement().equals(net.minecraft.world.phys.Vec3.ZERO), "no-physics target untouched");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void rejectedBlastDoesNotKnockBackLivingTarget(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos source = pos(helper, 3, 2, 3);
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, pos(helper, 4, 2, 3));
+        zombie.setNoAi(true);
+        zombie.setNoGravity(true);
+        helper.runAfterDelay(2, () -> {
+            var result = ServerExplosionService.execute(level, source,
+                    ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "missing-explosion"), PROPOSAL);
+            require(result.status() == ServerExplosionService.Status.UNKNOWN_PROTOTYPE, "unknown blast rejected");
+            require(zombie.getDeltaMovement().equals(net.minecraft.world.phys.Vec3.ZERO), "rejected blast has no motion effect");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
     public static void ordinaryBlocksBreakAndProtectedBlocksAndInvalidSourcesFailClosed(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = pos(helper, 2, 2, 2);

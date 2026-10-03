@@ -44,7 +44,11 @@ class HotspotSpreadTest {
                 assertEquals(offer.energyJoules(), offer.mixture().thermalEnergy()
                         - neighbor.mixture().thermalEnergy(), 1e-8);
                 assertEquals(neighbor.mixture().gasMoles(), offer.mixture().gasMoles());
-                assertTrue(offer.mixture().temperatureKelvin() > 373.15);
+                assertEquals(.25, offer.hotFraction());
+                assertEquals(source.temperatureKelvin() * .85, offer.hotTemperatureKelvin());
+                assertEquals(.25 * neighbor.mixture().heatCapacity()
+                        * (offer.hotTemperatureKelvin() - neighbor.mixture().temperatureKelvin()),
+                        offer.energyJoules(), 1e-8);
             }
         }
         assertEquals(original, after, Math.max(1e-8, original * 1e-12));
@@ -59,7 +63,7 @@ class HotspotSpreadTest {
         var cold = neighbor(Direction.NORTH, mix(300, 1, 1, 2));
         var result = plan(source, true, cold);
         assertEquals(1, result.offers().size());
-        assertTrue(result.source().temperatureKelvin() > 373.15);
+        assertTrue(result.source().temperatureKelvin() >= 374.15);
         conserved(source, List.of(cold), result);
         assertThrows(UnsupportedOperationException.class,
                 () -> result.offers().put(Direction.UP, result.offers().get(Direction.NORTH)));
@@ -81,9 +85,9 @@ class HotspotSpreadTest {
     }
 
     @Test void shortageSkipsUnaffordableFaceAndNeverSpendsReservedHeat() {
-        var source = mix(424, 1, 1, 0); // capacity 30 J/K; surplus above 374.15 K = 1495.5 J
+        var source = mix(500, 1, 1, 0);
         var expensive = neighbor(Direction.DOWN, mix(300, 1, 1, 10));
-        var cheap = neighbor(Direction.UP, mix(360, .01, .01, 0));
+        var cheap = neighbor(Direction.UP, mix(360, .04, .04, 0));
         var result = plan(source, true, expensive, cheap);
         assertEquals(1, result.offers().size());
         assertTrue(result.offers().containsKey(Direction.UP));
@@ -91,23 +95,34 @@ class HotspotSpreadTest {
         conserved(source, List.of(expensive, cheap), result);
     }
 
+    @Test void hotPortionCanIgniteWhileRecipientBulkRemainsCold() {
+        var source = mix(500, 1, 1, 0);
+        var cold = neighbor(Direction.NORTH, mix(300, 1, 1, 2));
+        var offer = plan(source, true, cold).offers().get(Direction.NORTH);
+        assertNotNull(offer);
+        assertTrue(offer.hotTemperatureKelvin() > 373.15);
+        assertTrue(offer.mixture().temperatureKelvin() < 373.15);
+        assertEquals(300 + offer.energyJoules() / cold.mixture().heatCapacity(),
+                offer.mixture().temperatureKelvin(), 1e-10);
+    }
+
     @Test void exactGatesCapacityAndOxygenFuelRequirements() {
         var cold = neighbor(Direction.NORTH, mix(300, 1, 1, 0));
         var source = mix(500, 1, 1, 0);
         assertTrue(plan(mix(423.15, 1, 1, 0), true, cold).offers().isEmpty());
-        assertEquals(1, plan(mix(423.150001, 1, 1, 0), true,
-                neighbor(Direction.NORTH, mix(300, .1, .1, 0))).offers().size());
+        assertEquals(1, plan(mix(500, 1, 1, 0), true,
+                neighbor(Direction.NORTH, mix(300, .04, .04, 0))).offers().size());
         assertTrue(plan(source, false, cold).offers().isEmpty());
         assertTrue(plan(GasMixture.vacuum(), true, cold).offers().isEmpty());
         assertTrue(plan(source, true, neighbor(Direction.NORTH, GasMixture.vacuum())).offers().isEmpty());
         for (var gas : List.of(mix(300, 1, 0, 0), mix(300, 0, 1, 0),
-                mix(300, .00999, 1, 0), mix(300, 1, .00999, 0),
+                mix(300, .03999, 1, 0), mix(300, 1, .03999, 0),
                 mix(373.15, 1, 1, 0))) {
             // Exactly 373.15 K is eligible, but warm recipients (>373.15 K) are not.
             if (gas.temperatureKelvin() == 373.15) assertEquals(1, plan(source, true, neighbor(Direction.NORTH, gas)).offers().size());
             else assertTrue(plan(source, true, neighbor(Direction.NORTH, gas)).offers().isEmpty());
         }
-        assertTrue(plan(source, true, neighbor(Direction.NORTH, mix(373.150001, 1, 1, 0))).offers().isEmpty());
+        assertEquals(1, plan(source, true, neighbor(Direction.NORTH, mix(373.150001, 1, 1, 0))).offers().size());
         assertTrue(plan(mix(500, 0, 1, 0), true, cold).offers().isEmpty());
         assertTrue(plan(mix(500, 1, 0, 0), true, cold).offers().isEmpty());
     }
@@ -123,7 +138,7 @@ class HotspotSpreadTest {
     @Test void plasmaAndInertSpeciesStayWithTheirOriginalCells() {
         var source = new GasMixture(Map.of(GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0,
                 GasType.WATER_VAPOR, .5), 700);
-        var recipient = new GasMixture(Map.of(GasType.PLASMA, .02, GasType.OXYGEN, .02,
+        var recipient = new GasMixture(Map.of(GasType.PLASMA, .04, GasType.OXYGEN, .04,
                 GasType.NITROGEN, 1.0, GasType.CARBON_DIOXIDE, .3), 300);
         var neighbor = neighbor(Direction.WEST, recipient);
         var result = plan(source, true, neighbor);

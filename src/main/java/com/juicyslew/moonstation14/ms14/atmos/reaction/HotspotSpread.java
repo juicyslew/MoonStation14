@@ -17,6 +17,8 @@ public final class HotspotSpread {
     private static final double VIABLE_K = 373.15;
     private static final double MARGIN_K = 1.0;
     private static final double MINIMUM_MOLES = 0.01;
+    private static final double HOT_FRACTION = 0.25;
+    private static final double RADIATION_FRACTION = 0.85;
 
     private HotspotSpread() {}
 
@@ -30,11 +32,13 @@ public final class HotspotSpread {
     }
 
     /** Recipient state and heat credited on this face, in local (unscaled) joules. */
-    public record Offer(BlockPos position, GasMixture mixture, double energyJoules) {
+    public record Offer(BlockPos position, GasMixture mixture, double hotFraction,
+                        double hotTemperatureKelvin, double energyJoules) {
         public Offer {
             position = Objects.requireNonNull(position, "position").immutable();
             Objects.requireNonNull(mixture, "mixture");
-            if (!Double.isFinite(energyJoules) || energyJoules <= 0)
+            if (hotFraction != HOT_FRACTION || !Double.isFinite(hotTemperatureKelvin)
+                    || hotTemperatureKelvin < 0 || !Double.isFinite(energyJoules) || energyJoules <= 0)
                 throw new IllegalArgumentException("offer must transfer finite positive joules");
         }
     }
@@ -48,7 +52,8 @@ public final class HotspotSpread {
 
     /** Accepts at most one neighbor per adjacent position and face; input order never affects allocation.
      * No offer is made without an actively burning source (established by the caller's actual fire event).
-     * Each recipient is heated to 1 K above viability; the source reserves the same margin.
+     * Each eligible face receives a quarter-volume hot portion at 85% of source temperature;
+     * only its explicitly calculated energy is debited from the source.
      * A shortfall skips that face instead of sending ineffective heat. */
     public static Result plan(BlockPos sourcePosition, GasMixture postReactionSource,
                               boolean activelyBurning, List<Neighbor> verifiedFiniteNeighbors) {
@@ -71,6 +76,7 @@ public final class HotspotSpread {
             return new Result(postReactionSource, Map.of());
 
         double remainingEnergy = postReactionSource.thermalEnergy();
+        double radiationTemperature = postReactionSource.temperatureKelvin() * RADIATION_FRACTION;
         double reservedEnergy = sourceCapacity * (VIABLE_K + MARGIN_K);
         if (!Double.isFinite(reservedEnergy) || remainingEnergy <= reservedEnergy)
             return new Result(postReactionSource, Map.of());
@@ -81,19 +87,17 @@ public final class HotspotSpread {
             if (neighbor == null) continue;
             GasMixture recipient = neighbor.mixture();
             double capacity = recipient.heatCapacity();
-            if (capacity <= 0 || !fuelAndOxygen(recipient, MINIMUM_MOLES)
-                    || recipient.temperatureKelvin() > VIABLE_K) continue;
-            double targetEnergy = capacity * (VIABLE_K + MARGIN_K);
-            double deficit = targetEnergy - recipient.thermalEnergy();
-            if (!Double.isFinite(targetEnergy) || !Double.isFinite(deficit) || deficit <= 0
-                    || deficit > remainingEnergy - reservedEnergy) continue;
-            double nextEnergy = remainingEnergy - deficit;
-            double creditedEnergy = recipient.thermalEnergy() + deficit;
-            if (nextEnergy >= remainingEnergy || creditedEnergy <= recipient.thermalEnergy()) continue;
-            GasMixture heated = recipient.withThermalEnergy(creditedEnergy);
-            if (heated.temperatureKelvin() <= VIABLE_K || nextEnergy / sourceCapacity <= VIABLE_K)
-                continue;
-            accepted.put(face, new Offer(neighbor.position(), heated, deficit));
+            double bulkTemperature = recipient.temperatureKelvin();
+            if (capacity <= 0 || radiationTemperature <= VIABLE_K
+                    || radiationTemperature <= bulkTemperature
+                    || !fuelAndOxygen(recipient, MINIMUM_MOLES / HOT_FRACTION)) continue;
+            double energy = HOT_FRACTION * capacity * (radiationTemperature - bulkTemperature);
+            if (!Double.isFinite(energy) || energy <= 0 || energy > remainingEnergy - reservedEnergy) continue;
+            double nextEnergy = remainingEnergy - energy;
+            if (nextEnergy >= remainingEnergy) continue;
+            GasMixture heated = recipient.withThermalEnergy(recipient.thermalEnergy() + energy);
+            accepted.put(face, new Offer(neighbor.position(), heated, HOT_FRACTION,
+                    radiationTemperature, energy));
             remainingEnergy = nextEnergy;
         }
         if (accepted.isEmpty()) return new Result(postReactionSource, Map.of());

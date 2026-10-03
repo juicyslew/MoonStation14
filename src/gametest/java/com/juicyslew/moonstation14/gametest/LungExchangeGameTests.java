@@ -168,6 +168,47 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    public static void traceCarbonDioxideIsSafeUntilInhaledThreshold(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
+        BlockPos origin = new BlockPos(((fixture.getX() >> 4) + 112) * 16,
+                fixture.getY(), ((fixture.getZ() >> 4) + 112) * 16);
+        level.getChunk(origin);
+        buildRoom(level, origin);
+        BlockPos cell = origin.offset(2, 1, 2);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        Villager actor = EntityType.VILLAGER.create(level);
+        require(actor != null, "villager fixture required");
+        actor.setNoAi(true);
+        actor.moveTo(cell.getX() + 0.5, cell.getY(), cell.getZ() + 0.5);
+        level.addFreshEntity(actor);
+        require(LungSystem.reconcile(actor), "human lung must be enrolled");
+        int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(actor).orElseThrow().breathIntervalSeconds());
+        long due = 0;
+        while (!LungSystem.isDue(due, actor.getId(), interval)) due++;
+        BlockPos breathCell = BlockPos.containing(actor.getEyePosition());
+        classifyUntilSample(service, level, breathCell, 12);
+        require(service.addGas(level, breathCell, GasType.OXYGEN, 8.7, 293.6), "add oxygen");
+        require(service.addGas(level, breathCell, GasType.NITROGEN, 32.9, 293.6), "add nitrogen");
+        require(service.addGas(level, breathCell, GasType.CARBON_DIOXIDE, 0.001, 293.6), "add trace carbon dioxide");
+
+        float healthBefore = actor.getHealth();
+        require(LungSystem.tickIfDue(actor, due, service), "trace-gas inhale succeeds");
+        require(typed(actor, "poison") == 0f && actor.getHealth() == healthBefore,
+                "trace carbon dioxide below per-inhale threshold must not poison or hurt");
+        require(snapshot(actor).saturation() >= 0, "trace-gas inhalation must not underflow saturation");
+        require(LungSystem.tickIfDue(actor, due + interval, service), "trace-gas exhale succeeds");
+        require(typed(actor, "poison") == 0f && actor.getHealth() == healthBefore,
+                "exhaling trace carbon dioxide must not poison or hurt");
+
+        require(service.addGas(level, breathCell, GasType.CARBON_DIOXIDE, 40, 293.6), "raise carbon dioxide");
+        require(LungSystem.tickIfDue(actor, due + 2L * interval, service), "above-threshold inhale succeeds");
+        require(typed(actor, "poison") > 0f, "above-threshold inhaled carbon dioxide must apply poison");
+        actor.discard();
+        helper.succeed();
+    }
+
     private static LungComponent snapshot(net.minecraft.world.entity.LivingEntity entity) {
         BodyState body = BodySystem.current(entity).orElseThrow();
         LungOrganState lung = body.find(OrganCategory.LUNGS).orElseThrow().lung();
@@ -349,8 +390,9 @@ public final class LungExchangeGameTests {
         if (firstFreeY > skyCell.getY()) skyCell = new BlockPos(skyCell.getX(), firstFreeY + 1, skyCell.getZ());
         require(skyCell.getY() < level.getMaxBuildHeight(), "fixture must provide an in-bounds sky cell");
         LevelChunk skyChunk = (LevelChunk) level.getChunk(skyCell);
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "sky fixture must begin without atmosphere chunk data");
+        var initialSkyData = skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        require(noOverride(level, skyCell) && !isFiniteClaimed(skyChunk, skyCell),
+                "sky fixture cell must begin without a finite gas override or finite claim");
         GasMixture skyAmbient = service.sample(level, skyCell).orElseThrow(
                 () -> new GameTestAssertException("sky cell should be proven exterior"));
         var exteriorExchange = service.exchangeBreath(level, skyCell, 2.0, GasMixture.vacuum()).orElseThrow(
@@ -361,12 +403,12 @@ public final class LungExchangeGameTests {
                         + ", actual=" + exteriorExchange.inhaled().totalMoles());
         require(sameMixture(skyAmbient, service.sample(level, skyCell).orElseThrow()),
                 "exterior exchange must not change ambient composition or energy");
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "exterior exchange must not materialize a finite chunk override");
+        assertSkyCellUnchanged(level, skyChunk, skyCell, initialSkyData,
+                "exterior exchange must not create finite cell state");
         require(service.exchangeBreath(level, skyCell, 2.0, GasMixture.vacuum(), inhaled -> false).isEmpty(),
                 "exterior candidate rejection must fail without writing");
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "rejected exterior exchange cannot materialize finite data");
+        assertSkyCellUnchanged(level, skyChunk, skyCell, initialSkyData,
+                "rejected exterior exchange cannot create finite cell state");
 
         BlockPos solid = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.STONE);
@@ -415,6 +457,20 @@ public final class LungExchangeGameTests {
         LevelChunk chunk = (LevelChunk) level.getChunk(pos);
         var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
         return data == null || data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15) == null;
+    }
+
+    private static boolean isFiniteClaimed(LevelChunk chunk, BlockPos pos) {
+        var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        return data != null && data.isFiniteClaimed(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+    }
+
+    private static void assertSkyCellUnchanged(ServerLevel level, LevelChunk chunk, BlockPos pos,
+                                               com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData initialData,
+                                               String message) {
+        var currentData = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        require(currentData == initialData, message + ": chunk attachment allocation/identity changed");
+        require(noOverride(level, pos) && !isFiniteClaimed(chunk, pos),
+                message + ": target cell acquired finite override or claim");
     }
 
     private static boolean sameMixture(GasMixture left, GasMixture right) {
