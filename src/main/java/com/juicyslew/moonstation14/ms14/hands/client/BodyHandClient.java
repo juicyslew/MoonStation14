@@ -45,6 +45,11 @@ public final class BodyHandClient {
             "key.moonstation14.equip_belt", net.neoforged.neoforge.client.settings.KeyConflictContext.IN_GAME,
             net.neoforged.neoforge.client.settings.KeyModifier.SHIFT, com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_E, "key.categories.moonstation14");
+    // Temporary grenade-specific controls; replace with item-driven use dispatch in a later sprint.
+    private static final net.minecraft.client.KeyMapping PRIME_GRENADE = new net.minecraft.client.KeyMapping("key.moonstation14.prime_grenade",
+            com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.categories.moonstation14");
+    private static final net.minecraft.client.KeyMapping THROW_GRENADE = new net.minecraft.client.KeyMapping("key.moonstation14.throw_grenade",
+            com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, "key.categories.moonstation14");
     private static final BodyHandClientPolicy POLICY = new BodyHandClientPolicy();
     private static final WorldGridClientPolicy WORLD = new WorldGridClientPolicy();
     private static final StoragePopupWorkspace POPUPS = new StoragePopupWorkspace(320, 240);
@@ -81,6 +86,8 @@ public final class BodyHandClient {
         event.register(INVENTORY);
         event.register(EQUIP_BAG);
         event.register(EQUIP_BELT);
+        event.register(PRIME_GRENADE);
+        event.register(THROW_GRENADE);
     }
 
     public static void reset() {
@@ -107,6 +114,8 @@ public final class BodyHandClient {
         while (INVENTORY.consumeClick()) { }
         while (EQUIP_BAG.consumeClick()) { }
         while (EQUIP_BELT.consumeClick()) { }
+        while (PRIME_GRENADE.consumeClick()) { }
+        while (THROW_GRENADE.consumeClick()) { }
     }
 
     private static Mob currentBody() {
@@ -169,6 +178,8 @@ public final class BodyHandClient {
             while (INVENTORY.consumeClick()) { }
             while (EQUIP_BAG.consumeClick()) { }
             while (EQUIP_BELT.consumeClick()) { }
+            while (PRIME_GRENADE.consumeClick()) { }
+            while (THROW_GRENADE.consumeClick()) { }
             return;
         }
         boolean inventory = INVENTORY.consumeClick();
@@ -221,7 +232,12 @@ public final class BodyHandClient {
         boolean storage = STORAGE.consumeClick();
         boolean worldStorage = WORLD_STORAGE.consumeClick();
         if (contextualWorldHandled) { worldStorage = false; contextualWorldHandled = false; }
-        if (mc.screen != null) return;
+        boolean prime = PRIME_GRENADE.consumeClick();
+        boolean throwGrenade = THROW_GRENADE.consumeClick();
+        if (mc.screen != null) {
+            POLICY.cancelThrowIntent();
+            return;
+        }
         if (worldStorage && !shiftDown()) openAimedWorld();
         if (equipBag) smartStorage(false);
         if (equipBelt) smartStorage(true);
@@ -230,6 +246,13 @@ public final class BodyHandClient {
             togglePopup(shiftDown() ? StoragePopupWorkspace.HostKind.BELT : StoragePopupWorkspace.HostKind.BAG);
         if (drop) request(BodyHandActionRequest.Action.DROP);
         else if (ctrlV || select && !storage) selectHand();
+        if (prime) {
+            boolean priming = request(BodyHandActionRequest.Action.PRIME_GRENADE);
+            if (throwGrenade && priming) POLICY.requestThrowAfterPrime(clock);
+        } else if (throwGrenade && !POLICY.requestThrowAfterPrime(clock)) {
+            request(BodyHandActionRequest.Action.THROW_GRENADE);
+        }
+        if (POLICY.takeReadyThrow(clock) && request(BodyHandActionRequest.Action.THROW_GRENADE)) POLICY.throwSent();
     }
 
     private static boolean shiftDown() {
@@ -1056,12 +1079,13 @@ public final class BodyHandClient {
         if (action == BodyHandActionRequest.Action.PICKUP) {
             if (active.token() != null) return false;
             target = lookTarget(cameraBody);
-            if (target == null) return false;
+            if (target == null) { POLICY.noItemUnderCursor(clock); return false; }
         } else if (active.token() == null) return false;
         long sequence = POLICY.action(clock);
         if (sequence == 0) return false;
         PacketDistributor.sendToServer(new BodyHandActionRequest(action, active.id(), snapshot.epoch(),
-                sequence, snapshot.revision(), target, action == BodyHandActionRequest.Action.DROP ? active.token() : null));
+                sequence, snapshot.revision(), target, action == BodyHandActionRequest.Action.PICKUP ? null : active.token()));
+        if (action == BodyHandActionRequest.Action.PRIME_GRENADE) POLICY.markPrime(sequence);
         return true;
     }
 

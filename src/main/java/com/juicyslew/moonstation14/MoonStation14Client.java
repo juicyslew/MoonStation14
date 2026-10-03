@@ -13,6 +13,8 @@ import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewKey;
 import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechReviewOverlay;
 import com.juicyslew.moonstation14.ms14.chat.client.TopRightHudLayout;
 import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
+import com.juicyslew.moonstation14.ms14.explosion.grenade.client.GrenadeSoundClient;
+import com.juicyslew.moonstation14.ms14.explosion.grenade.network.GrenadeSoundNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogNetworking;
 import com.juicyslew.moonstation14.ms14.prototype.network.PrototypeCatalogSyncAssembler;
@@ -125,6 +127,7 @@ public class MoonStation14Client {
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
         CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
         LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
+        GrenadeSoundNetworking.installClientHandler(GrenadeSoundClient::receive);
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
@@ -658,6 +661,7 @@ public class MoonStation14Client {
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
+        event.registerEntityRenderer(ModEntities.THROWN_GRENADE.get(), ThrownItemRenderer::new);
     }
 
     private static void handleCatalogPayload(PrototypeCatalogSyncPayload payload,

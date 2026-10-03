@@ -11,6 +11,8 @@ import com.juicyslew.moonstation14.ms14.hands.live.BodyHeldGridTransfer;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyBodyGridTransfer;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyHandTransfer;
 import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadePrime;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadeThrow;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
@@ -398,6 +400,20 @@ public final class BodyHandRequestService {
             return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
 
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
+        if (request.action() == BodyHandActionRequest.Action.PRIME_GRENADE
+                || request.action() == BodyHandActionRequest.Action.THROW_GRENADE) {
+            var outcome = request.action() == BodyHandActionRequest.Action.PRIME_GRENADE
+                    ? grenadeReason(BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(),
+                            request.expectedRevision()))
+                    : grenadeReason(BodyGrenadeThrow.throwGrenade(actor, request.handId(), request.expectedToken(),
+                            request.expectedRevision()));
+            BodyHandActionResult response = result(request, outcome, authority);
+            if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+
+        if (!isDropAction(request.action()))
+            return result(request, BodyHandActionResult.Reason.DENIED, authority);
         BodyHandItemTransfer.Result outcome = BodyHandItemTransfer.drop(actor, request.handId(),
                 request.expectedToken(), request.expectedRevision(), spawned::set);
         BodyHandActionResult.Reason dropReason = reason(outcome);
@@ -461,6 +477,26 @@ public final class BodyHandRequestService {
     }
 
     private static BodyHandActionResult.Reason reason(BodyEquippedStorageTransfer.Result outcome) {
+        return switch (outcome) {
+            case SUCCESS -> BodyHandActionResult.Reason.OK;
+            case DENIED -> BodyHandActionResult.Reason.DENIED;
+            case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+        };
+    }
+
+    static boolean isDropAction(BodyHandActionRequest.Action action) {
+        return action == BodyHandActionRequest.Action.DROP;
+    }
+
+    private static BodyHandActionResult.Reason grenadeReason(BodyGrenadePrime.Result outcome) {
+        return switch (outcome) {
+            case SUCCESS -> BodyHandActionResult.Reason.OK;
+            case DENIED -> BodyHandActionResult.Reason.DENIED;
+            case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+        };
+    }
+
+    private static BodyHandActionResult.Reason grenadeReason(BodyGrenadeThrow.Result outcome) {
         return switch (outcome) {
             case SUCCESS -> BodyHandActionResult.Reason.OK;
             case DENIED -> BodyHandActionResult.Reason.DENIED;
