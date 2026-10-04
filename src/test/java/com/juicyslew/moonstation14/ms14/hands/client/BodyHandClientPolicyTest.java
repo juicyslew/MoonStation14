@@ -12,6 +12,29 @@ import static org.junit.jupiter.api.Assertions.*;
 class BodyHandClientPolicyTest {
     private static final UUID ACCOUNT = UUID.randomUUID(), BODY = UUID.randomUUID();
 
+    @Test void mappedGesturesSelectDistinctRoutes() {
+        assertEquals(BodyInputGesturePolicy.Route.SMART_BELT, BodyInputGesturePolicy.resolve(false, true, false, false));
+        assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE, BodyInputGesturePolicy.resolve(false, false, true, false));
+        assertEquals(BodyInputGesturePolicy.Route.NORMAL_WORLD_USE, BodyInputGesturePolicy.resolve(false, false, false, true));
+        assertEquals(BodyInputGesturePolicy.Route.NONE, BodyInputGesturePolicy.resolve(false, false, false, false));
+        // An independently rebound alternate mapping wins over the ordinary world-use mapping.
+        assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE, BodyInputGesturePolicy.resolve(false, false, true, true));
+        assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE,
+                BodyInputGesturePolicy.dispatch(false, true, false, false, true, false));
+        assertEquals(BodyInputGesturePolicy.Route.NONE,
+                BodyInputGesturePolicy.dispatch(true, true, false, false, true, false));
+        assertEquals(BodyInputGesturePolicy.Route.NONE,
+                BodyInputGesturePolicy.dispatch(false, false, false, false, true, false));
+        assertEquals(BodyInputGesturePolicy.Route.SMART_BAG,
+                BodyInputGesturePolicy.dispatch(false, true, true, false, true, true));
+    }
+
+    @Test void nativeInventorySuppressionRequiresCommittedControlledBodyAndNativeScreen() {
+        assertTrue(BodyInputGesturePolicy.suppressNativeInventory(true, true));
+        assertFalse(BodyInputGesturePolicy.suppressNativeInventory(true, false));
+        assertFalse(BodyInputGesturePolicy.suppressNativeInventory(false, true));
+    }
+
     private static BodyHandStateSnapshot snapshot(long requested, long sequence, UUID account, UUID body, long epoch) {
         return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
                 account, body, epoch, 3, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)));
@@ -20,6 +43,46 @@ class BodyHandClientPolicyTest {
     private static BodyHandActionResult result(long epoch, long sequence, BodyHandActionResult.Reason reason) {
         return new BodyHandActionResult(epoch, sequence, reason == BodyHandActionResult.Reason.OK,
                 reason, false, 0, null, null, null, 0);
+    }
+
+    @Test void pullReservationIsNonItemMetadataAndOnlyBlocksItsOwnHandActions() {
+        var reserved = new BodyHandStateSnapshot.Hand("left", null, null, 0,
+                false, null, null, 0, "target");
+        var free = new BodyHandStateSnapshot.Hand("right", null, null, 0);
+        assertNull(reserved.token());
+        assertEquals("target", reserved.pullTarget());
+        assertFalse(BodyHandClientPolicy.handAvailableForItemAction(reserved));
+        assertTrue(BodyHandClientPolicy.handAvailableForItemAction(free));
+        assertFalse(BodyHandClientPolicy.nominatedGridTakeEligible(reserved,
+                new BodyHandStateSnapshot.GridEntry("child", "minecraft:stick", 1, 0, 0, 0),
+                new BodyHandStateSnapshot.GridEntry("child", "minecraft:stick", 1, 0, 0, 0), null));
+        assertTrue(BodyHandClientPolicy.nominatedGridTakeEligible(free,
+                new BodyHandStateSnapshot.GridEntry("child", "minecraft:stick", 1, 0, 0, 0),
+                new BodyHandStateSnapshot.GridEntry("child", "minecraft:stick", 1, 0, 0, 0), null));
+        assertFalse(BodyHandClientPolicy.nominatedGridStoreEligible(
+                new BodyHandStateSnapshot.Hand("left", "item", "minecraft:stone", 1,
+                        false, null, null, 0, "target"), "item", "minecraft:stone", 1));
+        assertTrue(BodyHandClientPolicy.nominatedGridStoreEligible(
+                new BodyHandStateSnapshot.Hand("right", "item", "minecraft:stone", 1),
+                "item", "minecraft:stone", 1));
+    }
+
+    @Test void reservedActiveHandCannotTakeEquipmentButOtherHandCan() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var reserved = new BodyHandStateSnapshot.Hand("left", null, null, 0,
+                false, null, null, 0, "target");
+        var q = policy.query(1);
+        assertTrue(policy.accept(equipmentSnapshot(0, q, reserved, List.of(slot("belt", true, true)))));
+        assertFalse(policy.inventoryView().belt().canUnequip());
+        policy.bind(ACCOUNT, BODY, 8);
+        var free = new BodyHandStateSnapshot.Hand("left", null, null, 0);
+        var otherQuery = policy.query(2);
+        var otherBodySnapshot = new BodyHandStateSnapshot(0, otherQuery, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 8, 3, "left", List.of(free,
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of(slot("belt", true, true)));
+        assertTrue(policy.accept(otherBodySnapshot));
+        assertTrue(policy.inventoryView().belt().canUnequip());
     }
 
     private static BodyHandStateSnapshot grenade(long requested, long sequence, long revision) {
@@ -52,6 +115,30 @@ class BodyHandClientPolicyTest {
                 new BodyHandStateSnapshot.Hand("right", null, null, 0)));
         assertTrue(policy.accept(changed));
         assertFalse(policy.takeReadyThrow(4));
+    }
+
+    @Test void genericInHandUseCanQueueThrowUntilFreshProofAndDenialCancelsIt() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.query(1), 3)));
+        long use = policy.action(2);
+        policy.markUse(use);
+        assertTrue(policy.requestThrowAfterPrime(2));
+        assertTrue(policy.result(result(7, use, BodyHandActionResult.Reason.OK), 3));
+        assertFalse(policy.takeReadyThrow(3));
+        long refresh = policy.forceFreshQuery(3);
+        assertTrue(policy.accept(grenade(0, refresh, 4)));
+        assertTrue(policy.takeReadyThrow(4));
+        policy.throwSent();
+
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(grenade(0, policy.forceFreshQuery(5), 4)));
+        use = policy.action(6);
+        policy.markUse(use);
+        assertTrue(policy.requestThrowAfterPrime(6));
+        assertTrue(policy.result(result(7, use, BodyHandActionResult.Reason.DENIED), 7));
+        assertFalse(policy.takeReadyThrow(7));
+        assertFalse(policy.requestThrowAfterPrime(7));
     }
 
     @Test void explicitThrowSurvivesPrimeResultAndWaitsForCorrelatedNewerSnapshot() {

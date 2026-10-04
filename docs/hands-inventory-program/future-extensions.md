@@ -37,7 +37,15 @@ This is broader groundwork for world objects, not permission to implement all ph
 
 Record clothing as a separate follow-on area. Research SS14 equipment slots, garment prototypes, appearance layers and gameplay components, then decide their Minecraft presentation. Detailed scope is not yet agreed. Reuse the completed equipment/authority infrastructure rather than creating a parallel inventory system.
 
+## 5. Visible timed interactions and continuous ingestion
+
+The owner explicitly deferred continuous drinking during the final jug feedback. Design its start/stop controls and visible progress alongside a generic timed-interaction system; do not implement an invisible repeating timer. Puddle drinking is temporarily an immediate one-unit action per explicit request, by owner direction.
+
+For future parity research, pinned SS14 `IngestionSystem.OnEatingDoAfter` uses `IngestedEvent.Repeat`; repetition is not unconditional and ends on full consumption/destruction or cancellation. Establish the drink-specific repeat policy and explicit stop input before claiming “continues until actively stopped.” Held-item ingestion and puddle verbs are distinct paths. These are future requirements, not part of the current corrections.
+
 ## Suggested sequencing and additional ideas
+
+**Subsequent owner-directed sequencing:** world-object foundations are prerequisites for universal interactions, throwing and pulling. The owner authorized [Loose World Objects — Foundation + Jug](../loose-world-objects-foundation-sprint/Instructions.md) on October 3, 2026, with necessary interaction intents developed alongside it. This supersedes the interaction-first recommendation below; see that folder for implementation status and validation.
 
 1. Establish universal interaction intents and targeting rules; retain provisional bindings until the actions are coherent.
 2. Build the modeled-jug entity slice alongside universal throwing. Its targeting and identity rules become foundations for other world items.
@@ -49,4 +57,4 @@ Additional recommendations, not owner requirements:
 - **Interaction feedback:** a small contextual target/action cue, derived from the same authoritative eligibility rules as interaction—not an independently hard-coded tooltip system.
 - **Automated visual regression fixtures:** extend the real-asset contact-sheet approach to modeled items and clothing so scale, rotation, alignment and clipping are checked before asking for repeated manual tests.
 
-Do not turn these recommendations into unrelated expansion of an active sprint. No next sprint has been selected.
+Do not turn these recommendations into unrelated expansion of the authorized foundation-and-jug sprint.

@@ -152,6 +152,29 @@ public final class BodyPickupRouteGameTests {
         helper.succeed();
     }
 
+    public static void selectedPileMemberSurvivesCommitRechecks(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = fixtureBody(level, origin);
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemEntity nearer = item(level, origin, 2), selected = item(level, origin, 3);
+        selected.setOnGround(false);
+        selected.setDeltaMovement(.1, .05, 0);
+        require(!selected.onGround() && selected.getDeltaMovement().lengthSqr() > 0,
+                "selected pickup target is airborne and moving");
+        require(BodyItemTargetProbe.probeSelected(level, body, selected.getUUID(), 5) != null,
+                "farther selected pile member is a valid nomination");
+        require(BodyHandItemTransfer.pickupSelectedOwned(body, selected.getUUID(), "left", before.revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "selected member passes precommit and post-callback checks");
+        require(selected.isRemoved() && !nearer.isRemoved()
+                        && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())
+                        .stackCopy("left").orElseThrow().getCount() == 3,
+                "airborne selected member transfers exactly once despite nearer visible candidate");
+        nearer.discard();
+        body.discard();
+        helper.succeed();
+    }
+
     private static Villager fixtureBody(ServerLevel level, BlockPos origin) {
         Villager body = EntityType.VILLAGER.create(level);
         require(body != null, "body created");

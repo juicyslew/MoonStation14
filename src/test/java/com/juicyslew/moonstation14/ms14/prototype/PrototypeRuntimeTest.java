@@ -19,7 +19,10 @@ import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosiveSources;
 import com.juicyslew.moonstation14.ms14.organ.ModOrgans;
 import com.juicyslew.moonstation14.ms14.organ.OrganCategory;
 import com.juicyslew.moonstation14.ms14.organ.OrganData;
+import com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles;
+import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
+import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
@@ -51,7 +54,8 @@ class PrototypeRuntimeTest {
         var expectedTypes = Set.of(ModReagents.REAGENT_TYPE, ModStatusEffects.STATUS_EFFECT_TYPE,
                 ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
                 ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
-                ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
+                ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
+                ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -112,7 +116,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllEightFamiliesIncludingRadioOrganReactionsAndExplosionsWithoutSharingState() {
+    void runtimeExportImportsAllElevenFamiliesIncludingGridFootprintsWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -138,16 +142,22 @@ class PrototypeRuntimeTest {
         server.publishDecoded(ModGasReactions.GAS_REACTION_TYPE, reactions(id("reaction-test"), reaction));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
+        LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
+                false, 0, 8, .1f, 10, .5f, .5f,
+                new LooseObjectProfile.VisualTuning(.5f, .5f, .5f, .5f, 1, 0));
+        server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-test"), profile));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
                 ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
-                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()),
+                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
+                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId()),
                 exported.keySet());
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
         assertTrue(exported.get(ModGasReactions.GAS_REACTION_TYPE.typeId()).containsKey(id("reaction-test")));
         assertTrue(exported.get(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()).containsKey(id("common")));
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
+        assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
         ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
         server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("source-test"), source));
         exported = server.encodePublishedCatalogs();
@@ -162,6 +172,8 @@ class PrototypeRuntimeTest {
         assertEquals(reaction, PrototypeRuntime.clientGasReactions().get(id("reaction-test")));
         assertEquals(explosion, PrototypeRuntime.clientExplosions().get(id("explosion-test")));
         assertEquals(source, PrototypeRuntime.clientExplosiveSources().get(id("source-test")));
+        assertEquals(profile, PrototypeRuntime.clientLooseObjectProfiles().get(id("profile-test")));
+        assertEquals(profile, PrototypeRuntime.serverLooseObjectProfiles().get(id("profile-test")));
         assertEquals(explosion, ModExplosions.EXPLOSION_TYPE.codec().parse(JsonOps.INSTANCE,
                 exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).get(id("explosion-test"))).getOrThrow());
         assertEquals(reaction, PrototypeRuntime.serverGasReactions().get(id("reaction-test")));
@@ -178,10 +190,12 @@ class PrototypeRuntimeTest {
                 new OrganData(OrganCategory.HEART, Optional.empty())));
         server.publishDecoded(ModGasReactions.GAS_REACTION_TYPE,
                 reactions(id("new-reaction"), reaction(GasType.TRITIUM)));
+        server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-server-only"), profile));
         assertEquals(lungs, PrototypeRuntime.clientOrgans().get(id("lungs-test")));
         assertFalse(PrototypeRuntime.clientOrgans().contains(id("heart-test")));
         assertEquals(reaction, PrototypeRuntime.clientGasReactions().get(id("reaction-test")));
         assertFalse(PrototypeRuntime.clientGasReactions().contains(id("new-reaction")));
+        assertFalse(PrototypeRuntime.clientLooseObjectProfiles().contains(id("profile-server-only")));
 
         server.clearPublishedCatalogs();
         client.clearPublishedCatalogs();

@@ -20,11 +20,12 @@ public class ModCreativeModeTabs {
             ModItems.CROWBAR, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
             ModItems.APC_CABLE_SPOOL, ModItems.CABLE_CUTTER, ModItems.WAFFLE, ModItems.BOTTLE,
-            ModItems.ATMOSPHERE_ANALYZER, ModItems.GRENADE, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE);
+            ModItems.ATMOSPHERE_ANALYZER, ModItems.GRENADE, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE,
+            ModItems.JUG);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
             ModBlocks.STEEL_WALL_BLOCK, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,
-            ModBlocks.HIGH_LOAD_TEST_LAMP, ModBlocks.MAGIC_BLOCK, ModBlocks.JUG,
+            ModBlocks.HIGH_LOAD_TEST_LAMP, ModBlocks.MAGIC_BLOCK,
             ModBlocks.ATMOS_AIR_PRODUCER, ModBlocks.ATMOS_OXYGEN_PRODUCER,
             ModBlocks.ATMOS_NITROGEN_PRODUCER, ModBlocks.ATMOS_CARBON_DIOXIDE_PRODUCER,
             ModBlocks.ATMOS_PLASMA_PRODUCER, ModBlocks.ATMOS_TRITIUM_PRODUCER,

@@ -14,7 +14,13 @@ public class ModSpecialProperties {
     public static void addCustomItemProperties(FMLClientSetupEvent event) {
         // Now you can pass any item that implements IReagentItem
         registerFillProperty(ModItems.BOTTLE.get());
-        registerFillProperty(ModItems.JUG.get());
+        ItemProperties.register(ModItems.JUG.get(),
+                ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "fill"),
+                (stack, level, entity, seed) -> {
+                    var reagent = stack.get(ModDataComponents.REAGENT.get());
+                    return com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.fillTier(reagent,
+                            com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents()) / 6f;
+                });
     }
 
     private static <T extends Item & IReagentTrait> void registerFillProperty(T item) {

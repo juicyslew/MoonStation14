@@ -1,0 +1,5 @@
+{
+  "id": "moonstation14:bag", "parent": "moonstation14:generic",
+  "physical_width": 0.701, "physical_height": 0.101,
+  "visual": {"sprite_scale_x": 1.0666667, "sprite_scale_y": 1.0666667, "sprite_offset_x": 0.0166667, "sprite_offset_y": 0.05, "model_scale": 1.0, "model_floor_offset": 0.0}
+}

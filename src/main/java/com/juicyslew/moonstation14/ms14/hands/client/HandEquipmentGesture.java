@@ -33,7 +33,7 @@ final class HandEquipmentGesture {
         var id = net.minecraft.resources.ResourceLocation.tryParse(drag.itemId());
         if (id == null) return null;
         var fit = grid.occupancy().firstFit(drag.token(),
-                com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forId(id));
+                com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.clientForId(id));
         return fit.accepted() ? new HeldStorePlan(host.id(), host.token(), drag.token(),
                 fit.placement().anchor().x(), fit.placement().anchor().y(), fit.placement().rotation().degrees()) : null;
     }
@@ -59,7 +59,7 @@ final class HandEquipmentGesture {
         if (id == null) return null;
         boolean fits = false;
         for (int y = 0; y < grid.host().height() && !fits; y++) for (int x = 0; x < grid.host().width(); x++)
-            if (grid.occupancy().place(drag.token(), com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forId(id),
+            if (grid.occupancy().place(drag.token(), com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.clientForId(id),
                     new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(x, y),
                     com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0).accepted()) { fits = true; break; }
         if (!fits) return null;

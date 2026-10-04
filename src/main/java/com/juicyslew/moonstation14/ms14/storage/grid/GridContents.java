@@ -73,8 +73,11 @@ public final class GridContents {
             Entry value = new Entry(e.token(), e.stack(), e.x(), e.y(), rotation(e.rotation()));
             copy.add(value);
         }
-        if (!validEntries(copy, GridGeometry.MAX_WIDTH, GridGeometry.MAX_HEIGHT))
-            throw new IllegalArgumentException("invalid grid placement");
+        // Decoding may run on clients without the authoritative footprint catalog. Keep
+        // construction structural; live hosts are checked against exact server shapes in read().
+        if (copy.stream().anyMatch(e -> e.x() < 0 || e.y() < 0
+                || e.x() >= GridGeometry.MAX_WIDTH || e.y() >= GridGeometry.MAX_HEIGHT))
+            throw new IllegalArgumentException("invalid grid anchor");
         entries = List.copyOf(copy);
     }
     private record RawEntry(String token, ItemStack stack, int x, int y, int rotation) { }
@@ -128,6 +131,9 @@ public final class GridContents {
         return validEntries(contents.entries, w, h);
     }
     private static boolean validEntries(List<Entry> entries, int w, int h) {
+        // Empty grids have no geometry to validate and remain usable during bootstrap.
+        // Never interpret an unloaded authoritative catalog's fallback ONE as a real profile.
+        if (!entries.isEmpty() && ModItemFootprints.serverCatalog().size() == 0) return false;
         var snapshot = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(w, h));
         for (Entry e : entries) {
             var result = snapshot.place(e.token(), ItemFootprints.forStack(e.stack()), new GridGeometry.Cell(e.x(), e.y()), e.rotation());

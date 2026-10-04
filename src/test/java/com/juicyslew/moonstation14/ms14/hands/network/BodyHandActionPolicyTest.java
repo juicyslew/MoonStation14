@@ -81,7 +81,10 @@ class BodyHandActionPolicyTest {
     @Test void pouchActionsKeepTheDropShapeAndRejectClientSuppliedTargets() {
         for (var action : BodyHandActionRequest.Action.values()) {
             if (action == BodyHandActionRequest.Action.TRANSFER_HAND || action.name().startsWith("GRID_") || action.name().startsWith("HELD_GRID_")
-                    || action.name().startsWith("SMART_")) continue;
+                    || action.name().startsWith("SMART_") || action == BodyHandActionRequest.Action.PICKUP_SELECTED
+                    || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
+                    || action == BodyHandActionRequest.Action.TOGGLE_PULL || action == BodyHandActionRequest.Action.STOP_PULL
+                    || action == BodyHandActionRequest.Action.SIP_PUDDLE) continue;
             var request = new BodyHandActionRequest(action, "left", 7, 1, 9,
                     action == BodyHandActionRequest.Action.PICKUP ? UUID.randomUUID() : null,
                     action == BodyHandActionRequest.Action.PICKUP || action == BodyHandActionRequest.Action.SELECT_HAND
@@ -264,6 +267,30 @@ class BodyHandActionPolicyTest {
             BodyHandActionRequest.STREAM_CODEC.encode(extra, request);
             extra.writeByte(42);
             assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(extra));
+        }
+    }
+
+    @Test void worldActionIntentsEncodeOnlyExplicitTargetsAndRequiredTokens() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.PICKUP_SELECTED,
+                BodyHandActionRequest.Action.USE_TARGET, BodyHandActionRequest.Action.ALTERNATE_TARGET,
+                BodyHandActionRequest.Action.TOGGLE_PULL}) {
+            String token = action == BodyHandActionRequest.Action.PICKUP_SELECTED ? null : "held-token";
+            var request = new BodyHandActionRequest(action, "left", 7, 2, 9, UUID.randomUUID(), token);
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+            assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+            assertFalse(buf.isReadable());
+        }
+        var stop = new BodyHandActionRequest(BodyHandActionRequest.Action.STOP_PULL, "left", 7, 2, 9, null, null);
+        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        BodyHandActionRequest.STREAM_CODEC.encode(buf, stop);
+        assertEquals(stop, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.ALTERNATE_TARGET,
+                BodyHandActionRequest.Action.TOGGLE_PULL}) {
+            var nullable = new BodyHandActionRequest(action, "left", 7, 3, 9, UUID.randomUUID(), null);
+            var nullableBuf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            BodyHandActionRequest.STREAM_CODEC.encode(nullableBuf, nullable);
+            assertEquals(nullable, BodyHandActionRequest.STREAM_CODEC.decode(nullableBuf));
         }
     }
 }

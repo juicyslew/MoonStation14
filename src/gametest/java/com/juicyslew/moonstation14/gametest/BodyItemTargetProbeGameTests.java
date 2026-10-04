@@ -29,10 +29,14 @@ public final class BodyItemTargetProbeGameTests {
         Villager body = body(level, origin);
         ItemEntity near = item(level, origin, 2);
         require(BodyItemTargetProbe.probe(level, body, near, 4) != null, "body eye sees item");
+        require(BodyItemTargetProbe.probeSelected(level, body, near.getUUID(), 4) != null,
+                "explicit selection accepts a visible pile member");
         require(BodyItemTargetProbe.probe(level, body, near, 5.01) == null, "reach ceiling");
         require(BodyItemTargetProbe.probe(level, body, near, Double.NaN) == null, "nonfinite reach");
         ItemEntity far = item(level, origin, 3);
         require(BodyItemTargetProbe.probe(level, body, far, 4) == null, "nearer item wins");
+        require(BodyItemTargetProbe.probeSelected(level, body, far.getUUID(), 4) != null,
+                "explicit selection can select a farther visible pile member");
         require(BodyItemTargetProbe.probe(level, body, near, 4) != null, "far item does not hide near one");
         body.setYRot(90);
         body.setYHeadRot(90);

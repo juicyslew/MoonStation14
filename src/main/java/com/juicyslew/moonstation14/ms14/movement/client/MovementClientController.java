@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementState;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
+import com.juicyslew.moonstation14.ms14.movement.PullMovementPolicy;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementPayloads;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
@@ -38,6 +39,7 @@ public final class MovementClientController {
     private static boolean committed;
     private static boolean failedClosed;
     private static boolean pendingExit;
+    private static boolean authoritativePulling;
     private static boolean disableAcknowledged;
     private static LocalPlayer committedPlayer;
     private static long recentlyExitedEpoch;
@@ -112,6 +114,7 @@ public final class MovementClientController {
             }
             boolean duplicateAck = hasReceivedAck && snapshot.acknowledgedSequence() == lastReceivedAck;
             acknowledgedSequence = snapshot.acknowledgedSequence();
+            authoritativePulling = snapshot.pulling();
             MovementPredictionHistory.Acknowledgement acknowledgement =
                     predictionHistory.acknowledge(snapshot.acknowledgedSequence());
             boolean duplicateAckMissingHistoryWhilePending = duplicateAck
@@ -161,6 +164,7 @@ public final class MovementClientController {
                 // Keep ownership (and the travel suppression hook) until the server confirms its teleport barrier.
                 // Stop issuing custom movement immediately and acknowledge this handoff only once.
                 pendingExit = true;
+                authoritativePulling = false;
                 clearVisualFacing();
                 resetCorrectionDiagnostics(player);
                 clearPendingFrame();
@@ -231,8 +235,8 @@ public final class MovementClientController {
         lastTravelPlayer = player;
         lastTravelTick = player.tickCount;
         boolean stunned = CharacterControlSystem.isClientActionBlocked(player);
-        double voluntarySpeedFactor = CharacterControlSystem.isKnockedDown(player)
-                ? CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d;
+        double voluntarySpeedFactor = PullMovementPolicy.voluntaryMovementFactor(
+                CharacterControlSystem.isKnockedDown(player), authoritativePulling);
         double strafe = stunned ? 0d : player.input.leftImpulse;
         double forward = stunned ? 0d : player.input.forwardImpulse;
         double yaw = Math.toRadians(player.getYRot());
@@ -339,6 +343,7 @@ public final class MovementClientController {
     }
 
     private static void clearSession() {
+        authoritativePulling = false;
         clearVisualFacing();
         clearPendingFrame();
         predictionHistory.clear();

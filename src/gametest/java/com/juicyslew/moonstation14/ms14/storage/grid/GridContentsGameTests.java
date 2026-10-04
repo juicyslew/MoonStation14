@@ -68,6 +68,14 @@ public final class GridContentsGameTests {
                 "dual representation rejected without overwrite");
         require(GridContents.read(new ItemStack(Items.STICK)).isEmpty(), "ordinary stick is not a grid host");
 
+        GridContents overlapping = GridContents.of(List.of(
+                new GridContents.Entry("overlap-a", new ItemStack(Items.STICK), 0, 0, GridGeometry.Rotation.DEG_0),
+                new GridContents.Entry("overlap-b", new ItemStack(Items.STICK), 0, 0, GridGeometry.Rotation.DEG_0)));
+        require(overlapping.entries().size() == 2, "structural construction preserves overlapping decoded entries");
+        ItemStack overlappingBag = new ItemStack(ModItems.BAG.get());
+        overlappingBag.set(ModDataComponents.GRID_CONTENTS.get(), overlapping);
+        require(GridContents.read(overlappingBag).isEmpty(), "live host read rejects overlap using authoritative footprints");
+
         List<GridContents.Entry> tooMany = new ArrayList<>();
         for (int i = 0; i < 33; i++) tooMany.add(new GridContents.Entry("t" + i, new ItemStack(Items.STICK), i % 8, i / 8,
                 GridGeometry.Rotation.DEG_0));

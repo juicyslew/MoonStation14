@@ -38,6 +38,11 @@ public class ModEventHooks {
     }
 
     private static void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        if (event.getLevel() instanceof ServerLevel level
+                && event.getEntity() instanceof net.minecraft.world.entity.item.ItemEntity original
+                && !(original instanceof com.juicyslew.moonstation14.entities.LooseItemEntity)) {
+            replaceCreativeModDrop(level, original, event);
+        }
         if (event.getLevel() instanceof ServerLevel && event.getEntity() instanceof LivingEntity livingEntity) {
             com.juicyslew.moonstation14.ms14.slip.SlipSystem.onEntityJoin(livingEntity);
             CharacterIdentitySystem.enrollSupportedActor(livingEntity, (ServerLevel) event.getLevel());
@@ -57,6 +62,22 @@ public class ModEventHooks {
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(livingEntity);
             EntityActivitySystem.reconcile(livingEntity);
         }
+    }
+
+    private static void replaceCreativeModDrop(ServerLevel level,
+            net.minecraft.world.entity.item.ItemEntity original, EntityJoinLevelEvent event) {
+        ServerPlayer player = original.getOwner() instanceof ServerPlayer owner ? owner : null;
+        if (player == null || !player.isCreative()
+                || player.level() != level || original.getItem().isEmpty()
+                || original.getItem().getItem().builtInRegistryHolder().unwrapKey()
+                    .map(key -> !"moonstation14".equals(key.location().getNamespace())).orElse(true)) return;
+        var loose = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level, original.position(), original.getItem());
+        loose.setUUID(original.getUUID());
+        loose.setYRot(original.getYRot());
+        loose.setXRot(original.getXRot());
+        loose.launch(original.getDeltaMovement(), 0);
+        loose.setCreativePickupDelay(level.random.nextInt(2, 41));
+        if (level.addFreshEntity(loose)) event.setCanceled(true);
     }
 
     private static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {

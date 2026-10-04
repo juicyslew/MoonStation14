@@ -101,7 +101,7 @@ public final class InvalidReagentGameTests {
         require(jug.get(ModDataComponents.REAGENT.get()).contents().equals(Map.of(INVALID, 5f)),
                 "failed jug placement must preserve item contents");
         BlockPos expected = stone.above();
-        require(!level.getBlockState(expected).is(ModBlocks.JUG.get()), "invalid jug must not create a jug block");
+        require(level.getBlockState(expected).isAir(), "using a jug item does not create a block");
 
         BlockPos puddlePos = helper.absolutePos(new BlockPos(5, 1, 1));
         level.setBlock(puddlePos, ModBlocks.PUDDLE.get().defaultBlockState(), 3);

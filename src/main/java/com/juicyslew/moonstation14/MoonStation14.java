@@ -77,6 +77,8 @@ public class MoonStation14 {
         PowerRuntime.register(NeoForge.EVENT_BUS);
         StarterStationService.register(NeoForge.EVENT_BUS);
         BodyGrenadeHeldFuseService.register(NeoForge.EVENT_BUS);
+        com.juicyslew.moonstation14.entities.LooseMotionDiagnostics.register(NeoForge.EVENT_BUS);
+        com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService.register(NeoForge.EVENT_BUS);
 
         ModCreativeModeTabs.register(modEventBus);
 
@@ -130,7 +132,7 @@ public class MoonStation14 {
             event.accept(ModBlocks.STEEL_WALL_BLOCK);
             event.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
             event.accept(ModBlocks.MAGIC_BLOCK);
-            event.accept(ModBlocks.JUG);
+            event.accept(ModItems.JUG);
             event.accept(ModBlocks.ATMOS_AIR_PRODUCER);
             event.accept(ModBlocks.ATMOS_OXYGEN_PRODUCER);
             event.accept(ModBlocks.ATMOS_NITROGEN_PRODUCER);

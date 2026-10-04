@@ -28,6 +28,11 @@ public final class BodyDropCompensationGameTestEntry {
     }
 
     @GameTest(template = "empty")
+    public static void existingItemPileDoesNotBlockForwardDrop(GameTestHelper helper) {
+        BodyDropCompensationGameTests.existingItemPileDoesNotBlockForwardDrop(helper);
+    }
+
+    @GameTest(template = "empty")
     public static void blockedForwardAndUnsafeFeetFallbackPreservesConservation(GameTestHelper helper) {
         BodyDropCompensationGameTests.blockedForwardAndUnsafeFeetFallbackPreservesConservation(helper);
     }
