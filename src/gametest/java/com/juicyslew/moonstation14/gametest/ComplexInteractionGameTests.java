@@ -13,15 +13,15 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"interaction"})
 public final class ComplexInteractionGameTests {
     private ComplexInteractionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void incidentalDefaultAndWrongHostCannotGrant(GameTestHelper helper) {
         var human = EntityType.VILLAGER.create(helper.getLevel());
         require(human != null, "villager can be constructed");
@@ -59,7 +59,7 @@ public final class ComplexInteractionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void actualEntitySaveLoadKeepsRevokeAndRemoval(GameTestHelper helper) {
         var revoked = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         var removed = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 1));
@@ -91,7 +91,7 @@ public final class ComplexInteractionGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void initialGrantTombstoneAndRemovedAttachmentNeverRebootstrap(GameTestHelper helper) {
         var human = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         var pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));

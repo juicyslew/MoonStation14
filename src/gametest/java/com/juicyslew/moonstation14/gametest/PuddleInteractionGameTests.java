@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
@@ -35,9 +36,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry"})
 public final class PuddleInteractionGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
@@ -48,7 +48,7 @@ public final class PuddleInteractionGameTests {
 
     private PuddleInteractionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredPuddleEmptyHandDispatcherIngestsFiveAndRejectsEmptyOrFull(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos sourcePos = placePuddle(helper, new BlockPos(2, 1, 2), 20f);
@@ -76,7 +76,7 @@ public final class PuddleInteractionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void exactCentDrinkingRemovesPuddleAfterStomachCommit(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos sourcePos = placePuddle(helper, new BlockPos(2, 1, 2), .01f);
@@ -90,7 +90,7 @@ public final class PuddleInteractionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void oneCentResidueRemainsVisibleAndStaleEmptyPuddleExpiresOnTick(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos positivePos = placePuddle(helper, new BlockPos(2, 1, 2), .01f);
@@ -114,7 +114,7 @@ public final class PuddleInteractionGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredPuddleDispatcherAcceptsCentDoseNearCapacity(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos sourcePos = placePuddle(helper, new BlockPos(2, 1, 2), .01f);
@@ -141,7 +141,7 @@ public final class PuddleInteractionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredPuddleDrinkingAcceptsAwkwardSameKeyAndMixedFloatGrids(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos sameKeyPos = placePuddle(helper, new BlockPos(2, 1, 2), 10.1f);
@@ -183,7 +183,7 @@ public final class PuddleInteractionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredBottleOnPuddleUsesItemInteractionWithoutPlayerDrain(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos sourcePos = placePuddle(helper, new BlockPos(2, 1, 2), 20f);

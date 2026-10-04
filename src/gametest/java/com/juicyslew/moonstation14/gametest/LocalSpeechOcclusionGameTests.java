@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.chat.server.LocalSpeechOcclusion;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -11,22 +12,20 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chat", "speech"})
 public final class LocalSpeechOcclusionGameTests {
     private LocalSpeechOcclusionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void openHallwayPasses(GameTestHelper helper) {
         require(audible(helper, eye(helper, 2, 1.6, 2), eye(helper, 6, 1.6, 2)),
                 "open horizontal eye-to-eye path must pass");
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void clearEyeLineAcrossLoadedChunkBoundaryPasses(GameTestHelper helper) {
         int originX = helper.absolutePos(BlockPos.ZERO).getX();
         int boundary = 16 - Math.floorMod(originX, 16);
@@ -38,7 +37,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void nearOneStoneWallPasses(GameTestHelper helper) {
         helper.setBlock(new BlockPos(3, 1, 2), Blocks.STONE);
         require(audible(helper, eye(helper, 2, 1.6, 2), eye(helper, 4, 1.6, 2)),
@@ -46,7 +45,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void twoStoneWallsPassNearFacesButThreeDeny(GameTestHelper helper) {
         helper.setBlock(new BlockPos(3, 1, 2), Blocks.STONE);
         helper.setBlock(new BlockPos(4, 1, 2), Blocks.STONE);
@@ -68,7 +67,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void diagonalOneSheetPassesButTwoSheetsDenyAtDistance(GameTestHelper helper) {
         for (int z = 0; z <= 6; z++) helper.setBlock(new BlockPos(3, 1, z), Blocks.STONE);
         require(audible(helper, eye(helper, 2, 1.6, 2), eye(helper, 4, 1.6, 4)),
@@ -79,7 +78,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void clearEyeLineUsesFifteenBlockEyeToEyeRange(GameTestHelper helper) {
         Vec3 source = eye(helper, 2, 1.6, 2);
         require(audible(helper, source, eye(helper, 17, 1.6, 2)),
@@ -93,7 +92,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void stoneAndSlabFloorsDenyNearVertical(GameTestHelper helper) {
         Vec3 below = eye(helper, 2, 1.6, 2);
         Vec3 above = eye(helper, 2, 3.0, 2);
@@ -105,7 +104,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void diagonalFloorTopExitDeniesButOpenShaftPasses(GameTestHelper helper) {
         Vec3 below = eye(helper, 2, 1.6, 2);
         Vec3 above = eye(helper, 2, 3.1, 2).add(0.8, 0, 0);
@@ -120,7 +119,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void raisedRoomAcrossFullHeightStoneWallPassesBothDirections(GameTestHelper helper) {
         for (int z = 1; z <= 3; z++) {
             helper.setBlock(new BlockPos(3, 1, z), Blocks.STONE);
@@ -137,7 +136,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void twoFloorsDenyAndOpenShaftPasses(GameTestHelper helper) {
         Vec3 below = eye(helper, 2, 1.6, 2);
         Vec3 above = eye(helper, 2, 5.6, 2);
@@ -151,7 +150,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void stackedStoneFloorsDenyAcrossInternalSeamBothDirections(GameTestHelper helper) {
         Vec3 below = eye(helper, 2, 1.6, 2);
         Vec3 above = eye(helper, 2, 4.6, 2);
@@ -166,7 +165,7 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void closedDoorPassesLocallyButDeniesFarther(GameTestHelper helper) {
         Vec3 source = eye(helper, 2, 1.6, 2);
         setDoor(helper, false);

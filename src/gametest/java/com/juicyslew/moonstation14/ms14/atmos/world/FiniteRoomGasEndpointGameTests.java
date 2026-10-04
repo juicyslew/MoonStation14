@@ -12,20 +12,20 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class FiniteRoomGasEndpointGameTests {
     private static long syntheticGameTime;
 
     private FiniteRoomGasEndpointGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100)
+@GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void trustedSetupReplacesOnlyLiveFiniteCellMixture(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");
@@ -63,7 +63,7 @@ public final class FiniteRoomGasEndpointGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100)
+@GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void sealed144CellEndpointAcceptsWithoutCreatingGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");
@@ -98,7 +98,7 @@ public final class FiniteRoomGasEndpointGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void closed168CellRoomExceedsSynchronousEndpointBound(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");
@@ -144,7 +144,7 @@ public final class FiniteRoomGasEndpointGameTests {
         return helper.absolutePos(new BlockPos(2, 1, 2));
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void finiteRoomEndpointPublishesAndRollsBackRawTransfer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");

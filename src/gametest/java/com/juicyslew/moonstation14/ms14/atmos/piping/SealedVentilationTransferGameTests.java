@@ -14,20 +14,20 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class SealedVentilationTransferGameTests {
     private static long syntheticGameTime;
     private SealedVentilationTransferGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100)
+@GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void resolvedFixtureGeometryIsFlushAndNonBlockingOnEveryHorizontalFace(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 2));
@@ -60,7 +60,7 @@ public final class SealedVentilationTransferGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void ventUsesLiveSealedWallLaneAndRejectsReplacementOrWrongAxis(GameTestHelper helper) {
         Fixture f = fixture(helper, false);
         GasMixture pipeBefore = f.pipe();
@@ -82,7 +82,7 @@ public final class SealedVentilationTransferGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void wrongWallAxisDoesNotTransfer(GameTestHelper helper) {
         Fixture f = fixture(helper, true);
         GasMixture pipe = f.savedGas();
@@ -94,7 +94,7 @@ public final class SealedVentilationTransferGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "sealed_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void visualPipeComponentFeedsSealedVentilationLane(GameTestHelper helper) {
         Fixture f = fixture(helper, false);
         ServerLevel level = f.level;

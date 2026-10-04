@@ -14,19 +14,19 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
 import java.util.HashSet;
 
 /** End-to-end coverage of the explicitly-built fixture through normal server systems. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere", "power"})
 @PrefixGameTestTemplate(false)
 public final class VentilationFixtureGameTests {
     private VentilationFixtureGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "ventilation_fixture", timeoutTicks = 600)
+@GameTest(template = "atmos_large_empty", batch = "ventilation_fixture", timeoutTicks = 600, templateNamespace = "moonstation14")
     public static void builtFixtureInitializesAndReportsResolvedRuntime(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService atmos = AtmosphereService.INSTANCE;

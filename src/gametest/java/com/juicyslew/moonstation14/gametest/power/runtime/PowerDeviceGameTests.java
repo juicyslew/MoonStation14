@@ -23,15 +23,15 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.entity.player.Player;
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"power"})
 @PrefixGameTestTemplate(false)
 public final class PowerDeviceGameTests {
     private PowerDeviceGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void lampLitBlockstateChangesActualLightEmission(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos lamp = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -46,7 +46,7 @@ public final class PowerDeviceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void coveringAndUncoveringCableHostPreservesElectricalConnection(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos a = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -76,7 +76,7 @@ public final class PowerDeviceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 320)
+    @GameTest(template = "empty", timeoutTicks = 320, templateNamespace = "moonstation14")
     public static void lampExtensionReceiverUsesNearestKnownLvCableWithinThreeBlocks(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos apc = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -121,7 +121,7 @@ public final class PowerDeviceGameTests {
         });
     }
 
-    @GameTest(template = "power_live_chain_clear", timeoutTicks = 400)
+    @GameTest(template = "power_live_chain_clear", timeoutTicks = 400, templateNamespace = "moonstation14")
     public static void liveSourceSubstationApcBatteryAndLampChain(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         // Shift the requested x=0 device row into the bounded template; y and z remain aligned.
@@ -185,7 +185,7 @@ public final class PowerDeviceGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 240)
+    @GameTest(template = "empty", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void arbitraryStoneHostReplacementEventuallyStopsEnergizedCable(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));

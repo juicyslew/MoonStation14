@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -26,14 +27,12 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereRoomGameTests {
     private static final double INJECTED_MOLES = 8.0;
     private static final double ROOM_TEMPERATURE_KELVIN = 293.15;
@@ -43,7 +42,7 @@ public final class AtmosphereRoomGameTests {
 
     private AtmosphereRoomGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_fire_entity", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_fire_entity", timeoutTicks = 100)
     public static void committedFiniteFireExposesOnlySupportedSourceOccupants(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         requireIsolatedReactionFixture();
@@ -103,7 +102,7 @@ public final class AtmosphereRoomGameTests {
         else helper.runAfterDelay(1, verify);
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hotspot_spread", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_hotspot_spread", timeoutTicks = 100)
     public static void finiteOpenFaceHeatsFuelAndOxygenButNotStarvedNeighbor(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         requireIsolatedReactionFixture();
@@ -223,7 +222,7 @@ public final class AtmosphereRoomGameTests {
         else helper.runAfterDelay(1, verify);
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_commit", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_commit", timeoutTicks = 100)
     public static void explicitReactionCommitsOnlyFiniteCell(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         requireIsolatedReactionFixture();
@@ -313,7 +312,7 @@ public final class AtmosphereRoomGameTests {
         }
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
     public static void longHallwayServiceDiffusesTritiumAcrossAll124Cells(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildTritiumHallway(helper);
@@ -489,7 +488,7 @@ public final class AtmosphereRoomGameTests {
         return allPositive;
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_sealed_room", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_sealed_room", timeoutTicks = 100)
     public static void sealedRoomDiffusesGasAndConservesSpecies(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildSealedRoom(helper);
@@ -549,7 +548,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_covered_exterior", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_covered_exterior", timeoutTicks = 100)
     public static void coveredExteriorSealingAndBreachRespectOwnership(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildCoveredRoomWithSideGap(helper);
@@ -643,7 +642,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_breathable_boundary", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_breathable_boundary", timeoutTicks = 100)
     public static void depletedFiniteRoomReplenishesThroughBreathableOpeningAndKeepsSavedState(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildCoveredRoomWithSideGap(helper);
@@ -716,7 +715,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_door_toggle", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_door_toggle", timeoutTicks = 100)
     public static void closedDoorToggleAutomaticallyOpensAndClosesExteriorRoute(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildCoveredRoomWithSideGap(helper);
@@ -797,7 +796,7 @@ public final class AtmosphereRoomGameTests {
                 .setValue(DoorBlock.OPEN, open));
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ambient_door_gradient", timeoutTicks = 120)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_ambient_door_gradient", timeoutTicks = 120)
     public static void breathableDoorReplenishesInteriorOxygenThroughFiniteRoom(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildCoveredRoomWithSideGap(helper);
@@ -857,7 +856,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_tiny_gas_heater", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_tiny_gas_heater", timeoutTicks = 100)
     public static void tinyFiniteInventoryRejectsHeaterAndBreathableDoorRecovers(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         requireIsolatedReactionFixture();
@@ -926,7 +925,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_wall_opening", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_wall_opening", timeoutTicks = 100)
     public static void fullWallOpeningDrainsMoreThanOneBlockOpening(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildSealedRoom(helper, 0);
@@ -983,7 +982,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_sky_exposure", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_sky_exposure", timeoutTicks = 20)
     public static void skyExposedCellUsesAmbientAndRejectsInjection(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());

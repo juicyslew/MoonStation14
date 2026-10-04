@@ -10,7 +10,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
@@ -18,12 +18,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class SealedPipeNetworkGameTests {
     private SealedPipeNetworkGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void sealedWallConnectsOnlyMatchingLaneAndAxis(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos wall = helper.absolutePos(new BlockPos(4, 1, 4));

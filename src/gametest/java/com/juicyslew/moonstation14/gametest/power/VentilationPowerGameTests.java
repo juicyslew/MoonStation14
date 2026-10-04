@@ -22,17 +22,17 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Direction;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"power", "ventilation"})
 @PrefixGameTestTemplate(false)
 public final class VentilationPowerGameTests {
     private VentilationPowerGameTests() { }
 
-    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240)
+    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void loadedInheritedDefinitionsDriveDefaultsAndReceiver(GameTestHelper helper) {
         var catalog = PrototypeRuntime.serverVentilationDevices();
         var ventDefinition = catalog.get(ModVentilationDevices.VENT);
@@ -66,7 +66,7 @@ public final class VentilationPowerGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void unconnectedVentHasUnknownPowerMeter(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -77,7 +77,7 @@ public final class VentilationPowerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240)
+    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void poweredVentMeterTracksBreakerAndReplacement(GameTestHelper helper) {
         Fixture fixture = connectVent(helper);
         helper.runAfterDelay(100, () -> {
@@ -103,7 +103,7 @@ public final class VentilationPowerGameTests {
         });
     }
 
-    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240)
+    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void paidWorkCallbackIsSingleUseAndInvalidated(GameTestHelper helper) {
         Fixture fixture = connectVent(helper);
         helper.succeedWhen(() -> {
@@ -144,7 +144,7 @@ public final class VentilationPowerGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 240)
+    @GameTest(template = "empty", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void localExtensionReceiverRespectsRadiusAndCableCuts(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         // Keep this whole chain above cables in neighboring GameTests' floor-level fixtures.

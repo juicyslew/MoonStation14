@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.atmos.piping;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -9,15 +10,14 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "hands", "movement"})
 @PrefixGameTestTemplate(false)
 public final class BodyPlacementCollisionGameTests {
     private BodyPlacementCollisionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void selectedLaneAndNewNeighborArmOnly(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos target = helper.absolutePos(new BlockPos(4, 1, 4));
@@ -43,7 +43,7 @@ public final class BodyPlacementCollisionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void deviceUsesCollisionNotPipeOutline(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(4, 1, 4));
         var state = ModBlocks.GAS_VENT.get().defaultBlockState();

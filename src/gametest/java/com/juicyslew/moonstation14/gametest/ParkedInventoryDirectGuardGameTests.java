@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
@@ -14,7 +15,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Collections;
@@ -22,12 +22,12 @@ import java.util.List;
 import java.util.UUID;
 
 /** Runtime mixin audit plus an unregistered fixture; never treats a fixture as the account holder. */
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "lifecycle", "parked"})
 public final class ParkedInventoryDirectGuardGameTests {
     private ParkedInventoryDirectGuardGameTests() { }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void transformedRoutesAndFixtureIsolation(GameTestHelper helper) {
         for (String method : List.of("moonstation14$denyAdd", "moonstation14$denyAddAt",
                 "moonstation14$denyRemove", "moonstation14$denyRemoveNoUpdate",

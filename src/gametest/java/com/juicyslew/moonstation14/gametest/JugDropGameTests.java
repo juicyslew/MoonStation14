@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.component.ModDataComponents;
@@ -16,14 +17,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.Map;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry", "jug"})
 public final class JugDropGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             ModReagents.REAGENT_REGISTRY_KEY,
@@ -31,7 +30,7 @@ public final class JugDropGameTests {
 
     private JugDropGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void breakingJugDropsExactlyOneJugAndPreservesContents(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos filledPos = new BlockPos(2, 1, 2);

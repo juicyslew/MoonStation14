@@ -22,7 +22,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
@@ -30,13 +30,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere", "power"})
 @PrefixGameTestTemplate(false)
 public final class PaidVentilationFlowGameTests {
     private static long syntheticGameTime;
     private PaidVentilationFlowGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300)
+@GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void onlyCompletedPaidSolveMovesConservedGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere remains disabled and untouched");
@@ -64,7 +64,7 @@ public final class PaidVentilationFlowGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300)
+    @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void disabledDeviceDoesNotMoveGas(GameTestHelper helper) {
         Fixture f = fixture(helper);
         var settings = f.vent.config().settings();
@@ -81,7 +81,7 @@ public final class PaidVentilationFlowGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300)
+    @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void poweredScrubberCapturesOnlySelectedGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Fixture f = fixture(helper, true);

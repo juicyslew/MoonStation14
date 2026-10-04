@@ -6,16 +6,16 @@ import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransiti
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Value policy only: never fabricates a connected ServerPlayer or lifecycle body. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class CreativeNoWriteDenialGameTests {
     private CreativeNoWriteDenialGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void occupiedCreativeNoWriteDenialStaysCreative(GameTestHelper helper) {
         boolean[] disconnected = {false}, reported = {false}, switched = {false};
         var attempt = new CreativeCarrierTransition.Attempt(CreativeCarrierTransition.Result.DENIED,
@@ -28,7 +28,7 @@ public final class CreativeNoWriteDenialGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void ambiguousDenialAndDirtyParkDisconnect(GameTestHelper helper) {
         for (var result : new CreativeCarrierTransition.Result[] {
                 CreativeCarrierTransition.Result.DENIED, CreativeCarrierTransition.Result.RECOVERY_REQUIRED }) {

@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.EffectCommonData;
@@ -23,16 +25,14 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.npc.Villager;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"damage"})
 public final class EyeDamageGameTests {
     private EyeDamageGameTests() {
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void thresholdHealingAndCleanupAreAuthoritative(GameTestHelper helper) {
         Villager character = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -62,7 +62,7 @@ public final class EyeDamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void noOpAndUnsupportedTargetsDoNotMaterialize(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
         Villager absent = spawn(helper, 1);
@@ -85,7 +85,7 @@ public final class EyeDamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void mismatchedHostPreservesRawEyeStateButDoesNotProjectBlindness(GameTestHelper helper) {
         Villager host = spawn(helper, 1);
         var saved = new EyeDamageAttachment(new com.juicyslew.moonstation14.ms14.eye.EyeDamageComponent(9));

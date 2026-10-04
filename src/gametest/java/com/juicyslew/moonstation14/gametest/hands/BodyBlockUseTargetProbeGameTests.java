@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest.hands;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.atmos.piping.ExposedPipeVisualBlock;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseTargetProbe;
@@ -15,15 +16,14 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"hands", "interaction"})
 @PrefixGameTestTemplate(false)
 public final class BodyBlockUseTargetProbeGameTests {
     private BodyBlockUseTargetProbeGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void admitsExactRayFaceAndDeniesWrongFaceObstructionAndRange(GameTestHelper helper) {
         BlockPos bodyPos = new BlockPos(2, 1, 2);
         Villager body = helper.spawn(EntityType.VILLAGER, bodyPos);
@@ -58,7 +58,7 @@ public final class BodyBlockUseTargetProbeGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void rayTargetsFullOutlineOfThinExposedPipeBeyondItsArm(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos bodyPos = helper.absolutePos(new BlockPos(2, 1, 2));

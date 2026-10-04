@@ -27,9 +27,9 @@ import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
 import java.util.Set;
-
-@GameTestHolder(MoonStation14.MOD_ID)
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "chemistry"})
 public final class StimulantCadenceGameTests {
     private static final ResourceKey<ReagentData> STIMULANTS = ModReagents.createKey("stimulants");
     private static final ResourceKey<StatusEffectData> SPEED =
@@ -38,7 +38,7 @@ public final class StimulantCadenceGameTests {
 
     private StimulantCadenceGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void stimulantStatusesStayContinuousOnlyWithAnOngoingReservoir(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
