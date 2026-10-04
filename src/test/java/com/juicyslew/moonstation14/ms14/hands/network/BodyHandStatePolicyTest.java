@@ -68,9 +68,22 @@ class BodyHandStatePolicyTest {
         assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(oversized));
         var duplicate = header(2);
         duplicate.writeUtf("same");
+        duplicate.writeBoolean(true);
+        duplicate.writeUtf("token1");
+        duplicate.writeUtf("minecraft:stone");
+        duplicate.writeVarInt(1);
         duplicate.writeBoolean(false);
         duplicate.writeBoolean(false);
-        duplicate.writeUtf("same");
+        duplicate.writeBoolean(false);
+        duplicate.writeBoolean(false);
+         duplicate.writeUtf("same");
+        duplicate.writeBoolean(true);
+        duplicate.writeUtf("token2");
+        duplicate.writeUtf("minecraft:stone");
+        duplicate.writeVarInt(1);
+        duplicate.writeBoolean(false);
+        duplicate.writeBoolean(false);
+        duplicate.writeBoolean(false);
         duplicate.writeBoolean(false);
         duplicate.writeBoolean(false);
         duplicate.writeVarInt(0);
@@ -82,6 +95,9 @@ class BodyHandStatePolicyTest {
         invalidCount.writeUtf("minecraft:stone");
         invalidCount.writeVarInt(0);
         invalidCount.writeBoolean(false);
+         invalidCount.writeBoolean(false);
+         invalidCount.writeBoolean(false);
+         invalidCount.writeBoolean(false);
         invalidCount.writeBoolean(false);
         assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(invalidCount));
     }
@@ -98,7 +114,10 @@ class BodyHandStatePolicyTest {
         forged.writeUtf("token");
         forged.writeUtf("minecraft:stone");
         forged.writeVarInt(1);
+        forged.writeBoolean(false);
         forged.writeBoolean(true);
+        forged.writeBoolean(false);
+        forged.writeBoolean(false);
         forged.writeBoolean(false);
         forged.writeVarInt(0);
         forged.writeVarInt(0);
@@ -149,6 +168,7 @@ class BodyHandStatePolicyTest {
         absent.writeUtf("right");
         absent.writeBoolean(false);
         absent.writeBoolean(false);
+        absent.writeBoolean(false);
         assertThrows(RuntimeException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(absent));
         var rejected = BodyHandStateSnapshot.rejected(new BodyHandStateQuery(0, 3),
                 BodyHandStateSnapshot.Reason.NOT_READY);
@@ -179,11 +199,24 @@ class BodyHandStatePolicyTest {
     }
 
     @Test void gridValidationChecksFootprintsOwnershipAndTrailingData() {
-        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
-                List.of(new BodyHandStateSnapshot.GridEntry("pick", "moonstation14:pickaxe", 1, 5, 0, 0))));
-        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
+        // Wire snapshots validate bounded structure only; authoritative footprint policy is applied at placement.
+        assertEquals(1, new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
+                List.of(new BodyHandStateSnapshot.GridEntry("pick", "moonstation14:pickaxe", 1, 5, 0, 0))).entries().size());
+        var structurallyValid = new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
                 List.of(new BodyHandStateSnapshot.GridEntry("pick", "moonstation14:pickaxe", 1, 0, 0, 0),
-                        new BodyHandStateSnapshot.GridEntry("other", "minecraft:stone", 1, 1, 1, 0))));
+                        new BodyHandStateSnapshot.GridEntry("other", "minecraft:stone", 1, 1, 1, 0)));
+        assertEquals(2, structurallyValid.entries().size());
+        var pickaxeShape = com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Footprint.of(List.of(
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(0, 0),
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(1, 0),
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(2, 0),
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(1, 1),
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(1, 2)));
+        var board = com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.StorageMask.rectangle(7, 4);
+        var placement = com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Snapshot.<String>empty(board)
+                .place("pick", pickaxeShape, new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(5, 0),
+                        com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0);
+        assertFalse(placement.accepted(), "authoritative geometry rejects the catalogued pickaxe footprint at the grid edge");
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.GridHost("h", "bag", 7, 4,
                 java.util.Collections.nCopies(33, new BodyHandStateSnapshot.GridEntry("x", "minecraft:stone", 1, 0, 0, 0))));
         var belt = new BodyHandStateSnapshot.EquipmentSlot("belt", "belt-token", ModItems.BELT.getId().toString(), 1, null, null, 0);

@@ -10,6 +10,7 @@ import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -120,6 +121,20 @@ class LiveHandsTest {
         assertTrue(result.takenStack().isEmpty());
     }
 
+    @Test
+    void componentReplacementPreservesOwnedItemAndToken() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"right\",\"revision\":4}");
+        LiveHands owned = empty.putWhole(4, "left", TOKEN, new ItemStack(Items.DIAMOND, 3)).state();
+        ItemStack changed = new ItemStack(Items.DIAMOND, 3);
+        changed.set(DataComponents.CUSTOM_NAME, Component.literal("liquid"));
+        LiveHands updated = owned.replaceOwnedComponents(5, "left", TOKEN, changed).orElseThrow();
+        assertEquals(6, updated.revision());
+        assertEquals(Optional.of(TOKEN.value()), updated.token("left"));
+        assertEquals("liquid", updated.stackCopy("left").orElseThrow().getHoverName().getString());
+        assertTrue(owned.replaceOwnedComponents(5, "left", TOKEN, new ItemStack(Items.EMERALD, 3)).isEmpty());
+        assertTrue(owned.replaceOwnedComponents(5, "left", TOKEN, new ItemStack(Items.DIAMOND, 2)).isEmpty());
+    }
+
     @Test void switchingAllowsIndependentPickupSlotsWithoutMovingStacks() {
         LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
         assertTrue(empty.stackCopy(empty.activeHand()).isEmpty());
@@ -145,5 +160,30 @@ class LiveHandsTest {
                 .selectActive(0, "other").isEmpty());
         assertTrue(parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":9223372036854775807}")
                 .selectActive(Long.MAX_VALUE, "right").isEmpty());
+    }
+
+    @Test
+    void reservationClaimsOnlyItsEmptyHandAndIsTransientAcrossCodec() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        UUID target = UUID.randomUUID();
+        LiveHands reserved = empty.reserveHand(0, "left", target).orElseThrow();
+        assertEquals(1, reserved.revision());
+        assertEquals(Optional.of(target), reserved.reservation("left"));
+        assertTrue(reserved.putWhole(1, "left", TOKEN, new ItemStack(Items.DIAMOND)).state() == reserved);
+        assertTrue(reserved.takeWhole(1, "left", TOKEN).state() == reserved);
+        assertTrue(reserved.transferWhole(1, "left", "right", TOKEN).state() == reserved);
+        assertTrue(reserved.putWhole(1, "right", TOKEN, new ItemStack(Items.DIAMOND)).succeeded());
+        LiveHands unrelated = reserved.selectActive(1, "right").orElseThrow();
+        assertEquals(Optional.of(target), unrelated.reservation("left"));
+        assertEquals(2, unrelated.revision());
+        assertTrue(unrelated.releaseHand("left", UUID.randomUUID()).isEmpty());
+        LiveHands released = unrelated.releaseHand("left", target).orElseThrow();
+        assertTrue(released.reservation("left").isEmpty());
+        assertEquals(3, released.revision());
+
+        var encoded = LiveHands.CODEC.encodeStart(JsonOps.INSTANCE, reserved).getOrThrow();
+        LiveHands restored = LiveHands.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow();
+        assertTrue(restored.reservation("left").isEmpty());
+        assertEquals(reserved.revision(), restored.revision());
     }
 }

@@ -105,6 +105,26 @@ public final class BodyDropCompensationGameTests {
         helper.succeed();
     }
 
+    public static void existingItemPileDoesNotBlockForwardDrop(GameTestHelper helper) {
+        Villager body = body(helper);
+        body.setYRot(-90);
+        LiveHands before = stocked(body);
+        ItemEntity pile = new ItemEntity(helper.getLevel(), body.getX() + .2, body.getY() + 1.125,
+                body.getZ(), new ItemStack(Items.DIRT, 2));
+        helper.getLevel().addFreshEntity(pile);
+        require(BodyHandItemTransfer.dropOwned(body, "left", "owned", before.revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "pile does not force feet fallback");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(3),
+                item -> item.getItem().is(Items.DIAMOND));
+        require(after != null && after.revision() == before.revision() + 1 && after.token("left").isEmpty()
+                && after.stackCopy("left").isEmpty(), "entire owned stack transferred");
+        require(items.size() == 1 && items.getFirst().getItem().getCount() == 3
+                && items.getFirst().getDeltaMovement().x > 0,
+                "single conserved stack receives forward throw despite existing pile");
+        helper.succeed();
+    }
+
     private static int forwardWallX(Villager body) {
         return BlockPos.containing(body.getX() + .7, body.getY(), body.getZ()).getX();
     }

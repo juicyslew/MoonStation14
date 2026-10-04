@@ -338,6 +338,8 @@ public final class BodyWorldGridService {
     }
 
     static BodyWorldGridActionResult action(ServerPlayer actor, BodyWorldGridAction action) {
+        if (com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints.serverCatalog().size() == 0)
+            return result(action, 0, BodyWorldGridActionResult.Reason.DENIED);
         ActorState state = ACTORS.computeIfAbsent(actor, ignored -> new ActorState());
         var resolved = HandActorAuthority.resolve(actor);
         state.bind(resolved.orElse(null));
@@ -615,7 +617,8 @@ public final class BodyWorldGridService {
         boolean bag = host.is(com.juicyslew.moonstation14.item.ModItems.BAG);
         var projected = entries.stream().map(e -> new BodyWorldGridSnapshot.Entry(e.token(),
                 BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString(), e.stack().getCount(),
-                e.x(), e.y(), e.rotation().degrees())).toList();
+                e.x(), e.y(), e.rotation().degrees(), e.stack().get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get()),
+                ItemPresentation.fromStack(e.stack()))).toList();
         return new BodyWorldGridSnapshot(q.epoch(), q.sequence(), BodyWorldGridSnapshot.Reason.OK,
                 actor.getUUID(), body.getUUID(), q.epoch(), revision, target, bag ? "bag" : "belt",
                 bag ? 7 : 8, bag ? 4 : 2, projected, nonce, hostRevision);

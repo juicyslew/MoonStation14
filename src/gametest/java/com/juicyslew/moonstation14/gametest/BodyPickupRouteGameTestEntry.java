@@ -36,4 +36,9 @@ public final class BodyPickupRouteGameTestEntry {
     public static void coincidentItemsTransferToBothHands(GameTestHelper helper) {
         BodyPickupRouteGameTests.coincidentItemsTransferToBothHands(helper);
     }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void selectedPileMemberSurvivesCommitRechecks(GameTestHelper helper) {
+        BodyPickupRouteGameTests.selectedPileMemberSurvivesCommitRechecks(helper);
+    }
 }

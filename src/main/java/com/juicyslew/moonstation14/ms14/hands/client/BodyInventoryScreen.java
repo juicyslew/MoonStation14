@@ -183,7 +183,7 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
             var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
             if (active.token() != null && g.proposed(active.itemId(), active.token(), rotation, cellX, cellY) != null) {
                 var id = ResourceLocation.tryParse(active.itemId());
-                if (id != null) preview = new GridGeometry.Placement<>(active.token(), ItemFootprints.forId(id),
+                if (id != null) preview = new GridGeometry.Placement<>(active.token(), ItemFootprints.clientForId(id),
                         new GridGeometry.Cell(cellX, cellY), GridGeometry.Rotation.values()[rotation / 90]).occupiedCells();
             }
         }
@@ -245,13 +245,9 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
     private void renderHandIcon(net.minecraft.client.gui.GuiGraphics graphics, BodyHandStateSnapshot.Hand hand,
             net.minecraft.client.gui.components.Button button) {
         if (hand.token() == null || button.getY() < 18 || button.getY() + button.getHeight() > viewportBottom()) return;
-        ResourceLocation id = ResourceLocation.tryParse(hand.itemId());
-        if (id == null) return;
-        var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(id).orElse(null);
-        if (item == null || item == net.minecraft.world.item.Items.AIR) return;
-        // This stack exists only to render the snapshot's registered item icon; it is never used as inventory state.
-        var displayOnly = new net.minecraft.world.item.ItemStack(item);
-        graphics.renderItem(displayOnly, button.getX() + 5, button.getY() + 13);
+        var displayOnly = ItemUiRenderer.stack(hand.itemId(), hand.count(), hand.presentation());
+        if (displayOnly.isEmpty() || displayOnly.getItem() == net.minecraft.world.item.Items.AIR) return;
+        ItemUiRenderer.render(graphics, displayOnly, button.getX() + 5, button.getY() + 13);
         graphics.drawString(font, Integer.toString(hand.count()), button.getX() + 21, button.getY() + 30, 0xffffff, true);
     }
 

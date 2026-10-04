@@ -15,6 +15,7 @@ public class ModSounds {
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
+    public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
     // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     // both end at 32 blocks, independently of the quieter playback gain at each call site.
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);

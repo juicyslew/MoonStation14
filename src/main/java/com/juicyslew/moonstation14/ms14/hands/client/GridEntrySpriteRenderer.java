@@ -4,6 +4,8 @@ import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
+import com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation;
 
 /** Draws item artwork in the bounding box owned by a grid placement. */
 final class GridEntrySpriteRenderer {
@@ -16,6 +18,17 @@ final class GridEntrySpriteRenderer {
 
     static void draw(net.minecraft.client.gui.GuiGraphics graphics, String itemId, int count, GridGeometry.Footprint footprint,
                      GridGeometry.Rotation rotation, int left, int top) {
+        draw(graphics, itemId, count, footprint, rotation, left, top, (ItemPresentation) null);
+    }
+
+    static void draw(net.minecraft.client.gui.GuiGraphics graphics, String itemId, int count, GridGeometry.Footprint footprint,
+                     GridGeometry.Rotation rotation, int left, int top, ReagentComponent reagent) {
+        draw(graphics, itemId, count, footprint, rotation, left, top,
+                reagent == null ? null : ItemPresentation.fromStack(stackWithReagent(itemId, count, reagent)));
+    }
+
+    static void draw(net.minecraft.client.gui.GuiGraphics graphics, String itemId, int count, GridGeometry.Footprint footprint,
+                     GridGeometry.Rotation rotation, int left, int top, ItemPresentation presentation) {
         var bounds = footprint.cells(rotation);
         int footprintWidth = (bounds.stream().mapToInt(GridGeometry.Cell::x).max().orElse(0) + 1) * CELL;
         int footprintHeight = (bounds.stream().mapToInt(GridGeometry.Cell::y).max().orElse(0) + 1) * CELL;
@@ -30,8 +43,8 @@ final class GridEntrySpriteRenderer {
             graphics.pose().translate(x + width / 2f + fit.offsetX(), y + height / 2f + fit.offsetY(), 0);
             graphics.pose().scale((float) fit.scale(), (float) fit.scale(), 1);
             graphics.pose().mulPose(com.mojang.math.Axis.ZP.rotationDegrees(rotation.degrees() - 45));
-            graphics.pose().translate(-16, -16, 0);
-            graphics.blit(PICKAXE, 0, 0, 32, 32, 0, 0, 32, 32, 32, 32);
+            graphics.pose().scale(2f, 2f, 1f);
+            ItemUiRenderer.render(graphics, itemId, count, presentation, -8, -8);
             graphics.pose().popPose();
         } else {
             graphics.enableScissor(left, top, left + footprintWidth, top + footprintHeight);
@@ -43,7 +56,7 @@ final class GridEntrySpriteRenderer {
                     graphics.pose().pushPose();
                     graphics.pose().translate(x + width / 2f, y + height / 2f, 0);
                     graphics.pose().scale(scale, scale, 1);
-                    graphics.renderItem(new ItemStack(item), -8, -8);
+                    ItemUiRenderer.render(graphics, itemId, count, presentation, -8, -8);
                     graphics.pose().popPose();
                 }
             }
@@ -62,5 +75,13 @@ final class GridEntrySpriteRenderer {
             graphics.pose().popPose();
             graphics.disableScissor();
         }
+    }
+
+    private static ItemStack stackWithReagent(String itemId, int count, ReagentComponent reagent) {
+        var id = ResourceLocation.tryParse(itemId);
+        var item = id == null ? net.minecraft.world.item.Items.AIR : BuiltInRegistries.ITEM.getOptional(id).orElse(net.minecraft.world.item.Items.AIR);
+        var stack = new ItemStack(item, count);
+        stack.set(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get(), reagent);
+        return stack;
     }
 }

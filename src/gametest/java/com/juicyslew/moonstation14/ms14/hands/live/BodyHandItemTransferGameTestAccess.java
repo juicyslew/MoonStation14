@@ -12,4 +12,13 @@ public final class BodyHandItemTransferGameTestAccess {
                                                            long expectedRevision) {
         return BodyHandItemTransfer.pickupOwned(body, target, handId, expectedRevision, () -> true);
     }
+
+    public static BodyHandItemTransfer.Result pickupSelectedOwned(LivingEntity body, UUID target, String handId,
+                                                                    long expectedRevision) {
+        return BodyHandItemTransfer.pickupSelectedOwned(body, target, handId, expectedRevision, () -> true);
+    }
+
+    public static BodyLooseThrow.Result throwOwned(LivingEntity body, String handId, String token, long revision) {
+        return BodyLooseThrow.throwOwned(body, handId, token, revision, () -> true, ignored -> { });
+    }
 }

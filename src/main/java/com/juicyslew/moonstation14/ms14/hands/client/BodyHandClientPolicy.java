@@ -12,6 +12,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** Main-thread client correlation gate. Only a matching full query reply can enable an action. */
 public final class BodyHandClientPolicy {
+    /** A pull reservation occupies a hand but is not item metadata. */
+    public static boolean handAvailableForItemAction(BodyHandStateSnapshot.Hand hand) {
+        return hand != null && hand.pullTarget() == null;
+    }
     // Packet replies have no connection nonce. Never reuse a correlation ID, even after logout.
     private static final AtomicLong QUERY_IDS = new AtomicLong();
     private static final AtomicLong ACTION_IDS = new AtomicLong();
@@ -144,8 +148,9 @@ public final class BodyHandClientPolicy {
                 return null;
             var id = ResourceLocation.tryParse(itemId);
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
+            if ("moonstation14".equals(id.getNamespace()) && !ItemFootprints.clientHasProfile(id)) return null;
             var cell = new GridGeometry.Cell(x, y);
-            return occupancy.place(token, ItemFootprints.forId(id), cell,
+            return occupancy.place(token, ItemFootprints.clientForId(id), cell,
                     GridGeometry.Rotation.values()[rotation / 90]).accepted() ? cell : null;
         }
     }
@@ -155,7 +160,7 @@ public final class BodyHandClientPolicy {
                                                String itemId, int count) {
         if (hand == null || token == null || !token.equals(hand.token()) || itemId == null
                 || !itemId.equals(hand.itemId()) || count != hand.count() || count <= 0 || count > 64
-                || hand.pouch() || "moonstation14:bag".equals(itemId) || "moonstation14:belt".equals(itemId))
+                || hand.pullTarget() != null || hand.pouch() || "moonstation14:bag".equals(itemId) || "moonstation14:belt".equals(itemId))
             return false;
         var id = ResourceLocation.tryParse(itemId);
         return id != null && BuiltInRegistries.ITEM.containsKey(id)
@@ -166,7 +171,7 @@ public final class BodyHandClientPolicy {
     static boolean nominatedGridTakeEligible(BodyHandStateSnapshot.Hand destination,
             BodyHandStateSnapshot.GridEntry nominatedChild, BodyHandStateSnapshot.GridEntry snapshotChild,
             String heldHostHandId) {
-        return destination != null && destination.token() == null && nominatedChild != null
+        return destination != null && destination.pullTarget() == null && destination.token() == null && nominatedChild != null
                 && nominatedChild.equals(snapshotChild)
                 && (heldHostHandId == null || !heldHostHandId.equals(destination.id()));
     }
@@ -206,14 +211,14 @@ public final class BodyHandClientPolicy {
         for (var entry : host.entries()) {
             var id = ResourceLocation.tryParse(entry.itemId());
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
-            var result = occupancy.place(entry.token(), ItemFootprints.forId(id),
+            var result = occupancy.place(entry.token(), ItemFootprints.clientForId(id),
                     new GridGeometry.Cell(entry.x(), entry.y()), GridGeometry.Rotation.values()[entry.rotation() / 90]);
             if (!result.accepted()) return null;
             occupancy = result.snapshot();
         }
-        boolean supported = sourceHand.token() != null && sourceHand.count() <= 64 && !sourceHand.pouch()
+        boolean supported = handAvailableForItemAction(sourceHand) && sourceHand.token() != null && sourceHand.count() <= 64 && !sourceHand.pouch()
                 && !"moonstation14:belt".equals(sourceHand.itemId()) && !"moonstation14:bag".equals(sourceHand.itemId());
-        return new GridView(host, occupancy, supported, sourceHand.token() == null);
+        return new GridView(host, occupancy, supported, sourceHand.token() == null && handAvailableForItemAction(sourceHand));
     }
 
     /** Resolve by exact held token, not by item ID or whichever hand is active. */
@@ -248,11 +253,11 @@ public final class BodyHandClientPolicy {
         var slots = source.equipment().stream().filter(slot -> slot.id().equals(id)).toList();
         if (slots.size() != 1) return null;
         var slot = slots.getFirst();
-        boolean emptyHand = active.token() == null;
+        boolean emptyHand = active.token() == null && active.pullTarget() == null;
         boolean emptySlot = slot.token() == null;
         boolean matching = ("belt".equals(id) ? "moonstation14:belt" : "moonstation14:bag").equals(active.itemId());
         // Snapshot summaries cannot prove stack components; the server still validates child admission.
-        boolean supported = active.token() != null && active.count() <= 64 && !active.pouch()
+        boolean supported = active.pullTarget() == null && active.token() != null && active.count() <= 64 && !active.pouch()
                 && !"moonstation14:belt".equals(active.itemId()) && !"moonstation14:bag".equals(active.itemId());
         boolean gridHost = source.grids().stream().anyMatch(grid -> grid.hostToken().equals(slot.token()));
         return new EquipmentView(slot, emptySlot && matching && active.count() == 1,
@@ -355,8 +360,7 @@ public final class BodyHandClientPolicy {
         if (!inputEnabled || tick < 0) return false;
         if (throwIntent != null) return account.equals(throwIntent.account) && body.equals(throwIntent.body)
                 && epoch == throwIntent.epoch && tick < throwIntent.expires;
-        // A grenade visible in an ordinary snapshot may be unprimed. Only a correlated local
-        // PRIME action can justify buffering M until its result and authoritative refresh.
+        // Only a correlated in-hand use can justify buffering a throw until its result and refresh.
         if (primeAction == 0 || primeAccount == null || !account.equals(primeAccount)
                 || !body.equals(primeBody) || epoch != primeEpoch || primeHand == null || primeToken == null
                 || pendingAction != primeAction && !primeSucceeded) return false;
@@ -368,9 +372,12 @@ public final class BodyHandClientPolicy {
     private long primeEpoch, primeRevision;
     private String primeHand, primeToken;
     public void markPrime(long sequence) {
+        markUse(sequence);
+    }
+    public void markUse(long sequence) {
         if (snapshot == null || sequence == 0) return;
         var active = snapshot.hands().stream().filter(hand -> hand.id().equals(snapshot.activeHand())).findFirst().orElse(null);
-        if (active == null || active.token() == null || !"moonstation14:grenade".equals(active.itemId())) return;
+        if (active == null || active.token() == null) return;
         primeAction = sequence; primeAccount = account; primeBody = body; primeEpoch = epoch;
         primeHand = active.id(); primeToken = active.token(); primeRevision = snapshot.revision();
     }

@@ -1,7 +1,6 @@
 package com.juicyslew.moonstation14.block;
 
 import com.juicyslew.moonstation14.MoonStation14;
-import com.juicyslew.moonstation14.block.custom.JugBlock;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.block.custom.PuddleBlock;
 import com.juicyslew.moonstation14.block.custom.AtmosphereTestDeviceBlock;
@@ -46,10 +45,6 @@ public class ModBlocks {
             () -> new MagicBlock(BlockBehaviour.Properties.of()
                     .strength(2f).requiresCorrectToolForDrops()));
 
-
-    // Custom Register (No Item, or Item needs to be custom-made)
-    public static final DeferredBlock<JugBlock> JUG = BLOCKS.register("jug",
-            () -> new JugBlock(Block.Properties.ofFullCopy(Blocks.GLASS)));
 
     public static final DeferredBlock<PuddleBlock> PUDDLE = BLOCKS.register("puddle",
             () -> new PuddleBlock(BlockBehaviour.Properties.of()

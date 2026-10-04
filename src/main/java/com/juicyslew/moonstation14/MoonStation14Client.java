@@ -1,11 +1,11 @@
 package com.juicyslew.moonstation14;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
-import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.ModEntities;
+import com.juicyslew.moonstation14.ms14.loose_objects.client.LooseItemRenderer;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient;
 import com.juicyslew.moonstation14.ms14.chat.client.DirectionalCueOverlay;
@@ -114,6 +114,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerMoonSky);
         modEventBus.addListener(MoonStation14Client::registerItemColors);
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
+        modEventBus.addListener(MoonStation14Client::registerJugModels);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
         modEventBus.addListener(LocalSpeechReviewKey::register);
@@ -602,6 +603,11 @@ public class MoonStation14Client {
     }
 
     @SubscribeEvent
+    public static void renderSelectedLooseOutline(RenderLevelStageEvent event) {
+        com.juicyslew.moonstation14.ms14.hands.client.SelectedLooseOutlineRenderer.render(event);
+    }
+
+    @SubscribeEvent
     public static void tickBodyHands(ClientTickEvent.Post event) {
         BodyHandClient.tick(event);
     }
@@ -640,15 +646,6 @@ public class MoonStation14Client {
     public static void registerBlockColors(RegisterColorHandlersEvent.Block event) {
         event.register((state, level, pos, tintIndex) -> {
             if (tintIndex == 0){
-                if (level != null && pos != null && level.getBlockEntity(pos) instanceof JugBlockEntity jug) {
-                    var container = jug.getData(ModDataAttachments.REAGENT.get());
-                    return ReagentComponent.getBlendedColor(container.getMap(), Minecraft.getInstance().level);
-                }
-            }
-            return -1; // Default
-        }, ModBlocks.JUG.get());
-        event.register((state, level, pos, tintIndex) -> {
-            if (tintIndex == 0){
                 if (level != null && pos != null && level.getBlockEntity(pos) instanceof PuddleBlockEntity puddle) {
                     var container = puddle.getData(ModDataAttachments.REAGENT.get());
                     return ReagentComponent.getBlendedColor(container.getMap(), Minecraft.getInstance().level);
@@ -658,7 +655,16 @@ public class MoonStation14Client {
         }, ModBlocks.PUDDLE.get());
     }
 
+    public static void registerJugModels(net.neoforged.neoforge.client.event.ModelEvent.RegisterAdditional event) {
+        for (int fill = 0; fill <= 6; fill++) {
+            event.register(net.minecraft.client.resources.model.ModelResourceLocation.standalone(
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                            MoonStation14.MOD_ID, "block/jug_" + fill)));
+        }
+    }
+
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
         event.registerEntityRenderer(ModEntities.THROWN_GRENADE.get(), ThrownItemRenderer::new);
