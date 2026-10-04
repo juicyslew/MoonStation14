@@ -2,6 +2,10 @@
 
 Fixtures are in `src/gametest/java` and excluded from the production jar. Put `@GameTestTags` on a fixture class and/or method; annotations are unioned and selecting multiple tags uses OR semantics. Tags are case-insensitive plain values (letters, digits, `_` and `-`; first character must be a letter). Primary current selectors include `hands`, `storage`, `chat`, `ventilation`, `atmosphere`, `power`, and `air-alarm`. Other selectors include `character`, `chemistry`, `damage`, `explosion`, `interaction`, `lifecycle`, `movement`, `physiology`, `prototype`, `status`, and `slip`. `loose-objects` selects loose-item physics, lifecycle, throwing, and pulling fixtures; cross-domain loose-object interactions also retain their applicable domain tags. Treat the preflight's printed catalogue as authoritative as tags change.
 
+`timed-interaction` selects the live timed-ingestion and generic timed-operation
+fixtures; `ingestion` selects the held, loose-container, puddle and interruption
+fixtures. These retain their applicable hands, chemistry and damage tags.
+
 ```powershell
 ./gradlew runGameTestServer
 ./gradlew runGameTestServer "-Pms14GameTestTags=chat" -Pms14GameTestDir=build/gametest-tags-fixture

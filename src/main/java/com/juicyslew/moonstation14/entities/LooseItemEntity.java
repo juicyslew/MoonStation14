@@ -36,6 +36,7 @@ public class LooseItemEntity extends ItemEntity {
     private long nextSupportCheck;
     private boolean motionBlockedByUnloaded;
     private int creativePickupDelay;
+    private final LooseClientPositionInterpolation clientPosition = new LooseClientPositionInterpolation();
 
     public LooseItemEntity(EntityType<? extends LooseItemEntity> type, Level level) { super(type, level); }
 
@@ -144,6 +145,7 @@ public class LooseItemEntity extends ItemEntity {
         tickCount++;
         if (!level().isClientSide && creativePickupDelay > 0) creativePickupDelay--;
         if (level().isClientSide) {
+            advanceClientPosition();
             refreshClientProfileDimensions();
             previousRotationAngle = currentRotationAngle;
             currentRotationAngle = getRotationAngle();
@@ -204,6 +206,33 @@ public class LooseItemEntity extends ItemEntity {
         setDeltaMovement(next);
         if ((hitX || hitY || hitZ) && profile().breakOnImpact()
                 && approachSpeed >= profile().breakThreshold()) breakJug();
+    }
+
+    /** Stage vanilla entity-position packets and move only the client presentation toward them. */
+    @Override public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        if (!level().isClientSide) {
+            super.lerpTo(x, y, z, yRot, xRot, steps);
+            return;
+        }
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) return;
+        // Entity.lerpTo teleports immediately in 1.21.1. Keep its rotation handling but
+        // stage position locally so tick() can preserve the previous render position.
+        setRot(yRot, xRot);
+        if (clientPosition.stage(getX(), getY(), getZ(), x, y, z)) {
+            // Keep both vanilla renderer histories continuous at correction/teleport snaps.
+            setPos(x, y, z);
+            xo = xOld = x; yo = yOld = y; zo = zOld = z;
+        }
+    }
+
+    @Override public double lerpTargetX() { return clientPosition.targetX(getX()); }
+    @Override public double lerpTargetY() { return clientPosition.targetY(getY()); }
+    @Override public double lerpTargetZ() { return clientPosition.targetZ(getZ()); }
+
+    private void advanceClientPosition() {
+        if (!clientPosition.pending()) return;
+        double[] position = clientPosition.advance(getX(), getY(), getZ());
+        setPos(position[0], position[1], position[2]);
     }
 
     /** Client catalogs can arrive after the tracked entity and its initial fallback-sized box. */

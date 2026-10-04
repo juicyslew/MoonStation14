@@ -362,6 +362,16 @@ public final class BodyHandClientPolicy {
         return pendingAction;
     }
 
+    /** A timed commit may mutate hands without a hand-action result; retain display data, discard proof. */
+    public void externalTimedCompletion() {
+        if (!inputEnabled) return;
+        snapshot = null;
+        pendingQuery = 0;
+        pendingQueryEpoch = 0;
+        refreshRequired = true;
+        lastQueryTick = Long.MIN_VALUE;
+    }
+
     /** Allocate an ID from the shared server action sequence for a block-use request. */
     public long blockUseSequence(long tick) {
         if (!inputEnabled || epoch == 0 || snapshot == null || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0

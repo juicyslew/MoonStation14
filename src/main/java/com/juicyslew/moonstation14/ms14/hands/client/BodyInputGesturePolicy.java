@@ -8,17 +8,28 @@ final class BodyInputGesturePolicy {
     private BodyInputGesturePolicy() { }
 
     static Route resolve(boolean equipBag, boolean equipBelt, boolean alternateWorldUse, boolean worldStorage) {
+        return resolve(equipBag, equipBelt, alternateWorldUse, worldStorage, false);
+    }
+
+    /** Captured ALT+E is already qualified as the ordinary world key at press time. */
+    static Route resolve(boolean equipBag, boolean equipBelt, boolean alternateWorldUse, boolean worldStorage,
+                         boolean altWorldStorage) {
         if (equipBag) return Route.SMART_BAG;
         if (equipBelt) return Route.SMART_BELT;
-        if (alternateWorldUse) return Route.ALTERNATE_WORLD_USE;
+        if (alternateWorldUse || altWorldStorage) return Route.ALTERNATE_WORLD_USE;
         if (worldStorage) return Route.NORMAL_WORLD_USE;
         return Route.NONE;
     }
 
     static Route dispatch(boolean screenOpen, boolean mouseGrabbed, boolean equipBag, boolean equipBelt,
                           boolean alternateWorldUse, boolean worldStorage) {
+        return dispatch(screenOpen, mouseGrabbed, equipBag, equipBelt, alternateWorldUse, worldStorage, false);
+    }
+
+    static Route dispatch(boolean screenOpen, boolean mouseGrabbed, boolean equipBag, boolean equipBelt,
+                          boolean alternateWorldUse, boolean worldStorage, boolean altWorldStorage) {
         if (screenOpen || !mouseGrabbed) return Route.NONE;
-        return resolve(equipBag, equipBelt, alternateWorldUse, worldStorage);
+        return resolve(equipBag, equipBelt, alternateWorldUse, worldStorage, altWorldStorage);
     }
 
     static boolean suppressNativeInventory(boolean nativeInventory, boolean bodyControlled) {

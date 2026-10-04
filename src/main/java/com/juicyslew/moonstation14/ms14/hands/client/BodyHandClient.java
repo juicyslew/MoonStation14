@@ -77,6 +77,7 @@ public final class BodyHandClient {
     private static long cameraEpoch;
     private static long clock;
     private static boolean worldResultHandRefreshPending;
+    private static boolean altWorldStoragePressed;
     private static UUID worldCrossPendingTarget;
     private static final java.util.Set<UUID> pendingWorldObservations = new java.util.HashSet<>();
     private static final java.util.Map<UUID, Long> worldObservationRetryAt = new java.util.HashMap<>();
@@ -89,10 +90,29 @@ public final class BodyHandClient {
 
     private BodyHandClient() { }
 
+    /** Refresh hand proof after a timed operation commits outside the ordinary action-result path. */
+    public static void refreshAfterTimedCompletion() {
+        reconcile();
+        POLICY.externalTimedCompletion();
+        long sequence = POLICY.query(clock);
+        if (sequence == 0) return;
+        WORLD.handQueryIssued();
+        PacketDistributor.sendToServer(new BodyHandStateQuery(POLICY.queryEpoch(), sequence));
+    }
+
+    public static void ingestionCommitted(com.juicyslew.moonstation14.ms14.ingestion.IngestionCommitted hint) {
+        if (hint == null) return;
+        reconcile();
+        Mob body = currentBody();
+        if (body == null || !hint.matchesAuthority(body.getUUID(), GhostControlClient.committedCharacterEpoch())) return;
+        refreshAfterTimedCompletion();
+    }
+
     public static void install() {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::contextualKey);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::suppressNativeInventoryScreen);
         BodyHandStateSnapshot.setClientHandler(BodyHandClient::onSnapshot);
+        com.juicyslew.moonstation14.ms14.ingestion.IngestionCommitted.setClientHandler(BodyHandClient::ingestionCommitted);
         BodyHandActionResult.setClientHandler(BodyHandClient::onResult);
         BodyBlockUseResult.setClientHandler(BodyHandClient::onBlockUseResult);
         BodyWorldGridSnapshot.setClientHandler(BodyHandClient::onWorldSnapshot);
@@ -125,6 +145,7 @@ public final class BodyHandClient {
         POLICY.reset();
         WORLD.clear();
         worldResultHandRefreshPending = false;
+        altWorldStoragePressed = false;
         worldCrossPendingTarget = null;
         pendingWorldObservations.clear();
         worldObservationRetryAt.clear();
@@ -168,6 +189,7 @@ public final class BodyHandClient {
             WORLD.clear();
             worldCrossPendingTarget = null;
             POLICY.suspend();
+            com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.clearPredictions();
             if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
             POPUPS.clear();
             POINTER.authorityClear();
@@ -186,6 +208,7 @@ public final class BodyHandClient {
             WORLD.clear();
             worldCrossPendingTarget = null;
             POLICY.suspend();
+            com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.clearPredictions();
             if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
             POPUPS.clear();
             POINTER.authorityClear();
@@ -203,6 +226,7 @@ public final class BodyHandClient {
         clock++;
         reconcile();
         if (cameraBody == null) {
+            altWorldStoragePressed = false;
             while (DROP.consumeClick()) { }
             while (SELECT_HAND.consumeClick()) { }
             while (STORAGE.consumeClick()) { }
@@ -221,6 +245,8 @@ public final class BodyHandClient {
         boolean inventory = INVENTORY.consumeClick();
         boolean alternateWorldUse = ALTERNATE_WORLD_USE.consumeClick();
         boolean worldStorage = WORLD_STORAGE.consumeClick();
+        boolean altWorldStorage = altWorldStoragePressed;
+        altWorldStoragePressed = false;
         boolean equipBag = EQUIP_BAG.consumeClick();
         boolean equipBelt = EQUIP_BELT.consumeClick();
         var mc = net.minecraft.client.Minecraft.getInstance();
@@ -282,7 +308,8 @@ public final class BodyHandClient {
         }
         boolean handUseRequested = false;
         if (togglePull && !controlDown() && !shiftDown() && !altDown()) togglePull();
-        var worldGesture = BodyInputGesturePolicy.dispatch(false, true, equipBag, equipBelt, alternateWorldUse, worldStorage);
+        var worldGesture = BodyInputGesturePolicy.dispatch(false, true, equipBag, equipBelt,
+                alternateWorldUse, worldStorage, altWorldStorage);
         if (worldGesture == BodyInputGesturePolicy.Route.SMART_BAG) smartStorage(false);
         else if (worldGesture == BodyInputGesturePolicy.Route.SMART_BELT) smartStorage(true);
         else if (worldGesture == BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE) alternateWorldUse();
@@ -363,6 +390,9 @@ public final class BodyHandClient {
         }
         if (event.getAction() == GLFW.GLFW_RELEASE) return;
         if (event.getAction() != GLFW.GLFW_PRESS) return;
+        // KeyMapping's modifier-aware lookup may reject this E press before queuing the
+        // ALT+E mapping. Capture the modifier at the press event (not next client tick).
+        if (WORLD_STORAGE.matches(event.getKey(), event.getScanCode()) && altDown()) altWorldStoragePressed = true;
         // Key mappings queue modifier-validated clicks; tick dispatches them after UI gating.
     }
 
@@ -1264,12 +1294,27 @@ public final class BodyHandClient {
                 && target == null) { POLICY.noItemUnderCursor(clock); return false; }
         long sequence = POLICY.action(clock);
         if (sequence == 0) return false;
+        var ingestionDuration = predictionDuration(action, active, target);
+        if (ingestionDuration > 0 && cameraBody != null)
+            com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.predictStart(sequence,cameraBody.getUUID(),ingestionDuration);
         PacketDistributor.sendToServer(new BodyHandActionRequest(action, active.id(), snapshot.epoch(),
                 sequence, snapshot.revision(), target,
                 expectedToken));
         if (action == BodyHandActionRequest.Action.PRIME_GRENADE || action == BodyHandActionRequest.Action.USE_IN_HAND)
             POLICY.markUse(sequence);
         return true;
+    }
+
+    private static int predictionDuration(BodyHandActionRequest.Action action, BodyHandStateSnapshot.Hand active, UUID target) {
+        net.minecraft.resources.ResourceLocation itemId=null;
+        if(action==BodyHandActionRequest.Action.USE_IN_HAND && active.itemId()!=null)
+            itemId=net.minecraft.resources.ResourceLocation.tryParse(active.itemId());
+        else if(action==BodyHandActionRequest.Action.ALTERNATE_TARGET && active.token()==null && target!=null && cameraBody!=null) {
+            var item=cameraBody.level().getEntitiesOfClass(ItemEntity.class,cameraBody.getBoundingBox().inflate(6),e->e.getUUID().equals(target)).stream().findFirst().orElse(null);
+            if(item!=null) itemId=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item.getItem().getItem());
+        }
+        var profile=itemId==null?null:com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.clientLookup(itemId);
+        return profile==null?0:profile.delayTicks();
     }
 
     /** Only a nomination: server ray, reach, block occlusion, and item identity are authoritative. */
@@ -1312,6 +1357,9 @@ public final class BodyHandClient {
         if (sequence == 0) return false;
         PacketDistributor.sendToServer(BodyHandActionRequest.sipPuddle(active.id(), snapshot.epoch(), sequence,
                 snapshot.revision(), pos));
+        var puddle=com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.clientLookup(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14","puddle"));
+        if(puddle!=null && cameraBody!=null) com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.predictStart(sequence,cameraBody.getUUID(),puddle.delayTicks());
         return true;
     }
 
@@ -1394,6 +1442,8 @@ public final class BodyHandClient {
     private static void onResult(BodyHandActionResult result) {
         reconcile();
         boolean correlated = POLICY.result(result, clock);
+        if(correlated) com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.actionResult(
+                result.sequence(), result.reason() == BodyHandActionResult.Reason.OK);
         var transition = StoragePopupLifecycle.transition(correlated, result);
         if (transition == null) return;
         var sourceWindow = POPUPS.window(transition.source());

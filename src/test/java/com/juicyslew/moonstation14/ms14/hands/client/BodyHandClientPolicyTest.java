@@ -17,6 +17,10 @@ class BodyHandClientPolicyTest {
         assertEquals(BodyInputGesturePolicy.Route.SMART_BELT, BodyInputGesturePolicy.resolve(false, true, false, false));
         assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE, BodyInputGesturePolicy.resolve(false, false, true, false));
         assertEquals(BodyInputGesturePolicy.Route.NORMAL_WORLD_USE, BodyInputGesturePolicy.resolve(false, false, false, true));
+        assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE,
+                BodyInputGesturePolicy.resolve(false, false, false, false, true));
+        assertEquals(BodyInputGesturePolicy.Route.SMART_BELT,
+                BodyInputGesturePolicy.resolve(false, true, false, true, true));
         assertEquals(BodyInputGesturePolicy.Route.NONE, BodyInputGesturePolicy.resolve(false, false, false, false));
         // An independently rebound alternate mapping wins over the ordinary world-use mapping.
         assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE, BodyInputGesturePolicy.resolve(false, false, true, true));
@@ -28,6 +32,22 @@ class BodyHandClientPolicyTest {
                 BodyInputGesturePolicy.dispatch(false, false, false, false, true, false));
         assertEquals(BodyInputGesturePolicy.Route.SMART_BAG,
                 BodyInputGesturePolicy.dispatch(false, true, true, false, true, true));
+        // The production seven-flag dispatch retains press-captured ALT+E even if neither
+        // independently mapped click was queued by NeoForge.
+        assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE,
+                BodyInputGesturePolicy.dispatch(false, true, false, false, false, false, true));
+        assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE,
+                BodyInputGesturePolicy.dispatch(false, true, false, false, false, true, true));
+        assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE,
+                BodyInputGesturePolicy.dispatch(false, true, false, false, true, false, true));
+        assertEquals(BodyInputGesturePolicy.Route.NONE,
+                BodyInputGesturePolicy.dispatch(true, true, false, false, false, false, true));
+        assertEquals(BodyInputGesturePolicy.Route.NONE,
+                BodyInputGesturePolicy.dispatch(false, false, false, false, false, false, true));
+        assertEquals(BodyInputGesturePolicy.Route.NORMAL_WORLD_USE,
+                BodyInputGesturePolicy.dispatch(false, true, false, false, false, true, false));
+        assertEquals(BodyInputGesturePolicy.Route.SMART_BELT,
+                BodyInputGesturePolicy.dispatch(false, true, false, true, false, true, false));
     }
 
     @Test void nativeInventorySuppressionRequiresCommittedControlledBodyAndNativeScreen() {
@@ -431,6 +451,34 @@ class BodyHandClientPolicyTest {
         assertTrue(policy.accept(new BodyHandStateSnapshot(0, retry, BodyHandStateSnapshot.Reason.OK,
                 ACCOUNT, BODY, 7, 4, "left", hands)));
         assertNotNull(policy.hudSnapshot());
+    }
+
+    @Test void externalTimedCommitRetainsHudButRejectsOldQueryAndRefreshesImmediately() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        long first = policy.query(1);
+        var state = snapshot(0, first, ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(state));
+        long stale = policy.query(42);
+        assertNotEquals(0, stale);
+        policy.externalTimedCompletion();
+        assertNull(policy.snapshot());
+        assertSame(state, policy.hudSnapshot());
+        long fresh = policy.query(43);
+        assertTrue(fresh > stale);
+        assertFalse(policy.accept(snapshot(0, stale, ACCOUNT, BODY, 7)));
+        assertTrue(policy.accept(snapshot(0, fresh, ACCOUNT, BODY, 7)));
+    }
+
+    @Test void externalTimedCommitPreservesActionCorrelationUntilItsResult() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        long action = policy.action(2);
+        policy.externalTimedCompletion();
+        assertEquals(0, policy.query(3));
+        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 4));
+        assertNotEquals(0, policy.query(4));
     }
 
     @Test void handChangedBlockUseRequiresFreshProofBeforeAction() {

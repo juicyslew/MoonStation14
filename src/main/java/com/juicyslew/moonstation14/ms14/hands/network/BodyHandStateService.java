@@ -44,6 +44,16 @@ public final class BodyHandStateService {
         if (gate != null) gate.clearIssued();
     }
 
+    public static void ingestionCommitted(ServerPlayer actor, java.util.UUID bodyId, long controlEpoch) {
+        if (actor == null || bodyId == null || controlEpoch <= 0) return;
+        var current = HandActorAuthority.resolve(actor).orElse(null);
+        if (current == null || !current.body().getUUID().equals(bodyId) || current.epoch() != controlEpoch
+                || !HandActorAuthority.revalidate(actor, current)) return;
+        requireFreshQuery(actor);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(actor,
+                new com.juicyslew.moonstation14.ms14.ingestion.IngestionCommitted(bodyId, controlEpoch));
+    }
+
     public static BodyHandStateSnapshot query(ServerPlayer actor, BodyHandStateQuery query) {
         QueryGate gate = GATES.get(actor);
         if (gate != null) gate.clearIssued();

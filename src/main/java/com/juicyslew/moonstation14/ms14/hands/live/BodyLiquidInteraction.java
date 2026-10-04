@@ -141,17 +141,25 @@ public final class BodyLiquidInteraction {
         if (auth.isEmpty()) return Result.DENIED;
         var authority = auth.orElseThrow(); LivingEntity body = authority.body();
         return sipBody(body, worldTargetId, hand, token, revision,
-                () -> HandActorAuthority.revalidate(actor, authority));
+                () -> HandActorAuthority.revalidate(actor, authority), false, 0);
     }
 
     /** Body-owned route for trusted callers; world sipping does not require an occupied hand. */
     static Result sipOwned(LivingEntity body, UUID worldTargetId, String hand, String token, long revision,
                            BooleanSupplier authorityValid) {
-        return sipBody(body, worldTargetId, hand, token, revision, authorityValid);
+        return sipBody(body, worldTargetId, hand, token, revision, authorityValid, false, 0);
+    }
+
+    /** Trusted server-thread completion seam for a previously-timed sip. */
+    public static Result sipTimedOwned(LivingEntity body, UUID worldTargetId, String hand, String token,
+                                       long currentRevision, int doseCents, BooleanSupplier authorityValid) {
+        if (doseCents <= 0) return Result.DENIED;
+        return sipBody(body, worldTargetId, hand, token, currentRevision, authorityValid, true, doseCents);
     }
 
     private static Result sipBody(LivingEntity body, @Nullable UUID worldTargetId, String hand,
-                                  @Nullable String token, long revision, BooleanSupplier authorityValid) {
+                                  @Nullable String token, long revision, BooleanSupplier authorityValid,
+                                  boolean timed, int doseCents) {
         if (body == null || hand == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || level.getServer() == null || !level.getServer().isSameThread()
                 || !CharacterControlSystem.canAct(body) || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
@@ -160,14 +168,20 @@ public final class BodyLiquidInteraction {
         if (character == null || character.component(MouthComponent.class).isEmpty() || !StomachSystem.isEligible(body)
                 || BodySystem.current(body).isEmpty()) return Result.DENIED;
         long now = level.getServer().overworld().getGameTime();
-        if (now < SIP_COOLDOWN.getOrDefault(body.getUUID(), 0L)) return Result.DENIED;
+        if (!timed && now < SIP_COOLDOWN.getOrDefault(body.getUUID(), 0L)) return Result.DENIED;
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        if (before == null || !before.compatible(body) || before.revision() != revision || !before.activeHand().equals(hand)) return Result.DENIED;
+        if (before == null || !before.compatible(body) || before.revision() != revision
+                || !timed && !before.activeHand().equals(hand)) return Result.DENIED;
         ItemStack held = before.stackCopy(hand).orElse(null);
         boolean worldSource = worldTargetId != null;
         ItemToken ownedToken = null;
         if (worldSource) {
-            if (held != null || before.reservation(hand).isPresent()) return Result.DENIED;
+            if (!timed && (held != null || before.reservation(hand).isPresent())) return Result.DENIED;
+            if (timed && held != null) {
+                String currentToken = before.token(hand).orElse(null);
+                if (currentToken == null || token != null && !token.equals(currentToken)) return Result.DENIED;
+                token = currentToken;
+            }
         } else {
             if (!reagentStack(held) || token == null || !before.token(hand).filter(token::equals).isPresent()) return Result.DENIED;
             try { ownedToken = new ItemToken(token); } catch (RuntimeException ex) { return Result.DENIED; }
@@ -175,13 +189,14 @@ public final class BodyLiquidInteraction {
         ItemStack oldWorldStack = null;
         ItemStack sourceStack = held; ItemEntity world = null;
         if (worldTargetId != null) {
-            if (BodyItemTargetProbe.probeSelected(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH) == null) return Result.DENIED;
+            if (!(timed ? BodyItemTargetProbe.loadedReachableItem(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH)
+                    : BodyItemTargetProbe.probeSelected(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH) != null)) return Result.DENIED;
             Entity found = level.getEntity(worldTargetId);
             if (!(found instanceof ItemEntity item) || !(item instanceof LooseItemEntity) || item.getTarget() != null || item.hasPickUpDelay()
                     || !reagentStack(item.getItem())) return Result.DENIED;
             world = item; oldWorldStack = item.getItem().copy(); sourceStack = oldWorldStack.copy();
         }
-        IReagentTrait trait = (IReagentTrait) sourceStack.getItem(); Object holder = world == null ? sourceStack : sourceStack;
+        Object holder = sourceStack;
         var bridge = ReagentSystem.bridgeForHolder(holder); if (bridge == null) return Result.DENIED;
         ReagentAttachment src = MS14Provider.getDetached(holder, bridge), stomach = MS14Provider.getDetached(body, MS14Bridges.STOMACH);
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(src.getMap(), level, "sip source")
@@ -189,8 +204,10 @@ public final class BodyLiquidInteraction {
         var srcBefore = MS14Provider.snapshot(src); var stomachBefore = MS14Provider.snapshot(stomach);
         var stomachAttachment = body.getExistingDataOrNull(ModDataAttachments.STOMACH.get());
         LiquidInteractionCapability.TransferPlan plan;
-        try { plan = LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(stomach.getMap()),
-                LiquidInteractionCapability.STOMACH_CAPACITY_CENTS); } catch (RuntimeException ex) { return Result.DENIED; }
+        try { plan = timed
+                ? LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(stomach.getMap()), LiquidInteractionCapability.STOMACH_CAPACITY_CENTS, doseCents)
+                : LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(stomach.getMap()), LiquidInteractionCapability.STOMACH_CAPACITY_CENTS);
+        } catch (RuntimeException ex) { return Result.DENIED; }
         if (plan.transferredCents() == 0) return Result.DENIED;
         Map<ResourceKey<ReagentData>, Long> expectedStomach = plan.destinationAfter();
         ItemStack stagedSource = null;
@@ -198,7 +215,7 @@ public final class BodyLiquidInteraction {
             ItemStack replacement = held.copy(); if (!publishStackReagents(replacement, replacement, plan.sourceAfter())) return Result.DENIED;
             stagedSource = replacement;
             LiveHands next = before.replaceOwnedComponents(revision, hand, ownedToken, replacement).orElse(null);
-            if (next == null || !sipStillValid(body, level, before, revision, hand, token, held, authorityValid)
+            if (next == null || !sipStillValid(body, level, before, revision, hand, token, held, authorityValid, timed)
                     || !stomachUnchanged(body, stomachAttachment, stomachBefore)) return Result.DENIED;
             try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next); } catch (RuntimeException ignored) { }
             if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next) {
@@ -208,8 +225,9 @@ public final class BodyLiquidInteraction {
         } else {
             ItemStack reduced = sourceStack.copy();
             if (!publishStackReagents(reduced, reduced, plan.sourceAfter()) || reduced.isEmpty()
-                    || !sipStillValid(body, level, before, revision, hand, token, held, authorityValid)
-                    || BodyItemTargetProbe.probeSelected(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH) == null
+                    || !sipStillValid(body, level, before, revision, hand, token, held, authorityValid, timed)
+                    || !(timed ? BodyItemTargetProbe.loadedReachableItem(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH)
+                    : BodyItemTargetProbe.probeSelected(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH) != null)
                     || !same(oldWorldStack, world.getItem()) || !stomachUnchanged(body, stomachAttachment, stomachBefore)
                     || !authorityValid.getAsBoolean()) return Result.DENIED;
             stagedSource = reduced;
@@ -222,7 +240,7 @@ public final class BodyLiquidInteraction {
             boolean sourceOwned = world == null
                     ? committedHands != null && committedHands.stackCopy(hand).filter(s -> same(committedSource, s)).isPresent()
                         && committedHands.token(hand).filter(token::equals).isPresent()
-                    : sipStillValid(body, level, before, revision, hand, token, held, authorityValid);
+                    : sipStillValid(body, level, before, revision, hand, token, held, authorityValid, timed);
             if (!sourceOwned
                     || !stomachUnchanged(body, stomachAttachment, stomachBefore)
                     || world != null && (level.getEntity(world.getUUID()) != world || !same(stagedSource, world.getItem()))
@@ -239,7 +257,7 @@ public final class BodyLiquidInteraction {
             return Result.RECOVERY_REQUIRED;
         }
         EntityActivitySystem.update(body, EntityActivity.REAGENT_METABOLISM, true);
-        SIP_COOLDOWN.put(body.getUUID(), now + 20L);
+        if (!timed) SIP_COOLDOWN.put(body.getUUID(), now + 20L);
         float pitch = 0.75F + body.getRandom().nextFloat() * 0.5F;
         level.playSound(null, body.getX(), body.getY(), body.getZ(), ModSounds.DRINK.get(), SoundSource.PLAYERS,
                 0.7943282F, pitch);
@@ -274,11 +292,11 @@ public final class BodyLiquidInteraction {
     }
 
     private static boolean sipStillValid(LivingEntity body, ServerLevel level, LiveHands before, long revision,
-                                         String hand, String token, ItemStack held, BooleanSupplier authorityValid) {
+                                         String hand, String token, ItemStack held, BooleanSupplier authorityValid, boolean timed) {
         if (authorityValid == null || !authorityValid.getAsBoolean() || body.level() != level || body.isRemoved()
                 || !body.isAlive() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
-                || !before.compatible(body) || before.revision() != revision || !before.activeHand().equals(hand)) return false;
+                || !before.compatible(body) || before.revision() != revision || !timed && !before.activeHand().equals(hand)) return false;
         if (token == null) return before.stackCopy(hand).isEmpty() && before.reservation(hand).isEmpty();
         return before.token(hand).filter(token::equals).isPresent() && before.stackCopy(hand).filter(s -> same(held, s)).isPresent();
     }
