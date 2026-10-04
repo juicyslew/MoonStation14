@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
@@ -9,7 +10,6 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -20,12 +20,12 @@ import java.util.UUID;
 /** Value-level admission cases shared by first enrollment and living-body reconnect.
  * A GameTest fake is checked only for denial, never used to claim connected authority.
  */
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"lifecycle", "character", "carrier"})
 public final class LifecycleCarrierAdmissionGameTests {
     private LifecycleCarrierAdmissionGameTests() { }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void emptyFirstJoinAndReconnectRemainEligible(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         require(CarrierHandInventoryGate.allows(fixture(account, false, null, empty(36))),
@@ -41,7 +41,7 @@ public final class LifecycleCarrierAdmissionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void dirtyAndMismatchedCarrierDeniedWithoutChangingInventory(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         var park = new CreativeParkedInventory(account, CreativeInventorySnapshot.capture(

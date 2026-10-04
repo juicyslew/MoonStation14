@@ -11,16 +11,16 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"hands", "air-alarm", "ventilation"})
 @PrefixGameTestTemplate(false)
 public final class AirAlarmBodyReachGameTests {
     private AirAlarmBodyReachGameTests() { }
 
     // Exercise only the body-side geometric gate; this is deliberately not an authenticated menu test.
-    @GameTest(template = "empty", batch = "air_alarm_body_reach_isolated")
+@GameTest(template = "empty", batch = "air_alarm_body_reach_isolated", templateNamespace = "moonstation14")
     public static void reachesActualAlarmShapeIndependentOfAimAndFailsClosed(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos alarmPos = helper.absolutePos(new BlockPos(5, 2, 5));

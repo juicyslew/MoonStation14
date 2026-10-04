@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.quarantine;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.mojang.authlib.GameProfile;
@@ -13,21 +15,20 @@ import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.UUID;
 
 /** Unregistered ServerPlayers are inventory fixtures only, never connected account/body authority. */
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "lifecycle"})
 public final class CreativeCarrierTransitionGameTests {
     private static final CreativeCarrierTransition.FixtureWriteHook NO_HOOK = (player, slot, stack) -> { };
 
     private CreativeCarrierTransitionGameTests() { }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void unregisteredFixtureCannotUseProductionEntryPoints(GameTestHelper helper) {
         ServerPlayer player = fixture(helper, UUID.randomUUID());
         ItemStack item = new ItemStack(Items.DIAMOND, 3);
@@ -44,7 +45,7 @@ public final class CreativeCarrierTransitionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void allSlotsParkSaveLoadAndRestore(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         ServerPlayer player = fixture(helper, account);
@@ -87,7 +88,7 @@ public final class CreativeCarrierTransitionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void zeroCountResiduesAreAbsentAndReferencesRollback(GameTestHelper helper) {
         ServerPlayer player = fixture(helper, UUID.randomUUID());
         ItemStack droppedCarrier = new ItemStack(Items.STONE, 4);
@@ -133,7 +134,7 @@ public final class CreativeCarrierTransitionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void occupiedTargetsAndInjectedFailures(GameTestHelper helper) {
         ServerPlayer player = fixture(helper, UUID.randomUUID());
         player.getInventory().items.set(0, new ItemStack(Items.DIAMOND, 5));

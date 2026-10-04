@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.power.ui.body.ApcBodyTargetProbe;
@@ -12,12 +14,12 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "storage"})
 public final class ApcBodyTargetProbeGameTests {
     private ApcBodyTargetProbeGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void loadedBodyOriginAndRejectsSpoofs(GameTestHelper helper) {
         BlockPos target = helper.absolutePos(new BlockPos(4, 1, 2));
         BlockPos bodyPos = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -57,7 +59,7 @@ public final class ApcBodyTargetProbeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void absentMarginChunkDeniesProbeWithoutLoading(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));

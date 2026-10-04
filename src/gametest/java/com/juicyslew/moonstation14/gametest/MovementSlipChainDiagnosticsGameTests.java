@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
@@ -27,7 +28,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,14 +37,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"movement", "slip", "diagnostics"})
 public final class MovementSlipChainDiagnosticsGameTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(MovementSlipChainDiagnosticsGameTests.class);
 
     private MovementSlipChainDiagnosticsGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void distinctSpaceLubeSourcesDoNotRelaunchWhileSliding(GameTestHelper helper) {
         int[] sourceX = {2, 5};
         List<PuddleBlockEntity> puddles = new ArrayList<>();
@@ -166,7 +166,7 @@ public final class MovementSlipChainDiagnosticsGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void separatedSuperSlipperySourcesRelaunchAfterContactExit(GameTestHelper helper) {
         int[] sourceX = {2, 5};
         for (int x = 1; x <= 7; x++) helper.setBlock(new BlockPos(x, 0, 2), Blocks.STONE);
@@ -238,7 +238,7 @@ public final class MovementSlipChainDiagnosticsGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void clearingKnockdownDoesNotRearmLatchedPuddleUntilExitAndReentry(GameTestHelper helper) {
         BlockPos sourceLocal = new BlockPos(4, 1, 2);
         BlockPos floorLocal = new BlockPos(3, 0, 2);

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.atmos.piping;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -9,18 +10,17 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "hands"})
 @PrefixGameTestTemplate(false)
 public final class FunctionalExposedPipePlacementGameTests {
     private FunctionalExposedPipePlacementGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void crossingLaneAdmissionPreservesExistingGasAndIdentity(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -58,7 +58,7 @@ public final class FunctionalExposedPipePlacementGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void cosmeticSameMaskAndSeededFreshLaneRollbackFailClosed(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -85,7 +85,7 @@ public final class FunctionalExposedPipePlacementGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void failedConsumptionRestorationRequiresConfirmedOriginal(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));

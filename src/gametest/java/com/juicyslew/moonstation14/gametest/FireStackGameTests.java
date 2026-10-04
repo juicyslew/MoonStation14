@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.EffectCommonData;
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
@@ -33,14 +34,13 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere", "chemistry", "damage"})
 public final class FireStackGameTests {
     private FireStackGameTests() {
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void flammableUsesScaleAndExistingMultiplier(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -57,7 +57,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
     public static void igniteOnlyChangesAuthoritativeState(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -120,7 +120,7 @@ public final class FireStackGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void igniteWithoutPositiveStacksIsQuietAndDoesNotMaterialize(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
         Villager absent = spawn(helper, 1);
@@ -152,7 +152,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void zeroScaleExtinguishClearsIgnitedBaseline(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -171,7 +171,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void extinguishAdjustsOffFireStacks(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -185,7 +185,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void newDryingActivityWaitsForNextTickSnapshot(GameTestHelper helper) {
         Villager stand = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -203,7 +203,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void fireCapabilityRejectsUnsupportedTargets(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
         Entity projectile = helper.spawn(EntityType.ARROW, new BlockPos(1, 1, 1));
@@ -228,7 +228,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
     public static void negativeStacksDryOnePerDueIntervalAndCleanUp(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -262,7 +262,7 @@ public final class FireStackGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
     public static void reconcileRehydratesPersistedDryingActivity(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         zombie.setData(ModDataAttachments.FIRE_STACK.get(),
@@ -301,7 +301,7 @@ public final class FireStackGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void unaffectedLivingEntityNeverMaterializesFireWork(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         long start = zombie.level().getGameTime();
@@ -321,7 +321,7 @@ public final class FireStackGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void dormantSavedFireSurvivesStaleDueAndReconciliation(GameTestHelper helper) {
         Villager host = spawn(helper, 1);
         FireStackAttachment saved = new FireStackAttachment(new FireStackComponent(-2f, false));
@@ -343,7 +343,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void reconciliationRestoresOnlyIgnitedFireActivity(GameTestHelper helper) {
         Villager ignited = spawn(helper, 1);
         Villager unlit = spawn(helper, 3);

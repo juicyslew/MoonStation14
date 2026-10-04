@@ -21,18 +21,18 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"power"})
 @PrefixGameTestTemplate(false)
 public final class ApcOverloadGameTests {
     private ApcOverloadGameTests() { }
 
-    @GameTest(template = "apc_debug_fixture", timeoutTicks = 320)
+    @GameTest(template = "apc_debug_fixture", timeoutTicks = 320, templateNamespace = "moonstation14")
     public static void twoWiredDebugLampsTripAndGoDarkThenReclose(GameTestHelper helper) {
         DebugFixture fixture = debugFixture(helper, true);
         helper.runAfterDelay(100, () -> {
@@ -58,7 +58,7 @@ public final class ApcOverloadGameTests {
         });
     }
 
-    @GameTest(template = "apc_debug_fixture", timeoutTicks = 200)
+    @GameTest(template = "apc_debug_fixture", timeoutTicks = 200, templateNamespace = "moonstation14")
     public static void oneWiredDebugLampStaysBelowTripThreshold(GameTestHelper helper) {
         DebugFixture fixture = debugFixture(helper, false);
         helper.runAfterDelay(100, () -> {
@@ -159,7 +159,7 @@ public final class ApcOverloadGameTests {
     }
 
     /** Transition guard proof using synthetic meter observations, independent of the wire fixture. */
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void breakerTransitionsIgnoreRejectedActionsAndRepeatedTripSamples(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -192,7 +192,7 @@ public final class ApcOverloadGameTests {
     }
 
     /** Protection proof uses deliberately synthetic BE meter observations, not a wire-path overload fixture. */
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void protectionTripsAfterContinuousMeterAndManualRecloseClearsLatch(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -227,7 +227,7 @@ public final class ApcOverloadGameTests {
     }
 
     /** Synthetic component IDs isolate projection behavior without a physical cable fixture. */
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void trippedCircuitIsDarkWhileSeparateCircuitRemainsLit(GameTestHelper helper) {
         var result = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), List.of(
                 new PowerLiveLoop.Apc("tripped", 1, true, 10, true, false, 0),
@@ -242,7 +242,7 @@ public final class ApcOverloadGameTests {
     }
 
     /** An open APC sharing the APC-tier component cannot suppress another APC's battery supply. */
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void healthyApcSuppliesLampOnSharedComponentAfterPeerTrips(GameTestHelper helper) {
         var result = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), List.of(
                 new PowerLiveLoop.Apc("tripped", 1, true, 10, true, false, 500_000),
@@ -259,7 +259,7 @@ public final class ApcOverloadGameTests {
     }
 
     /** Real connected HV/MV/APC graph with enough live lamps to trip the output meter. */
-    @GameTest(template = "power_overload_clear", timeoutTicks = 400)
+    @GameTest(template = "power_overload_clear", timeoutTicks = 400, templateNamespace = "moonstation14")
     public static void connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));

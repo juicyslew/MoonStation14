@@ -22,7 +22,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -30,12 +30,12 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"power", "storage", "persistence"})
 @PrefixGameTestTemplate(false)
 public final class CableStorageGameTests {
     private CableStorageGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void servicePersistsAllFacesAndFloorFinishDoesNotMutateRecords(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos host = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -82,7 +82,7 @@ public final class CableStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void spoolAndCutterConserveExactTierOnExactFace(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos host = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -106,7 +106,7 @@ public final class CableStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void ambiguousCutRequiresMatchingOffhandCoil(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos host = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -133,7 +133,7 @@ public final class CableStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void onlyFullSturdyHostsAreEligible(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos stone = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -146,7 +146,7 @@ public final class CableStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void changedHostCannotBeCutOrRefunded(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos host = helper.absolutePos(new BlockPos(2, 1, 2));

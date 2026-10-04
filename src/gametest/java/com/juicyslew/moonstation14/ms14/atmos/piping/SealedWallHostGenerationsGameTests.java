@@ -10,17 +10,17 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class SealedWallHostGenerationsGameTests {
     private SealedWallHostGenerationsGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void chunkWritesInvalidateOnlyRegisteredHostGenerations(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -62,7 +62,7 @@ public final class SealedWallHostGenerationsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void sealedSegmentAdmissionIsClickedOnlyAndQuarantinesReplacement(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -85,7 +85,7 @@ public final class SealedWallHostGenerationsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void failedAdmissionVerificationRollsBackWithoutGas(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));

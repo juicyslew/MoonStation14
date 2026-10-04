@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.VanillaPlayerDataInventoryView;
 import net.minecraft.core.RegistryAccess;
@@ -21,9 +22,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "storage"})
 public final class VanillaPlayerDataInventoryViewGameTests {
     private static final UUID ACCOUNT = UUID.fromString("00000000-0000-0000-0000-000000000042");
 
@@ -52,7 +52,7 @@ public final class VanillaPlayerDataInventoryViewGameTests {
         return CreativeInventorySnapshot.capture(main, armor, List.of(offhandItem), cursor, 8, List.of());
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void sparseVanillaAndCursorUnknown(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         CompoundTag data = player();
@@ -87,7 +87,7 @@ public final class VanillaPlayerDataInventoryViewGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void malformedPlayerdataFailsClosed(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         CompoundTag base = player();

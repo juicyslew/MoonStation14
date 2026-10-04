@@ -16,18 +16,18 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"storage", "hands"})
 @PrefixGameTestTemplate(false)
 public final class GridContentsGameTests {
     private GridContentsGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void codecsLegacyReadAndValidation(GameTestHelper helper) {
         ItemStack stack = new ItemStack(Items.STICK, 50);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal("kept native component"));
@@ -79,7 +79,7 @@ public final class GridContentsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void boundedCodecRejectsOversizedAndMalformedLists(GameTestHelper helper) {
         var ops = helper.getLevel().registryAccess().createSerializationContext(JsonOps.INSTANCE);
         List<GridContents.Entry> entries = new ArrayList<>();

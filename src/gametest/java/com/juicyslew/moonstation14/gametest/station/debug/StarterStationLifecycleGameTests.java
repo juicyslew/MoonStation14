@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest.station.debug;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.station.debug.StarterStationLayout;
@@ -20,10 +21,9 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"station"})
 @PrefixGameTestTemplate(false)
 public final class StarterStationLifecycleGameTests {
     private static final int MAX_WAIT_TICKS = 300;
@@ -31,7 +31,7 @@ public final class StarterStationLifecycleGameTests {
 
     private StarterStationLifecycleGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = MAX_WAIT_TICKS + MAX_RUNTIME_SETTLE_TICKS + 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = MAX_WAIT_TICKS + MAX_RUNTIME_SETTLE_TICKS + 20)
     public static void newWorldMarkerCompletesAndBuildsTiledStationInOverworld(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         if (!level.dimension().equals(Level.OVERWORLD))

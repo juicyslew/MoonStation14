@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
@@ -27,13 +29,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"movement", "grounded"})
 public final class GroundedHarnessSlipGameTests {
     private GroundedHarnessSlipGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void ownedHarnessSlipLaunchFollowsMotorVelocity(GameTestHelper helper) {
         for (int x = 1; x <= 10; x++) {
             for (int z = 1; z <= 6; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);

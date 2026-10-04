@@ -5,16 +5,16 @@ import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransiti
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Policy fixture: production supplies the exact RETURNING_GHOSTS owner and verified carrier. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleGhostReturnHandoffGameTests {
     private LifecycleGhostReturnHandoffGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void canceledGhostSwitchRestoresSafePark(GameTestHelper helper) {
         int[] writes = new int[3];
         boolean result = LifecycleDevelopmentMode.returningGhostSpectatorPolicy(true, GameType.CREATIVE, false,
@@ -28,7 +28,7 @@ public final class LifecycleGhostReturnHandoffGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void successfulGhostSwitchClearsClientBeforePlay(GameTestHelper helper) {
         int[] syncs = new int[1];
         int[] restores = new int[1];

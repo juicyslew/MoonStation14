@@ -9,15 +9,15 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character", "damage"})
 @PrefixGameTestTemplate(false)
 public final class GhostDamageImmunityGameTests {
     private GhostDamageImmunityGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void observerRejectsDirectAndEnvironmentalDamageButAllowsExplicitRemoval(GameTestHelper helper) {
         GhostMobHarnessEntity ghost = helper.spawn(GhostMobHarnessRegistration.getEntityType(), new BlockPos(1, 1, 1));
         var sources = helper.getLevel().damageSources();
@@ -42,7 +42,7 @@ public final class GhostDamageImmunityGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void ordinaryBodyRemainsDamageable(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         float initialHealth = body.getHealth();

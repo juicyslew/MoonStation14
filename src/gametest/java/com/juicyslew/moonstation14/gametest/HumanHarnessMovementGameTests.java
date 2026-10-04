@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
@@ -20,19 +21,18 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"movement", "character"})
 public final class HumanHarnessMovementGameTests {
     private static final double DT = .05d;
 
     private HumanHarnessMovementGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void realHumanVillagerMovesAndJumpsThroughHarnessMotor(GameTestHelper helper) {
         for (int x = 1; x <= 9; x++) {
             for (int z = 1; z <= 9; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -76,7 +76,7 @@ public final class HumanHarnessMovementGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void sharedWorldStepAppliesHumanAndPigProfiles(GameTestHelper helper) {
         for (int x = 1; x <= 20; x++) {
             for (int z = 1; z <= 20; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);

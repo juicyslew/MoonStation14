@@ -19,15 +19,15 @@ import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"movement", "character", "travel"})
 public final class HumanHarnessTravelOwnershipGameTests {
     private HumanHarnessTravelOwnershipGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void leasedPigAndVillagerKeepVanillaWalkAnimation(GameTestHelper helper) {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 6; z++) helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
@@ -121,7 +121,7 @@ public final class HumanHarnessTravelOwnershipGameTests {
         throw new GameTestAssertException("could not spawn an actor outside the pressure hazard observation window");
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void onlyMarkedVillagerLosesVanillaTravelOwnership(GameTestHelper helper) {
         for (int x = 1; x <= 7; x++) {
             for (int z = 1; z <= 7; z++) {
