@@ -7,7 +7,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistenc
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,12 +15,12 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Pure production-policy seams; GameTest fake players cannot claim a connected login. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleCreativeReconnectPolicyGameTests {
     private LifecycleCreativeReconnectPolicyGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void creativeUnmarkedParksBeforeCleanGate(GameTestHelper helper) {
         AtomicInteger parks = new AtomicInteger();
         require(LifecycleExistingBodyReconnect.admitCarrier(GameType.CREATIVE, false,
@@ -36,7 +36,7 @@ public final class LifecycleCreativeReconnectPolicyGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void existingMarkerAndNonCreativeNeverRepark(GameTestHelper helper) {
         AtomicInteger parks = new AtomicInteger();
         var park = (java.util.function.Supplier<CreativeCarrierTransition.Result>) () -> {
@@ -52,7 +52,7 @@ public final class LifecycleCreativeReconnectPolicyGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void canceledModeSwitchRestoresOnlyNewPark(GameTestHelper helper) {
         AtomicInteger restores = new AtomicInteger();
         AtomicInteger syncs = new AtomicInteger();
@@ -74,7 +74,7 @@ public final class LifecycleCreativeReconnectPolicyGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void offlineCreativeRefusalIsReadOnlyPolicyNotConnectedAdmission(GameTestHelper helper) {
         var denied = new CreativeCarrierTransition.Attempt(CreativeCarrierTransition.Result.DENIED,
                 true, CreativeCarrierSnapshotProbe.Reason.READY);
@@ -99,7 +99,7 @@ public final class LifecycleCreativeReconnectPolicyGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void pinnedOfflineClaimRejectsChangedRowAndConflictingMemory(GameTestHelper helper) {
         UUID account = UUID.randomUUID(), mind = UUID.randomUUID(), body = UUID.randomUUID();
         var saved = new SavedLifecycleProfile(1, account, "main", mind, body, "minecraft:overworld",

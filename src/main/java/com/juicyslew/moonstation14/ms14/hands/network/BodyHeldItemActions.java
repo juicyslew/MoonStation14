@@ -1,0 +1,39 @@
+package com.juicyslew.moonstation14.ms14.hands.network;
+
+import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.item.custom.AtmosphereAnalyzerItem;
+import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import net.minecraft.server.level.ServerPlayer;
+
+/** Extensible authoritative dispatcher for held-item interactions. */
+public final class BodyHeldItemActions {
+    private BodyHeldItemActions() { }
+
+    public static BodyHandActionResult.Reason use(ServerPlayer actor, BodyHandActionRequest request) {
+        if (actor == null || request == null || request.action() != BodyHandActionRequest.Action.USE_HELD)
+            return BodyHandActionResult.Reason.DENIED;
+        var resolved = HandActorAuthority.resolve(actor);
+        if (resolved.isEmpty()) return BodyHandActionResult.Reason.DENIED;
+        var authority = resolved.orElseThrow();
+        LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision()
+                || !request.handId().equals(hands.activeHand())
+                || !hands.handIds().contains(request.handId()) || !authority.handIds().contains(request.handId())
+                || !BodyWorldItemActions.expectedTokenMatches(request.expectedToken(), hands.token(request.handId()))
+                || !HandActorAuthority.revalidate(actor, authority)
+                || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                || hands.revision() != request.expectedRevision()) return BodyHandActionResult.Reason.DENIED;
+        var stack = hands.stackCopy(request.handId()).orElse(null);
+        if (stack == null || !(stack.getItem() instanceof AtmosphereAnalyzerItem)
+                || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level))
+            return BodyHandActionResult.Reason.DENIED;
+        AtmosphereAnalyzerItem.reportForBody(level, actor, authority.body(),
+                AtmosphereAnalyzerItem.eyeTarget(authority.body().getEyePosition()), null);
+        return BodyHandActionResult.Reason.OK;
+    }
+
+    public static BodyHandActionResult.Reason activate(ServerPlayer actor, BodyHandActionRequest request) {
+        return BodyHandActionResult.Reason.DENIED;
+    }
+}

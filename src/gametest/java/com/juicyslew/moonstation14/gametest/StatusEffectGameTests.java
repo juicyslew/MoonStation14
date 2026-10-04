@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.eventhooks.ModEventHooks;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
@@ -61,9 +62,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"status"})
 public final class StatusEffectGameTests {
     private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.StatusEffectData> JITTER =
             ModStatusEffects.createKey("jitter");
@@ -81,7 +81,7 @@ public final class StatusEffectGameTests {
     // GameTest clock advancement does not guarantee that a spawned ArmorStand is
     // ticked, especially when tests are activated in parallel placements.
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void unaffectedEntity(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         assertNoAttachment(stand);
@@ -103,7 +103,7 @@ public final class StatusEffectGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void delayedFiniteLifecycle(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         helper.startSequence()
@@ -134,7 +134,7 @@ public final class StatusEffectGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void activityGateControlsStatusTick(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         helper.startSequence()
@@ -170,7 +170,7 @@ public final class StatusEffectGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
     public static void staggeredReagentDispatch(GameTestHelper helper) {
         var bodyOnly = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         var stomachOnly = helper.spawn(EntityType.VILLAGER, new BlockPos(4, 1, 1));
@@ -251,7 +251,7 @@ public final class StatusEffectGameTests {
                 });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void permanentExplicitRemove(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         helper.startSequence()
@@ -275,7 +275,7 @@ public final class StatusEffectGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void playerDeathPolicyClearsAllStatusesAndProjection(GameTestHelper helper) {
         ServerPlayer player = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),
                 new GameProfile(UUID.randomUUID(), "death-policy-test"), ClientInformation.createDefault());
@@ -314,7 +314,7 @@ public final class StatusEffectGameTests {
                 });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void serverEffectHandlersUseAuthoritativeStatusAttachment(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -344,7 +344,7 @@ public final class StatusEffectGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void popupMessageRunsServerSideWithoutCreatingAttachments(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         EffectContext context = new EffectContext(helper.getLevel(), stand, 1f,
@@ -363,7 +363,7 @@ public final class StatusEffectGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void effectContextRejectsEntityFromAnotherLevel(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         var nether = helper.getLevel().getServer().getLevel(Level.NETHER);
@@ -377,7 +377,7 @@ public final class StatusEffectGameTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void statusDerivedHandlersCoverOperationsAndQuietNoOps(GameTestHelper helper) {
         ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(1, 1, 1));
         EffectSystem effects = EffectSystem.withDefaults();
@@ -495,7 +495,7 @@ public final class StatusEffectGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void knockdownUsesDedicatedStatusAndRejectsPhysicalProjections(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
         ArmorStand stand = spawn(helper);
@@ -605,7 +605,7 @@ public final class StatusEffectGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
     public static void movementSpeedModifierProjectsAndCleansIdempotently(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -761,7 +761,7 @@ public final class StatusEffectGameTests {
                 });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void persistedMovementProjectionRehydrates(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         ResourceKey<com.juicyslew.moonstation14.component.codec.json.StatusEffectData> movement =
@@ -797,7 +797,7 @@ public final class StatusEffectGameTests {
                 });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void distinctMovementStatusKeysStackWithoutCollision(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         ResourceKey<com.juicyslew.moonstation14.component.codec.json.StatusEffectData> first =
@@ -821,7 +821,7 @@ public final class StatusEffectGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void missingDefinitionInvalidatesOnce(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         ResourceKey<com.juicyslew.moonstation14.component.codec.json.StatusEffectData> missing =
@@ -851,7 +851,7 @@ public final class StatusEffectGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void entityNbtPersistence(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         helper.startSequence()
@@ -875,7 +875,7 @@ public final class StatusEffectGameTests {
                 });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void activityLifecycleAndEmptyPersistence(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         helper.startSequence()
@@ -931,7 +931,7 @@ public final class StatusEffectGameTests {
                 });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void persistedStateReconcilesActivity(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         ArmorStand[] reloaded = {null};

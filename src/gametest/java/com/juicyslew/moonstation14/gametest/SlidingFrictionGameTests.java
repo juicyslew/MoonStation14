@@ -25,7 +25,6 @@ import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.mojang.authlib.GameProfile;
 import org.slf4j.Logger;
@@ -33,14 +32,16 @@ import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 @PrefixGameTestTemplate(false)
+@GameTestTags({"movement", "slip"})
 public final class SlidingFrictionGameTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(SlidingFrictionGameTests.class);
 
     private SlidingFrictionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void frictionQueryTracksPuddleContentsAndIgnoresNoContact(GameTestHelper helper) {
         BlockPos floor = new BlockPos(2, 0, 2);
         BlockPos puddlePos = floor.above();
@@ -81,7 +82,7 @@ public final class SlidingFrictionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void liveTravelScalesGroundAccelerationAndRetention(GameTestHelper helper) {
         BlockPos puddlePos = new BlockPos(2, 1, 2);
         for (int x = 1; x <= 6; x++) {
@@ -116,7 +117,7 @@ public final class SlidingFrictionGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void travelUsesOneCapturedFrictionWhenLeavingPuddle(GameTestHelper helper) {
         BlockPos puddlePos = new BlockPos(2, 1, 2);
         for (int x = 1; x <= 6; x++) {

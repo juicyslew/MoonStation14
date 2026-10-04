@@ -12,6 +12,12 @@ import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
 import com.juicyslew.moonstation14.ms14.power.topology.DevicePort;
 import com.juicyslew.moonstation14.ms14.power.topology.PowerTopology;
 import com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState;
+import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity;
+import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock;
+import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationGasRuntime;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -33,6 +39,13 @@ public final class PowerRuntime {
     public static final double SOURCE_WATTS = 25_000;
     public static final double LAMP_WATTS = 100;
     private static final Map<ServerLevel, Set<BlockPos>> DEVICES = new WeakHashMap<>();
+    private static final Map<ServerLevel, Set<BlockPos>> VENTILATION_DEVICES = new WeakHashMap<>();
+    private static final Map<ServerLevel, Set<BlockPos>> AIR_ALARMS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, AlarmMeterSample>> ALARM_METERS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, VentMeterSample>> VENT_METERS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, VentilationPaidInterval.ReceiverSignature>> PREVIOUS_VENT_SIGNATURES = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, CompletedVentBudget>> COMPLETED_VENT_BUDGETS = new WeakHashMap<>();
+    private static final Map<ServerLevel, VentilationPaidInterval> PAID_INTERVALS = new WeakHashMap<>();
     private static final Map<ServerLevel, Long> LAST_SOLVE = new WeakHashMap<>();
     private static final Set<ServerLevel> RESOLVE_AFTER_TRIP = Collections.newSetFromMap(new WeakHashMap<>());
     private static final Set<ServerLevel> RESOLVE_AFTER_TOPOLOGY = Collections.newSetFromMap(new WeakHashMap<>());
@@ -42,6 +55,16 @@ public final class PowerRuntime {
     private record ApcOutputSample(long sampleTick, long topologyGeneration, boolean graphKnown,
                                    double outputWatts, PowerDeviceBlockEntity device, long breakerRevision,
                                    ApcVisualState visualState, long visualTick, long visualGeneration) { }
+    private record VentMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
+                                     VentilationDeviceBlockEntity vent, PowerDeviceBlockEntity apc, long breakerRevision) { }
+    private record AlarmMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
+                                    AirAlarmBlockEntity alarm, AirAlarmData prototype,
+                                    PowerDeviceBlockEntity apc, long breakerRevision) { }
+    private record CompletedVentBudget(long solveTick, VentilationPaidInterval.WorkBudget budget,
+                                       PowerDeviceBlockEntity apc, long breakerRevision, long topologyGeneration) { }
+    public record VentMeterObservation(boolean known, double deliveredWatts) {
+        public static final VentMeterObservation UNKNOWN = new VentMeterObservation(false, 0);
+    }
     private PowerRuntime() { }
 
     public static void register(IEventBus bus) { bus.register(PowerRuntime.class); }
@@ -54,10 +77,170 @@ public final class PowerRuntime {
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
 
+    public static void ventilationDeviceChanged(ServerLevel level, BlockPos pos) {
+        if (!PowerSimulationGate.isEnabled()) return;
+        PowerGraphService.invalidateLampChoice(level, pos);
+        VENTILATION_DEVICES.computeIfAbsent(level, ignored -> new LinkedHashSet<>()).add(pos.immutable());
+        VENT_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
+        COMPLETED_VENT_BUDGETS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    public static void airAlarmChanged(ServerLevel level, BlockPos pos) {
+        if (!PowerSimulationGate.isEnabled()) return;
+        PowerGraphService.invalidateLampChoice(level, pos);
+        AIR_ALARMS.computeIfAbsent(level, ignored -> new LinkedHashSet<>()).add(pos.immutable());
+        ALARM_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    public static void airAlarmRemoved(ServerLevel level, BlockPos pos) {
+        PowerGraphService.invalidateLampChoice(level, pos);
+        Set<BlockPos> alarms = AIR_ALARMS.get(level);
+        if (alarms != null) alarms.remove(pos);
+        Map<BlockPos, AlarmMeterSample> meters = ALARM_METERS.get(level);
+        if (meters != null) meters.remove(pos);
+        if (PowerSimulationGate.isEnabled()) PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    /** Observation, not power authorization: only a fresh, fully delivered 100 W solve is powered. */
+    public static VentMeterObservation airAlarmMeter(ServerLevel level, AirAlarmBlockEntity expectedBE) {
+        if (!PowerSimulationGate.isEnabled() || expectedBE == null || expectedBE.isRemoved())
+            return VentMeterObservation.UNKNOWN;
+        BlockPos pos = expectedBE.getBlockPos();
+        if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
+                || chunk.getBlockEntity(pos) != expectedBE
+                || !(expectedBE.getBlockState().getBlock() instanceof AirAlarmBlock)
+                || !PowerGraphService.topologyReady(level)) return VentMeterObservation.UNKNOWN;
+        AlarmMeterSample sample = ALARM_METERS.getOrDefault(level, Map.of()).get(pos);
+        if (sample == null || sample.alarm() != expectedBE || sample.prototype() != expectedBE.prototype()
+                || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
+                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE
+                || sample.apc() == null || sample.apc().isRemoved() || !sample.apc().breakerClosed()
+                || sample.apc().breakerRevision() != sample.breakerRevision()
+                || sample.deliveredWatts() != sample.prototype().apcPowerReceiver().requestedWatts())
+            return VentMeterObservation.UNKNOWN;
+        BlockPos apcPos = sample.apc().getBlockPos();
+        if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk apcChunk)
+                || apcChunk.getBlockEntity(apcPos) != sample.apc()
+                || !(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock apcBlock)
+                || apcBlock.kind() != PowerDeviceKind.APC) return VentMeterObservation.UNKNOWN;
+        return new VentMeterObservation(true, sample.deliveredWatts());
+    }
+
+    public static void ventilationDeviceRemoved(ServerLevel level, BlockPos pos) {
+        PowerGraphService.invalidateLampChoice(level, pos);
+        VentilationDeviceBlockEntity oldVent = findVentIdentity(level, pos);
+        VentilationGasRuntime.forgetDevice(level, oldVent);
+        Set<BlockPos> indexed = VENTILATION_DEVICES.get(level);
+        if (indexed != null) indexed.remove(pos);
+        Map<BlockPos, VentMeterSample> meters = VENT_METERS.get(level);
+        if (meters != null) meters.remove(pos);
+        Map<BlockPos, VentilationPaidInterval.ReceiverSignature> previous = PREVIOUS_VENT_SIGNATURES.get(level);
+        if (previous != null) previous.remove(pos);
+        Map<BlockPos, CompletedVentBudget> budgets = COMPLETED_VENT_BUDGETS.get(level);
+        if (budgets != null) budgets.remove(pos);
+        VentilationPaidInterval intervals = PAID_INTERVALS.get(level);
+        if (intervals != null) intervals.forget(oldVent);
+        if (PowerSimulationGate.isEnabled()) PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    /** Read-only budget inspection; grants exist only during the solve tick that created them. */
+    public static double peekCompletedVentilationSeconds(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
+        CompletedVentBudget completed = completedBudget(level, expectedBE);
+        return completed == null ? 0 : completed.budget().elapsedSeconds();
+    }
+
+    /** Gas work that may run synchronously after a completed electrical interval is consumed. */
+    @FunctionalInterface
+    public interface CompletedVentilationWork {
+        /** Return true only when the callback actually transferred gas. */
+        boolean perform(double paidElapsedSeconds);
+    }
+
+    /**
+     * Run gas work using the entire completed interval, after validating and consuming its
+     * single-use electrical authorization. The callback receives no authority it can replay.
+     */
+    public static boolean performCompletedVentilationWork(ServerLevel level,
+            VentilationDeviceBlockEntity expectedBE, CompletedVentilationWork callback) {
+        if (callback == null) return false;
+        CompletedVentBudget completed = completedBudget(level, expectedBE);
+        if (completed == null || completedBudget(level, expectedBE) != completed) return false;
+        double elapsedSeconds = completed.budget().elapsedSeconds();
+        if (completed.budget().consume(elapsedSeconds).isEmpty()) return false;
+        return callback.perform(elapsedSeconds);
+    }
+
+    /** Diagnostic-only consumption; callers must not use its result as gas-work authority. */
+    @Deprecated
+    public static Optional<VentilationPaidInterval.IntervalResult> consumeCompletedVentilationSeconds(
+            ServerLevel level, VentilationDeviceBlockEntity expectedBE, double requestedSeconds) {
+        CompletedVentBudget completed = completedBudget(level, expectedBE);
+        if (completed == null || !level.getServer().isSameThread()) return Optional.empty();
+        if (completedBudget(level, expectedBE) != completed) return Optional.empty();
+        return completed.budget().consume(requestedSeconds);
+    }
+
+    private static CompletedVentBudget completedBudget(ServerLevel level, VentilationDeviceBlockEntity vent) {
+        if (level == null || vent == null || !level.getServer().isSameThread()
+                || !PowerSimulationGate.isEnabled() || vent.isRemoved()) return null;
+        BlockPos pos = vent.getBlockPos();
+        if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
+                || chunk.getBlockEntity(pos) != vent || !PowerGraphService.topologyReady(level)) return null;
+        CompletedVentBudget result = COMPLETED_VENT_BUDGETS.getOrDefault(level, Map.of()).get(pos);
+        if (result == null || result.solveTick() != serverTickSequence) return null;
+        VentMeterSample sample = VENT_METERS.getOrDefault(level, Map.of()).get(pos);
+        if (!ventilationMeter(level, vent).known() || sample == null || sample.vent() != vent
+                || sample.apc() != result.apc() || sample.breakerRevision() != result.breakerRevision()
+                || sample.topologyGeneration() != result.topologyGeneration()
+                || result.apc().breakerRevision() != result.breakerRevision()
+                || !result.apc().breakerClosed()) return null;
+        return result;
+    }
+
+    private static VentilationDeviceBlockEntity findVentIdentity(ServerLevel level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return null;
+        BlockEntity be = level.getBlockEntity(pos);
+        return be instanceof VentilationDeviceBlockEntity vent ? vent : null;
+    }
+
+    /** Observation of the most recent solve only; this is not a prepaid gas grant. */
+    public static VentMeterObservation ventilationMeter(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
+        if (!PowerSimulationGate.isEnabled() || expectedBE == null || expectedBE.isRemoved()) return VentMeterObservation.UNKNOWN;
+        BlockPos pos = expectedBE.getBlockPos();
+        if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
+                || chunk.getBlockEntity(pos) != expectedBE
+                || !(expectedBE.getBlockState().getBlock() instanceof VentilationDeviceBlock)
+                || !expectedBE.settingsValid()
+                || !PowerGraphService.topologyReady(level)) return VentMeterObservation.UNKNOWN;
+        VentMeterSample sample = VENT_METERS.getOrDefault(level, Map.of()).get(pos);
+        if (sample == null || sample.vent() != expectedBE || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
+                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE
+                || sample.apc() == null || sample.apc().isRemoved() || sample.apc().breakerRevision() != sample.breakerRevision()
+                || !sample.apc().breakerClosed() || sample.deliveredWatts() != PowerLiveLoop.SS14_UNARY_ATMOS_POWER_WATTS)
+            return VentMeterObservation.UNKNOWN;
+        BlockPos apcPos = sample.apc().getBlockPos();
+        if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk apcChunk)
+                || apcChunk.getBlockEntity(apcPos) != sample.apc()
+                || !(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock apcBlock)
+                || apcBlock.kind() != PowerDeviceKind.APC) return VentMeterObservation.UNKNOWN;
+        return new VentMeterObservation(true, sample.deliveredWatts());
+    }
+
     /** Number of currently indexed loaded devices; exposed for diagnostics and scale audits. */
     public static int indexedDeviceCount(ServerLevel level) {
         Set<BlockPos> devices = DEVICES.get(level);
         return devices == null ? 0 : devices.size();
+    }
+
+    /** Read-only index snapshot for an on-demand alarm menu query. An oversized index fails closed. */
+    public static List<BlockPos> indexedVentilationCandidates(ServerLevel level, int visitLimit) {
+        if (level == null || !level.getServer().isSameThread() || !PowerSimulationGate.isEnabled()
+                || visitLimit < 1) return List.of();
+        Set<BlockPos> indexed = VENTILATION_DEVICES.get(level);
+        if (indexed == null || indexed.size() > visitLimit) return List.of();
+        return List.copyOf(indexed);
     }
 
     public static String lastSolveDiagnostic(ServerLevel level) {
@@ -108,16 +291,40 @@ public final class PowerRuntime {
             }
             return;
         }
-        for (BlockEntity be : chunk.getBlockEntities().values())
+        for (BlockEntity be : chunk.getBlockEntities().values()) {
             if (be instanceof PowerDeviceBlockEntity) deviceChanged(level, be.getBlockPos());
+            if (be instanceof VentilationDeviceBlockEntity) ventilationDeviceChanged(level, be.getBlockPos());
+            if (be instanceof AirAlarmBlockEntity) airAlarmChanged(level, be.getBlockPos());
+        }
     }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkUnload(ChunkEvent.Unload event) {
-        if (!PowerSimulationGate.isEnabled()) return;
         if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (event.getChunk() instanceof LevelChunk chunk) {
+            for (BlockEntity be : chunk.getBlockEntities().values())
+                if (be instanceof VentilationDeviceBlockEntity vent) VentilationGasRuntime.forgetDevice(level, vent);
+        }
+        if (!PowerSimulationGate.isEnabled()) return;
         Set<BlockPos> devices = DEVICES.get(level);
         if (devices != null) devices.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Set<BlockPos> vents = VENTILATION_DEVICES.get(level);
+        if (vents != null) vents.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Set<BlockPos> alarms = AIR_ALARMS.get(level);
+        if (alarms != null) alarms.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, AlarmMeterSample> alarmSamples = ALARM_METERS.get(level);
+        if (alarmSamples != null) alarmSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, VentMeterSample> ventSamples = VENT_METERS.get(level);
+        if (ventSamples != null) ventSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, VentilationPaidInterval.ReceiverSignature> previousVentSignatures = PREVIOUS_VENT_SIGNATURES.get(level);
+        if (previousVentSignatures != null) previousVentSignatures.entrySet().removeIf(entry -> {
+            if (!new ChunkPos(entry.getKey()).equals(event.getChunk().getPos())) return false;
+            VentilationPaidInterval paid = PAID_INTERVALS.get(level);
+            if (paid != null) paid.forget(entry.getValue().ventilationBE());
+            return true;
+        });
+        Map<BlockPos, CompletedVentBudget> completed = COMPLETED_VENT_BUDGETS.get(level);
+        if (completed != null) completed.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
         if (samples != null) samples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
     }
@@ -146,7 +353,12 @@ public final class PowerRuntime {
     @net.neoforged.bus.api.SubscribeEvent
     public static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
+            VentilationGasRuntime.forgetLevel(level);
             DEVICES.remove(level);
+            VENTILATION_DEVICES.remove(level); VENT_METERS.remove(level);
+            AIR_ALARMS.remove(level); ALARM_METERS.remove(level);
+            PREVIOUS_VENT_SIGNATURES.remove(level); COMPLETED_VENT_BUDGETS.remove(level);
+            VentilationPaidInterval paid = PAID_INTERVALS.remove(level); if (paid != null) paid.clear();
             LAST_SOLVE.remove(level);
             RESOLVE_AFTER_TRIP.remove(level);
             RESOLVE_AFTER_TOPOLOGY.remove(level);
@@ -156,11 +368,17 @@ public final class PowerRuntime {
     }
     @net.neoforged.bus.api.SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
+        VentilationGasRuntime.clear();
         DEVICES.clear(); LAST_SOLVE.clear(); RESOLVE_AFTER_TRIP.clear(); RESOLVE_AFTER_TOPOLOGY.clear();
+        VENTILATION_DEVICES.clear(); VENT_METERS.clear();
+        AIR_ALARMS.clear(); ALARM_METERS.clear();
+        PREVIOUS_VENT_SIGNATURES.clear(); COMPLETED_VENT_BUDGETS.clear();
+        PAID_INTERVALS.values().forEach(VentilationPaidInterval::clear); PAID_INTERVALS.clear();
         LAST_DIAGNOSTIC.clear(); APC_OUTPUT_SAMPLES.clear(); serverTickSequence = 0;
     }
 
     public static void onSimulationDisabled() {
+        VentilationGasRuntime.clear();
         // Be safe if a lifecycle/load callback registered devices before the startup sample.
         // This is a one-time pass over the existing index, never a world scan.
         for (Map.Entry<ServerLevel, Set<BlockPos>> entry : DEVICES.entrySet()) {
@@ -180,6 +398,10 @@ public final class PowerRuntime {
         RESOLVE_AFTER_TOPOLOGY.clear();
         LAST_DIAGNOSTIC.clear();
         APC_OUTPUT_SAMPLES.clear();
+        VENT_METERS.clear(); VENTILATION_DEVICES.clear();
+        ALARM_METERS.clear(); AIR_ALARMS.clear();
+        PREVIOUS_VENT_SIGNATURES.clear(); COMPLETED_VENT_BUDGETS.clear();
+        PAID_INTERVALS.values().forEach(VentilationPaidInterval::clear); PAID_INTERVALS.clear();
     }
 
     private static void solve(ServerLevel level, long elapsedTicks, long sampleTick) {
@@ -194,6 +416,36 @@ public final class PowerRuntime {
             BlockEntity be = level.getBlockEntity(pos);
             if (!(be instanceof PowerDeviceBlockEntity device)) { iterator.remove(); continue; }
             devices.add(device);
+        }
+        List<VentilationDeviceBlockEntity> vents = new ArrayList<>();
+        Set<BlockPos> indexedVents = VENTILATION_DEVICES.get(level);
+        if (indexedVents != null) {
+            Iterator<BlockPos> ventIterator = indexedVents.iterator();
+            while (ventIterator.hasNext()) {
+                BlockPos pos = ventIterator.next();
+                if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)) { ventIterator.remove(); continue; }
+                BlockEntity be = chunk.getBlockEntity(pos);
+                if (!(be instanceof VentilationDeviceBlockEntity vent)
+                        || !(vent.getBlockState().getBlock() instanceof VentilationDeviceBlock)) { ventIterator.remove(); continue; }
+                if (vent.settingsValid()) vents.add(vent);
+            }
+        }
+        List<AirAlarmBlockEntity> alarms = new ArrayList<>();
+        Set<BlockPos> indexedAlarms = AIR_ALARMS.get(level);
+        if (indexedAlarms != null) {
+            Iterator<BlockPos> alarmIterator = indexedAlarms.iterator();
+            while (alarmIterator.hasNext()) {
+                BlockPos pos = alarmIterator.next();
+                if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)) {
+                    alarmIterator.remove(); continue;
+                }
+                BlockEntity be = chunk.getBlockEntity(pos);
+                if (!(be instanceof AirAlarmBlockEntity alarm)
+                        || !(alarm.getBlockState().getBlock() instanceof AirAlarmBlock)) {
+                    alarmIterator.remove(); continue;
+                }
+                if (alarm.prototype() != null) alarms.add(alarm);
+            }
         }
         Map<PowerDeviceBlockEntity, Map<CableTier, Integer>> components = new IdentityHashMap<>();
         Map<PowerDeviceBlockEntity, Map<CableTier, Boolean>> known = new IdentityHashMap<>();
@@ -231,6 +483,19 @@ public final class PowerRuntime {
         List<PowerDeviceBlockEntity> apcs = byKind(devices, PowerDeviceKind.APC);
         List<PowerDeviceBlockEntity> lamps = devices.stream().filter(device ->
                 device.getBlockState().getBlock() instanceof PowerDeviceBlock block && block.kind().isLamp()).toList();
+        Map<AirAlarmBlockEntity, PowerDeviceBlockEntity> alarmProviders = new IdentityHashMap<>();
+        Map<AirAlarmBlockEntity, LoadedPowerGraph.NodeState> alarmStates = new IdentityHashMap<>();
+        for (AirAlarmBlockEntity alarm : alarms) {
+            LoadedPowerGraph.NodeState state = alarmReceiverState(level, alarm);
+            alarmStates.put(alarm, state);
+            if (PowerGraphService.topologyReady(level) && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN) {
+                List<PowerDeviceBlockEntity> eligible = apcs.stream().filter(candidate ->
+                        isKnown(known, candidate, CableTier.APC)
+                                && component(components, candidate, CableTier.APC) == state.componentId()).toList();
+                if (eligible.size() == 1 && eligible.get(0).breakerClosed())
+                    alarmProviders.put(alarm, eligible.get(0));
+            }
+        }
         var input = new PowerLiveLoop.Input(
                 sources.stream().map(source -> new PowerLiveLoop.Source(id(source), component(components, source, CableTier.HV),
                         isKnown(known, source, CableTier.HV), SOURCE_WATTS)).toList(),
@@ -242,8 +507,55 @@ public final class PowerRuntime {
                         isKnown(known, apc, CableTier.APC), apc.breakerClosed(), apc.energyJoules())).toList(),
                 lamps.stream().map(lamp -> new PowerLiveLoop.Lamp(id(lamp), component(components, lamp, CableTier.APC),
                          isKnown(known, lamp, CableTier.APC),
-                         ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind())).toList(), elapsedTicks);
+                         ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind())).toList(),
+                 vents.stream().map(vent -> {
+                     LoadedPowerGraph.NodeState state = ventilationReceiverState(level, vent);
+                     return new PowerLiveLoop.VentLoad(id(vent), state.componentId(),
+                             state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN,
+                             vent.prototype().apcPowerReceiver().requestedWatts());
+                 }).toList(), alarms.stream().map(alarm -> {
+                     LoadedPowerGraph.NodeState state = alarmStates.get(alarm);
+                     return new PowerLiveLoop.AlarmLoad(id(alarm), state.componentId(),
+                             alarmProviders.containsKey(alarm), alarm.prototype().apcPowerReceiver().requestedWatts());
+                 }).toList(), elapsedTicks);
         PowerLiveLoop.Result result = PowerLiveLoop.solve(input);
+        Map<BlockPos, AlarmMeterSample> alarmMeters = ALARM_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
+        alarmMeters.clear();
+        for (AirAlarmBlockEntity alarm : alarms) {
+            PowerDeviceBlockEntity provider = alarmProviders.get(alarm);
+            if (provider != null) alarmMeters.put(alarm.getBlockPos().immutable(),
+                    new AlarmMeterSample(sampleTick, PowerGraphService.topologyGeneration(level),
+                            result.alarmWatts().getOrDefault(id(alarm), 0.0), alarm,
+                            alarm.prototype(), provider, provider.breakerRevision()));
+        }
+        Map<BlockPos, VentMeterSample> ventMeters = VENT_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
+        ventMeters.clear();
+        Map<BlockPos, VentilationPaidInterval.ReceiverSignature> previousSignatures = PREVIOUS_VENT_SIGNATURES.computeIfAbsent(level, ignored -> new HashMap<>());
+        Map<BlockPos, VentilationPaidInterval.ReceiverSignature> currentSignatures = new HashMap<>();
+        Map<BlockPos, VentilationPaidInterval.WorkBudget> newBudgets = new HashMap<>();
+        Map<BlockPos, Double> ventDelivery = new HashMap<>();
+        for (VentilationDeviceBlockEntity vent : vents) {
+            LoadedPowerGraph.NodeState state = ventilationReceiverState(level, vent);
+            PowerDeviceBlockEntity apc = null;
+            if (state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN) {
+                // Provider allocation is not attributable per load yet; fail closed on shared APC components.
+                List<PowerDeviceBlockEntity> eligible = apcs.stream().filter(candidate -> isKnown(known, candidate, CableTier.APC)
+                        && component(components, candidate, CableTier.APC) == state.componentId()).toList();
+                if (eligible.size() == 1) apc = eligible.get(0);
+            }
+            BlockPos ventPos = vent.getBlockPos().immutable();
+            long generation = PowerGraphService.topologyGeneration(level);
+            boolean ready = PowerGraphService.topologyReady(level) && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
+            if (apc != null && apc.breakerClosed()) {
+                double delivered = result.ventWatts().getOrDefault(id(vent), 0.0);
+                ventMeters.put(ventPos, new VentMeterSample(sampleTick, generation, delivered, vent, apc, apc.breakerRevision()));
+                ventDelivery.put(ventPos, delivered);
+                currentSignatures.put(ventPos, new VentilationPaidInterval.ReceiverSignature(vent, apc,
+                        apc.breakerRevision(), generation, ready, ready, apc.breakerClosed(), sampleTick));
+            }
+        }
+        Map<BlockPos, CompletedVentBudget> budgets = COMPLETED_VENT_BUDGETS.computeIfAbsent(level, ignored -> new HashMap<>());
+        budgets.clear();
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.computeIfAbsent(level,
                 ignored -> new HashMap<>());
         for (PowerDeviceBlockEntity apc : apcs) {
@@ -266,10 +578,23 @@ public final class PowerRuntime {
                 + ",lampWatts=" + result.lampWatts());
         for (PowerDeviceBlockEntity apc : apcs)
             apc.setEnergyJoules(result.batteryEnergyJoules().getOrDefault(id(apc), apc.energyJoules()));
+        VentilationPaidInterval paid = PAID_INTERVALS.computeIfAbsent(level, ignored -> new VentilationPaidInterval());
+        for (var entry : currentSignatures.entrySet()) {
+            var current = entry.getValue();
+            var previous = previousSignatures.get(entry.getKey());
+            Optional<VentilationPaidInterval.WorkBudget> authorized = paid.authorizeCompletedInterval(previous, current,
+                    ventDelivery.getOrDefault(entry.getKey(), 0.0), elapsedTicks);
+            authorized.ifPresent(budget -> budgets.put(entry.getKey(), new CompletedVentBudget(sampleTick, budget,
+                    (PowerDeviceBlockEntity) current.apcBE(), current.breakerRevision(), current.topologyGeneration())));
+        }
+        previousSignatures.clear(); previousSignatures.putAll(currentSignatures);
         // Each lamp has exactly one final projection, regardless of how many APCs share its component.
         for (PowerDeviceBlockEntity lamp : lamps)
             setLit(level, lamp.getBlockPos(), result.lampWatts().getOrDefault(id(lamp), 0.0)
                     >= ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind().lampDemandWatts());
+        // Gas work is authorized only after APC battery billing and single-use budgets exist.
+        for (VentilationDeviceBlockEntity vent : vents)
+            VentilationGasRuntime.onCompletedPaidSolve(level, vent);
     }
 
     /** Consume cached solve meters only; this per-tick pass performs no topology query or solve. */
@@ -309,6 +634,23 @@ public final class PowerRuntime {
         return devices.stream().filter(device -> device.getBlockState().getBlock() instanceof PowerDeviceBlock block && block.kind() == kind).toList();
     }
     private static String id(PowerDeviceBlockEntity device) { return device.getBlockPos().toShortString(); }
+    private static String id(VentilationDeviceBlockEntity device) { return device.getBlockPos().toShortString(); }
+    private static String id(AirAlarmBlockEntity device) { return device.getBlockPos().toShortString(); }
+    private static LoadedPowerGraph.NodeState alarmReceiverState(ServerLevel level, AirAlarmBlockEntity alarm) {
+        AirAlarmData prototype = alarm.prototype();
+        CableFaceNode node = prototype == null ? null : PowerGraphService.nearestApcExtensionNode(level,
+                alarm.getBlockPos(), prototype.extensionCableReceiver().localReachBlocks());
+        return node == null ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1)
+                : PowerGraphService.state(level, node);
+    }
+    private static LoadedPowerGraph.NodeState ventilationReceiverState(ServerLevel level, VentilationDeviceBlockEntity vent) {
+        var prototype = vent.prototype();
+        CableFaceNode receiver = prototype == null ? null : PowerGraphService.nearestApcExtensionNode(level,
+                vent.getBlockPos(), prototype.extensionCableReceiver().localReachBlocks());
+        return receiver == null
+                ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1)
+                : PowerGraphService.state(level, receiver);
+    }
     private static boolean isKnown(Map<PowerDeviceBlockEntity, Map<CableTier, Boolean>> known,
                                    PowerDeviceBlockEntity device, CableTier tier) {
         return known.getOrDefault(device, Map.of()).getOrDefault(tier, false);

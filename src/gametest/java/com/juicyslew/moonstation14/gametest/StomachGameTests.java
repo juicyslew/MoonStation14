@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
@@ -52,9 +53,8 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "chemistry"})
 public final class StomachGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
@@ -74,7 +74,7 @@ public final class StomachGameTests {
 
     private StomachGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void bottleDoseEntersStomachAndFullStomachPreservesSource(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -108,7 +108,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void mixedSourceNearCapacityConservesEachReagent(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -138,7 +138,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void halfFullStomachAcceptsPartialSipFromDecimalSource(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -160,7 +160,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void subcentSourceIsNoOpAndLegacyStomachNormalizesOnPositiveSip(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -184,7 +184,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void puddleDoseRequiresEligibilityAndGenericTransferIsUnchanged(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -212,7 +212,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void stomachDigestionPersistsAndAppliesScaledThirstOnce(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -240,7 +240,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void nonDigestionStomachReagentTransfersAfterBodyPass(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -260,7 +260,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void fullBodyRetainsNonDigestionStomachReagent(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -290,7 +290,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void vomitEmptiesStomachSpillsActualMixtureAndPenalizesCustomNeeds(GameTestHelper helper) {
         BlockPos supportPos = new BlockPos(1, 0, 1);
         helper.setBlock(supportPos, Blocks.STONE);
@@ -353,7 +353,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void vomitUnsupportedZombieDoesNotMutateSharedSolution(GameTestHelper helper) {
         Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
         MS14Provider.update(zombie, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(WATER, 2f)));
@@ -365,7 +365,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void invalidStomachVomitFailsWithoutClearingOrApplyingPenalties(GameTestHelper helper) {
         Villager unknownOnly = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         unknownOnly.setNoAi(true);
@@ -397,7 +397,7 @@ public final class StomachGameTests {
                 "failed vomit does not create or apply status effects");
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void vomitDeadEligibleTargetDoesNotAttachStomachOrStatus(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setHealth(0f);

@@ -1,0 +1,9 @@
+{
+  "textures": {
+    "case": "minecraft:block/iron_block",
+    "front": "moonstation14:block/gas_vent"
+  },
+  "elements": [
+    {"from":[2,2,14],"to":[14,14,16],"faces":{"north":{"texture":"#front","uv":[0,0,16,16]},"south":{"texture":"#case"},"east":{"texture":"#case"},"west":{"texture":"#case"},"up":{"texture":"#case"},"down":{"texture":"#case"}}}
+  ]
+}

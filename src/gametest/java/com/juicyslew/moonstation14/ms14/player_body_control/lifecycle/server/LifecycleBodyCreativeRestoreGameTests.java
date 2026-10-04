@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -19,12 +19,12 @@ import java.util.List;
 import java.util.UUID;
 
 /** Trusted-player value fixtures only: these do not claim a connected player or execute setGameMode. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleBodyCreativeRestoreGameTests {
     private LifecycleBodyCreativeRestoreGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void nonemptyRestoredSnapshotAcceptedAndTamperingDenied(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         List<ItemStack> main = empty(36), armor = empty(4), offhand = empty(1);
@@ -69,7 +69,7 @@ public final class LifecycleBodyCreativeRestoreGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void emptyRestoredSnapshotAccepted(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         var snapshot = CreativeInventorySnapshot.capture(empty(36), empty(4), empty(1), ItemStack.EMPTY, 8, empty(27));

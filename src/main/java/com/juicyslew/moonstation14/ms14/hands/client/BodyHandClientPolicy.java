@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints;
 import net.minecraft.resources.ResourceLocation;
@@ -12,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** Main-thread client correlation gate. Only a matching full query reply can enable an action. */
 public final class BodyHandClientPolicy {
+    private static final long REQUEST_TIMEOUT_TICKS = 80;
     /** A pull reservation occupies a hand but is not item metadata. */
     public static boolean handAvailableForItemAction(BodyHandStateSnapshot.Hand hand) {
         return hand != null && hand.pullTarget() == null;
@@ -20,14 +22,16 @@ public final class BodyHandClientPolicy {
     private static final AtomicLong QUERY_IDS = new AtomicLong();
     private static final AtomicLong ACTION_IDS = new AtomicLong();
     private UUID account, body;
-    private long epoch, querySequence, actionSequence, pendingQuery, pendingAction, lastQueryTick = Long.MIN_VALUE;
+    private long epoch, querySequence, actionSequence, pendingQuery, pendingAction, pendingBlockUse, lastQueryTick = Long.MIN_VALUE;
     private long pendingQueryEpoch;
     private long sentActionTick;
+    private long sentBlockUseTick, sentQueryTick;
     private BodyHandStateSnapshot snapshot;
     private BodyHandStateSnapshot presentationSnapshot;
     private String feedback;
     private long localFeedbackUntil;
     private boolean inputEnabled;
+    private boolean refreshRequired;
     private boolean selectionPresentation;
     private boolean pendingSelection;
     private ThrowIntent throwIntent;
@@ -44,7 +48,8 @@ public final class BodyHandClientPolicy {
     /** Drop all proof and outstanding correlations without rewinding this connection's sequence history. */
     public void suspend() {
         account = body = null;
-        epoch = pendingQuery = pendingAction = pendingQueryEpoch = 0;
+        epoch = pendingQuery = pendingAction = pendingBlockUse = pendingQueryEpoch = 0;
+        refreshRequired = false;
         lastQueryTick = Long.MIN_VALUE;
         snapshot = null;
         presentationSnapshot = null;
@@ -73,13 +78,14 @@ public final class BodyHandClientPolicy {
     }
 
     public long query(long tick) {
-        if (!inputEnabled || epoch == 0 || pendingAction != 0 || querySequence == Long.MAX_VALUE
-                || (lastQueryTick != Long.MIN_VALUE && tick - lastQueryTick < 40)) return 0;
+        if (!inputEnabled || epoch == 0 || pendingAction != 0 || pendingBlockUse != 0 || pendingQuery != 0 || querySequence == Long.MAX_VALUE
+                || (!refreshRequired && lastQueryTick != Long.MIN_VALUE && tick - lastQueryTick < 40)) return 0;
         long sequence = next(QUERY_IDS);
         if (sequence == Long.MAX_VALUE) return 0;
         lastQueryTick = tick;
         pendingQueryEpoch = queryEpoch();
         pendingQuery = querySequence = sequence;
+        sentQueryTick = tick;
         return pendingQuery;
     }
 
@@ -103,12 +109,12 @@ public final class BodyHandClientPolicy {
                 || !account.equals(incoming.accountId()) || !body.equals(incoming.bodyId())
                 || epoch != incoming.epoch()) {
             snapshot = null;
-            presentationSnapshot = null;
-            selectionPresentation = pendingSelection = false;
-            clearThrowIntent();
+            refreshRequired = true;
+            lastQueryTick = Long.MIN_VALUE;
             return false;
         }
         snapshot = incoming;
+        refreshRequired = false;
         presentationSnapshot = incoming;
         if (throwIntent != null) {
             var active = incoming.hands().stream().filter(hand -> hand.id().equals(incoming.activeHand())).findFirst().orElse(null);
@@ -224,7 +230,7 @@ public final class BodyHandClientPolicy {
     /** Resolve by exact held token, not by item ID or whichever hand is active. */
     public GridView heldGrid(String token, boolean presentation) {
         var source = presentation ? presentationSnapshot : snapshot;
-        if (!inputEnabled || source == null || !presentation && (pendingQuery != 0 || pendingAction != 0)
+        if (!inputEnabled || source == null || !presentation && (pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0)
                 || source.hands().size() != 2 || token == null) return null;
         var hosts = source.hands().stream().filter(h -> token.equals(h.token())
                 && h.count() == 1 && ("moonstation14:bag".equals(h.itemId()) || "moonstation14:belt".equals(h.itemId()))).toList();
@@ -233,7 +239,7 @@ public final class BodyHandClientPolicy {
         var other = source.hands().get(0) == host ? source.hands().get(1) : source.hands().get(0);
         var result = gridView(source, "moonstation14:bag".equals(host.itemId()) ? "bag" : "belt",
                 token, host.childToken(), host.childItemId(), host.childCount(), other);
-        return presentation && (snapshot != source || pendingQuery != 0 || pendingAction != 0) ? disable(result) : result;
+        return presentation && (snapshot != source || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0) ? disable(result) : result;
     }
 
     public record EquipmentView(BodyHandStateSnapshot.EquipmentSlot slot, boolean canEquip,
@@ -266,7 +272,7 @@ public final class BodyHandClientPolicy {
     }
 
     public InventoryView inventoryView() {
-        if (!inputEnabled || pendingQuery != 0 || pendingAction != 0 || snapshot == null
+        if (!inputEnabled || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0 || snapshot == null
                 || snapshot.hands().size() != 2) return null;
         var first = snapshot.hands().get(0);
         var second = snapshot.hands().get(1);
@@ -291,7 +297,7 @@ public final class BodyHandClientPolicy {
         var view = new InventoryView(first, second, source.activeHand(), belt, back,
                 gridView(source, "belt", belt == null ? null : belt.slot(), active),
                 gridView(source, "bag", back == null ? null : back.slot(), active));
-        return snapshot == source && pendingQuery == 0 && pendingAction == 0 ? view : disabled(view);
+        return snapshot == source && pendingQuery == 0 && pendingAction == 0 && pendingBlockUse == 0 ? view : disabled(view);
     }
     private InventoryView disabled(InventoryView view) {
         EquipmentView belt = disable(view.belt()), back = disable(view.back());
@@ -307,13 +313,13 @@ public final class BodyHandClientPolicy {
     /** Presentation chrome changes only when no confirmed display exists or an action is unresolved. */
     public boolean presentationPending() {
         return !inputEnabled || presentationSnapshot == null
-                || (pendingAction != 0 || pendingQuery != 0) && !selectionPresentation;
+                || (pendingAction != 0 || pendingQuery != 0 || pendingBlockUse != 0) && !selectionPresentation;
     }
     public String feedback() { return feedback; }
 
     /** Presentation only: no candidate was nominated, so no request reached the server. */
     public void noItemUnderCursor(long tick) {
-        if (inputEnabled && snapshot != null && pendingAction == 0 && pendingQuery == 0) {
+        if (inputEnabled && snapshot != null && pendingAction == 0 && pendingQuery == 0 && pendingBlockUse == 0) {
             feedback = "Hands: no item under cursor";
             localFeedbackUntil = tick + 60;
         }
@@ -343,7 +349,7 @@ public final class BodyHandClientPolicy {
     public long selectionAction(long tick) { return action(tick, true); }
 
     private long action(long tick, boolean selection) {
-        if (!inputEnabled || snapshot == null || pendingQuery != 0 || pendingAction != 0
+        if (!inputEnabled || snapshot == null || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0
                 || actionSequence == Long.MAX_VALUE) return 0;
         long sequence = next(ACTION_IDS);
         if (sequence == Long.MAX_VALUE) return 0;
@@ -354,6 +360,34 @@ public final class BodyHandClientPolicy {
         feedback = null;
         localFeedbackUntil = 0;
         return pendingAction;
+    }
+
+    /** Allocate an ID from the shared server action sequence for a block-use request. */
+    public long blockUseSequence(long tick) {
+        if (!inputEnabled || epoch == 0 || snapshot == null || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0
+                || actionSequence == Long.MAX_VALUE || snapshot.hands().stream()
+                .noneMatch(hand -> hand.id().equals(snapshot.activeHand()))) return 0;
+        long sequence = next(ACTION_IDS);
+        if (sequence == Long.MAX_VALUE) return 0;
+        actionSequence = pendingBlockUse = sequence;
+        sentBlockUseTick = tick;
+        return sequence;
+    }
+
+    public boolean blockUseResult(BodyBlockUseResult incoming) {
+        if (!inputEnabled || pendingBlockUse == 0 || incoming.sequence() != pendingBlockUse || incoming.epoch() != epoch) return false;
+        pendingBlockUse = 0;
+        if (incoming.outcome() == BodyBlockUseResult.Outcome.PLACED
+                || incoming.outcome() == BodyBlockUseResult.Outcome.RECOVERY_REQUIRED
+                || incoming.outcome() == BodyBlockUseResult.Outcome.DENIED
+                || incoming.outcome() == BodyBlockUseResult.Outcome.HAND_CHANGED) {
+            snapshot = null;
+            presentationSnapshot = null;
+            pendingQuery = 0;
+            refreshRequired = true;
+            lastQueryTick = Long.MIN_VALUE;
+        }
+        return true;
     }
 
     public boolean requestThrowAfterPrime(long tick) {
@@ -384,7 +418,7 @@ public final class BodyHandClientPolicy {
     public boolean takeReadyThrow(long tick) {
         if (throwIntent == null) return false;
         if (tick >= throwIntent.expires) { clearThrowIntent(); return false; }
-        if (!primeSucceeded || pendingQuery != 0 || snapshot == null
+        if (!primeSucceeded || pendingQuery != 0 || pendingBlockUse != 0 || snapshot == null
                 || snapshot.revision() <= throwIntent.revision) return false;
         var active = snapshot.hands().stream().filter(hand -> hand.id().equals(snapshot.activeHand())).findFirst().orElse(null);
         if (active == null || !active.id().equals(throwIntent.hand) || !java.util.Objects.equals(active.token(), throwIntent.token)) {
@@ -427,7 +461,7 @@ public final class BodyHandClientPolicy {
             feedback = null;
             localFeedbackUntil = 0;
         }
-        if (pendingAction != 0 && tick - sentActionTick >= 80) {
+        if (pendingAction != 0 && tick - sentActionTick >= REQUEST_TIMEOUT_TICKS) {
             if (pendingAction == primeAction) clearThrowIntent();
             pendingAction = 0;
             selectionPresentation = pendingSelection = false;
@@ -436,6 +470,19 @@ public final class BodyHandClientPolicy {
             lastQueryTick = Long.MIN_VALUE;
             feedback = null;
             localFeedbackUntil = 0;
+        }
+        if (pendingBlockUse != 0 && tick - sentBlockUseTick >= REQUEST_TIMEOUT_TICKS) {
+            pendingBlockUse = 0;
+            snapshot = null;
+            pendingQuery = 0;
+            lastQueryTick = Long.MIN_VALUE;
+            refreshRequired = true;
+        }
+        if (pendingQuery != 0 && tick - sentQueryTick >= REQUEST_TIMEOUT_TICKS) {
+            pendingQuery = 0;
+            snapshot = null;
+            lastQueryTick = Long.MIN_VALUE;
+            refreshRequired = true;
         }
     }
 }

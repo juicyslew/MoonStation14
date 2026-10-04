@@ -12,6 +12,10 @@ import com.juicyslew.moonstation14.ms14.organ.ModOrgans;
 import com.juicyslew.moonstation14.ms14.organ.OrganData;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
+import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
+import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
@@ -95,6 +99,21 @@ public final class PrototypeRuntime {
         return CLIENT_MANAGER.snapshot(ModGasReactions.GAS_REACTION_TYPE);
     }
 
+    public static PrototypeCatalog<VentilationDeviceData> serverVentilationDevices() {
+        return SERVER_MANAGER.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
+    }
+
+    public static PrototypeCatalog<VentilationDeviceData> clientVentilationDevices() {
+        return CLIENT_MANAGER.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
+    }
+
+    public static PrototypeCatalog<AirAlarmData> serverAirAlarms() {
+        return SERVER_MANAGER.snapshot(ModAirAlarms.AIR_ALARM_TYPE);
+    }
+
+    public static PrototypeCatalog<AirAlarmData> clientAirAlarms() {
+        return CLIENT_MANAGER.snapshot(ModAirAlarms.AIR_ALARM_TYPE);
+    }
     public static PrototypeCatalog<ExplosionData> serverExplosions() { return SERVER_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
     public static PrototypeCatalog<ExplosionData> clientExplosions() { return CLIENT_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
 
@@ -114,6 +133,8 @@ public final class PrototypeRuntime {
         manager.register(ModRadioChannels.RADIO_CHANNEL_TYPE);
         manager.register(ModOrgans.ORGAN_TYPE);
         manager.register(ModGasReactions.GAS_REACTION_TYPE);
+        manager.register(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
+        manager.register(ModAirAlarms.AIR_ALARM_TYPE);
         manager.register(ModExplosions.EXPLOSION_TYPE);
         manager.register(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);

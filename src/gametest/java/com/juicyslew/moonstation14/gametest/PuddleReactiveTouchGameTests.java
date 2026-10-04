@@ -41,7 +41,6 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -51,15 +50,17 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry", "slip", "damage"})
 public final class PuddleReactiveTouchGameTests {
     private static final ResourceKey<ReagentData> SPACE_LUBE = ModReagents.createKey("spacelube");
     private static final ResourceKey<ReagentData> POLYTRINIC_ACID = ModReagents.createKey("polytrinicacid");
 
     private PuddleReactiveTouchGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void unsupportedTouchPayloadIsRejectedBeforeDoseSplit(GameTestHelper helper) {
         BlockPos position = new BlockPos(2, 1, 2);
         helper.setBlock(position.below(), Blocks.STONE);
@@ -80,7 +81,7 @@ public final class PuddleReactiveTouchGameTests {
     }
 
     /** Direct typed-effect control for the same acid reaction used by puddle Touch. */
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void directPolytrinicAcidHealthChangeFakePlayerInvulnerabilityAndVillagerDamage(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         FakePlayer player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "acid-direct-control"));
@@ -137,7 +138,7 @@ public final class PuddleReactiveTouchGameTests {
         return damage == null ? 0f : damage.getMap().getOrDefault(DamageKeys.CAUSTIC, 0f);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void realSlipTouchChanceDoseAndDamageForPlayerAndVillager(GameTestHelper helper) {
         var level = helper.getLevel();
         List<Trial> trials = new ArrayList<>();
@@ -221,7 +222,7 @@ public final class PuddleReactiveTouchGameTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
     public static void slidingSuperSlipperySlipDoesNotSpendReactiveTouchDose(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos firstPosition = new BlockPos(2, 1, 2);
@@ -305,7 +306,7 @@ public final class PuddleReactiveTouchGameTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
     public static void repeatedSuperSlipperyEntriesTouchOnlyWhenNotAlreadySliding(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos puddlePosition = new BlockPos(3, 1, 3);

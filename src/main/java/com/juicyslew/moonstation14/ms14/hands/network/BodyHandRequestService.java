@@ -31,12 +31,54 @@ import java.util.Map;
 /** Main-thread-only request gate; neither a menu nor a carrier-inventory route. */
 public final class BodyHandRequestService {
     private static final Map<ServerPlayer, SequenceGate> GATES = new IdentityHashMap<>();
+    private static final Map<ServerPlayer, SequenceGate> BLOCK_USE_GATES = new IdentityHashMap<>();
 
     private BodyHandRequestService() { }
 
     public static void logout(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) GATES.remove(player);
+        if (event.getEntity() instanceof ServerPlayer player) { GATES.remove(player); BLOCK_USE_GATES.remove(player); }
     }
+
+    /** Read-only admission only: deliberately does not invoke block use, item use, or protection callbacks. */
+    public static boolean probeBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        return admitBlockUse(actor, request) != null;
+    }
+
+    /** Package-private authenticated read-only admission snapshot for narrowly scoped dispatchers. */
+    public static BlockUseAdmission admitBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        if (request == null) return null;
+        var resolved = HandActorAuthority.resolve(actor);
+        if (resolved.isEmpty()) return null;
+        var authority = resolved.orElseThrow();
+        if (!BodyHandStateService.hasIssued(actor, authority)) return null;
+        var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
+        if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null) return null;
+        LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || !request.handId().equals(hands.activeHand())
+                || !hands.handIds().contains(request.handId()) || !authority.handIds().contains(request.handId())
+                || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision()) return null;
+        var token = hands.token(request.handId());
+        var stack = hands.stackCopy(request.handId());
+        if (!blockUseHandStateMatches(request.expectedToken(), token.isPresent(), stack.isPresent(), token.orElse(null)))
+            return null;
+        if (!(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                || !HandActorAuthority.revalidate(actor, authority)) return null;
+        // No reliable controlled-body crouch authority is currently defined. The hint is intentionally ignored.
+        var hit = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
+        return hit != null && HandActorAuthority.revalidate(actor, authority)
+                && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
+                && hands.revision() == request.expectedRevision()
+                ? new BlockUseAdmission(authority, hands, hit) : null;
+    }
+
+    static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
+                                            String actualToken) {
+        return expectedToken == null ? !tokenPresent && !stackPresent
+                : tokenPresent && stackPresent && expectedToken.equals(actualToken);
+    }
+
+    public record BlockUseAdmission(HandActorAuthority.Snapshot authority, LiveHands hands,
+                                   BodyBlockUseTargetProbe.Target hit) { }
 
     public static BodyHandActionResult apply(ServerPlayer actor, BodyHandActionRequest request) {
         // resolve includes exact player-list identity, main thread, non-fake actor, marker and clean carrier.
@@ -462,8 +504,7 @@ public final class BodyHandRequestService {
             return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
 
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
-        if (request.action() == BodyHandActionRequest.Action.THROW_ITEM
-                || request.action() == BodyHandActionRequest.Action.THROW_GRENADE) {
+        if (request.action() == BodyHandActionRequest.Action.THROW_ITEM) {
             var outcome = BodyLooseThrow.throwHeld(actor, request.handId(), request.expectedToken(), request.expectedRevision(), spawned::set);
             BodyHandActionResult.Reason throwReason = looseThrowReason(outcome);
             if (throwReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
@@ -481,24 +522,26 @@ public final class BodyHandRequestService {
             return response;
         }
         if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
-            var stack = hands.stackCopy(request.handId()).orElse(null);
-            if (stack == null) return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
-            if (stack.has(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get())) {
-                var outcome = BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(), request.expectedRevision());
-                BodyHandActionResult response = result(request, grenadeReason(outcome), authority);
-                if (outcome == BodyGrenadePrime.Result.SUCCESS) BodyHandStateService.requireFreshQuery(actor);
-                return response;
-            }
             var outcome = BodyLiquidInteraction.sip(actor, null, request.handId(), request.expectedToken(), request.expectedRevision());
-            BodyHandActionResult response = result(request, liquidReason(outcome), authority);
+            BodyHandActionResult.Reason reason = outcome == BodyLiquidInteraction.Result.DENIED
+                    ? BodyHeldItemActions.activate(actor, request) : liquidReason(outcome);
+            BodyHandActionResult response = result(request, reason, authority);
             if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
             return response;
         }
         if (request.action() == BodyHandActionRequest.Action.PRIME_GRENADE) {
-            var outcome = grenadeReason(BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(),
-                    request.expectedRevision()));
+            var primeOutcome = BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(), request.expectedRevision());
+            BodyHandActionResult.Reason outcome = grenadeReason(primeOutcome);
             BodyHandActionResult response = result(request, outcome, authority);
-            if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
+            if (primeOutcome == BodyGrenadePrime.Result.SUCCESS) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+
+        if (request.action() == BodyHandActionRequest.Action.USE_HELD) {
+            BodyHandActionResult response = result(request, heldUseReason(actor, request, hands), authority);
+            if (response.reason() == BodyHandActionResult.Reason.OK
+                    && hands.stackCopy(request.handId()).filter(stack -> stack.is(ModItems.GRENADE.get())).isPresent())
+                BodyHandStateService.requireFreshQuery(actor);
             return response;
         }
 
@@ -512,6 +555,13 @@ public final class BodyHandRequestService {
         return result(request, dropReason, authority, dropReason == BodyHandActionResult.Reason.OK && spawned.get() != null
                  ? new BodyHandActionResult.HostTransition(BodyHandActionResult.HostTransition.Direction.DROP,
                      spawned.get(), request.expectedToken()) : null);
+    }
+
+    private static BodyHandActionResult.Reason heldUseReason(ServerPlayer actor, BodyHandActionRequest request, LiveHands hands) {
+        var stack = hands.stackCopy(request.handId()).orElse(null);
+        return stack != null && stack.is(ModItems.GRENADE.get())
+                ? grenadeReason(BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(), request.expectedRevision()))
+                : BodyHeldItemActions.use(actor, request);
     }
 
     static java.util.Optional<BodyHandActionResult.HostTransition> pickupTransition(

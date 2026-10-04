@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
@@ -25,7 +26,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -37,9 +37,8 @@ import java.util.UUID;
 
 import static com.juicyslew.moonstation14.util.Constants.SIP_INTERVAL_TICKS;
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry", "jug", "interaction"})
 public final class JugInteractionGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
@@ -50,7 +49,7 @@ public final class JugInteractionGameTests {
 
     private JugInteractionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredHeldJugSneakUseIngestsAtSipBoundaryAndPreservesFullSource(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Player player = mockPlayer(level, helper.absolutePos(new BlockPos(2, 2, 2)), true);

@@ -14,6 +14,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class CarrierHandInventoryGateTest {
     private static final UUID ACCOUNT = UUID.randomUUID();
 
+    @Test
+    void exactMenuIdentitySeparatesStrictInventoryFromPersistentSlotlessMenu() {
+        Object inventory = new Object();
+        Object expected = new Object();
+        assertTrue(CarrierHandInventoryGate.allowsMenuIdentity(inventory, inventory, inventory, false));
+        assertFalse(CarrierHandInventoryGate.allowsMenuIdentity(expected, inventory, inventory, true));
+        assertFalse(CarrierHandInventoryGate.allowsMenuIdentity(inventory, expected, inventory, true));
+        assertFalse(CarrierHandInventoryGate.allowsMenuIdentity(expected, null, inventory, true));
+        assertTrue(CarrierHandInventoryGate.allowsMenuIdentity(expected, expected, inventory, true));
+        assertFalse(CarrierHandInventoryGate.allowsMenuIdentity(expected, expected, inventory, true, false, true));
+        assertFalse(CarrierHandInventoryGate.allowsMenuIdentity(expected, expected, inventory, true, true, false));
+    }
+
     private static List<ItemStack> empty(int size) {
         return new ArrayList<>(Collections.nCopies(size, ItemStack.EMPTY));
     }

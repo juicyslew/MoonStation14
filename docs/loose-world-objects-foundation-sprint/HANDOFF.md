@@ -1,5 +1,8 @@
 # Loose World Objects — Foundation + Jug
 
+Follow-up: [ventilation control and fixture-tag integration](control-tag-alignment.md)
+records the merged control routes and tagged validation after this sprint's closure.
+
 ## STATUS
 
 Owner-closed October 3, 2026, after four connected-feedback rounds. Persistent loose objects, jug interactions/appearance, exact pickup, fixed-speed throwing, and bounded pulling are delivered. Hands/storage ownership and window continuity remain authoritative. Final validation: **1,910 unit tests and 440 required GameTests pass**.

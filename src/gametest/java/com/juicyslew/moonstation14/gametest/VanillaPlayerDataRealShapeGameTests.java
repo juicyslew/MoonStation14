@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.VanillaPlayerDataInventoryView;
 import com.mojang.authlib.GameProfile;
@@ -22,13 +23,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "storage"})
 public final class VanillaPlayerDataRealShapeGameTests {
     private VanillaPlayerDataRealShapeGameTests() { }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void serverPlayerSaveMatchesAllSupportedSlotsWithoutMutatingPlayerdata(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         // Unregistered and never connected: this object supplies vanilla's save format only.

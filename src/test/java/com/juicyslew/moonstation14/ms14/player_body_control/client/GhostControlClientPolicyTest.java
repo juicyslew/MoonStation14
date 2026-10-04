@@ -19,13 +19,16 @@ class GhostControlClientPolicyTest {
 
     @Test
     void characterShiftWalksEvenWhenMinecraftReportsSprinting() {
-        assertEquals(0, GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, false, true, true));
+        assertEquals(GhostControlPayloads.BUTTON_SNEAK,
+                GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, false, true, true));
     }
 
     @Test
     void characterCtrlSprintDoesNotOverrideShiftWalkOrJump() {
-        assertEquals(GhostControlPayloads.BUTTON_JUMP,
+        assertEquals(GhostControlPayloads.BUTTON_JUMP | GhostControlPayloads.BUTTON_SNEAK,
                 GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, true, true, true));
+        assertEquals(GhostControlPayloads.BUTTON_SPRINT,
+                GhostControlClient.intentButtons(MobHarnessKind.CHARACTER, false, false, true));
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.chat.server.LocalSpeechOcclusion;
 import com.juicyslew.moonstation14.ms14.explosion.core.BlastPlanner;
@@ -22,16 +23,15 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"explosion", "power", "chemistry"})
 public final class ExplosionDownstreamGameTests {
     private static final BlastPlanner.Proposal PROPOSAL = new BlastPlanner.Proposal(120, 3, 10);
     private static final ResourceKey<ReagentData> WATER = ModReagents.createKey("water");
 
     private ExplosionDownstreamGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void blastFloorMovesPuddleToPreparedLandingSupport(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = pos(helper, 1, 2, 2);
@@ -60,7 +60,7 @@ public final class ExplosionDownstreamGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void breachedSteelWallOpensPreviouslyOccludedSpeechPath(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos nearWall = pos(helper, 4, 1, 2);

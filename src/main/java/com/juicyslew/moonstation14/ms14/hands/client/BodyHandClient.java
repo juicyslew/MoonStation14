@@ -1,6 +1,9 @@
 package com.juicyslew.moonstation14.ms14.hands.client;
 
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseTargetProbe;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
@@ -91,6 +94,7 @@ public final class BodyHandClient {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::suppressNativeInventoryScreen);
         BodyHandStateSnapshot.setClientHandler(BodyHandClient::onSnapshot);
         BodyHandActionResult.setClientHandler(BodyHandClient::onResult);
+        BodyBlockUseResult.setClientHandler(BodyHandClient::onBlockUseResult);
         BodyWorldGridSnapshot.setClientHandler(BodyHandClient::onWorldSnapshot);
         BodyWorldGridActionResult.setClientHandler(BodyHandClient::onWorldResult);
         BodyWorldCrossActionResult.setClientHandler(BodyHandClient::onWorldCrossResult);
@@ -282,7 +286,9 @@ public final class BodyHandClient {
         if (worldGesture == BodyInputGesturePolicy.Route.SMART_BAG) smartStorage(false);
         else if (worldGesture == BodyInputGesturePolicy.Route.SMART_BELT) smartStorage(true);
         else if (worldGesture == BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE) alternateWorldUse();
-        else if (worldGesture == BodyInputGesturePolicy.Route.NORMAL_WORLD_USE) ordinaryWorldUse();
+        else if (worldGesture == BodyInputGesturePolicy.Route.NORMAL_WORLD_USE) {
+            ordinaryWorldUse();
+        }
         boolean ctrlV = storage && controlDown() && !shiftDown() && !altDown();
         if (storage && !controlDown() && !altDown())
             togglePopup(shiftDown() ? StoragePopupWorkspace.HostKind.BELT : StoragePopupWorkspace.HostKind.BAG);
@@ -376,8 +382,30 @@ public final class BodyHandClient {
         }
         var view = POLICY.inventoryView();
         var active = view == null ? null : view.first().id().equals(view.activeHand()) ? view.first() : view.second();
-        if (active != null && active.token() != null && lookTarget(cameraBody) != null)
+        UUID target = lookTarget(cameraBody);
+        var route = BodyInputGesturePolicy.normalWorldRoute(false, target != null,
+                active != null && active.token() != null);
+        if (route == BodyInputGesturePolicy.NormalWorldRoute.TARGET_USE) {
             request(BodyHandActionRequest.Action.USE_TARGET);
+        } else if (route == BodyInputGesturePolicy.NormalWorldRoute.BLOCK_ACTIVATE) {
+            requestBlockUse(BodyBlockUseRequest.Intent.ACTIVATE_WORLD);
+        }
+    }
+
+    private static boolean requestBlockUse(BodyBlockUseRequest.Intent intent) {
+        var snapshot = POLICY.snapshot();
+        if (snapshot == null || cameraBody == null) return false;
+        var hand = snapshot.hands().stream().filter(slot -> slot.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        if (hand == null) return false;
+        var start = cameraBody.getEyePosition();
+        var end = start.add(cameraBody.getLookAngle().scale(BodyBlockUseTargetProbe.MAX_REACH));
+        var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
+        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return false;
+        long sequence = POLICY.blockUseSequence(clock);
+        if (sequence == 0) return false;
+        PacketDistributor.sendToServer(new BodyBlockUseRequest(snapshot.epoch(), sequence, snapshot.revision(), hand.id(),
+                hand.token(), hit.getBlockPos(), hit.getDirection(), net.minecraft.client.Minecraft.getInstance().player.input.shiftKeyDown, intent));
+        return true;
     }
 
     private static boolean alternateWorldUse() {
@@ -391,6 +419,21 @@ public final class BodyHandClient {
         if ((active.token() != null && liquidItem(active.itemId())) || aimedLooseLiquid(aimed))
             return request(BodyHandActionRequest.Action.ALTERNATE_TARGET);
         return false;
+    }
+
+    private static void onBlockUseResult(BodyBlockUseResult result) {
+        reconcile();
+        if (!POLICY.blockUseResult(result)) return;
+        if (result.outcome() == BodyBlockUseResult.Outcome.PLACED
+                || result.outcome() == BodyBlockUseResult.Outcome.HAND_CHANGED
+                || result.outcome() == BodyBlockUseResult.Outcome.RECOVERY_REQUIRED
+                || result.outcome() == BodyBlockUseResult.Outcome.DENIED) {
+            long sequence = POLICY.query(clock);
+            if (sequence != 0) {
+                WORLD.handQueryIssued();
+                PacketDistributor.sendToServer(new BodyHandStateQuery(POLICY.queryEpoch(), sequence));
+            }
+        }
     }
 
     public static void mouseButton(net.neoforged.neoforge.client.event.InputEvent.MouseButton.Pre event) {
@@ -408,13 +451,23 @@ public final class BodyHandClient {
         }
         reconcile();
         var view = POLICY.inventoryView();
-        if (view == null) return;
+        if (view == null) { event.setCanceled(true); return; }
         var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
         UUID target = lookTarget(cameraBody);
-        if (target == null) return;
-        boolean sent = active.token() == null ? request(BodyHandActionRequest.Action.PICKUP_SELECTED)
-                : request(BodyHandActionRequest.Action.USE_TARGET);
-        if (sent || active.token() != null) event.setCanceled(true);
+        var start = cameraBody.getEyePosition();
+        var end = start.add(cameraBody.getLookAngle().scale(BodyBlockUseTargetProbe.MAX_REACH));
+        var block = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
+        var route = PrimaryWorldGesture.route(true, block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK,
+                active.token() != null, target != null);
+        if (route == PrimaryWorldGesture.Route.BLOCK_USE) {
+            requestBlockUse(BodyBlockUseRequest.Intent.USE);
+        } else {
+            var action = PrimaryWorldGesture.action(route);
+            if (action == BodyHandActionRequest.Action.PICKUP && target != null)
+                action = BodyHandActionRequest.Action.PICKUP_SELECTED;
+            if (action != null) request(action);
+        }
+        event.setCanceled(true);
     }
 
     private static void togglePull() {
@@ -1199,7 +1252,7 @@ public final class BodyHandClient {
                 if (target == null) { POLICY.noItemUnderCursor(clock); return false; }
             }
             case STOP_PULL -> { }
-            case DROP, THROW_GRENADE, THROW_ITEM, USE_IN_HAND, PRIME_GRENADE -> {
+            case DROP, THROW_GRENADE, THROW_ITEM, USE_IN_HAND, USE_HELD, PRIME_GRENADE -> {
                 if (active.token() == null) return false;
                 if (action == BodyHandActionRequest.Action.USE_IN_HAND
                         && !BodyHandClientPolicy.handAvailableForItemAction(active)) return false;

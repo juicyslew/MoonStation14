@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands.live;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
@@ -22,14 +23,13 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "chemistry", "physiology", "interaction", "loose-objects"})
 public final class BodyLooseJugSipGameTests {
     private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> WATER =
             ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
@@ -37,7 +37,7 @@ public final class BodyLooseJugSipGameTests {
 
     private BodyLooseJugSipGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void emptyHandSipsLooseJugConservingContents(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -84,7 +84,7 @@ public final class BodyLooseJugSipGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void ownedJugFillTransfersBothDirectionsConservingContents(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));

@@ -8,6 +8,54 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PowerLiveLoopTest {
+    @Test void ventsShareApcAllocationWithLampsAndAreBilledOnlyForElapsedTime() {
+        var source = List.of(new PowerLiveLoop.Source("source", 1, true, 1_000));
+        var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));
+        var apc = List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 0));
+        var lamp = new PowerLiveLoop.Lamp("lamp", 3, true);
+        var vent = PowerLiveLoop.VentLoad.defaultUnaryAtmos("vent", 3, true);
+        var result = PowerLiveLoop.solve(new PowerLiveLoop.Input(source, sub, apc,
+                List.of(lamp), List.of(vent), 20));
+        assertEquals(5, result.ventWatts().get("vent"), 1e-9);
+        assertEquals(100, result.lampWatts().get("lamp"), 1e-9);
+
+        var shortSupply = PowerLiveLoop.solve(new PowerLiveLoop.Input(
+                List.of(new PowerLiveLoop.Source("short-source", 1, true, 1)), sub, apc,
+                List.of(lamp), List.of(vent), 20));
+        assertTrue(shortSupply.ventWatts().get("vent") > 0 && shortSupply.ventWatts().get("vent") < 5,
+                "partial watts are not authorization to run gas simulation");
+        assertTrue(shortSupply.ventWatts().get("vent") + shortSupply.lampWatts().get("lamp") < 105);
+
+        var noVent = PowerLiveLoop.solve(new PowerLiveLoop.Input(source, sub, apc, List.of(lamp), 20));
+        assertEquals(100, noVent.lampWatts().get("lamp"), 1e-9);
+        assertEquals(0, noVent.ventWatts().size());
+        var zeroElapsed = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(),
+                List.of(new PowerLiveLoop.Apc("battery", 2, true, 3, true, true, 10_000)),
+                List.of(), List.of(PowerLiveLoop.VentLoad.defaultUnaryAtmos("vent", 3, true)), 0));
+        assertEquals(0, zeroElapsed.ventWatts().get("vent"), 1e-9);
+        assertEquals(10_000, zeroElapsed.batteryEnergyJoules().get("battery"), 1e-9);
+    }
+
+    @Test void ventsFailClosedForUnknownOrOpenPortsAndBatteryDeliveryIsBilledOnce() {
+        var vent = PowerLiveLoop.VentLoad.defaultUnaryAtmos("vent", 3, true);
+        var open = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("source", 1, true, 1_000)),
+                List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true)),
+                List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, false, 10_000)), List.of(), List.of(vent), 20));
+        assertEquals(0, open.ventWatts().get("vent"), 1e-9);
+        var unknown = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(),
+                List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 10_000)), List.of(),
+                 List.of(PowerLiveLoop.VentLoad.defaultUnaryAtmos("vent", 3, false)), 20));
+        assertEquals(0, unknown.ventWatts().get("vent"), 1e-9);
+        var battery = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(),
+                List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 5_000)), List.of(), List.of(vent), 20));
+        assertEquals(5, battery.ventWatts().get("vent"), 1e-9);
+        assertEquals(4_995, battery.batteryEnergyJoules().get("apc"), 1e-9);
+        assertThrows(IllegalArgumentException.class, () -> new PowerLiveLoop.VentLoad("bad", 3, true, 5_001));
+        assertThrows(IllegalArgumentException.class, () -> new PowerLiveLoop.Input(List.of(), List.of(), List.of(),
+                List.of(new PowerLiveLoop.Lamp("same", 3, true)),
+                List.of(new PowerLiveLoop.VentLoad("same", 3, true, 500)), 20));
+    }
+
     @Test void debugFixtureUsesTypedDemandAndBatteryToDeliverTwentyFourKilowatts() {
         assertEquals(100, PowerDeviceKind.LAMP.lampDemandWatts());
         assertEquals(12_000, PowerDeviceKind.DEBUG_LOAD_LAMP.lampDemandWatts());

@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands.live;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.block.ModBlocks;
@@ -21,13 +22,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "chemistry", "physiology", "interaction"})
 public final class BodyPuddleDrinkGameTests {
     private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> WATER =
             ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
@@ -35,7 +35,7 @@ public final class BodyPuddleDrinkGameTests {
 
     private BodyPuddleDrinkGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 10)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 10)
     public static void registeredPuddleDrinkCommitsImmediately(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos bodyPos = helper.absolutePos(new BlockPos(2, 1, 2));

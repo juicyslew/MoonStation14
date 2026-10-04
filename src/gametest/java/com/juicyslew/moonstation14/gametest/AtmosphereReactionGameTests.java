@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
@@ -25,8 +27,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.Map;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereReactionGameTests {
     private static final Map<String, GasReactionData.EffectType> BUNDLED = Map.of(
             "plasma_fire", GasReactionData.EffectType.PLASMA_FIRE,
@@ -38,7 +40,7 @@ public final class AtmosphereReactionGameTests {
 
     private AtmosphereReactionGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_catalog", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_catalog", timeoutTicks = 100)
     public static void serverCatalogContainsAllSixEnabledReactions(GameTestHelper helper) {
         var catalog = PrototypeRuntime.serverGasReactions();
         require(catalog.asMap().keySet().equals(BUNDLED.keySet().stream().map(AtmosphereReactionGameTests::id)
@@ -57,7 +59,7 @@ public final class AtmosphereReactionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_tritium", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_tritium", timeoutTicks = 100)
     public static void tritiumFireCommitsPartialHotspot(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.TRITIUM, 2, 900);
@@ -75,7 +77,7 @@ public final class AtmosphereReactionGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_plasma", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_plasma", timeoutTicks = 100)
     public static void plasmaFireCommitsPartialHotspot(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.PLASMA, 1, 1643.15);
@@ -93,7 +95,7 @@ public final class AtmosphereReactionGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_frezon_production", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_frezon_production", timeoutTicks = 100)
     public static void coldFrezonProductionConvertsOxygenAndTritium(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.TRITIUM, 1, 30);
@@ -110,7 +112,7 @@ public final class AtmosphereReactionGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_frezon_coolant", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_frezon_coolant", timeoutTicks = 100)
     public static void frezonCoolantConsumesNitrogenAndRemovesRawJoules(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.FREZON, 1, 373.15);
@@ -126,7 +128,7 @@ public final class AtmosphereReactionGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_ammonia", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_ammonia", timeoutTicks = 100)
     public static void ammoniaOxygenMakesN2OAndWater(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.AMMONIA, 2, 400);
@@ -142,7 +144,7 @@ public final class AtmosphereReactionGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_n2o", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_n2o", timeoutTicks = 100)
     public static void hotN2ODecomposesToNitrogenAndOxygen(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.NITROUS_OXIDE, 2, 850);
@@ -156,7 +158,7 @@ public final class AtmosphereReactionGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_cold_gate", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_cold_gate", timeoutTicks = 100)
     public static void frezonProductionStopsAboveColdCutoff(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.TRITIUM, 1, 74);
@@ -165,14 +167,14 @@ public final class AtmosphereReactionGameTests {
         f.onDue(() -> { f.noReaction(); helper.succeed(); });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_hot_gate", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_hot_gate", timeoutTicks = 100)
     public static void n2oDecompositionStopsBelowHotGate(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.NITROUS_OXIDE, 2, 849);
         f.onDue(() -> { f.noReaction(); helper.succeed(); });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_attachment_roundtrip", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_attachment_roundtrip", timeoutTicks = 100)
     public static void serializedChunkAttachmentFeedsNewServiceWithoutFireCatchUp(GameTestHelper helper) {
         Fixture f = fixture(helper);
         f.add(GasType.TRITIUM, 2, 900);

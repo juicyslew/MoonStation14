@@ -5,11 +5,11 @@ import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransiti
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Policy fixtures only: these do not simulate a connected ServerPlayer or prove command acceptance. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class DetachedCreativeHandoffPolicyGameTests {
     private DetachedCreativeHandoffPolicyGameTests() { }
@@ -45,7 +45,7 @@ public final class DetachedCreativeHandoffPolicyGameTests {
         }
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void canceledSwitchRestoresNewPark(GameTestHelper helper) {
         Fixture f = new Fixture();
         require(!f.run(false, false, GameType.CREATIVE) && f.parks == 1 && f.restores == 1
@@ -53,7 +53,7 @@ public final class DetachedCreativeHandoffPolicyGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void successfulSwitchKeepsPark(GameTestHelper helper) {
         Fixture f = new Fixture();
         require(f.run(false, true, GameType.SPECTATOR) && f.parks == 1 && f.restores == 0
@@ -68,7 +68,7 @@ public final class DetachedCreativeHandoffPolicyGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void ambiguousSwitchAndDirtyParkDisconnect(GameTestHelper helper) {
         Fixture f = new Fixture();
         require(!f.run(false, false, GameType.SPECTATOR) && f.disconnected

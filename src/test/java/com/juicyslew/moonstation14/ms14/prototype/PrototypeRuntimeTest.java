@@ -9,6 +9,8 @@ import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
+import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.chat.radio.ModRadioChannels;
 import com.juicyslew.moonstation14.ms14.chat.radio.RadioChannelData;
@@ -55,7 +57,8 @@ class PrototypeRuntimeTest {
                 ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
                 ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
-                ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE);
+                ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE,
+                ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -116,7 +119,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllElevenFamiliesIncludingGridFootprintsWithoutSharingState() {
+    void runtimeExportImportsAllThirteenFamiliesIncludingVentilationAndFootprintsWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -140,6 +143,15 @@ class PrototypeRuntimeTest {
         server.publishDecoded(ModOrgans.ORGAN_TYPE, Map.of(id("lungs-test"), lungs));
         GasReactionData reaction = reaction(GasType.PLASMA);
         server.publishDecoded(ModGasReactions.GAS_REACTION_TYPE, reactions(id("reaction-test"), reaction));
+        server.reload(ModVentilationDevices.VENTILATION_DEVICE_TYPE, Map.of(
+                ModVentilationDevices.BASE, ventilation("gas_unary_base"),
+                ModVentilationDevices.VENT, ventilation("gas_vent"),
+                 ModVentilationDevices.SCRUBBER, ventilation("gas_scrubber")));
+        server.reload(ModAirAlarms.AIR_ALARM_TYPE, Map.of(
+                ModAirAlarms.WALLMOUNT, alarm("base_wallmount"),
+                ModAirAlarms.METALLIC, alarm("base_wallmount_metallic"),
+                ModAirAlarms.MACHINE, alarm("base_wallmount_machine"),
+                ModAirAlarms.AIR_ALARM, alarm("air_alarm")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
@@ -151,11 +163,15 @@ class PrototypeRuntimeTest {
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
                 ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
                  ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
-                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId()),
-                exported.keySet());
+                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
+                 ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId()),
+                 exported.keySet());
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
         assertTrue(exported.get(ModGasReactions.GAS_REACTION_TYPE.typeId()).containsKey(id("reaction-test")));
         assertTrue(exported.get(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()).containsKey(id("common")));
+        assertEquals(Set.of(ModVentilationDevices.VENT, ModVentilationDevices.SCRUBBER),
+                 exported.get(ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId()).keySet());
+        assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
         assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
         ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
@@ -177,6 +193,8 @@ class PrototypeRuntimeTest {
         assertEquals(explosion, ModExplosions.EXPLOSION_TYPE.codec().parse(JsonOps.INSTANCE,
                 exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).get(id("explosion-test"))).getOrThrow());
         assertEquals(reaction, PrototypeRuntime.serverGasReactions().get(id("reaction-test")));
+        assertEquals(PrototypeRuntime.serverVentilationDevices().asMap(), PrototypeRuntime.clientVentilationDevices().asMap());
+        assertEquals(PrototypeRuntime.serverAirAlarms().asMap(), PrototypeRuntime.clientAirAlarms().asMap());
         assertEquals(explosion, PrototypeRuntime.serverExplosions().get(id("explosion-test")));
         assertTrue(PrototypeRuntime.clientCharacters().contains(id("human-test")));
         assertFalse(PrototypeRuntime.clientCharacters().contains(id("missing")));
@@ -204,6 +222,26 @@ class PrototypeRuntimeTest {
     private static GasReactionData reaction(GasType gas) {
         return new GasReactionData(Map.of(gas, 0.01), 2.7, 1000, 0, 1,
                 java.util.List.of(new GasReactionData.Effect(GasReactionData.EffectType.PLASMA_FIRE)));
+    }
+
+    private static JsonObject ventilation(String name) {
+        String path = "/data/moonstation14/moonstation14/ventilation_device/" + name + ".json";
+        try (var stream = PrototypeRuntimeTest.class.getResourceAsStream(path)) {
+            if (stream == null) throw new IllegalStateException("Missing test resource " + path);
+            return JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (java.io.IOException exception) {
+            throw new java.io.UncheckedIOException(exception);
+        }
+    }
+
+    private static JsonObject alarm(String name) {
+        String path = "/data/moonstation14/moonstation14/air_alarm/" + name + ".json";
+        try (var stream = PrototypeRuntimeTest.class.getResourceAsStream(path)) {
+            if (stream == null) throw new IllegalStateException("Missing test resource " + path);
+            return JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (java.io.IOException exception) {
+            throw new java.io.UncheckedIOException(exception);
+        }
     }
 
     private static ExplosionData explosion(float damage) {
