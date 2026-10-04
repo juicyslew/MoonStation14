@@ -1,0 +1,1 @@
+{"id":"moonstation14:drink_base","abstract":true,"parent":"moonstation14:edible_defaults","edible":{"destroy_on_empty":false}}

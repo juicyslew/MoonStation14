@@ -30,7 +30,12 @@ public class ModEventHooks {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingDamagePost);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingIncomingDamage);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingHeal);
+        NeoForge.EVENT_BUS.addListener(ModEventHooks::onAppliedTypedDamage);
         NeoForge.EVENT_BUS.addListener(TickHooks::onLivingEntityTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onPostServerTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onEntityLeave);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onStartTracking);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onServerStopped);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onEntityLeaveLevel);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onPlayerClone);
@@ -62,6 +67,12 @@ public class ModEventHooks {
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(livingEntity);
             EntityActivitySystem.reconcile(livingEntity);
         }
+    }
+
+    private static void onAppliedTypedDamage(
+            com.juicyslew.moonstation14.ms14.damage.AppliedDamageEvent event) {
+        com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.damage(
+                event.entity(), event.typedDamage());
     }
 
     private static void replaceCreativeModDrop(ServerLevel level,
@@ -96,6 +107,7 @@ public class ModEventHooks {
 
     private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.onLogout(player);
             com.juicyslew.moonstation14.ms14.movement.server.MovementServerController.onDisconnect(player);
         }
     }

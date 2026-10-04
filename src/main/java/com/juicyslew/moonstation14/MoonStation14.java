@@ -102,6 +102,8 @@ public class MoonStation14 {
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.ingestion.IngestionNetworking::registerPayloadHandlers);
         MovementServerController.install();
         //ModFluids.register(modEventBus);
 

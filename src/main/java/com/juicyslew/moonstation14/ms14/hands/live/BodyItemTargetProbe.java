@@ -354,6 +354,15 @@ public final class BodyItemTargetProbe {
         } catch (MissingChunk ignored) { return false; }
     }
 
+    /** Loaded-only validation for a previously nominated item target; does not require the current view ray. */
+    public static boolean loadedReachableItem(ServerLevel level, LivingEntity body, UUID targetId, double reach) {
+        if (level == null || targetId == null || level.getServer() == null || !level.getServer().isSameThread()) return false;
+        Entity found = level.getEntity(targetId);
+        return found instanceof ItemEntity item && item instanceof com.juicyslew.moonstation14.entities.LooseItemEntity
+                && item.getTarget() == null && !item.hasPickUpDelay()
+                && reachableStorageHost(level, body, item, reach);
+    }
+
     private static boolean sameLive(ServerLevel level, LivingEntity body, ItemEntity target) {
         return body.level() == level && !body.isRemoved() && body.isAlive() && body.isAddedToLevel()
                 && level.getEntity(body.getUUID()) == body && target.level() == level && !target.isRemoved()

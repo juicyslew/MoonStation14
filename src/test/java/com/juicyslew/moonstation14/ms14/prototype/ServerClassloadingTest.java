@@ -53,7 +53,9 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/hands/client/SelectedLooseOutlineRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/ItemUiRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/ItemUiAppearance.java",
-            "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java"
+            "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java",
+            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionClient.java",
+            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
@@ -127,6 +129,20 @@ class ServerClassloadingTest {
         assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
                         + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
                 "Ghost mob harness renderer must be explicitly subscribed on Dist.CLIENT");
+    }
+
+    @Test
+    void timedInteractionPresentationClassesAreExplicitlyClientOnly() throws IOException {
+        Path sourceRoot = findProductionSourceRoot();
+        for (String relativePath : List.of(
+                "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionClient.java",
+                "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java")) {
+            Path source = sourceRoot.resolve(relativePath);
+            assertTrue(Files.isRegularFile(source), relativePath + " should exist");
+            String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+            assertTrue(code.matches("(?s).*@OnlyIn\\s*\\(\\s*Dist\\.CLIENT\\s*\\).*"),
+                    relativePath + " must be annotated @OnlyIn(Dist.CLIENT)");
+        }
     }
 
     @Test

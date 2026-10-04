@@ -48,6 +48,9 @@ import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlC
 import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHealthHudPolicy;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyBlockOutlineRenderer;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSnapshot;
+import com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient;
+import com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionRenderer;
 import com.juicyslew.moonstation14.ms14.atmos.piping.client.VisualPipeBlockEntityRenderer;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreen;
@@ -142,6 +145,7 @@ public class MoonStation14Client {
         }));
         MovementClientController.install();
         BodyHandClient.install();
+        TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
         NeoForge.EVENT_BUS.addListener(MachineUiGalleryCommands::register);
     }
@@ -175,6 +179,12 @@ public class MoonStation14Client {
     public static void renderBodyBlockOutline(RenderLevelStageEvent event) {
         BodyBlockOutlineRenderer.render(event);
     }
+
+    @SubscribeEvent
+    public static void tickTimedInteractions(ClientTickEvent.Post event) { TimedInteractionClient.tick(); }
+
+    @SubscribeEvent
+    public static void renderTimedInteractions(RenderLevelStageEvent event) { TimedInteractionRenderer.render(event); }
 
     @SubscribeEvent
     public static void renderLocalSpeech(RenderLevelStageEvent event) {

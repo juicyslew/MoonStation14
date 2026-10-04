@@ -33,37 +33,41 @@ public final class BodyPuddleDrinkService {
     public static BodyLiquidInteraction.Result start(LivingEntity body, String hand, long revision,
                                                        BlockPos target, BooleanSupplier authority) {
         if (!(body != null && body.level() instanceof ServerLevel level) || !eligible(body, hand, revision, authority)
-                || target == null || !aimedPuddle(level, body, target)) return BodyLiquidInteraction.Result.DENIED;
+                || target == null || !level.hasChunkAt(target) || !aimedPuddle(level, body, target)) return BodyLiquidInteraction.Result.DENIED;
         if (!(level.getBlockEntity(target) instanceof PuddleBlockEntity puddle)
                 || !validContents(puddle, level)) return BodyLiquidInteraction.Result.DENIED;
-        return finish(body, level, target.immutable(), puddle, authority)
-                ? BodyLiquidInteraction.Result.SUCCESS : BodyLiquidInteraction.Result.DENIED;
+        return finishTimed(body, target.immutable(), puddle, 100, true, authority);
     }
 
-    private static boolean finish(LivingEntity body, ServerLevel level, BlockPos pos,
-                                  PuddleBlockEntity puddle, BooleanSupplier authority) {
-        if (level.getBlockEntity(pos) != puddle || !validContents(puddle, level)) return false;
+    public static BodyLiquidInteraction.Result finishTimed(LivingEntity body, BlockPos pos,
+            PuddleBlockEntity expectedPuddle, int doseCents, boolean destroyOnEmpty, BooleanSupplier authority) {
+        if (body == null || !(body.level() instanceof ServerLevel level) || pos == null || expectedPuddle == null
+                || authority == null || doseCents <= 0 || !level.hasChunkAt(pos)
+                || !authority.getAsBoolean() || !eligibleBody(body) || level.getBlockEntity(pos) != expectedPuddle
+                || !visiblePuddle(level, body, pos) || !validContents(expectedPuddle, level))
+            return BodyLiquidInteraction.Result.DENIED;
+        PuddleBlockEntity puddle = expectedPuddle;
         ReagentAttachment source = MS14Provider.getDetached(puddle, MS14Bridges.REAGENT);
         ReagentAttachment stomach = MS14Provider.getDetached(body, MS14Bridges.STOMACH);
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(source.getMap(), level, "puddle sip source")
-                || !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(stomach.getMap(), level, "puddle sip stomach")) return false;
+                || !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(stomach.getMap(), level, "puddle sip stomach")) return BodyLiquidInteraction.Result.DENIED;
         var sourceBefore = MS14Provider.snapshot(source); var stomachBefore = MS14Provider.snapshot(stomach);
         var stomachAttachment = body.getExistingDataOrNull(ModDataAttachments.STOMACH.get());
         var plan = LiquidInteractionCapability.plan(ReagentUnits.fromMap(source.getMap()),
                 ReagentUnits.fromMap(stomach.getMap()), LiquidInteractionCapability.STOMACH_CAPACITY_CENTS,
-                100);
-        if (plan.transferredCents() == 0) return false;
+                 doseCents);
+        if (plan.transferredCents() == 0) return BodyLiquidInteraction.Result.DENIED;
         var stagedSource = new ReagentAttachment(toFloats(plan.sourceAfter()));
         var stagedStomach = new ReagentAttachment(toFloats(plan.destinationAfter()));
-        if (!authority.getAsBoolean() || !eligibleBody(body) || level.getBlockEntity(pos) != puddle
-                    || !visiblePuddle(level, body, pos)) return false;
+        if (!authority.getAsBoolean() || !eligibleBody(body) || !level.hasChunkAt(pos)
+                    || level.getBlockEntity(pos) != puddle || !visiblePuddle(level, body, pos)) return BodyLiquidInteraction.Result.DENIED;
         puddle.beginDeferredEmptyCleanup();
         boolean committed = false;
         boolean safeToCleanup = false;
         try {
             MS14Provider.updateIfChanged(puddle, MS14Bridges.REAGENT, sourceBefore, stagedSource);
             // Publishing source is effectful; authority and exact source state must still hold before stomach commit.
-            if (level.getBlockEntity(pos) != puddle
+            if (!level.hasChunkAt(pos) || level.getBlockEntity(pos) != puddle
                     || body.getExistingDataOrNull(ModDataAttachments.STOMACH.get()) != stomachAttachment
                     || !ReagentUnits.fromMap(MS14Provider.getDetached(puddle, MS14Bridges.REAGENT).getMap()).equals(plan.sourceAfter())
                     || !MS14Provider.snapshot(MS14Provider.getDetached(body, MS14Bridges.STOMACH)).equals(stomachBefore)
@@ -72,6 +76,8 @@ public final class BodyPuddleDrinkService {
             committed = ReagentUnits.fromMap(MS14Provider.getDetached(body, MS14Bridges.STOMACH).getMap()).equals(plan.destinationAfter())
                     && ReagentUnits.fromMap(MS14Provider.getDetached(puddle, MS14Bridges.REAGENT).getMap()).equals(plan.sourceAfter());
             safeToCleanup = committed;
+            if (committed && !destroyOnEmpty && plan.sourceAfter().isEmpty())
+                puddle.blockDeferredCleanupAfterFailure();
         } catch (RuntimeException failure) {
             // Restore only from the exact known staged source, and only while stomach and authority are unchanged.
             try {
@@ -89,11 +95,11 @@ public final class BodyPuddleDrinkService {
             if (!safeToCleanup) puddle.blockDeferredCleanupAfterFailure();
             puddle.endDeferredEmptyCleanup(committed);
         }
-        if (!committed) return false;
+        if (!committed) return safeToCleanup ? BodyLiquidInteraction.Result.DENIED : BodyLiquidInteraction.Result.RECOVERY_REQUIRED;
         EntityActivitySystem.update(body, EntityActivity.REAGENT_METABOLISM, true);
         level.playSound(null, body.getX(), body.getY(), body.getZ(), ModSounds.DRINK.get(), SoundSource.PLAYERS,
                 0.7943282F, 1f);
-        return true;
+        return BodyLiquidInteraction.Result.SUCCESS;
     }
 
     private static boolean eligible(LivingEntity body, String hand, long revision, BooleanSupplier authority) {
@@ -102,7 +108,7 @@ public final class BodyPuddleDrinkService {
                 && hands.revision() == revision && hands.activeHand().equals(hand)
                 && hands.stackCopy(hand).isEmpty() && hands.reservation(hand).isEmpty() && eligibleBody(body);
     }
-    private static boolean eligibleBody(LivingEntity body) {
+    public static boolean eligibleBody(LivingEntity body) {
         var character = com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy.resolveActor(body).orElse(null);
         return body.isAlive() && !body.isRemoved() && body.isAddedToLevel()
                 && character != null && character.component(MouthComponent.class).isPresent()
@@ -113,7 +119,8 @@ public final class BodyPuddleDrinkService {
         return ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
                 MS14Provider.getDetached(be, MS14Bridges.REAGENT).getMap(), level, "puddle sip");
     }
-    private static boolean visiblePuddle(ServerLevel level, LivingEntity body, BlockPos nominated) {
+    public static boolean visiblePuddle(ServerLevel level, LivingEntity body, BlockPos nominated) {
+        if (!level.hasChunkAt(nominated)) return false;
         var chunk = level.getChunkSource().getChunkNow(nominated.getX() >> 4, nominated.getZ() >> 4);
         if (chunk == null || chunk.getBlockEntities().get(nominated) == null
                 || !(chunk.getBlockEntities().get(nominated) instanceof PuddleBlockEntity)) return false;

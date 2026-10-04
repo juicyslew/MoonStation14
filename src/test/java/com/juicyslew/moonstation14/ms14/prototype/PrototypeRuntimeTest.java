@@ -25,6 +25,7 @@ import com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
+import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
@@ -59,6 +60,8 @@ class PrototypeRuntimeTest {
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
                 ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE,
                 ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE);
+        expectedTypes = new java.util.HashSet<>(expectedTypes);
+        expectedTypes.add(ModIngestionProfiles.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -119,7 +122,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllThirteenFamiliesIncludingVentilationAndFootprintsWithoutSharingState() {
+    void runtimeExportImportsAllFourteenFamiliesIncludingIngestionWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -164,7 +167,8 @@ class PrototypeRuntimeTest {
                 ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
                  ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                  ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                 ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId()),
+                  ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
+                  ModIngestionProfiles.TYPE.typeId()),
                  exported.keySet());
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
         assertTrue(exported.get(ModGasReactions.GAS_REACTION_TYPE.typeId()).containsKey(id("reaction-test")));

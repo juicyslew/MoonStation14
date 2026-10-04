@@ -15,6 +15,9 @@ import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadePrime;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadeThrow;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyLiquidInteraction;
+import com.juicyslew.moonstation14.ms14.ingestion.BodyTimedIngestionService;
+import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
+import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
 import com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
@@ -99,10 +102,8 @@ public final class BodyHandRequestService {
             return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
 
         if (request.action() == BodyHandActionRequest.Action.SIP_PUDDLE) {
-            var outcome = com.juicyslew.moonstation14.ms14.hands.live.BodyPuddleDrinkService.start(
-                    authority.body(), request.handId(), request.expectedRevision(), request.targetBlock(),
-                    () -> HandActorAuthority.revalidate(actor, authority));
-            return result(request, liquidReason(outcome), authority);
+            return result(request, BodyTimedIngestionService.startPuddle(actor, request.targetBlock(),
+                    request.handId(), request.expectedRevision(), request.sequence()), authority);
         }
 
         if (storageMutation(request.action()) && ModItemFootprints.serverCatalog().size() == 0)
@@ -487,16 +488,17 @@ public final class BodyHandRequestService {
             var ownedToken = hands.token(request.handId()).orElse(null);
             if (request.expectedToken() != null && !request.expectedToken().equals(ownedToken))
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
-            var outcome = ownedToken != null
-                    ? BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), ownedToken,
-                            request.expectedRevision(), true)
-                    : hands.reservation(request.handId()).isPresent()
-                            ? BodyLiquidInteraction.Result.DENIED
-                            : BodyLiquidInteraction.sip(actor, request.pickupTarget(), request.handId(), null,
-                                    request.expectedRevision());
-            BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
-            return response;
+            if (ownedToken != null) {
+                var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), ownedToken,
+                        request.expectedRevision(), true);
+                BodyHandActionResult response = result(request, liquidReason(outcome), authority);
+                if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                return response;
+            }
+            if (hands.reservation(request.handId()).isPresent())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            return result(request, BodyTimedIngestionService.startWorld(actor, request.pickupTarget(),
+                    request.handId(), request.expectedRevision(), request.sequence()), authority);
         }
         if (hands.token(request.handId()).filter(request.expectedToken()::equals).isEmpty())
             return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
@@ -522,11 +524,18 @@ public final class BodyHandRequestService {
             return response;
         }
         if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
-            var outcome = BodyLiquidInteraction.sip(actor, null, request.handId(), request.expectedToken(), request.expectedRevision());
-            BodyHandActionResult.Reason reason = outcome == BodyLiquidInteraction.Result.DENIED
-                    ? BodyHeldItemActions.activate(actor, request) : liquidReason(outcome);
+            var stack = hands.stackCopy(request.handId()).orElse(null);
+            if (stack == null) return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            if (!(stack.getItem() instanceof IReagentTrait))
+                return result(request, BodyHeldItemActions.activate(actor, request), authority);
+            if (!ModIngestionProfiles.serverReady())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            if (itemId == null || ModIngestionProfiles.serverLookup(itemId) == null)
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            BodyHandActionResult.Reason reason = BodyTimedIngestionService.startHeld(actor, request.handId(),
+                    request.expectedToken(), request.expectedRevision(), request.sequence());
             BodyHandActionResult response = result(request, reason, authority);
-            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
             return response;
         }
         if (request.action() == BodyHandActionRequest.Action.PRIME_GRENADE) {
