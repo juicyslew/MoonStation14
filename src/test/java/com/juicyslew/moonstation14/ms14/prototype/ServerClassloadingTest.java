@@ -40,6 +40,7 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerSlidingLookMixin.java",
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java",
             "com/juicyslew/moonstation14/mixin/client/GhostOwnedEntityTrackerMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/LivingEntityDisposalContainmentRenderMixin.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
@@ -48,7 +49,12 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/atmos/piping/client/VisualPipeBlockEntityRenderer.java",
             "com/juicyslew/moonstation14/ms14/power/ui/client/ApcScreen.java",
             "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java",
-            "com/juicyslew/moonstation14/ms14/explosion/grenade/client/GrenadeSoundClient.java"
+            "com/juicyslew/moonstation14/ms14/explosion/grenade/client/GrenadeSoundClient.java",
+            "com/juicyslew/moonstation14/ms14/disposal/client/DisposalTubeVisualRenderer.java",
+             "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionPreview.java",
+             "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionClient.java",
+            "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalBuildScreen.java",
+            "com/juicyslew/moonstation14/ms14/disposal/unit/ui/client/DisposalUnitScreen.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"

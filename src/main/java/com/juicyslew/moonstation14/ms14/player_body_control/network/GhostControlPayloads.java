@@ -141,7 +141,9 @@ public final class GhostControlPayloads {
                            long serverGameTick, long acknowledgedAppliedSequence,
                            double x, double y, double z, float yaw, float pitch,
                            double velocityX, double velocityY, double velocityZ, boolean onGround,
-                           float surfaceFactor, float voluntarySpeedFactor, boolean stunned) implements CustomPacketPayload {
+                            float surfaceFactor, float voluntarySpeedFactor, boolean stunned,
+                            MovementMode movementMode) implements CustomPacketPayload {
+        public enum MovementMode { GROUNDED, UNIT, TRANSIT }
         public static final Type<Snapshot> TYPE = GhostControlPayloads.type("ghost_control_snapshot");
         public static final StreamCodec<RegistryFriendlyByteBuf, Snapshot> STREAM_CODEC = StreamCodec.of(
                 (buf, value) -> {
@@ -151,16 +153,18 @@ public final class GhostControlPayloads {
                     buf.writeFloat(value.yaw); buf.writeFloat(value.pitch);
                     buf.writeDouble(value.velocityX); buf.writeDouble(value.velocityY); buf.writeDouble(value.velocityZ);
                     buf.writeBoolean(value.onGround); buf.writeFloat(value.surfaceFactor);
-                    buf.writeFloat(value.voluntarySpeedFactor); buf.writeBoolean(value.stunned);
+                    buf.writeFloat(value.voluntarySpeedFactor); buf.writeBoolean(value.stunned); buf.writeEnum(value.movementMode);
                 }, buf -> new Snapshot(readEpoch(buf), readNonNegativeEntityId(buf), readHarnessKind(buf),
                         readNonNegative(buf, "server game tick"), readNonNegative(buf, "acknowledged applied sequence"),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readFloat(),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readBoolean(),
-                        buf.readFloat(), buf.readFloat(), buf.readBoolean()));
+                         buf.readFloat(), buf.readFloat(), buf.readBoolean(), buf.readEnum(MovementMode.class)));
         public Snapshot {
             requireEpoch(epoch);
             if (harnessEntityId < 0) throw new IllegalArgumentException("harness entity id must be nonnegative");
             if (harnessKind == null) throw new IllegalArgumentException("harness kind must be specified");
+            if (movementMode == null || harnessKind == MobHarnessKind.GHOST && movementMode != MovementMode.GROUNDED)
+                throw new IllegalArgumentException("invalid movement mode for harness kind");
             requireNonNegative(serverGameTick, "server game tick");
             requireNonNegative(acknowledgedAppliedSequence, "acknowledged applied sequence");
             requireWorldCoordinate(x, "x");
@@ -180,7 +184,16 @@ public final class GhostControlPayloads {
         public Snapshot(long epoch, int ghostEntityId, long serverGameTick, long acknowledgedAppliedSequence,
                         double x, double y, double z, float yaw, float pitch) {
             this(epoch, ghostEntityId, MobHarnessKind.GHOST, serverGameTick, acknowledgedAppliedSequence,
-                    x, y, z, yaw, pitch, 0, 0, 0, false, 1, 1, false);
+                    x, y, z, yaw, pitch, 0, 0, 0, false, 1, 1, false, MovementMode.GROUNDED);
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind,
+                        long serverGameTick, long acknowledgedAppliedSequence,
+                        double x, double y, double z, float yaw, float pitch,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround,
+                        float surfaceFactor, float voluntarySpeedFactor, boolean stunned) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence,
+                    x, y, z, yaw, pitch, velocityX, velocityY, velocityZ, onGround, surfaceFactor,
+                    voluntarySpeedFactor, stunned, MovementMode.GROUNDED);
         }
         /** Compatibility accessor for existing ghost-only code. */
         public int ghostEntityId() { return harnessEntityId; }

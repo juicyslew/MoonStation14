@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.ms14.hands.HandComponent;
 import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
+import com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelData;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.bus.api.IEventBus;
@@ -76,6 +77,10 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<GrenadeFuseData>> GRENADE_FUSE =
             register_component("grenade_fuse", builder -> builder.persistent(GrenadeFuseData.CODEC)
                     .networkSynchronized(GrenadeFuseData.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<WelderFuelData>> WELDER_FUEL =
+            register_component("welder_fuel", builder -> builder.persistent(WelderFuelData.CODEC)
+                    .networkSynchronized(WelderFuelData.STREAM_CODEC));
 
 
     private static <T>DeferredHolder<DataComponentType<?>, DataComponentType<T>> register_component(

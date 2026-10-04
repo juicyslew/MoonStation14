@@ -34,7 +34,8 @@ class GhostControlPayloadsTest {
         var characterBegin = new GhostControlPayloads.Begin(9, 43, MobHarnessKind.CHARACTER);
         var characterSnapshot = new GhostControlPayloads.Snapshot(10, 44,
                 MobHarnessKind.CHARACTER, 11, 8, 1, 2, 3, 4, 5,
-                6.5, -7.5, 8.5, true, 1.5f, 1.5f, true);
+                6.5, -7.5, 8.5, true, 1.5f, 1.5f, true,
+                GhostControlPayloads.Snapshot.MovementMode.TRANSIT);
 
         Set<CustomPacketPayload.Type<?>> ghostTypes = Set.of(begin.type(), ready.type(), offer.type(), offerReady.type(), commit.type(),
                 intent.type(), stop.type(), snapshot.type());
@@ -67,6 +68,15 @@ class GhostControlPayloadsTest {
         assertEquals(snapshot.harnessEntityId(), snapshot.ghostEntityId());
         assertEquals(1.5f, characterSnapshot.surfaceFactor());
         assertEquals(1.5f, characterSnapshot.voluntarySpeedFactor());
+        assertEquals(GhostControlPayloads.Snapshot.MovementMode.TRANSIT,
+                roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, characterSnapshot).movementMode());
+        var unitSnapshot = new GhostControlPayloads.Snapshot(10, 44, MobHarnessKind.CHARACTER,
+                12, 8, 1, 2, 3, 4, 5, 0, 0, 0, true, 1, 1, false,
+                GhostControlPayloads.Snapshot.MovementMode.UNIT);
+        assertEquals(unitSnapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, unitSnapshot));
+        assertThrows(IllegalArgumentException.class, () -> new GhostControlPayloads.Snapshot(1, 1,
+                MobHarnessKind.GHOST, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 1, 1, false,
+                GhostControlPayloads.Snapshot.MovementMode.UNIT));
     }
 
     @Test

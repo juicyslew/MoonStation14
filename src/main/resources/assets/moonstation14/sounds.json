@@ -9,6 +9,8 @@
   "grenade/beep": { "sounds": [{ "name": "moonstation14:grenade/beep1", "attenuation_distance": 32 }], "subtitle": "sounds.moonstation14.grenade.beep" },
   "grenade/explode": { "sounds": [{ "name": "moonstation14:grenade/explosion1", "attenuation_distance": 32 }], "subtitle": "sounds.moonstation14.grenade.explode" },
   "grenade/explode_far": { "sounds": ["moonstation14:grenade/explosionfar"], "subtitle": "sounds.moonstation14.grenade.explode_far" },
+  "disposal/flush": { "sounds": ["moonstation14:disposal/flush"], "subtitle": "sounds.moonstation14.disposal.flush" },
+  "disposal/pipe_clang": { "sounds": ["moonstation14:disposal/pipe_clang"], "subtitle": "sounds.moonstation14.disposal.pipe_clang" },
   "emote/cough": { "sounds": ["moonstation14:emote/cough/male_cough_1", "moonstation14:emote/cough/male_cough_2", "moonstation14:emote/cough/female_cough_1", "moonstation14:emote/cough/female_cough_2"], "subtitle": "sounds.moonstation14.emote.cough" },
   "emote/crying": { "sounds": ["moonstation14:emote/crying/cry_male_1", "moonstation14:emote/crying/cry_male_2", "moonstation14:emote/crying/cry_male_3", "moonstation14:emote/crying/cry_male_4", "moonstation14:emote/crying/cry_female_1", "moonstation14:emote/crying/cry_female_2", "moonstation14:emote/crying/cry_female_3", "moonstation14:emote/crying/cry_female_4"], "subtitle": "sounds.moonstation14.emote.crying" },
   "emote/hew": { "sounds": ["moonstation14:emote/hew/hew"], "subtitle": "sounds.moonstation14.emote.hew" },

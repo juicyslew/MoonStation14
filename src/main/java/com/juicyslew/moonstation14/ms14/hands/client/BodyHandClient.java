@@ -413,6 +413,31 @@ public final class BodyHandClient {
         return cameraBody == null ? null : POLICY.inventoryView();
     }
 
+    /** Whether the synchronized active hand for this exact controlled body/epoch is steel. */
+    public static boolean activeSteelFor(Mob body, long epoch) {
+        reconcile();
+        if (body == null || body != cameraBody || epoch <= 0 || epoch != GhostControlClient.committedCharacterEpoch()) return false;
+        var snapshot = POLICY.snapshot();
+        if (snapshot == null || snapshot.epoch() != epoch || !snapshot.bodyId().equals(body.getUUID())) return false;
+        var hand = snapshot.hands().stream().filter(slot -> slot.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        return hand != null && com.juicyslew.moonstation14.item.ModItems.STEEL.getId().toString().equals(hand.itemId()) && hand.count() > 0;
+    }
+
+    /** Confirmed active-hand observation for this exact controlled body session; never reads carrier inventory. */
+    public static java.util.Optional<net.minecraft.world.item.ItemStack> activeHeldStackFor(UUID bodyId, long epoch) {
+        reconcile();
+        if (bodyId == null || bodyId.equals(cameraBody == null ? null : cameraBody.getUUID()) == false
+                || epoch <= 0 || epoch != cameraEpoch || epoch != GhostControlClient.committedCharacterEpoch())
+            return java.util.Optional.empty();
+        var snapshot = POLICY.snapshot();
+        if (snapshot == null || snapshot.epoch() != epoch || !bodyId.equals(snapshot.bodyId())) return java.util.Optional.empty();
+        var hand = snapshot.hands().stream().filter(slot -> slot.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        if (hand == null || hand.itemId() == null || hand.count() <= 0) return java.util.Optional.empty();
+        var id = net.minecraft.resources.ResourceLocation.tryParse(hand.itemId());
+        if (id == null || !net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(new net.minecraft.world.item.ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id), hand.count()));
+    }
+
     static BodyHandClientPolicy.InventoryView inventoryPresentation() {
         reconcile();
         return cameraBody == null ? null : POLICY.presentationView();
