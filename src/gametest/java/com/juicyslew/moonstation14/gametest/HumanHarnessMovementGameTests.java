@@ -10,6 +10,8 @@ import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessMotor;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
+import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
+import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -31,6 +33,74 @@ public final class HumanHarnessMovementGameTests {
     private static final double DT = .05d;
 
     private HumanHarnessMovementGameTests() { }
+
+    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    public static void disposalContainmentLookupAndDeadBodyRelease(GameTestHelper helper) {
+        var first = DisposalContainmentService.forLevel(helper.getLevel());
+        require(first == DisposalContainmentService.forLevel(helper.getLevel()), "level lookup must share service identity");
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 3));
+        waitForEntity(helper, body, "initial bind", () -> {
+        body.setInvisible(false);
+        body.noPhysics = false;
+        body.setNoGravity(false);
+        var owner = owner(helper, body.getUUID(), body.position(), DisposalContainmentOwner.Stage.TRANSIT,
+                new AtomicInteger());
+        require(first.bind(body, owner), "loaded body should bind");
+        require(((com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainedVisual) body)
+                .moonstation14$isDisposalContainedVisual(), "containment marker must sync true while bound");
+        body.setHealth(0);
+        require(first.ownerOf(body).isEmpty(), "dead body must no longer have an owner");
+        require(!((com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainedVisual) body)
+                .moonstation14$isDisposalContainedVisual(), "release must clear presentation marker");
+        require(!body.isInvisible() && !body.noPhysics && !body.isNoGravity(), "dead body flags must be restored");
+        helper.succeed();
+        });
+    }
+
+    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    public static void disposalContainmentExportsAndRestoresOriginalFlags(GameTestHelper helper) {
+        var service = DisposalContainmentService.forLevel(helper.getLevel());
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 3));
+        waitForEntity(helper, body, "initial bind", () -> {
+        body.setInvisible(false);
+        body.noPhysics = false;
+        body.setNoGravity(false);
+        Vec3 position = body.position();
+        var escapes = new AtomicInteger();
+        var owner = owner(helper, body.getUUID(), position, DisposalContainmentOwner.Stage.TRANSIT, escapes);
+        var next = owner(helper, body.getUUID(), position, DisposalContainmentOwner.Stage.UNIT, escapes);
+        require(service.bind(body, owner), "initial bind must succeed");
+        var flags = service.export(body, owner).orElseThrow();
+        require(!flags.invisible() && !flags.noPhysics() && !flags.noGravity(), "export must capture pre-entry flags");
+        require(service.transfer(body, owner, next), "transfer must preserve membership");
+        require(service.export(body, next).orElseThrow().equals(flags), "transfer must preserve original flags");
+        require(service.unbind(body, next), "transferred membership must unbind");
+        body.setInvisible(true);
+        body.noPhysics = true;
+        body.setNoGravity(true);
+        require(service.bindRestored(body, owner, flags), "restored bind must accept persisted flags");
+        require(service.unbind(body, owner), "restored membership must unbind");
+        require(!body.isInvisible() && !body.noPhysics && !body.isNoGravity(), "restored flags must be exact originals");
+        helper.succeed();
+        });
+    }
+
+    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    public static void disposalContainmentTickFollowsOwnerWithoutUnitTick(GameTestHelper helper) {
+        var service = DisposalContainmentService.forLevel(helper.getLevel());
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 3));
+        waitForEntity(helper, body, "NPC bind", () -> {
+        Vec3 destination = helper.absolutePos(new BlockPos(7, 1, 7)).getCenter();
+        var owner = owner(helper, body.getUUID(), destination, DisposalContainmentOwner.Stage.TRANSIT,
+                new AtomicInteger());
+        require(service.bind(body, owner), "NPC body should bind to holder owner");
+        service.tick();
+        require(body.position().distanceToSqr(destination) < 1.0e-6,
+                "single level-service tick must pin a holder-owned NPC independently of unit ticks");
+        require(service.unbind(body, owner), "test fixture releases only its own membership");
+        helper.succeed();
+        });
+    }
 
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void realHumanVillagerMovesAndJumpsThroughHarnessMotor(GameTestHelper helper) {
@@ -113,6 +183,70 @@ public final class HumanHarnessMovementGameTests {
         helper.succeed();
     }
 
+    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    public static void containedOwnedMovementIsStationaryAndTransitCannotEscape(GameTestHelper helper) {
+        for (int x = 1; x <= 9; x++) for (int z = 1; z <= 9; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 3));
+        waitForEntity(helper, body, "lease acquisition and containment admission", () -> {
+        body.getPersistentData().putBoolean(GroundedHarnessLease.CONFIGURED_MARKER, true);
+        var lease = GroundedHarnessLease.tryAcquire(body).orElseThrow();
+        var containment = DisposalContainmentService.forLevel(helper.getLevel());
+        var destination = new Vec3(helper.absolutePos(new BlockPos(6, 1, 6)).getX() + .5,
+                helper.absolutePos(new BlockPos(6, 1, 6)).getY(), helper.absolutePos(new BlockPos(6, 1, 6)).getZ() + .5);
+        java.util.concurrent.atomic.AtomicInteger escapes = new java.util.concurrent.atomic.AtomicInteger();
+        DisposalContainmentOwner transit = owner(helper, body.getUUID(), destination, DisposalContainmentOwner.Stage.TRANSIT, escapes);
+        require(containment.bind(body, transit), "exact loaded body should bind to transit owner");
+        var accepted = new GroundedHarnessWorldStep().step(body, 0, 1000, true, true, 0f).orElseThrow();
+        require(accepted.position().z() == destination.z && body.position().equals(destination),
+                "contained movement returns owner-pinned authoritative state rather than ordinary walk result");
+        require(accepted.velocity().equals(MovementVector.ZERO), "contained accepted state must be stationary");
+        require(escapes.get() == 0, "transit input must never invoke voluntary escape");
+        containment.unbind(body, transit);
+
+        DisposalContainmentOwner unit = owner(helper, body.getUUID(), destination, DisposalContainmentOwner.Stage.UNIT, escapes);
+        require(containment.bind(body, unit), "body can bind again after exact owner unbind");
+        new GroundedHarnessWorldStep().step(body, 1000, 0, false, false, 0f).orElseThrow();
+        require(escapes.get() == 1, "unit voluntary movement is delegated to owner escape callback");
+        containment.unbind(body, unit);
+
+        Vec3 safeExit = new Vec3(destination.x + 2, destination.y, destination.z + 2);
+        DisposalContainmentOwner[] exitingUnitRef = new DisposalContainmentOwner[1];
+        DisposalContainmentOwner exitingUnit = owner(helper, body.getUUID(), destination,
+                DisposalContainmentOwner.Stage.UNIT, escapes, escapedBody -> {
+                    require(containment.unbind(escapedBody, exitingUnitRef[0]), "escape callback unbinds exact owner");
+                    escapedBody.teleportTo(safeExit.x, safeExit.y, safeExit.z);
+                });
+        exitingUnitRef[0] = exitingUnit;
+        require(containment.bind(body, exitingUnit), "body binds to self-exiting unit");
+        var escaped = new GroundedHarnessWorldStep().step(body, 1000, 0, false, false, 0f).orElseThrow();
+        require(escaped.position().equals(vector(safeExit)) && body.position().equals(safeExit),
+                "accepted movement state preserves actual safe-exit position instead of stale unit pin");
+        require(containment.ownerOf(body).isEmpty(), "successful escape leaves no containment owner");
+        lease.close();
+        helper.succeed();
+        });
+    }
+
+    private static DisposalContainmentOwner owner(GameTestHelper helper, java.util.UUID id, Vec3 position,
+            DisposalContainmentOwner.Stage stage, java.util.concurrent.atomic.AtomicInteger escapes) {
+        return owner(helper, id, position, stage, escapes, ignored -> { });
+    }
+
+    private static DisposalContainmentOwner owner(GameTestHelper helper, java.util.UUID id, Vec3 position,
+            DisposalContainmentOwner.Stage stage, java.util.concurrent.atomic.AtomicInteger escapes,
+            java.util.function.Consumer<net.minecraft.world.entity.LivingEntity> escapeAction) {
+        return new DisposalContainmentOwner() {
+            public java.util.UUID identity() { return id; }
+            public net.minecraft.server.level.ServerLevel level() { return helper.getLevel(); }
+            public Vec3 position() { return position; }
+            public Stage stage() { return stage; }
+            public boolean isValid() { return true; }
+            public boolean tryEscape(net.minecraft.world.entity.LivingEntity body) {
+                escapes.incrementAndGet(); escapeAction.accept(body); return true;
+            }
+        };
+    }
+
     private static CharacterMovementState tick(Villager villager, GroundedHarnessMotor motor,
                                                 int wishX, int wishZ, boolean jump, double yaw, String label) {
         Vec3 before = villager.position();
@@ -147,6 +281,30 @@ public final class HumanHarnessMovementGameTests {
         mob.setPos(x, y, z);
         mob.setDeltaMovement(Vec3.ZERO);
         mob.move(MoverType.SELF, new Vec3(0d, -.05d, 0d));
+    }
+
+    private static void waitForEntity(GameTestHelper helper, net.minecraft.world.entity.Entity entity,
+                                     String operation, Runnable action) {
+        waitForEntity(helper, entity, operation, action, 0);
+    }
+
+    private static void waitForEntity(GameTestHelper helper, net.minecraft.world.entity.Entity entity,
+                                      String operation, Runnable action, int waited) {
+        var level = helper.getLevel();
+        var chunk = level.getChunkSource().getChunkNow(entity.chunkPosition().x, entity.chunkPosition().z);
+        boolean full = chunk != null && chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL);
+        boolean exact = level.getEntity(entity.getUUID()) == entity;
+        if (entity.isAddedToLevel() && entity.isAlive() && !entity.isRemoved() && exact && full) {
+            action.run();
+            return;
+        }
+        if (waited >= 10) {
+            throw new GameTestAssertException(operation + " entity readiness timeout: added=" + entity.isAddedToLevel()
+                    + ", alive=" + entity.isAlive() + ", removed=" + entity.isRemoved()
+                    + ", exactUuidLookup=" + exact + ", chunk=" + entity.chunkPosition()
+                    + ", chunkStatus=" + (chunk == null ? "missing" : chunk.getFullStatus()));
+        }
+        helper.runAfterDelay(1, () -> waitForEntity(helper, entity, operation, action, waited + 1));
     }
 
     private static MovementVector vector(Vec3 value) {

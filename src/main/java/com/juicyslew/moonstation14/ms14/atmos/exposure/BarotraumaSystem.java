@@ -36,10 +36,20 @@ public final class BarotraumaSystem {
         if (component.isEmpty() || Math.floorMod(gameTime + (long) entity.getId(),
                 BarotraumaAtmospherePolicy.CADENCE_TICKS) != 0) return false;
         // Unknown is not vacuum. A read must never enroll an entity or create damage state.
-        var sample = service.sample(level, BlockPos.containing(entity.getEyePosition()));
-        if (sample.isEmpty()) return false;
+        var selection = ExposureAirRouting.select(entity);
+        double pressure;
+        if (selection.contained()) {
+            if (selection.source().isEmpty()) return false;
+            var sample = selection.source().get().sample();
+            if (sample.isEmpty()) return false;
+            pressure = sample.get().pressureKpa();
+        } else {
+            var sample = service.sample(level, BlockPos.containing(entity.getEyePosition()));
+            if (sample.isEmpty()) return false;
+            pressure = sample.get().pressureKpa(1.0);
+        }
         var damage = PressureExposure.limitMatchingDamage(
-                PressureExposure.damageAt(sample.get().pressureKpa(1.0), component.get()),
+                PressureExposure.damageAt(pressure, component.get()),
                 DamageSystem.existingOrVanillaBaseline(entity), component.get());
         return !damage.isEmpty() && DamageSystem.applyHealthChange(entity, damage, 1f, true)
                 == DamageSystem.Result.APPLIED;

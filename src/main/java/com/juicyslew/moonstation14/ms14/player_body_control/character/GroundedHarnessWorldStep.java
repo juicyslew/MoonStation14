@@ -15,6 +15,8 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
+import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService;
+import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.server.level.ServerLevel;
@@ -52,6 +54,30 @@ public final class GroundedHarnessWorldStep {
         Vec3 initial = body.position();
         Vec3 initialVelocity = body.getDeltaMovement();
         if (!finite(initial) || !finite(initialVelocity)) return Optional.empty();
+
+        if (body.level() instanceof ServerLevel level) {
+            var service = DisposalContainmentService.forLevel(level);
+            var containment = service.ownerOf(body).orElse(null);
+            if (containment != null) {
+                if (containment.stage() == DisposalContainmentOwner.Stage.UNIT
+                        && (wishX != 0 || wishZ != 0 || jump || sprint)) {
+                    containment.tryEscape(body);
+                    containment = service.ownerOf(body).orElse(null);
+                    if (containment == null) {
+                        Vec3 exit = body.position();
+                        if (!finite(exit)) return Optional.empty();
+                        body.setDeltaMovement(Vec3.ZERO);
+                        return Optional.of(new CharacterMovementState(vector(exit), MovementVector.ZERO,
+                                body.onGround()));
+                    }
+                }
+                Vec3 pinned = containment.positionFor(body);
+                if (!finite(pinned)) return Optional.empty();
+                body.teleportTo(pinned.x, pinned.y, pinned.z);
+                body.setDeltaMovement(Vec3.ZERO);
+                return Optional.of(new CharacterMovementState(vector(pinned), MovementVector.ZERO, true));
+            }
+        }
 
         double surfaceFactor = SlidingFrictionSystem.frictionFactor(body);
         double voluntaryFactor = CharacterControlSystem.isKnockedDown(body)

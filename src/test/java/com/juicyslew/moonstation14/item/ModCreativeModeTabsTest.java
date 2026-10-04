@@ -45,6 +45,11 @@ class ModCreativeModeTabsTest {
         // The cosmetic pipe block has no default BlockItem; its three custom items represent it.
         registeredBlocks.removeIf(block -> block == ModBlocks.GAS_PIPE_VISUAL);
         assertFalse(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.GAS_PIPE_VISUAL));
+        // Disposal tubes are world-constructed pipe parts, not inventory/crafting items.
+        registeredBlocks.removeIf(block -> block == ModBlocks.DISPOSAL_TUBE);
+        assertFalse(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.DISPOSAL_TUBE));
+        assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModBlocks.DISPOSAL_TUBE));
+        assertEquals(net.minecraft.world.item.Items.AIR, ModBlocks.DISPOSAL_TUBE.get().asItem());
         // Functional ventilation blocks are not Blocks-tab entries; their items belong in Items.
          registeredBlocks.removeIf(block -> block == ModBlocks.GAS_VENT || block == ModBlocks.GAS_SCRUBBER
                  || block == ModBlocks.AIR_ALARM);
@@ -62,8 +67,8 @@ class ModCreativeModeTabsTest {
         }
         registeredItems.addAll(registeredBlocks);
 
-        assertEquals(registeredItems.size(), entries.size(), "every registered item/block needs a dedicated tab entry");
-        assertTrue(entries.containsAll(registeredItems), "dedicated tab entries must be the registered holders");
+        assertEquals(registeredItems.size(), entries.size(), "every exposed registered item/block needs a dedicated tab entry");
+        assertTrue(entries.containsAll(registeredItems), "dedicated tab entries must be the exposed registered holders");
     }
 
     private static List<Object> deferredFields(Class<?> owner, String registry) throws IllegalAccessException {

@@ -189,6 +189,21 @@ class LiveHandsTest {
         assertTrue(original.replaceActiveUseStack(2, "left", TOKEN.value(), new ItemStack(Items.EMERALD, 3), after).isEmpty());
     }
 
+    @Test
+    void passiveOwnedStackProgressPreservesTokenAndActionRevision() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":4}");
+        LiveHands before = empty.putWhole(4, "left", TOKEN, new ItemStack(Items.DIAMOND)).state();
+        LiveHands after = before.tickWelderStacks(stack -> {
+            ItemStack progress = stack.copy();
+            progress.set(DataComponents.CUSTOM_NAME, Component.literal("passive progress"));
+            return progress;
+        });
+        assertEquals(before.revision(), after.revision());
+        assertEquals(before.token("left"), after.token("left"));
+        assertEquals("passive progress", after.stackCopy("left").orElseThrow().getHoverName().getString());
+        assertFalse(before.stackCopy("left").orElseThrow().has(DataComponents.CUSTOM_NAME));
+    }
+
     @Test void switchingAllowsIndependentPickupSlotsWithoutMovingStacks() {
         LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
         assertTrue(empty.stackCopy(empty.activeHand()).isEmpty());

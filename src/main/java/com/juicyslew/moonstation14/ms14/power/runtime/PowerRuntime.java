@@ -18,6 +18,8 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationGasRuntime;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
+import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
+import com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -41,6 +43,8 @@ public final class PowerRuntime {
     private static final Map<ServerLevel, Set<BlockPos>> DEVICES = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> VENTILATION_DEVICES = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> AIR_ALARMS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Set<BlockPos>> DISPOSAL_UNITS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, DisposalMeterSample>> DISPOSAL_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, AlarmMeterSample>> ALARM_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, VentMeterSample>> VENT_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, VentilationPaidInterval.ReceiverSignature>> PREVIOUS_VENT_SIGNATURES = new WeakHashMap<>();
@@ -59,7 +63,10 @@ public final class PowerRuntime {
                                      VentilationDeviceBlockEntity vent, PowerDeviceBlockEntity apc, long breakerRevision) { }
     private record AlarmMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
                                     AirAlarmBlockEntity alarm, AirAlarmData prototype,
-                                    PowerDeviceBlockEntity apc, long breakerRevision) { }
+                                     PowerDeviceBlockEntity apc, long breakerRevision) { }
+    private record DisposalMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
+                                       DisposalUnitBlockEntity unit, DisposalEntityData.Unit prototype,
+                                       PowerDeviceBlockEntity apc, long breakerRevision) { }
     private record CompletedVentBudget(long solveTick, VentilationPaidInterval.WorkBudget budget,
                                        PowerDeviceBlockEntity apc, long breakerRevision, long topologyGeneration) { }
     public record VentMeterObservation(boolean known, double deliveredWatts) {
@@ -101,6 +108,37 @@ public final class PowerRuntime {
         Map<BlockPos, AlarmMeterSample> meters = ALARM_METERS.get(level);
         if (meters != null) meters.remove(pos);
         if (PowerSimulationGate.isEnabled()) PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    public static void disposalUnitChanged(ServerLevel level, BlockPos pos) {
+        if (!PowerSimulationGate.isEnabled()) return;
+        DISPOSAL_UNITS.computeIfAbsent(level, ignored -> new LinkedHashSet<>()).add(pos.immutable());
+        DISPOSAL_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+    public static void disposalUnitRemoved(ServerLevel level, BlockPos pos) {
+        Set<BlockPos> indexed = DISPOSAL_UNITS.get(level); if (indexed != null) indexed.remove(pos);
+        Map<BlockPos, DisposalMeterSample> meters = DISPOSAL_METERS.get(level); if (meters != null) meters.remove(pos);
+        if (PowerSimulationGate.isEnabled()) PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+    public static VentMeterObservation disposalUnitMeter(ServerLevel level, DisposalUnitBlockEntity expected) {
+        if (!PowerSimulationGate.isEnabled() || expected == null || expected.isRemoved()) return VentMeterObservation.UNKNOWN;
+        BlockPos pos = expected.getBlockPos();
+        if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
+                || chunk.getBlockEntity(pos) != expected || !PowerGraphService.topologyReady(level)) return VentMeterObservation.UNKNOWN;
+        DisposalMeterSample sample = DISPOSAL_METERS.getOrDefault(level, Map.of()).get(pos);
+        if (!expected.participatesInPowerLoad() || sample == null || sample.unit() != expected || sample.prototype() != expected.prototype()
+                || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
+                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE
+                || sample.apc() == null || sample.apc().isRemoved() || !sample.apc().breakerClosed()
+                || sample.apc().breakerRevision() != sample.breakerRevision()
+                || sample.deliveredWatts() != sample.prototype().powerWatts()) return VentMeterObservation.UNKNOWN;
+        BlockPos apcPos = sample.apc().getBlockPos();
+        if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk apcChunk)
+                || apcChunk.getBlockEntity(apcPos) != sample.apc()
+                || !(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock apcBlock)
+                || apcBlock.kind() != PowerDeviceKind.APC) return VentMeterObservation.UNKNOWN;
+        return new VentMeterObservation(true, sample.deliveredWatts());
     }
 
     /** Observation, not power authorization: only a fresh, fully delivered 100 W solve is powered. */
@@ -283,6 +321,7 @@ public final class PowerRuntime {
             // Existing saved lit states are presentation, not simulation state. Fail dark once
             // as each chunk enters the world without building the runtime device index.
             for (BlockEntity be : chunk.getBlockEntities().values()) {
+                if (be instanceof DisposalUnitBlockEntity unit) unit.updatePower(false);
                 if (be instanceof PowerDeviceBlockEntity
                         && be.getBlockState().getBlock() instanceof PowerDeviceBlock block
                          && block.kind().isLamp()) {
@@ -295,6 +334,7 @@ public final class PowerRuntime {
             if (be instanceof PowerDeviceBlockEntity) deviceChanged(level, be.getBlockPos());
             if (be instanceof VentilationDeviceBlockEntity) ventilationDeviceChanged(level, be.getBlockPos());
             if (be instanceof AirAlarmBlockEntity) airAlarmChanged(level, be.getBlockPos());
+            if (be instanceof DisposalUnitBlockEntity) disposalUnitChanged(level, be.getBlockPos());
         }
     }
 
@@ -312,8 +352,12 @@ public final class PowerRuntime {
         if (vents != null) vents.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Set<BlockPos> alarms = AIR_ALARMS.get(level);
         if (alarms != null) alarms.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Set<BlockPos> disposal = DISPOSAL_UNITS.get(level);
+        if (disposal != null) disposal.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos, AlarmMeterSample> alarmSamples = ALARM_METERS.get(level);
         if (alarmSamples != null) alarmSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, DisposalMeterSample> disposalSamples = DISPOSAL_METERS.get(level);
+        if (disposalSamples != null) disposalSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos, VentMeterSample> ventSamples = VENT_METERS.get(level);
         if (ventSamples != null) ventSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos, VentilationPaidInterval.ReceiverSignature> previousVentSignatures = PREVIOUS_VENT_SIGNATURES.get(level);
@@ -357,6 +401,7 @@ public final class PowerRuntime {
             DEVICES.remove(level);
             VENTILATION_DEVICES.remove(level); VENT_METERS.remove(level);
             AIR_ALARMS.remove(level); ALARM_METERS.remove(level);
+            DISPOSAL_UNITS.remove(level); DISPOSAL_METERS.remove(level);
             PREVIOUS_VENT_SIGNATURES.remove(level); COMPLETED_VENT_BUDGETS.remove(level);
             VentilationPaidInterval paid = PAID_INTERVALS.remove(level); if (paid != null) paid.clear();
             LAST_SOLVE.remove(level);
@@ -372,6 +417,7 @@ public final class PowerRuntime {
         DEVICES.clear(); LAST_SOLVE.clear(); RESOLVE_AFTER_TRIP.clear(); RESOLVE_AFTER_TOPOLOGY.clear();
         VENTILATION_DEVICES.clear(); VENT_METERS.clear();
         AIR_ALARMS.clear(); ALARM_METERS.clear();
+        DISPOSAL_UNITS.clear(); DISPOSAL_METERS.clear();
         PREVIOUS_VENT_SIGNATURES.clear(); COMPLETED_VENT_BUDGETS.clear();
         PAID_INTERVALS.values().forEach(VentilationPaidInterval::clear); PAID_INTERVALS.clear();
         LAST_DIAGNOSTIC.clear(); APC_OUTPUT_SAMPLES.clear(); serverTickSequence = 0;
@@ -379,6 +425,9 @@ public final class PowerRuntime {
 
     public static void onSimulationDisabled() {
         VentilationGasRuntime.clear();
+        for (Map.Entry<ServerLevel, Set<BlockPos>> entry : DISPOSAL_UNITS.entrySet())
+            for (BlockPos pos : entry.getValue()) if (entry.getKey().hasChunkAt(pos)
+                    && entry.getKey().getBlockEntity(pos) instanceof DisposalUnitBlockEntity unit) unit.updatePower(false);
         // Be safe if a lifecycle/load callback registered devices before the startup sample.
         // This is a one-time pass over the existing index, never a world scan.
         for (Map.Entry<ServerLevel, Set<BlockPos>> entry : DEVICES.entrySet()) {
@@ -400,6 +449,7 @@ public final class PowerRuntime {
         APC_OUTPUT_SAMPLES.clear();
         VENT_METERS.clear(); VENTILATION_DEVICES.clear();
         ALARM_METERS.clear(); AIR_ALARMS.clear();
+        DISPOSAL_METERS.clear(); DISPOSAL_UNITS.clear();
         PREVIOUS_VENT_SIGNATURES.clear(); COMPLETED_VENT_BUDGETS.clear();
         PAID_INTERVALS.values().forEach(VentilationPaidInterval::clear); PAID_INTERVALS.clear();
     }
@@ -445,6 +495,18 @@ public final class PowerRuntime {
                     alarmIterator.remove(); continue;
                 }
                 if (alarm.prototype() != null) alarms.add(alarm);
+            }
+        }
+        List<DisposalUnitBlockEntity> disposalUnits = new ArrayList<>();
+        Set<BlockPos> indexedDisposal = DISPOSAL_UNITS.get(level);
+        if (indexedDisposal != null) {
+            Iterator<BlockPos> disposalIterator = indexedDisposal.iterator();
+            while (disposalIterator.hasNext()) {
+                BlockPos pos = disposalIterator.next();
+                if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)) { disposalIterator.remove(); continue; }
+                BlockEntity be = chunk.getBlockEntity(pos);
+                if (!(be instanceof DisposalUnitBlockEntity unit)) { disposalIterator.remove(); continue; }
+                if (unit.prototype() != null && unit.participatesInPowerLoad()) disposalUnits.add(unit);
             }
         }
         Map<PowerDeviceBlockEntity, Map<CableTier, Integer>> components = new IdentityHashMap<>();
@@ -496,6 +558,17 @@ public final class PowerRuntime {
                     alarmProviders.put(alarm, eligible.get(0));
             }
         }
+        Map<DisposalUnitBlockEntity, LoadedPowerGraph.NodeState> disposalStates = new IdentityHashMap<>();
+        Map<DisposalUnitBlockEntity, PowerDeviceBlockEntity> disposalProviders = new IdentityHashMap<>();
+        for (DisposalUnitBlockEntity unit : disposalUnits) {
+            var state = disposalReceiverState(level, unit);
+            disposalStates.put(unit, state);
+            if (PowerGraphService.topologyReady(level) && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN) {
+                List<PowerDeviceBlockEntity> eligible = apcs.stream().filter(candidate -> isKnown(known, candidate, CableTier.APC)
+                        && component(components, candidate, CableTier.APC) == state.componentId()).toList();
+                if (eligible.size() == 1 && eligible.get(0).breakerClosed()) disposalProviders.put(unit, eligible.get(0));
+            }
+        }
         var input = new PowerLiveLoop.Input(
                 sources.stream().map(source -> new PowerLiveLoop.Source(id(source), component(components, source, CableTier.HV),
                         isKnown(known, source, CableTier.HV), SOURCE_WATTS)).toList(),
@@ -517,7 +590,11 @@ public final class PowerRuntime {
                      LoadedPowerGraph.NodeState state = alarmStates.get(alarm);
                      return new PowerLiveLoop.AlarmLoad(id(alarm), state.componentId(),
                              alarmProviders.containsKey(alarm), alarm.prototype().apcPowerReceiver().requestedWatts());
-                 }).toList(), elapsedTicks);
+                  }).toList(), disposalUnits.stream().map(unit -> {
+                      LoadedPowerGraph.NodeState state = disposalStates.get(unit);
+                      var config = unit.prototype();
+                      return new PowerLiveLoop.DisposalLoad(id(unit), state.componentId(), disposalProviders.containsKey(unit), config.powerWatts());
+                  }).toList(), elapsedTicks);
         PowerLiveLoop.Result result = PowerLiveLoop.solve(input);
         Map<BlockPos, AlarmMeterSample> alarmMeters = ALARM_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
         alarmMeters.clear();
@@ -527,6 +604,18 @@ public final class PowerRuntime {
                     new AlarmMeterSample(sampleTick, PowerGraphService.topologyGeneration(level),
                             result.alarmWatts().getOrDefault(id(alarm), 0.0), alarm,
                             alarm.prototype(), provider, provider.breakerRevision()));
+        }
+        Map<BlockPos, DisposalMeterSample> disposalMeters = DISPOSAL_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
+        disposalMeters.clear();
+        for (DisposalUnitBlockEntity unit : disposalUnits) {
+            PowerDeviceBlockEntity provider = disposalProviders.get(unit);
+            if (provider != null) disposalMeters.put(unit.getBlockPos().immutable(), new DisposalMeterSample(sampleTick,
+                    PowerGraphService.topologyGeneration(level), result.disposalWatts().getOrDefault(id(unit), 0.0),
+                    unit, unit.prototype(), provider, provider.breakerRevision()));
+        }
+        for (DisposalUnitBlockEntity unit : disposalUnits) {
+            var meter = disposalUnitMeter(level, unit);
+            unit.updatePower(meter.known() && meter.deliveredWatts() == unit.prototype().powerWatts());
         }
         Map<BlockPos, VentMeterSample> ventMeters = VENT_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
         ventMeters.clear();
@@ -636,6 +725,7 @@ public final class PowerRuntime {
     private static String id(PowerDeviceBlockEntity device) { return device.getBlockPos().toShortString(); }
     private static String id(VentilationDeviceBlockEntity device) { return device.getBlockPos().toShortString(); }
     private static String id(AirAlarmBlockEntity device) { return device.getBlockPos().toShortString(); }
+    private static String id(DisposalUnitBlockEntity device) { return device.getBlockPos().toShortString(); }
     private static LoadedPowerGraph.NodeState alarmReceiverState(ServerLevel level, AirAlarmBlockEntity alarm) {
         AirAlarmData prototype = alarm.prototype();
         CableFaceNode node = prototype == null ? null : PowerGraphService.nearestApcExtensionNode(level,
@@ -649,6 +739,11 @@ public final class PowerRuntime {
                 vent.getBlockPos(), prototype.extensionCableReceiver().localReachBlocks());
         return receiver == null
                 ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1)
+                : PowerGraphService.state(level, receiver);
+    }
+    private static LoadedPowerGraph.NodeState disposalReceiverState(ServerLevel level, DisposalUnitBlockEntity unit) {
+        var receiver = PowerGraphService.nearestApcExtensionNode(level, unit.getBlockPos());
+        return receiver == null ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1)
                 : PowerGraphService.state(level, receiver);
     }
     private static boolean isKnown(Map<PowerDeviceBlockEntity, Map<CableTier, Boolean>> known,

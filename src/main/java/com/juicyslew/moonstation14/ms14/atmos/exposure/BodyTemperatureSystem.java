@@ -56,6 +56,25 @@ public final class BodyTemperatureSystem {
         if (selected.isEmpty()) return Outcome.SKIPPED;
         reconcile(entity);
         BlockPos eye = BlockPos.containing(entity.getX(), entity.getEyeY(), entity.getZ());
+        var selection = ExposureAirRouting.select(entity);
+        if (selection.contained()) {
+            Optional<TemperatureDamageComponent> damage = damage(entity);
+            if (selection.source().isEmpty()) return applyStoredBodyDamage(entity, damage);
+            var containedSample = selection.source().get().sample();
+            if (containedSample.isEmpty()) return applyStoredBodyDamage(entity, damage);
+            BodyTemperatureAttachment detached = MS14Provider.getDetached(entity, MS14Bridges.BODY_TEMPERATURE);
+            BodyTemperatureComponent before = detached.toComponent();
+            var source = selection.source().get();
+            Outcome result = transact(detached, containedSample.get().mixture(), selected.get().toProfile(),
+                    damage.map(TemperatureDamageComponent::toProfile).orElse(null),
+                    regulator(entity).map(ThermalRegulatorComponent::toPolicy).orElse(null), null,
+                    source::exchangeThermalEnergy,
+                    amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true)
+                            == DamageSystem.Result.APPLIED);
+            if (result == Outcome.APPLIED)
+                MS14Provider.updateIfChanged(entity, MS14Bridges.BODY_TEMPERATURE, before, detached);
+            return result;
+        }
         var sample = AtmosphereService.INSTANCE.sample(level, eye);
         Optional<TemperatureDamageComponent> damage = damage(entity);
         if (sample.isEmpty()) return applyStoredBodyDamage(entity, damage);

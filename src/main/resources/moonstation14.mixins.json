@@ -28,6 +28,7 @@
     "ServerPlayerMovementTeleportAckMixin",
     "LivingEntityMovementOwnerMixin",
     "MobMindHarnessOwnerMixin",
+    "MobDisposalContainmentAiMixin",
     "LivingEntityMindHarnessTravelMixin",
     "LevelChunkSealedWallHostMixin"
   ],
@@ -43,7 +44,8 @@
       "client.MouseHandlerMindGhostLookMixin",
       "client.LivingEntityWishFacingMixin",
       "client.GhostOwnedEntityTrackerMixin",
-      "client.MobMindHarnessWalkAnimationMixin"
+      "client.MobMindHarnessWalkAnimationMixin",
+      "client.LivingEntityDisposalContainmentRenderMixin"
   ],
   "injectors": {
     "defaultRequire": 1
