@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.BodyCarrierIsolationBootstrap;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
@@ -15,7 +16,6 @@ import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "storage"})
 public final class BodyCarrierIsolationBootstrapGameTests {
     private BodyCarrierIsolationBootstrapGameTests() { }
 
@@ -43,7 +43,7 @@ public final class BodyCarrierIsolationBootstrapGameTests {
         if (!condition) throw new GameTestAssertException(message);
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void cleanEmptyReadyPolicyPersistsWithoutConnectedClaim(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         AtomicReference<CreativeParkedInventory> installed = new AtomicReference<>();
@@ -74,7 +74,7 @@ public final class BodyCarrierIsolationBootstrapGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void dirtyOrMismatchedMarkerCannotBeReplaced(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         var wrong = new CreativeParkedInventory(UUID.randomUUID(), CreativeInventorySnapshot.capture(

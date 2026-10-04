@@ -179,6 +179,43 @@ public final class BodyHandItemTransfer {
                 () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedWorldEntity);
     }
 
+    /**
+     * Consume one unit from a body hand after exact authority admission. This only commits the
+     * body attachment; it is not atomic with any world/pipe admission performed by a caller.
+     */
+    public static Result consumeOneForAuthorizedBody(ServerPlayer carrier, HandActorAuthority.Snapshot exactAuthority,
+                                                      String handId, String token, long revision,
+                                                      ItemStack expectedItem) {
+        if (carrier == null || exactAuthority == null || exactAuthority.actor() != carrier
+                || handId == null || token == null || expectedItem == null || expectedItem.isEmpty())
+            return Result.DENIED;
+        LivingEntity body = exactAuthority.body();
+        if (!(body.level() instanceof ServerLevel level) || !level.getServer().isSameThread()
+                || !CharacterControlSystem.canAct(body) || !HandActorAuthority.revalidate(carrier, exactAuthority)
+                || body.isRemoved() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body)
+            return Result.DENIED;
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (before == null || !before.compatible(body) || before.revision() != revision
+                || !before.handIds().equals(exactAuthority.handIds())) return Result.DENIED;
+        LiveHands next = before.consumeOne(revision, handId, token, expectedItem).orElse(null);
+        if (next == null || !BodyHandStateService.representable(next, body)
+                || !HandActorAuthority.revalidate(carrier, exactAuthority)
+                || !CharacterControlSystem.canAct(body) || body.level() != level || body.isRemoved()
+                || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || !before.compatible(body)) return Result.DENIED;
+        try {
+            body.setData(ModDataAttachments.LIVE_HANDS.get(), next);
+        } catch (RuntimeException failure) {
+            return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                    ? Result.DENIED : Result.RECOVERY_REQUIRED;
+        }
+        return body.level() == level && !body.isRemoved() && body.isAddedToLevel()
+                && level.getEntity(body.getUUID()) == body
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next
+                && next.compatible(body) ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+    }
+
     // Fixture seam: the public route alone resolves the actor. Tests exercise the same world/attachment transfer
     // on a real spawned body, without synthesizing a controller or changing the production authorization route.
     static Result dropOwned(LivingEntity body, String hand, String expectedToken, long expectedHandRevision,

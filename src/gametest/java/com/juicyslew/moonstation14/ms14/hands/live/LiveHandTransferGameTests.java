@@ -5,7 +5,6 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
@@ -13,11 +12,9 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-
 public final class LiveHandTransferGameTests {
     private LiveHandTransferGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
     public static void transfersExactInactiveOccupantAndDenialsAreAtomic(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         helper.runAfterDelay(1, () -> {

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
@@ -22,15 +23,14 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology"})
 public final class BloodstreamStorageGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
@@ -38,7 +38,7 @@ public final class BloodstreamStorageGameTests {
 
     private BloodstreamStorageGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void legacyLivingReagentsMoveExactlyOnceToBloodstream(GameTestHelper helper) {
         Villager living = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         // Model a pre-bloodstream save rather than colliding with join-time reference blood.
@@ -57,7 +57,7 @@ public final class BloodstreamStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void populatedLegacyOverEmptyUninitializedStreamMigratesExactCents(GameTestHelper helper) {
         for (boolean markerPresent : new boolean[]{false, true}) {
             Villager living = helper.spawn(EntityType.VILLAGER,
@@ -80,7 +80,7 @@ public final class BloodstreamStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void initializedEmptyStreamBesideLegacyFailsClosed(GameTestHelper helper) {
         Villager living = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         living.setNoAi(true);
@@ -104,7 +104,7 @@ public final class BloodstreamStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void conflictingPopulatedStoresArePreservedAndGenericRouteFailsClosed(GameTestHelper helper) {
         Villager living = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         ReagentAttachment legacy = new ReagentAttachment(Map.of(WATER, 2f));
@@ -130,7 +130,7 @@ public final class BloodstreamStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void identicalPopulatedStoresAreRecognizedAsInterruptedMigration(GameTestHelper helper) {
         Villager living = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         ReagentAttachment duplicate = new ReagentAttachment(Map.of(WATER, 2.35f));
@@ -144,7 +144,7 @@ public final class BloodstreamStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void livingWithoutPrototypeBloodPolicyIsNotAGenericReagentContainer(GameTestHelper helper) {
         Zombie living = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
         ItemStack bottle = new ItemStack(ModItems.BOTTLE.get());
@@ -166,7 +166,7 @@ public final class BloodstreamStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void livingBloodstreamCannotBeSpilledAsGenericReagent(GameTestHelper helper) {
         Villager living = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         TraitHandler<IReagentTrait> livingHandle = new TraitHandler<>(living, () -> 100f);

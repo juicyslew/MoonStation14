@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
@@ -16,17 +17,16 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.monster.Zombie;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "storage"})
 public final class HandsStorageGameTests {
     private HandsStorageGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void handAttachmentPersistsOnEntitySaveAndLoadWithoutMaterializingOthers(GameTestHelper helper) {
         Zombie body = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
         Zombie untouched = helper.spawn(EntityType.ZOMBIE, new BlockPos(4, 1, 1));
@@ -48,7 +48,7 @@ public final class HandsStorageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void capabilityResolvesBoundBodyPrototypeReadOnly(GameTestHelper helper) {
         Villager humanBody = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         Pig pigBody = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));
@@ -78,7 +78,7 @@ public final class HandsStorageGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void mismatchedBoundHostCannotExposeHandsOrStun(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         Pig foreignHost = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));

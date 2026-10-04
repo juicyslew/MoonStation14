@@ -21,24 +21,25 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.mojang.authlib.GameProfile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry", "slip", "movement"})
 public final class PuddleSlipGameTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(PuddleSlipGameTests.class);
 
     private PuddleSlipGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
     public static void realBlockContactSlipsBoundFakePlayerAndVillagerOnlyOnce(GameTestHelper helper) {
         java.util.concurrent.ConcurrentHashMap<java.util.UUID, AtomicInteger> counts = new java.util.concurrent.ConcurrentHashMap<>();
         java.util.function.Consumer<com.juicyslew.moonstation14.ms14.slip.SlipEvent> observer = event ->
@@ -137,7 +138,7 @@ public final class PuddleSlipGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void acceptedPlayerEndpointIgnoresCrossingsAndNearbyMisses(GameTestHelper helper) {
         AtomicInteger events = new AtomicInteger();
         AtomicReference<UUID> crossingId = new AtomicReference<>();
@@ -196,7 +197,7 @@ public final class PuddleSlipGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void acceptedPlayerEndpointDoesNotRelatchOnPuddleExit(GameTestHelper helper) {
         AtomicInteger events = new AtomicInteger();
         AtomicReference<UUID> targetId = new AtomicReference<>();
@@ -263,7 +264,7 @@ public final class PuddleSlipGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void soapReagentAdmitsEndpointContactWithoutSpaceLube(GameTestHelper helper) {
         AtomicInteger events = new AtomicInteger();
         AtomicInteger totalEvents = new AtomicInteger();
@@ -319,7 +320,7 @@ public final class PuddleSlipGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void stunnedVillagerRetainsInstalledImpulseOnNaturalServerTicks(GameTestHelper helper) {
         AtomicReference<FakePlayer> baselinePlayerFixture = new AtomicReference<>();
         AtomicReference<FakePlayer> playerFixture = new AtomicReference<>();
@@ -465,7 +466,7 @@ public final class PuddleSlipGameTests {
         MS14Provider.update(puddle, MS14Bridges.REAGENT, contents);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void slowContactDoesNotApplyStatus(GameTestHelper helper) {
         java.util.concurrent.ConcurrentHashMap<java.util.UUID, AtomicInteger> counts = new java.util.concurrent.ConcurrentHashMap<>();
         java.util.function.Consumer<com.juicyslew.moonstation14.ms14.slip.SlipEvent> observer = event ->
@@ -501,7 +502,7 @@ public final class PuddleSlipGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void cancelledAttemptLatchesUntilVillagerLeavesPuddle(GameTestHelper helper) {
         AtomicInteger slipEvents = new AtomicInteger();
         AtomicInteger gateCalls = new AtomicInteger();
@@ -598,7 +599,7 @@ public final class PuddleSlipGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void subsequentSuperSlipperyPuddleObservesPreEventSlidingState(GameTestHelper helper) {
         BlockPos firstFloor = new BlockPos(2, 0, 2);
         BlockPos firstPos = firstFloor.above();

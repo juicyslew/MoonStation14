@@ -1,0 +1,7 @@
+# Exposed-pipe player removal and gas disposition
+
+`ExposedPipeVisualBlock.playerWillDestroy` (`src/main/java/.../ExposedPipeVisualBlock.java`) attempts a `PipeGasTransaction` into a `finiteRoomEndpointForTrustedSimulation` before Minecraft removes the block. This is the intended physical-spill path; if no valid finite room/endpoint/plan is available, no spill occurs and `onRemove` retires remaining lane contents into the durable archive (`LoadedPipeGasOwner.retireRemovedLane`). Archive retention is a deliberate safe fallback, not proof that the gas entered the room.
+
+Focused GameTest: `LoadedPipeGasOwnerGameTests.creativeFakePlayerRemovalSpillsIntoProvenFiniteRoom` invokes `FakePlayer.gameMode.destroyBlock`, not `Level.destroyBlock`, to exercise the player callback route. This is an engine fixture, **not** an authenticated connected-body-player test. The test establishes block removal, finite-room recognition, and that successfully spilled gas is not duplicated in the retired archive. It does not establish the authenticated player path, every lane topology, or every failure fallback; those remain manual/unverified.
+
+Minecraft 1.21.1 engine ordering verified from the cached merged Minecraft jar (`javap -c -p`): `ServerPlayerGameMode.destroyBlock` invokes `playerWillDestroy` at bytecode offset 116 before creative `removeBlock` at offset 133; `LevelChunk.setState` invokes `onRemove` at offset 328 before removing the block entity at offset 351. This proves the callback can transact while the original BE remains available on this actual removal route.

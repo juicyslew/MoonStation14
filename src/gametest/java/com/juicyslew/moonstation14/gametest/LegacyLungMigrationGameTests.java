@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
@@ -18,12 +19,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.monster.Zombie;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.Map;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "persistence"})
 public final class LegacyLungMigrationGameTests {
     private LegacyLungMigrationGameTests() { }
 
@@ -31,7 +30,7 @@ public final class LegacyLungMigrationGameTests {
         if (!condition) throw new GameTestAssertException(message);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void savedLegacyLungMigratesOnlyOnce(GameTestHelper helper) {
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(1, 1, 1));
         pig.setNoAi(true);
@@ -60,7 +59,7 @@ public final class LegacyLungMigrationGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void staleLegacyNeverOverwritesEmptyBodyOrInvalidActor(GameTestHelper helper) {
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(1, 1, 1));
         Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 1, 1));

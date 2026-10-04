@@ -30,7 +30,8 @@
     "ServerPlayerMovementTeleportAckMixin",
     "LivingEntityMovementOwnerMixin",
     "MobMindHarnessOwnerMixin",
-    "LivingEntityMindHarnessTravelMixin"
+    "LivingEntityMindHarnessTravelMixin",
+    "LevelChunkSealedWallHostMixin"
   ],
   "client": [
     "client.MinecraftStunInputMixin",

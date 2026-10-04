@@ -8,6 +8,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 
 import java.util.UUID;
+import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseTargetProbe;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
+import net.minecraft.server.level.FullChunkStatus;
 
 /** Server-side menu open and request validation. */
 public final class ApcMenuService {
@@ -25,6 +31,54 @@ public final class ApcMenuService {
         });
         return player.containerMenu instanceof ApcMenu menu && menu.session().equals(session)
                 && menu.boundDevice() == device;
+    }
+
+    /** Body-hand bridge. Admission is already authenticated/replay-consumed by the caller. */
+    public static boolean openForBody(ServerPlayer actor, BodyBlockUseRequest request,
+                                      BodyHandRequestService.BlockUseAdmission admission) {
+        if (actor == null || request == null || admission == null
+                || request.intent() != BodyBlockUseRequest.Intent.ACTIVATE_WORLD) return false;
+        var authority = admission.authority();
+        if (authority == null || HandActorAuthority.resolve(actor).filter(authority::equals).isEmpty()
+                || !HandActorAuthority.revalidate(actor, authority)
+                || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                || admission.hands() == null
+                || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != admission.hands()
+                || !admission.hands().compatible(authority.body())
+                || admission.hands().revision() != request.expectedRevision()
+                || request.expectedToken() != null || admission.hands().token(request.handId()).isPresent()
+                || admission.hands().stackCopy(request.handId()).isPresent()) return false;
+        var target = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
+        if (target == null || !target.equals(admission.hit())) return false;
+        var pos = target.pos();
+        var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        if (chunk == null || !chunk.getFullStatus().isOrAfter(FullChunkStatus.FULL)
+                || !(chunk.getBlockEntity(pos) instanceof PowerDeviceBlockEntity device)
+                || !(chunk.getBlockState(pos).getBlock() instanceof com.juicyslew.moonstation14.block.custom.PowerDeviceBlock block)
+                || block.kind() != com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind.APC
+                || !HandActorAuthority.revalidate(actor, authority)) return false;
+        UUID session = UUID.randomUUID();
+        actor.openMenu(new SimpleMenuProvider((id, inventory, owner) -> new ApcMenu(id, inventory, pos,
+                session, level, device, authority, request), Component.translatable("container.moonstation14.apc")),
+                buf -> { buf.writeBlockPos(pos); buf.writeUUID(session); });
+        return actor.containerMenu instanceof ApcMenu menu && menu.session().equals(session)
+                && menu.boundDevice() == device && menu.bodyAuthority() == authority;
+    }
+
+    static boolean validBodyContext(ServerPlayer actor, ApcMenu menu) {
+        if (actor == null || menu == null || actor.containerMenu != menu
+                || !HandActorAuthority.revalidateInMenu(actor, menu.bodyAuthority(), menu)
+                || !(menu.bodyAuthority().body().level() instanceof net.minecraft.server.level.ServerLevel level)) return false;
+        var pos = menu.devicePos();
+        var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        if (chunk == null || !chunk.getFullStatus().isOrAfter(FullChunkStatus.FULL)
+                || chunk.getBlockEntity(pos) != menu.boundDevice()
+                || !(chunk.getBlockState(pos).getBlock() instanceof com.juicyslew.moonstation14.block.custom.PowerDeviceBlock block)
+                || block.kind() != com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind.APC) return false;
+        var request = menu.bodyRequest();
+        var fresh = BodyBlockUseTargetProbe.probe(level, menu.bodyAuthority().body(), request.target(), request.face());
+        return fresh != null && fresh.pos().equals(pos)
+                && HandActorAuthority.revalidateInMenu(actor, menu.bodyAuthority(), menu);
     }
 
     public static ApcToggleResponse apply(ServerPlayer player, ApcToggleRequest request) {

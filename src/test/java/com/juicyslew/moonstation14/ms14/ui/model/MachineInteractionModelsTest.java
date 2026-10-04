@@ -83,6 +83,21 @@ class MachineInteractionModelsTest {
         assertEquals("5", field.draft());
     }
 
+    @Test void numericRejectAndTimeoutReleaseOnlyCorrelatedPendingIntent() {
+        var field = DraftFieldModel.number(6, BigDecimal.ZERO, BigDecimal.TEN);
+        field.snapshot(1, "2"); field.edit("4");
+        var rejected = field.submit();
+        assertFalse(field.resolve(rejected.requestId() + 1, 1, "2", false));
+        assertTrue(field.resolve(rejected.requestId(), 1, "2", false)); // same-revision rejection
+        assertEquals(DraftFieldModel.State.REJECTED, field.state());
+        field.edit("5"); var timedOut = field.submit();
+        assertFalse(field.cancelPending(timedOut.requestId() + 1));
+        assertTrue(field.cancelPending(timedOut.requestId()));
+        assertFalse(field.resolve(timedOut.requestId(), 2, "5", true)); // late ACK after timeout
+        assertEquals(DraftFieldModel.State.REJECTED, field.state());
+        field.edit("6"); assertNotNull(field.submit()); // unlocked for retry
+    }
+
     @Test void textDraftIsBoundedAndKeepsUnsavedLocalEditsAcrossSnapshots() {
         var text = DraftFieldModel.text(3);
         text.snapshot(1, "abc");

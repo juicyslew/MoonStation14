@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
@@ -34,13 +35,12 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology"})
 public final class ThirstGameTests {
     private ThirstGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void staggeredRetryInitializesAbsentNeedsWithoutRerollingSavedState(GameTestHelper helper) {
         Villager missing = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         Villager saved = helper.spawn(EntityType.VILLAGER, new BlockPos(4, 1, 1));
@@ -62,7 +62,7 @@ public final class ThirstGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void zeroThirstWithoutActivityShedsProjectionOnTick(GameTestHelper helper) {
         Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
         zombie.setData(ModDataAttachments.THIRST.get(), new ThirstAttachment(new ThirstComponent(0f)));
@@ -84,7 +84,7 @@ public final class ThirstGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void explicitEligibilityInitializesOnceAndExcludesZombie(GameTestHelper helper) {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         villager.setNoAi(true);
@@ -115,7 +115,7 @@ public final class ThirstGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void thresholdProjectionAndSatiationAreThirstOwned(GameTestHelper helper) {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         villager.setNoAi(true);

@@ -27,7 +27,7 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
         GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
         TRANSFER_HAND, PRIME_GRENADE, THROW_GRENADE, PICKUP_SELECTED, THROW_ITEM,
-         USE_TARGET, USE_IN_HAND, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE }
+        USE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE }
 
     /** Compatibility constructor preserving the prior canonical signature. */
     public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,

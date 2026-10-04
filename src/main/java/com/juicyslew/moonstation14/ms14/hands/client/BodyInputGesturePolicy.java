@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 /** Resolves body world gestures from their actual key mappings, rather than inferred held-item state. */
 final class BodyInputGesturePolicy {
     enum Route { NONE, SMART_BAG, SMART_BELT, ALTERNATE_WORLD_USE, NORMAL_WORLD_USE }
+    enum NormalWorldRoute { STORAGE, TARGET_USE, BLOCK_ACTIVATE, NONE }
 
     private BodyInputGesturePolicy() { }
 
@@ -22,5 +23,11 @@ final class BodyInputGesturePolicy {
 
     static boolean suppressNativeInventory(boolean nativeInventory, boolean bodyControlled) {
         return nativeInventory && bodyControlled;
+    }
+
+    static NormalWorldRoute normalWorldRoute(boolean storageTarget, boolean looseTarget, boolean heldItem) {
+        if (storageTarget) return NormalWorldRoute.STORAGE;
+        if (looseTarget) return heldItem ? NormalWorldRoute.TARGET_USE : NormalWorldRoute.NONE;
+        return NormalWorldRoute.BLOCK_ACTIVATE;
     }
 }

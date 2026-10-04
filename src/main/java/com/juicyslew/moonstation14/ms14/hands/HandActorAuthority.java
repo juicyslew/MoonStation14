@@ -40,6 +40,10 @@ public final class HandActorAuthority {
 
     /** Resolves exactly one authority's eligible, authenticated CHARACTER body; never materializes state. */
     public static Optional<Snapshot> resolve(ServerPlayer actor) {
+        return resolve(actor, null);
+    }
+
+    private static Optional<Snapshot> resolve(ServerPlayer actor, net.minecraft.world.inventory.AbstractContainerMenu menu) {
         if (!validActor(actor)) return Optional.empty();
 
         var lifecycle = LifecycleCharacterSessionControl.activeCharacterBody(actor);
@@ -70,7 +74,7 @@ public final class HandActorAuthority {
 
         if (mindId == null || harnessId == null || epoch <= 0 || !validBody(actor, body)
                 || !actor.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get())
-                || !CarrierHandInventoryGate.allows(actor)
+                || !(menu == null ? CarrierHandInventoryGate.allows(actor) : CarrierHandInventoryGate.allows(actor, menu))
                 || !harnessId.value().equals(body.getUUID())) return Optional.empty();
         var capability = HandCapability.resolve(body);
         return capability.filter(ids -> compatiblePersisted(
@@ -83,6 +87,13 @@ public final class HandActorAuthority {
     public static boolean revalidate(ServerPlayer actor, Snapshot snapshot) {
         if (snapshot == null || actor != snapshot.actor()) return false;
         return resolve(actor).filter(current -> sameResolvedActor(snapshot, current)).isPresent();
+    }
+
+    /** Revalidation for a persistent body-owned menu; generic hand actions must continue using revalidate(). */
+    public static boolean revalidateInMenu(ServerPlayer actor, Snapshot snapshot,
+                                           net.minecraft.world.inventory.AbstractContainerMenu expectedMenu) {
+        if (snapshot == null || actor != snapshot.actor() || expectedMenu == null || actor.containerMenu != expectedMenu) return false;
+        return resolve(actor, expectedMenu).filter(current -> sameResolvedActor(snapshot, current)).isPresent();
     }
 
     static boolean acceptsExactlyOneAuthority(boolean lifecyclePresent, boolean experimentalPresent) {

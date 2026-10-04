@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.LooseItemEntity;
@@ -13,17 +14,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"interaction"})
 public final class GiveCommandIntegrationGameTests {
     private GiveCommandIntegrationGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void creativeGiveExecutesRealCommandWithoutFakeDrop(GameTestHelper helper) {
         FakePlayer player = player(helper, "give-command");
         try {
@@ -54,7 +54,7 @@ public final class GiveCommandIntegrationGameTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void reagentGiveValidatesBeforeReturningAndOverflowSpawnsOnce(GameTestHelper helper) {
         FakePlayer player = player(helper, "give-reagents");
         try {

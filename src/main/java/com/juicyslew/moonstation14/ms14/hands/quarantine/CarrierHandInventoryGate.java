@@ -22,11 +22,34 @@ public final class CarrierHandInventoryGate {
                           List<ItemStack> ender, List<ItemStack> menuSlots, int selected) { }
 
     public static boolean allows(ServerPlayer player) {
-        return inspect(player).map(CarrierHandInventoryGate::allows).orElse(false);
+        return player != null && allowsMenuIdentity(player.containerMenu, player.inventoryMenu, player.inventoryMenu, false)
+                && inspect(player, player.inventoryMenu).map(CarrierHandInventoryGate::allows).orElse(false);
+    }
+
+    /** Persistent body-menu gate: only the exact server-owned current menu supplied by its owner is admitted. */
+    public static boolean allows(ServerPlayer player, net.minecraft.world.inventory.AbstractContainerMenu expectedMenu) {
+        if (player == null || !allowsMenuIdentity(player.containerMenu, expectedMenu, player.inventoryMenu, true)) return false;
+        return inspect(player, expectedMenu).map(CarrierHandInventoryGate::allows).orElse(false);
+    }
+
+    /** Shared identity policy: ordinary admission requires the inventory menu; persistent admission its exact other menu. */
+    static boolean allowsMenuIdentity(Object currentMenu, Object expectedMenu, Object inventoryMenu, boolean persistent) {
+        return allowsMenuIdentity(currentMenu, expectedMenu, inventoryMenu, persistent, true, true);
+    }
+
+    static boolean allowsMenuIdentity(Object currentMenu, Object expectedMenu, Object inventoryMenu, boolean persistent,
+                                      boolean expectedSlotsEmpty, boolean expectedCursorEmpty) {
+        return currentMenu != null && expectedMenu != null && currentMenu == expectedMenu && inventoryMenu != null
+                && (persistent ? expectedMenu != inventoryMenu && expectedSlotsEmpty && expectedCursorEmpty
+                        : expectedMenu == inventoryMenu);
     }
 
     /** A connected, exact carrier's physical inventory and marker, without materializing attachments. */
     public static Optional<Fixture> inspect(ServerPlayer player) {
+        return inspect(player, player == null ? null : player.inventoryMenu);
+    }
+
+    private static Optional<Fixture> inspect(ServerPlayer player, net.minecraft.world.inventory.AbstractContainerMenu expectedMenu) {
         if (player == null || player instanceof FakePlayer || !(player.level() instanceof ServerLevel level)
                 || level.isClientSide || player.isRemoved() || !player.isAlive()) return Optional.empty();
         var server = level.getServer();
@@ -34,12 +57,14 @@ public final class CarrierHandInventoryGate {
                 || server.getPlayerList().getPlayer(player.getUUID()) != player
                 || level.getEntity(player.getUUID()) != player) return Optional.empty();
         try {
-            if (player.containerMenu != player.inventoryMenu
+            if (expectedMenu == null || player.containerMenu != expectedMenu
                     || !(player.inventoryMenu instanceof InventoryMenu menu)
                     || menu.getResultSlotIndex() != InventoryMenu.RESULT_SLOT
                     || menu.slots.size() != 46 || menu.getCraftSlots() == null
                     || menu.getCraftSlots().getContainerSize() != InventoryMenu.CRAFT_SLOT_COUNT
-                    || player.getInventory() == null || player.getEnderChestInventory() == null) return Optional.empty();
+                     || player.getInventory() == null || player.getEnderChestInventory() == null) return Optional.empty();
+            if (!allowsMenuIdentity(player.containerMenu, expectedMenu, menu, expectedMenu != menu,
+                    expectedMenu.slots.isEmpty(), canonicalEmpty(expectedMenu.getCarried()))) return Optional.empty();
             for (int i = 0; i < InventoryMenu.CRAFT_SLOT_COUNT; i++) {
                 var slot = menu.slots.get(InventoryMenu.CRAFT_SLOT_START + i);
                 if (slot == null || slot.container != menu.getCraftSlots()

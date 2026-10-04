@@ -9,6 +9,7 @@ import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -19,6 +20,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 import java.util.UUID;
+import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
 
 /** APC UI session bound to the already-opened server menu and BE identity. */
 public final class ApcMenu extends AbstractContainerMenu {
@@ -29,6 +32,8 @@ public final class ApcMenu extends AbstractContainerMenu {
     private final UUID session;
     private final ServerLevel serverLevel;
     private final PowerDeviceBlockEntity serverDevice;
+    private final HandActorAuthority.Snapshot bodyAuthority;
+    private final BodyBlockUseRequest bodyRequest;
     private BreakerSnapshot committedSnapshot;
     private boolean receivedVisualState;
 
@@ -37,21 +42,29 @@ public final class ApcMenu extends AbstractContainerMenu {
     /** Client-side constructor used by vanilla's menu-open handshake; the client registers the Screen separately. */
     public ApcMenu(int containerId, Inventory inventory, FriendlyByteBuf extraData) {
         this(containerId, inventory, extraData.readBlockPos(), extraData.readUUID(), null, null,
-                 new SimpleContainerData(9));
+                 null, null, new SimpleContainerData(9));
     }
 
     public ApcMenu(int containerId, Inventory inventory, BlockPos pos, UUID session,
                    ServerLevel level, PowerDeviceBlockEntity device) {
-        this(containerId, inventory, pos, session, level, device, serverData(device));
+        this(containerId, inventory, pos, session, level, device, null, null, serverData(device));
+    }
+
+    public ApcMenu(int containerId, Inventory inventory, BlockPos pos, UUID session, ServerLevel level,
+                   PowerDeviceBlockEntity device, HandActorAuthority.Snapshot authority, BodyBlockUseRequest request) {
+        this(containerId, inventory, pos, session, level, device, authority, request, serverData(device));
     }
 
     private ApcMenu(int containerId, Inventory inventory, BlockPos pos, UUID session,
-                    ServerLevel level, PowerDeviceBlockEntity device, ContainerData data) {
+                    ServerLevel level, PowerDeviceBlockEntity device, HandActorAuthority.Snapshot authority,
+                    BodyBlockUseRequest request, ContainerData data) {
         super(ModMenus.APC.get(), containerId);
         this.pos = pos.immutable();
         this.session = session;
         this.serverLevel = level;
         this.serverDevice = device;
+        this.bodyAuthority = authority;
+        this.bodyRequest = request;
         this.data = data;
         if (device == null) data.set(VISUAL_STATE_SLOT, -1);
         addDataSlots(data);
@@ -137,6 +150,8 @@ public final class ApcMenu extends AbstractContainerMenu {
     }
     public long currentRevision() { return serverDevice == null ? -1L : serverDevice.breakerRevision(); }
     public PowerDeviceBlockEntity boundDevice() { return serverDevice; }
+    public HandActorAuthority.Snapshot bodyAuthority() { return bodyAuthority; }
+    public BodyBlockUseRequest bodyRequest() { return bodyRequest; }
 
     @Override public boolean stillValid(Player player) {
         return serverLevel != null && validContext(player);
@@ -148,6 +163,8 @@ public final class ApcMenu extends AbstractContainerMenu {
         BlockEntity current = serverLevel.getBlockEntity(pos);
         if (current != serverDevice || !(serverLevel.getBlockState(pos).getBlock() instanceof PowerDeviceBlock block)
                 || block.kind() != PowerDeviceKind.APC) return false;
+        if (bodyAuthority != null) return player instanceof ServerPlayer actor
+                && ApcMenuService.validBodyContext(actor, this);
         double distance = player.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5);
         return PowerDeviceRules.canToggle(true, player.mayBuild(), distance);
     }

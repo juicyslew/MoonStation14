@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.entities.LooseItemEntity;
 import com.juicyslew.moonstation14.item.ModItems;
@@ -14,19 +15,18 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.mojang.authlib.GameProfile;
 
 import java.util.UUID;
 import java.util.Map;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "loose-objects"})
 public final class CreativeDropGameTests {
     private CreativeDropGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
     public static void creativeDropReplacesModItemsAndLeavesVanillaDropsAlone(GameTestHelper helper) {
         FakePlayer creative = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "loosecreative"));
         creative.gameMode.changeGameModeForPlayer(GameType.CREATIVE);

@@ -4,18 +4,18 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyWorldCrossPublicationGameTests;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "storage"})
 public final class BodyWorldCrossPublicationGameTestEntry {
     private BodyWorldCrossPublicationGameTestEntry() { }
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void transfersBothDirectionsAndPreservesBothOwners(GameTestHelper helper) {
         BodyWorldCrossPublicationGameTests.transfersBothDirectionsAndPreservesBothOwners(helper);
     }
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void blockedFitAndPublisherFailureConserveChild(GameTestHelper helper) {
         BodyWorldCrossPublicationGameTests.blockedFitAndPublisherFailureConserveChild(helper);
     }

@@ -11,7 +11,7 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -20,12 +20,12 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Callback policy tests; a GameTest fake cannot exercise connected-player parking. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleDeadClaimCarrierGameTests {
     private LifecycleDeadClaimCarrierGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void creativePopulatedAndEmptyParkBeforeSpectator(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         for (boolean populated : new boolean[] {true, false}) {
@@ -45,7 +45,7 @@ public final class LifecycleDeadClaimCarrierGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void dirtySurvivalAndMismatchedMarkerCannotSwitch(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         var main = empty(36);
@@ -66,7 +66,7 @@ public final class LifecycleDeadClaimCarrierGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void canceledSwitchRestoresOnlyExactCleanNewPark(GameTestHelper helper) {
         AtomicInteger restores = new AtomicInteger();
         AtomicInteger syncs = new AtomicInteger();

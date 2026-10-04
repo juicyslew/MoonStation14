@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
+import com.juicyslew.moonstation14.block.ModBlockEntities;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
@@ -46,6 +47,10 @@ import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHealthHudPolicy;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
+import com.juicyslew.moonstation14.ms14.hands.client.BodyBlockOutlineRenderer;
+import com.juicyslew.moonstation14.ms14.atmos.piping.client.VisualPipeBlockEntityRenderer;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
@@ -132,6 +137,9 @@ public class MoonStation14Client {
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
+        AirAlarmNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
+            if (Minecraft.getInstance().screen instanceof AirAlarmScreen screen) screen.handleResponse(response);
+        }));
         MovementClientController.install();
         BodyHandClient.install();
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
@@ -145,6 +153,7 @@ public class MoonStation14Client {
 
     private static void registerMenuScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.APC.get(), ApcScreen::new);
+        event.register(ModMenus.AIR_ALARM.get(), AirAlarmScreen::new);
     }
 
     private static void handleCableVisualPayload(CableVisualPayload payload) {
@@ -160,6 +169,11 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderCableVisuals(RenderLevelStageEvent event) {
         CableVisualRenderer.render(event, CABLE_VISUALS);
+    }
+
+    @SubscribeEvent
+    public static void renderBodyBlockOutline(RenderLevelStageEvent event) {
+        BodyBlockOutlineRenderer.render(event);
     }
 
     @SubscribeEvent
@@ -667,6 +681,7 @@ public class MoonStation14Client {
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.VISUAL_PIPE.get(), VisualPipeBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.THROWN_GRENADE.get(), ThrownItemRenderer::new);
     }
 

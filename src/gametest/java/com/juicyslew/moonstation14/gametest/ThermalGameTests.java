@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureComponent;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem;
@@ -16,13 +17,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.Set;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "atmosphere"})
 public final class ThermalGameTests {
     private ThermalGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "thermal_vacuum", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "thermal_vacuum", timeoutTicks = 80)
     public static void strictExteriorVacuumCoolsWithoutGasWrite(GameTestHelper helper) {
         var level = helper.getLevel();
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));

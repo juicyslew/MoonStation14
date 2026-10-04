@@ -296,6 +296,59 @@ public final class LiveHands {
                 Optional.of(occupant.orElseThrow().stack()), Optional.empty());
     }
 
+    /** Pure consumption of exactly one unit from the exact active hand. */
+    Optional<LiveHands> consumeOne(long expectedRevision, String hand, String expectedToken, ItemStack expectedItem) {
+        if (expectedRevision != revision || revision == Long.MAX_VALUE || hand == null
+                || !active.equals(hand) || expectedToken == null || expectedItem == null || expectedItem.isEmpty())
+            return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0) return Optional.empty();
+        Optional<Occupant> occupant = hands.get(index).occupant();
+        if (occupant.isEmpty()) return Optional.empty();
+        Occupant current = occupant.orElseThrow();
+        ItemStack stack = current.stack();
+        if (!current.token().equals(expectedToken) || !sameItem(stack, expectedItem)
+                || stack.getCount() != expectedItem.getCount() || stack.getCount() > stack.getMaxStackSize())
+            return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        if (stack.getCount() == 1) {
+            next.set(index, new Slot(hand, Optional.empty()));
+        } else {
+            stack.shrink(1);
+            next.set(index, new Slot(hand, Optional.of(new Occupant(current.token(), stack))));
+        }
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
+    private static boolean sameItem(ItemStack first, ItemStack second) {
+        return ItemStack.isSameItemSameComponents(first, second);
+    }
+
+    /** Pure bounded in-place use mutation; unlike insertion this cannot add a new item or increase quantity. */
+    Optional<LiveHands> replaceActiveUseStack(long expectedRevision, String hand, String expectedToken,
+                                               ItemStack expectedBefore, ItemStack after) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || hand == null || expectedToken == null
+                || expectedBefore == null || expectedBefore.isEmpty() || after == null
+                || !active.equals(hand)) return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0) return Optional.empty();
+        Optional<Occupant> occupant = hands.get(index).occupant();
+        if (occupant.isEmpty()) return Optional.empty();
+        Occupant current = occupant.orElseThrow();
+        ItemStack original = current.stack();
+        if (!current.token().equals(expectedToken) || !sameItem(original, expectedBefore)
+                || original.getCount() != expectedBefore.getCount() || original.getCount() > original.getMaxStackSize())
+            return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        if (after.isEmpty()) next.set(index, new Slot(hand, Optional.empty()));
+        else {
+            if (original.getItem() != after.getItem() || after.getCount() <= 0 || after.getCount() > original.getCount()
+                    || after.getCount() > after.getMaxStackSize()) return Optional.empty();
+            next.set(index, new Slot(hand, Optional.of(new Occupant(current.token(), after))));
+        }
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
     /** Pure whole-occupant transfer between named hands; active selection is deliberately irrelevant. */
     WholeResult transferWhole(long expectedRevision, String source, String destination, ItemToken expectedToken) {
         if (expectedRevision != revision) return reject(Rejection.STALE_REVISION);

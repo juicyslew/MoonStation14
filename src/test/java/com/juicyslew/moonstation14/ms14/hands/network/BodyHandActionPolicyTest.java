@@ -245,8 +245,8 @@ class BodyHandActionPolicyTest {
         }
     }
     @Test void grenadeIntentsCarryOnlyTheActiveHandToken() {
-        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.PRIME_GRENADE,
-                BodyHandActionRequest.Action.THROW_GRENADE}) {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.USE_HELD,
+                BodyHandActionRequest.Action.THROW_ITEM}) {
             var request = new BodyHandActionRequest(action, "left", 7, 2, 9, null, "grenade-token");
             var encoded = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
             BodyHandActionRequest.STREAM_CODEC.encode(encoded, request);

@@ -128,6 +128,16 @@ public final class CableStorage {
         return false;
     }
 
+    /** Pure validation for discovery: unlike graph validation this never prunes stale records. */
+    static boolean validateReadOnlyRecord(ServerLevel level, LevelChunk chunk, CableChunkData.Record record) {
+        BlockPos pos = new BlockPos(chunk.getPos().getMinBlockX() + record.x(), record.y(),
+                chunk.getPos().getMinBlockZ() + record.z());
+        CableChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get());
+        return data != null && data.get(record.x(), record.y(), record.z(), record.face(), record.tier()) == record.tier()
+                && java.util.Objects.equals(data.host(record.x(), record.y(), record.z(), record.face(), record.tier()), record.host())
+                && java.util.Objects.equals(record.host(), hostIdentity(level, pos)) && eligible(level, pos, record.face());
+    }
+
     private static void pruneChangedHost(ServerLevel level, BlockPos pos, LevelChunk chunk, CableChunkData data) {
         if (data.removeHostUnlessIdentity(pos.getX() & 15, pos.getY(), pos.getZ() & 15, hostIdentity(level, pos)) > 0) {
             chunk.setUnsaved(true);

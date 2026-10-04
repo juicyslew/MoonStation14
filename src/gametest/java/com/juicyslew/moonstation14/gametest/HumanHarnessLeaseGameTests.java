@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import net.minecraft.core.BlockPos;
@@ -13,18 +14,17 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.lang.reflect.Method;
 import java.util.Optional;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"lifecycle", "character"})
 public final class HumanHarnessLeaseGameTests {
     private HumanHarnessLeaseGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void leasesOnlyExplicitlyConfiguredHumanVillagers(GameTestHelper helper) {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 6; z++) helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
@@ -88,7 +88,7 @@ public final class HumanHarnessLeaseGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void genericLeaseAcceptsPigAndVillagerButNotUnmarkedCow(GameTestHelper helper) {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 6; z++) helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);

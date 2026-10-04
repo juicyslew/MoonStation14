@@ -10,7 +10,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Collections;
@@ -19,7 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Value fixtures: callbacks do not manufacture connected-player authority. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleReturnParkMarkerGameTests {
     private LifecycleReturnParkMarkerGameTests() { }
@@ -31,7 +31,7 @@ public final class LifecycleReturnParkMarkerGameTests {
                 Collections.nCopies(4, ItemStack.EMPTY), List.of(ItemStack.EMPTY), ItemStack.EMPTY, 0, List.of()));
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void missingMarkerAfterSuccessfulSwitchCannotRollback(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         CreativeParkedInventory expected = park(account);
@@ -52,7 +52,7 @@ public final class LifecycleReturnParkMarkerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void exactMarkerRestoresOnceAndReplacementFails(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         CreativeParkedInventory expected = park(account), replacement = park(account);
@@ -71,7 +71,7 @@ public final class LifecycleReturnParkMarkerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void canceledSwitchAlreadyRestoredSkipsSecondRestore(GameTestHelper helper) {
         AtomicInteger restores = new AtomicInteger(), disconnects = new AtomicInteger();
         require(LifecycleDevelopmentMode.returningBodySpectatorResultPolicy(true, GameType.CREATIVE, false,
