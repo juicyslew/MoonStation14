@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.LindaGasSharing;
 import com.juicyslew.moonstation14.ms14.atmos.core.ExcitedAtmosphereGroups;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
+import com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasTransaction;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.ms14.atmos.core.BoundedGasEqualizer;
 import com.juicyslew.moonstation14.ms14.atmos.core.MonstermosEqualization;
@@ -69,6 +70,7 @@ public final class AtmosphereService {
     static final int MAX_DEFERRED_CHUNK_LOADS_PER_TICK = 16;
     static final int MAX_DISCOVERY_PROBES_PER_SLICE = 384;
     static final int MAX_OWNERSHIP_CLAIMS_PER_SLICE = 128;
+    static final int MAX_FINITE_ROOM_ENDPOINT_PROBES = 1024;
     static final int MAX_PENDING_OWNERSHIP_CLAIM_PLANS = 256;
     static final int MAX_EXTERIOR_WITNESS_CHECKS = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
     private static final int MAX_QUEUED_POSITIONS = 8192;
@@ -254,6 +256,185 @@ public final class AtmosphereService {
 
     public boolean isEnabled() { return enabled; }
     public boolean isSpaceDimension(ResourceKey<Level> dimension) { return isSpace(dimension); }
+    public Set<ResourceKey<Level>> vacuumDimensionsForTest() { return vacuumDimensions; }
+
+    /**
+     * Creates a transaction endpoint only for an already-persisted finite room cell. Must be
+     * called and used on the server thread; raw writes are unpublished and may not span ticks.
+     */
+    // Package-private until claims have a durable generation token. This seam is not production API.
+    Optional<PipeGasTransaction.Endpoint> finiteRoomEndpoint(ServerLevel level, BlockPos pos) {
+        if (!enabled || level == null || pos == null || level.getServer() == null
+                || !level.getServer().isSameThread() || !inBounds(level, pos)) return Optional.empty();
+        LevelChunk chunk = loadedChunk(level, pos);
+        if (chunk == null || !AtmosphereTopology.isPassable(level, pos) || !isFiniteClaimed(chunk, pos)
+                || !finiteRoomEnclosureValid(level, pos))
+            return Optional.empty();
+        AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        if (data == null) return Optional.empty();
+        GasMixture stored = data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+        return Optional.of(new FiniteRoomGasEndpoint(this, level, pos.immutable(),
+                stored == null ? ambient(level) : stored));
+    }
+
+    /** Loaded-only proof of the complete passable component for a live finite endpoint. */
+    private boolean finiteRoomEnclosureValid(ServerLevel level, BlockPos start) {
+        ArrayDeque<BlockPos> pending = new ArrayDeque<>();
+        Set<BlockPos> seen = new HashSet<>();
+        int probes = 0;
+        seen.add(start.immutable());
+        pending.add(start.immutable());
+        while (!pending.isEmpty()) {
+            if (++probes > MAX_FINITE_ROOM_ENDPOINT_PROBES) return false;
+            BlockPos pos = pending.removeFirst();
+            if (!inBounds(level, pos)) return false;
+            LevelChunk chunk = loadedChunk(level, pos);
+            if (chunk == null || !AtmosphereTopology.isPassable(level, pos)
+                    || !isFiniteClaimed(chunk, pos) || isExterior(chunk, pos)) return false;
+            for (Direction direction : Direction.values()) {
+                if (++probes > MAX_FINITE_ROOM_ENDPOINT_PROBES) return false;
+                long x = (long) pos.getX() + direction.getStepX();
+                long y = (long) pos.getY() + direction.getStepY();
+                long z = (long) pos.getZ() + direction.getStepZ();
+                if (x < Integer.MIN_VALUE || x > Integer.MAX_VALUE || y < Integer.MIN_VALUE || y > Integer.MAX_VALUE
+                        || z < Integer.MIN_VALUE || z > Integer.MAX_VALUE) return false;
+                BlockPos adjacent = new BlockPos((int) x, (int) y, (int) z);
+                if (!inBounds(level, adjacent)) return false;
+                LevelChunk neighbor = loadedChunk(level, adjacent);
+                if (neighbor == null) return false;
+                if (!AtmosphereTopology.canExchange(level, pos, adjacent)) continue;
+                if (!isFiniteClaimed(neighbor, adjacent) || isExterior(neighbor, adjacent)) return false;
+                if (seen.add(adjacent)) pending.addLast(adjacent);
+            }
+        }
+        return true;
+    }
+
+    /** Trusted server-simulation bridge; callers must be synchronous and server-thread confined. */
+    public Optional<PipeGasTransaction.Endpoint> finiteRoomEndpointForTrustedSimulation(ServerLevel level, BlockPos pos) {
+        return finiteRoomEndpoint(level, pos);
+    }
+
+    /**
+     * Replaces a persisted finite cell's complete mixture for trusted authored setup only.
+     * Callers must provide their own once-only guard; this is not a gameplay gas source.
+     */
+    public boolean initializeFiniteMixtureForTrustedSetup(ServerLevel level, BlockPos pos, GasMixture mixture) {
+        if (mixture == null) return false;
+        Optional<PipeGasTransaction.Endpoint> endpoint = finiteRoomEndpoint(level, pos);
+        if (endpoint.isEmpty()) return false;
+        GasMixture current = endpoint.get().snapshot();
+        if (current == null) return false;
+        // Trusted setup reports successful initialization, not whether storage changed. In
+        // particular, the authored vacuum in a vacuum dimension is a valid sparse no-op.
+        if (same(current, mixture)) return true;
+        return write(level, pos, mixture);
+    }
+
+    private static final class FiniteRoomGasEndpoint implements PipeGasTransaction.Endpoint {
+        private final AtmosphereService service;
+        private final ServerLevel level;
+        private final BlockPos pos;
+        private final Object identity;
+        private final GasMixture initial;
+        private final long createdTick;
+        private boolean pendingPublication;
+        private GasMixture pendingAfter;
+        private boolean published;
+
+        private FiniteRoomGasEndpoint(AtmosphereService service, ServerLevel level, BlockPos pos, GasMixture initial) {
+            this.service = service;
+            this.level = level;
+            this.pos = pos;
+            this.initial = initial;
+            this.createdTick = level.getGameTime();
+            // Per-handle identity prevents a same-tick unclaim/reclaim from reusing a stale plan.
+            this.identity = new Object();
+        }
+
+        private boolean valid() {
+            return service.enabled && level.getServer() != null && level.getServer().isSameThread()
+                    && level.getGameTime() == createdTick
+                    && inBounds(level, pos) && loadedChunk(level, pos) != null
+                    && AtmosphereTopology.isPassable(level, pos)
+                    && service.isFiniteClaimed(loadedChunk(level, pos), pos)
+                    && service.finiteRoomEnclosureValid(level, pos);
+        }
+
+        @Override public Object identity() { return identity; }
+        @Override public long version() { return 0L; }
+        @Override public GasMixture snapshot() {
+            if (!valid()) return null;
+            LevelChunk chunk = loadedChunk(level, pos);
+            AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+            if (data == null) return null;
+            GasMixture stored = data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+            return stored == null ? service.ambient(level) : stored;
+        }
+        @Override public boolean eligible() { return valid() && !pendingPublication; }
+
+        /** Unpublished sparse writes are only valid inside this same synchronous transaction. */
+        @Override public boolean writeRaw(GasMixture expectedBefore, GasMixture next) {
+            if (!valid() || next == null || published) return false;
+            LevelChunk chunk = loadedChunk(level, pos);
+            AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+            if (data == null) return false;
+            GasMixture current = data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+            GasMixture currentFull = current == null ? service.ambient(level) : current;
+            if (expectedBefore == null) {
+                // Compensation may be retried after a write rejected without mutation. Only
+                // restore when the cell is still the expected transaction value (or already
+                // exactly the initial value); never overwrite an intervening writer.
+                if (!exactlySame(next, initial)) return false;
+                if (exactlySame(currentFull, initial)) return true;
+                if (!pendingPublication || !exactlySame(currentFull, pendingAfter)) return false;
+                data.put(pos.getX() & 15, pos.getY(), pos.getZ() & 15, next, service.ambient(level));
+                pendingPublication = false;
+                pendingAfter = null;
+                return true;
+            }
+            if (!exactlySame(expectedBefore, currentFull)) return false;
+            if (pendingPublication) return false; // no second raw mutation before publish/rollback
+            if (exactlySame(currentFull, next)) return true;
+            // PipeGasTransaction uses null only for compensating restoration after a possibly
+            // mutating failed write. It must restore sparse absence as ambient when available.
+            data.put(pos.getX() & 15, pos.getY(), pos.getZ() & 15, next, service.ambient(level));
+            pendingPublication = true;
+            pendingAfter = next;
+            return true;
+        }
+
+        @Override public void publish() {
+            if (published) return;
+            if (!pendingPublication) {
+                if (!valid() || snapshot() == null || !exactlySame(initial, snapshot()))
+                    throw new IllegalStateException("finite room endpoint changed before publication");
+                return;
+            }
+            if (!valid() || snapshot() == null)
+                throw new IllegalStateException("finite room endpoint is no longer publishable");
+            if (!exactlySame(snapshot(), pendingAfter))
+                throw new IllegalStateException("finite room endpoint changed before publication");
+            LevelChunk chunk = loadedChunk(level, pos);
+            chunk.setUnsaved(true);
+            service.queue(level).noteChunkMutation(pos);
+            service.reactionQueues.computeIfAbsent(level, ignored -> new ReactionWorkQueue()).offer(pos);
+            AtmosphereVisualServerHooks.noteChanged(level, pos);
+            service.prioritizeSeed(level, pos);
+            service.activateCellAndNeighbors(level, pos);
+            pendingPublication = false;
+            pendingAfter = null;
+            published = true;
+        }
+    }
+
+    private static boolean exactlySame(GasMixture a, GasMixture b) {
+        if (a == null || b == null || Double.compare(a.temperatureKelvin(), b.temperatureKelvin()) != 0
+                || Double.compare(a.thermalEnergy(), b.thermalEnergy()) != 0) return false;
+        for (GasType gas : GasType.values())
+            if (Double.compare(a.moles(gas), b.moles(gas)) != 0) return false;
+        return true;
+    }
 
     /** Read-only server-authoritative intensity; zero denotes no live committed burn. */
     public int fireIntensity(ServerLevel level, BlockPos pos) {

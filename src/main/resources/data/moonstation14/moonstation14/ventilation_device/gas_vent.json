@@ -1,0 +1,8 @@
+{
+  "parent": "gas_unary_base",
+  "kind": "VENT",
+  "gasVentPump": {
+    "targetPressureChangeKPaPerSecond": 101.325,
+    "externalPressureBoundKPa": 101.325
+  }
+}

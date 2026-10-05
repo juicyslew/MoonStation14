@@ -14,17 +14,17 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"hands", "network"})
 @PrefixGameTestTemplate(false)
 public final class BodyHandSelectionGateGameTests {
     private BodyHandSelectionGateGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void emptyLegacyMetadataAllowsLiveToggleButTokensDeny(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         helper.runAfterDelay(1, () -> {
@@ -56,7 +56,7 @@ public final class BodyHandSelectionGateGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void stunDeniesSelectionWithoutRevisionChange(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         helper.runAfterDelay(1, () -> {

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -10,17 +11,16 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereHotFrontGameTests {
     private AtmosphereHotFrontGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hot_front_regression", timeoutTicks = 420)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hot_front_regression", timeoutTicks = 420, templateNamespace = "moonstation14")
     public static void sealedHotFrontMakesThermalProgressWithoutOngoingWrites(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         if (AtmosphereService.INSTANCE.isEnabled())
@@ -88,7 +88,7 @@ public final class AtmosphereHotFrontGameTests {
         });
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hot_front_regression", timeoutTicks = 420)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hot_front_regression", timeoutTicks = 420, templateNamespace = "moonstation14")
     public static void ongoingMoleChangesDoNotStarveThermalSharing(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         if (AtmosphereService.INSTANCE.isEnabled())

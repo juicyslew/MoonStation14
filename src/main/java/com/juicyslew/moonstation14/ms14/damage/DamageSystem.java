@@ -14,6 +14,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.core.registries.Registries;
+import net.neoforged.neoforge.common.NeoForge;
 
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -206,6 +207,11 @@ public final class DamageSystem {
             commit(entity, DamageReducer.applyMitigated(existing(entity), pending.positive,
                     appliedDamage, pending.negative));
             com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, committedPositive);
+            double committedTypedDamage = committedPositive.values().stream()
+                    .mapToDouble(Float::doubleValue).sum();
+            if (committedTypedDamage > 0d) {
+                NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, committedTypedDamage));
+            }
             return;
         }
 
@@ -216,6 +222,7 @@ public final class DamageSystem {
         float typed = appliedDamage * TYPED_PER_HEALTH;
         commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
         com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
+        NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */

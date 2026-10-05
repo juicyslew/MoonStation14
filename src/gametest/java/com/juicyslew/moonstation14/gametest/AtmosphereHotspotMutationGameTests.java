@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -13,7 +14,6 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.lang.reflect.Field;
@@ -21,12 +21,12 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereHotspotMutationGameTests {
     private AtmosphereHotspotMutationGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hotspot_mutation", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_hotspot_mutation", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void successfulExternalThermalWriteReconcilesActualHotspotAndRejectedWriteDoesNot(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         require(!AtmosphereService.INSTANCE.isEnabled(), "isolated fixture requires singleton atmosphere disabled");

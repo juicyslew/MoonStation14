@@ -9,7 +9,7 @@ class BodyGrenadeRequestDispatchTest {
     @Test
     void onlyExplicitDropActionMayReachDropTransfer() {
         assertTrue(BodyHandRequestService.isDropAction(BodyHandActionRequest.Action.DROP));
-        assertFalse(BodyHandRequestService.isDropAction(BodyHandActionRequest.Action.PRIME_GRENADE));
-        assertFalse(BodyHandRequestService.isDropAction(BodyHandActionRequest.Action.THROW_GRENADE));
+        assertFalse(BodyHandRequestService.isDropAction(BodyHandActionRequest.Action.USE_HELD));
+        assertFalse(BodyHandRequestService.isDropAction(BodyHandActionRequest.Action.THROW_ITEM));
     }
 }

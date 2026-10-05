@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementCommand;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementMotor;
@@ -19,7 +20,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +29,15 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"movement", "collision"})
 public final class MovementCollisionGameTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(MovementCollisionGameTests.class);
     private static final double DT = .05d;
 
     private MovementCollisionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void realVillagerCollisionResolutionBoundsMotorState(GameTestHelper helper) {
         for (int x = 1; x <= 7; x++) {
             for (int z = 1; z <= 3; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -72,7 +72,7 @@ public final class MovementCollisionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void realVillagerGroundProbeRetainsFloorButDoesNotGlueAtAnEdge(GameTestHelper helper) {
         for (int x = 1; x <= 3; x++) helper.setBlock(new BlockPos(x, 0, 2), Blocks.STONE);
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
@@ -113,7 +113,7 @@ public final class MovementCollisionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void realVillagerGroundProbeRemainsStableWhileTurningOnLube(GameTestHelper helper) {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 8; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);

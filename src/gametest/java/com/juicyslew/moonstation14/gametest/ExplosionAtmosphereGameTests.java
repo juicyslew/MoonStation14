@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.Config;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
@@ -16,20 +18,18 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"explosion", "atmosphere"})
 public final class ExplosionAtmosphereGameTests {
     private static final double INJECTED_MOLES = 8.0;
     private static final BlastPlanner.Proposal PROPOSAL = new BlastPlanner.Proposal(120, 3, 10);
 
     private ExplosionAtmosphereGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "explosion_atmos_enabled", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "explosion_atmos_enabled", timeoutTicks = 100)
     public static void blastBreachNotifiesEnabledGlobalAtmosphere(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService global = AtmosphereService.INSTANCE;

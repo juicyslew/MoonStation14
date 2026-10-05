@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.codec.json.EffectCommonData;
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
 import com.juicyslew.moonstation14.ms14.effect.ConditionContext;
@@ -18,15 +19,13 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chat", "interaction"})
 public final class EmoteGameTests {
     private EmoteGameTests() { }
 
-    @GameTest(template="empty", timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty", timeoutTicks=20)
     public static void livingDeliveryAndNonlivingAdmission(GameTestHelper helper) {
         ArmorStand living = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(1, 1, 1));
         Entity arrow = helper.spawn(EntityType.ARROW, new BlockPos(3, 1, 1));
@@ -58,7 +57,7 @@ public final class EmoteGameTests {
         helper.succeed();
     }
 
-    @GameTest(template="empty", timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty", timeoutTicks=20)
     public static void effectSystemAdmitsLivingAndRejectsForcedNonliving(GameTestHelper helper) {
         ArmorStand living = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(1, 1, 1));
         Entity arrow = helper.spawn(EntityType.ARROW, new BlockPos(3, 1, 1));

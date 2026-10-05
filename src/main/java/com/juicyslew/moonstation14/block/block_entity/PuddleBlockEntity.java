@@ -41,6 +41,8 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
     private static final Logger LOGGER = LoggerFactory.getLogger(PuddleBlockEntity.class);
     private long lastCommittedUnits = -1L;
     private boolean removingEmptyBlock;
+    private int deferredEmptyCleanup;
+    private boolean deferredFailureBlocksCleanup;
     // Gonna probably want a generic ContainerBlockEntity.
     static Map<Integer, Direction> puddleOffsets = Map.of(
             0, Direction.NORTH,//List.of(0,1),
@@ -147,10 +149,20 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
             long committedUnits = getReagentContainer().totalUnits();
             boolean drained = lastCommittedUnits > 0L && committedUnits == 0L;
             lastCommittedUnits = committedUnits;
-            if (drained) removeEmptyBlock();
-            else if (committedUnits > 0L) updateFillLevel();
+            if (drained && deferredEmptyCleanup == 0 && !deferredFailureBlocksCleanup) removeEmptyBlock();
+            else if (committedUnits > 0L) { deferredFailureBlocksCleanup = false; updateFillLevel(); }
         }
     }
+
+    /** Temporarily keeps an emptied source block alive during a source-first transaction. */
+    public void beginDeferredEmptyCleanup() { deferredEmptyCleanup++; }
+    public void endDeferredEmptyCleanup(boolean committed) {
+        if (deferredEmptyCleanup <= 0) throw new IllegalStateException("unbalanced puddle cleanup deferral");
+        if (--deferredEmptyCleanup == 0 && committed && level != null && !level.isClientSide
+                && getReagentContainer().totalUnits() == 0L) removeEmptyBlock();
+    }
+
+    public void blockDeferredCleanupAfterFailure() { deferredFailureBlocksCleanup = true; }
 
     public static void tick(Level level, BlockPos pos, BlockState state, PuddleBlockEntity be) {
         // Only run logic on the server
@@ -162,7 +174,7 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(contents.getMap(), level,
                 "puddle tick " + pos)) return;
         if (!be.isWithinCapacity(contents, "puddle tick", pos)) return;
-        if (contents.totalUnits() == 0L) {
+        if (contents.totalUnits() == 0L && !be.deferredFailureBlocksCleanup) {
             be.removeEmptyBlock();
             return;
         }

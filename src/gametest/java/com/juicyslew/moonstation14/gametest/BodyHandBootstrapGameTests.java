@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
@@ -29,18 +30,16 @@ import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands"})
 public final class BodyHandBootstrapGameTests {
     private BodyHandBootstrapGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void committedBodyBootstrapIsIdempotentAndPersists(GameTestHelper helper) {
         Villager human = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(3, 1, 1));
@@ -68,7 +67,7 @@ public final class BodyHandBootstrapGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void incompatibleAndLegacyOccupancyNeverOverwrite(GameTestHelper helper) {
         Villager human = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         Villager legacy = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 1));
@@ -115,7 +114,7 @@ public final class BodyHandBootstrapGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void lifecycleHumanHarnessRetainsBodyState(GameTestHelper helper) {
         PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
                 new BlockPos(1, 1, 1));

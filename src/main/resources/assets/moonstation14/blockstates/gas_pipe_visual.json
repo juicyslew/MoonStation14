@@ -1,0 +1,11 @@
+{
+  "multipart": [
+    { "when": { "primary": "true" }, "apply": { "model": "moonstation14:block/gas_pipe_visual_center" } },
+    { "when": { "primary": "true", "north": "true" }, "apply": { "model": "moonstation14:block/gas_pipe_visual_north" } },
+    { "when": { "primary": "true", "south": "true" }, "apply": { "model": "moonstation14:block/gas_pipe_visual_south" } },
+    { "when": { "primary": "true", "east": "true" }, "apply": { "model": "moonstation14:block/gas_pipe_visual_east" } },
+    { "when": { "primary": "true", "west": "true" }, "apply": { "model": "moonstation14:block/gas_pipe_visual_west" } },
+    { "when": { "primary": "true", "up": "true" }, "apply": { "model": "moonstation14:block/gas_pipe_visual_up" } },
+    { "when": { "primary": "true", "down": "true" }, "apply": { "model": "moonstation14:block/gas_pipe_visual_down" } }
+  ]
+}

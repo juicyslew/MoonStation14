@@ -100,8 +100,37 @@ class NavigationWidgetsTest {
         assertTrue(canSubmit(field));
     }
 
+    @Test void draftSubmitRemainsGatedByAvailabilityAndModelState() {
+        var field = DraftFieldModel.number(4, BigDecimal.ZERO, BigDecimal.TEN);
+        field.snapshot(1, "2");
+        field.edit("3");
+        assertFalse(canSubmitWhenAvailable(field, false)); // invalid text
+        field.edit("2");
+        assertFalse(canSubmitWhenAvailable(field, false)); // unchanged from authority
+        field.edit("4");
+        assertFalse(canSubmitWhenAvailable(field, false)); // unavailable despite valid change
+        assertTrue(canSubmitWhenAvailable(field, true));
+        field.submit();
+        assertFalse(canSubmitWhenAvailable(field, true)); // pending intent
+    }
+
+    @Test void pendingDraftCannotBeEditedOrAdmittedAgain() {
+        var field = DraftFieldModel.number(4, BigDecimal.ZERO, BigDecimal.TEN);
+        field.snapshot(1, "2");
+        field.edit("4");
+        field.submit();
+        assertNotNull(field.pending());
+        assertFalse(canSubmitWhenAvailable(field, true));
+        field.edit("5");
+        assertEquals("4", field.draft());
+    }
+
     private static boolean canSubmit(DraftFieldModel field) {
         return NavigationHit.canSubmit(field.valid(), field.pending() != null, field.revision(),
                 field.draft(), field.authority());
+    }
+
+    private static boolean canSubmitWhenAvailable(DraftFieldModel field, boolean available) {
+        return canSubmit(field) && available;
     }
 }

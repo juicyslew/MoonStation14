@@ -85,18 +85,70 @@ public final class BodyDropCompensationGameTests {
         helper.succeed();
     }
 
-    public static void blockedForwardDropFallsBackToFeet(GameTestHelper helper) {
+    public static void blockedForwardDropStaysNearSide(GameTestHelper helper) {
         Villager body = body(helper);
         body.setYRot(-90);
         LiveHands before = stocked(body);
         BlockPos blocker = BlockPos.containing(body.getX() + .7, body.getY(), body.getZ());
-        helper.getLevel().setBlock(blocker, Blocks.STONE.defaultBlockState(), 3);
+        for (int y = 0; y < 3; y++)
+            helper.getLevel().setBlock(blocker.above(y), Blocks.STONE.defaultBlockState(), 3);
         require(BodyHandItemTransfer.dropOwned(body, "left", "owned", before.revision(), () -> true)
-                == BodyHandItemTransfer.Result.SUCCESS, "blocked forward position uses safe fallback");
+                == BodyHandItemTransfer.Result.SUCCESS, "blocked forward position uses near-side air");
         var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(2),
                 item -> item.getItem().is(Items.DIAMOND));
-        require(items.size() == 1 && items.getFirst().position().equals(body.position()),
-                "one exact item at feet, not inside forward block");
+        require(items.size() == 1 && items.getFirst().getX() > body.getX()
+                && items.getFirst().getBoundingBox().maxX <= forwardWallX(body),
+                "one item ahead of body and wholly on near side of wall: item=" + items.getFirst().position()
+                        + " box=" + items.getFirst().getBoundingBox() + " body=" + body.position()
+                        + " wall=" + forwardWallX(body));
+        require(items.getFirst().getDeltaMovement().x > 0, "short air throw aims forward");
+        helper.succeed();
+    }
+
+    public static void existingItemPileDoesNotBlockForwardDrop(GameTestHelper helper) {
+        Villager body = body(helper);
+        body.setYRot(-90);
+        LiveHands before = stocked(body);
+        ItemEntity pile = new ItemEntity(helper.getLevel(), body.getX() + .2, body.getY() + 1.125,
+                body.getZ(), new ItemStack(Items.DIRT, 2));
+        helper.getLevel().addFreshEntity(pile);
+        require(BodyHandItemTransfer.dropOwned(body, "left", "owned", before.revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "pile does not force feet fallback");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(3),
+                item -> item.getItem().is(Items.DIAMOND));
+        require(after != null && after.revision() == before.revision() + 1 && after.token("left").isEmpty()
+                && after.stackCopy("left").isEmpty(), "entire owned stack transferred");
+        require(items.size() == 1 && items.getFirst().getItem().getCount() == 3
+                && items.getFirst().getDeltaMovement().x > 0,
+                "single conserved stack receives forward throw despite existing pile");
+        helper.succeed();
+    }
+
+    private static int forwardWallX(Villager body) {
+        return BlockPos.containing(body.getX() + .7, body.getY(), body.getZ()).getX();
+    }
+
+    public static void blockedForwardAndUnsafeFeetFallbackPreservesConservation(GameTestHelper helper) {
+        Villager body = body(helper);
+        body.setYRot(-90);
+        LiveHands before = stocked(body);
+        BlockPos forwardWall = BlockPos.containing(body.getX() + .7, body.getY(), body.getZ());
+        for (int y = 0; y < 3; y++)
+            helper.getLevel().setBlock(forwardWall.above(y), Blocks.STONE.defaultBlockState(), 3);
+        helper.getLevel().setBlock(BlockPos.containing(body.position()), Blocks.STONE.defaultBlockState(), 3);
+        helper.getLevel().setBlock(BlockPos.containing(body.getEyePosition()), Blocks.STONE.defaultBlockState(), 3);
+
+        require(BodyHandItemTransfer.dropOwned(body, "left", "owned", before.revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "blocked geometry falls back rather than denying drop: "
+                        + BodyItemTargetProbe.resolveDrop(helper.getLevel(), body));
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(after != null && after.revision() == before.revision() + 1 && after.token("left").isEmpty(),
+                "successful fallback clears exactly the source hand");
+        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(2),
+                item -> item.getItem().is(Items.DIAMOND));
+        require(items.size() == 1 && items.getFirst().getItem().getCount() == 3,
+                "fallback conserves exactly one unchanged world stack");
         helper.succeed();
     }
 

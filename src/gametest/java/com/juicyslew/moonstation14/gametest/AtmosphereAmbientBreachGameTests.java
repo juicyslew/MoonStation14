@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -10,21 +11,20 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
 import java.util.EnumMap;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereAmbientBreachGameTests {
     private static final int LIMIT = 96;
     private static final double TEMP = 1000.0;
 
     private AtmosphereAmbientBreachGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ambient_breach", timeoutTicks = 120)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ambient_breach", timeoutTicks = 120, templateNamespace = "moonstation14")
     public static void nominalAmbientRoomDrainsAndStopsAfterReseal(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         if (AtmosphereService.INSTANCE.isEnabled())

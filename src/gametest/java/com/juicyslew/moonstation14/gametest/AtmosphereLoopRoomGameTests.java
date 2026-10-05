@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -13,7 +14,6 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,8 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereLoopRoomGameTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(AtmosphereLoopRoomGameTests.class);
     private static final int MIN = 2;
@@ -33,7 +33,7 @@ public final class AtmosphereLoopRoomGameTests {
 
     private AtmosphereLoopRoomGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_circular_hallway", timeoutTicks = 260)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_circular_hallway", timeoutTicks = 260, templateNamespace = "moonstation14")
     public static void nominalCircularHallwayEqualizesAroundSolidCenter(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere service must remain disabled");

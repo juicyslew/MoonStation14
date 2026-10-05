@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
 import com.juicyslew.moonstation14.component.codec.component.DamageMap;
@@ -16,18 +17,17 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameRules;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "damage", "regeneration"})
 public final class PeacefulPlayerRegenerationGameTests {
     private PeacefulPlayerRegenerationGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void eligibleCharacterSkipsPeacefulNutritionButExplicitHealingWorks(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         MinecraftServer server = level.getServer();

@@ -17,14 +17,8 @@ import java.util.function.ToIntFunction;
 
 /** Non-interactive HUD: gameplay owns the mouse and keyboard; history stays session-local. */
 public final class LocalSpeechReviewOverlay {
-    private static final float FONT_SCALE = 0.8f;
-    private static final int ROW_HEIGHT = 9;
-    private static final int MAX_WIDTH = 210;
-    private static final int MAX_HEIGHT = 95;
-    private static final int RIGHT_INSET = 6;
-    // Chat input starts around screenHeight - 14; leave a gap above it in both phases.
-    private static final int BOTTOM_INSET = 22;
-    private static final int TOP_INSET = 6;
+    private static final float FONT_SCALE = 0.5f;
+    private static final int ROW_HEIGHT = 6;
     private static final LocalChatFeed FEED = new LocalChatFeed();
     private static boolean visible = true;
     private static int fromNewest;
@@ -153,12 +147,8 @@ public final class LocalSpeechReviewOverlay {
 
     /** GUI pixel geometry is independent of the render phase; only the drawing phase changes. */
     static Layout layout(int screenWidth, int screenHeight, boolean chatOpen) {
-        int width = Math.min(MAX_WIDTH, Math.max(0, screenWidth - 2 * RIGHT_INSET));
-        int bottom = Math.max(TOP_INSET, screenHeight - BOTTOM_INSET);
-        int height = Math.min(MAX_HEIGHT, bottom - TOP_INSET);
-        int left = screenWidth - width - RIGHT_INSET;
-        int top = bottom - height;
-        return new Layout(left, top, left + width, top + height, FONT_SCALE);
+        var rect = TopRightHudLayout.chat(screenWidth, screenHeight);
+        return new Layout(rect.left(), rect.top(), rect.right(), rect.bottom(), FONT_SCALE);
     }
 
     record Layout(int left, int top, int right, int bottom, float fontScale) {
@@ -187,7 +177,8 @@ public final class LocalSpeechReviewOverlay {
 
     /** Draw in exactly one phase: HUD without a screen, or above vanilla chat's background and messages. */
     static boolean renderInPhase(Screen screen, boolean screenPhase) {
-        return screenPhase ? screen instanceof ChatScreen : screen == null;
+        return screenPhase ? screen instanceof ChatScreen
+                || screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen : screen == null;
     }
 
     private static void render(GuiGraphics graphics, Minecraft minecraft) {

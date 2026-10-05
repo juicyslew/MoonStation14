@@ -1,0 +1,6 @@
+Asset: bag.png (32x32), copied unchanged from Space Station 14:
+Resources/Textures/Clothing/Back/Backpacks/backpack.rsi/icon.png
+Space Station 14 commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Upstream meta.json license: CC-BY-SA-3.0
+Upstream attribution: Taken from tgstation at commit https://github.com/tgstation/commit/547852588166c8e091b441e4e67169e156bb09c1
+SHA-256: 0AB017D1999A74CC7FCE8ACE0E6D6CA0A74401F4C0A7F57CE6A0F68954410324

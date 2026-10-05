@@ -12,6 +12,8 @@ import com.juicyslew.moonstation14.ms14.alert.AlertAttachment;
 import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
+import com.juicyslew.moonstation14.ms14.atmos.piping.PipeChunkData;
+import com.juicyslew.moonstation14.ms14.sealedwall.SealedWallHostGenerations;
 import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.blood.BloodAttachment;
@@ -24,6 +26,7 @@ import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -175,6 +178,10 @@ public class ModDataAttachments {
             "active_systems", () -> AttachmentType.builder((Supplier<EntityActivityAttachment>) EntityActivityAttachment::new).build()
     );
 
+    /** Volatile actor-owned timed actions; runtime callbacks are held by the server system, never serialized. */
+    public static final Supplier<AttachmentType<TimedOperationState>> TIMED_OPERATIONS = ATTACHMENT_TYPES.register(
+            "timed_operations", () -> AttachmentType.builder(() -> TimedOperationState.EMPTY).build());
+
     /** Volatile server-owned sliding projection: synchronized, never serialized or copied on death. */
     public static final Supplier<AttachmentType<SlidingAttachment>> SLIDING = ATTACHMENT_TYPES.register(
             "sliding", () -> AttachmentType.builder((Supplier<SlidingAttachment>) SlidingAttachment::new)
@@ -194,6 +201,18 @@ public class ModDataAttachments {
                     .serialize(CableChunkData.CODEC, CableChunkData::hasPersistedState)
                     .build()
     );
+
+    /** Sparse server-only host identity/tombstone records; deliberately not synchronized. */
+    public static final Supplier<AttachmentType<SealedWallHostGenerations>> SEALED_WALL_HOST_GENERATIONS = ATTACHMENT_TYPES.register(
+            "sealed_wall_host_generations", () -> AttachmentType.builder(SealedWallHostGenerations::new)
+                    .serialize(SealedWallHostGenerations.CODEC, SealedWallHostGenerations::hasPersistedState)
+                    .build());
+
+    /** Sparse persisted server-only sealed-wall segment admissions; never synchronized. */
+    public static final Supplier<AttachmentType<PipeChunkData>> PIPE_CHUNK = ATTACHMENT_TYPES.register(
+            "pipe_chunk", () -> AttachmentType.builder(PipeChunkData::new)
+                    .serialize(PipeChunkData.CODEC, PipeChunkData::isEmpty)
+                    .build());
 
 
     // In your mod constructor, don't forget to register the DeferredRegister to your mod bus:

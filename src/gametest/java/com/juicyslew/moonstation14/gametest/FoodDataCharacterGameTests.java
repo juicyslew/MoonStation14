@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
 import com.juicyslew.moonstation14.component.codec.component.DamageMap;
@@ -19,13 +20,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "food"})
 public final class FoodDataCharacterGameTests {
     private FoodDataCharacterGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void eligibleCharacterSkipsVanillaFoodTickButExplicitHealingWorks(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         require(level.getGameRules().getBoolean(GameRules.RULE_NATURAL_REGENERATION),

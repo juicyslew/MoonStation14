@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"moonstation14:block/gas_vent"},"facing=east":{"model":"moonstation14:block/gas_vent","y":90},"facing=south":{"model":"moonstation14:block/gas_vent","y":180},"facing=west":{"model":"moonstation14:block/gas_vent","y":270},"facing=up":{"model":"moonstation14:block/gas_vent","x":270},"facing=down":{"model":"moonstation14:block/gas_vent","x":90}}}

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -23,20 +24,18 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "atmosphere"})
 public final class LungExchangeGameTests {
     private static final double TEMPERATURE = 293.15;
 
     private LungExchangeGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void lateBodyReconcilesWithoutUnknownBreath(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
@@ -106,7 +105,7 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void actualInhaleAloneAppliesConfiguredTypedToxins(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
@@ -223,7 +222,7 @@ public final class LungExchangeGameTests {
         return stored == null ? 0f : stored.getMap().getOrDefault(key, 0f);
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void minimumTemperatureClampAllowsStrictInhale(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
@@ -265,7 +264,7 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void isolatedWorldTickAlternatesAndReturnsOnlyStoredGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
@@ -315,7 +314,7 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void serviceExchangeIsAtomicAndConservesFiniteCellGasAndEnergy(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixtureAnchor = helper.absolutePos(BlockPos.ZERO);
@@ -391,7 +390,7 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 40)
     public static void exteriorAndInvalidCellsDoNotCreateFiniteOverrides(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));

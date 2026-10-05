@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.EffectCommonData;
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
@@ -28,19 +29,17 @@ import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"damage", "power"})
 public final class ElectrocuteGameTests {
     private ElectrocuteGameTests() {
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void electrocuteUsesShockLedgerAndAuthoritativeStun(GameTestHelper helper) {
         Zombie stand = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
         stand.setNoAi(true);
@@ -103,7 +102,7 @@ public final class ElectrocuteGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void insulationPolicyAndUnsupportedTargetsDoNotMutate(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
         ArmorStand insulatedRequest = spawn(helper, 1);

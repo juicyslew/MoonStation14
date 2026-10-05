@@ -1,27 +1,28 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereRuntimeTelemetry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
 
 /** Headless service integration fixture for real, sealed-room pressure transport. */
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmospherePressureTransportGameTests {
     private AtmospherePressureTransportGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "pressure_transport", timeoutTicks = 2400)
+    @GameTest(template = "atmos_large_empty", batch = "pressure_transport", timeoutTicks = 2400, templateNamespace = "moonstation14")
     public static void largeSealedRoomCommitsPressureTransport(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         if (AtmosphereService.INSTANCE.isEnabled())
@@ -71,11 +72,17 @@ public final class AtmospherePressureTransportGameTests {
         if (initial[1] - initial[0] < 1000) throw new GameTestAssertException("fixture did not create pressure pulse");
         double initialN2=inventory(service,level,helper,x0,x1,y0,y1,z0,z1,false);
         double initialEnergy=inventory(service,level,helper,x0,x1,y0,y1,z0,z1,true);
+        double initialMaxN2=maxCellInventory(service,level,helper,x0,x1,y0,y1,z0,z1,false);
+        double initialMaxEnergy=maxCellInventory(service,level,helper,x0,x1,y0,y1,z0,z1,true);
+        AtmosphereRuntimeTelemetry.Snapshot operationStart=service.diagnosticRuntime(level);
+        if(operationStart==null) throw new GameTestAssertException("missing runtime operation counters before pressure window");
         double initialSpan=initial[1]-initial[0];
         double[] bestBeforeGroups={initialSpan};
         boolean[] pressureStageWork={false};
         boolean[] writerActive={false};
         int[] writerWrites={0}; long[] lastWriteTick={-1};
+        double[] realizedProducerN2={0}, realizedProducerEnergy={0}, producerN2Ulps={0}, producerEnergyUlps={0};
+        double[] maxProducerN2={initialMaxN2}, maxProducerEnergy={initialMaxEnergy};
         helper.startSequence().thenExecuteFor(1200, () -> {
             service.tick(level, level.getGameTime());
             var diagnostic = service.diagnosticPressure(level);
@@ -93,8 +100,18 @@ public final class AtmospherePressureTransportGameTests {
             // continuously changing without replaying a stale pressure snapshot.
             long gameTick=helper.getTick();
             if(writerActive[0] && gameTick%20==0 && gameTick!=lastWriteTick[0]) {
+                GasMixture beforeWrite=service.sample(level,source).orElseThrow();
                 if(!service.addGas(level,source,GasType.NITROGEN,.1,5000))
                     throw new GameTestAssertException("continuous source write rejected");
+                GasMixture afterWrite=service.sample(level,source).orElseThrow();
+                realizedProducerN2[0]+=afterWrite.moles(GasType.NITROGEN)-beforeWrite.moles(GasType.NITROGEN);
+                realizedProducerEnergy[0]+=afterWrite.thermalEnergy()-beforeWrite.thermalEnergy();
+                producerN2Ulps[0]+=Math.ulp((float)beforeWrite.moles(GasType.NITROGEN))
+                        +Math.ulp((float)afterWrite.moles(GasType.NITROGEN));
+                producerEnergyUlps[0]+=Math.ulp((float)beforeWrite.thermalEnergy())
+                        +Math.ulp((float)afterWrite.thermalEnergy());
+                maxProducerN2[0]=Math.max(maxProducerN2[0],afterWrite.moles(GasType.NITROGEN));
+                maxProducerEnergy[0]=Math.max(maxProducerEnergy[0],afterWrite.thermalEnergy());
                 writerWrites[0]++; lastWriteTick[0]=gameTick;
             }
         }).thenExecute(() -> {
@@ -104,15 +121,41 @@ public final class AtmospherePressureTransportGameTests {
                 + (now[1] - now[0]) + ", pressure=" + service.diagnosticPressure(level) + ", runtime="
                 + service.diagnosticRuntime(level) + ", timing=" + service.diagnosticTiming(level));
             if(writerWrites[0]<10) throw new GameTestAssertException("continuous source did not sustain expected writes: "+writerWrites[0]);
-            double expectedN2=initialN2+.1*writerWrites[0];
-            double expectedEnergy=initialEnergy+15000.0*writerWrites[0];
+            double expectedN2=initialN2+realizedProducerN2[0];
+            double expectedEnergy=initialEnergy+realizedProducerEnergy[0];
             double n2=inventory(service,level,helper,x0,x1,y0,y1,z0,z1,false);
             double energy=inventory(service,level,helper,x0,x1,y0,y1,z0,z1,true);
-            double n2Budget=inventoryUlpBudget(service,level,helper,x0,x1,y0,y1,z0,z1,false)*8;
-            double energyBudget=inventoryUlpBudget(service,level,helper,x0,x1,y0,y1,z0,z1,true)*8;
+            AtmosphereRuntimeTelemetry.Snapshot operationEnd=service.diagnosticRuntime(level);
+            if(operationEnd==null) throw new GameTestAssertException("missing runtime operation counters after pressure window");
+            long pressureFaces=operationEnd.pressureFaceTransfers()-operationStart.pressureFaceTransfers();
+            long lindaPairs=operationEnd.lindaSharedPairs()-operationStart.lindaSharedPairs();
+            long groupedMembers=operationEnd.groupAveragedMembers()-operationStart.groupAveragedMembers();
+            long actualOperations=pressureFaces+lindaPairs+groupedMembers;
+            double finalMaxN2=maxCellInventory(service,level,helper,x0,x1,y0,y1,z0,z1,false);
+            double finalMaxEnergy=maxCellInventory(service,level,helper,x0,x1,y0,y1,z0,z1,true);
+            // A receiver may temporarily merge one packet with itself: 2x the greatest cell
+            // source/output magnitude bounds every operand. Each face has at most eight half-ulp
+            // species roundings (4 ulps); cleanup can independently drop packet and remainder.
+            double maxSpeciesOperand=2*Math.max(initialMaxN2,Math.max(maxProducerN2[0],finalMaxN2));
+            double n2TransportBound=actualOperations*4*Math.ulp((float)maxSpeciesOperand);
+            double cleanupBound=actualOperations*2*GasMixture.GAS_MIN_MOLES;
+            double n2Budget=n2TransportBound+cleanupBound+producerN2Ulps[0];
+            // Cp formation/reduction (at most nine gas species), weighted temperature products,
+            // addition/division and the Cp*T observer fit within 32 half-ulps = 16 ulps per op.
+            double maxEnergyOperand=2*Math.max(initialMaxEnergy,Math.max(maxProducerEnergy[0],finalMaxEnergy));
+            double energyTransportBound=actualOperations*16*Math.ulp((float)maxEnergyOperand);
+            double energyBudget=energyTransportBound+producerEnergyUlps[0];
+            MoonStation14.LOGGER.info("PRESSURE_SCALE conservation N2 expected={} actual={} signed={} absolute={} "
+                            +"transportBound={} cleanupBound={} producerULP={} energyExpected={} energyActual={} "
+                            +"energySigned={} energyAbsolute={} energyTransportBound={} energyProducerULP={} "
+                            +"pressureFaces={} lindaPairs={} groupedMembers={} operations={}",
+                    expectedN2,n2,n2-expectedN2,Math.abs(n2-expectedN2),n2TransportBound,cleanupBound,producerN2Ulps[0],
+                    expectedEnergy,energy,energy-expectedEnergy,Math.abs(energy-expectedEnergy),energyTransportBound,
+                    producerEnergyUlps[0],pressureFaces,lindaPairs,groupedMembers,actualOperations);
             if(Math.abs(expectedN2-n2)>n2Budget || Math.abs(expectedEnergy-energy)>energyBudget)
                 throw new GameTestAssertException("sealed-room gas/energy accounting drift: N2="+(n2-expectedN2)
-                        +", energy="+(energy-expectedEnergy)+", ulpBudgets="+n2Budget+"/"+energyBudget);
+                        +", energy="+(energy-expectedEnergy)+", operationBudgets="+n2Budget+"/"+energyBudget
+                        +", operations="+actualOperations+" pressure/linda/groups="+pressureFaces+"/"+lindaPairs+"/"+groupedMembers);
             if(!service.boundaryGasLedger(level).isEmpty() || Math.abs(service.boundaryEnergyLedger(level))>1e-9)
                 throw new GameTestAssertException("sealed room exported gas or energy");
             var finalRuntime=service.diagnosticRuntime(level);
@@ -148,14 +191,14 @@ public final class AtmospherePressureTransportGameTests {
         return sum;
     }
 
-    private static double inventoryUlpBudget(AtmosphereService service,ServerLevel level,GameTestHelper helper,
-                                             int x0,int x1,int y0,int y1,int z0,int z1,boolean energy) {
-        double sum=0;
+    private static double maxCellInventory(AtmosphereService service,ServerLevel level,GameTestHelper helper,
+                                           int x0,int x1,int y0,int y1,int z0,int z1,boolean energy) {
+        double maximum=0;
         for(int y=y0;y<y1;y++)for(int z=z0;z<z1;z++)for(int x=x0;x<x1;x++) {
             GasMixture gas=service.sample(level,helper.absolutePos(new BlockPos(x,y,z)))
                     .orElseThrow(()->new GameTestAssertException("unclassified inventory cell"));
-            sum+=Math.ulp((float)(energy?gas.thermalEnergy():gas.moles(GasType.NITROGEN)));
+            maximum=Math.max(maximum,energy?gas.thermalEnergy():gas.moles(GasType.NITROGEN));
         }
-        return sum;
+        return maximum;
     }
 }

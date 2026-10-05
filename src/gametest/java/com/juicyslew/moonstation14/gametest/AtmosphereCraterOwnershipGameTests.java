@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.Config;
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.explosion.core.BlastPlanner;
@@ -13,21 +14,20 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere", "explosion"})
 public final class AtmosphereCraterOwnershipGameTests {
     private static final BlastPlanner.Proposal BLAST = new BlastPlanner.Proposal(120, 3, 10);
 
     private AtmosphereCraterOwnershipGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_crater_ownership", timeoutTicks = 160)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_crater_ownership", timeoutTicks = 160, templateNamespace = "moonstation14")
     public static void craterFloorChangesWakeUnclaimedFiniteCavity(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService global = AtmosphereService.INSTANCE;

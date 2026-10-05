@@ -115,7 +115,7 @@ class GasReactionStepTest {
         var diffused = gas(450, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
         var resumed = check(diffused, new HotspotState(200, 800, true, false));
         assertTrue(resumed.fireOccurred());
-        assertFalse(resumed.spreadEligibleThisPass());
+        assertTrue(resumed.spreadEligibleThisPass());
         assertEquals(resumed.events().getLast().extentMoles() * 40000,
                 resumed.nextState().orElseThrow().volumeLiters(), 1e-3);
     }
@@ -182,15 +182,17 @@ class GasReactionStepTest {
         assertEquals(cold.thermalEnergy(), result.mixture().thermalEnergy());
     }
 
-    @Test void fullStoredHotspotIsEligibleOnlyOnItsFollowingOrdinaryPass() {
+    @Test void burningPartialHotspotCanSpreadBeforeFollowingWholeAirPass() {
         var gas = gas(1643.15, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
         var crossing = check(gas, new HotspotState(940, 1643.15, true, false));
+        assertTrue(crossing.fireOccurred());
+        assertTrue(crossing.events().stream().anyMatch(e -> e.extentMoles() > 0));
         assertEquals(crossing.events().getLast().extentMoles() * 40000,
                 crossing.nextState().orElseThrow().volumeLiters(), 1e-3);
-        assertFalse(crossing.spreadEligibleThisPass());
+        assertTrue(crossing.spreadEligibleThisPass());
         var full = check(crossing.mixture(), crossing.nextState().orElseThrow());
         assertTrue(full.fireOccurred());
-        assertFalse(full.spreadEligibleThisPass(), "growth remains below bypass threshold until its volume crosses 95% of the cell");
+        assertTrue(full.spreadEligibleThisPass());
     }
 
     @Test void explosionExposureNeverQualifiesForSpreadBypass() {
@@ -206,7 +208,7 @@ class GasReactionStepTest {
         var before = gas(300, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
         var result = check(before, new HotspotState(250, 400, true, false));
         assertTrue(result.fireOccurred());
-        assertFalse(result.spreadEligibleThisPass());
+        assertTrue(result.spreadEligibleThisPass());
         assertTrue(result.nextState().orElseThrow().temperatureKelvin() > 373.15);
     }
 

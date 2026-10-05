@@ -1,0 +1,7 @@
+{
+  "abstract": true,
+  "pipeLane": "PRIMARY",
+  "apcPowerReceiver": { "requestedWatts": 5.0 },
+  "extensionCableReceiver": { "localReachBlocks": 3 }
+  ,"fixtureGeometry": { "width": 0.75, "height": 0.75, "depth": 0.125, "nonColliding": true, "allowVerticalMounts": true }
+}

@@ -35,6 +35,9 @@ public final class MachineDraftField extends AbstractButton {
     public EditBox editBox() { return edit; }
     public DraftFieldModel.State state() { return model.state(); }
 
+    /** Reapply model-derived editability and submit state after an external model update. */
+    public void refreshState() { updateState(); }
+
     public void snapshot(long revision, String value) {
         model.snapshot(revision, value);
         updateState();

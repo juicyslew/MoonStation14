@@ -1,0 +1,4 @@
+{
+  "parent": "base_wallmount_machine",
+  "deviceList": { "maxDevices": 32 }
+}

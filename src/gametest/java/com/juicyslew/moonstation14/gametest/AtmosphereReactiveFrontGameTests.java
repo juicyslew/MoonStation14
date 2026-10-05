@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
@@ -12,7 +13,6 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -20,17 +20,17 @@ import java.util.List;
 import java.util.Set;
 
 /** Bounded, service-driven observation fixture for reactive fronts; intentionally changes no physics. */
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereReactiveFrontGameTests {
     private AtmosphereReactiveFrontGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reactive_front_diagnostic", timeoutTicks = 900)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reactive_front_diagnostic", timeoutTicks = 900, templateNamespace = "moonstation14")
     public static void capturePerCellReactiveFront(GameTestHelper helper) {
         runReactiveFrontFixture(helper, false);
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reactive_front_diagnostic", timeoutTicks = 900)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_reactive_front_diagnostic", timeoutTicks = 900, templateNamespace = "moonstation14")
     public static void persistentHotspotDefersGroupBreakdown(GameTestHelper helper) {
         runReactiveFrontFixture(helper, true);
     }

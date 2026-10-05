@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
 import net.minecraft.core.component.DataComponents;
@@ -11,14 +13,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "lifecycle"})
 public final class CreativeInventorySnapshotGameTests {
     private CreativeInventorySnapshotGameTests() { }
 
@@ -31,7 +32,7 @@ public final class CreativeInventorySnapshotGameTests {
         return CreativeInventorySnapshot.capture(main, armor, offhand, cursor, selected, List.of());
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void invalidStackDiagnosisIsReadOnlyAndMatchesStrictCapture(GameTestHelper helper) {
         List<ItemStack> main = empty(36);
         List<ItemStack> armor = empty(4);
@@ -112,7 +113,7 @@ public final class CreativeInventorySnapshotGameTests {
         require(main.get(3) == null || main.get(3).getCount() == zeroCount, "main stack count unchanged");
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void emptyAndFullNativeRoundtripAndIsolation(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         var empty = capture(empty(36), empty(4), empty(1), ItemStack.EMPTY, 0);
@@ -162,7 +163,7 @@ public final class CreativeInventorySnapshotGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void malformedAndUnsupportedInputsFailClosed(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         var empty = capture(empty(36), empty(4), empty(1), ItemStack.EMPTY, 0);
@@ -266,7 +267,7 @@ public final class CreativeInventorySnapshotGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void lastItemSplitAndShrinkAreReadOnlyEmptyObservations(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         List<ItemStack> main = empty(36);
