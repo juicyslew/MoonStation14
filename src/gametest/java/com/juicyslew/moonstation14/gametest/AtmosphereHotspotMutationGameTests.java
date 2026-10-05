@@ -4,7 +4,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
-import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -38,29 +38,28 @@ public final class AtmosphereHotspotMutationGameTests {
         }
         BlockPos cell = helper.absolutePos(new BlockPos(2, 1, 2));
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
-        for (int pass = 1; pass <= 12 && !claimed(level, cell); pass++) {
+        service.activateCellAndNeighbors(level, cell);
+        for (int pass = 1; pass <= 60 && !claimed(level, cell); pass++) {
             service.sample(level, cell);
-            service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
+            service.tick(level, pass);
         }
-        require(claimed(level, cell), "test cell must be finite");
+        require(claimed(level, cell), "test cell must be finite; timing=" + service.diagnosticTiming(level));
         require(service.addGas(level, cell, GasType.TRITIUM, 2, 900), "inject tritium");
         require(service.addGas(level, cell, GasType.OXYGEN, 4, 900), "inject oxygen");
         waitForDue(helper, level, 0, () -> {
-            require(service.reactFiniteCell(level, cell).isPresent(), "must seed an actual fractional hotspot");
-            HotspotKernel.HotspotState prior = actualHotspot(service, level, cell);
-            require(prior != null && prior.fraction() < 1, "reaction must retain an actual fractional hotspot");
+            require(service.reactFiniteCell(level, cell).isPresent(), "must seed an actual reaction hotspot");
+            HotspotState prior = actualHotspot(service, level, cell);
+            require(prior != null && prior.volumeLiters() == 25_000.0,
+                    "whole-air tritium fire must retain its source-derived 1000 L * 25 exposure volume");
             GasMixture before = service.sample(level, cell).orElseThrow();
             require(service.addEnergy(level, cell, -before.thermalEnergy() * .20), "cooling write must commit");
             GasMixture cooled = service.sample(level, cell).orElseThrow();
-            HotspotKernel.HotspotState reconciled = actualHotspot(service, level, cell);
-            require(reconciled != null && reconciled.temperatureKelvin() < prior.temperatureKelvin(),
-                    "successful external write must reconcile the queued hotspot temperature");
-            double hotEnergy = reconciled.fraction() * cooled.heatCapacity() * reconciled.temperatureKelvin();
-            require(hotEnergy <= cooled.thermalEnergy() + Math.max(1e-8, cooled.thermalEnergy() * 1e-12),
-                    "reconciled hotspot partition cannot exceed committed gas energy");
+            HotspotState reconciled = actualHotspot(service, level, cell);
+            require(prior.equals(reconciled),
+                    "successful external cooling write must preserve explicit hotspot metadata");
 
             GasMixture unchangedGas = cooled;
-            HotspotKernel.HotspotState unchangedHotspot = reconciled;
+            HotspotState unchangedHotspot = reconciled;
             require(!service.addEnergy(level, cell, -Double.MAX_VALUE), "invalid unaffordable write must fail");
             require(same(unchangedGas, service.sample(level, cell).orElseThrow()),
                     "failed write must not change gas");
@@ -70,7 +69,7 @@ public final class AtmosphereHotspotMutationGameTests {
         });
     }
 
-    private static HotspotKernel.HotspotState actualHotspot(AtmosphereService service, ServerLevel level, BlockPos pos) {
+    private static HotspotState actualHotspot(AtmosphereService service, ServerLevel level, BlockPos pos) {
         try {
             Field queuesField = AtmosphereService.class.getDeclaredField("reactionQueues");
             queuesField.setAccessible(true);
@@ -78,7 +77,7 @@ public final class AtmosphereHotspotMutationGameTests {
             if (queue == null) return null;
             Method hotspot = queue.getClass().getDeclaredMethod("hotspot", BlockPos.class);
             hotspot.setAccessible(true);
-            return (HotspotKernel.HotspotState) hotspot.invoke(queue, pos);
+            return (HotspotState) hotspot.invoke(queue, pos);
         } catch (ReflectiveOperationException failure) {
             throw new GameTestAssertException("could not inspect actual reaction queue hotspot: " + failure);
         }

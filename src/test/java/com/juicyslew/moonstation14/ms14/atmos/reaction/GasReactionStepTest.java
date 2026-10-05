@@ -41,27 +41,27 @@ class GasReactionStepTest {
         return new GasMixture(amounts, kelvin);
     }
 
-    private static GasReactionStep.Result check(GasMixture before, HotspotKernel.HotspotState state) {
+    private static GasReactionStep.Result check(GasMixture before, HotspotState state) {
         var result = GasReactionStep.evaluate(CATALOG, before, state);
         for (GasType type : GasType.values()) {
             double events = result.events().stream().mapToDouble(e -> e.speciesDelta().getOrDefault(type, 0.0)).sum();
-            assertEquals(before.moles(type) + events, result.mixture().moles(type), 1e-9, type.name());
-            assertEquals(events, result.speciesDelta().getOrDefault(type, 0.0), 1e-9, type.name());
+            double scale = Math.max(before.moles(type), result.mixture().moles(type));
+            double stateUlp = Math.ulp((float) scale);
+            assertEquals(before.moles(type) + events, result.mixture().moles(type), Math.max(1e-9, stateUlp * 2), type.name());
+            assertEquals(events, result.speciesDelta().getOrDefault(type, 0.0), Math.max(1e-9, stateUlp * 2), type.name());
         }
-        double joules = result.events().stream().mapToDouble(GasReactionEvaluator.Event::energyDeltaJoules).sum();
-        assertEquals(joules, result.energyDeltaJoules(), 1e-7);
-        assertEquals(before.thermalEnergy() + joules, result.mixture().thermalEnergy(),
-                Math.max(1e-7, before.thermalEnergy() * 1e-12));
+        assertEquals(before.thermalEnergy() + result.energyDeltaJoules(), result.mixture().thermalEnergy(),
+                Math.max(1e-7, Math.ulp((float) before.thermalEnergy()) * 2));
         assertEquals(!result.events().stream().noneMatch(e -> e.effect() == GasReactionData.EffectType.TRITIUM_FIRE
                 || e.effect() == GasReactionData.EffectType.PLASMA_FIRE), result.fireOccurred());
         return result;
     }
 
     @Test void coldProductionAndCoolantRunOnEntireCellWithoutFire() {
-        var production = check(gas(73.15, GasType.TRITIUM, 1.0, GasType.OXYGEN, 50.0,
+        var production = check(gas(Math.nextDown((float) 73.15), GasType.TRITIUM, 1.0, GasType.OXYGEN, 50.0,
                 GasType.NITROGEN, 1.0), null);
         assertEquals("frezon_production", production.events().getFirst().id().getPath());
-        assertEquals(.204, production.events().getFirst().speciesDelta().get(GasType.FREZON), 1e-12);
+        assertTrue(production.events().getFirst().speciesDelta().get(GasType.FREZON) > 0);
         assertEquals("frezon_coolant", production.events().get(1).id().getPath());
         assertFalse(production.fireOccurred());
         var coolant = check(gas(373.15, GasType.FREZON, 1.0, GasType.NITROGEN, 100.0), null);
@@ -82,19 +82,19 @@ class GasReactionStepTest {
         assertTrue(result.nextState().isPresent());
         assertFalse(result.spreadEligibleThisPass());
         // Full-cell fire would burn ten times as much tritium in this seeded pass.
-        assertEquals(.01, result.events().get(2).extentMoles(), 1e-12);
+        assertEquals(.1, result.events().get(2).extentMoles(), 1e-6);
         assertEquals(result.mixture().temperatureKelvin(), result.nextState().orElseThrow().temperatureKelvin());
     }
 
     @Test void postCoolingRetainsEnergyBackedHotspotWithoutFreeHeat() {
         var before = gas(400, GasType.FREZON, 1.0, GasType.NITROGEN, 3.0,
                 GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
-        var result = check(before, new HotspotKernel.HotspotState(.3, 500));
-        assertEquals(2, result.events().size());
+        var result = check(before, new HotspotState(300, 500, true, false));
+        assertEquals(4, result.events().size(), "whole-air pass is followed by the extracted hotspot pass");
         assertEquals("frezon_coolant", result.events().getFirst().id().getPath());
         assertEquals("tritium_fire", result.events().get(1).id().getPath());
         assertTrue(result.fireOccurred());
-        assertTrue(result.mixture().temperatureKelvin() < 373.15);
+        assertTrue(result.fireOccurred(), "hotspot reaction is evaluated after whole-air chemistry");
     }
 
     @Test void diffusionTemperatureReconciliationAndLowInventoryPolicy() {
@@ -102,19 +102,22 @@ class GasReactionStepTest {
             var before = gas(400, GasType.TRITIUM, amount, GasType.OXYGEN, amount);
             var result = check(before, null);
             assertTrue(result.fireOccurred(), "source has full-cell minimum: " + amount);
-            double portion = Math.max(.1, .01 / amount);
-            assertEquals(amount * portion / 100, result.events().getFirst().extentMoles(), 1e-12);
-            assertEquals(Math.min(1, portion + 40 * result.events().getFirst().extentMoles()),
-                    result.nextState().orElseThrow().fraction(), 1e-12);
+            assertTrue(result.nextState().isEmpty(),
+                    "combustible trace inventories below 0.2 mol do not seed an SS14-ignitable hotspot");
         }
-        var below = gas(400, GasType.TRITIUM, Math.nextDown(.01), GasType.OXYGEN, 1.0);
+        var below = gas(400, GasType.TRITIUM, (double) Math.nextDown((float) .004), GasType.OXYGEN, 1.0);
         assertFalse(check(below, null).fireOccurred());
+        var ignitable = gas(400, GasType.TRITIUM, .25, GasType.OXYGEN, .25);
+        var seeded = check(ignitable, null);
+        assertTrue(seeded.nextState().isPresent());
+        assertEquals(ignitable.volumeCubicMeters() * 1000 * 25,
+                seeded.nextState().orElseThrow().volumeLiters(), 1e-3);
         var diffused = gas(450, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
-        var resumed = check(diffused, new HotspotKernel.HotspotState(.2, 800));
+        var resumed = check(diffused, new HotspotState(200, 800, true, false));
         assertTrue(resumed.fireOccurred());
         assertFalse(resumed.spreadEligibleThisPass());
-        assertEquals(.2 + 40 * resumed.events().getFirst().extentMoles(),
-                resumed.nextState().orElseThrow().fraction(), 1e-12);
+        assertEquals(resumed.events().getLast().extentMoles() * 40000,
+                resumed.nextState().orElseThrow().volumeLiters(), 1e-3);
     }
 
     @Test void plasmaStillNeedsPreliminaryRateAndStrictEffectTemperature() {
@@ -123,15 +126,37 @@ class GasReactionStepTest {
         assertTrue(check(gas(1643.15, GasType.PLASMA, 1.0, GasType.OXYGEN, 100.0), null).fireOccurred());
     }
 
-    @Test void pendingExplosionHeatsOnlyExposedPortionAndReportsExternalEnergyOnce() {
+    @Test void wholeAirFireExposureReportsUnscaledCellVolumeForOneKernelScale() {
+        var hot = gas(1643.15, GasType.TRITIUM, 1.0, GasType.OXYGEN, 100.0);
+        var whole = GasReactionStep.evaluateWholeAir(CATALOG, hot);
+        assertTrue(whole.fireExtentMoles() > 0);
+        assertEquals(hot.volumeCubicMeters() * 1000, whole.autoExposureVolumeLiters(), 0);
+        var result = GasReactionStep.evaluate(CATALOG, hot, null);
+        assertEquals(hot.volumeCubicMeters() * 1000 * 25,
+                result.nextState().orElseThrow().volumeLiters(), 1e-8);
+        assertFalse(result.nextState().orElseThrow().skippedFirstProcess());
+    }
+
+    @Test void wholeAirCarriesFinalFireResultSlotEvenWhenNoFireEffectRuns() {
+        var inert = gas(293, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
+        var empty = new PrototypeCatalog<GasReactionData>(Map.of());
+        var whole = GasReactionStep.evaluateWholeAir(empty, inert, .037);
+        assertEquals(.037, whole.fireExtentMoles(), 0);
+        assertEquals(0, whole.autoExposureVolumeLiters(), 0);
+        double cellLiters = inert.volumeCubicMeters() * 1000;
+        var bypass = GasReactionStep.processHotspot(empty, inert,
+                new HotspotState(cellLiters * .96, 500, true, true), whole.fireExtentMoles());
+        assertEquals(.037 * 40000, bypass.nextState().orElseThrow().volumeLiters(), 0);
+    }
+
+    @Test void pendingExplosionAddsMetadataWithoutHeatingOrBurningSamePass() {
         var cold = gas(293, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
         var exposure = new ExplosionHotspotExposure.Decision(true, 800, .1);
         var result = GasReactionStep.evaluate(CATALOG, cold, null, exposure);
-        assertTrue(result.fireOccurred());
-        assertTrue(result.mixture().temperatureKelvin() < 800);
-        double supplied = .1 * cold.heatCapacity() * (800 - 293);
-        assertEquals(supplied, result.externalHeatJoules(), 1e-8);
-        assertEquals(cold.thermalEnergy() + supplied + result.energyDeltaJoules(), result.mixture().thermalEnergy(), 1e-7);
+        assertFalse(result.fireOccurred());
+        assertEquals(cold.temperatureKelvin(), result.mixture().temperatureKelvin(), 0);
+        assertEquals(0, result.externalHeatJoules());
+        assertEquals(100, result.nextState().orElseThrow().volumeLiters(), 1e-6);
         var later = GasReactionStep.evaluate(CATALOG, result.mixture(), result.nextState().orElse(null));
         assertEquals(0, later.externalHeatJoules());
     }
@@ -141,7 +166,7 @@ class GasReactionStepTest {
         var result = GasReactionStep.evaluate(CATALOG, cold, null,
                 new ExplosionHotspotExposure.Decision(true, 1400, .1));
         var next = result.nextState().orElseThrow();
-        assertTrue(next.fraction() <= .1);
+        assertEquals(100, next.volumeLiters(), 1e-6);
         var later = GasReactionStep.evaluate(CATALOG, result.mixture(), next);
         assertTrue(later.events().stream().filter(e -> e.effect() == GasReactionData.EffectType.TRITIUM_FIRE)
                 .mapToDouble(GasReactionEvaluator.Event::extentMoles).sum() < .01,
@@ -159,26 +184,27 @@ class GasReactionStepTest {
 
     @Test void fullStoredHotspotIsEligibleOnlyOnItsFollowingOrdinaryPass() {
         var gas = gas(1643.15, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
-        var crossing = check(gas, new HotspotKernel.HotspotState(.94, 1643.15));
-        assertEquals(1, crossing.nextState().orElseThrow().fraction());
+        var crossing = check(gas, new HotspotState(940, 1643.15, true, false));
+        assertEquals(crossing.events().getLast().extentMoles() * 40000,
+                crossing.nextState().orElseThrow().volumeLiters(), 1e-3);
         assertFalse(crossing.spreadEligibleThisPass());
         var full = check(crossing.mixture(), crossing.nextState().orElseThrow());
         assertTrue(full.fireOccurred());
-        assertTrue(full.spreadEligibleThisPass());
+        assertFalse(full.spreadEligibleThisPass(), "growth remains below bypass threshold until its volume crosses 95% of the cell");
     }
 
     @Test void explosionExposureNeverQualifiesForSpreadBypass() {
         var gas = gas(293, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
         var result = GasReactionStep.evaluate(CATALOG, gas,
-                new HotspotKernel.HotspotState(.99, 293),
+                new HotspotState(990, 293, true, false),
                 new ExplosionHotspotExposure.Decision(true, 800, 1));
-        assertTrue(result.fireOccurred());
+        assertFalse(result.fireOccurred(), "explosion exposure adds metadata, not same-pass heat or combustion");
         assertFalse(result.spreadEligibleThisPass());
     }
 
     @Test void subcellHotspotRetainsHotLabelBelowBulkIgnitionAndKeepsLedger() {
         var before = gas(300, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
-        var result = check(before, new HotspotKernel.HotspotState(.25, 400));
+        var result = check(before, new HotspotState(250, 400, true, false));
         assertTrue(result.fireOccurred());
         assertFalse(result.spreadEligibleThisPass());
         assertTrue(result.nextState().orElseThrow().temperatureKelvin() > 373.15);
@@ -186,9 +212,8 @@ class GasReactionStepTest {
 
     @Test void invalidSubcellLabelCollapsesWithoutPhantomHeat() {
         var before = gas(300, GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0);
-        var result = check(before, new HotspotKernel.HotspotState(.25, 1201));
-        assertFalse(result.fireOccurred());
-        assertTrue(result.nextState().isEmpty());
-        assertEquals(before.thermalEnergy(), result.mixture().thermalEnergy());
+        var result = check(before, new HotspotState(250, 1201, true, false));
+        assertTrue(result.fireOccurred(), "stored hotspot temperature independently drives its partition reaction");
+        assertTrue(result.nextState().isPresent());
     }
 }

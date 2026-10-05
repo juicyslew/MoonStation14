@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.core.ImmutableAtmosphereBoundary;
+import com.juicyslew.moonstation14.ms14.atmos.core.LindaGasSharing;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -24,24 +25,23 @@ class AtmospherePatchKernelSelectionTest {
             assertEquals(AtmosphereService.PatchKernel.NORMAL_EQUALIZATION,
                     AtmosphereService.chooseKernelForPatch(Set.of(), vacuumDimension));
             assertEquals(vacuumDimension ? AtmosphereService.PatchKernel.SPACE_FLOW
-                            : AtmosphereService.PatchKernel.AMBIENT_FLOW,
+                            : AtmosphereService.PatchKernel.NORMAL_EQUALIZATION,
                     AtmosphereService.chooseKernelForPatch(Set.of(new BlockPos(4, 10, 2)), vacuumDimension));
         }
     }
 
     @Test
-    void changedBreathablePatchDefersLocalBoundaryExchangeUntilNextCycle() {
+    void changedBreathablePatchRemainsEligibleForSameCycleLinda() {
         BlockPos finite = new BlockPos(0, 1, 0);
         BlockPos exterior = finite.east();
-        assertEquals(AtmosphereService.PatchKernel.AMBIENT_FLOW,
+        assertEquals(AtmosphereService.PatchKernel.NORMAL_EQUALIZATION,
                 AtmosphereService.chooseKernelForPatch(Set.of(exterior), false));
         AtmosphereService.WorkQueue queue = new AtmosphereService.WorkQueue();
         Set<BlockPos> handled = new java.util.HashSet<>();
-        AtmosphereService.markMonstermosPatchHandled(List.of(finite), handled, queue);
-        List<BlockPos> deferred = new ArrayList<>();
-        assertTrue(AtmosphereService.deferHandledLindaSource(queue.poll(), handled, deferred));
-        AtmosphereService.requeueDeferredSources(queue, deferred);
-        assertEquals(finite, queue.poll(), "the finite source remains eligible for the next local pass");
+        AtmosphereService.markMonstermosPatchHandled(List.of(finite), handled, queue, false);
+        AtmosphereCycle cycle = new AtmosphereCycle();
+        cycle.startLinda(queue.snapshotPositions());
+        assertEquals(Set.of(finite), cycle.lindaSources(), "normal Monstermos cells are eligible immediately");
 
         var exchange = ImmutableAtmosphereBoundary.exchange(GasMixture.vacuum(),
                 GasMixture.breathableAir(), 0.125, false);
@@ -61,15 +61,38 @@ class AtmospherePatchKernelSelectionTest {
     }
 
     @Test
-    void boundaryCellCanExchangeOnlyOncePerCycleButDistinctOpeningCellsRemainEligible() {
-        Set<BlockPos> handled = new java.util.HashSet<>();
-        BlockPos oneOpeningCell = new BlockPos(0, 1, 0);
-        BlockPos anotherOpeningCell = new BlockPos(1, 1, 0);
-        assertTrue(AtmosphereService.claimBoundaryCellForCycle(handled, oneOpeningCell));
-        assertFalse(AtmosphereService.claimBoundaryCellForCycle(handled, oneOpeningCell),
-                "a second exterior face on the same finite cell must not drain again this cycle");
-        assertTrue(AtmosphereService.claimBoundaryCellForCycle(handled, anotherOpeningCell),
-                "distinct boundary cells still contribute to opening-area dependence");
+    void lindaSpaceSourceRetainsEveryImmutableExteriorFaceAfterSpaceFlowHandling() {
+        BlockPos finite = new BlockPos(0, 1, 0);
+        Set<BlockPos> spaceHandled = Set.of(finite);
+        Map<BlockPos, GasMixture> live = new HashMap<>();
+        GasMixture finiteGas = new GasMixture(Map.of(GasType.OXYGEN, 8.0), 293.15);
+        live.put(finite, finiteGas);
+        Map<BlockPos, GasMixture> archive = new HashMap<>(live);
+        Map<BlockPos, Set<BlockPos>> adjacency = new HashMap<>();
+        adjacency.put(finite, new java.util.LinkedHashSet<>());
+        GasMixture vacuum = GasMixture.vacuum();
+        for (BlockPos exterior : List.of(finite.above(), finite.below(), finite.east()))
+            AtmosphereService.connectImmutableBoundary(archive, adjacency, finite, exterior, vacuum);
+
+        var result = LindaGasSharing.process(live, archive, adjacency, Set.of(finite), Set.of(), 1);
+
+        assertTrue(spaceHandled.contains(finite), "Space-flow diagnostics remain independent of LINDA");
+        assertEquals(3, result.sharedPairs().size(), "every distinct loaded immutable face participates");
+        assertTrue(result.mixtures().get(finite).moles(GasType.OXYGEN) < finiteGas.moles(GasType.OXYGEN));
+    }
+
+    @Test
+    void lindaImmutableBoundaryLedgerUsesCommittedFiniteBeforeAfterDelta() {
+        BlockPos finite = new BlockPos(0, 1, 0);
+        GasMixture before = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 293.15);
+        GasMixture exported = new GasMixture(Map.of(GasType.OXYGEN, 1.5), 280.0);
+        var export = AtmosphereService.lindaBoundaryExchange(Map.of(finite, before), Map.of(finite, exported));
+        assertEquals(0.5, export.speciesMoles().get(GasType.OXYGEN), 1e-6);
+        assertEquals(before.thermalEnergy() - exported.thermalEnergy(), export.energyJoules(), 1e-6);
+
+        var imported = AtmosphereService.lindaBoundaryExchange(Map.of(finite, GasMixture.vacuum()),
+                Map.of(finite, before));
+        assertTrue(imported.speciesMoles().get(GasType.OXYGEN) < 0.0);
     }
 
     @Test
@@ -100,44 +123,37 @@ class AtmospherePatchKernelSelectionTest {
     }
 
     @Test
-    void monstermosHandledSourcesDeferWithoutBlockingOtherLindaSources() {
+    void spaceAndNormalMonstermosSourcesRemainEligibleForSameCycleLinda() {
         BlockPos patched = new BlockPos(0, 0, 0);
         BlockPos otherPatched = new BlockPos(0, 1, 0);
         BlockPos outsidePatch = new BlockPos(1, 0, 0);
         AtmosphereService.WorkQueue queue = new AtmosphereService.WorkQueue();
         Set<BlockPos> handled = new java.util.HashSet<>();
-        AtmosphereService.markMonstermosPatchHandled(List.of(patched, otherPatched), handled, queue);
+        AtmosphereService.markMonstermosPatchHandled(List.of(patched), handled, queue, false);
+        AtmosphereService.markMonstermosPatchHandled(List.of(otherPatched), handled, queue, true);
+        AtmosphereService.markMonstermosPatchHandled(List.of(patched, otherPatched), handled, queue, true);
         queue.offer(outsidePatch);
-        List<BlockPos> deferred = new ArrayList<>();
         assertEquals(Set.of(patched, otherPatched), handled,
-                "all cells of a changed Monstermos patch must be protected from same-tick LINDA work");
-
-        BlockPos selected = null;
-        while (selected == null && !queue.isEmpty()) {
-            BlockPos candidate = queue.poll();
-            if (!AtmosphereService.deferHandledLindaSource(candidate, handled, deferred)) selected = candidate;
-        }
-        assertEquals(outsidePatch, selected,
-                "LINDA may process an adjacent finite source outside the Monstermos patch");
-
-        AtmosphereService.requeueDeferredSources(queue, deferred);
-        assertEquals(patched, queue.poll(), "the Monstermos patch must be eligible on the next stage");
-        assertEquals(otherPatched, queue.poll(), "every changed patch cell must remain scheduled");
+                "Space Monstermos handled bookkeeping remains available for diagnostics");
+        AtmosphereCycle cycle = new AtmosphereCycle();
+        cycle.startLinda(queue.snapshotPositions());
+        assertEquals(Set.of(patched, otherPatched, outsidePatch), cycle.lindaSources(),
+                "Space and normal Monstermos handled cells are not filtered from LINDA");
     }
 
     @Test
-    void normalPatchRequeuesForLindaWithoutMarkingCellsHandledButBoundaryPatchStillDefers() {
+    void normalAndBoundaryPatchesBothRequeueForSameCycleLinda() {
         BlockPos normal = new BlockPos(4, 2, 1);
         BlockPos boundary = new BlockPos(5, 2, 1);
         AtmosphereService.WorkQueue queue = new AtmosphereService.WorkQueue();
         Set<BlockPos> handled = new java.util.HashSet<>();
         AtmosphereService.markMonstermosPatchHandled(List.of(normal), handled, queue, false);
         assertTrue(handled.isEmpty(), "normal finite patches are eligible for same-cycle LINDA/heat stages");
-        assertEquals(normal, queue.poll(), "normal patch cell remains requeued");
         AtmosphereService.markMonstermosPatchHandled(List.of(boundary), handled, queue, true);
-        assertEquals(Set.of(boundary), handled, "boundary-kernel participants remain excluded");
-        List<BlockPos> deferred = new ArrayList<>();
-        assertTrue(AtmosphereService.deferHandledLindaSource(boundary, handled, deferred));
+        assertEquals(Set.of(boundary), handled, "boundary bookkeeping is retained for diagnostics");
+        AtmosphereCycle cycle = new AtmosphereCycle();
+        cycle.startLinda(queue.snapshotPositions());
+        assertEquals(Set.of(normal, boundary), cycle.lindaSources());
     }
 
     @Test
@@ -189,30 +205,4 @@ class AtmospherePatchKernelSelectionTest {
         assertTrue(thrown.getSuppressed()[0] == writeFailure);
     }
 
-    @Test
-    void excitedGroupCadenceUsesPassedAtmosphereTimeAndDefersMonstermosConflicts() {
-        var firstStage = AtmosphereService.excitedCycleSchedule(4, 12, false);
-        var secondStage = AtmosphereService.excitedCycleSchedule(8, firstStage.nextDue(), false);
-        assertFalse(firstStage.advance());
-        assertFalse(secondStage.advance());
-        assertEquals(12, secondStage.nextDue());
-
-        var due12 = AtmosphereService.excitedCycleSchedule(12, secondStage.nextDue(), false);
-        assertTrue(due12.advance());
-        assertEquals(24, due12.nextDue());
-        var duplicateTime = AtmosphereService.excitedCycleSchedule(12, due12.nextDue(), false);
-        assertFalse(duplicateTime.advance(), "repeating the supplied time must not advance twice");
-
-        var due24 = AtmosphereService.excitedCycleSchedule(24, due12.nextDue(), false);
-        assertTrue(due24.advance());
-        assertEquals(36, due24.nextDue());
-
-        var blockedDueStage = AtmosphereService.excitedCycleSchedule(12, secondStage.nextDue(), true);
-        assertFalse(blockedDueStage.advance());
-        assertEquals(12, blockedDueStage.nextDue(), "a conflicting Monstermos pass leaves the cycle pending");
-        var delayedStage = AtmosphereService.excitedCycleSchedule(16, blockedDueStage.nextDue(), false);
-        assertTrue(delayedStage.advance());
-        assertEquals(28, delayedStage.nextDue());
-        assertFalse(AtmosphereService.excitedCycleSchedule(16, delayedStage.nextDue(), false).advance());
-    }
 }

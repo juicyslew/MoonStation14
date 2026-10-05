@@ -9,35 +9,32 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AtmosphereWorkQueueTest {
     @Test
-    void atmosphereRunsEveryTwoGameTicksOnlyWhenEnabled() {
-        assertEquals(0.1, AtmosphereService.atmosphereStepSeconds, 1.0e-12);
-        assertTrue(AtmosphereService.isTickDue(true, 0));
-        assertFalse(AtmosphereService.isTickDue(true, 1));
-        assertTrue(AtmosphereService.isTickDue(true, 2));
-        assertFalse(AtmosphereService.isTickDue(true, 3));
-        assertTrue(AtmosphereService.isTickDue(true, 4));
-        for (long gameTime = 0; gameTime <= 4; gameTime++)
-            assertFalse(AtmosphereService.isTickDue(false, gameTime), "disabled at game time " + gameTime);
+    void atmosphereAdmitsFifteenStagesPerSecondWithDebtPreserved() {
+        assertEquals(1.0 / 15, AtmosphereService.atmosphereStepSeconds, 1.0e-12);
+        AtmosphereCycle cycle = new AtmosphereCycle();
+        int admissions = 0;
+        for (int tick = 0; tick < 20; tick++) if (cycle.beginWhenDue()) admissions++;
+        assertEquals(15, admissions);
     }
 
     @Test
     void perStepBudgetsAreHalvedAndPreserveThePriorPerSecondAllowance() {
         assertEquals(64, AtmosphereService.MAX_PAIR_EDGES_PER_TICK);
         assertEquals(256, AtmosphereService.MAX_CELLS_INSPECTED_PER_TICK);
-        assertEquals(384, AtmosphereService.MAX_DISCOVERY_PROBES_PER_TICK);
-        assertEquals(128, AtmosphereService.MAX_OWNERSHIP_CLAIMS_PER_TICK);
+        assertEquals(384, AtmosphereService.MAX_DISCOVERY_PROBES_PER_SLICE);
+        assertEquals(128, AtmosphereService.MAX_OWNERSHIP_CLAIMS_PER_SLICE);
         assertEquals(64, AtmosphereService.MAX_DIRTY_CURSOR_STEPS_PER_TICK);
 
         assertEquals(128 * 5, AtmosphereService.MAX_PAIR_EDGES_PER_TICK * 10);
         assertEquals(512 * 5, AtmosphereService.MAX_CELLS_INSPECTED_PER_TICK * 10);
-        assertEquals(768 * 5, AtmosphereService.MAX_DISCOVERY_PROBES_PER_TICK * 10);
-        assertEquals(256 * 5, AtmosphereService.MAX_OWNERSHIP_CLAIMS_PER_TICK * 10);
+        assertEquals(768 * 5, AtmosphereService.MAX_DISCOVERY_PROBES_PER_SLICE * 10);
+        assertEquals(256 * 5, AtmosphereService.MAX_OWNERSHIP_CLAIMS_PER_SLICE * 10);
         assertEquals(128 * 5, AtmosphereService.MAX_DIRTY_CURSOR_STEPS_PER_TICK * 10);
     }
 
     @Test
-    void lindaSourceAdmissionStaysWithinPairBudgetAndLeavesNextSourceQueued() {
-        assertEquals(10, AtmosphereService.LINDA_MAX_ACTIVE_CELLS);
+    void lindaSourceAdmissionUsesActualBoundedSnapshotAndPreservesNextSource() {
+        assertEquals(800, AtmosphereService.LINDA_MAX_ACTIVE_CELLS);
         AtmosphereService.WorkQueue queue = new AtmosphereService.WorkQueue();
         java.util.List<BlockPos> candidates = new java.util.ArrayList<>();
         for (int i = 0; i < AtmosphereService.LINDA_MAX_ACTIVE_CELLS + 1; i++) {
@@ -52,11 +49,11 @@ class AtmosphereWorkQueueTest {
             processed++;
         }
         int sixFaceAttempts = processed * net.minecraft.core.Direction.values().length;
-        assertEquals(10, processed);
-        assertTrue(sixFaceAttempts <= AtmosphereService.MAX_PAIR_EDGES_PER_TICK,
-                "all six faces open still fit the pair-edge budget");
+        assertEquals(800, processed);
+        assertTrue(sixFaceAttempts > AtmosphereService.MAX_PAIR_EDGES_PER_TICK,
+                "the LINDA active-cell bound is distinct from per-tick edge processing");
         assertEquals(1, queue.pending.size());
-        assertEquals(candidates.get(10), queue.poll(), "the 11th active source is retained for the next due step");
+        assertEquals(candidates.get(800), queue.poll(), "the next source is retained after the bounded snapshot");
     }
 
     @Test
@@ -71,7 +68,7 @@ class AtmosphereWorkQueueTest {
             result = discovery.step(pos -> room.contains(pos)
                     ? BoundedRegionDiscovery.ProbeResult.FINITE_LOADED
                     : BoundedRegionDiscovery.ProbeResult.BLOCKED,
-                    AtmosphereService.MAX_DISCOVERY_PROBES_PER_TICK);
+                    AtmosphereService.MAX_DISCOVERY_PROBES_PER_SLICE);
             if (result.status() == BoundedRegionDiscovery.Status.COMPLETE) break;
         }
         assertNotNull(result);
@@ -81,15 +78,18 @@ class AtmosphereWorkQueueTest {
     }
 
     @Test
-    void excitedGroupsKeepTheirTwelveGameTickCycle() {
-        var firstStage = AtmosphereService.excitedCycleSchedule(4, 12, false);
-        var secondStage = AtmosphereService.excitedCycleSchedule(8, firstStage.nextDue(), false);
-        assertFalse(firstStage.advance());
-        assertFalse(secondStage.advance());
-        assertEquals(12, secondStage.nextDue());
-        var due = AtmosphereService.excitedCycleSchedule(12, secondStage.nextDue(), false);
-        assertTrue(due.advance());
-        assertEquals(24, due.nextDue());
+    void excitedGroupsAdvanceWithinTheAtmosphereStageChain() {
+        AtmosphereCycle cycle = new AtmosphereCycle();
+        cycle.beginWhenDue();
+        cycle.beginWhenDue();
+        assertEquals(AtmosphereCycle.Stage.REVALIDATE, cycle.stage());
+        cycle.advance();
+        cycle.advance();
+        assertEquals(AtmosphereCycle.Stage.LINDA, cycle.stage());
+        cycle.startLinda(java.util.Set.of());
+        cycle.advance();
+        assertEquals(AtmosphereCycle.Stage.GROUPS, cycle.stage());
+        assertEquals(0, cycle.completed());
     }
 
     @Test

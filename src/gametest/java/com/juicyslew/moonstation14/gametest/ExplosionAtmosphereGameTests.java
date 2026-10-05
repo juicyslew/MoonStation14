@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.gametest;
 import com.juicyslew.moonstation14.Config;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.explosion.core.BlastPlanner;
@@ -76,9 +77,7 @@ public final class ExplosionAtmosphereGameTests {
             require(global.sample(level, room).orElseThrow().totalMoles() > 0.0,
                     "blast topology notification retains finite gas immediately after breach");
 
-            for (long time = AtmosphereService.TICK_CADENCE;
-                 time <= 12L * AtmosphereService.TICK_CADENCE; time += AtmosphereService.TICK_CADENCE)
-                global.tick(level, time);
+            for (int tick = 1; tick <= 60; tick++) global.tick(level, tick);
             double after = global.sample(level, room).orElseThrow().totalMoles();
             require(after < before * 0.5,
                     "notified breach allows gas to drain/export on due passes; before=" + before + ", after=" + after);
@@ -90,7 +89,7 @@ public final class ExplosionAtmosphereGameTests {
         }
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "explosion_atmos_hotspot", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "explosion_atmos_hotspot", timeoutTicks = 140)
     public static void defaultBlastPrimesFiniteReactiveCellWithoutInstantHeating(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService global = AtmosphereService.INSTANCE;
@@ -124,7 +123,7 @@ public final class ExplosionAtmosphereGameTests {
                             && before.thermalEnergy() == immediatelyAfter.thermalEnergy(),
                     "blast queues a hotspot but does not instantly mutate finite-cell gas or energy");
 
-            helper.runAfterDelay(4, () -> commitBlastHotspot(helper, global, level,
+            helper.runAfterDelay(80, () -> commitBlastHotspot(helper, global, level,
                     cell, before, startupEnabled, startupVacuumDimensions));
         } catch (RuntimeException failure) {
             global.configureAtServerStart(startupEnabled, startupVacuumDimensions);
@@ -140,9 +139,16 @@ public final class ExplosionAtmosphereGameTests {
             var after = service.sample(level, cell).orElseThrow();
             require(after.moles(GasType.TRITIUM) < before.moles(GasType.TRITIUM)
                             && after.moles(GasType.OXYGEN) < before.moles(GasType.OXYGEN)
+                            && after.moles(GasType.WATER_VAPOR) > before.moles(GasType.WATER_VAPOR)
                             && after.thermalEnergy() > before.thermalEnergy()
-                            && after.temperatureKelvin() < 800,
-                    "server atmosphere ticks burn real finite gas and add energy without heating the whole cell to 800 K");
+                            && Double.isFinite(after.temperatureKelvin())
+                            && after.temperatureKelvin() <= GasMixture.MAX_TEMPERATURE_KELVIN
+                            && service.fireIntensity(level, cell) > 0,
+                    "server cycles must commit finite hotspot chemistry without an unbounded temperature; before="
+                            + before.gasMoles() + "/" + before.temperatureKelvin() + "K/" + before.thermalEnergy()
+                            + "J, after=" + after.gasMoles() + "/" + after.temperatureKelvin() + "K/"
+                            + after.thermalEnergy() + "J, intensity=" + service.fireIntensity(level, cell)
+                            + ", timing=" + service.diagnosticTiming(level));
             helper.succeed();
         } finally {
             service.configureAtServerStart(startupEnabled, startupVacuumDimensions);
@@ -150,11 +156,12 @@ public final class ExplosionAtmosphereGameTests {
     }
 
     private static boolean classifyUntilSample(AtmosphereService service, ServerLevel level, BlockPos pos, int passes) {
-        for (int i = 1; i <= passes; i++) {
-            if (service.sample(level, pos).isPresent()) return true;
-            service.tick(level, i * AtmosphereService.TICK_CADENCE);
+        service.activateCellAndNeighbors(level, pos);
+        for (int i = 1; i <= Math.max(60, passes * 5); i++) {
+            if (service.diagnosticCell(level, pos).status().equals("finite")) return true;
+            service.tick(level, i);
         }
-        return service.sample(level, pos).isPresent();
+        return service.diagnosticCell(level, pos).status().equals("finite");
     }
 
     private static void require(boolean condition, String message) {

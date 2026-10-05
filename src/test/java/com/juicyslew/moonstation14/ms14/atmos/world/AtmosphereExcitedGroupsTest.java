@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AtmosphereExcitedGroupsTest {
     @Test
-    void worldSnapshotContainsOnlyTrackerAcceptedMembersAndSamplesOncePerStage() {
+    void worldSnapshotContainsAllTrackerAcceptedMembersAndSamplesOncePerStage() {
         ExcitedAtmosphereGroups groups = new ExcitedAtmosphereGroups();
         Map<BlockPos, GasMixture> mixtures = new HashMap<>();
         for (int x = 0; x < 801; x++)
@@ -26,7 +26,8 @@ class AtmosphereExcitedGroupsTest {
 
         BlockPos rejected = new BlockPos(800, 0, 0);
         groups.onShare(LindaGasSharing.Pair.of(new BlockPos(799, 0, 0), rejected), 1.0, mixtures);
-        assertFalse(groups.sameGroupPair(LindaGasSharing.Pair.of(new BlockPos(799, 0, 0), rejected)));
+        assertTrue(groups.sameGroupPair(LindaGasSharing.Pair.of(new BlockPos(799, 0, 0), rejected)),
+                "group membership has no invented 800-cell ceiling");
 
         AtomicInteger sampleCount = new AtomicInteger();
         Map<BlockPos, GasMixture> snapshot = AtmosphereService.trackedFiniteSnapshot(groups, pos -> {
@@ -34,9 +35,9 @@ class AtmosphereExcitedGroupsTest {
             return mixtures.get(pos);
         });
         assertNotNull(snapshot);
-        assertEquals(800, snapshot.size());
-        assertEquals(800, sampleCount.get());
-        assertFalse(snapshot.containsKey(rejected));
+        assertEquals(801, snapshot.size());
+        assertEquals(801, sampleCount.get());
+        assertTrue(snapshot.containsKey(rejected));
 
         assertNull(AtmosphereService.trackedFiniteSnapshot(groups, pos ->
                 pos.equals(new BlockPos(400, 0, 0)) ? null : mixtures.get(pos)),

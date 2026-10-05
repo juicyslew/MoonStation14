@@ -259,7 +259,12 @@ public class TickHooks {
                         EffectContext effectContext = new EffectContext(serverLevel, livingEntity,
                                 invocation.scale(), serverLevel.getRandom(), conditionContext,
                                 EffectCause.METABOLISM, Optional.of(reagentContext));
-                        EFFECT_SYSTEM.apply(effect, effectContext);
+                        var result = EFFECT_SYSTEM.apply(effect, effectContext);
+                        if (SickPopupProvenance.shouldTrace(result,
+                                livingEntity instanceof net.minecraft.server.level.ServerPlayer, effect)
+                                && livingEntity instanceof net.minecraft.server.level.ServerPlayer player) {
+                            SickPopupProvenance.log(player, invocation, profile);
+                        }
                     });
                 }, excludedReagents);
     }

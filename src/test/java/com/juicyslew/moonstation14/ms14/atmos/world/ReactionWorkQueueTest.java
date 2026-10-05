@@ -4,7 +4,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionStep;
-import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import java.util.List;
 import java.util.Map;
@@ -150,7 +150,7 @@ class ReactionWorkQueueTest {
                 new GasMixture(Map.of(GasType.TRITIUM, 1.), 400))) {
             ReactionWorkQueue queue = new ReactionWorkQueue();
             GasMixture hot = new GasMixture(Map.of(GasType.TRITIUM, 1., GasType.OXYGEN, 1.), 400);
-            HotspotKernel.HotspotState grown = new HotspotKernel.HotspotState(.8, 400);
+            HotspotState grown = new HotspotState(800, 300, true, false);
             queue.setHotspot(COLD, Optional.of(grown));
             queue.setBurning(COLD, 128);
             queue.offer(COLD);
@@ -164,15 +164,14 @@ class ReactionWorkQueueTest {
             queue.setHotspot(COLD, Optional.empty());
             queue.setBurning(COLD, 0);
             assertTrue(AtmosphereService.schedulerReactionEligible(queue, COLD, hot, catalog.asMap().values()));
-            var fresh = HotspotKernel.evaluate(hot, catalog, queue.hotspot(COLD));
-            var stale = HotspotKernel.evaluate(hot, catalog, grown);
-            assertEquals(.001, fresh.totalFireExtentMoles(), 1e-12);
-            assertTrue(stale.totalFireExtentMoles() > fresh.totalFireExtentMoles());
-            var committed = queue.commitOnce(2, COLD, () -> AtmosphereService.commitReactionStep(
-                    hot, queue.hotspot(COLD), before -> GasReactionStep.evaluate(catalog, before, queue.hotspot(COLD)),
-                    () -> true, after -> true, state -> queue.setHotspot(COLD, state))).orElseThrow();
-            assertEquals(fresh.totalFireExtentMoles(), committed.events().getFirst().extentMoles(), 1e-12);
-            assertEquals(fresh.nextState().orElseThrow().fraction(), queue.hotspot(COLD).fraction(), 1e-12);
+            var fresh = GasReactionStep.evaluate(catalog, hot, queue.hotspot(COLD));
+            assertFalse(fresh.events().isEmpty());
+            var committed = queue.commitOnce(2, COLD, () -> AtmosphereService.commitHotspotCyclePass(
+                    COLD, hot, queue.hotspot(COLD), before -> fresh, List.of(), () -> true,
+                    (pos, after) -> true, changed -> { }, state -> queue.setHotspot(COLD, state),
+                    (pos, state) -> { })).orElseThrow();
+            assertEquals(fresh.events().getFirst().extentMoles(), committed.result().events().getFirst().extentMoles(), 1e-6);
+            assertEquals(fresh.nextState().orElseThrow(), queue.hotspot(COLD));
             assertFalse(AtmosphereService.schedulerReactionEligible(queue, COLD, null, catalog.asMap().values()));
             queue.setHotspot(COLD, Optional.of(grown));
             assertFalse(AtmosphereService.schedulerReactionEligible(queue, COLD, null, catalog.asMap().values()));
@@ -186,7 +185,7 @@ class ReactionWorkQueueTest {
     @Test void schedulerSelectsColdBulkHotspotAndDefersReceiverOnlyForCurrentDueStep() {
         ReactionWorkQueue queue = new ReactionWorkQueue();
         GasMixture pocket = new GasMixture(Map.of(GasType.TRITIUM, 1., GasType.OXYGEN, 1.), 350);
-        HotspotKernel.HotspotState hotspot = new HotspotKernel.HotspotState(.25, 765);
+        HotspotState hotspot = new HotspotState(250, 765, true, false);
         queue.setHotspot(COLD, Optional.of(hotspot));
         assertTrue(AtmosphereService.schedulerReactionEligible(queue, COLD, pocket, List.of()));
         assertSame(hotspot, queue.hotspot(COLD));
@@ -262,7 +261,7 @@ class ReactionWorkQueueTest {
                 List.of(new GasReactionData.Effect(GasReactionData.EffectType.N2O_DECOMPOSITION)));
         var catalog = List.of(production, coolant, hot);
         assertTrue(AtmosphereService.potentiallyReactive(new GasMixture(Map.of(GasType.TRITIUM, 1.,
-                GasType.OXYGEN, 1., GasType.NITROGEN, 1.), 73.15), catalog));
+                GasType.OXYGEN, 1., GasType.NITROGEN, 1.), 70), catalog));
         assertTrue(AtmosphereService.potentiallyReactive(new GasMixture(Map.of(GasType.FREZON, 1.), 60), catalog));
         assertTrue(AtmosphereService.potentiallyReactive(new GasMixture(Map.of(GasType.NITROUS_OXIDE, 1.), 850), catalog));
         assertFalse(AtmosphereService.potentiallyReactive(new GasMixture(Map.of(GasType.NITROGEN, 1.), 900), catalog));

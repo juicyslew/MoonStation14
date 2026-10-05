@@ -265,8 +265,11 @@ public final class LungSystem {
                  GasMixture inhaled=response.get();
                   // Proportional species scaling can sum a few ulps above the request.
                   // Do not reject an otherwise conserving room exchange for that rounding.
-                  if(!Double.isFinite(inhaled.totalMoles())
-                          || inhaled.totalMoles()>requested+4*Math.ulp(requested)
+                   // GasMixture stores species quantities and their aggregate as floats. Compare
+                   // against a tolerance in that same source precision, not double ulps.
+                   double sourcePrecisionTolerance = 4d * Math.ulp((float) requested);
+                   if(!Double.isFinite(inhaled.totalMoles())
+                           || inhaled.totalMoles()>requested+sourcePrecisionTolerance
                          || !Double.isFinite(inhaled.thermalEnergy())) return Optional.empty();
                  GasMixture combined=combine(old,inhaled);
                  // Metabolism is local to the lung store; nothing is released to the room until exhale.

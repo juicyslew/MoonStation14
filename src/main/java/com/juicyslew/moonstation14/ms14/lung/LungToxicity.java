@@ -32,7 +32,11 @@ public final class LungToxicity {
                 if (!gas.id().equals(gasEntry.getKey()) || gasEntry.getValue() == null) return Optional.empty();
                 double moles = inhaled.moles(gas);
                 if (!Double.isFinite(moles) || moles < 0) return Optional.empty();
-                if (moles < minimumMoles.getOrDefault(gas.id(), 0d)) continue;
+                // GasMixture quantities are stored as floats, while prototype thresholds are
+                // doubles. Compare at the quantity adapter's precision so an inclusive boundary
+                // remains inclusive after its float representation.
+                double minimum = (float) minimumMoles.getOrDefault(gas.id(), 0d).doubleValue();
+                if (moles < minimum) continue;
                 for (var damageEntry : gasEntry.getValue().entrySet()) {
                     DamageKeys.requireCanonical(damageEntry.getKey());
                     Double rate = damageEntry.getValue();

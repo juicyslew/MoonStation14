@@ -18,21 +18,15 @@ class GasReactionExposurePriorityTest {
 
     @Test void freshExposureBurnsDespiteInvalidStoredPartition() {
         var before = new GasMixture(Map.of(GasType.TRITIUM, 1.0, GasType.OXYGEN, 1.0), 300);
-        var stale = new HotspotKernel.HotspotState(.25, 1600);
-        var exposure = new ExplosionHotspotExposure.Decision(true, 800, .25);
+        var stale = new HotspotState(250, 1600, true, false);
+        var exposure = new ExplosionHotspotExposure.Decision(true, 800, .25, 10);
         var result = GasReactionStep.evaluate(CATALOG, before, stale, exposure);
-        assertTrue(result.fireOccurred());
-        assertFalse(result.events().isEmpty());
-        double suppliedHeat = .25 * before.heatCapacity() * (800 - 300);
-        assertEquals(suppliedHeat, result.externalHeatJoules(), 1e-9);
-        double fireHeat = result.events().stream()
-                .mapToDouble(GasReactionEvaluator.Event::energyDeltaJoules).sum();
-        assertEquals(before.thermalEnergy() + suppliedHeat + fireHeat,
-                result.mixture().thermalEnergy(), 1e-8);
-        for (GasType species : GasType.values()) {
-            double eventDelta = result.events().stream()
-                    .mapToDouble(event -> event.speciesDelta().getOrDefault(species, 0.0)).sum();
-            assertEquals(before.moles(species) + eventDelta, result.mixture().moles(species), 1e-10);
-        }
+        assertFalse(result.fireOccurred(), "exposure selects metadata, not a reaction or heat source");
+        assertTrue(result.events().isEmpty());
+        assertSame(before, result.mixture());
+        assertEquals(before.thermalEnergy(), result.mixture().thermalEnergy(), 0);
+        assertEquals(250, result.nextState().orElseThrow().volumeLiters());
+        assertEquals(1600, result.nextState().orElseThrow().temperatureKelvin(),
+                "lower-priority exposure must not regress an existing hotspot temperature");
     }
 }

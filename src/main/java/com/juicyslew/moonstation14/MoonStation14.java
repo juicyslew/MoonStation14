@@ -162,7 +162,8 @@ public class MoonStation14 {
             PowerRuntime.onSimulationDisabled();
         }
         AtmosphereService.INSTANCE.configureAtServerStart(Config.ENABLE_ATMOSPHERICS.get(),
-                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()));
+                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()),
+                Config.parseAtmosphereSpaceDimensions(Config.ATMOSPHERE_SPACE_DIMENSIONS.get()));
     }
 
     @SubscribeEvent

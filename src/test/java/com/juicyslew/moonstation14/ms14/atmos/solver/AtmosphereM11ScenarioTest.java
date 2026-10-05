@@ -49,14 +49,15 @@ class AtmosphereM11ScenarioTest {
 
         assertTrue(chamber.finiteCells.get(oppositeWall).moles(GasType.OXYGEN) > beforeOpposite,
                 "injected oxygen must reach the far wall over bounded solver cycles");
-        assertEquals(originalTotal + 20.0, totalMoles(chamber.finiteCells), 1e-8);
-        assertEquals(injectedEnergy, totalEnergy(chamber.finiteCells), 1e-6);
+        assertEquals(originalTotal + 20.0, totalMoles(chamber.finiteCells), 8 * chamber.finiteCells.size()
+                * Math.ulp((float) (originalTotal / chamber.finiteCells.size())));
+        assertEquals(injectedEnergy, totalEnergy(chamber.finiteCells), 8 * Math.ulp((float) injectedEnergy));
         assertTrue(totalMoles(chamber.finiteCells) > originalTotal);
         assertTrue(originalEnergy < injectedEnergy);
     }
 
     @Test
-    void equalPressureDoorDiffusesSpeciesGraduallyWithoutFifthCycleInstantAverage() {
+    void equalPressureDoorDiffusesSpeciesAndGroupAverageRunsOnFifthQualifiedVisit() {
         AtmosphereChamberFixture chamber = twoPureRooms(101.325, 101.325);
         chamber.openSingleDoor();
         Map<BlockPos, Set<BlockPos>> adjacency = adjacency(chamber);
@@ -99,16 +100,17 @@ class AtmosphereM11ScenarioTest {
             previousLeftNitrogen = leftNitrogen;
             ExcitedAtmosphereGroups.CycleResult groupCycle = groups.advanceFullCycle(states, CELL_BUDGET);
             if (cycle == 4) {
-                assertTrue(groupCycle.replacements().isEmpty(),
-                        "large pure-species gradients must not be instantly averaged after five cycles");
+                assertFalse(groupCycle.replacements().isEmpty(),
+                        "upstream excited groups average on the fifth qualified visit regardless of gradient size");
             }
             states.putAll(groupCycle.replacements());
         }
 
-        assertEquals(total, totalMoles(states), 1e-7);
-        assertEquals(energy, totalEnergy(states), 1e-5);
+        assertEquals(total, totalMoles(states), 8 * states.size() * Math.ulp((float) (total / states.size())));
+        assertEquals(energy, totalEnergy(states), 8 * Math.ulp((float) energy));
         for (Map.Entry<GasType, Double> entry : species.entrySet()) {
-            assertEquals(entry.getValue(), speciesTotal(states, entry.getKey()), 1e-7, entry.getKey().name());
+            assertEquals(entry.getValue(), speciesTotal(states, entry.getKey()), 8 * states.size()
+                    * Math.ulp((float) (entry.getValue() / states.size())), entry.getKey().name());
         }
         assertTrue(states.get(new BlockPos(8, 0, 0)).moles(GasType.OXYGEN)
                 < states.get(leftDoor).moles(GasType.OXYGEN), "breakdown is not instantaneous whole-room homogenization");
@@ -128,10 +130,12 @@ class AtmosphereM11ScenarioTest {
         MonstermosEqualization.Result first = MonstermosEqualization.equalize(states, adjacency, CELL_BUDGET);
         assertTrue(first.edgeFlows().keySet().stream().anyMatch(edge ->
                 edge.from().getX() < 4 && edge.to().getX() >= 4), "first pass routes donor gas through the doorway");
-        assertEquals(beforeMoles, totalMoles(first.states()), 1e-7);
-        assertEquals(beforeEnergy, totalEnergy(first.states()), 1e-5);
+        assertEquals(beforeMoles, totalMoles(first.states()), 8 * first.states().size()
+                * Math.ulp((float) (beforeMoles / first.states().size())));
+        assertEquals(beforeEnergy, totalEnergy(first.states()), 8 * Math.ulp((float) beforeEnergy));
         for (Map.Entry<GasType, Double> entry : beforeSpecies.entrySet()) {
-            assertEquals(entry.getValue(), speciesTotal(first.states(), entry.getKey()), 1e-7, entry.getKey().name());
+            assertEquals(entry.getValue(), speciesTotal(first.states(), entry.getKey()), 8 * first.states().size()
+                    * Math.ulp((float) (entry.getValue() / first.states().size())), entry.getKey().name());
         }
         states = new LinkedHashMap<>(first.states());
         double firstHigh = regionMoles(states, 0, 3);
@@ -145,10 +149,12 @@ class AtmosphereM11ScenarioTest {
         for (int pass = 0; pass < 20; pass++) {
             MonstermosEqualization.Result result = MonstermosEqualization.equalize(states, adjacency, CELL_BUDGET);
             assertTrue(result.work().discoveredCells() <= CELL_BUDGET);
-            assertEquals(beforeMoles, totalMoles(result.states()), 1e-7);
-            assertEquals(beforeEnergy, totalEnergy(result.states()), 1e-5);
+            assertEquals(beforeMoles, totalMoles(result.states()), 8 * result.states().size()
+                    * Math.ulp((float) (beforeMoles / result.states().size())));
+            assertEquals(beforeEnergy, totalEnergy(result.states()), 8 * Math.ulp((float) beforeEnergy));
             for (Map.Entry<GasType, Double> entry : beforeSpecies.entrySet()) {
-                assertEquals(entry.getValue(), speciesTotal(result.states(), entry.getKey()), 1e-7, entry.getKey().name());
+                assertEquals(entry.getValue(), speciesTotal(result.states(), entry.getKey()), 8 * result.states().size()
+                        * Math.ulp((float) (entry.getValue() / result.states().size())), entry.getKey().name());
             }
             if (result.edgeFlows().isEmpty()) {
                 assertTrue(maxMoles(result.states()) - minMoles(result.states())
@@ -168,8 +174,9 @@ class AtmosphereM11ScenarioTest {
         assertTrue(reachedEquilibrium, "repeated normal passes should settle within the bounded test window");
         MonstermosEqualization.Result settled = MonstermosEqualization.equalize(states, adjacency, CELL_BUDGET);
         assertTrue(settled.edgeFlows().isEmpty(), "equilibrium must not generate spurious flow");
-        assertEquals(beforeMoles, totalMoles(settled.states()), 1e-7);
-        assertEquals(beforeEnergy, totalEnergy(settled.states()), 1e-5);
+        assertEquals(beforeMoles, totalMoles(settled.states()), 8 * settled.states().size()
+                * Math.ulp((float) (beforeMoles / settled.states().size())));
+        assertEquals(beforeEnergy, totalEnergy(settled.states()), 8 * Math.ulp((float) beforeEnergy));
         Map<BlockPos, GasMixture> reverseOrder = new LinkedHashMap<>();
         java.util.List<Map.Entry<BlockPos, GasMixture>> reversedEntries = new java.util.ArrayList<>(states.entrySet());
         java.util.Collections.reverse(reversedEntries);

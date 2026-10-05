@@ -1,6 +1,6 @@
 package com.juicyslew.moonstation14.ms14.atmos.world;
 
-import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.ExplosionHotspotExposure;
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 
@@ -31,7 +32,7 @@ final class ReactionWorkQueue {
     private long reactedAt = Long.MIN_VALUE;
     private final Set<BlockPos> reacted = new java.util.HashSet<>();
     private final Set<BlockPos> deferredReceivers = new java.util.HashSet<>();
-    private final Map<BlockPos, HotspotKernel.HotspotState> hotspots = new HashMap<>();
+    private final Map<BlockPos, HotspotState> hotspots = new HashMap<>();
     private record PendingExposure(ExplosionHotspotExposure.Decision decision, long dueStep) { }
     private final Map<BlockPos, PendingExposure> exposures = new HashMap<>();
     private final Map<ChunkPos, java.util.NavigableMap<AtmosphereChunkData.CellPosition, Integer>> burning = new HashMap<>();
@@ -58,7 +59,7 @@ final class ReactionWorkQueue {
                 .put(cell, Math.min(255, intensity));
     }
 
-    HotspotKernel.HotspotState hotspot(BlockPos pos) { return hotspots.get(pos); }
+    HotspotState hotspot(BlockPos pos) { return hotspots.get(pos); }
 
     boolean offerExposure(BlockPos pos, ExplosionHotspotExposure.Decision decision, long dueStep) {
         PendingExposure current = exposures.get(pos);
@@ -66,7 +67,8 @@ final class ReactionWorkQueue {
         if (current != null) {
             decision = new ExplosionHotspotExposure.Decision(true,
                     Math.max(current.decision().temperatureKelvin(), decision.temperatureKelvin()),
-                    Math.max(current.decision().cellFraction(), decision.cellFraction()));
+                    Math.max(current.decision().cellFraction(), decision.cellFraction()),
+                    Math.max(current.decision().exposedVolumeLiters(), decision.exposedVolumeLiters()));
             dueStep = Math.min(current.dueStep(), dueStep);
         }
         exposures.put(pos.immutable(), new PendingExposure(decision, dueStep));
@@ -100,7 +102,7 @@ final class ReactionWorkQueue {
         if (pending != null && pending.dueStep() <= dueStep) exposures.remove(pos);
     }
 
-    void setHotspot(BlockPos pos, Optional<HotspotKernel.HotspotState> state) {
+    void setHotspot(BlockPos pos, Optional<HotspotState> state) {
         if (state.isPresent()) hotspots.put(pos.immutable(), state.get());
         else hotspots.remove(pos);
     }
@@ -152,6 +154,44 @@ final class ReactionWorkQueue {
         return pos;
     }
 
+    /** Immutable-at-stage-start positions in the same ready-then-overflow admission order. */
+    Set<BlockPos> snapshotPositions() {
+        Set<BlockPos> result = new LinkedHashSet<>();
+        for (ChunkPos chunk : ready) {
+            Bucket bucket = buckets.get(chunk);
+            if (bucket != null) result.addAll(bucket.active);
+        }
+        for (ChunkPos chunk : overflow) {
+            Bucket bucket = buckets.get(chunk);
+            if (bucket != null) result.addAll(bucket.backlog);
+        }
+        return result;
+    }
+
+    /** Polls only stage-admitted positions; new urgent/backlog work remains queued for the next cycle. */
+    BlockPos poll(Set<BlockPos> admitted) {
+        promote();
+        int chunks = ready.size();
+        while (chunks-- > 0) {
+            ChunkPos chunk = ready.pollFirst();
+            if (chunk == null) return null;
+            Bucket bucket = buckets.get(chunk);
+            bucket.ready = false;
+            BlockPos selected = null;
+            for (BlockPos pos : bucket.active) if (admitted.contains(pos)) { selected = pos; break; }
+            if (selected == null) {
+                ready(bucket, chunk);
+                continue;
+            }
+            bucket.active.remove(selected);
+            active--;
+            if (!bucket.active.isEmpty()) ready(bucket, chunk);
+            promote();
+            return selected;
+        }
+        return null;
+    }
+
     private void ready(Bucket bucket, ChunkPos chunk) {
         if (!bucket.ready) { bucket.ready = true; ready.addLast(chunk); }
     }
@@ -188,9 +228,14 @@ final class ReactionWorkQueue {
 
     /** Every cursor attempt consumes budget, including missing and exhausted chunks. */
     int drainLoads(int maxAttempts, int maxCells, Predicate<ChunkPos> visit) {
+        return drainLoads(maxAttempts, maxCells, () -> false, visit);
+    }
+
+    int drainLoads(int maxAttempts, int maxCells, BooleanSupplier deadlineReached, Predicate<ChunkPos> visit) {
         int attempts = 0;
         int cells = 0;
-        while (attempts < maxAttempts && cells < maxCells) {
+        while (attempts < maxAttempts && cells < maxCells
+                && (attempts == 0 || !deadlineReached.getAsBoolean())) {
             ChunkPos chunk = pollLoad();
             if (chunk == null) break;
             attempts++;
@@ -204,7 +249,12 @@ final class ReactionWorkQueue {
         return reacted.contains(pos) || deferredReceivers.contains(pos);
     }
 
-    /** A heated receiver may first burn on the following due step, not later in this pass. */
+    /** Read-only last commit stamp; unlike reacted(), this never advances the reaction clock. */
+    long committedStep(BlockPos pos) {
+        return reacted.contains(pos) ? reactedAt : Long.MIN_VALUE;
+    }
+
+    /** An exposed receiver is deferred to the following due step; heat is not propagated as metadata. */
     void deferReceiver(long dueStep, BlockPos pos) {
         advanceReactionTime(dueStep);
         deferredReceivers.add(pos.immutable());
@@ -259,4 +309,5 @@ final class ReactionWorkQueue {
 
     int activeSize() { return active; }
     int backlogSize() { return buckets.values().stream().mapToInt(b -> b.backlog.size()).sum(); }
+    boolean hasPendingLoads() { return !loading.isEmpty(); }
 }
