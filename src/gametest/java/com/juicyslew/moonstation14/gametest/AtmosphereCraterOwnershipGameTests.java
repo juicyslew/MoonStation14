@@ -45,9 +45,9 @@ public final class AtmosphereCraterOwnershipGameTests {
             intactFloorMask.add(helper.absolutePos(new BlockPos(x, 0, z)));
         try {
             global.configureAtServerStart(true, Set.of(level.dimension()));
-            int due = classify(global, level, aInterior, 0, 40);
+            int due = classify(global, level, aInterior, 0, 600);
             require(due >= 0, "blast fixture chamber classification timed out");
-            due = classify(global, level, bInterior, due, 40);
+            due = classify(global, level, bInterior, due, 600);
             require(due >= 0, "creative control chamber classification timed out");
             seed(global, level, helper, 1);
             seed(global, level, helper, 10);
@@ -77,7 +77,7 @@ public final class AtmosphereCraterOwnershipGameTests {
                 require(level.getBlockState(floor.below()).is(Blocks.BEDROCK),
                         "blast must remain contained above bedrock at " + floor);
 
-            for (int i = 1; i <= 40; i++) global.tick(level, (long) (due + i) * AtmosphereService.TICK_CADENCE);
+            for (int i = 1; i <= 600; i++) global.tick(level, due + i);
             List<String> statuses = new ArrayList<>();
             for (int i = 0; i < openedFloor.size(); i++) {
                 String blastStatus = global.diagnosticCell(level, openedFloor.get(i)).status();
@@ -116,11 +116,12 @@ public final class AtmosphereCraterOwnershipGameTests {
     }
 
     private static int classify(AtmosphereService service, ServerLevel level, BlockPos pos, int due, int maxAdditionalDue) {
+        service.activateCellAndNeighbors(level, pos);
         for (int i = 0; i <= maxAdditionalDue; i++) {
-            if (service.sample(level, pos).isPresent()) return due;
-            if (i < maxAdditionalDue) service.tick(level, (long) ++due * AtmosphereService.TICK_CADENCE);
+            if (service.diagnosticCell(level, pos).status().equals("finite")) return due;
+            if (i < maxAdditionalDue) service.tick(level, ++due);
         }
-        return service.sample(level, pos).isPresent() ? due : -1;
+        return service.diagnosticCell(level, pos).status().equals("finite") ? due : -1;
     }
 
     private static void seed(AtmosphereService service, ServerLevel level, GameTestHelper helper, int x0) {

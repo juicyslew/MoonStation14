@@ -1,5 +1,7 @@
 # Gas-simulation parity audit
 
+**Historical pre-overhaul snapshot.** The approved implementation and later source corrections are tracked in `../atmosphere-parity-sprint/PLAN.md`, `DECISIONS.md`, and its validation evidence. In particular, upstream 15 Hz admits stages rather than full cycles (nine default stages, nominal 0.6-second cycles); immutable non-Space endpoints participate in normal Monstermos as well as LINDA; and hotspot growth reads a persistent last-invoked-fire-effect result, not summed event extents. Do not treat the local differences below as a current-tree acceptance report.
+
 ## Scope and conclusion
 
 Read-only comparison of the current Minecraft tree against SS14 commit `c9df5ef5d675b0d1d226828bddf6b78c28502d91`. This covers room gas representation, transport, heat, boundaries, scheduling, groups, and chemistry; pressure effects and absent pipe systems are identified separately. No implementation changes or new test-server runs were made for this audit.

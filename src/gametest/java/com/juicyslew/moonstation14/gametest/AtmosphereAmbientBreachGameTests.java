@@ -19,7 +19,7 @@ import java.util.EnumMap;
 @GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class AtmosphereAmbientBreachGameTests {
-    private static final int LIMIT = 40;
+    private static final int LIMIT = 96;
     private static final double TEMP = 1000.0;
 
     private AtmosphereAmbientBreachGameTests() { }
@@ -41,6 +41,7 @@ public final class AtmosphereAmbientBreachGameTests {
         GasMixture init = service.sample(level, near).orElseThrow();
         double initialP = init.pressureKpa(1.0), initialMoles = total(service, level, helper);
         double initialEnergy = energy(service, level, helper);
+        double initialEnergyStorageUlps = energyStorageUlps(service, level, helper);
         EnumMap<GasType, Double> initialSpecies = inventory(service, level, helper);
         for (int x=2;x<=3;x++) for(int y=1;y<=2;y++) for(int z=2;z<=3;z++)
             if (!service.diagnosticCell(level, helper.absolutePos(new BlockPos(x,y,z))).status().equals("finite"))
@@ -56,7 +57,7 @@ public final class AtmosphereAmbientBreachGameTests {
         double previous = initialP;
         AtmosphereService.DiagnosticTiming openTiming = null;
         while (passes < LIMIT && service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0) <= 0.0) {
-            service.tick(level, (long) (due + ++passes) * AtmosphereService.TICK_CADENCE);
+            service.tick(level, due + ++passes);
             openTiming = service.diagnosticTiming(level);
             GasMixture current = service.sample(level, near).orElseThrow();
             if (current.pressureKpa(1.0) < ambientP * 0.90)
@@ -75,23 +76,39 @@ public final class AtmosphereAmbientBreachGameTests {
             throw new GameTestAssertException("exporting boundary must have loaded diagnostic exterior proof");
         double afterBreach = total(service, level, helper);
         double energyAfterBreach = energy(service, level, helper);
-        assertClose(initialMoles, afterBreach + exported, 1e-5, "nitrogen boundary ledger");
-        assertClose(initialEnergy, energyAfterBreach + service.boundaryEnergyLedger(level), 1e-4, "energy boundary ledger");
-        for (GasType type : GasType.values()) assertClose(initialSpecies.get(type),
-                inventory(service, level, helper).get(type) + service.boundaryGasLedger(level).getOrDefault(type, 0.0),
-                1e-5, "species boundary ledger " + type);
+        double realizedMoles = afterBreach + exported;
+        assertClose(initialMoles, realizedMoles, floatAccountingTolerance(initialMoles, realizedMoles),
+                "nitrogen boundary ledger");
+        double realizedEnergy = energyAfterBreach + service.boundaryEnergyLedger(level);
+        double energyUlpBudget = initialEnergyStorageUlps + energyStorageUlps(service, level, helper)
+                + Math.max(1e-6, passes * Math.ulp((float) (initialEnergy / 8.0)) * 0.01);
+        assertClose(initialEnergy, realizedEnergy, energyUlpBudget,
+                "energy boundary ledger (float storage ULP budget=" + energyUlpBudget + ")");
+        EnumMap<GasType, Double> breachedSpecies = inventory(service, level, helper);
+        for (GasType type : GasType.values()) {
+            double expected = initialSpecies.get(type);
+            double realized = breachedSpecies.get(type)
+                    + service.boundaryGasLedger(level).getOrDefault(type, 0.0);
+            assertClose(expected, realized, floatAccountingTolerance(expected, realized),
+                    "species boundary ledger " + type);
+        }
 
         for (int y = 1; y <= 2; y++) for (int z = 2; z <= 3; z++) helper.setBlock(new BlockPos(4, y, z), Blocks.STONE);
         service.topologyChanged(level, helper.absolutePos(new BlockPos(4, 1, 2)));
         int settle = 0;
-        while (settle < 12 && service.diagnosticCell(level, helper.absolutePos(new BlockPos(4, 1, 2))).status().equals("unknown")) {
-            service.tick(level, (long) (due + passes + ++settle) * AtmosphereService.TICK_CADENCE);
+        while (settle < 60 && service.diagnosticCell(level, helper.absolutePos(new BlockPos(4, 1, 2))).status().equals("unknown")) {
+            service.tick(level, due + passes + ++settle);
         }
         double sealedMoles = total(service, level, helper), sealedEnergy = energy(service, level, helper);
+        double sealedEnergyStorageUlps = energyStorageUlps(service, level, helper);
         double ledgerAtSeal = service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0);
-        for (int i = 1; i <= 5; i++) service.tick(level, (long) (due + passes + settle + i) * AtmosphereService.TICK_CADENCE);
+        for (int i = 1; i <= 12; i++) service.tick(level, due + passes + settle + i);
         assertClose(sealedMoles, total(service, level, helper), 1e-6, "post-reseal nitrogen");
-        assertClose(sealedEnergy, energy(service, level, helper), 1e-4, "post-reseal energy");
+        double postResealEnergy = energy(service, level, helper);
+        double postResealEnergyUlpBudget = sealedEnergyStorageUlps + energyStorageUlps(service, level, helper)
+                + 1e-6;
+        assertClose(sealedEnergy, postResealEnergy, postResealEnergyUlpBudget,
+                "post-reseal energy (float storage ULP budget=" + postResealEnergyUlpBudget + ")");
         assertClose(ledgerAtSeal, service.boundaryGasLedger(level).getOrDefault(GasType.NITROGEN, 0.0), 1e-8,
                 "post-reseal export ledger");
         var timing = service.diagnosticTiming(level);
@@ -115,19 +132,22 @@ public final class AtmosphereAmbientBreachGameTests {
         for (int x = 2; x <= 3; x++) for (int y = 1; y <= 2; y++) for (int z = 2; z <= 3; z++) h.setBlock(new BlockPos(x,y,z), Blocks.AIR);
     }
     private static int classify(AtmosphereService s, ServerLevel l, GameTestHelper h) {
-        for (int pass = 1; pass <= 30; pass++) {
+        BlockPos seed = h.absolutePos(new BlockPos(2, 1, 2));
+        s.activateCellAndNeighbors(l, seed);
+        for (int pass = 1; pass <= 96; pass++) {
             boolean done = true;
             for (int x=2;x<=3;x++) for(int y=1;y<=2;y++) for(int z=2;z<=3;z++) {
                 BlockPos p=h.absolutePos(new BlockPos(x,y,z));
-                if (s.sample(l,p).isEmpty()) done=false;
+                if (!s.diagnosticCell(l,p).status().equals("finite")) done=false;
             }
             if (done) return pass - 1;
-            s.tick(l, (long) pass * AtmosphereService.TICK_CADENCE);
+            s.tick(l, pass);
         }
-        throw new GameTestAssertException("sealed room ownership classification timed out");
+        throw new GameTestAssertException("sealed room finite-claim classification timed out; timing="
+                + s.diagnosticTiming(l));
     }
     private static void requireExterior(AtmosphereService s, ServerLevel l, BlockPos p) {
-        for (int i=1;i<=20;i++) { if (s.diagnosticCell(l,p).status().equals("exterior")) return; s.tick(l,(long)i*AtmosphereService.TICK_CADENCE); }
+        for (int i=1;i<=60;i++) { if (s.diagnosticCell(l,p).status().equals("exterior")) return; s.tick(l,i); }
         throw new GameTestAssertException("breach face was not proven exterior");
     }
     private static double total(AtmosphereService s, ServerLevel l, GameTestHelper h) {
@@ -135,6 +155,14 @@ public final class AtmosphereAmbientBreachGameTests {
     }
     private static double energy(AtmosphereService s, ServerLevel l, GameTestHelper h) {
         double e=0; for(int x=2;x<=3;x++)for(int y=1;y<=2;y++)for(int z=2;z<=3;z++) e+=s.sample(l,h.absolutePos(new BlockPos(x,y,z))).orElseThrow().thermalEnergy(); return e;
+    }
+    private static double energyStorageUlps(AtmosphereService s, ServerLevel l, GameTestHelper h) {
+        double ulps = 0;
+        for (int x=2;x<=3;x++)for(int y=1;y<=2;y++)for(int z=2;z<=3;z++) {
+            float cellEnergy = (float) s.sample(l,h.absolutePos(new BlockPos(x,y,z))).orElseThrow().thermalEnergy();
+            ulps += Math.ulp(cellEnergy);
+        }
+        return ulps;
     }
     private static String describe(AtmosphereService s, ServerLevel l, BlockPos p) {
         GasMixture gas=s.sample(l,p).orElseThrow();
@@ -150,4 +178,9 @@ public final class AtmosphereAmbientBreachGameTests {
         return result;
     }
     private static void assertClose(double a,double b,double t,String what) { if(Math.abs(a-b)>t) throw new GameTestAssertException(what+" mismatch: "+a+" vs "+b); }
+    private static double floatAccountingTolerance(double expected, double realized) {
+        // Physical mixture quantities are float-backed; allow two aggregate storage ULPs
+        // on each side plus a small allowance for the signed ledger addition.
+        return 2.0 * (Math.ulp((float) expected) + Math.ulp((float) realized)) + 1e-7;
+    }
 }

@@ -56,6 +56,10 @@ public class Config {
             .comment("Dimension IDs whose ambient atmosphere is vacuum. Changes apply at server startup; restart the server to reclassify ambient atmosphere.")
             .defineListAllowEmpty("atmosphereVacuumDimensions", List.of(), () -> "", Config::isValidAtmosphereDimension);
 
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ATMOSPHERE_SPACE_DIMENSIONS = BUILDER
+            .comment("Dimension IDs that use space-specific atmosphere behavior. Independent of ambient vacuum dimensions; changes apply at server startup.")
+            .defineListAllowEmpty("atmosphereSpaceDimensions", List.of("minecraft:the_end"), () -> "", Config::isValidAtmosphereDimension);
+
     // a list of strings that are treated as resource locations for items
     public static final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_STRINGS = BUILDER
             .comment("A list of items to log on common setup.")
@@ -74,6 +78,13 @@ public class Config {
     }
 
     public static Set<ResourceKey<Level>> parseAtmosphereVacuumDimensions(List<? extends String> dimensions) {
+        return dimensions.stream()
+                .map(ResourceLocation::parse)
+                .map(location -> ResourceKey.create(Registries.DIMENSION, location))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public static Set<ResourceKey<Level>> parseAtmosphereSpaceDimensions(List<? extends String> dimensions) {
         return dimensions.stream()
                 .map(ResourceLocation::parse)
                 .map(location -> ResourceKey.create(Registries.DIMENSION, location))

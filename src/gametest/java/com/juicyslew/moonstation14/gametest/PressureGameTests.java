@@ -253,9 +253,11 @@ public final class PressureGameTests {
                 "stagger must reject an off-cadence tick");
 
         // Claim the closed room as finite, using an independent air-configured service.
-        for (int i = 1; i <= 12 && air.sample(level, eye).isEmpty(); i++)
-            air.tick(level, i * AtmosphereService.TICK_CADENCE);
-        require(air.sample(level, eye).isPresent() && air.sample(level, eye).orElseThrow().pressureKpa(1) > 20,
+        air.activateCellAndNeighbors(level, eye);
+        for (int i = 1; i <= 60 && !air.diagnosticCell(level, eye).status().equals("finite"); i++)
+            air.tick(level, i);
+        require(air.diagnosticCell(level, eye).status().equals("finite")
+                        && air.sample(level, eye).orElseThrow().pressureKpa(1) > 20,
                 "sealed finite cell must contain air");
         require(!BarotraumaSystem.tickIfDue(pig, -pig.getId(), air), "ordinary air must be inert");
         level.setBlockAndUpdate(eye, Blocks.STONE.defaultBlockState());

@@ -8,8 +8,8 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.ms14.atmos.core.BoundedGasEqualizer;
 import com.juicyslew.moonstation14.ms14.atmos.core.MonstermosEqualization;
+import com.juicyslew.moonstation14.ms14.atmos.core.MonstermosPressureEqualization;
 import com.juicyslew.moonstation14.ms14.atmos.core.MonstermosSpaceFlow;
-import com.juicyslew.moonstation14.ms14.atmos.core.ImmutableAtmosphereBoundary;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionEvaluator;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionStep;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
@@ -17,6 +17,7 @@ import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotSpread;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotEntityExposure;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.ExplosionHotspotExposure;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
 import com.juicyslew.moonstation14.ms14.fire.FireStackSystem;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualServerHooks;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
@@ -24,6 +25,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.AABB;
@@ -45,6 +48,7 @@ import java.util.Map;
 import java.util.EnumMap;
 import java.util.Optional;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.WeakHashMap;
@@ -52,19 +56,21 @@ import java.util.function.Predicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 
 /** Server-authoritative sparse atmosphere queries, mutations, and bounded diffusion. */
 public final class AtmosphereService {
     public static final AtmosphereService INSTANCE = new AtmosphereService();
+    /** Compatibility cadence for device/explicit-reaction APIs; scheduler itself uses 15/20 Hz. */
     public static final int TICK_CADENCE = 2;
-    public static final double atmosphereStepSeconds = TICK_CADENCE / 20.0;
+    public static final double atmosphereStepSeconds = 1.0 / 15.0;
     public static final int MAX_PAIR_EDGES_PER_TICK = 64;
     public static final int MAX_CELLS_INSPECTED_PER_TICK = 256;
     static final int MAX_DEFERRED_CHUNK_LOADS_PER_TICK = 16;
-    static final int MAX_DISCOVERY_PROBES_PER_TICK = 384;
-    static final int MAX_OWNERSHIP_CLAIMS_PER_TICK = 128;
+    static final int MAX_DISCOVERY_PROBES_PER_SLICE = 384;
+    static final int MAX_OWNERSHIP_CLAIMS_PER_SLICE = 128;
     static final int MAX_PENDING_OWNERSHIP_CLAIM_PLANS = 256;
-    static final int MAX_EXTERIOR_WITNESS_CHECKS = 4096;
+    static final int MAX_EXTERIOR_WITNESS_CHECKS = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
     private static final int MAX_QUEUED_POSITIONS = 8192;
     private static final int MAX_URGENT_POSITIONS = 256;
     private static final int MAX_CONSECUTIVE_URGENT_POLLS = 8;
@@ -72,35 +78,101 @@ public final class AtmosphereService {
     private static final int PRIORITY_SEEDS_BEFORE_FIFO = 4;
     static final int MAX_DIRTY_CURSOR_STEPS_PER_TICK = 64;
     static final int MAX_REACTION_INSPECTIONS_PER_TICK = 32;
-    static final int MAX_REACTION_EVALUATIONS_PER_TICK = 8;
     static final int MAX_REACTION_LOAD_STEPS_PER_TICK = 32;
     private static final int MAX_ENTITIES_EXPOSED_PER_FIRE_EVENT = 64;
-    static final int LINDA_MAX_ACTIVE_CELLS = MAX_PAIR_EDGES_PER_TICK / Direction.values().length;
-    private static final double BOUNDARY_TRANSFER_FRACTION = 0.125;
+    static final int LINDA_MAX_ACTIVE_CELLS = 800;
     private static final double CONVERGENCE_EPSILON = 1.0e-8;
 
     private final Map<ServerLevel, WorkQueue> queues = new WeakHashMap<>();
     private final Map<ServerLevel, ReactionWorkQueue> reactionQueues = new WeakHashMap<>();
     private final Map<ServerLevel, LoadedReactionChunks> loadedReactionChunks = new WeakHashMap<>();
     private final Map<ServerLevel, Map<BlockPos, Integer>> fireExposureCursors = new WeakHashMap<>();
-    private final Map<ServerLevel, Long> lastReactionTick = new WeakHashMap<>();
     private final Map<ServerLevel, DeferredChunkQueue> deferredChunkLoads = new WeakHashMap<>();
     private final Map<ServerLevel, BoundaryLedger> boundaryLedgers = new WeakHashMap<>();
     /** Interior face heat, by direction; distinct from signed reaction energy and exterior exports. */
     private final Map<ServerLevel, EnumMap<Direction, Double>> hotspotFaceHeat = new WeakHashMap<>();
+    /** Persistent whole-air fire-effect slot, independent of per-cycle snapshots. */
+    private final Map<ServerLevel, Map<BlockPos, Double>> fireReactionResults = new WeakHashMap<>();
     private final Map<ServerLevel, Set<BlockPos>> spaceBoundaryCellsThisCycle = new WeakHashMap<>();
     private final Map<ServerLevel, EqualizationJob> equalizationJobs = new WeakHashMap<>();
+    private final Map<ServerLevel, Map<BlockPos, EqualizationJob>> parkedEqualizationJobs = new WeakHashMap<>();
+    /** Seeds needing one fresh-snapshot normal pressure continuation after a committed partial solve. */
+    private final Map<ServerLevel, Set<BlockPos>> pressureContinuationSeeds = new WeakHashMap<>();
+    private final Map<ServerLevel, AtmosphereCycle> cycles = new WeakHashMap<>();
     private final Map<ServerLevel, PrioritySeedQueue> prioritySeeds = new WeakHashMap<>();
     private final Map<ServerLevel, Integer> prioritySeedStreaks = new WeakHashMap<>();
     private final Map<ServerLevel, OwnershipWork> ownershipWork = new WeakHashMap<>();
     private final Map<ServerLevel, OpenableStateTracker> openableStates = new WeakHashMap<>();
     private final Map<ServerLevel, ExcitedAtmosphereGroups> excitedGroups = new WeakHashMap<>();
-    private final Map<ServerLevel, Long> nextExcitedCycle = new WeakHashMap<>();
+    private final Map<ServerLevel, IgnitionDiagnosticHistory> ignitionDiagnostics = new WeakHashMap<>();
     private volatile Set<ResourceKey<Level>> vacuumDimensions;
+    private volatile Set<ResourceKey<Level>> spaceDimensions;
     private volatile boolean enabled;
     private final Map<ServerLevel, DiagnosticTiming> diagnosticTimings = new WeakHashMap<>();
+    private final Map<ServerLevel, AtmosphereRuntimeTelemetry> runtimeTelemetry = new WeakHashMap<>();
+    /** Read-only cumulative scheduler snapshot; does not advance or admit work. */
+    public AtmosphereRuntimeTelemetry.Snapshot diagnosticRuntime(ServerLevel level) {
+        if (level == null) return null;
+        AtmosphereRuntimeTelemetry t = runtimeTelemetry.get(level);
+        if (t == null) return null;
+        AtmosphereCycle cycle = cycles.get(level);
+        WorkQueue q = queues.get(level);
+        OwnershipWork ow = ownershipWork.get(level);
+        Map<BlockPos, EqualizationJob> parked = parkedEqualizationJobs.get(level);
+        int activeCandidates = ow == null ? 0 : ow.activeCandidateCount();
+        return t.snapshot(level.getGameTime(), System.nanoTime(), cycle == null ? 0 : cycle.completed(),
+                cycle == null || cycle.stage() == null ? "idle" : cycle.stage().name(), 0,
+                q == null ? 0 : q.pending.size() + q.urgent.size(), ow == null ? 0 : ow.pendingCount(),
+                (equalizationJobs.containsKey(level) ? 1 : 0) + (parked == null ? 0 : parked.size()),
+                activeCandidates, ow == null ? 0 : ow.retryCandidates.pendingWorkItems(),
+                ow == null ? 0 : ow.saturatedChunkCount(), ow == null ? 0 : ow.unknownSeedCount());
+    }
 
     public record CellDiagnostic(String status, GasMixture gas, GasMixture ambient, boolean exteriorConfiguredVacuum) {}
+    public record OwnershipDiagnostic(String status, String reason, BlockPos activeSeed, int candidateCount,
+                                     String pendingSource, BlockPos lastRejectedSeed,
+                                     String lastRejectedReason, int lastRejectedWitnessSize,
+                                      int retryWorkItems) {}
+    public record IgnitionDiagnostic(BlockPos position, long cycleIdentity, long gameTime, String origin,
+                                     double bulkBeforeKelvin, double bulkAfterKelvin, double tritiumBefore,
+                                     double oxygenBefore, double hotspotKelvin, double hotspotVolumeLiters,
+                                     double fireExtentMoles, String reactionId) { }
+    public record CommittedWholeAirDiagnostic(long cycleIdentity, double fireExtentMoles,
+                                               List<GasReactionEvaluator.Event> events) {
+        public CommittedWholeAirDiagnostic { events = List.copyOf(events); }
+    }
+    /** Read-only evidence from this cycle's successfully committed LINDA whole-air pass. */
+    public Optional<CommittedWholeAirDiagnostic> diagnosticCommittedWholeAir(ServerLevel level, BlockPos position) {
+        if (level == null || position == null) return Optional.empty();
+        AtmosphereCycle cycle = cycles.get(level);
+        return cycle == null ? Optional.empty()
+                : committedWholeAirDiagnostic(cycle.identity(), cycle.wholeAir().get(position));
+    }
+    static Optional<CommittedWholeAirDiagnostic> committedWholeAirDiagnostic(long cycleIdentity,
+                                                                              GasReactionStep.WholeAirResult result) {
+        return result == null ? Optional.empty()
+                : Optional.of(new CommittedWholeAirDiagnostic(cycleIdentity, result.fireExtentMoles(), result.events()));
+    }
+    public List<IgnitionDiagnostic> diagnosticIgnitions(ServerLevel level, BlockPos position) {
+        IgnitionDiagnosticHistory records = ignitionDiagnostics.get(level);
+        return records == null ? List.of() : records.recent(position);
+    }
+    public List<IgnitionDiagnostic> diagnosticFirstIgnitions(ServerLevel level) {
+        IgnitionDiagnosticHistory records = ignitionDiagnostics.get(level);
+        return records == null ? List.of() : records.firstByCycle();
+    }
+    /** Loaded service-state read only; never schedules reactions or loads world data. */
+    public Optional<HotspotState> diagnosticHotspot(ServerLevel level, BlockPos position) {
+        if (level == null || position == null) return Optional.empty();
+        ReactionWorkQueue work = reactionQueues.get(level);
+        return work == null ? Optional.empty() : Optional.ofNullable(work.hotspot(position));
+    }
+    /** Read-only current-step commit stamp, with no reaction-clock advancement or queue admission. */
+    public long diagnosticHotspotCommitStep(ServerLevel level, BlockPos position) {
+        if (level == null || position == null) return Long.MIN_VALUE;
+        ReactionWorkQueue work = reactionQueues.get(level);
+        return work == null ? Long.MIN_VALUE : work.committedStep(position);
+    }
     public record DiagnosticTiming(long gameTime, double ownershipMs, double discoverySolveCommitMs, double lindaMs, double reactionsMs, double totalMs,
                                    String attemptedKernel, String committedKernel, String workStatus, int patchSize, int expansions,
                                    int transferCalls, double exportedMoles, double exportedEnergyJoules, int queued, int dirty, int ownershipPending) {}
@@ -108,6 +180,11 @@ public final class AtmosphereService {
                                    int calls, double exportMoles, double exportEnergy) {}
     public PatchDiagnostic diagnosticPatch(ServerLevel level) { return patchDiagnostics.get(level); }
     private final Map<ServerLevel, PatchDiagnostic> patchDiagnostics = new WeakHashMap<>();
+    public record PressureDiagnostic(double pressureSpanBeforeKpa, double pressureSpanAfterKpa, boolean converged,
+                                     int selectedCells, int routes, int scalarPreviewSteps, int searchWork,
+                                     int faceTransfers, double solverMs) { }
+    private final Map<ServerLevel, PressureDiagnostic> pressureDiagnostics = new WeakHashMap<>();
+    public PressureDiagnostic diagnosticPressure(ServerLevel level) { return level == null ? null : pressureDiagnostics.get(level); }
 
     /** Loaded-only diagnostic read: unlike sample(), never advances ownership or queues work. */
     public CellDiagnostic diagnosticCell(ServerLevel level, BlockPos pos) {
@@ -123,23 +200,50 @@ public final class AtmosphereService {
         if (isExterior(chunk, pos) || isCachedExterior(level, pos)) return new CellDiagnostic("exterior", ambient(level), ambient(level), vacuumDimensions.contains(level.dimension()));
         return new CellDiagnostic("unknown", null, ambient(level), vacuumDimensions.contains(level.dimension()));
     }
+    /** Read-only ownership explanation; does not probe topology, enqueue work, or load chunks. */
+    public OwnershipDiagnostic diagnosticOwnership(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null)
+            return new OwnershipDiagnostic("unknown", "invalid target", null, 0, "none", null, null, 0, 0);
+        OwnershipWork work = ownershipWork.get(level);
+        if (work == null) return new OwnershipDiagnostic("unknown", "no ownership work", null, 0, "none", null, null, 0, 0);
+        return work.diagnostic(pos);
+    }
     public DiagnosticTiming diagnosticTiming(ServerLevel level) { return diagnosticTimings.get(level); }
 
     private AtmosphereService() { this(Set.of(), false); }
     private AtmosphereService(Set<ResourceKey<Level>> vacuumDimensions, boolean enabled) {
         this.vacuumDimensions = Set.copyOf(vacuumDimensions);
+        this.spaceDimensions = Set.of(ResourceKey.create(Registries.DIMENSION, ResourceLocation.withDefaultNamespace("the_end")));
         this.enabled = enabled;
     }
 
     /** Creates an isolated policy instance; no process-global dimension configuration is mutated. */
     public static AtmosphereService withVacuumDimensions(Set<ResourceKey<Level>> vacuumDimensions) {
-        return new AtmosphereService(vacuumDimensions, true);
+        AtmosphereService service = new AtmosphereService(vacuumDimensions, true);
+        java.util.HashSet<ResourceKey<Level>> spaces = new java.util.HashSet<>(service.spaceDimensions);
+        spaces.addAll(vacuumDimensions);
+        service.spaceDimensions = Set.copyOf(spaces);
+        return service;
+    }
+
+    public static AtmosphereService withDimensions(Set<ResourceKey<Level>> vacuumDimensions,
+                                                   Set<ResourceKey<Level>> spaceDimensions) {
+        AtmosphereService service = new AtmosphereService(vacuumDimensions, true);
+        service.spaceDimensions = Set.copyOf(spaceDimensions);
+        return service;
     }
 
     /** Installs the common-config policy at server startup without rewriting saved cells. */
     public void configureAtServerStart(boolean enabled, Set<ResourceKey<Level>> vacuumDimensions) {
+        configureAtServerStart(enabled, vacuumDimensions,
+                Set.of(ResourceKey.create(Registries.DIMENSION, ResourceLocation.withDefaultNamespace("the_end"))));
+    }
+
+    public void configureAtServerStart(boolean enabled, Set<ResourceKey<Level>> vacuumDimensions,
+                                       Set<ResourceKey<Level>> spaceDimensions) {
         clearAll();
         this.vacuumDimensions = Set.copyOf(vacuumDimensions);
+        this.spaceDimensions = Set.copyOf(spaceDimensions);
         this.enabled = enabled;
     }
 
@@ -149,6 +253,7 @@ public final class AtmosphereService {
     }
 
     public boolean isEnabled() { return enabled; }
+    public boolean isSpaceDimension(ResourceKey<Level> dimension) { return isSpace(dimension); }
 
     /** Read-only server-authoritative intensity; zero denotes no live committed burn. */
     public int fireIntensity(ServerLevel level, BlockPos pos) {
@@ -163,10 +268,29 @@ public final class AtmosphereService {
         GasMixture gas = reactionFiniteMixture(level, pos);
         if (gas == null) return false;
         ReactionWorkQueue work = reactionQueues.computeIfAbsent(level, ignored -> new ReactionWorkQueue());
-        HotspotKernel.HotspotState current = work.hotspot(pos);
+        HotspotState current = work.hotspot(pos);
         var decision = ExplosionHotspotExposure.decide(gas, temperatureKelvin, intensity,
-                current == null ? 0 : current.temperatureKelvin(), current == null ? 0 : current.fraction());
-        return decision.expose() && work.offerExposure(pos, decision, reactionDueStep(level.getGameTime()) + 1);
+                current == null ? 0 : current.temperatureKelvin(), current == null ? 0
+                        : Math.min(1, current.volumeLiters() / (gas.volumeCubicMeters() * 1000.0)));
+        if (!decision.expose() || !work.offerExposure(pos, decision, reactionDueStep(level.getGameTime()) + 1)) return false;
+        boolean skippedFirstProcess = cycleLindaProcessed(level, pos);
+        explosionHotspotState(gas, current, decision, skippedFirstProcess)
+                .ifPresent(state -> work.setHotspot(pos, Optional.of(state)));
+        queue(level).offer(pos);
+        return true;
+    }
+
+    private boolean cycleLindaProcessed(ServerLevel level, BlockPos pos) {
+        AtmosphereCycle cycle = cycles.get(level);
+        return cycle != null && cycle.lindaProcessedSources().contains(pos);
+    }
+
+    static Optional<HotspotState> explosionHotspotState(GasMixture gas, HotspotState current,
+                                                        ExplosionHotspotExposure.Decision decision,
+                                                        boolean skippedFirstProcess) {
+        if (decision == null || !decision.expose()) return Optional.ofNullable(current);
+        return HotspotKernel.expose(gas, current, decision.temperatureKelvin(), decision.exposedVolumeLiters(),
+                true, skippedFirstProcess);
     }
 
     /** Returns the next active fire position in this chunk without scanning map cells. */
@@ -179,6 +303,7 @@ public final class AtmosphereService {
     public void onServerStopped() {
         clearAll();
         vacuumDimensions = Set.of();
+        spaceDimensions = Set.of();
         enabled = false;
     }
 
@@ -260,18 +385,20 @@ public final class AtmosphereService {
     public Optional<GasReactionEvaluator.Result> reactFiniteCell(ServerLevel level, BlockPos pos) {
         if (level == null || !isTickDue(enabled, level.getGameTime()) || pos == null || level.getServer() == null
                 || !level.getServer().isSameThread()) return Optional.empty();
-        return reactFiniteCellAtTime(level, pos, level.getGameTime());
+        return reactFiniteCellAtTime(level, pos, level.getGameTime(), true);
     }
 
-    private Optional<GasReactionEvaluator.Result> reactFiniteCellAtTime(ServerLevel level, BlockPos pos, long gameTime) {
-        if (!isTickDue(enabled, gameTime)) return Optional.empty();
+    private Optional<GasReactionEvaluator.Result> reactFiniteCellAtTime(ServerLevel level, BlockPos pos, long gameTime,
+                                                                        boolean allowWholeAirFallback) {
+        if (!enabled || level == null || pos == null) return Optional.empty();
         ReactionWorkQueue work = reactionQueues.computeIfAbsent(level, ignored -> new ReactionWorkQueue());
         long dueStep = reactionDueStep(gameTime);
         if (work.reacted(dueStep, pos)) return Optional.empty();
         GasMixture before = reactionFiniteMixture(level, pos);
         if (before == null) return Optional.empty();
-        HotspotKernel.HotspotState existing = work.hotspot(pos);
+        HotspotState existing = work.hotspot(pos);
         ExplosionHotspotExposure.Decision exposure = work.exposure(pos, dueStep);
+        boolean processedByLindaThisCycle = cycleLindaProcessed(level, pos);
         List<HotspotSpread.Neighbor> neighbors = new java.util.ArrayList<>(6);
         for (Direction face : Direction.values()) {
             BlockPos adjacent = pos.relative(face);
@@ -280,13 +407,45 @@ public final class AtmosphereService {
                     || work.hotspot(adjacent) != null || work.hasExposure(adjacent)
                     || !AtmosphereTopology.canExchange(level, pos, adjacent)) continue;
             GasMixture finite = reactionFiniteMixture(level, adjacent);
-            if (finite != null) neighbors.add(new HotspotSpread.Neighbor(adjacent, face, finite));
+            if (finite != null) neighbors.add(new HotspotSpread.Neighbor(adjacent, face, finite, work.hotspot(adjacent)));
         }
+        AtmosphereCycle cycle = cycles.get(level);
+        boolean wholeAlreadyCommitted = cycle != null && cycle.wholeAir().containsKey(pos);
+        GasReactionStep.WholeAirResult whole = wholeAlreadyCommitted ? cycle.wholeAir().get(pos) : null;
+        boolean wholeEvaluatedNow = false;
+        if (whole == null && allowWholeAirFallback) {
+            whole = GasReactionStep.evaluateWholeAir(PrototypeRuntime.serverGasReactions(), before,
+                    fireReactionResult(level, pos));
+            wholeEvaluatedNow = true;
+        }
+        if (whole == null && existing == null && exposure == null) {
+            // Work admitted after LINDA must wait until the next LINDA stage; HOTSPOTS never
+            // executes an uncommitted whole-air pass as a side effect of scheduler ordering.
+            work.offer(pos);
+            return Optional.empty();
+        }
+        if (whole == null) whole = new GasReactionStep.WholeAirResult(before, List.of(), fireReactionResult(level, pos), 0);
+        double priorFireExtent = cycle != null && cycle.wholeAir().containsKey(pos)
+                ? cycle.wholeAir().get(pos).fireExtentMoles() : fireReactionResult(level, pos);
+        GasMixture passGas = cycle != null && cycle.wholeAir().containsKey(pos) ? before : whole.mixture();
+        HotspotState processState = existing;
+        if (exposure != null) {
+            processState = HotspotKernel.expose(passGas, existing, exposure.temperatureKelvin(),
+                    exposure.exposedVolumeLiters(), true, processedByLindaThisCycle).orElse(existing);
+        }
+        if (!wholeAlreadyCommitted && hasFireEvent(whole.events())) {
+            processState = HotspotKernel.expose(passGas, processState, passGas.temperatureKelvin(),
+                    passGas.volumeCubicMeters() * 1000.0, false, processedByLindaThisCycle).orElse(processState);
+        }
+        HotspotState finalProcessState = processState;
+        GasReactionStep.WholeAirResult priorWhole = whole;
+        Map<BlockPos, HotspotState> spreadReceivers = new LinkedHashMap<>();
         Optional<CommittedHotspot> committed;
         try {
             committed = work.commitOnce(dueStep, pos,
-                () -> commitHotspotSpreadWithTemperature(pos, before, existing,
-                        current -> GasReactionStep.evaluate(PrototypeRuntime.serverGasReactions(), current, existing, exposure),
+                () -> commitHotspotCyclePass(pos, before, finalProcessState,
+                        current -> hotspotStepResult(before, priorWhole, GasReactionStep.processHotspot(
+                                PrototypeRuntime.serverGasReactions(), passGas, finalProcessState, priorFireExtent)),
                         neighbors, () -> {
                             if (!enabled || !sameReactionSnapshot(before, reactionFiniteMixture(level, pos))) return false;
                             for (var neighbor : neighbors)
@@ -318,32 +477,74 @@ public final class AtmosphereService {
                                 AtmosphereVisualServerHooks.noteChanged(level, pos);
                         }, (cell, state) -> {
                             work.setHotspot(cell, Optional.of(state));
+                            spreadReceivers.put(cell.immutable(), state);
                             work.setBurning(cell, 0);
                             work.deferReceiver(dueStep, cell);
-                        }, faceHeat -> {
-                            EnumMap<Direction, Double> ledger = hotspotFaceHeat.computeIfAbsent(level,
-                                    ignored -> new EnumMap<>(Direction.class));
-                            faceHeat.forEach((face, heat) -> ledger.merge(face, heat, Double::sum));
-                        }));
+                            if (cycle != null) cycle.deferNewHotspotReceiver(cell);
+                            AtmosphereVisualServerHooks.noteChanged(level, cell);
+                        }, cell -> cycle != null && cycle.lindaProcessedSources().contains(cell)));
         } catch (RuntimeException failure) {
             // A publication failure after the raw patch committed still stamps this cell.
-            if (work.reacted(dueStep, pos)) work.consumeExposure(pos, dueStep);
+            if (work.reacted(dueStep, pos)) {
+                work.consumeExposure(pos, dueStep);
+                resetExcitedGroupCooldownsAfterHotspotCommit(level, pos, finalProcessState);
+            }
             throw failure;
         }
+        if (committed.isPresent())
+            resetExcitedGroupCooldownsAfterHotspotCommit(level, pos, finalProcessState);
         // The receiver only received face heat: its own event must commit on a later due step.
         if (committed.isPresent()) work.consumeExposure(pos, dueStep);
-        if (committed.isPresent() && committed.get().result().events().stream().anyMatch(event ->
-                event.effect() == GasReactionData.EffectType.TRITIUM_FIRE
-                        || event.effect() == GasReactionData.EffectType.PLASMA_FIRE)) {
-            HotspotKernel.HotspotState burning = work.hotspot(pos);
-            work.setBurning(pos, burning == null ? 0 : (int) Math.max(1, Math.min(255, Math.ceil(burning.fraction() * 255))));
+        if (committed.isPresent() && wholeEvaluatedNow)
+            storeFireReactionResult(fireReactionResults.computeIfAbsent(level, ignored -> new java.util.HashMap<>()),
+                    pos, whole.fireExtentMoles(), true);
+        Optional<HotspotState> postHotspotState = committed.flatMap(CommittedHotspot::postState);
+        boolean wholeAirIgnition = (wholeEvaluatedNow || wholeAlreadyCommitted) && hasFireEvent(whole.events());
+        if (committed.isPresent() && existing == null && postHotspotState.isPresent()
+                && (exposure != null || wholeAirIgnition)) {
+            String origin = wholeAirIgnition ? "WHOLE_AIR_REACTION" : "DIRECT_EXPOSURE";
+            String reactionId = whole.events().stream().filter(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE
+                            || event.effect() == GasReactionData.EffectType.PLASMA_FIRE)
+                    .map(event -> event.id().toString()).findFirst().orElse("unknown");
+            HotspotState state = postHotspotState.orElseThrow();
+            appendIgnitionDiagnostic(level, new IgnitionDiagnostic(pos.immutable(), cycle == null ? 0 : cycle.identity(),
+                    gameTime, origin, before.temperatureKelvin(), whole.mixture().temperatureKelvin(),
+                    before.moles(GasType.TRITIUM), before.moles(GasType.OXYGEN), state.temperatureKelvin(),
+                    state.volumeLiters(), whole.fireExtentMoles(), reactionId));
+        }
+        if (committed.isPresent()) for (var receiver : spreadReceivers.entrySet()) {
+            HotspotSpread.Neighbor input = neighbors.stream().filter(candidate -> candidate.position().equals(receiver.getKey())).findFirst().orElse(null);
+            if (input == null) continue;
+            GasMixture receiverGas = input.mixture();
+            HotspotState receiverState = receiver.getValue();
+            appendIgnitionDiagnostic(level, new IgnitionDiagnostic(receiver.getKey(), cycle == null ? 0 : cycle.identity(),
+                    gameTime, "NEIGHBOR_SPREAD", receiverGas.temperatureKelvin(), receiverGas.temperatureKelvin(),
+                    receiverGas.moles(GasType.TRITIUM), receiverGas.moles(GasType.OXYGEN), receiverState.temperatureKelvin(),
+                    receiverState.volumeLiters(), 0.0, "none"));
+        }
+        if (committed.isPresent() && shouldExposeCommittedHotspot(finalProcessState, postHotspotState)) {
+            HotspotState fireState = postHotspotState.orElseThrow();
+            HotspotState burning = work.hotspot(pos);
+            double displayedFraction = burning == null ? 0 : Math.min(1,
+                    burning.volumeLiters() / (before.volumeCubicMeters() * 1000.0));
+            work.setBurning(pos, burning == null ? 0 : (int) Math.max(1, Math.min(255, Math.ceil(displayedFraction * 255))));
             AtmosphereVisualServerHooks.noteChanged(level, pos);
-            exposeCommittedFire(level, pos, committed.get().preSpreadTemperature());
+            exposeCommittedFire(level, pos, fireState.temperatureKelvin());
         } else if (committed.isPresent() && work.fireIntensity(pos) != 0) {
             work.setBurning(pos, 0);
             AtmosphereVisualServerHooks.noteChanged(level, pos);
         }
         return committed.map(CommittedHotspot::result);
+    }
+
+    private void resetExcitedGroupCooldownsAfterHotspotCommit(ServerLevel level, BlockPos pos, HotspotState state) {
+        if (!shouldResetExcitedGroupCooldownsAfterCommit(state, true)) return;
+        ExcitedAtmosphereGroups excited = excitedGroups.get(level);
+        if (excited != null) excited.resetCooldownsForCell(pos);
+    }
+
+    static boolean shouldResetExcitedGroupCooldownsAfterCommit(HotspotState state, boolean committed) {
+        return committed && HotspotKernel.shouldResetExcitedGroupCooldowns(state);
     }
 
     private void exposeCommittedFire(ServerLevel level, BlockPos source, double temperatureKelvin) {
@@ -398,87 +599,125 @@ public final class AtmosphereService {
         return current != null && same(before, current);
     }
 
-    /** Detached proposal and all-participant preflight before raw patch writes. Publication follows commit only. */
-    static Optional<GasReactionEvaluator.Result> commitHotspotSpread(
-            BlockPos source, GasMixture before, HotspotKernel.HotspotState existing,
-            Function<GasMixture, GasReactionStep.Result> evaluator,
-            List<HotspotSpread.Neighbor> neighbors, Supplier<Boolean> preflight,
-            java.util.function.BiPredicate<BlockPos, GasMixture> writer,
-            Consumer<List<BlockPos>> publishGas,
-            Consumer<Optional<HotspotKernel.HotspotState>> publishSource,
-            java.util.function.BiConsumer<BlockPos, HotspotKernel.HotspotState> publishReceiver,
-            Consumer<Map<Direction, Double>> publishFaceHeat) {
-        return commitHotspotSpreadWithTemperature(source, before, existing, evaluator, neighbors, preflight, writer,
-                publishGas, publishSource, publishReceiver, publishFaceHeat).map(CommittedHotspot::result);
+    private void appendIgnitionDiagnostic(ServerLevel level, IgnitionDiagnostic event) {
+        ignitionDiagnostics.computeIfAbsent(level, ignored -> new IgnitionDiagnosticHistory()).append(event);
+    }
+
+    static boolean shouldExposeCommittedHotspot(HotspotState inputState, Optional<HotspotState> postState) {
+        return inputState != null && inputState.skippedFirstProcess()
+                && postState != null && postState.isPresent();
+    }
+
+    private static boolean hasFireEvent(List<GasReactionEvaluator.Event> events) {
+        return events.stream().anyMatch(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE
+                || event.effect() == GasReactionData.EffectType.PLASMA_FIRE);
+    }
+
+    static Optional<IgnitionDiagnostic> lindaIgnitionDiagnostic(long cycleIdentity, long gameTime, BlockPos position,
+                                                                 HotspotState existing, GasMixture sharedBefore,
+                                                                 GasReactionStep.WholeAirResult whole,
+                                                                 Optional<HotspotState> created) {
+        if (existing != null || sharedBefore == null || whole == null || whole.fireExtentMoles() <= 0
+                || !hasFireEvent(whole.events()) || created == null || created.isEmpty()) return Optional.empty();
+        String reactionId = whole.events().stream().filter(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE
+                        || event.effect() == GasReactionData.EffectType.PLASMA_FIRE)
+                .map(event -> event.id().toString()).findFirst().orElse("unknown");
+        HotspotState state = created.orElseThrow();
+        return Optional.of(new IgnitionDiagnostic(position.immutable(), cycleIdentity, gameTime, "WHOLE_AIR_REACTION",
+                sharedBefore.temperatureKelvin(), whole.mixture().temperatureKelvin(),
+                sharedBefore.moles(GasType.TRITIUM), sharedBefore.moles(GasType.OXYGEN), state.temperatureKelvin(),
+                state.volumeLiters(), whole.fireExtentMoles(), reactionId));
     }
 
     /** Pre-spread temperature is immutable commit metadata, never a callback inside the patch. */
-    record CommittedHotspot(GasReactionEvaluator.Result result, double preSpreadTemperature) {}
+    record CommittedHotspot(GasReactionEvaluator.Result result, double preSpreadTemperature,
+                            Optional<HotspotState> postState) {}
 
-    static Optional<CommittedHotspot> commitHotspotSpreadWithTemperature(
-            BlockPos source, GasMixture before, HotspotKernel.HotspotState existing,
+    private static GasReactionStep.Result hotspotStepResult(GasMixture before,
+            GasReactionStep.WholeAirResult whole, HotspotKernel.ProcessResult hotspot) {
+        Map<GasType, Double> delta = new java.util.EnumMap<>(GasType.class);
+        for (GasType type : GasType.values()) {
+            double amount = hotspot.mixture().moles(type) - before.moles(type);
+            if (amount != 0) delta.put(type, amount);
+        }
+        List<GasReactionEvaluator.Event> events = new java.util.ArrayList<>(whole.events());
+        events.addAll(hotspot.events());
+        double energy = events.stream().mapToDouble(GasReactionEvaluator.Event::energyDeltaJoules).sum();
+        boolean fire = events.stream().anyMatch(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE
+                || event.effect() == GasReactionData.EffectType.PLASMA_FIRE);
+        return new GasReactionStep.Result(hotspot.mixture(), delta, energy, events, hotspot.nextState(), fire,
+                0, hotspot.spreadEligibleThisPass());
+    }
+
+    /** Cycle hot pass: writes only source gas; neighbor offers are metadata-only and publish after commit. */
+    static Optional<CommittedHotspot> commitHotspotCyclePass(
+            BlockPos source, GasMixture before, HotspotState existing,
             Function<GasMixture, GasReactionStep.Result> evaluator,
             List<HotspotSpread.Neighbor> neighbors, Supplier<Boolean> preflight,
             java.util.function.BiPredicate<BlockPos, GasMixture> writer,
             Consumer<List<BlockPos>> publishGas,
-            Consumer<Optional<HotspotKernel.HotspotState>> publishSource,
-            java.util.function.BiConsumer<BlockPos, HotspotKernel.HotspotState> publishReceiver,
-            Consumer<Map<Direction, Double>> publishFaceHeat) {
+            Consumer<Optional<HotspotState>> publishSource,
+            java.util.function.BiConsumer<BlockPos, HotspotState> publishReceiver) {
+        return commitHotspotCyclePass(source, before, existing, evaluator, neighbors, preflight, writer,
+                publishGas, publishSource, publishReceiver, ignored -> false);
+    }
+
+    static Optional<CommittedHotspot> commitHotspotCyclePass(
+            BlockPos source, GasMixture before, HotspotState existing,
+            Function<GasMixture, GasReactionStep.Result> evaluator,
+            List<HotspotSpread.Neighbor> neighbors, Supplier<Boolean> preflight,
+            java.util.function.BiPredicate<BlockPos, GasMixture> writer,
+            Consumer<List<BlockPos>> publishGas,
+            Consumer<Optional<HotspotState>> publishSource,
+            java.util.function.BiConsumer<BlockPos, HotspotState> publishReceiver,
+            Predicate<BlockPos> alreadyProcessedThisCycle) {
         if (source == null || before == null || evaluator == null || neighbors == null || preflight == null
                 || writer == null || publishGas == null || publishSource == null || publishReceiver == null
-                || publishFaceHeat == null)
+                || alreadyProcessedThisCycle == null)
             return Optional.empty();
         boolean[] patched = {false};
         try {
             GasReactionStep.Result step = evaluator.apply(before);
-            if (step == null || step.mixture() == null || step.nextState() == null) return Optional.empty();
-            HotspotSpread.Result spread = HotspotSpread.plan(source, step.mixture(), step.spreadEligibleThisPass(), neighbors);
-            Map<BlockPos, GasMixture> old = new java.util.LinkedHashMap<>();
-            Map<BlockPos, GasMixture> after = new java.util.LinkedHashMap<>();
-            old.put(source, before);
-            after.put(source, spread.source());
-            EnumMap<Direction, Double> faceHeat = new EnumMap<>(Direction.class);
-            for (var face : spread.offers().entrySet()) {
-                HotspotSpread.Neighbor neighbor = neighbors.stream()
-                        .filter(n -> n.face() == face.getKey()).findFirst().orElseThrow();
-                old.put(neighbor.position(), neighbor.mixture());
-                after.put(neighbor.position(), face.getValue().mixture());
-                faceHeat.put(face.getKey(), face.getValue().energyJoules());
-            }
-            GasReactionEvaluator.Result result = new GasReactionEvaluator.Result(spread.source(),
-                    step.speciesDelta(), step.energyDeltaJoules(), step.events());
-            CommittedHotspot committed = new CommittedHotspot(result, step.mixture().temperatureKelvin());
-            if (result.speciesDelta() == null || result.events() == null || !Double.isFinite(result.energyDeltaJoules())
-                    || result.speciesDelta().values().stream().anyMatch(v -> v == null || !Double.isFinite(v))
-                    || result.events().stream().anyMatch(e -> e == null || !Double.isFinite(e.extentMoles())
-                            || e.extentMoles() <= 0 || !Double.isFinite(e.energyDeltaJoules())))
+            if (step == null || step.mixture() == null || step.nextState() == null
+                    || !Double.isFinite(step.energyDeltaJoules())
+                    || step.events().stream().anyMatch(event -> event == null || !Double.isFinite(event.extentMoles())
+                            || event.extentMoles() <= 0 || !Double.isFinite(event.energyDeltaJoules())))
                 return Optional.empty();
-            for (GasMixture mixture : after.values())
-                if (!Double.isFinite(mixture.thermalEnergy()) || mixture.thermalEnergy() < 0) return Optional.empty();
-            if (after.size() == 1 && same(before, spread.source())) {
-                boolean valid = preflight.get();
-                if (existing != null && step.nextState().isEmpty() && step.events().isEmpty()
-                        && step.speciesDelta().isEmpty() && step.energyDeltaJoules() == 0 && valid)
-                    publishSource.accept(Optional.empty());
-                return Optional.empty();
+            Map<BlockPos, GasMixture> old = Map.of(source, before);
+            Map<BlockPos, GasMixture> after = Map.of(source, step.mixture());
+            Map<BlockPos, HotspotState> receivers = new LinkedHashMap<>();
+            HotspotState committedSource = step.nextState().orElse(null);
+            double spreadTemperature = committedSource == null ? Double.NEGATIVE_INFINITY
+                    : committedSource.bypass() ? step.mixture().temperatureKelvin()
+                    : committedSource.temperatureKelvin();
+            if (step.spreadEligibleThisPass() && spreadTemperature > 423.15) {
+                if (committedSource == null) return Optional.empty();
+                double exposedTemperature = (committedSource.bypass() ? step.mixture().temperatureKelvin()
+                        : committedSource.temperatureKelvin()) * 0.85;
+                for (HotspotSpread.Neighbor neighbor : neighbors) {
+                    GasMixture recipient = neighbor.mixture();
+                    HotspotKernel.expose(recipient, null, exposedTemperature,
+                            recipient.volumeCubicMeters() * 1000.0 * 0.25, false,
+                            alreadyProcessedThisCycle.test(neighbor.position()))
+                            .ifPresent(state -> receivers.put(neighbor.position(), state));
+                }
             }
-            if (!preflight.get()) return Optional.empty();
-            if (!applyHotspotPatch(new java.util.ArrayList<>(old.keySet()), old, after, writer, changed -> {
+            if (!Double.isFinite(step.mixture().thermalEnergy()) || step.mixture().thermalEnergy() < 0
+                    || !preflight.get()) return Optional.empty();
+            CommittedHotspot committed = new CommittedHotspot(new GasReactionEvaluator.Result(
+            step.mixture(), step.speciesDelta(), step.energyDeltaJoules(), step.events()),
+                    step.mixture().temperatureKelvin(), step.nextState());
+            if (!applyHotspotPatch(List.of(source), old, after, writer, changed -> {
                 patched[0] = true;
                 publishGas.accept(changed);
-                    Optional<HotspotKernel.HotspotState> sourceState = step.nextState().flatMap(state ->
-                            HotspotKernel.reconcileAfterHeatTransfer(step.mixture(), spread.source(), state));
-                    publishSource.accept(sourceState);
-                    for (var face : spread.offers().entrySet())
-                        publishReceiver.accept(face.getValue().position(),
-                            new HotspotKernel.HotspotState(face.getValue().hotFraction(), face.getValue().hotTemperatureKelvin()));
-                publishFaceHeat.accept(faceHeat);
+                publishSource.accept(step.nextState());
+                receivers.forEach(publishReceiver);
             })) return Optional.empty();
             return Optional.of(committed);
         } catch (HotspotRollbackException failure) {
             throw failure;
-        } catch (RuntimeException invalid) {
-            if (patched[0]) throw new ReactionWorkQueue.CommittedFailure(invalid);
+        } catch (RuntimeException failure) {
+            if (patched[0]) throw new ReactionWorkQueue.CommittedFailure(failure);
             return Optional.empty();
         }
     }
@@ -537,36 +776,6 @@ public final class AtmosphereService {
 
     private static final class HotspotRollbackException extends IllegalStateException {
         private HotspotRollbackException(RuntimeException cause) { super("Hotspot rollback failed", cause); }
-    }
-
-    /** Detached evaluation + single finite write; transient state and events publish only on commit. */
-    static Optional<GasReactionEvaluator.Result> commitReactionStep(
-            GasMixture before, HotspotKernel.HotspotState existing,
-            Function<GasMixture, GasReactionStep.Result> evaluator,
-            Supplier<Boolean> preflight, Predicate<GasMixture> writer,
-            Consumer<Optional<HotspotKernel.HotspotState>> publishState) {
-        if (before == null || evaluator == null || preflight == null || writer == null || publishState == null)
-            return Optional.empty();
-        final GasReactionStep.Result[] step = new GasReactionStep.Result[1];
-        Optional<GasReactionEvaluator.Result> committed = commitReaction(before, current -> {
-            step[0] = evaluator.apply(current);
-            if (step[0] == null || step[0].nextState() == null) return null;
-            return new GasReactionEvaluator.Result(step[0].mixture(), step[0].speciesDelta(),
-                    step[0].energyDeltaJoules(), step[0].events());
-        }, preflight, writer);
-        if (committed.isPresent()) {
-            publishState.accept(step[0].nextState());
-        } else if (existing != null && step[0] != null && step[0].nextState() != null
-                && step[0].nextState().isEmpty() && step[0].mixture() != null
-                && same(before, step[0].mixture()) && step[0].events() != null
-                && step[0].events().isEmpty() && step[0].speciesDelta() != null
-                && step[0].speciesDelta().isEmpty() && step[0].energyDeltaJoules() == 0) {
-            // A verified no-op quench does not need a write, but stale/unloaded state must survive
-            // until the preflight succeeds. Never clear after a rejected or throwing write.
-            try { if (preflight.get()) publishState.accept(Optional.empty()); }
-            catch (RuntimeException ignored) { /* no verified snapshot */ }
-        }
-        return committed;
     }
 
     /**
@@ -651,10 +860,7 @@ public final class AtmosphereService {
         double total = ambient.totalMoles();
         if (total == 0.0) return Optional.of(new GasMixture(Map.of(), ambient.temperatureKelvin()));
         try {
-            java.util.EnumMap<GasType, Double> portion = new java.util.EnumMap<>(GasType.class);
-            double scale = requestedMoles / total;
-            ambient.gasMoles().forEach((type, amount) -> portion.put(type, amount * scale));
-            return Optional.of(new GasMixture(portion, ambient.temperatureKelvin()));
+            return Optional.of(ambient.splitRatio(Math.min(1.0, requestedMoles / total)).removed());
         } catch (IllegalArgumentException exception) { return Optional.empty(); }
     }
 
@@ -667,9 +873,9 @@ public final class AtmosphereService {
         GasMixture before = current.get();
         double total = before.totalMoles();
         if (total <= 0.0) return 0.0;
-        double removed = Math.min(maxMoles, total);
-        GasMixture changed = before.withScaledMoles((total - removed) / total);
-        return write(level, pos, changed) ? removed : 0.0;
+        double ratio = Math.min(1.0, maxMoles / total);
+        GasMixture.Removal split = before.splitRatio(ratio);
+        return write(level, pos, split.remaining()) ? split.removed().totalMoles() : 0.0;
     }
 
     public boolean addEnergy(ServerLevel level, BlockPos pos, double joules) {
@@ -720,8 +926,13 @@ public final class AtmosphereService {
     /** Block topology changes also reactivate saved overrides in the affected vertical column. */
     public void topologyChanged(ServerLevel level, BlockPos pos) {
         if (!enabled || level == null || pos == null || !inBounds(level, pos)) return;
+        AtmosphereCycle cycle = cycles.get(level);
+        if (cycle != null) cycle.invalidateTopology(pos);
         excitedGroups.remove(level);
-        cancelEqualization(level);
+        EqualizationJob job = equalizationJobs.get(level);
+        if (job != null && equalizationTouches(job, pos)) cancelEqualization(level);
+        Map<BlockPos, EqualizationJob> parked = parkedEqualizationJobs.get(level);
+        if (parked != null) parked.values().removeIf(candidate -> equalizationTouches(candidate, pos));
         invalidateOwnershipAt(level, pos);
         prioritizeSeed(level, pos);
         activateCellAndNeighbors(level, pos);
@@ -769,65 +980,115 @@ public final class AtmosphereService {
         OwnershipWork work = ownershipWork.get(level);
         // Even if the bounded history evicted this position, a currently sealed openable in a
         // cached witness must invalidate that witness rather than relying on a remembered state.
-        if (!open && work != null && work.hasExteriorDependency(pos)) changed = true;
+        if (shouldInvalidateClosedOpenable(open, changed,
+                work != null && work.hasExteriorWitnessCell(pos))) changed = true;
         if (changed) topologyChanged(level, pos);
         return changed;
+    }
+
+    static boolean shouldInvalidateClosedOpenable(boolean open, boolean stateChanged, boolean exactWitnessCell) {
+        return stateChanged || (!open && exactWitnessCell);
     }
 
     /** Compatibility entry point for ordinary local invalidation; intentionally cheap. */
     public void invalidate(ServerLevel level, BlockPos pos) { activateCellAndNeighbors(level, pos); }
 
     public void tick(ServerLevel level, long gameTime) {
-        if (!isTickDue(enabled, gameTime) || level == null) return;
+        if (!enabled || level == null) return;
+        AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.computeIfAbsent(level,
+                ignored -> new AtmosphereRuntimeTelemetry(gameTime, System.nanoTime()));
+        telemetry.callback();
         long totalStart = System.nanoTime();
-        Set<BlockPos> spaceBoundaryCells = new HashSet<>();
-        spaceBoundaryCellsThisCycle.put(level, spaceBoundaryCells);
-        advanceOwnership(level);
-        long owned = System.nanoTime();
+        BooleanSupplier deadlineReached = () -> System.nanoTime() - totalStart >= 3_000_000L;
+        AtmosphereCycle cycle = cycles.computeIfAbsent(level, ignored -> new AtmosphereCycle());
+        if (!cycle.beginWhenDue() || cycle.stage() == null) return;
+        telemetry.observeStage(cycle.stage(), gameTime);
+        telemetry.admitted(cycle.stage());
         WorkQueue queue = queue(level);
-        int retrySteps = retryDirtyChunks(level, queue, MAX_DIRTY_CURSOR_STEPS_PER_TICK);
-        Set<BlockPos> monstermosHandledThisCycle = new HashSet<>();
-        if (equalizationJobs.get(level) == null) {
-            BlockPos seed = pollEqualizationSeed(level, queue);
-            if (seed != null && !isLoadedPassableExterior(level, seed)) {
-                if (loadedChunk(level, seed) == null) {
-                    PrioritySeedQueue priority = prioritySeeds.get(level);
-                    if (priority != null) priority.defer(seed);
-                } else if (sample(level, seed).isPresent()) {
-                    equalizationJobs.put(level, new EqualizationJob(seed));
+        Set<BlockPos> boundaryCells = cycle.boundaryCells();
+        Set<BlockPos> handled = cycle.monstermosHandled();
+        spaceBoundaryCellsThisCycle.put(level, boundaryCells);
+        long owned = 0, solved = 0, linda = 0, reactions = 0;
+        int retrySteps = 0;
+        AtmosphereCycle.Stage activeStage = cycle.stage();
+        long stageStart = System.nanoTime();
+        switch (activeStage) {
+                case REVALIDATE -> {
+                    advanceOwnership(level, deadlineReached);
+                    retrySteps = retryDirtyChunks(level, queue, MAX_DIRTY_CURSOR_STEPS_PER_TICK, deadlineReached);
                 }
-            }
+                case MONSTERMOS -> {
+                    if (!cycle.monstermosSeedsStarted()) {
+                        PrioritySeedQueue priority = prioritySeeds.get(level);
+                        Set<BlockPos> admitted = orderedMonstermosSeeds(
+                                pressureContinuationSeeds.getOrDefault(level, Set.of()), queue.snapshotPositions(),
+                                priority == null ? Set.of() : priority.snapshotPositions());
+                        cycle.startMonstermos(admitted);
+                    }
+                    BoundedBudgetDrain.drain(deadlineReached, () -> {
+                        advanceMonstermosCycle(level, queue, cycle, boundaryCells, handled, deadlineReached);
+                        EqualizationJob pending = equalizationJobs.get(level);
+                        cycle.monstermosPending(pending != null && !pending.waitingForChunk);
+                        // Keep taking bounded BFS/solve units and subsequent seeds while real work remains.
+                        return (pending != null && !pending.waitingForChunk) || !cycle.monstermosSeeds().isEmpty();
+                    });
+                }
+                case LINDA -> {
+                    if (!cycle.lindaStarted()) cycle.startLinda(queue.snapshotPositions());
+                    while (System.nanoTime() - totalStart < 3_000_000L) {
+                        if (cycle.lindaSources().isEmpty()) break;
+                        int remainingBefore = cycle.lindaSources().size();
+                        processLindaTick(level, queue, retrySteps, gameTime,
+                                cycle, cycle.lindaSources());
+                        if (cycle.lindaSources().size() == remainingBefore) break;
+                    }
+                }
+                case GROUPS -> {
+                    advanceExcitedGroups(level, queue, cycle.identity(),
+                            excitedGroups.computeIfAbsent(level, ignored -> new ExcitedAtmosphereGroups()), deadlineReached);
+                    cycle.groupsPending(excitedGroups.get(level) != null
+                            && excitedGroups.get(level).hasUnprocessedCycleWork());
+                }
+                case HIGH_PRESSURE, DELTA_PRESSURE, PIPE_NET, ATMOS_DEVICES -> { /* not implemented by this adapter */ }
+                case HOTSPOTS -> cycle.reactionsPending(processReactions(level, gameTime, cycle, deadlineReached));
         }
-        advanceEqualization(level, queue, monstermosHandledThisCycle, spaceBoundaryCells);
-        long solved = System.nanoTime();
-        processLindaTick(level, queue, spaceBoundaryCells, retrySteps, monstermosHandledThisCycle, gameTime);
-        long linda = System.nanoTime();
-        if (!Long.valueOf(gameTime).equals(lastReactionTick.put(level, gameTime))) processReactions(level, gameTime);
+        long stageEnd = System.nanoTime();
+        if (activeStage == AtmosphereCycle.Stage.REVALIDATE) owned += stageEnd - stageStart;
+        else if (activeStage == AtmosphereCycle.Stage.MONSTERMOS) solved += stageEnd - stageStart;
+        else if (activeStage == AtmosphereCycle.Stage.LINDA || activeStage == AtmosphereCycle.Stage.GROUPS)
+            linda += stageEnd - stageStart;
+        else if (activeStage == AtmosphereCycle.Stage.HOTSPOTS) reactions += stageEnd - stageStart;
+        cycle.advance();
+        telemetry.observeStage(cycle.stage(), gameTime);
         long done = System.nanoTime();
         WorkQueue q = queues.get(level);
         OwnershipWork ow = ownershipWork.get(level);
         PatchDiagnostic patch = patchDiagnostics.getOrDefault(level, new PatchDiagnostic("none", "none", "no patch attempted", 0, 0, 0, 0, 0));
-        diagnosticTimings.put(level, new DiagnosticTiming(gameTime, (owned-totalStart)/1e6, (solved-owned)/1e6, (linda-solved)/1e6, (done-linda)/1e6, (done-totalStart)/1e6,
+        diagnosticTimings.put(level, new DiagnosticTiming(gameTime, owned/1e6, solved/1e6, linda/1e6, reactions/1e6, (done-totalStart)/1e6,
                 patch.attempted(), patch.committed(), patch.status(), patch.size(), patch.expansions(), patch.calls(), patch.exportMoles(), patch.exportEnergy(),
                 q == null ? 0 : q.pending.size() + q.urgent.size(), q == null ? 0 : q.dirtyChunks.size(), ow == null ? 0 : ow.pendingCount()));
     }
 
-    private void processReactions(ServerLevel level, long gameTime) {
+    private boolean processReactions(ServerLevel level, long gameTime, AtmosphereCycle cycle,
+        BooleanSupplier deadlineReached) {
+        ReactionWorkQueue work = reactionQueues.computeIfAbsent(level, ignored -> new ReactionWorkQueue());
+        if (!cycle.reactionsStarted()) cycle.startReactions(work.snapshotPositions());
         LoadedReactionChunks tracked = loadedReactionChunks.get(level);
+        int trackedWork = 0;
         if (tracked != null && tracked.hasPending()) {
-            ReactionWorkQueue loads = reactionQueues.computeIfAbsent(level, ignored -> new ReactionWorkQueue());
-            tracked.drain(MAX_REACTION_LOAD_STEPS_PER_TICK, cp -> {
+            trackedWork = tracked.drain(MAX_REACTION_LOAD_STEPS_PER_TICK, deadlineReached, cp -> {
                 LevelChunk chunk = loadedChunk(level, new BlockPos(cp.getMinBlockX(), level.getMinBuildHeight(), cp.getMinBlockZ()));
                 if (chunk == null) return;
                 AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
-                if (data != null && data.size() > 0) loads.startLoad(cp);
+                if (data != null && data.size() > 0) work.startLoad(cp);
             });
         }
-        ReactionWorkQueue work = reactionQueues.get(level);
-        if (work == null) return;
         long dueStep = reactionDueStep(gameTime);
         work.expireExposures(dueStep);
-        work.drainLoads(MAX_REACTION_LOAD_STEPS_PER_TICK, MAX_REACTION_LOAD_STEPS_PER_TICK, cp -> {
+        int loadWork = 0;
+        if (trackedWork == 0 || !deadlineReached.getAsBoolean())
+            loadWork = work.drainLoads(MAX_REACTION_LOAD_STEPS_PER_TICK, MAX_REACTION_LOAD_STEPS_PER_TICK,
+                    deadlineReached, cp -> {
             LevelChunk chunk = loadedChunk(level, new BlockPos(cp.getMinBlockX(), level.getMinBuildHeight(), cp.getMinBlockZ()));
             if (chunk == null) { work.removeChunk(cp); return false; }
             AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
@@ -842,15 +1103,30 @@ public final class AtmosphereService {
             work.continueLoad(cp, cell);
             return true;
         });
-        Set<BlockPos> visited = new HashSet<>();
-        List<BlockPos> requeue = new java.util.ArrayList<>();
-        int evaluations = 0;
-        for (int inspected = 0; inspected < MAX_REACTION_INSPECTIONS_PER_TICK
-                && evaluations < MAX_REACTION_EVALUATIONS_PER_TICK; inspected++) {
-            BlockPos pos = work.poll();
-            if (pos == null) break;
-            if (!visited.add(pos)) { requeue.add(pos); continue; }
-            if (work.exposureIsFuture(pos, dueStep)) { requeue.add(pos); continue; }
+        if (cycle.reactionSources().isEmpty()) {
+            if ((tracked != null && tracked.hasPending()) || work.hasPendingLoads()) {
+                cycle.reactionsPending(true);
+                return true;
+            }
+            cycle.finishReactions(work::offer);
+            return false;
+        }
+        int inspectedCount = 0;
+        boolean didPriorWork = trackedWork > 0 || loadWork > 0;
+        for (; inspectedCount < MAX_REACTION_INSPECTIONS_PER_TICK && !cycle.reactionSources().isEmpty()
+                && (inspectedCount == 0 && !didPriorWork || !deadlineReached.getAsBoolean()); inspectedCount++) {
+            BlockPos pos = work.poll(cycle.reactionSources());
+            if (pos == null) {
+                if ((tracked != null && tracked.hasPending()) || work.hasPendingLoads()) {
+                    cycle.reactionsPending(true);
+                    return true;
+                }
+                cycle.finishReactions(work::offer);
+                return false;
+            }
+            cycle.removeReactionSource(pos);
+            if (!cycle.reactionVisited().add(pos)) { cycle.deferReaction(pos); continue; }
+            if (work.exposureIsFuture(pos, dueStep)) { cycle.deferReaction(pos); continue; }
             GasMixture mixture = reactionFiniteMixture(level, pos);
             boolean hadFire = work.fireIntensity(pos) > 0;
             if (mixture == null && loadedChunk(level, pos) != null
@@ -861,21 +1137,24 @@ public final class AtmosphereService {
             if (!schedulerReactionEligible(work, pos, mixture,
                     PrototypeRuntime.serverGasReactions().asMap().values())) {
                 if (hadFire) AtmosphereVisualServerHooks.noteChanged(level, pos);
-                if (work.hasExposure(pos)) requeue.add(pos); // Unavailable finite snapshot: retry until TTL/unload.
+                if (work.hasExposure(pos)) cycle.deferReaction(pos); // Unavailable finite snapshot: retry until TTL/unload.
                 continue;
             }
-            if (work.reacted(dueStep, pos) || work.reactionCapacityReached(dueStep)) { requeue.add(pos); continue; }
-            evaluations++;
-            boolean committed = reactFiniteCellAtTime(level, pos, gameTime).isPresent();
-            if (work.hasExposure(pos)) requeue.add(pos); // Failed/no-op preflight must not lose a blast admission.
+            if (work.reacted(dueStep, pos) || work.reactionCapacityReached(dueStep)) { cycle.deferReaction(pos); continue; }
+            boolean committed = reactFiniteCellAtTime(level, pos, gameTime, false).isPresent();
+            if (work.hasExposure(pos)) cycle.deferReaction(pos); // Failed/no-op preflight must not lose a blast admission.
             if (committed) {
                 GasMixture after = reactionFiniteMixture(level, pos);
                 if (after != null && (work.hotspot(pos) != null
                         || potentiallyReactive(after, PrototypeRuntime.serverGasReactions().asMap().values())))
-                    requeue.add(pos);
+                    cycle.deferReaction(pos);
             }
         }
-        requeue.forEach(work::offer);
+        cycle.reactionsPendingFromSources();
+        boolean pending = !cycle.reactionSources().isEmpty()
+                || (tracked != null && tracked.hasPending()) || work.hasPendingLoads();
+        if (!pending) cycle.finishReactions(work::offer);
+        return pending;
     }
 
     /** Called after the loaded finite-cell lookup; never quench on an unavailable snapshot. */
@@ -944,8 +1223,21 @@ public final class AtmosphereService {
 
     void onChunkLoad(ServerLevel level, LevelChunk chunk) {
         if (!enabled || level == null || chunk == null) return;
+        AtmosphereCycle cycle = cycles.get(level);
+        if (cycle != null) cycle.invalidateChunk(chunk.getPos());
         loadedReactionChunks.computeIfAbsent(level, ignored -> new LoadedReactionChunks()).add(chunk.getPos());
-        cancelEqualization(level);
+        EqualizationJob waiting = equalizationJobs.get(level);
+        BlockPos retryCandidate = waiting == null || !waiting.waitingForChunk ? null : waiting.discovery.retryCandidate();
+        if (retryCandidate != null && new ChunkPos(retryCandidate).equals(chunk.getPos())) waiting.waitingForChunk = false;
+        else if (waiting != null && equalizationTouchesChunk(waiting, chunk.getPos())) cancelEqualization(level);
+        Map<BlockPos, EqualizationJob> parked = parkedEqualizationJobs.get(level);
+        if (parked != null) for (EqualizationJob parkedJob : parked.values()) {
+            BlockPos retry = parkedJob.discovery.retryCandidate();
+            if (retry != null && parkedJob.waitingForChunk && new ChunkPos(retry).equals(chunk.getPos())) {
+                parkedJob.waitingForChunk = false;
+                prioritizeSeed(level, parkedJob.seed);
+            }
+        }
         OwnershipWork ownership = ownershipWork.get(level);
         if (ownership != null) {
             ownership.retryForChunkLifecycle(chunk.getPos());
@@ -981,6 +1273,8 @@ public final class AtmosphereService {
 
     void onChunkUnload(ServerLevel level, ChunkPos chunk) {
         if (!enabled || level == null || chunk == null) return;
+        AtmosphereCycle cycle = cycles.get(level);
+        if (cycle != null) cycle.invalidateChunk(chunk);
         LoadedReactionChunks tracked = loadedReactionChunks.get(level);
         if (tracked != null) tracked.remove(chunk);
         Map<BlockPos, Integer> cursors = fireExposureCursors.get(level);
@@ -988,8 +1282,21 @@ public final class AtmosphereService {
             cursors.keySet().removeIf(pos -> new ChunkPos(pos).equals(chunk));
             if (cursors.isEmpty()) fireExposureCursors.remove(level);
         }
+        Map<BlockPos, Double> fireResults = fireReactionResults.get(level);
+        if (fireResults != null) {
+            removeFireReactionResultsInChunk(fireResults, chunk);
+            if (fireResults.isEmpty()) fireReactionResults.remove(level);
+        }
+        Set<BlockPos> continuations = pressureContinuationSeeds.get(level);
+        if (continuations != null) {
+            removePressureContinuationsInChunk(continuations, chunk);
+            if (continuations.isEmpty()) pressureContinuationSeeds.remove(level);
+        }
         excitedGroups.remove(level);
-        cancelEqualization(level);
+        EqualizationJob job = equalizationJobs.get(level);
+        if (job != null && equalizationTouchesChunk(job, chunk)) cancelEqualization(level);
+        Map<BlockPos, EqualizationJob> parkedJobs = parkedEqualizationJobs.get(level);
+        if (parkedJobs != null) parkedJobs.values().removeIf(parked -> equalizationTouchesChunk(parked, chunk));
         OwnershipWork ownership = ownershipWork.get(level);
         if (ownership != null) {
             ownership.retryForChunkLifecycle(chunk);
@@ -1041,8 +1348,11 @@ public final class AtmosphereService {
         void restart() { cursor = null; pending = !chunks.isEmpty(); }
         boolean hasPending() { return pending; }
         int drain(int budget, Consumer<ChunkPos> inspect) {
+            return drain(budget, () -> false, inspect);
+        }
+        int drain(int budget, BooleanSupplier deadlineReached, Consumer<ChunkPos> inspect) {
             int count = 0;
-            while (pending && count < budget) {
+            while (pending && count < budget && (count == 0 || !deadlineReached.getAsBoolean())) {
                 ChunkPos next = cursor == null ? (chunks.isEmpty() ? null : chunks.first()) : chunks.higher(cursor);
                 if (next == null) { pending = false; break; }
                 cursor = next;
@@ -1054,14 +1364,186 @@ public final class AtmosphereService {
         }
     }
 
-    public void clear(ServerLevel level) { diagnosticTimings.remove(level); patchDiagnostics.remove(level); queues.remove(level); reactionQueues.remove(level); loadedReactionChunks.remove(level); fireExposureCursors.remove(level); lastReactionTick.remove(level); deferredChunkLoads.remove(level); boundaryLedgers.remove(level); hotspotFaceHeat.remove(level); spaceBoundaryCellsThisCycle.remove(level); equalizationJobs.remove(level); prioritySeeds.remove(level); prioritySeedStreaks.remove(level); ownershipWork.remove(level); openableStates.remove(level); excitedGroups.remove(level); nextExcitedCycle.remove(level); }
-    public void clearAll() { diagnosticTimings.clear(); patchDiagnostics.clear(); queues.clear(); reactionQueues.clear(); loadedReactionChunks.clear(); fireExposureCursors.clear(); lastReactionTick.clear(); deferredChunkLoads.clear(); boundaryLedgers.clear(); hotspotFaceHeat.clear(); spaceBoundaryCellsThisCycle.clear(); equalizationJobs.clear(); prioritySeeds.clear(); prioritySeedStreaks.clear(); ownershipWork.clear(); openableStates.clear(); excitedGroups.clear(); nextExcitedCycle.clear(); }
+    public long completedCycles(ServerLevel level) { AtmosphereCycle cycle = cycles.get(level); return cycle == null ? 0 : cycle.completed(); }
+    public long atmosphereCycleIdentity(ServerLevel level) { AtmosphereCycle cycle = cycles.get(level); return cycle == null ? 0 : cycle.identity(); }
+    public String atmosphereStage(ServerLevel level) {
+        AtmosphereCycle cycle = cycles.get(level);
+        return cycle == null || cycle.stage() == null ? "idle" : cycle.stage().name().toLowerCase(java.util.Locale.ROOT);
+    }
+    public void clear(ServerLevel level) { diagnosticTimings.remove(level); runtimeTelemetry.remove(level); patchDiagnostics.remove(level); pressureDiagnostics.remove(level); pressureContinuationSeeds.remove(level); queues.remove(level); reactionQueues.remove(level); loadedReactionChunks.remove(level); fireExposureCursors.remove(level); fireReactionResults.remove(level); ignitionDiagnostics.remove(level); deferredChunkLoads.remove(level); boundaryLedgers.remove(level); hotspotFaceHeat.remove(level); spaceBoundaryCellsThisCycle.remove(level); equalizationJobs.remove(level); parkedEqualizationJobs.remove(level); cycles.remove(level); prioritySeeds.remove(level); prioritySeedStreaks.remove(level); ownershipWork.remove(level); openableStates.remove(level); excitedGroups.remove(level); }
+    public void clearAll() { diagnosticTimings.clear(); runtimeTelemetry.clear(); patchDiagnostics.clear(); pressureDiagnostics.clear(); pressureContinuationSeeds.clear(); queues.clear(); reactionQueues.clear(); loadedReactionChunks.clear(); fireExposureCursors.clear(); fireReactionResults.clear(); ignitionDiagnostics.clear(); deferredChunkLoads.clear(); boundaryLedgers.clear(); hotspotFaceHeat.clear(); spaceBoundaryCellsThisCycle.clear(); equalizationJobs.clear(); parkedEqualizationJobs.clear(); cycles.clear(); prioritySeeds.clear(); prioritySeedStreaks.clear(); ownershipWork.clear(); openableStates.clear(); excitedGroups.clear(); }
+
+    private void advanceMonstermosCycle(ServerLevel level, WorkQueue queue, AtmosphereCycle cycle,
+                                        Set<BlockPos> boundaryCells, Set<BlockPos> handled,
+                                        BooleanSupplier deadlineReached) {
+        EqualizationJob active = equalizationJobs.get(level);
+        if (active != null && active.waitingForChunk) {
+            parkedEqualizationJobs.computeIfAbsent(level, ignored -> new LinkedHashMap<>()).put(active.seed, active);
+            prioritizeSeed(level, active.seed);
+            equalizationJobs.remove(level);
+            active = null;
+        }
+        boolean seedCheckpointDone = false;
+        while (active == null && !cycle.monstermosSeeds().isEmpty()
+                && (!seedCheckpointDone || !deadlineReached.getAsBoolean())) {
+            BlockPos seed = cycle.monstermosSeeds().removeFirst();
+            seedCheckpointDone = true;
+            if (skipMonstermosSeed(cycle.monstermosProcessed(), seed, false)) continue;
+            if (isLoadedPassableExterior(level, seed)) {
+                removeTerminalPressureContinuation(level, seed);
+                continue;
+            }
+            PrioritySeedQueue priority = prioritySeeds.get(level);
+            if (priority != null) priority.remove(seed);
+            Map<BlockPos, EqualizationJob> parked = parkedEqualizationJobs.get(level);
+            active = parked == null ? null : parked.remove(seed);
+            if (parked != null && parked.isEmpty()) parkedEqualizationJobs.remove(level);
+            if (active != null) {
+                BlockPos retry = active.discovery.retryCandidate();
+                if (retry != null && loadedChunk(level, retry) == null) {
+                    parkedEqualizationJobs.computeIfAbsent(level, ignored -> new LinkedHashMap<>()).put(seed, active);
+                    active = null;
+                    continue;
+                }
+                active.waitingForChunk = false;
+            } else {
+                boolean continuation = pressureContinuationSeeds.getOrDefault(level, Set.of()).contains(seed);
+                SeedPreflight preflight = inspectMonstermosSeed(level, seed, continuation);
+                if (preflight == SeedPreflight.INACTIVE) {
+                    removeTerminalPressureContinuation(level, seed);
+                    cycle.monstermosProcessed().add(seed.immutable());
+                    continue;
+                }
+                if (preflight == SeedPreflight.UNKNOWN) {
+                    prioritizeSeed(level, seed);
+                    prioritySeeds.get(level).defer(seed);
+                    continue;
+                }
+                active = new EqualizationJob(seed);
+            }
+        }
+        if (active != null) {
+            equalizationJobs.put(level, active);
+            if (!seedCheckpointDone || !deadlineReached.getAsBoolean())
+                advanceEqualization(level, queue, handled, boundaryCells);
+        }
+    }
+
+    enum SeedPreflight { ACTIVE, INACTIVE, UNKNOWN }
+
+    static SeedPreflight preflightMonstermosSource(boolean loaded, boolean passable, boolean finite,
+                                                   Runnable requestOwnership) {
+        if (!loaded) return SeedPreflight.UNKNOWN;
+        if (!passable) return SeedPreflight.INACTIVE;
+        if (!finite) {
+            requestOwnership.run();
+            return SeedPreflight.UNKNOWN;
+        }
+        return SeedPreflight.ACTIVE;
+    }
+
+    private SeedPreflight inspectMonstermosSeed(ServerLevel level, BlockPos seed, boolean continuation) {
+        LevelChunk sourceChunk = loadedChunk(level, seed);
+        if (sourceChunk == null) return SeedPreflight.UNKNOWN;
+        boolean passable = AtmosphereTopology.isPassable(level, seed);
+        SeedPreflight sourcePreflight = preflightMonstermosSource(true, passable,
+                isFiniteClaimed(sourceChunk, seed), () -> ownership(level, sourceChunk, seed));
+        if (sourcePreflight != SeedPreflight.ACTIVE) return sourcePreflight;
+        GasMixture source = finiteMixture(level, seed);
+        if (source == null) return SeedPreflight.UNKNOWN;
+        boolean unknownNeighbor = false;
+        for (Direction direction : Direction.values()) {
+            BlockPos neighbor = seed.relative(direction);
+            if (!inBounds(level, neighbor)) continue;
+            LevelChunk chunk = loadedChunk(level, neighbor);
+            if (chunk == null) { unknownNeighbor = true; continue; }
+            if (!AtmosphereTopology.canExchange(level, seed, neighbor)) continue;
+            GasMixture neighborGas = null;
+            if (isFiniteClaimed(chunk, neighbor)) neighborGas = sample(level, neighbor).orElse(null);
+            else if (isLoadedPassableExterior(level, neighbor)) neighborGas = ambient(level);
+            else {
+                ownership(level, chunk, neighbor);
+                unknownNeighbor = true;
+            }
+            if (neighborGas == null) continue;
+            boolean spaceExterior = isSpace(level.dimension()) && isLoadedPassableExterior(level, neighbor);
+            boolean pressureDriven = !spaceExterior && monstermosSeedNeedsPressureEqualization(source, neighborGas);
+            boolean spaceDriven = spaceExterior
+                    && monstermosSeedNeedsEqualization(source.totalMoles(), neighborGas.totalMoles());
+            if (pressureDriven || spaceDriven)
+                return SeedPreflight.ACTIVE;
+        }
+        return normalPressureContinuationPreflight(false, continuation, unknownNeighbor);
+    }
+
+    static SeedPreflight normalPressureContinuationPreflight(boolean pressureGradient, boolean continuation,
+                                                              boolean unknownNeighbor) {
+        if (pressureGradient) return SeedPreflight.ACTIVE;
+        if (unknownNeighbor) return SeedPreflight.UNKNOWN;
+        return continuation ? SeedPreflight.ACTIVE : SeedPreflight.INACTIVE;
+    }
+
+    static boolean skipMonstermosSeed(Set<BlockPos> processed, BlockPos seed, boolean exterior) {
+        return processed.contains(seed) || exterior;
+    }
+
+    static void removeTerminalPressureContinuation(Set<BlockPos> continuations, BlockPos seed) {
+        continuations.remove(seed);
+    }
+
+    static void removePressureContinuationsInChunk(Set<BlockPos> continuations, ChunkPos chunk) {
+        continuations.removeIf(pos -> new ChunkPos(pos).equals(chunk));
+    }
+
+    private void removeTerminalPressureContinuation(ServerLevel level, BlockPos seed) {
+        Set<BlockPos> continuations = pressureContinuationSeeds.get(level);
+        if (continuations == null) return;
+        removeTerminalPressureContinuation(continuations, seed);
+        if (continuations.isEmpty()) pressureContinuationSeeds.remove(level);
+    }
+
+    static void updatePressureContinuationSeeds(Set<BlockPos> continuations, BlockPos seed, boolean incomplete,
+                                                boolean spacePass) {
+        if (incomplete) {
+            if (!spacePass) continuations.add(seed.immutable());
+        }
+        else {
+            continuations.remove(seed);
+        }
+    }
+
+    static Set<BlockPos> orderedMonstermosSeeds(Set<BlockPos> continuations, java.util.Collection<BlockPos> ordinary,
+                                                java.util.Collection<BlockPos> priority) {
+        Set<BlockPos> admitted = new LinkedHashSet<>();
+        admitted.addAll(continuations);
+        admitted.addAll(ordinary);
+        admitted.addAll(priority);
+        return admitted;
+    }
+
+    static boolean monstermosSeedNeedsEqualization(double sourceTotalMoles, double neighborTotalMoles) {
+        return Double.isFinite(sourceTotalMoles) && Double.isFinite(neighborTotalMoles)
+                && Math.abs(sourceTotalMoles - neighborTotalMoles) > MonstermosEqualization.MINIMUM_MOLES_DELTA;
+    }
+
+    static boolean monstermosSeedNeedsPressureEqualization(GasMixture source, GasMixture neighbor) {
+        if (source == null || neighbor == null) return false;
+        double sourcePressure = source.pressureKpa();
+        double neighborPressure = neighbor.pressureKpa();
+        if (!Double.isFinite(sourcePressure) || !Double.isFinite(neighborPressure)) return false;
+        var settings = MonstermosPressureEqualization.DEFAULTS;
+        double tolerance = Math.max(settings.absoluteToleranceKpa(),
+                Math.max(Math.abs(sourcePressure), Math.abs(neighborPressure)) * settings.relativeTolerance());
+        return Math.abs(sourcePressure - neighborPressure) > tolerance;
+    }
 
     private void advanceEqualization(ServerLevel level, WorkQueue queue, Set<BlockPos> monstermosHandledThisCycle,
                                      Set<BlockPos> boundaryCells) {
         EqualizationJob job = equalizationJobs.get(level);
-        if (job == null) return;
+        if (job == null || job.waitingForChunk) return;
+        int[] probes = {0};
         BoundedRegionDiscovery.Snapshot result = job.discovery.step(pos -> {
+            probes[0]++;
             if (!inBounds(level, pos)) return BoundedRegionDiscovery.ProbeResult.BLOCKED;
             LevelChunk chunk = loadedChunk(level, pos);
             if (chunk == null) return BoundedRegionDiscovery.ProbeResult.UNKNOWN_UNLOADED;
@@ -1071,45 +1553,67 @@ public final class AtmosphereService {
                         ? BoundedRegionDiscovery.ProbeResult.EXTERIOR_IMMUTABLE
                         : BoundedRegionDiscovery.ProbeResult.BLOCKED;
             return BoundedRegionDiscovery.ProbeResult.FINITE_LOADED;
-        }, MAX_DISCOVERY_PROBES_PER_TICK);
-        if (result.status() == BoundedRegionDiscovery.Status.PATCH_READY
-                || result.status() == BoundedRegionDiscovery.Status.COMPLETE) {
-            if (!result.cells().isEmpty()) commitPatch(level, queue, job, result.cells(), monstermosHandledThisCycle, boundaryCells);
-            if (result.status() == BoundedRegionDiscovery.Status.PATCH_READY) {
-                job.discovery.consumePatch();
-            } else {
-                equalizationJobs.remove(level);
-            }
+        }, MAX_DISCOVERY_PROBES_PER_SLICE);
+        AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.get(level);
+        if (telemetry != null) telemetry.monstermosProbes(probes[0]);
+        job.exterior.addAll(result.exteriorSeeds());
+        if (result.status() == BoundedRegionDiscovery.Status.PATCH_READY) {
+            job.discovered.addAll(result.cells());
+            job.discovery.consumePatch();
+        } else if (result.status() == BoundedRegionDiscovery.Status.COMPLETE) {
+            job.discovered.addAll(result.cells());
+            if (job.discovered.size() > MonstermosEqualization.MAX_DISCOVERED_CELLS)
+                job.discovered.subList(MonstermosEqualization.MAX_DISCOVERED_CELLS, job.discovered.size()).forEach(pos -> prioritizeSeed(level, pos));
+            int patchLimit = monstermosPatchLimit(level, job);
+            if (!job.discovered.isEmpty() && commitPatch(level, queue, job,
+                    List.copyOf(job.discovered.subList(0, Math.min(job.discovered.size(), patchLimit))),
+                    monstermosHandledThisCycle, cycles.get(level).monstermosProcessed(), boundaryCells))
+                cycles.get(level).addMonstermosSeeds(job.discovered.subList(
+                        Math.min(job.discovered.size(), patchLimit), job.discovered.size()));
+            equalizationJobs.remove(level);
         } else if (result.status() == BoundedRegionDiscovery.Status.HARD_LIMIT) {
             // HARD_LIMIT is a bounded-work boundary, never a finite component boundary. Commit
             // whatever finite cells fit in this patch, then hand the unclassified frontier to
             // the fair capped seed scheduler instead of repeatedly starting at the old origin.
             // Its overflow is intentionally coalesced per chunk: in an overloaded chunk only one
             // continuation branch is retained until more ordinary activation supplies another.
-            if (!result.cells().isEmpty()) commitPatch(level, queue, job, result.cells(), monstermosHandledThisCycle, boundaryCells);
+            job.discovered.addAll(result.cells());
+            if (job.discovered.size() > MonstermosEqualization.MAX_DISCOVERED_CELLS)
+                job.discovered.subList(MonstermosEqualization.MAX_DISCOVERED_CELLS, job.discovered.size()).forEach(pos -> prioritizeSeed(level, pos));
+            int patchLimit = monstermosPatchLimit(level, job);
+            if (!job.discovered.isEmpty() && commitPatch(level, queue, job,
+                    List.copyOf(job.discovered.subList(0, Math.min(job.discovered.size(), patchLimit))),
+                    monstermosHandledThisCycle, cycles.get(level).monstermosProcessed(), boundaryCells))
+                cycles.get(level).addMonstermosSeeds(job.discovered.subList(
+                        Math.min(job.discovered.size(), patchLimit), job.discovered.size()));
             result.continuationSeeds().forEach(seed -> prioritizeSeed(level, seed));
             equalizationJobs.remove(level);
         } else if (result.status() == BoundedRegionDiscovery.Status.UNKNOWN_CHUNK) {
-            BlockPos retry = job.discovery.retryCandidate();
-            if (retry != null) prioritizeSeed(level, retry);
-            equalizationJobs.remove(level);
+            job.waitingForChunk = true;
         } else if (result.status() == BoundedRegionDiscovery.Status.CANCELLED) {
             equalizationJobs.remove(level);
         }
     }
 
-    private void commitPatch(ServerLevel level, WorkQueue queue, EqualizationJob job, List<BlockPos> cells,
-                             Set<BlockPos> monstermosHandledThisCycle, Set<BlockPos> boundaryCells) {
-        if (cells.isEmpty() || cells.size() > MonstermosEqualization.MAX_CELLS) {
+    private int monstermosPatchLimit(ServerLevel level, EqualizationJob job) {
+        return isSpace(level.dimension()) && !job.exterior.isEmpty()
+                ? MonstermosEqualization.MAX_DISCOVERED_CELLS : MonstermosEqualization.UPSTREAM_SOFT_LIMIT;
+    }
+
+    private boolean commitPatch(ServerLevel level, WorkQueue queue, EqualizationJob job, List<BlockPos> cells,
+                             Set<BlockPos> monstermosHandledThisCycle, Set<BlockPos> monstermosProcessed,
+                             Set<BlockPos> boundaryCells) {
+        if (cells.isEmpty() || cells.size() > MonstermosEqualization.MAX_DISCOVERED_CELLS) {
             cells.forEach(pos -> prioritizeSeed(level, pos));
             equalizationJobs.remove(level);
-            return;
+            return false;
         }
         List<GasMixture> currentMixtures = new java.util.ArrayList<>(cells.size());
         Map<BlockPos, GasMixture> finite = new java.util.LinkedHashMap<>();
         Map<BlockPos, Set<BlockPos>> adjacency = new java.util.LinkedHashMap<>();
         Set<BlockPos> selected = new HashSet<>(cells);
         Set<BlockPos> exterior = new HashSet<>();
+        exterior.addAll(job.exterior);
         Map<MonstermosSpaceFlow.DirectedEdge, GasMixture> exteriorFaces = new java.util.LinkedHashMap<>();
         boolean invalid = false;
         for (BlockPos pos : cells) {
@@ -1119,7 +1623,7 @@ public final class AtmosphereService {
             if (current == null) {
                 enqueue(queue, job.seed);
                 equalizationJobs.remove(level);
-                return;
+                return false;
             }
             currentMixtures.add(current);
             finite.put(pos.immutable(), current);
@@ -1150,58 +1654,63 @@ public final class AtmosphereService {
         if (invalid || !isConnected(cells, adjacency)) {
             cells.forEach(pos -> prioritizeSeed(level, pos));
             equalizationJobs.remove(level);
-            return;
+            return false;
         }
         // A single graph cannot safely couple a vacuum sink and a replenishing reservoir.
-        boolean vacuumPolicy = vacuumDimensions.contains(level.dimension());
-        if (exteriorFaces.values().stream().anyMatch(g ->
-                (g.pressureKpa(1.0) == 0.0) != vacuumPolicy)) {
-            cells.forEach(pos -> prioritizeSeed(level, pos));
-            equalizationJobs.remove(level);
-            return;
-        }
-        PatchKernel kernel = chooseKernelForPatch(exterior, vacuumPolicy);
+        boolean spacePolicy = isSpace(level.dimension());
+        PatchKernel kernel = chooseKernelForPatch(exterior, spacePolicy);
         patchDiagnostics.put(level, new PatchDiagnostic(kernel.name(), "none", "attempted", cells.size(), 0, 0, 0, 0));
-        boolean spacePass = kernel != PatchKernel.NORMAL_EQUALIZATION;
+        boolean spacePass = kernel == PatchKernel.SPACE_FLOW;
         boolean normalIncomplete = false;
         Map<BlockPos, GasMixture> after;
+        Set<BlockPos> normalIncludedCells = null;
         MonstermosSpaceFlow.ExportLedger exported = null;
+        MonstermosPressureEqualization.Diagnostics pressureDiagnostic = null;
+        int pressureSearchWork = 0;
+        int pressureFaceTransfers = 0;
+        double pressureSolverMs = 0;
+        Map<GasType, Double> boundaryGasPackets = Map.of();
+        double boundaryEnergyPacket = 0.0;
         try {
             if (spacePass) {
-                MonstermosSpaceFlow.Result result = kernel == PatchKernel.SPACE_FLOW
-                        ? MonstermosSpaceFlow.run(finite, adjacency, exterior, MonstermosEqualization.MAX_CELLS)
-                        : MonstermosSpaceFlow.runAmbient(finite, adjacency, exteriorFaces, MonstermosEqualization.MAX_CELLS);
+                MonstermosSpaceFlow.Result result = MonstermosSpaceFlow.run(finite, adjacency, exteriorFaces, job.seed,
+                        MonstermosEqualization.MAX_DISCOVERED_CELLS);
                 if (!result.work().complete() || result.states().size() != finite.size()) {
                     patchDiagnostics.put(level, new PatchDiagnostic(kernel.name(), "none", "solver " + result.work().status(), cells.size(), result.work().discoveredCells(), result.work().simulationCalls(), 0, 0));
                     cells.forEach(pos -> prioritizeSeed(level, pos));
                     equalizationJobs.remove(level);
-                    return;
+                    return false;
                 }
                 after = result.states();
                 exported = result.exported();
+                boundaryGasPackets = exported.speciesMoles();
+                boundaryEnergyPacket = exported.thermalEnergyJoules();
                 patchDiagnostics.put(level, new PatchDiagnostic(kernel.name(), "none", "solved; commit pending", cells.size(), result.work().discoveredCells(), result.work().simulationCalls(), exported.speciesMoles().values().stream().mapToDouble(Double::doubleValue).sum(), exported.thermalEnergyJoules()));
             } else {
-                MonstermosEqualization.Result result = MonstermosEqualization.equalize(finite, adjacency,
-                        MonstermosEqualization.MAX_CELLS);
-                if (result.states().size() != finite.size() || !result.states().keySet().containsAll(finite.keySet()))
-                    throw new IllegalStateException("Monstermos returned an incomplete state map");
-                after = result.states();
-                normalIncomplete = !result.work().complete();
-                patchDiagnostics.put(level, new PatchDiagnostic(kernel.name(), "none", "solved " + result.work().status(), cells.size(), result.work().discoveredCells(), result.work().transferOperations(), 0, 0));
-                if (normalIncomplete && (result.edgeFlows().isEmpty()
-                        || finite.entrySet().stream().noneMatch(entry -> !same(entry.getValue(), after.get(entry.getKey()))))) {
-                    // No bounded graph work made progress. Let the existing finite-to-finite
-                    // local pass process this patch instead of rescheduling the same solver seed.
-                    cells.forEach(pos -> enqueueLocalStencil(queue, pos));
-                    equalizationJobs.remove(level);
-                    return;
+                NormalMonstermosGraph normalGraph = normalMonstermosGraph(finite, adjacency, exteriorFaces);
+                long pressureStarted = System.nanoTime();
+                MonstermosPressureEqualization.Result pressureResult = solveNormalPressureGraph(normalGraph, job.seed);
+                pressureSolverMs = Math.max(0, System.nanoTime() - pressureStarted) / 1_000_000.0;
+                pressureDiagnostic = pressureResult.diagnostics();
+                MonstermosEqualization.Result result = pressureResult.transport();
+                pressureSearchWork = result.work().edgeSearchWork();
+                pressureFaceTransfers = result.work().transferOperations();
+                normalIncludedCells = result.includedCells();
+                after = new LinkedHashMap<>(finite);
+                for (BlockPos pos : finite.keySet()) {
+                    GasMixture replacement = result.states().get(pos);
+                    if (replacement != null) after.put(pos, replacement);
                 }
+                boundaryGasPackets = result.boundaryExchange().speciesMoles();
+                boundaryEnergyPacket = result.boundaryExchange().thermalEnergyJoules();
+                normalIncomplete = !result.work().complete();
+                patchDiagnostics.put(level, new PatchDiagnostic(kernel.name(), "none", "solved " + result.work().status(), cells.size(), result.work().discoveredCells(), result.work().transferOperations(), boundaryGasPackets.values().stream().mapToDouble(Double::doubleValue).sum(), boundaryEnergyPacket));
             }
         }
         catch (IllegalArgumentException | IllegalStateException exception) {
             cells.forEach(pos -> prioritizeSeed(level, pos));
             equalizationJobs.remove(level);
-            return;
+            return false;
         }
         // All predictable validation is completed before this loop. Server-thread execution
         // prevents topology or mixture changes between preflight and writes.
@@ -1219,7 +1728,14 @@ public final class AtmosphereService {
             if (previous != null) patchDiagnostics.put(level, new PatchDiagnostic(previous.attempted(), "none", "commit rejected", previous.size(), previous.expansions(), previous.calls(), previous.exportMoles(), previous.exportEnergy()));
             cells.forEach(pos -> prioritizeSeed(level, pos));
             equalizationJobs.remove(level);
-            return;
+            return false;
+        }
+        Set<BlockPos> processedCells = spacePass ? Set.copyOf(cells)
+                : monstermosProcessedFiniteCells(normalIncludedCells, finite.keySet());
+        monstermosProcessed.addAll(processedCells);
+        if (!spacePass && processedCells.size() < finite.size()) {
+            List<BlockPos> omitted = cells.stream().filter(pos -> !processedCells.contains(pos)).toList();
+            cycles.get(level).addMonstermosSeeds(omitted);
         }
         boolean changed = cells.stream().anyMatch(pos -> !same(finite.get(pos), after.get(pos)));
         if (changed) reconcileHotspotsAfterPatch(level, finite, after);
@@ -1227,20 +1743,29 @@ public final class AtmosphereService {
         if (completedPatch != null) patchDiagnostics.put(level, new PatchDiagnostic(completedPatch.attempted(), kernel.name(),
                 "committed " + (changed ? (normalIncomplete ? "partial" : "complete") : "no-op"), completedPatch.size(), completedPatch.expansions(),
                 completedPatch.calls(), completedPatch.exportMoles(), completedPatch.exportEnergy()));
-        // Normal finite equalization is the first stage only: LINDA species sharing and
-        // face heat must see its committed mixtures in this same due cycle. Boundary
-        // kernels retain handled-cell exclusion because they must not bypass the boundary
-        // cell admission guard with a same-cycle finite pass.
-        if (changed) markMonstermosPatchHandled(cells, monstermosHandledThisCycle, queue, spacePass);
+        if (pressureDiagnostic != null) pressureDiagnostics.put(level, new PressureDiagnostic(
+                pressureDiagnostic.pressureSpanBefore(), pressureDiagnostic.pressureSpanAfter(), pressureDiagnostic.converged(),
+                normalIncludedCells == null ? 0 : normalIncludedCells.size(), pressureDiagnostic.routes(),
+                pressureDiagnostic.scalarPreviewSteps(), pressureSearchWork, pressureFaceTransfers, pressureSolverMs));
+        AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.get(level);
+        if (telemetry != null) telemetry.equalizationCommitted(cells.size(), processedCells.size());
+        if (telemetry != null && pressureDiagnostic != null) telemetry.pressureFaceTransfers(pressureFaceTransfers);
+        // Both equalization kernels precede LINDA. Handled-cell state is diagnostic/topology
+        // bookkeeping only; finite cells still participate in same-cycle LINDA and immutable
+        // exterior-face sharing after either kernel commits.
+        List<BlockPos> handledCells = spacePass ? cells : cells.stream().filter(processedCells::contains).toList();
+        if (changed || spacePass) markMonstermosPatchHandled(handledCells, monstermosHandledThisCycle, queue, spacePass);
         if (spacePass) {
             Set<BlockPos> cycle = spaceBoundaryCellsThisCycle.computeIfAbsent(level, ignored -> new HashSet<>());
             for (BlockPos pos : cells) {
                 for (Direction direction : Direction.values())
                     if (exterior.contains(pos.relative(direction))) cycle.add(pos.immutable());
             }
+        }
+        if (!boundaryGasPackets.isEmpty() || boundaryEnergyPacket != 0.0) {
             BoundaryLedger ledger = boundaryLedgers.computeIfAbsent(level, ignored -> new BoundaryLedger());
-            exported.speciesMoles().forEach((type, amount) -> ledger.gas.merge(type, amount, Double::sum));
-            ledger.energy += exported.thermalEnergyJoules();
+            boundaryGasPackets.forEach((type, amount) -> ledger.gas.merge(type, amount, Double::sum));
+            ledger.energy += boundaryEnergyPacket;
         }
         List<BlockPos> changedCells = new java.util.ArrayList<>();
         for (int i = 0; i < cells.size(); i++) {
@@ -1249,12 +1774,14 @@ public final class AtmosphereService {
                 enqueue(queue, cells.get(i));
             }
         }
+        Set<BlockPos> continuations = pressureContinuationSeeds.computeIfAbsent(level, ignored -> new LinkedHashSet<>());
+        updatePressureContinuationSeeds(continuations, job.seed, normalIncomplete, spacePass);
+        if (continuations.isEmpty()) pressureContinuationSeeds.remove(level);
         if (normalIncomplete) {
-            // Partial normal-kernel edges are closed-system transfers. Their committed states
-            // alter the next bounded invocation's work and therefore make deterministic
-            // progress; all touched cells get a fair next-cycle continuation opportunity.
+            prioritizeSeed(level, job.seed);
             changedCells.forEach(pos -> prioritizeSeed(level, pos));
         }
+        return true;
     }
 
     static boolean applyPatchTransaction(List<BlockPos> positions, Map<BlockPos, GasMixture> before,
@@ -1312,14 +1839,64 @@ public final class AtmosphereService {
         return seen.size() == cells.size();
     }
 
-    static PatchKernel chooseKernelForPatch(Set<BlockPos> verifiedExteriorFaces, boolean vacuumDimension) {
-        return verifiedExteriorFaces.isEmpty() ? PatchKernel.NORMAL_EQUALIZATION
-                : vacuumDimension ? PatchKernel.SPACE_FLOW : PatchKernel.AMBIENT_FLOW;
+    static PatchKernel chooseKernelForPatch(Set<BlockPos> verifiedExteriorFaces, boolean spaceDimension) {
+        return verifiedExteriorFaces.isEmpty() || !spaceDimension ? PatchKernel.NORMAL_EQUALIZATION : PatchKernel.SPACE_FLOW;
     }
 
-    static boolean claimBoundaryCellForCycle(Set<BlockPos> cycleCells, BlockPos finiteCell) {
-        return cycleCells.add(finiteCell.immutable());
+    /** Adds an immutable LINDA endpoint without admitting it to the mutable transaction map. */
+    static void connectImmutableBoundary(Map<BlockPos, GasMixture> cycleArchive,
+                                          Map<BlockPos, Set<BlockPos>> adjacency,
+                                          BlockPos finite, BlockPos exterior, GasMixture baseline) {
+        BlockPos finiteKey = finite.immutable(), exteriorKey = exterior.immutable();
+        cycleArchive.putIfAbsent(exteriorKey, baseline);
+        adjacency.computeIfAbsent(finiteKey, ignored -> new LinkedHashSet<>()).add(exteriorKey);
     }
+
+    static LindaBoundaryExchange lindaBoundaryExchange(Map<BlockPos, GasMixture> before,
+                                                        Map<BlockPos, GasMixture> after) {
+        EnumMap<GasType, Double> species = new EnumMap<>(GasType.class);
+        double beforeEnergy = 0.0, afterEnergy = 0.0;
+        for (Map.Entry<BlockPos, GasMixture> entry : before.entrySet()) {
+            GasMixture next = after.get(entry.getKey());
+            if (next == null) continue;
+            GasMixture previous = entry.getValue();
+            beforeEnergy += previous.thermalEnergy();
+            afterEnergy += next.thermalEnergy();
+            for (GasType gas : GasType.values())
+                species.merge(gas, previous.moles(gas) - next.moles(gas), Double::sum);
+        }
+        species.entrySet().removeIf(entry -> entry.getValue() == 0.0);
+        return new LindaBoundaryExchange(Map.copyOf(species), beforeEnergy - afterEnergy);
+    }
+
+    record LindaBoundaryExchange(Map<GasType, Double> speciesMoles, double energyJoules) { }
+
+    /** Normal Monstermos sees the finite patch plus each distinct, directly adjacent ambient tile. */
+    static NormalMonstermosGraph normalMonstermosGraph(Map<BlockPos, GasMixture> finite,
+                                                         Map<BlockPos, Set<BlockPos>> finiteAdjacency,
+                                                         Map<MonstermosSpaceFlow.DirectedEdge, GasMixture> exteriorFaces) {
+        Map<BlockPos, GasMixture> cells = new LinkedHashMap<>(finite);
+        Map<BlockPos, Set<BlockPos>> adjacency = new LinkedHashMap<>();
+        finiteAdjacency.forEach((pos, neighbors) -> adjacency.put(pos.immutable(), new LinkedHashSet<>(neighbors)));
+        Set<BlockPos> immutable = new LinkedHashSet<>();
+        for (var face : exteriorFaces.entrySet()) {
+            BlockPos inside = face.getKey().from().immutable(), outside = face.getKey().to().immutable();
+            cells.putIfAbsent(outside, face.getValue());
+            immutable.add(outside);
+            adjacency.computeIfAbsent(inside, ignored -> new LinkedHashSet<>()).add(outside);
+            adjacency.computeIfAbsent(outside, ignored -> new LinkedHashSet<>()).add(inside);
+        }
+        return new NormalMonstermosGraph(cells, adjacency, immutable);
+    }
+
+    static MonstermosPressureEqualization.Result solveNormalPressureGraph(NormalMonstermosGraph graph, BlockPos seed) {
+        return MonstermosPressureEqualization.equalizeDiscovered(
+                graph.cells(), graph.adjacency(), seed, graph.immutablePositions());
+    }
+
+    record NormalMonstermosGraph(Map<BlockPos, GasMixture> cells,
+                                 Map<BlockPos, Set<BlockPos>> adjacency,
+                                 Set<BlockPos> immutablePositions) { }
 
     enum PatchKernel { NORMAL_EQUALIZATION, SPACE_FLOW, AMBIENT_FLOW }
 
@@ -1330,6 +1907,9 @@ public final class AtmosphereService {
     static final class EqualizationJob {
         private final BlockPos seed;
         final BoundedRegionDiscovery discovery;
+        final List<BlockPos> discovered = new java.util.ArrayList<>();
+        final Set<BlockPos> exterior = new LinkedHashSet<>();
+        boolean waitingForChunk;
         private boolean cancelled;
         EqualizationJob(BlockPos seed) {
             this.seed = seed.immutable();
@@ -1352,38 +1932,42 @@ public final class AtmosphereService {
     int queueCountForTesting() { return queues.size(); }
     int deferredChunkCountForTesting() { return deferredChunkLoads.values().stream().mapToInt(DeferredChunkQueue::size).sum(); }
 
-    private void processLindaTick(ServerLevel level, WorkQueue queue, Set<BlockPos> boundaryCells, int retrySteps,
-                                  Set<BlockPos> monstermosHandledThisCycle, long gameTime) {
+    private void processLindaTick(ServerLevel level, WorkQueue queue, int retrySteps,
+                                  long gameTime,
+                                  AtmosphereCycle cycle, Set<BlockPos> cycleSources) {
         Map<BlockPos, GasMixture> finite = new java.util.LinkedHashMap<>();
         Map<BlockPos, Set<BlockPos>> adjacency = new java.util.LinkedHashMap<>();
         List<BlockPos> active = new java.util.ArrayList<>();
-        List<BlockPos> boundarySources = new java.util.ArrayList<>();
-        List<BlockPos> deferredSources = new java.util.ArrayList<>();
+        Set<BlockPos> immutableEndpoints = new HashSet<>();
         int inspected = retrySteps;
-        while (active.size() < LINDA_MAX_ACTIVE_CELLS
-                && inspected + Direction.values().length + 1 <= MAX_CELLS_INSPECTED_PER_TICK && !queue.isEmpty()) {
-            BlockPos source = queue.poll();
+        while (active.size() < 1
+                && inspected + Direction.values().length + 1 <= MAX_CELLS_INSPECTED_PER_TICK && !cycleSources.isEmpty()) {
+            BlockPos source = queue.poll(cycleSources);
+            if (source == null) { cycleSources.clear(); break; }
+            cycleSources.remove(source);
             inspected += Direction.values().length + 1;
             if (source == null || isLoadedPassableExterior(level, source)) continue;
-            if (deferHandledLindaSource(source, monstermosHandledThisCycle, deferredSources)) continue;
             GasMixture mixture = finiteMixture(level, source);
             if (mixture == null) continue;
             active.add(source.immutable());
             finite.putIfAbsent(source.immutable(), mixture);
+            cycle.archive().putIfAbsent(source.immutable(), mixture);
             adjacency.computeIfAbsent(source.immutable(), ignored -> new LinkedHashSet<>());
             for (Direction direction : Direction.values()) {
                 BlockPos neighbor = source.relative(direction);
-                if (monstermosHandledThisCycle.contains(neighbor)) continue;
                 if (!inBounds(level, neighbor) || loadedChunk(level, neighbor) == null
                         || !AtmosphereTopology.canExchange(level, source, neighbor)) continue;
                 GasMixture neighborMixture = finiteMixture(level, neighbor);
                 if (neighborMixture != null) {
                     BlockPos a = source.immutable(), b = neighbor.immutable();
                     finite.putIfAbsent(b, neighborMixture);
+                    cycle.archive().putIfAbsent(b, neighborMixture);
                     adjacency.computeIfAbsent(a, ignored -> new LinkedHashSet<>()).add(b);
                     adjacency.computeIfAbsent(b, ignored -> new LinkedHashSet<>()).add(a);
                 } else if (isLoadedPassableExterior(level, neighbor)) {
-                    boundarySources.add(source.immutable());
+                    BlockPos exterior = neighbor.immutable();
+                    immutableEndpoints.add(exterior);
+                    connectImmutableBoundary(cycle.archive(), adjacency, source, exterior, ambient(level));
                 }
             }
         }
@@ -1392,80 +1976,99 @@ public final class AtmosphereService {
         for (Map.Entry<BlockPos, Set<BlockPos>> entry : adjacency.entrySet())
             for (BlockPos neighbor : entry.getValue()) {
                 LindaGasSharing.Pair pair = LindaGasSharing.Pair.of(entry.getKey(), neighbor);
-                if (groups.sameGroupPair(pair)) grouped.add(pair);
+                if (groups.bothGrouped(pair)) grouped.add(pair);
             }
-        LindaGasSharing.Result result = LindaGasSharing.process(finite, adjacency, Set.copyOf(active), grouped,
-                Math.min(800, active.size()));
+        LindaGasSharing.Result result = LindaGasSharing.processPressureAware(finite, cycle.archive(), adjacency, Set.copyOf(active), grouped,
+                cycle.lindaProcessedSources(), Math.min(800, active.size()));
+
+        Map<BlockPos, GasMixture> after = new java.util.LinkedHashMap<>(result.mixtures());
+        Map<BlockPos, GasReactionStep.WholeAirResult> wholePasses = new LinkedHashMap<>();
+        Map<BlockPos, GasMixture> lindaSharedBefore = new LinkedHashMap<>();
+        var catalog = PrototypeRuntime.serverGasReactions();
+        for (BlockPos pos : active) {
+            GasMixture shared = after.get(pos);
+            if (shared == null) continue;
+            GasReactionStep.WholeAirResult whole = GasReactionStep.evaluateWholeAir(catalog, shared,
+                    fireReactionResult(level, pos));
+            wholePasses.put(pos.immutable(), whole);
+            lindaSharedBefore.put(pos.immutable(), shared);
+            after.put(pos, whole.mixture());
+        }
 
         // Validate the complete snapshot and every predicted state before the first finite write.
-        boolean valid = result.mixtures().keySet().equals(finite.keySet());
-        if (valid) for (Map.Entry<BlockPos, GasMixture> entry : finite.entrySet())
-            if (!entry.getValue().equals(finiteMixture(level, entry.getKey()))) { valid = false; break; }
-        if (!valid || !applyPatchTransaction(new java.util.ArrayList<>(finite.keySet()), finite, result.mixtures(),
+        boolean valid = result.mixtures().keySet().equals(finite.keySet())
+                && finiteSnapshotMatches(finite, pos -> finiteMixture(level, pos));
+        if (!valid || !applyPatchTransaction(new java.util.ArrayList<>(finite.keySet()), finite, after,
                 (pos, state) -> write(level, pos, state, false), () -> { })) {
             active.forEach(pos -> enqueue(queue, pos));
-            requeueDeferredSources(queue, deferredSources);
             return;
         }
-        reconcileHotspotsAfterPatch(level, finite, result.mixtures());
-        for (LindaGasSharing.Pair pair : result.sharedPairs()) {
-            groups.onShare(pair, result.movedMolesByPair().getOrDefault(pair, 0.0), finite);
+        if (!immutableEndpoints.isEmpty()) {
+            LindaBoundaryExchange exchange = lindaBoundaryExchange(finite, result.mixtures());
+            if (!exchange.speciesMoles().isEmpty() || exchange.energyJoules() != 0.0) {
+                BoundaryLedger ledger = boundaryLedgers.computeIfAbsent(level, ignored -> new BoundaryLedger());
+                exchange.speciesMoles().forEach((gas, amount) -> ledger.gas.merge(gas, amount, Double::sum));
+                ledger.energy += exchange.energyJoules();
+            }
         }
-        result.mixtures().forEach((pos, after) -> {
-            if (!same(finite.get(pos), after)) enqueue(queue, pos);
+        reconcileHotspotsAfterPatch(level, finite, result.mixtures());
+        cycle.lindaProcessedSources().addAll(result.processedCells());
+        AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.get(level);
+        if (telemetry != null) telemetry.lindaSources(result.processedCells().size());
+        if (telemetry != null) telemetry.lindaSharedPairs(result.sharedPairs().size());
+        Map<BlockPos, Double> fireResults = fireReactionResults.computeIfAbsent(level, ignored -> new java.util.HashMap<>());
+        wholePasses.forEach((pos, whole) -> storeFireReactionResult(fireResults, pos, whole.fireExtentMoles(), true));
+        cycle.wholeAir().putAll(wholePasses);
+        ReactionWorkQueue reactionWork = reactionQueues.computeIfAbsent(level, ignored -> new ReactionWorkQueue());
+        for (Map.Entry<BlockPos, GasReactionStep.WholeAirResult> entry : wholePasses.entrySet()) {
+            GasReactionStep.WholeAirResult whole = entry.getValue();
+            if (!hasFireEvent(whole.events())) continue;
+            BlockPos pos = entry.getKey();
+            GasMixture committedGas = after.get(pos);
+            HotspotState existingHotspot = reactionWork.hotspot(pos);
+            Optional<HotspotState> created = HotspotKernel.expose(committedGas, existingHotspot,
+                    committedGas.temperatureKelvin(), committedGas.volumeCubicMeters() * 1000.0,
+                    false, true);
+            created.ifPresent(state -> {
+                        reactionWork.setHotspot(pos, Optional.of(state));
+                        AtmosphereVisualServerHooks.noteChanged(level, pos);
+                    });
+            lindaIgnitionDiagnostic(cycle.identity(), level.getGameTime(), pos, existingHotspot,
+                    lindaSharedBefore.get(pos), whole, created).ifPresent(event -> appendIgnitionDiagnostic(level, event));
+        }
+        Map<BlockPos, GasMixture> groupSnapshots = new LinkedHashMap<>(result.mixtures());
+        for (LindaGasSharing.Pair pair : result.sharedPairs()) {
+            if (cycle.archive().containsKey(pair.first())) groupSnapshots.put(pair.first(), cycle.archive().get(pair.first()));
+            if (cycle.archive().containsKey(pair.second())) groupSnapshots.put(pair.second(), cycle.archive().get(pair.second()));
+            groups.onShare(pair, result.absoluteMovedMolesByPair().getOrDefault(pair, 0.0), groupSnapshots);
+        }
+        after.forEach((pos, finalState) -> {
+            if (!same(finite.get(pos), finalState)) enqueue(queue, pos);
         });
         result.activatedNeighbors().forEach(pos -> enqueue(queue, pos));
 
-        // Exterior is a service-owned immutable sink; never expose it to LINDA's finite graph.
-        Set<BlockPos> visitedBoundary = new HashSet<>();
-        for (BlockPos source : boundarySources) {
-            if (!visitedBoundary.add(source) || boundaryCells.contains(source)) continue;
-            if (equalizationJobs.get(level) != null) {
-                boundaryCells.add(source);
-                prioritizeSeed(level, source);
-                continue;
-            }
-            for (Direction direction : Direction.values()) {
-                BlockPos exterior = source.relative(direction);
-                if (isLoadedPassableExterior(level, exterior)
-                        && AtmosphereTopology.canExchange(level, source, exterior)
-                        && exchangeWithExterior(level, queue, source, exterior)) {
-                    claimBoundaryCellForCycle(boundaryCells, source);
-                    break;
-                }
-            }
-        }
-
-        requeueDeferredSources(queue, deferredSources);
-        advanceExcitedGroupsWhenDue(level, queue, groups, monstermosHandledThisCycle, gameTime);
-    }
-
-    private void advanceExcitedGroupsWhenDue(ServerLevel level, WorkQueue queue, ExcitedAtmosphereGroups groups,
-                                             Set<BlockPos> monstermosHandledThisCycle, long gameTime) {
-        long due = nextExcitedCycle.computeIfAbsent(level, ignored -> ((gameTime + 11) / 12) * 12);
-        ExcitedCycleSchedule schedule = excitedCycleSchedule(gameTime, due, !monstermosHandledThisCycle.isEmpty());
-        if (!schedule.advance()) return;
-        advanceExcitedGroups(level, queue, groups);
-        nextExcitedCycle.put(level, schedule.nextDue());
-    }
-
-    static ExcitedCycleSchedule excitedCycleSchedule(long gameTime, long nextDue, boolean monstermosHandled) {
-        if (gameTime < nextDue || monstermosHandled) return new ExcitedCycleSchedule(false, nextDue);
-        return new ExcitedCycleSchedule(true, gameTime + 12);
-    }
-
-    record ExcitedCycleSchedule(boolean advance, long nextDue) { }
-
-    static boolean deferHandledLindaSource(BlockPos source, Set<BlockPos> handledThisCycle,
-                                           List<BlockPos> deferredSources) {
-        if (!handledThisCycle.contains(source)) return false;
-        deferredSources.add(source.immutable());
-        return true;
     }
 
     static void markMonstermosPatchHandled(List<BlockPos> patch, Set<BlockPos> handledThisCycle,
                                            WorkQueue queue) {
         markMonstermosPatchHandled(patch, handledThisCycle, queue, true);
+    }
+
+    static Set<BlockPos> monstermosProcessedFiniteCells(Set<BlockPos> includedCells, Set<BlockPos> finiteCells) {
+        if (includedCells == null || finiteCells == null || includedCells.isEmpty() || finiteCells.isEmpty()) return Set.of();
+        Set<BlockPos> result = new HashSet<>(includedCells);
+        result.retainAll(finiteCells);
+        return Set.copyOf(result);
+    }
+
+    private static boolean equalizationTouches(EqualizationJob job, BlockPos pos) {
+        return job.seed.equals(pos) || job.discovered.contains(pos) || job.exterior.contains(pos);
+    }
+
+    private static boolean equalizationTouchesChunk(EqualizationJob job, ChunkPos chunk) {
+        return new ChunkPos(job.seed).equals(chunk)
+                || job.discovered.stream().anyMatch(pos -> new ChunkPos(pos).equals(chunk))
+                || job.exterior.stream().anyMatch(pos -> new ChunkPos(pos).equals(chunk));
     }
 
     static void markMonstermosPatchHandled(List<BlockPos> patch, Set<BlockPos> handledThisCycle,
@@ -1474,10 +2077,6 @@ public final class AtmosphereService {
             if (boundaryKernel) handledThisCycle.add(pos.immutable());
             queue.offer(pos);
         });
-    }
-
-    static void requeueDeferredSources(WorkQueue queue, List<BlockPos> deferredSources) {
-        deferredSources.forEach(queue::offer);
     }
 
     private GasMixture finiteMixture(ServerLevel level, BlockPos pos) {
@@ -1493,24 +2092,75 @@ public final class AtmosphereService {
         return sample(level, pos).orElse(null);
     }
 
-    private void advanceExcitedGroups(ServerLevel level, WorkQueue queue, ExcitedAtmosphereGroups groups) {
-        // Take the authoritative bounded membership once per group-processing stage, never per LINDA pair.
-        Map<BlockPos, GasMixture> current = trackedFiniteSnapshot(groups, pos -> finiteMixture(level, pos));
-        if (current == null) {
-            // A stale/unloaded member invalidates this transient level-local group state.
-            excitedGroups.remove(level);
-            return;
+    private int advanceExcitedGroups(ServerLevel level, WorkQueue queue, long cycleId, ExcitedAtmosphereGroups groups,
+                                     BooleanSupplier deadlineReached) {
+        Map<BlockPos, GasMixture> captured = new LinkedHashMap<>();
+        Set<BlockPos> immutable = new HashSet<>(), space = new HashSet<>();
+        long[] memberReads = {0}, unavailableReads = {0}, failedCaptureNanos = {0};
+        ExcitedAtmosphereGroups.CycleResult cycle = groups.advanceCycle(cycleId, members -> {
+            long captureStarted = System.nanoTime();
+            Map<BlockPos, GasMixture> current = new LinkedHashMap<>();
+            Set<BlockPos> immutableMembers = new HashSet<>(), spaceMembers = new HashSet<>();
+            for (BlockPos pos : members) {
+                memberReads[0]++;
+                GroupCellRead read = readGroupCell(level, pos);
+                if (read == null) {
+                    unavailableReads[0]++;
+                    failedCaptureNanos[0] += System.nanoTime() - captureStarted;
+                    return null;
+                }
+                current.put(pos, read.mixture());
+                if (read.immutable()) immutableMembers.add(pos);
+                if (read.space()) spaceMembers.add(pos);
+            }
+            captured.putAll(current);
+            immutable.addAll(immutableMembers);
+            space.addAll(spaceMembers);
+            return new ExcitedAtmosphereGroups.LoadedGroupSnapshot(current, immutableMembers, spaceMembers,
+                    System.nanoTime() - captureStarted);
+        }, false, 800, deadlineReached);
+        AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.get(level);
+        if (telemetry != null) telemetry.groupWork(cycle.groupOperations(), memberReads[0], cycle.averages(),
+                unavailableReads[0], cycle.captureNanos() + failedCaptureNanos[0], cycle.averageNanos());
+        if (!cycle.replacements().isEmpty()) {
+            Map<BlockPos, GasMixture> expected = new LinkedHashMap<>();
+            for (BlockPos pos : cycle.replacements().keySet()) expected.put(pos, captured.get(pos));
+            long publicationStarted = System.nanoTime();
+            if (!applyPatchTransaction(new java.util.ArrayList<>(cycle.replacements().keySet()),
+                    expected, cycle.replacements(), (pos, state) -> write(level, pos, state, false), () -> { })) {
+                cycle.replacements().keySet().forEach(pos -> enqueue(queue, pos));
+                return 0;
+            }
+            if (telemetry != null) telemetry.groupPublication(System.nanoTime() - publicationStarted);
+            if (telemetry != null) telemetry.groupAveragedMembers(
+                    committedGroupFiniteMembers(expected, cycle.replacements(), immutable));
+            reconcileHotspotsAfterPatch(level, captured, cycle.replacements());
+            cycle.replacements().forEach((pos, state) -> enqueue(queue, pos));
+            if (!cycle.boundarySpeciesMoles().isEmpty() || cycle.boundaryEnergyJoules() != 0.0) {
+                BoundaryLedger ledger = boundaryLedgers.computeIfAbsent(level, ignored -> new BoundaryLedger());
+                cycle.boundarySpeciesMoles().forEach((gas, amount) -> ledger.gas.merge(gas, amount, Double::sum));
+                ledger.energy += cycle.boundaryEnergyJoules();
+            }
         }
-        if (current.isEmpty()) return;
-        ExcitedAtmosphereGroups.CycleResult cycle = groups.advanceFullCycle(current, 800);
-        if (!cycle.replacements().isEmpty() && !applyPatchTransaction(new java.util.ArrayList<>(cycle.replacements().keySet()),
-                current, cycle.replacements(), (pos, state) -> write(level, pos, state, false), () -> { })) {
-            cycle.replacements().keySet().forEach(pos -> enqueue(queue, pos));
-            return;
-        }
-        reconcileHotspotsAfterPatch(level, current, cycle.replacements());
-        cycle.replacements().forEach((pos, state) -> enqueue(queue, pos));
+        return cycle.groupOperations();
     }
+
+    private GroupCellRead readGroupCell(ServerLevel level, BlockPos pos) {
+        if (loadedChunk(level, pos) == null) return null;
+        GasMixture mixture = finiteMixture(level, pos);
+        if (mixture != null) return new GroupCellRead(mixture, false, false);
+        if (!isLoadedPassableExterior(level, pos)) return null;
+        return new GroupCellRead(ambient(level), true, isSpace(level.dimension()));
+    }
+
+    static long committedGroupFiniteMembers(Map<BlockPos, GasMixture> before,
+                                            Map<BlockPos, GasMixture> replacements,
+                                            Set<BlockPos> immutable) {
+        return replacements.entrySet().stream().filter(entry -> !immutable.contains(entry.getKey())
+                && before.get(entry.getKey()) != null && !same(before.get(entry.getKey()), entry.getValue())).count();
+    }
+
+    private record GroupCellRead(GasMixture mixture, boolean immutable, boolean space) { }
 
     static Map<BlockPos, GasMixture> trackedFiniteSnapshot(ExcitedAtmosphereGroups groups,
                                                             Function<BlockPos, GasMixture> sampler) {
@@ -1521,27 +2171,6 @@ public final class AtmosphereService {
             current.put(pos, mixture);
         }
         return current;
-    }
-
-    /** Under-overhang finite cells may drain into an adjacent directly sky-exposed sink. */
-    private boolean exchangeWithExterior(ServerLevel level, WorkQueue queue, BlockPos finitePos, BlockPos exteriorPos) {
-        Optional<GasMixture> finite = sample(level, finitePos);
-        Optional<GasMixture> exterior = sample(level, exteriorPos);
-        if (finite.isEmpty() || exterior.isEmpty()) return false;
-        ImmutableAtmosphereBoundary.Result result = ImmutableAtmosphereBoundary.exchange(
-                finite.get(), exterior.get(), BOUNDARY_TRANSFER_FRACTION, vacuumDimensions.contains(level.dimension()));
-        if (!meaningful(finite.get(), result.finiteAfter()) || !write(level, finitePos, result.finiteAfter(), false)) return false;
-        reconcileHotspotAfterMutation(level, finitePos, finite.get(), result.finiteAfter());
-        BoundaryLedger ledger = boundaryLedgers.computeIfAbsent(level, ignored -> new BoundaryLedger());
-        result.perGasExported().forEach((type, amount) -> ledger.gas.merge(type, amount, Double::sum));
-        ledger.energy += result.energyExportedJoules();
-        if (result.finiteAfter().pressureKpa(1.0) > 10.0) queue.offerUrgent(finitePos);
-        else enqueue(queue, finitePos);
-        for (Direction direction : Direction.values()) {
-            BlockPos neighbor = finitePos.relative(direction);
-            if (!isLoadedPassableExterior(level, neighbor)) enqueue(queue, neighbor);
-        }
-        return true;
     }
 
     private boolean write(ServerLevel level, BlockPos pos, GasMixture state) {
@@ -1578,16 +2207,16 @@ public final class AtmosphereService {
     /** Reproject a tracked hotspot after a committed non-reaction gas mutation. */
     private void reconcileHotspotAfterMutation(ServerLevel level, BlockPos pos, GasMixture before, GasMixture after) {
         ReactionWorkQueue reactions = reactionQueues.get(level);
-        HotspotKernel.HotspotState hotspot = reactions == null ? null : reactions.hotspot(pos);
+        HotspotState hotspot = reactions == null ? null : reactions.hotspot(pos);
         if (hotspot == null) return;
-        Optional<HotspotKernel.HotspotState> reconciled = reconcileHotspotState(before, after, hotspot);
+        Optional<HotspotState> reconciled = reconcileHotspotState(before, after, hotspot);
         reactions.setHotspot(pos, reconciled);
         if (reconciled.isEmpty()) reactions.setBurning(pos, 0);
         AtmosphereVisualServerHooks.noteChanged(level, pos);
     }
 
-    static Optional<HotspotKernel.HotspotState> reconcileHotspotState(GasMixture before, GasMixture after,
-                                                                       HotspotKernel.HotspotState state) {
+    static Optional<HotspotState> reconcileHotspotState(GasMixture before, GasMixture after,
+                                                         HotspotState state) {
         return HotspotKernel.reconcileAfterHeatTransfer(before, after, state);
     }
 
@@ -1656,13 +2285,38 @@ public final class AtmosphereService {
         work.offer(changed);
     }
 
-    private void advanceOwnership(ServerLevel level) {
+    private void advanceOwnership(ServerLevel level) { advanceOwnership(level, () -> false); }
+
+    private void advanceOwnership(ServerLevel level, BooleanSupplier deadlineReached) {
         OwnershipWork work = ownershipWork.get(level);
         if (work == null) return;
-        // Reserve most of the discovery budget for forward search progress. A retry backlog must
-        // not starve the active search, and rejected seed candidates still consume bounded checks.
-        int retryBudget = Math.min(128, MAX_DISCOVERY_PROBES_PER_TICK / 3);
-        int ownershipChecks = work.retryCandidates.drain(retryBudget, pos -> {
+        BoundedBudgetDrain.drain(deadlineReached, () -> {
+            long before = work.progressCounter;
+            long rejectedBefore = work.rejectedProofs;
+            advanceOwnershipSlice(level, deadlineReached);
+            return work.progressCounter != before && work.rejectedProofs == rejectedBefore;
+        });
+    }
+
+    private void advanceOwnershipSlice(ServerLevel level, BooleanSupplier deadlineReached) {
+        OwnershipWork work = ownershipWork.get(level);
+        if (work == null) return;
+        // An active forward proof always gets its checkpoint before optional retries; retry
+        // backlogs therefore cannot starve it. A checkpoint is at most eight loaded probes.
+        int discoveryBudget = MAX_DISCOVERY_PROBES_PER_SLICE;
+        if (work.active != null) {
+            int probes = Math.min(8, discoveryBudget);
+            advanceOwnershipSearch(level, work, probes);
+            discoveryBudget -= probes;
+            if (deadlineReached.getAsBoolean()) return;
+        }
+
+        int ownershipChecks = 0;
+        while (ownershipChecks < Math.min(128, MAX_DISCOVERY_PROBES_PER_SLICE / 3)
+                && (ownershipChecks == 0 || !deadlineReached.getAsBoolean())) {
+            int slice = Math.min(8, Math.min(128, MAX_DISCOVERY_PROBES_PER_SLICE / 3) - ownershipChecks);
+            int drained = work.retryCandidates.drain(slice, deadlineReached, pos -> {
+            work.progressCounter++;
             LevelChunk chunk = loadedChunk(level, pos);
             // Reuse normal bounded unknown-seed handling: its search parks by chunk and the chunk
             // load lifecycle wakes it for a fresh proof. Do not let one unloaded tail block later
@@ -1671,19 +2325,53 @@ public final class AtmosphereService {
             if (AtmosphereTopology.isPassable(level, pos) && !isFiniteClaimed(chunk, pos))
                 return work.offer(pos);
             return true; // blocked or already finite: no search is required
-        });
-        advanceOwnershipClaims(level, work);
-        int discoveryBudget = MAX_DISCOVERY_PROBES_PER_TICK - ownershipChecks;
-        if (work.active == null) {
-            int seedChecks = work.startNextSkippingFinite(discoveryBudget, seed -> {
-                LevelChunk chunk = loadedChunk(level, seed);
-                return chunk != null && isFiniteClaimed(chunk, seed);
             });
-            discoveryBudget -= seedChecks;
+            ownershipChecks += drained;
+            if (drained == 0) break;
+            if (deadlineReached.getAsBoolean()) break;
         }
-        if (discoveryBudget <= 0 || work.active == null) return;
+        discoveryBudget = Math.max(0, discoveryBudget - ownershipChecks);
+
+        int claimSlices = 0;
+        int maxClaimSlices = Math.max(1, (MAX_OWNERSHIP_CLAIMS_PER_SLICE + 7) / 8);
+        while (!work.claimPlans.isEmpty() && claimSlices < maxClaimSlices
+                && (claimSlices == 0 || !deadlineReached.getAsBoolean())) {
+            advanceOwnershipClaims(level, work, 8);
+            claimSlices++;
+        }
+        if (claimSlices > 0 && deadlineReached.getAsBoolean()) return;
+
+        if (work.active == null) {
+            boolean seeded = false;
+            boolean checkedSeedSlice = false;
+            while (!seeded && discoveryBudget > 0
+                    && (!checkedSeedSlice || !deadlineReached.getAsBoolean())) {
+                int seedChecks = work.startNextSkippingClassified(Math.min(8, discoveryBudget), seed -> {
+                    LevelChunk chunk = loadedChunk(level, seed);
+                    if (chunk == null) return false;
+                    // Existing finite claims take precedence; cached/direct exterior is reusable
+                    // only while the seed remains loaded and passable.
+                    return isFiniteClaimed(chunk, seed) || isLoadedPassableExterior(level, seed);
+                });
+                checkedSeedSlice = true;
+                discoveryBudget -= seedChecks;
+                seeded = work.active != null || seedChecks == 0;
+            }
+        }
+        while (discoveryBudget > 0 && work.active != null) {
+            int probes = Math.min(8, discoveryBudget);
+            advanceOwnershipSearch(level, work, probes);
+            discoveryBudget -= probes;
+            if (deadlineReached.getAsBoolean()) break;
+        }
+    }
+
+    private void advanceOwnershipSearch(ServerLevel level, OwnershipWork work, int probeBudget) {
+        if (probeBudget <= 0 || work.active == null) return;
         OwnershipJob job = work.active;
+        int[] probes = {0};
         AtmosphereOwnershipSearch.Snapshot result = job.search.step(pos -> {
+            probes[0]++;
             if (!inBounds(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
             LevelChunk chunk = loadedChunk(level, pos);
             if (chunk == null) return AtmosphereOwnershipSearch.ProbeResult.UNKNOWN_UNLOADED;
@@ -1691,13 +2379,30 @@ public final class AtmosphereService {
             if (isFiniteClaimed(chunk, pos)) return AtmosphereOwnershipSearch.ProbeResult.FINITE_CLAIMED;
             return isExterior(chunk, pos) ? AtmosphereOwnershipSearch.ProbeResult.OPEN_SKY_SEED
                     : AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED;
-        }, discoveryBudget);
+        }, probeBudget);
+        AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.get(level);
+        if (telemetry != null) telemetry.ownershipProbes(probes[0]);
+        work.progressCounter += probes[0];
+        finishOwnershipSearch(level, work, job, result);
+    }
+
+    private void finishOwnershipSearch(ServerLevel level, OwnershipWork work, OwnershipJob job,
+                                       AtmosphereOwnershipSearch.Snapshot result) {
         if (result.status() == AtmosphereOwnershipSearch.Status.EXTERIOR) {
-            if (isLiveExteriorWitness(level, result.visitedOpenCells())) {
+            // A terminal witness is validated and published as one coherent proof operation;
+            // this bounded (at most MAX_EXTERIOR_WITNESS_CHECKS cells) operation may overrun
+            // the soft tick deadline, but never publishes a partial exterior classification.
+            String rejection = exteriorWitnessRejection(level, result.visitedOpenCells());
+            if (rejection == null) {
                 if (work.rememberExteriorProof(job.seed, result.visitedOpenCells()))
                     wakeFiniteBoundary(level, result.visitedOpenCells());
+                else {
+                    rejectExteriorWitnessForAdmission(work, job.seed, "proof cache admission failed", result.visitedOpenCells().size());
+                    return;
+                }
             } else {
-                work.offer(job.seed);
+                rejectExteriorWitnessForAdmission(work, job.seed, rejection, result.visitedOpenCells().size());
+                return;
             }
             work.active = null;
         } else if (result.status() == AtmosphereOwnershipSearch.Status.FINITE) {
@@ -1718,6 +2423,21 @@ public final class AtmosphereService {
             work.offer(job.seed);
             work.active = null;
         }
+    }
+
+    /** Requeues a failed witness for a later callback and marks this callback's search as yielded. */
+    static boolean rejectExteriorWitnessForAdmission(OwnershipWork work, BlockPos seed) {
+        return rejectExteriorWitnessForAdmission(work, seed, "witness validation failed", 0);
+    }
+
+    static boolean rejectExteriorWitnessForAdmission(OwnershipWork work, BlockPos seed, String reason, int size) {
+        work.offer(seed);
+        work.active = null;
+        work.rejectedProofs++;
+        work.lastRejectedSeed = seed.immutable();
+        work.lastRejectedReason = reason;
+        work.lastRejectedWitnessSize = size;
+        return true;
     }
 
     /** Wake only loaded finite cells adjacent to a newly accepted proof; bounded by proof size. */
@@ -1754,24 +2474,34 @@ public final class AtmosphereService {
         return reachesSky;
     }
 
-    private boolean isLiveExteriorWitness(ServerLevel level, List<BlockPos> witness) {
-        return isExteriorWitnessValid(witness, pos -> {
+    private String exteriorWitnessRejection(ServerLevel level, List<BlockPos> witness) {
+        if (witness.isEmpty()) return "empty witness";
+        if (witness.size() > MAX_EXTERIOR_WITNESS_CHECKS) return "witness exceeds candidate limit";
+        boolean reachesSky = false;
+        for (BlockPos pos : witness) {
             LevelChunk chunk = loadedChunk(level, pos);
-            return chunk != null && AtmosphereTopology.isPassable(level, pos);
-        }, pos -> {
-            LevelChunk chunk = loadedChunk(level, pos);
-            return chunk != null && isExterior(chunk, pos);
-        });
+            if (chunk == null) return "witness dependency unloaded";
+            if (!AtmosphereTopology.isPassable(level, pos)) return "witness dependency blocked";
+            if (isExterior(chunk, pos)) reachesSky = true;
+        }
+        return reachesSky ? null : "witness has no live sky endpoint";
     }
 
     private void advanceOwnershipClaims(ServerLevel level, OwnershipWork work) {
+        advanceOwnershipClaims(level, work, MAX_OWNERSHIP_CLAIMS_PER_SLICE);
+    }
+
+    private void advanceOwnershipClaims(ServerLevel level, OwnershipWork work, int claimBudget) {
         OwnershipClaimJob job = work.claimPlans.pollFirst();
         if (job == null) return;
-        job.plan.advance(MAX_OWNERSHIP_CLAIMS_PER_TICK, pos -> {
+        job.plan.advance(Math.min(8, claimBudget), pos -> {
+            work.progressCounter++;
             LevelChunk chunk = loadedChunk(level, pos);
             if (chunk == null || !AtmosphereTopology.isPassable(level, pos)) return false;
             AtmosphereChunkData data = chunk.getData(ModDataAttachments.ATMOSPHERE_CHUNK.get());
             if (data.claimFinite(pos.getX() & 15, pos.getY(), pos.getZ() & 15)) {
+                AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.get(level);
+                if (telemetry != null) telemetry.ownershipClaimed(1);
                 chunk.setUnsaved(true);
                 AtmosphereVisualServerHooks.noteChanged(level, pos);
                 if (data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15) != null)
@@ -1813,7 +2543,7 @@ public final class AtmosphereService {
         private static final int CACHE_CAPACITY = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
         private static final int SEED_CAPACITY = 8192;
         private static final int OVERFLOW_SEED_CAPACITY = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
-        private static final int MAX_PROOF_DEPENDENCIES = MAX_EXTERIOR_WITNESS_CHECKS;
+        private static final int MAX_PROOF_DEPENDENCIES = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
         final LinkedHashSet<ExteriorProof> proofs = new LinkedHashSet<>();
         final LinkedHashSet<BlockPos> exterior = new LinkedHashSet<>();
         final LinkedHashSet<BlockPos> seeds = new LinkedHashSet<>();
@@ -1829,8 +2559,33 @@ public final class AtmosphereService {
         private final java.util.Map<ChunkPos, java.util.LinkedHashSet<BlockPos>> unknownByChunk = new java.util.HashMap<>();
         private final java.util.Map<BlockPos, Set<ChunkPos>> unknownChunksBySeed = new java.util.HashMap<>();
         private int proofReferences;
+        private BlockPos lastRejectedSeed;
+        private String lastRejectedReason;
+        private int lastRejectedWitnessSize;
+        long progressCounter, rejectedProofs;
         int pendingCount() { return seeds.size() + overflowSeeds.size() + unknown.size() + saturated.size()
                 + claimPlans.size() + retryCandidates.pendingWorkItems() + (active == null ? 0 : 1); }
+        int activeCandidateCount() { return active == null ? 0 : active.search.activeCandidateCount(); }
+        OwnershipDiagnostic diagnostic(BlockPos target) {
+            BlockPos activeSeed = active == null ? null : active.seed;
+            int candidateCount = active == null ? 0 : active.search.activeCandidateCount();
+            String status = "NOT_QUEUED", source = "none", reason = "no ownership work for target";
+            if (active != null && (active.seed.equals(target) || active.search.hasCandidate(target))) {
+                status = "ACTIVE_SEARCH"; source = "active seed"; reason = "searching bounded candidate graph";
+            } else if (seeds.contains(target) || overflowSeeds.contains(target)) {
+                status = "SEED_QUEUED"; source = "seed queue"; reason = "awaiting ownership search";
+            } else if (claimPlans.stream().anyMatch(job -> job.seed.equals(target))) {
+                status = "CLAIM_PUBLICATION"; source = "claim plan"; reason = "finite proof awaits claim publication";
+            } else if (unknown.contains(target)) {
+                status = "WAITING_UNLOADED"; source = "unloaded boundary"; reason = "ownership search encountered unloaded cells";
+            } else if (target.equals(saturated.get(new ChunkPos(target)))) {
+                status = "SATURATED"; source = "candidate cap"; reason = "ownership search reached candidate limit";
+            } else if (lastRejectedSeed != null && lastRejectedSeed.equals(target)) {
+                status = "LAST_REJECTED"; source = "witness validation"; reason = lastRejectedReason;
+            }
+            return new OwnershipDiagnostic(status, reason, activeSeed, candidateCount, source,
+                    lastRejectedSeed, lastRejectedReason, lastRejectedWitnessSize, retryCandidates.pendingWorkItems());
+        }
         OwnershipJob active;
         boolean offer(BlockPos pos) {
             BlockPos key = pos.immutable();
@@ -1852,15 +2607,16 @@ public final class AtmosphereService {
             return active.seed;
         }
         /** Drops stale finite seeds at the head, stopping as soon as one fresh seed is active. */
-        int startNextSkippingFinite(int budget, Predicate<BlockPos> finite) {
+        int startNextSkippingClassified(int budget, Predicate<BlockPos> classified) {
             int checked = 0;
             while (active == null && checked < budget) {
                 BlockPos seed = startNext();
                 if (seed == null) break;
                 checked++;
-                if (!finite.test(seed)) break;
+                if (!classified.test(seed)) break;
                 finishActive();
             }
+            progressCounter += checked;
             return checked;
         }
         void parkSaturated(BlockPos seed) {
@@ -2008,6 +2764,10 @@ public final class AtmosphereService {
         boolean hasExteriorDependency(BlockPos pos) {
             return proofByDependency.containsKey(pos) || proofsByColumn.containsKey(columnKey(pos));
         }
+        boolean hasExteriorWitnessCell(BlockPos pos) {
+            Set<ExteriorProof> indexed = proofByDependency.get(pos);
+            return indexed != null && indexed.stream().anyMatch(proof -> proof.valid);
+        }
         int proofReferenceCountForTesting() { return proofReferences; }
         List<BlockPos> invalidateAt(BlockPos changed) {
             java.util.LinkedHashSet<ExteriorProof> affected = new java.util.LinkedHashSet<>();
@@ -2080,7 +2840,20 @@ public final class AtmosphereService {
 
     private static boolean inBounds(ServerLevel level, BlockPos pos) { return pos.getY() >= level.getMinBuildHeight() && pos.getY() < level.getMaxBuildHeight(); }
     private GasMixture ambient(ServerLevel level) { return ambient(level.dimension()); }
+    boolean isSpace(ResourceKey<Level> dimension) { return AtmosphereProfiles.spaceDimension(dimension, spaceDimensions); }
     GasMixture ambient(ResourceKey<Level> dimension) { return AtmosphereProfiles.ambient(dimension, vacuumDimensions); }
+    private double fireReactionResult(ServerLevel level, BlockPos pos) {
+        Map<BlockPos, Double> results = fireReactionResults.get(level);
+        return results == null ? 0 : results.getOrDefault(pos, 0.0);
+    }
+    static void storeFireReactionResult(Map<BlockPos, Double> results, BlockPos pos,
+                                        double fireResultMoles, boolean committed) {
+        if (!committed || results == null || pos == null || !Double.isFinite(fireResultMoles) || fireResultMoles < 0) return;
+        results.put(pos.immutable(), fireResultMoles);
+    }
+    static void removeFireReactionResultsInChunk(Map<BlockPos, Double> results, ChunkPos chunk) {
+        results.keySet().removeIf(pos -> new ChunkPos(pos).equals(chunk));
+    }
     private WorkQueue queue(ServerLevel level) { return queues.computeIfAbsent(level, ignored -> new WorkQueue(pos -> loadedChunk(level, pos) != null)); }
     private void enqueue(WorkQueue queue, BlockPos pos) {
         queue.offer(pos);
@@ -2120,8 +2893,12 @@ public final class AtmosphereService {
     record SeedSelection(BlockPos seed, int priorityStreak) { }
 
     private int retryDirtyChunks(ServerLevel level, WorkQueue queue, int budget) {
+        return retryDirtyChunks(level, queue, budget, () -> false);
+    }
+
+    private int retryDirtyChunks(ServerLevel level, WorkQueue queue, int budget, BooleanSupplier deadlineReached) {
         int steps = 0;
-        while (steps < budget) {
+        while (steps < budget && (steps == 0 || !deadlineReached.getAsBoolean())) {
             WorkQueue.DirtyChunk dirty = queue.nextDirtyChunk();
             if (dirty == null) break;
             LevelChunk chunk = loadedChunk(level, dirty.seed());
@@ -2197,8 +2974,17 @@ public final class AtmosphereService {
     }
 
     static boolean same(GasMixture a, GasMixture b) {
-        if (a.temperatureKelvin() != b.temperatureKelvin()) return false;
+        if (a == null || b == null) return a == b;
+        if (a.temperatureKelvin() != b.temperatureKelvin()
+                || a.volumeCubicMeters() != b.volumeCubicMeters()) return false;
         for (GasType type : GasType.values()) if (a.moles(type) != b.moles(type)) return false;
+        return true;
+    }
+
+    static boolean finiteSnapshotMatches(Map<BlockPos, GasMixture> expected,
+                                         Function<BlockPos, GasMixture> currentMixture) {
+        for (Map.Entry<BlockPos, GasMixture> entry : expected.entrySet())
+            if (!same(entry.getValue(), currentMixture.apply(entry.getKey()))) return false;
         return true;
     }
     private static boolean meaningful(GasMixture a, GasMixture b) {
@@ -2296,6 +3082,40 @@ public final class AtmosphereService {
             if (pos != null) queued.remove(pos);
             return pos;
         }
+
+        BlockPos poll(Set<BlockPos> eligible) {
+            for (var iterator = urgent.iterator(); iterator.hasNext();) {
+                BlockPos pos = iterator.next();
+                if (!eligible.contains(pos)) continue;
+                iterator.remove();
+                queued.remove(pos);
+                consecutiveUrgentPolls++;
+                return pos;
+            }
+            for (var iterator = pending.iterator(); iterator.hasNext();) {
+                BlockPos pos = iterator.next();
+                if (!eligible.contains(pos)) continue;
+                iterator.remove();
+                queued.remove(pos);
+                consecutiveUrgentPolls = 0;
+                return pos;
+            }
+            return null;
+        }
+
+        Set<BlockPos> snapshotPositions() {
+            Set<BlockPos> snapshot = new LinkedHashSet<>(pending);
+            snapshot.addAll(urgent);
+            return snapshot;
+        }
+
+        void removePosition(BlockPos pos) {
+            pending.remove(pos);
+            urgent.remove(pos);
+            queued.remove(pos);
+        }
+
+        boolean contains(BlockPos pos) { return queued.contains(pos); }
 
         DirtyChunk nextDirtyChunk() {
             if (dirtyChunks.isEmpty()) return null;
@@ -2396,6 +3216,16 @@ public final class AtmosphereService {
         }
 
         boolean isEmpty() { return pending.isEmpty() && overflowSeeds.isEmpty(); }
+        Set<BlockPos> snapshotPositions() {
+            Set<BlockPos> result = new LinkedHashSet<>(pending);
+            result.addAll(overflowSeeds.values());
+            return result;
+        }
+        void remove(BlockPos pos) {
+            pending.remove(pos);
+            queued.remove(pos);
+            overflowSeeds.remove(new ChunkPos(pos), pos);
+        }
         boolean hasPending() {
             demoteUnavailablePending();
             promoteLoadedOverflow();

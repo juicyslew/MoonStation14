@@ -72,6 +72,49 @@ class AtmosphereOwnershipSchedulerTest {
     }
 
     @Test
+    void repeatedClosedOpenableOnlyInvalidatesAnExactWitnessCell() {
+        BlockPos proofSeed = new BlockPos(5, 70, 5);
+        BlockPos closedHatch = new BlockPos(5, 64, 5);
+
+        AtmosphereService.OwnershipWork aboveHatch = new AtmosphereService.OwnershipWork();
+        aboveHatch.rememberExteriorProof(proofSeed, java.util.List.of(proofSeed, proofSeed.below()));
+        assertTrue(aboveHatch.hasExteriorDependency(closedHatch), "the column remains a broad topology dependency");
+        assertFalse(aboveHatch.hasExteriorWitnessCell(closedHatch));
+        AtmosphereService.OpenableStateTracker tracker = new AtmosphereService.OpenableStateTracker();
+        assertFalse(tracker.observe(closedHatch, false));
+        boolean repeatedClosed = tracker.observe(closedHatch, false);
+        assertFalse(AtmosphereService.shouldInvalidateClosedOpenable(false, repeatedClosed,
+                aboveHatch.hasExteriorWitnessCell(closedHatch)));
+        assertTrue(aboveHatch.isVerifiedExterior(proofSeed), "closed non-witness leaves preserve the proof");
+
+        AtmosphereService.OwnershipWork atHatch = new AtmosphereService.OwnershipWork();
+        atHatch.rememberExteriorProof(proofSeed, java.util.List.of(proofSeed, closedHatch));
+        AtmosphereService.OpenableStateTracker exactTracker = new AtmosphereService.OpenableStateTracker();
+        assertFalse(exactTracker.observe(closedHatch, false));
+        boolean exactChanged = exactTracker.observe(closedHatch, false);
+        boolean exactInvalidation = AtmosphereService.shouldInvalidateClosedOpenable(false, exactChanged,
+                atHatch.hasExteriorWitnessCell(closedHatch));
+        assertTrue(exactInvalidation);
+        if (exactInvalidation) atHatch.invalidateAt(closedHatch);
+        assertFalse(atHatch.isVerifiedExterior(proofSeed));
+    }
+
+    @Test
+    void actualOpenableStateTransitionStillInvalidatesColumnDependentProof() {
+        BlockPos proofSeed = new BlockPos(5, 70, 5);
+        BlockPos door = new BlockPos(5, 64, 5);
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        work.rememberExteriorProof(proofSeed, java.util.List.of(proofSeed, proofSeed.below()));
+        AtmosphereService.OpenableStateTracker tracker = new AtmosphereService.OpenableStateTracker();
+        assertTrue(tracker.observe(door, true), "first-seen open portals trigger topology work");
+        boolean changed = tracker.observe(door, false);
+        assertTrue(AtmosphereService.shouldInvalidateClosedOpenable(false, changed,
+                work.hasExteriorWitnessCell(door)));
+        assertTrue(work.invalidateAt(door).contains(proofSeed));
+        assertFalse(work.isVerifiedExterior(proofSeed));
+    }
+
+    @Test
     void proofRemovalReleasesReverseIndexCapacity() {
         AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
         BlockPos first = new BlockPos(0, 64, 0);
@@ -100,6 +143,49 @@ class AtmosphereOwnershipSchedulerTest {
         assertFalse(work.isVerifiedExterior(evictedCell), "eviction removes the old cache classification");
         assertTrue(work.isVerifiedExterior(replacement));
         assertEquals(1, work.proofReferenceCountForTesting(), "eviction releases its reverse-index budget");
+    }
+
+    @Test
+    void largeCoherentWitnessIsRetainedAndInvalidatedAcrossEveryDependency() {
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        java.util.List<BlockPos> witness = new java.util.ArrayList<>();
+        for (int i = 0; i < 5_000; i++) witness.add(new BlockPos(i, 64, 0));
+        BlockPos seed = witness.get(0);
+        BlockPos tail = witness.get(witness.size() - 1);
+
+        assertTrue(AtmosphereService.isExteriorWitnessValid(witness, pos -> true, pos -> pos.equals(tail)));
+        assertTrue(work.rememberExteriorProof(seed, witness));
+        assertTrue(work.isVerifiedExterior(seed));
+        assertTrue(work.isVerifiedExterior(tail));
+        assertEquals(witness.size(), work.proofReferenceCountForTesting());
+
+        assertTrue(work.invalidateAt(new BlockPos(2_500, 64, 0)).contains(seed));
+        assertFalse(work.isVerifiedExterior(seed));
+        assertFalse(work.isVerifiedExterior(tail), "all classifications depend on the complete witness");
+        assertEquals(0, work.proofReferenceCountForTesting());
+    }
+
+    @Test
+    void ownershipDiagnosticExplainsQueuedAndRejectedSeedsWithoutChangingCellStatus() {
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        BlockPos seed = new BlockPos(7, 64, 9);
+        assertTrue(work.offer(seed));
+        AtmosphereService.OwnershipDiagnostic queued = work.diagnostic(seed);
+        assertEquals("SEED_QUEUED", queued.status());
+        assertNull(queued.lastRejectedSeed());
+        assertTrue(AtmosphereService.rejectExteriorWitnessForAdmission(work, seed,
+                "witness dependency unloaded", 5_001));
+        AtmosphereService.OwnershipDiagnostic rejected = work.diagnostic(seed);
+        assertEquals("witness dependency unloaded", rejected.lastRejectedReason());
+        assertEquals(5_001, rejected.lastRejectedWitnessSize());
+        assertEquals("SEED_QUEUED", rejected.status(), "retry remains queued and cell status is unaffected");
+    }
+
+    @Test
+    void oversizedWitnessIsRejectedByLiveValidationGuard() {
+        java.util.List<BlockPos> oversized = java.util.Collections.nCopies(
+                AtmosphereService.MAX_EXTERIOR_WITNESS_CHECKS + 1, BlockPos.ZERO);
+        assertFalse(AtmosphereService.isExteriorWitnessValid(oversized, pos -> true, pos -> true));
     }
 
     @Test
@@ -234,13 +320,70 @@ class AtmosphereOwnershipSchedulerTest {
                 new BlockPos(200, 64, 0)));
 
         int retryChecks = work.retryCandidates.drain(2, pos -> true);
-        int seedChecks = work.startNextSkippingFinite(4 - retryChecks, pos -> pos.equals(staleFinite));
+        int seedChecks = work.startNextSkippingClassified(4 - retryChecks, pos -> pos.equals(staleFinite));
 
         assertEquals(2, retryChecks);
         assertEquals(2, seedChecks, "drop the stale head and stop after activating the first fresh seed");
         assertTrue(work.hasActive());
         assertEquals(500, work.queuedSeedCount(), "hundreds of nonfinite queued seeds stay queued for later");
         assertFalse(work.retryCandidates.isEmpty(), "bounded drain leaves remaining candidates pending");
+    }
+
+    @Test
+    void queuedSeedsCoveredByValidExteriorProofAreSkippedWithoutDuplicateProof() {
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        BlockPos first = new BlockPos(0, 64, 0);
+        BlockPos covered = new BlockPos(1, 64, 0);
+        BlockPos finalSeed = new BlockPos(2, 64, 0);
+        java.util.List<BlockPos> witness = java.util.List.of(first, covered, finalSeed);
+        assertTrue(work.rememberExteriorProof(first, witness));
+        int proofRefs = work.proofReferenceCountForTesting();
+        work.offer(covered);
+        work.offer(finalSeed);
+
+        int checks = work.startNextSkippingClassified(2,
+                seed -> loadedPassable(seed, witness) && work.isVerifiedExterior(seed));
+
+        assertEquals(2, checks);
+        assertFalse(work.hasActive(), "covered queued seeds need no redundant BFS");
+        assertEquals(0, work.queuedSeedCount());
+        assertEquals(proofRefs, work.proofReferenceCountForTesting());
+        assertEquals(1, work.proofs.size());
+        witness.forEach(pos -> assertTrue(work.isVerifiedExterior(pos)));
+    }
+
+    @Test
+    void invalidatedOrUnloadedProofSeedIsRetriedAndUnclassifiedSeedsStartSearch() {
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        BlockPos seed = new BlockPos(0, 64, 0);
+        assertTrue(work.rememberExteriorProof(seed, java.util.List.of(seed, seed.above())));
+        work.offer(seed);
+        java.util.List<BlockPos> retries = work.invalidateChunk(new ChunkPos(seed));
+        retries.forEach(work::offer);
+
+        int checks = work.startNextSkippingClassified(1,
+                pos -> loadedPassable(pos, java.util.List.of(seed, seed.above())) && work.isVerifiedExterior(pos));
+
+        assertEquals(1, checks);
+        assertEquals(seed, work.startNext(), "invalidated proof is unknown and must be searched again");
+    }
+
+    @Test
+    void exteriorCacheDoesNotSkipUnloadedOrBlockedSeeds() {
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        BlockPos seed = BlockPos.ZERO;
+        assertTrue(work.rememberExteriorProof(seed, java.util.List.of(seed, seed.above())));
+        work.offer(seed);
+
+        int checks = work.startNextSkippingClassified(1, pos -> false);
+
+        assertEquals(1, checks);
+        assertEquals(seed, work.startNext(), "normal search must handle unloaded/blocked candidates");
+        assertTrue(work.isVerifiedExterior(seed), "the existing proof is not modified by a rejected skip predicate");
+    }
+
+    private static boolean loadedPassable(BlockPos pos, java.util.List<BlockPos> loadedPassable) {
+        return loadedPassable.contains(pos);
     }
 
     @Test

@@ -1,8 +1,11 @@
 package com.juicyslew.moonstation14.ms14.atmos.world;
 
 import com.juicyslew.moonstation14.ms14.atmos.reaction.ExplosionHotspotExposure;
-import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import java.util.Optional;
+import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import org.junit.jupiter.api.Test;
@@ -14,10 +17,19 @@ class AtmosphereExplosionHotspotTest {
         return new ExplosionHotspotExposure.Decision(true, temperature, fraction);
     }
 
+    @Test void serviceExplosionOfferUsesUnscaledInputLitersBeforeKernelMultiplier() {
+        GasMixture gas = new GasMixture(Map.of(GasType.OXYGEN, 1.0, GasType.TRITIUM, 1.0), 300);
+        var decision = ExplosionHotspotExposure.decide(gas, 800, 2, 0, 0);
+        assertEquals(0.8, decision.exposedVolumeLiters());
+        HotspotState state = AtmosphereService.explosionHotspotState(gas, null, decision, false).orElseThrow();
+        assertEquals(20.0, state.volumeLiters(), 1e-8,
+                "the service passes 0.8 L input and the kernel applies the ×25 factor exactly once");
+    }
+
     @Test void quenchingHotspotAlsoClearsPendingExposureAndBurning() {
         var queue = new ReactionWorkQueue();
         BlockPos pos = new BlockPos(2, 64, 3);
-        queue.setHotspot(pos, Optional.of(new HotspotKernel.HotspotState(.2, 900)));
+        queue.setHotspot(pos, Optional.of(new HotspotState(200, 900, false, false)));
         assertTrue(queue.offerExposure(pos, offer(900, .2), 11));
         queue.setBurning(pos, 4);
 
