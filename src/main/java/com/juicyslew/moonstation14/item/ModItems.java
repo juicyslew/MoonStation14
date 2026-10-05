@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.item;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
+import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.item.custom.BottleItem;
 import com.juicyslew.moonstation14.item.custom.AtmosphereAnalyzerItem;
 import com.juicyslew.moonstation14.item.custom.CrowbarItem;
@@ -11,10 +12,13 @@ import com.juicyslew.moonstation14.item.custom.StationFloorTileItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTilePryItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
 import com.juicyslew.moonstation14.item.custom.CableCutterItem;
+import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
+import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import net.minecraft.world.item.Item;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -27,7 +31,7 @@ public class ModItems {
             () -> new Item(new Item.Properties().stacksTo(8))
     );
     public static final DeferredItem<Item> GLASS = ITEMS.register("glass",
-            () -> new Item(new Item.Properties().stacksTo(8))
+            () -> new Item(new Item.Properties().stacksTo(8).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "glass")))
     );
     public static final DeferredItem<Item> PAPER = ITEMS.register("paper",
             () -> new Item(new Item.Properties().stacksTo(8))
@@ -35,14 +39,15 @@ public class ModItems {
     public static final DeferredItem<Item> CLOTH = ITEMS.register("cloth",
             () -> new Item(new Item.Properties().stacksTo(8))
     );
-    public static final DeferredItem<Item> POUCH = ITEMS.register("pouch",
-            () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> BAG = ITEMS.register("bag",
-            () -> new Item(new Item.Properties().stacksTo(1)));
+            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "bag"))));
     public static final DeferredItem<Item> BELT = ITEMS.register("belt",
             () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> WOOD = ITEMS.register("wood",
             () -> new Item(new Item.Properties().stacksTo(8))
+    );
+    public static final DeferredItem<Item> PICKAXE = ITEMS.register("pickaxe",
+            () -> new Item(new Item.Properties().durability(250))
     );
 
     // Food
@@ -53,7 +58,7 @@ public class ModItems {
     // CUSTOM ITEMS
     // TODO: If I start having dependency issues with what needs to be defined before what, consider a lazy-initialized static map pattern for these item's construction result maps.
     public static final DeferredItem<Item> STEEL = ITEMS.register("steel",
-            () -> new SteelItem(new Item.Properties())
+            () -> new SteelItem(new Item.Properties().component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "steel")))
     );
     public static final DeferredItem<Item> CROWBAR = ITEMS.register("crowbar",
             () -> new CrowbarItem(new Item.Properties().durability(32))
@@ -76,9 +81,31 @@ public class ModItems {
             () -> new BottleItem(new Item.Properties().stacksTo(1))
     );
     public static final DeferredItem<JugItem> JUG = ITEMS.register("jug",
-            () -> new JugItem(ModBlocks.JUG.get(), new Item.Properties().stacksTo(1)));
+            () -> new JugItem(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), LooseObjectProfile.JUG_ID)));
+    public static final DeferredItem<CreativeGasPipeVisualItem> GAS_PIPE_VISUAL = ITEMS.register("gas_pipe_visual",
+            () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 1));
+    public static final DeferredItem<CreativeGasPipeVisualItem> GAS_PIPE_VISUAL_SECONDARY = ITEMS.register("gas_pipe_visual_secondary",
+            () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 2));
+    public static final DeferredItem<CreativeGasPipeVisualItem> GAS_PIPE_VISUAL_TERTIARY = ITEMS.register("gas_pipe_visual_tertiary",
+            () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 4));
+    public static final DeferredItem<Item> GAS_VENT = ITEMS.register("gas_vent",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> GAS_SCRUBBER = ITEMS.register("gas_scrubber",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> AIR_ALARM = ITEMS.register("air_alarm",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> GAS_PIPE_SEGMENT = ITEMS.register("gas_pipe_segment",
+            () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> GAS_PIPE_SEGMENT_SECONDARY = ITEMS.register("gas_pipe_segment_secondary",
+            () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> GAS_PIPE_SEGMENT_TERTIARY = ITEMS.register("gas_pipe_segment_tertiary",
+            () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> T_RAY_SCANNER = ITEMS.register("t_ray_scanner",
+            () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<GrenadeItem> GRENADE = ITEMS.register("grenade",
-            () -> new GrenadeItem(new Item.Properties().stacksTo(1)));
+            () -> new GrenadeItem(new Item.Properties().stacksTo(1)
+                    .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), LooseObjectProfile.GRENADE_ID)
+                    .component(ModDataComponents.GRENADE_FUSE.get(), com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData.SAFE)));
     public static final DeferredItem<AtmosphereAnalyzerItem> ATMOSPHERE_ANALYZER = ITEMS.register("atmosphere_analyzer",
             () -> new AtmosphereAnalyzerItem(new Item.Properties().stacksTo(1)));
 

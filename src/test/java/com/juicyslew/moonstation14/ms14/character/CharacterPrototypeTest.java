@@ -33,6 +33,18 @@ class CharacterPrototypeTest {
     private static final String RESOURCE = "data/moonstation14/moonstation14/character/human.json";
 
     @Test
+    void mouthMarkerRoundTripsAndRejectsUnknownFragmentFields() {
+        CharacterData mouth = CharacterData.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"components\":[{\"type\":\"Mouth\"}]}")).getOrThrow();
+        assertEquals(mouth, CharacterData.CODEC.parse(JsonOps.INSTANCE,
+                CharacterData.CODEC.encodeStart(JsonOps.INSTANCE, mouth).getOrThrow()).getOrThrow());
+        JsonObject invalid = JsonParser.parseString("{\"type\":\"Mouth\",\"unexpected\":true}").getAsJsonObject();
+        var failure = assertThrows(IllegalArgumentException.class,
+                () -> CharacterSchemaAudit.auditComponentFragment(invalid, "$.components[0]"));
+        assertTrue(failure.getMessage().contains("unexpected"), failure.getMessage());
+    }
+
+    @Test
     void slipMarkersInheritAndStandingAndReactiveFieldsPatchWithoutImplicitCapabilities() {
         ResourceLocation parentId = ResourceLocation.parse("moonstation14:slip_parent");
         ResourceLocation childId = ResourceLocation.parse("moonstation14:slip_child");

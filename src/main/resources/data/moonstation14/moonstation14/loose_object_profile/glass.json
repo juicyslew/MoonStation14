@@ -1,0 +1,5 @@
+{
+  "id": "moonstation14:glass", "parent": "moonstation14:generic",
+  "physical_width": 0.7, "physical_height": 0.106,
+  "visual": {"sprite_scale_x": 1.12, "sprite_scale_y": 1.12, "sprite_offset_x": -0.035, "sprite_offset_y": 0.0, "model_scale": 1.0, "model_floor_offset": 0.0}
+}

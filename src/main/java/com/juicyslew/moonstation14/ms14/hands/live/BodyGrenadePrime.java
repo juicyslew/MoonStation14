@@ -2,7 +2,6 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
-import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuse;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
@@ -42,7 +41,7 @@ public final class BodyGrenadePrime {
         catch (IllegalArgumentException failure) { return Result.DENIED; }
         ItemStack source = before.stackCopy(hand).orElse(null);
         if (!before.token(hand).filter(expectedToken::equals).isPresent() || source == null
-                || !source.is(ModItems.GRENADE) || source.getCount() != 1
+                || !source.has(ModDataComponents.GRENADE_FUSE.get()) || source.getCount() != 1
                 || !source.getOrDefault(ModDataComponents.GRENADE_FUSE.get(), GrenadeFuseData.SAFE).equals(GrenadeFuseData.SAFE))
             return Result.DENIED;
         GrenadeFuse fuse;

@@ -276,8 +276,9 @@ public final class CharacterSchemaAudit {
             auditRespirator(object, path, complete);
             return;
         }
-         if ("Body".equals(type) || "Hunger".equals(type) || "Thirst".equals(type) || "Stomach".equals(type)
-                 || "Blindable".equals(type)) {
+          if ("Body".equals(type) || "Hunger".equals(type) || "Thirst".equals(type) || "Stomach".equals(type)
+                  || "Mouth".equals(type)
+                  || "Blindable".equals(type)) {
              checkFields(object, Set.of("type"), path);
              return;
          }

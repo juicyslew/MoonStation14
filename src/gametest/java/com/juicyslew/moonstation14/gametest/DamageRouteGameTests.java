@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
@@ -35,22 +36,20 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.mojang.authlib.GameProfile;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.Set;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"damage"})
 public final class DamageRouteGameTests {
     private static final ResourceKey<ReagentData> POLYTRINIC_ACID = ModReagents.createKey("polytrinicacid");
 
     private DamageRouteGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void creativePlayerRejectsBothReagentDamageSourcesWithoutCommittingLedger(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Player creative = player(helper, "creative-reagent-route", true);
@@ -85,7 +84,7 @@ public final class DamageRouteGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void survivalPlayersStillTakeReagentDamageAndBypassIgnoresResistance(GameTestHelper helper) {
         Player resistible = player(helper, "survival-reagent-route", false);
         Player bypass = player(helper, "survival-bypass-route", false);
@@ -110,7 +109,7 @@ public final class DamageRouteGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void vanillaPlayerFallDamageEntersBluntLedger(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Player player = new Player(level, helper.absolutePos(new BlockPos(1, 1, 1)), 0f,
@@ -138,7 +137,7 @@ public final class DamageRouteGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void bottlePolytrinicAcidUsesStomachThenBloodstreamRoute(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
@@ -181,7 +180,7 @@ public final class DamageRouteGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void threeBodyUnitsApplyConfiguredPolytrinicAcidDose(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));

@@ -21,21 +21,20 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.monster.Zombie;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 
 import java.util.Map;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"damage"})
 public final class DamageGameTests {
     private DamageGameTests() {
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void zeroAndAbsentHealingDoNotMaterializeDamage(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         EffectContext context = context(helper, stand);
@@ -51,7 +50,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void healthChangeAndEvenHealingProjectTypedState(GameTestHelper helper) {
         Zombie stand = spawnZombie(helper, new BlockPos(1, 2, 1));
         EffectSystem effects = EffectSystem.withDefaults();
@@ -72,7 +71,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void projectionUsesEntityMaxHealth(GameTestHelper helper) {
         Zombie stand = spawnZombie(helper, new BlockPos(1, 2, 1));
         stand.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
@@ -84,7 +83,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void externalDamageHealingAndAbsorptionMirrorOnce(GameTestHelper helper) {
         Zombie stand = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 2, 1));
         stand.setNoAi(true);
@@ -112,7 +111,7 @@ public final class DamageGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void lowVanillaHealthImportsBaselineBeforeHealing(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         stand.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
@@ -128,7 +127,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void multiTypeVanillaHealingRemovesOneAggregateHealthPoint(GameTestHelper helper) {
         Zombie stand = spawnZombie(helper, new BlockPos(1, 2, 1));
         require(DamageSystem.applyHealthChange(stand, Map.of(DamageKeys.BLUNT, 5f, DamageKeys.SLASH, 10f),
@@ -143,7 +142,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void resistibleAndBypassTypedDamageHaveDifferentOutcomes(GameTestHelper helper) {
         Zombie resistible = spawnZombie(helper, new BlockPos(1, 2, 1));
         resistible.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 0));
@@ -177,7 +176,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void repeatedResistibleDamageIsMirrored(GameTestHelper helper) {
         Zombie stand = spawnZombie(helper, new BlockPos(1, 2, 1));
         require(DamageSystem.applyHealthChange(stand, Map.of(DamageKeys.BLUNT, 5f), 1f, false)
@@ -192,7 +191,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void rejectedMixedHealthChangeDoesNotApplyHealingHalf(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         require(DamageSystem.applyHealthChange(stand,
@@ -203,7 +202,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void reconcileImportsMissingHealthAtNonDefaultMaxHealth(GameTestHelper helper) {
         ArmorStand stand = spawn(helper);
         stand.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
@@ -218,7 +217,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void fullAbsorptionDoesNotMaterializeDamage(GameTestHelper helper) {
         Zombie stand = spawnZombie(helper, new BlockPos(1, 2, 1));
         stand.getAttribute(Attributes.MAX_ABSORPTION).setBaseValue(2f);
@@ -232,7 +231,7 @@ public final class DamageGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void bypassLethalDamageUsesTheDeathPath(GameTestHelper helper) {
         Zombie stand = spawnZombie(helper, new BlockPos(1, 2, 1));
         require(DamageSystem.applyHealthChange(stand, Map.of(DamageKeys.BLUNT, 100f), 1f, true)

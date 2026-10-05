@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
@@ -34,7 +35,6 @@ import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -44,12 +44,12 @@ import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"character", "movement"})
 public final class PlayerCharacterHarnessGameTests {
     private PlayerCharacterHarnessGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void mappedHarnessHostNeverAutomaticallyEnrollsAnUnboundBody(GameTestHelper helper) {
         var level = helper.getLevel();
         var harnessType = PlayerCharacterHarnessRegistration.getEntityType();
@@ -98,7 +98,7 @@ public final class PlayerCharacterHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void characterHarnessIsDistinctPersistentMobWithoutAutomaticBinding(GameTestHelper helper) {
         PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
                 new BlockPos(1, 1, 1));
@@ -124,7 +124,7 @@ public final class PlayerCharacterHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void characterHarnessIsNoAiBeforeSpawnAndAfterAnySavedOwnerLoad(GameTestHelper helper) {
         PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
         require(body != null, "registered character type creates a body");
@@ -172,7 +172,7 @@ public final class PlayerCharacterHarnessGameTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void malformedSavedBindingIsPermanentlyUnbindableAndPreserved(GameTestHelper helper) {
         CompoundTag wrongType = new CompoundTag();
         wrongType.putString("Moonstation14PlayerCharacterBinding", "raw-malformed-binding");
@@ -218,7 +218,7 @@ public final class PlayerCharacterHarnessGameTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void validBindingRoundTripsThroughFreshEntity(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         UUID mind = UUID.randomUUID();
@@ -249,7 +249,7 @@ public final class PlayerCharacterHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void explicitlyBoundMarkedCustomCharacterCanUseWorldStepWithoutHostMapping(GameTestHelper helper) {
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 8; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -352,7 +352,7 @@ public final class PlayerCharacterHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void appearanceRoundTripsSeparatelyFromBindingAndMalformedAppearanceIsSafe(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         UUID mind = UUID.randomUUID();
@@ -402,7 +402,7 @@ public final class PlayerCharacterHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void offlineBadgeTimestampPersistsAndFailsClosedOnMalformedData(GameTestHelper helper) {
         long offlineSince = 1_000_000L;
         require(!PlayerCharacterHarnessEntity.offlineBadgeDue(offlineSince, offlineSince + 59_999L),
@@ -440,7 +440,7 @@ public final class PlayerCharacterHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void offlineBadgeRequiresExactAccountDisconnectAndObservedGrace(GameTestHelper helper) {
         UUID owner = UUID.randomUUID();
         long now = 1_000_000L;
@@ -490,7 +490,7 @@ public final class PlayerCharacterHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void deadCharacterBodyRemainsInWorldWithoutBeingResurrected(GameTestHelper helper) {
         PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
                 new BlockPos(1, 1, 1));
@@ -515,7 +515,7 @@ public final class PlayerCharacterHarnessGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void confirmedCorpsePoseSurvivesSaveLoadButZeroHealthAloneDoesNot(GameTestHelper helper) {
         PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
                 new BlockPos(1, 1, 1));

@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereReading;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -100,6 +101,15 @@ class AtmosphereAnalyzerTargetTest {
         assertEquals(provisional, result.sample().orElseThrow());
         assertTrue(AtmosphereSampleFormatter.format(result.sample().orElseThrow())
                 .startsWith("Provisional / classification pending | P: "));
+    }
+
+    @Test
+    void defaultHeldTargetUsesBodyEyePositionRatherThanCarrierCoordinates() {
+        Vec3 bodyEye = new Vec3(18.2, 7.9, -3.1);
+        Vec3 carrierEye = new Vec3(200.0, 90.0, 200.0);
+
+        assertEquals(new BlockPos(18, 7, -4), AtmosphereAnalyzerItem.eyeTarget(bodyEye));
+        assertTrue(!AtmosphereAnalyzerItem.eyeTarget(bodyEye).equals(AtmosphereAnalyzerItem.eyeTarget(carrierEye)));
     }
 
     private static Function<BlockPos, Optional<AtmosphereReading>> recordingSampler(

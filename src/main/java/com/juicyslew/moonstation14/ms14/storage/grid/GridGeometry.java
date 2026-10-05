@@ -15,10 +15,11 @@ import java.util.Set;
 
 /** Pure, bounded geometry for a masked storage grid. This class knows nothing about game items. */
 public final class GridGeometry {
-    /** Provisional safety limits; owner approval is still pending. */
-    public static final int MAX_WIDTH = 16;
-    public static final int MAX_HEIGHT = 16;
-    public static final int MAX_CELLS = 256;
+    /** Approved bounded geometry limits. */
+    public static final int MAX_WIDTH = 8;
+    public static final int MAX_HEIGHT = 8;
+    public static final int MAX_CELLS = 64;
+    public static final int MAX_ENTRIES = 32;
 
     private GridGeometry() {
     }
@@ -85,7 +86,10 @@ public final class GridGeometry {
         public boolean contains(Cell cell) { return cells.contains(cell); }
     }
 
-    /** A normalized (minimum x/y are zero) occupied-cell shape and its four cardinal forms. */
+    /** A normalized occupied-cell shape. Rotation is clockwise around its bounding box, then
+     * translated so the rotated bounding box has minimum coordinates (0, 0). A placement's
+     * anchor is the translated origin (top-left of that normalized bounding box).
+     */
     public static final class Footprint {
         private final List<Cell> cells;
         private final Map<Rotation, List<Cell>> rotations;
@@ -206,6 +210,8 @@ public final class GridGeometry {
             for (Cell cell : candidate.occupiedCells())
                 if (occupiedCells.get(cell.y() * storage.width + cell.x()))
                     return rejected(Rejection.INVALID_PLACEMENT, candidate);
+            if (placements.size() >= MAX_ENTRIES)
+                return rejected(Rejection.NO_SPACE, candidate);
             Map<E, Placement<E>> next = new LinkedHashMap<>(placements);
             next.put(token, candidate);
             return new Mutation<>(new Snapshot<>(storage, next), Rejection.NONE, candidate);
@@ -225,6 +231,8 @@ public final class GridGeometry {
                 return rejected(Rejection.INVALID_PLACEMENT, null);
             if (placements.containsKey(token))
                 return rejected(Rejection.TOKEN_ALREADY_PRESENT, null);
+            if (placements.size() >= MAX_ENTRIES)
+                return rejected(Rejection.NO_SPACE, null);
             for (int y = 0; y < storage.height; y++)
                 for (int x = 0; x < storage.width; x++) {
                     Cell anchor = new Cell(x, y);

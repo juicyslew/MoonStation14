@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
@@ -20,7 +21,6 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -31,9 +31,8 @@ import java.util.UUID;
 
 import static com.juicyslew.moonstation14.util.Constants.SIP_INTERVAL_TICKS;
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry", "interaction"})
 public final class BottleInteractionGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
@@ -44,7 +43,7 @@ public final class BottleInteractionGameTests {
 
     private BottleInteractionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredBottleUseCallbackIngestsOnlyAtSipInterval(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Player player = mockPlayer(helper, level, new BlockPos(1, 1, 1));

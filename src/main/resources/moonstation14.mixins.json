@@ -18,6 +18,8 @@
     "ServerPlayerParkedDirectDropMixin",
     "HandActorParkedCarrierGuardMixin",
     "ServerPlayerStunPickupMixin",
+    "GiveCommandCreativeFakeDropMixin",
+    "ItemInputReagentValidationMixin",
     "ServerPlayerAcceptedMoveMixin",
     "ServerPlayerMovementTickMixin",
     "ServerPlayerMovementPacketMixin",
@@ -28,7 +30,8 @@
     "ServerPlayerMovementTeleportAckMixin",
     "LivingEntityMovementOwnerMixin",
     "MobMindHarnessOwnerMixin",
-    "LivingEntityMindHarnessTravelMixin"
+    "LivingEntityMindHarnessTravelMixin",
+    "LevelChunkSealedWallHostMixin"
   ],
   "client": [
     "client.MinecraftStunInputMixin",

@@ -2,7 +2,6 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
-import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuse;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.server.GrenadeDetonationService;
@@ -61,7 +60,7 @@ public final class BodyGrenadeHeldFuseService {
     static void tickHand(LivingEntity body, ServerLevel level, LiveHands before, String hand,
                          java.util.function.BooleanSupplier authorityValid) {
         ItemStack source = before.stackCopy(hand).orElse(null);
-        if (source == null || !source.is(ModItems.GRENADE) || source.getCount() != 1) return;
+        if (source == null || !source.has(ModDataComponents.GRENADE_FUSE.get()) || source.getCount() != 1) return;
         GrenadeFuseData data = source.get(ModDataComponents.GRENADE_FUSE.get());
         if (data == null || data.phase() != GrenadeFuse.Phase.ARMED) return;
         GrenadeFuse.Evaluation evaluation;

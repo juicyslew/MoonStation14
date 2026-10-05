@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.Config;
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -9,19 +10,18 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereOwnershipTailRetryGameTests {
     private AtmosphereOwnershipTailRetryGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ownership_tail_retry", timeoutTicks = 240)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ownership_tail_retry", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void topologyEditAfterCompletedProofReclassifiesRoom(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.INSTANCE;

@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
@@ -19,15 +21,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere"})
 public final class AtmosphereM11GameTests {
     private static final double TEMPERATURE_KELVIN = 293.15;
     private static final double CELL_MOLES = GasMixture.breathableAir().totalMoles();
 
     private AtmosphereM11GameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_m11_equal_pressure", timeoutTicks = 120)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_m11_equal_pressure", timeoutTicks = 120)
     public static void equalPressureAdjacentRoomsExchangeSpeciesThroughNewOpening(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildPartitionedRooms(helper);
@@ -96,7 +98,7 @@ public final class AtmosphereM11GameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_m11_pressure_transfer", timeoutTicks = 120)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_m11_pressure_transfer", timeoutTicks = 120)
     public static void openingTransfersGasDirectionallyFromHighToLowPressureRoom(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         buildPartitionedRooms(helper);

@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.player_body_control.character;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent;
+import com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementState;
@@ -56,6 +57,7 @@ public final class GroundedHarnessWorldStep {
         double surfaceFactor = SlidingFrictionSystem.frictionFactor(body);
         double voluntaryFactor = CharacterControlSystem.isKnockedDown(body)
                 ? CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d;
+        voluntaryFactor *= BodyPullService.movementMultiplier(body);
         CharacterMovementState state = new CharacterMovementState(vector(initial),
                 new MovementVector(initialVelocity.x * 20d, initialVelocity.y * 20d, initialVelocity.z * 20d),
                 body.onGround());

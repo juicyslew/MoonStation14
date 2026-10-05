@@ -20,6 +20,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
@@ -28,13 +29,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"interaction"})
 public final class HumanHarnessVacuumGameTests {
     private HumanHarnessVacuumGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void boundHarnessTakesPressureAndSuffocationOnlyInKnownVacuum(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -105,7 +105,7 @@ public final class HumanHarnessVacuumGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void ghostAndUnboundSpectatorDoNotInheritHumanHostExposure(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));

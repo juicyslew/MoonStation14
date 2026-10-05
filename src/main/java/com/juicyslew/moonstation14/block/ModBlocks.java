@@ -1,7 +1,6 @@
 package com.juicyslew.moonstation14.block;
 
 import com.juicyslew.moonstation14.MoonStation14;
-import com.juicyslew.moonstation14.block.custom.JugBlock;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.block.custom.PuddleBlock;
 import com.juicyslew.moonstation14.block.custom.AtmosphereTestDeviceBlock;
@@ -9,6 +8,9 @@ import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
+import com.juicyslew.moonstation14.ms14.atmos.piping.ExposedPipeVisualBlock;
+import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import net.minecraft.core.BlockPos;
@@ -46,10 +48,20 @@ public class ModBlocks {
             () -> new MagicBlock(BlockBehaviour.Properties.of()
                     .strength(2f).requiresCorrectToolForDrops()));
 
+    public static final DeferredBlock<ExposedPipeVisualBlock> GAS_PIPE_VISUAL = BLOCKS.register("gas_pipe_visual",
+            () -> new ExposedPipeVisualBlock(BlockBehaviour.Properties.of().strength(1.5f)));
 
-    // Custom Register (No Item, or Item needs to be custom-made)
-    public static final DeferredBlock<JugBlock> JUG = BLOCKS.register("jug",
-            () -> new JugBlock(Block.Properties.ofFullCopy(Blocks.GLASS)));
+    public static final DeferredBlock<VentilationDeviceBlock> GAS_VENT = BLOCKS.register("gas_vent",
+            () -> new VentilationDeviceBlock(com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Kind.VENT,
+                    BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER).noOcclusion()));
+    public static final DeferredBlock<VentilationDeviceBlock> GAS_SCRUBBER = BLOCKS.register("gas_scrubber",
+            () -> new VentilationDeviceBlock(com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Kind.SCRUBBER,
+                    BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER).noOcclusion()));
+    // Functional supply is a separate Item, never an implicit BlockItem placement permission.
+    public static final DeferredBlock<AirAlarmBlock> AIR_ALARM = BLOCKS.register("air_alarm",
+            () -> new AirAlarmBlock(BlockBehaviour.Properties.of().strength(2f).sound(SoundType.COPPER)
+                    .noOcclusion().noCollission()));
+
 
     public static final DeferredBlock<PuddleBlock> PUDDLE = BLOCKS.register("puddle",
             () -> new PuddleBlock(BlockBehaviour.Properties.of()

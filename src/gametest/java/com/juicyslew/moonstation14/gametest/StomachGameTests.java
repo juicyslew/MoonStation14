@@ -1,8 +1,8 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
-import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
@@ -53,9 +53,8 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "chemistry"})
 public final class StomachGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
@@ -75,7 +74,7 @@ public final class StomachGameTests {
 
     private StomachGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void bottleDoseEntersStomachAndFullStomachPreservesSource(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -109,73 +108,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void placedJugDirectIngestConservesAcceptedDoseAndRejectsUnsupportedCases(GameTestHelper helper) {
-        ServerLevel level = (ServerLevel) helper.getLevel();
-        BlockPos jugPos = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(jugPos.below(), Blocks.STONE.defaultBlockState(), 3);
-        level.setBlock(jugPos, ModBlocks.JUG.get().defaultBlockState(), 3);
-        require(level.getBlockState(jugPos).is(ModBlocks.JUG.get())
-                        && level.getBlockEntity(jugPos) instanceof JugBlockEntity,
-                "fixture must place the registered jug block and its actual block entity");
-        JugBlockEntity jug = (JugBlockEntity) level.getBlockEntity(jugPos);
-        Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 2));
-        villager.setNoAi(true);
-        require(StomachSystem.isEligible(villager), "fixture villager must be eligible for ingestion");
-
-        MS14Provider.update(jug, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(WATER, 12f)));
-        long sourceBefore = ReagentUnits.fromFloat(MS14Provider.get(jug, MS14Bridges.REAGENT)
-                .getMap().get(WATER));
-        long stomachBefore = ReagentUnits.total(ReagentUnits.fromMap(
-                MS14Provider.get(villager, MS14Bridges.STOMACH).getMap()).values());
-        float accepted = StomachSystem.ingest(jug.toHandleSelf(), villager, level, 5f);
-        long acceptedCents = ReagentUnits.fromFloat(accepted);
-        long sourceAfter = ReagentUnits.fromFloat(MS14Provider.get(jug, MS14Bridges.REAGENT)
-                .getMap().get(WATER));
-        long stomachAfter = ReagentUnits.fromFloat(MS14Provider.get(villager, MS14Bridges.STOMACH)
-                .getMap().get(WATER));
-        require(accepted == 5f && sourceBefore - sourceAfter == acceptedCents
-                        && stomachAfter - stomachBefore == acceptedCents,
-                "direct jug ingestion moves precisely the accepted dose into the villager stomach");
-        require(MS14Provider.get(jug, MS14Bridges.REAGENT).getMap().equals(Map.of(WATER, 7f))
-                        && MS14Provider.get(villager, MS14Bridges.STOMACH).getMap().equals(Map.of(WATER, 5f)),
-                "accepted sip leaves exact source and destination mixtures");
-
-        MS14Provider.update(villager, MS14Bridges.STOMACH,
-                new ReagentAttachment(Map.of(WATER, StomachSystem.CAPACITY)));
-        var fullSource = MS14Provider.get(jug, MS14Bridges.REAGENT).getMap();
-        var fullStomach = MS14Provider.get(villager, MS14Bridges.STOMACH).getMap();
-        require(StomachSystem.ingest(jug.toHandleSelf(), villager, level, 5f) == 0f,
-                "full villager stomach rejects the jug dose");
-        require(MS14Provider.get(jug, MS14Bridges.REAGENT).getMap().equals(fullSource)
-                        && MS14Provider.get(villager, MS14Bridges.STOMACH).getMap().equals(fullStomach),
-                "full-stomach rejection preserves both snapshots");
-
-        MS14Provider.update(jug, MS14Bridges.REAGENT, new ReagentAttachment(Map.of()));
-        MS14Provider.update(villager, MS14Bridges.STOMACH, new ReagentAttachment(Map.of()));
-        require(StomachSystem.ingest(jug.toHandleSelf(), villager, level, 5f) == 0f,
-                "empty jug rejects the requested dose");
-        require(MS14Provider.get(jug, MS14Bridges.REAGENT).getMap().isEmpty()
-                        && MS14Provider.get(villager, MS14Bridges.STOMACH).getMap().isEmpty(),
-                "empty-jug rejection preserves both empty snapshots");
-
-        var pig = helper.spawn(EntityType.PIG, new BlockPos(5, 1, 2));
-        pig.setNoAi(true);
-        require(!StomachSystem.isEligible(pig), "fixture pig must be ineligible for ingestion");
-        MS14Provider.update(jug, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(WATER, 12f)));
-        var pigSource = MS14Provider.get(jug, MS14Bridges.REAGENT).getMap();
-        require(!pig.hasData(ModDataAttachments.STOMACH.get()), "fixture pig starts without stomach data");
-        var pigStomach = MS14Provider.get(pig, MS14Bridges.STOMACH).getMap();
-        require(StomachSystem.ingest(jug.toHandleSelf(), pig, level, 5f) == 0f,
-                "ineligible pig rejects direct jug ingestion");
-        require(MS14Provider.get(jug, MS14Bridges.REAGENT).getMap().equals(pigSource)
-                        && MS14Provider.get(pig, MS14Bridges.STOMACH).getMap().equals(pigStomach)
-                        && !pig.hasData(ModDataAttachments.STOMACH.get()),
-                "pig rejection preserves jug source and does not create a stomach");
-        helper.succeed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void mixedSourceNearCapacityConservesEachReagent(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -205,7 +138,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void halfFullStomachAcceptsPartialSipFromDecimalSource(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -227,7 +160,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void subcentSourceIsNoOpAndLegacyStomachNormalizesOnPositiveSip(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -251,7 +184,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void puddleDoseRequiresEligibilityAndGenericTransferIsUnchanged(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -279,7 +212,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void stomachDigestionPersistsAndAppliesScaledThirstOnce(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -307,7 +240,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void nonDigestionStomachReagentTransfersAfterBodyPass(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -327,7 +260,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void fullBodyRetainsNonDigestionStomachReagent(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setNoAi(true);
@@ -357,7 +290,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void vomitEmptiesStomachSpillsActualMixtureAndPenalizesCustomNeeds(GameTestHelper helper) {
         BlockPos supportPos = new BlockPos(1, 0, 1);
         helper.setBlock(supportPos, Blocks.STONE);
@@ -420,7 +353,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void vomitUnsupportedZombieDoesNotMutateSharedSolution(GameTestHelper helper) {
         Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
         MS14Provider.update(zombie, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(WATER, 2f)));
@@ -432,7 +365,7 @@ public final class StomachGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void invalidStomachVomitFailsWithoutClearingOrApplyingPenalties(GameTestHelper helper) {
         Villager unknownOnly = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         unknownOnly.setNoAi(true);
@@ -464,7 +397,7 @@ public final class StomachGameTests {
                 "failed vomit does not create or apply status effects");
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void vomitDeadEligibleTargetDoesNotAttachStomachOrStatus(GameTestHelper helper) {
         Villager character = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         character.setHealth(0f);
