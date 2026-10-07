@@ -28,8 +28,15 @@ public final class DisposalConstructionClient {
     public enum Action { ENTER, SELECT, ROTATE, EXIT }
     public record Intent(Action action, String prototype) { }
     public record ClientState(UUID bodyUUID, long epoch, boolean active, String prototype, int rotationOffset, long revision) { }
-    public enum Readiness { WRONG_MATERIAL, INSUFFICIENT, READY }
+    public enum Readiness { UPDATING, WRONG_MATERIAL, INSUFFICIENT, READY }
     public record ReadinessView(Readiness state, int held, int required) { }
+    public record KeyStep(boolean wasDown, boolean rising) { }
+    public record RenderPolicy(boolean paletteOnly, boolean showPlacementStatus) { }
+    public static KeyStep keyStep(boolean wasDown, boolean isDown) { return new KeyStep(isDown, isDown && !wasDown); }
+    public static RenderPolicy renderPolicy(boolean paletteOpen) { return new RenderPolicy(paletteOpen, !paletteOpen); }
+    public static boolean paletteVisible(boolean held, boolean suppressed, boolean active, boolean pending) {
+        return held && !suppressed && (active || pending);
+    }
 
     private static final List<String> SHAPES = List.of("disposal_pipe", "disposal_bend", "disposal_trunk", "disposal_junction",
             "disposal_junction_flipped", "disposal_y_junction", "disposal_x_junction", "disposal_tagger", "disposal_router", "disposal_router_flipped");
@@ -42,10 +49,15 @@ public final class DisposalConstructionClient {
     private static long boundEpoch;
     private static Object connection, level;
     private static boolean palette;
+    private static boolean changeWasDown;
+    private static boolean enterPending;
+    private static boolean suppressHeldPalette;
     private static int cursor;
     private static long sequence;
     private static long lastAcceptedSequence;
     private static DisposalConstructionPreview.PlacementStatus placement = new DisposalConstructionPreview.PlacementStatus(false, false, "no_target");
+    private static long clientTicks;
+    private static final DisposalPlacementIssue placementIssue = new DisposalPlacementIssue();
     private static java.util.function.BiFunction<net.minecraft.core.BlockPos, ResourceLocation,
             java.util.Optional<com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeRecord>> tubeRecords = (p,d) -> java.util.Optional.empty();
 
@@ -81,7 +93,9 @@ public final class DisposalConstructionClient {
                 incoming.revision(), current.id, current.epoch, sequence, lastAcceptedSequence,
                 state == null ? -1 : state.revision())) return;
         lastAcceptedSequence = packetSequence;
+        if(state!=null&& !Objects.equals(state.prototype(),incoming.prototype())) placementIssue.clear();
         state = incoming; boundBody = incoming.bodyUUID(); boundEpoch = incoming.epoch();
+        enterPending = false;
         int found = SHAPES.indexOf(shortName(incoming.prototype())); if (found >= 0) cursor = found;
     }
     public static boolean acceptsSnapshot(UUID body, long epoch, long packetSequence, long revision,
@@ -104,6 +118,9 @@ public final class DisposalConstructionClient {
         if (held == null || held.isEmpty() || !held.is(material(materialId))) return new ReadinessView(Readiness.WRONG_MATERIAL, held == null ? 0 : held.getCount(), required);
         return new ReadinessView(held.getCount() < required ? Readiness.INSUFFICIENT : Readiness.READY, held.getCount(), required);
     }
+    public static ReadinessView readiness(boolean confirmed, String materialId, int required, ItemStack held) {
+        return confirmed ? readiness(materialId, required, held) : new ReadinessView(Readiness.UPDATING, 0, required);
+    }
     private static net.minecraft.world.item.Item material(String id) {
         ResourceLocation key = ResourceLocation.tryParse(id);
         return key != null && net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(key)
@@ -113,7 +130,10 @@ public final class DisposalConstructionClient {
         DisposalConstructionPreview.setPlanProvider(() -> Minecraft.getInstance().screen == null && state != null && state.active()
                 ? new DisposalConstructionPreview.PreviewPlan(state.bodyUUID(), state.epoch(), state.prototype(), state.rotationOffset()) : null);
         DisposalConstructionPreview.setHeldStackProvider(BodyHandClient::activeHeldStackFor);
-        DisposalConstructionPreview.setReadiness(value -> placement = value);
+        DisposalConstructionPreview.setReadiness(value -> {
+            placement = value;
+            if (value.aimed() && !value.valid()) placementIssue.invalid(value.reason(),clientTicks,state==null?null:state.bodyUUID(),state==null?0:state.epoch());
+        });
     }
     public static void setTubeRecordProvider(java.util.function.BiFunction<net.minecraft.core.BlockPos, ResourceLocation,
             java.util.Optional<com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeRecord>> provider) {
@@ -123,56 +143,78 @@ public final class DisposalConstructionClient {
     public static java.util.Optional<com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeRecord> tubeRecord(
             net.minecraft.core.BlockPos pos, ResourceLocation dimension) { return tubeRecords.apply(pos, dimension); }
     private static void tick(ClientTickEvent.Post event) {
+        clientTicks++;
         Minecraft mc = Minecraft.getInstance(); MobContext context = current();
         if (connection != mc.getConnection() || level != mc.level || context == null
                 || !Objects.equals(boundBody, context.id) || boundEpoch != context.epoch) {
             clear(); connection = mc.getConnection(); level = mc.level;
         }
-        if (context == null || mc.screen != null) { palette = false; consumeKeys(); return; }
-        boolean changed = CHANGE.consumeClick(), exited = EXIT.consumeClick(), rotated = ROTATE.consumeClick();
-        if (changed) {
-            if (state == null || !state.active()) { cursor = 0; palette = true; sender.accept(new Intent(Action.ENTER, null)); }
-            else { palette = !palette; if (palette && state.prototype() != null) cursor = Math.max(0, SHAPES.indexOf(shortName(state.prototype()))); }
+        if (context == null || mc.screen != null) { palette = false; changeWasDown = false; enterPending = false; consumeKeys(); return; }
+        boolean changeDown = CHANGE.isDown();
+        KeyStep keyStep = keyStep(changeWasDown, changeDown);
+        boolean rising = keyStep.rising();
+        changeWasDown = keyStep.wasDown();
+        while (CHANGE.consumeClick()) { }
+        boolean exited = false; while (EXIT.consumeClick()) exited = true;
+        boolean rotated = false; while (ROTATE.consumeClick()) rotated = true;
+        if (!changeDown) suppressHeldPalette = false;
+        if (rising && !suppressHeldPalette && (state == null || !state.active()) && !enterPending) {
+            cursor = 0; enterPending = true; sender.accept(new Intent(Action.ENTER, null));
         }
-        if (exited && state != null && state.active()) { palette = false; state = null; sender.accept(new Intent(Action.EXIT, null)); }
+        palette = paletteVisible(changeDown, suppressHeldPalette, state != null && state.active(), enterPending);
+        if (rising && palette && state != null && state.prototype() != null) cursor = Math.max(0, SHAPES.indexOf(shortName(state.prototype())));
+        if (exited && state != null && state.active()) { palette = false; suppressHeldPalette = changeDown; enterPending = false; state = null; placementIssue.clear(); sender.accept(new Intent(Action.EXIT, null)); }
         if (rotated && state != null && state.active() && placement.aimed()) sender.accept(new Intent(Action.ROTATE, null));
-        if (!CHANGE.isDown()) palette = false;
     }
     private static void consumeKeys() { while (CHANGE.consumeClick()) {} while (EXIT.consumeClick()) {} while (ROTATE.consumeClick()) {} }
     private static void scroll(net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent event) {
         if (!palette || state == null || !state.active() || Minecraft.getInstance().screen != null || event.getScrollDeltaY() == 0) return;
         cursor = wrapShapeIndex(cursor + (event.getScrollDeltaY() > 0 ? -1 : 1));
+        placementIssue.clear();
         sender.accept(new Intent(Action.SELECT, SHAPES.get(cursor))); event.setCanceled(true);
     }
     private static void render(RenderGuiEvent.Post event) {
         if (state == null || !state.active() || Minecraft.getInstance().player == null || Minecraft.getInstance().options.hideGui) return;
         Minecraft mc = Minecraft.getInstance();
+        var g = event.getGuiGraphics(); int x = 8;
+        RenderPolicy policy = renderPolicy(palette);
+        if (policy.paletteOnly()) {
+            int y = mc.getWindow().getGuiScaledHeight() - (SHAPES.size() * 10 + 48);
+            g.drawString(mc.font, Component.translatable("moonstation14.disposal.construction.palette", CHANGE.getTranslatedKeyMessage()), x, y, 0xffdddddd);
+            g.drawString(mc.font, Component.translatable("moonstation14.disposal.construction.exit_hint", EXIT.getTranslatedKeyMessage()), x, y + 12, 0xffdddddd);
+            for (int i = 0; i < SHAPES.size(); i++) {
+                int c = i == cursor ? 0xffffff55 : 0xffdddddd;
+                g.drawString(mc.font, name(SHAPES.get(i)), x, y + 24 + i * 10, c);
+            }
+            drawPlacementIssue(g,mc,x,mc.getWindow().getGuiScaledHeight()-12);
+            return;
+        }
         String proto = state.prototype(); var data = proto == null ? null : PrototypeRuntime.clientDisposals().get(ResourceLocation.tryParse(proto));
         var step = data == null ? null : data.construction();
         ItemStack held = BodyHandClient.activeHeldStackFor(state.bodyUUID(), state.epoch()).orElse(ItemStack.EMPTY);
-        ReadinessView ready = readiness(step == null ? "" : step.material(), step == null ? 1 : step.steelCount(), held);
-        int color = ready.state() == Readiness.READY ? 0xff55dd66 : ready.state() == Readiness.INSUFFICIENT ? 0xffffcc44 : 0xffff5555;
-        var g = event.getGuiGraphics(); int x = 8, y = mc.getWindow().getGuiScaledHeight() - (palette ? 190 : 76);
+        boolean confirmedHands = BodyHandClient.hasConfirmedHandsFor(state.bodyUUID(), state.epoch());
+        ReadinessView ready = readiness(confirmedHands, step == null ? "" : step.material(), step == null ? 1 : step.steelCount(), held);
+        int color = ready.state() == Readiness.READY ? 0xff55dd66 : ready.state() == Readiness.INSUFFICIENT ? 0xffffcc44
+                : ready.state() == Readiness.UPDATING ? 0xffaaaaaa : 0xffff5555;
+        int y = mc.getWindow().getGuiScaledHeight() - 76;
         g.drawString(mc.font, Component.translatable("moonstation14.disposal.construction.selected", name(proto)), x, y, 0xffffffff);
         Component materialName = new ItemStack(material(step == null ? null : step.material())).getHoverName();
-        String status = ready.state() == Readiness.READY ? "moonstation14.disposal.construction.ready" : ready.state() == Readiness.INSUFFICIENT
+        String status = ready.state() == Readiness.UPDATING ? "moonstation14.disposal.construction.updating"
+                : ready.state() == Readiness.READY ? "moonstation14.disposal.construction.ready" : ready.state() == Readiness.INSUFFICIENT
                 ? "moonstation14.disposal.construction.insufficient" : "moonstation14.disposal.construction.wrong_material";
         g.drawString(mc.font, Component.translatable(status, materialName, ready.held(), ready.required()), x, y + 12, color);
         g.drawString(mc.font, Component.translatable("moonstation14.disposal.construction.controls", CHANGE.getTranslatedKeyMessage(), EXIT.getTranslatedKeyMessage(), ROTATE.getTranslatedKeyMessage()), x, y + 24, 0xffdddddd);
-        if (placement.aimed() && !placement.valid()) g.drawString(mc.font, Component.translatable("moonstation14.disposal.construction.blocked", placement.reason()), x, y + 36, 0xffff5555);
-        if (palette) {
-            int py = y + (placement.aimed() && !placement.valid() ? 48 : 36);
-            g.drawString(mc.font, Component.translatable("moonstation14.disposal.construction.palette", CHANGE.getTranslatedKeyMessage()), x, py, 0xffdddddd);
-            for (int i = 0; i < SHAPES.size(); i++) {
-                int lineY = py + 12 + i * 10;
-                int c = i == cursor ? 0xffffff55 : 0xffdddddd;
-                g.drawString(mc.font, name(SHAPES.get(i)), x, lineY, c);
-            }
-        }
+        if (policy.showPlacementStatus() && placement.aimed() && placement.sealed())
+            g.drawString(mc.font, Component.translatable("moonstation14.disposal.construction.sealed_target"), x, y + 36, 0xff55ddff);
+        if (policy.showPlacementStatus()) drawPlacementIssue(g,mc,x,y+48);
+    }
+    private static void drawPlacementIssue(net.minecraft.client.gui.GuiGraphics g,Minecraft mc,int x,int y) {
+        String issue=placementIssue.visible(clientTicks,state==null?null:state.bodyUUID(),state==null?0:state.epoch());
+        if(issue!=null)g.drawString(mc.font,Component.translatable("moonstation14.disposal.construction.blocked",Component.translatable(issue)),x,y,0xffff7777);
     }
     private static String shortName(String id) { return id == null ? null : id.substring(id.indexOf(':') + 1); }
     private static Component name(String id) { return Component.translatable("moonstation14.disposal.prototype." + (id == null ? "unknown" : shortName(id))); }
-    private static void clear() { state = null; boundBody = null; boundEpoch = 0; palette = false; cursor = 0; sequence = 0; lastAcceptedSequence = 0; placement = new DisposalConstructionPreview.PlacementStatus(false, false, "no_target"); }
+    private static void clear() { state = null; boundBody = null; boundEpoch = 0; palette = false; changeWasDown = false; enterPending = false; suppressHeldPalette = false; cursor = 0; sequence = 0; lastAcceptedSequence = 0; placement = new DisposalConstructionPreview.PlacementStatus(false, false, "no_target"); placementIssue.clear(); }
     private record MobContext(UUID id, long epoch) { }
     private static MobContext current() {
         Minecraft mc = Minecraft.getInstance(); var body = GhostControlClient.ownedCharacterForHud(); long epoch = GhostControlClient.committedCharacterEpoch();

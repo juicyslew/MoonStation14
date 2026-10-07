@@ -22,6 +22,43 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 public final class DisposalUnitFlushGameTests {
     private DisposalUnitFlushGameTests() { }
 
+    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
+    public static void containedHandDropAppendsToUnitPayloadStore(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos pos = helper.absolutePos(new BlockPos(3, 2, 3));
+        level.setBlock(pos, com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_UNIT.get().defaultBlockState(), 3);
+        var unit = (DisposalUnitBlockEntity) level.getBlockEntity(pos);
+        BlockPos expectedBodyPos = helper.absolutePos(new BlockPos(5, 2, 3));
+        var body = helper.spawn(net.minecraft.world.entity.EntityType.VILLAGER, new BlockPos(5, 2, 3));
+        require(body.isAddedToLevel() && !body.isRemoved() && level.getEntity(body.getUUID()) == body
+                        && body.blockPosition().equals(expectedBodyPos),
+                "body spawned inside fixture at " + expectedBodyPos + ", actual=" + body.blockPosition()
+                        + ", added=" + body.isAddedToLevel() + ", exactEntity=" + (level.getEntity(body.getUUID()) == body));
+        long revision = com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransferGameTestAccess
+                .holdItem(body, "left", "unit-drop", new ItemStack(Items.DIAMOND, 3));
+        require(unit.insertBody(body), "body admitted to real disposal unit");
+        var resolvedUnit = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverDisposals()
+                .get(com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals.UNIT);
+        var unitView = unit.view();
+        require(resolvedUnit != null && unitView.ownerIdentity().equals(unit.identity())
+                        && unitView.worldTarget().filter(pos::equals).isPresent()
+                        && unitView.cameraCollision() == resolvedUnit.containedView().cameraCollision()
+                        && unitView.cameraCollision(),
+                "live unit view publishes its identity, target, and resolved collision default");
+        require(com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransferGameTestAccess
+                .dropOwned(body, "left", "unit-drop", revision)
+                == com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer.Result.SUCCESS,
+                "contained drop commits to unit store");
+        var payloads = unit.contents().snapshot();
+        require(payloads.size() == 1 && payloads.values().iterator().next().stack().getCount() == 3,
+                "unit store owns the whole stack");
+        require(body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get())
+                .token("left").isEmpty(), "source hand cleared");
+        require(level.getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
+                item -> item.getItem().is(Items.DIAMOND)).isEmpty(), "no world item duplicated");
+        helper.succeed();
+    }
+
     @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void firstActionUsesCurrentWorldClock(GameTestHelper helper) {
         helper.runAtTickTime(5, () -> {
@@ -133,7 +170,7 @@ public final class DisposalUnitFlushGameTests {
                         && expectedGas.temperatureKelvin() == actualGas.temperatureKelvin(),
                 "failed reserve retains the complete sampled unit gas inventory");
         require(unit.contents().snapshot().keySet().equals(entriesBefore.keySet()) && unit.bodyIds().equals(bodiesBefore)
-                        && com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(level).ownerOf(body).orElse(null) == unit,
+                        && com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).ownerOf(body).orElse(null) == unit,
                 "failed reserve leaves all item and body ownership at the unit");
         require(level.getEntitiesOfClass(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder.class,
                 new net.minecraft.world.phys.AABB(pos).inflate(8)).size() == holdersBefore,

@@ -1,4 +1,4 @@
-package com.juicyslew.moonstation14.ms14.disposal.containment;
+package com.juicyslew.moonstation14.ms14.containment;
 
 import org.junit.jupiter.api.Test;
 
@@ -6,10 +6,10 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class DisposalContainmentMembershipTest {
+class ContainedBodyMembershipTest {
     @Test
     void bodyHasAtMostOneExactOwnerAndStaleOwnerCannotUnbind() {
-        var membership = new DisposalContainmentMembership<Object>();
+        var membership = new ContainedBodyMembership<Object>();
         var body = UUID.randomUUID();
         var first = new Object();
         var second = new Object();

@@ -1,7 +1,7 @@
 package com.juicyslew.moonstation14.mixin;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainedVisual;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyVisual;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Mob.class)
-public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, DisposalContainedVisual {
+public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, ContainedBodyVisual {
     @Unique
     private static final EntityDataAccessor<Boolean> moonstation14$MOVEMENT_OWNED =
             SynchedEntityData.defineId(Mob.class, EntityDataSerializers.BOOLEAN);
@@ -39,12 +39,12 @@ public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, Dis
     }
 
     @Override
-    public boolean moonstation14$isDisposalContainedVisual() {
+    public boolean moonstation14$isContainedBodyVisual() {
         return ((Mob) (Object) this).getEntityData().get(moonstation14$DISPOSAL_CONTAINED);
     }
 
     @Override
-    public void moonstation14$setDisposalContainedVisual(boolean contained) {
+    public void moonstation14$setContainedBodyVisual(boolean contained) {
         Mob mob = (Mob) (Object) this;
         if (!mob.level().isClientSide) mob.getEntityData().set(moonstation14$DISPOSAL_CONTAINED, contained);
     }

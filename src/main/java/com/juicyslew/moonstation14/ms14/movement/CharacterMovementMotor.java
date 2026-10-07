@@ -19,6 +19,13 @@ public final class CharacterMovementMotor {
 
     public CharacterMovementState tick(CharacterMovementState state, CharacterMovementCommand command,
                                        CharacterMovementEnvironment environment, boolean stunned) {
+        return tick(state, command, environment, stunned, false);
+    }
+
+    /** External flight preserves launch momentum while suppressing voluntary steering and ground damping. */
+    public CharacterMovementState tick(CharacterMovementState state, CharacterMovementCommand command,
+                                       CharacterMovementEnvironment environment, boolean stunned,
+                                       boolean externalFlight) {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(command, "command");
         Objects.requireNonNull(environment, "environment");
@@ -28,7 +35,7 @@ public final class CharacterMovementMotor {
 
         // SS14 applies a linear per-tick friction factor, clamped to [0, 1].
         // Minecraft's collision, gravity and jump values are deliberately injected by the adapter.
-        if (state.onGround()) {
+        if (state.onGround() && !externalFlight) {
             boolean hasWish = effective.wishX() != 0d || effective.wishZ() != 0d;
             double friction = hasWish ? policy.groundFrictionWithInputPerSecond()
                     : policy.groundFrictionNoInputPerSecond();
@@ -41,7 +48,7 @@ public final class CharacterMovementMotor {
             }
         }
 
-        if (effective.wishX() != 0d || effective.wishZ() != 0d) {
+        if (!externalFlight && (effective.wishX() != 0d || effective.wishZ() != 0d)) {
             double requestedSpeed = (effective.sprint() ? policy.sprintSpeedPerSecond() : policy.walkSpeedPerSecond())
                     * environment.voluntarySpeedFactor();
             double targetWishX = effective.wishX() * requestedSpeed;
@@ -62,7 +69,7 @@ public final class CharacterMovementMotor {
             }
         }
 
-        if (effective.jumpRequested() && state.onGround()) {
+        if (!externalFlight && effective.jumpRequested() && state.onGround()) {
             velocity = new MovementVector(velocity.x(), environment.jumpVelocityPerSecond(), velocity.z());
         }
         // Entity.travel moves using the current velocity, then applies gravity and vertical drag
@@ -82,7 +89,7 @@ public final class CharacterMovementMotor {
                 "collision resolver result");
         MovementVector actual = resolved.actualDisplacement();
         ensureBoundedResolution(state.position(), requested, actual,
-                environment.maxUpwardStepBlocks(), state.onGround());
+                environment.maxUpwardStepBlocks(), state.onGround(), resolved.onGround());
         MovementVector position = state.position().add(actual);
 
         // A blocked axis cannot retain velocity into the blocking surface. The resolver reports displacement,
@@ -90,6 +97,7 @@ public final class CharacterMovementMotor {
         double vx = blocked(state.position().x(), requested.x(), actual.x()) ? 0d : velocity.x();
         double vy = movementRequested.y() != 0d
                 && blocked(state.position().y(), movementRequested.y(), actual.y()) ? 0d
+                : externalFlight ? velocity.y()
                 : (velocity.y() - environment.gravityPerSecondSquared() * dt) * environment.verticalDrag();
         double vz = blocked(state.position().z(), requested.z(), actual.z()) ? 0d : velocity.z();
         if (resolved.onGround() && vy < 0d) vy = 0d;
@@ -101,7 +109,7 @@ public final class CharacterMovementMotor {
     }
 
     private static void ensureBoundedResolution(MovementVector position, MovementVector requested, MovementVector actual,
-                                                 double maxUpwardStepBlocks, boolean wasOnGround) {
+                                                 double maxUpwardStepBlocks, boolean wasOnGround, boolean resolvedOnGround) {
         boolean requestedHorizontally = Math.hypot(requested.x(), requested.z()) >
                 Math.hypot(roundingAllowance(position.x(), requested.x()),
                         roundingAllowance(position.z(), requested.z()));
@@ -111,7 +119,10 @@ public final class CharacterMovementMotor {
         double yAllowance = roundingAllowance(position.y(), requested.y());
         // Entity.move bounds its upward candidate by the larger of maxUpStep and the upward
         // displacement already requested.
-        boolean steppedUp = wasOnGround && requestedHorizontally && movedHorizontally
+        // Vanilla Entity.move may step when already grounded, or when descending movement
+        // clips against the floor and leaves the entity grounded after the move.
+        boolean steppedUp = (wasOnGround || (requested.y() < 0d && resolvedOnGround))
+                && requestedHorizontally && movedHorizontally
                 && actual.y() >= -yAllowance
                 && actual.y() <= Math.max(maxUpwardStepBlocks, Math.max(0d, requested.y())) + yAllowance;
         if (!within(position.x(), requested.x(), actual.x())

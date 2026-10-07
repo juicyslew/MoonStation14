@@ -658,13 +658,22 @@ public final class PowerRuntime {
                     PowerGraphService.topologyGeneration(level), graphKnown, output,
                     apc, apc.breakerRevision(), visual, sampleTick, PowerGraphService.topologyGeneration(level)));
         }
-        LAST_DIAGNOSTIC.put(level, "sourcePorts=" + input.sources().stream()
-                .map(s -> s.component() + "/" + s.known()).toList()
-                + ",subPorts=" + input.substations().stream()
-                .map(s -> s.hvComponent() + "/" + s.hvKnown() + "->" + s.mvComponent() + "/" + s.mvKnown()).toList()
-                + ",apcPorts=" + input.apcs().stream()
-                .map(a -> a.mvComponent() + "/" + a.mvKnown() + "->" + a.apcComponent() + "/" + a.apcKnown()).toList()
-                + ",lampWatts=" + result.lampWatts());
+        LAST_DIAGNOSTIC.put(level, "sources=" + input.sources().size() + ",substations=" + input.substations().size()
+                + ",apcs=" + input.apcs().size() + ",disposal=" + disposalUnits.stream().map(unit -> {
+                    var state = disposalStates.get(unit);
+                    var receiver = PowerGraphService.nearestApcExtensionNode(level, unit.getBlockPos());
+                    List<PowerDeviceBlockEntity> matches = apcs.stream().filter(candidate ->
+                            isKnown(known, candidate, CableTier.APC)
+                                    && component(components, candidate, CableTier.APC) == state.componentId()).toList();
+                    var sample = disposalMeters.get(unit.getBlockPos());
+                    return unit.getBlockPos().toShortString() + ":" + (indexedDisposal != null && indexedDisposal.contains(unit.getBlockPos()))
+                            + "/" + unit.participatesInPowerLoad() + "/t" + PowerGraphService.topologyReady(level)
+                            + "/rx" + (receiver == null ? "-" : receiver.host().toShortString() + "/" + receiver.face())
+                            + "/" + state.knowledge() + "/c" + state.componentId()
+                            + "/a" + matches.size() + "/s" + (sample == null ? "-" : sample.sampleTick() + "g"
+                                    + sample.topologyGeneration() + ":" + sample.deliveredWatts())
+                            + "/r" + unit.prototype().powerWatts();
+                }).limit(2).toList());
         for (PowerDeviceBlockEntity apc : apcs)
             apc.setEnergyJoules(result.batteryEnergyJoules().getOrDefault(id(apc), apc.energyJoules()));
         VentilationPaidInterval paid = PAID_INTERVALS.computeIfAbsent(level, ignored -> new VentilationPaidInterval());

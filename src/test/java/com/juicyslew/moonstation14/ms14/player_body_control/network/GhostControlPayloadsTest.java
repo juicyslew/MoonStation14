@@ -1,6 +1,8 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.network;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyView;
+import net.minecraft.core.BlockPos;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementPayloads;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GhostControlPayloadsTest {
     @Test
@@ -57,6 +60,10 @@ class GhostControlPayloadsTest {
         assertEquals(snapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, snapshot));
         assertEquals(characterBegin, roundTrip(GhostControlPayloads.Begin.STREAM_CODEC, characterBegin));
         assertEquals(characterSnapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, characterSnapshot));
+        var flightSnapshot = new GhostControlPayloads.Snapshot(10, 44, MobHarnessKind.CHARACTER, 11, 8,
+                1, 2, 3, 4, 5, 6.5, -7.5, 8.5, true, 1, 1, false, 6,
+                GhostControlPayloads.Snapshot.MovementMode.GROUNDED, java.util.Optional.empty());
+        assertEquals(6, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, flightSnapshot).externalFlightTicks());
         assertEquals(MobHarnessKind.GHOST, begin.harnessKind());
         assertEquals(42, begin.harnessEntityId());
         assertEquals(42, begin.ghostEntityId());
@@ -64,7 +71,10 @@ class GhostControlPayloadsTest {
         assertFalse(snapshot.onGround());
         assertEquals(1, snapshot.surfaceFactor());
         assertEquals(1, snapshot.voluntarySpeedFactor());
-        assertFalse(snapshot.stunned());
+        assertFalse(snapshot.movementBlocked());
+        assertTrue(characterSnapshot.movementBlocked());
+        assertTrue(roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, characterSnapshot).movementBlocked(),
+                "authoritative movement-blocked capability survives the wire round trip");
         assertEquals(snapshot.harnessEntityId(), snapshot.ghostEntityId());
         assertEquals(1.5f, characterSnapshot.surfaceFactor());
         assertEquals(1.5f, characterSnapshot.voluntarySpeedFactor());
@@ -74,6 +84,13 @@ class GhostControlPayloadsTest {
                 12, 8, 1, 2, 3, 4, 5, 0, 0, 0, true, 1, 1, false,
                 GhostControlPayloads.Snapshot.MovementMode.UNIT);
         assertEquals(unitSnapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, unitSnapshot));
+        var view = new ContainedBodyView(java.util.UUID.randomUUID(), java.util.Optional.of(new BlockPos(2, 64, -3)), false);
+        var viewSnapshot = new GhostControlPayloads.Snapshot(11, 44, MobHarnessKind.CHARACTER, 13, 9,
+                1, 2, 3, 4, 5, 0, 0, 0, true, 1, 1, false,
+                GhostControlPayloads.Snapshot.MovementMode.UNIT, java.util.Optional.of(view));
+        var decodedViewSnapshot = roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, viewSnapshot);
+        assertEquals(viewSnapshot, decodedViewSnapshot);
+        assertTrue(decodedViewSnapshot.containedView().orElseThrow().worldTarget().isPresent());
         assertThrows(IllegalArgumentException.class, () -> new GhostControlPayloads.Snapshot(1, 1,
                 MobHarnessKind.GHOST, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 1, 1, false,
                 GhostControlPayloads.Snapshot.MovementMode.UNIT));

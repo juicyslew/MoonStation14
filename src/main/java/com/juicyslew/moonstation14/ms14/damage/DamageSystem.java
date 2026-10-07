@@ -206,6 +206,8 @@ public final class DamageSystem {
             commit(entity, DamageReducer.applyMitigated(existing(entity), pending.positive,
                     appliedDamage, pending.negative));
             com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, committedPositive);
+            if (!committedPositive.isEmpty()) net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(
+                    new TypedDamageAppliedEvent(entity, committedPositive));
             return;
         }
 
@@ -216,6 +218,7 @@ public final class DamageSystem {
         float typed = appliedDamage * TYPED_PER_HEALTH;
         commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
         com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, Map.of(key, typed)));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */

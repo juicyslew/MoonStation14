@@ -38,6 +38,14 @@ Sources: `Resources/Prototypes/Entities/Structures/Piping/Disposal/units.yml`,
 | Movement escape | Movement permitted, at least one hand; unit-wide 0.5 s cooldown between exit attempts |
 | Unit air volume | 2500 L |
 
+### Ride and open-exit motion
+
+Pinned `Content.Server/Disposal/Unit/DisposableSystem.cs` advances a hidden holder at 0.1-second tube intervals and interpolates within each interval. Direction changes can apply `DisposalTubeComponent.DamageOnTurn`; its default is **0 Blunt**, so ordinary travel need not cause noticeable damage. Finite-air hazards remain separate.
+
+An open exit attempts a throw with direction length **3** and base speed **10**, nominally **0.3 s**. A colocated disposal unit instead receives the contents. `ThrowingSystem.TryThrow` adds temporary, networked `ThrownItemComponent` state and sets physics `InAir`; the ordinary mover skips its grounded friction/acceleration while airborne without `CanMoveInAir`. Landing restores grounded status and removes thrown state. Merely assigning outlet velocity before ordinary grounded movement is therefore insufficient. No unconditional injury or generic launch sound is implied by this path.
+
+Sources: `Content.Shared/Throwing/{ThrowingSystem,ThrownItemSystem,ThrownItemComponent}.cs`, `Content.Shared/Movement/Systems/SharedMoverController.cs`, and `Content.Server/Disposal/Unit/DisposableSystem.cs`. Minecraft gravity/collision and native client entity interpolation are adapters, not claims of identical Robust physics/rendering.
+
 Insertion requires an anchored, insertable unit and an Item or MobState
 entity; non-items require colliding physics. No item-count/volume capacity
 is declared by the audited ordinary-unit prototype. Do not invent a gameplay
@@ -73,6 +81,14 @@ Verified through `BeingDisposedSystem` and server atmosphere
 Sources: `SharedDisposalUnitSystem.cs`, `DisposalUnitComponent.cs`, server
 `DisposalUnitSystem.cs`, and `Atmospherics.CellVolume`.
 
+Local movement escape uses the resolved unit's `exitAttemptCooldownSeconds`
+through `DisposalUnitTimingKernel` (10 ticks at the audited 0.5 s default),
+and now requires `CharacterControlSystem.canMove` as well as a hand. Its current
+canonical incapacity checks are vanilla sleeping/death and the resolved
+action-blocking stun status. This runtime currently has no canonical critical
+mob-state representation; do not treat a damage threshold as native critical
+state or claim critical-state escape parity until that state is implemented.
+
 ## Transport and routing
 
 - One holder per flush; no audited packet merging or tube capacity limit.
@@ -102,8 +118,14 @@ Sources: `SharedDisposalUnitSystem.cs`, `DisposalUnitComponent.cs`, server
   blocks/tick** (10 blocks/second); Minecraft gravity and flight dynamics mean
   the resulting travel distance is not guaranteed to match SS14's generic throw
   system. This is initial-velocity parity, not full throw/flight parity.
-  Direction changes play clang at volume **−5**;
-  default blunt turn damage is **0**.
+Direction changes play clang at volume **−5**;
+default blunt turn damage is **0**.
+- Native exit calls `TryThrow` with `playSound=true`, which controls the landing
+  event; it is not a generic disposal-exit sound. Throw/landing audio is driven
+  by entity `EmitSoundOnThrow` / `EmitSoundOnLand` components. No distinct
+  generic exit sound is specified; do not repurpose flush-unit or turn-clang
+  audio without explicit authorization. Per-entity audio remains distinct;
+  provenance constraints remain in `assets-and-attribution.md`.
 - Exit merges holder air into its containing environment when available,
   clears that gas and deletes the holder. Do not silently discard carried gas
   in a known finite room. Unavailable containing mixtures need an explicit
@@ -122,6 +144,14 @@ Core pieces: straight, bend, trunk, three-way/flipped junction, Y and X
 junction, plus tagger/router for tag-directed routing. Signal variants and
 mailing are separate scope.
 
+The trunk's one native routing port and its unit-coupling interface facing UP
+are distinct: the coupling is a Minecraft adaptation and is not a second
+routing port. Taggers append configured tags; routers take the tagged branch
+for a match and their default output otherwise. Normal, flipped and Y junctions
+have the same port count but directed ports differ. Native X routing is
+directed; retain all meaningful output orientations rather than reducing X to
+three rotations (the earlier three-rotation proposal is withdrawn).
+
 Pipe construction uses **2 steel, 1 s**. Junction shape conversions use a
 screwdriver, **1 s** per directed edge: normal → Y → flipped → X → normal.
 These are not arbitrary bidirectional conversions. Welder deconstruction takes **1 s**, returning
@@ -137,11 +167,20 @@ Sources: construction graphs `utilities/disposal_pipes.yml` and
 `disposal_machines.yml`. Local pipe/tool consumers are implemented; machine
 construction remains the explicit BlockItem adaptation in `architecture.md`.
 
+Inherited tube construction time resolves to `timeSeconds=0`; immediate
+Minecraft tube placement is deliberate per user request. This does not remove
+typed positive-time support from other actions, whose existing timings remain
+unchanged.
+
 Pipe sprites: `Structures/Piping/disposal.rsi`, 32×32, directional and
 anchored/free states; metadata credits CEV Eris and named contributors under
 CC-BY-SA-3.0. Imported unit/tool sprites and audio are documented in
 `assets-and-attribution.md`; unresolved per-file audio terms remain recorded in
 `docs/audio-unknown-provenance.md`. Connected presentation checks are pending.
+The current gold/blue preferred-output and role markers are local guidance, not
+complete native RSI pipe-face textures; their visual acceptance remains a
+connected-client check. Unit appearance is an adaptation, likewise unaccepted
+until connected review.
 
 ## Local integration constraints
 
@@ -181,6 +220,15 @@ sealed steel-wall crossings are explicit Minecraft adaptations, not upstream
 Physics or native vertical-route parity. Local geometry and orientation are
 supported typed data consumed by block shape, placement, routing and rendering.
 Material/time/anchor/routing-role/container rules remain the parity target.
+
+The rounded-model follow-up reverified that SHA and clean disposal prototype
+files. `DisposalPipeBase` is abstract with **no entity parent**; flipped junction
+and router prototypes inherit their ordinary variants, while the other audited
+shapes inherit the pipe base directly. The 3D octagonal barrels, beveled joins,
+filled rounded collision envelope and decorative recessed mouths are local
+geometry adaptations, not upstream fields or prescribed cylinder dimensions.
+The inherited local 14/16 diameter remains resolved data. Native pipe RSI art
+supplies the derived material palette and icons, not six-face pipe illustrations.
 
 The controlled body is not the spectator carrier. Existing harness movement,
 camera/session eligibility and hand/action authority reject vanilla passenger

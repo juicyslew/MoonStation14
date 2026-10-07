@@ -9,6 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import java.util.EnumSet;
 import java.util.Map;
+import org.slf4j.LoggerFactory;
 
 /**
  * Finite SS14 unit-reservoir recharge at the flush boundary. If the room mixture is unavailable, no gas is sampled;
@@ -24,10 +25,16 @@ public final class DisposalUnitFlushGas {
     public static GasMixture prepare(ServerLevel level, DisposalUnitBlockEntity unit) {
         FiniteExposureAir reservoir = unit.reservoirAir();
         var before = reservoir.sample().orElseThrow();
-        var source = AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, unit.getBlockPos().above()).orElse(null);
-        if (source == null) return before.mixture(); // Unknown is not inferred vacuum; carry the explicit owned inventory.
-        double deficitKpa = Math.max(0, TARGET_KPA - before.pressureKpa());
-        double maxMoles = .1 * deficitKpa * unit.prototype().airLiters() / (before.temperatureKelvin() * R);
+        var sourcePos = unit.getBlockPos().above();
+        var source = AtmosphereService.INSTANCE.finiteCellEndpointForImmediateTransfer(level, sourcePos).orElse(null);
+        var sourceBefore = source == null ? null : source.snapshot();
+        if (source == null) {
+            LoggerFactory.getLogger(DisposalUnitFlushGas.class).info(
+                    "Disposal unit flush intake source={} available=false holderO2={}",
+                    sourcePos, before.mixture().moles(GasType.OXYGEN));
+            return before.mixture(); // Unknown is not inferred vacuum; carry the explicit owned inventory.
+        }
+        double maxMoles = requestedIntakeMoles(before.pressureKpa(), unit.prototype().airLiters(), sourceBefore.temperatureKelvin());
         if (!(maxMoles > 0) || !Double.isFinite(maxMoles)) return before.mixture();
         PipeGasTransaction.Endpoint destination = endpoint(reservoir);
         var plan = PipeGasTransaction.plan(source, destination, 1.0, unit.prototype().airLiters() / 1000.0,
@@ -37,7 +44,18 @@ public final class DisposalUnitFlushGas {
         catch (RuntimeException rolledBackOrRecoveryRequired) {
             // Keep the endpoint-owned inventory either as rolled back or as whatever confirmed raw write remains.
         }
-        return reservoir.sample().orElseThrow().mixture();
+        GasMixture after = reservoir.sample().orElseThrow().mixture();
+        LoggerFactory.getLogger(DisposalUnitFlushGas.class).info(
+                "Disposal unit flush intake source={} available=true sourceO2Before={} holderO2Before={} holderO2After={}",
+                sourcePos, sourceBefore.moles(GasType.OXYGEN), before.mixture().moles(GasType.OXYGEN),
+                after.moles(GasType.OXYGEN));
+        return after;
+    }
+
+    static double requestedIntakeMoles(double holderPressureKpa, double unitAirLiters, double sourceTemperatureKelvin) {
+        if (!Double.isFinite(holderPressureKpa) || !Double.isFinite(unitAirLiters) || unitAirLiters <= 0
+                || !Double.isFinite(sourceTemperatureKelvin) || sourceTemperatureKelvin <= 0) return 0;
+        return .1 * Math.max(0, TARGET_KPA - holderPressureKpa) * unitAirLiters / (sourceTemperatureKelvin * R);
     }
 
     private static PipeGasTransaction.Endpoint endpoint(FiniteExposureAir air) {

@@ -18,6 +18,16 @@ public final class BodyDropPlacementGameTestEntry {
     }
 
     @GameTest(template = "empty")
+    public static void containedRefusalDropsAtOwnerPosition(GameTestHelper helper) {
+        BodyDropPlacementGameTests.containedRefusalDropsAtOwnerPosition(helper);
+    }
+
+    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 30)
+    public static void containedHandDropMovesWholeStackIntoTransitHolder(GameTestHelper helper) {
+        BodyDropPlacementGameTests.containedHandDropMovesWholeStackIntoTransitHolder(helper);
+    }
+
+    @GameTest(template = "empty")
     public static void upwardSurfaceDropHasNoIntentionalVelocity(GameTestHelper helper) {
         BodyDropPlacementGameTests.upwardSurfaceDropHasNoIntentionalVelocity(helper);
     }

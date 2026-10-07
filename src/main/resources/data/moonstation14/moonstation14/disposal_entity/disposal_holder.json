@@ -1,1 +1,1 @@
-{"id":"disposal_holder","holder":{"fallbackAirLiters":70.0,"segmentSeconds":0.1,"containerId":"DisposalHolderComponent"}}
+{"id":"disposal_holder","containedView":{"cameraCollision":false},"holder":{"fallbackAirLiters":70.0,"segmentSeconds":0.1,"containerId":"DisposalHolderComponent"}}

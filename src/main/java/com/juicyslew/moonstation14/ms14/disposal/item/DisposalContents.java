@@ -61,6 +61,17 @@ public final class DisposalContents {
         return true;
     }
 
+    /** Admission path for a hand already cleared by the contained-drop transaction. */
+    public synchronized boolean acceptDropped(ItemToken token, ItemLocation source, ItemStack stack) {
+        if (token == null || source == null || stack == null || stack.isEmpty()) return false;
+        String entry = UUID.randomUUID().toString();
+        if (payloads.containsKey(entry) || expiredEntries.contains(entry)) return false;
+        if (!ledger.register(token, source).accepted()) return false;
+        if (accept(token, source, entry, stack, ledger.snapshot().revision())) return true;
+        ledger.consume(ledger.snapshot().revision(), token, source);
+        return false;
+    }
+
     /** Transfer the exact payload identity between owners without changing the token or stack. */
     public synchronized Optional<Payload> transferTo(String entryId, DisposalContents destination,
                                                       String destinationEntryId, long expectedRevision) {

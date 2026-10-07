@@ -87,7 +87,14 @@ public final class LoadedWorldDisposalRouting implements DisposalTransitHolder.T
             if (!level.noCollision(body, body.getBoundingBox().move(destination.subtract(body.position())))) continue;
             body.teleportTo(destination.x, destination.y, destination.z);
             double tickSpeed = DisposalsEjection.blocksPerSecondToBlocksPerTick(speed);
-            body.setDeltaMovement(d.getStepX() * tickSpeed, d.getStepY() * tickSpeed, d.getStepZ() * tickSpeed);
+            Vec3 launch = new Vec3(d.getStepX() * tickSpeed, d.getStepY() * tickSpeed, d.getStepZ() * tickSpeed);
+            body.setDeltaMovement(launch);
+            if (body instanceof net.minecraft.world.entity.Mob mob) {
+                int flightTicks = (int) Math.ceil(DisposalsEjection.DISTANCE_BLOCKS
+                        / DisposalsEjection.SPEED_BLOCKS_PER_SECOND * 20d);
+                com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight
+                        .launch(mob, launch, flightTicks);
+            }
             return true;
         }
         // No safe loaded ejection cell: retain the exact living body in this loaded holder for retry.
@@ -102,7 +109,7 @@ public final class LoadedWorldDisposalRouting implements DisposalTransitHolder.T
         if (mix.totalMoles() == 0) return true;
         boolean unit = level.getBlockEntity(lastLoaded.above()) instanceof com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
         var dest = releaseEnvironmentCandidates(lastLoaded, unit).stream()
-                .map(pos -> AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, pos))
+                .map(pos -> AtmosphereService.INSTANCE.finiteCellEndpointForImmediateTransfer(level, pos))
                 .filter(Optional::isPresent).map(Optional::orElseThrow).findFirst();
         if (dest.isEmpty()) return false;
         var air = source.get().getKey();

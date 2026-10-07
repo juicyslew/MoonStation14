@@ -68,6 +68,8 @@ public final class ApcMenuService {
     static boolean validBodyContext(ServerPlayer actor, ApcMenu menu) {
         if (actor == null || menu == null || actor.containerMenu != menu
                 || !HandActorAuthority.revalidateInMenu(actor, menu.bodyAuthority(), menu)
+                || !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(menu.bodyAuthority().body())
+                || com.juicyslew.moonstation14.ms14.containment.DisposalContainedActionPolicy.deniesExternalMutation(actor)
                 || !(menu.bodyAuthority().body().level() instanceof net.minecraft.server.level.ServerLevel level)) return false;
         var pos = menu.devicePos();
         var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
@@ -88,15 +90,41 @@ public final class ApcMenuService {
             return result(request, false, false, false, 0, 0, false);
         if (!menu.validContext(player)) return result(request, false, false, false, 0, 0, false);
         PowerDeviceBlockEntity device = menu.boundDevice();
-        double distance = player.distanceToSqr(menu.devicePos().getX() + .5,
+        // Body menus are revalidated above, including a fresh target probe against the
+        // controlled body's current position. Use that same authenticated body as the
+        // reach actor; ordinary vanilla menus retain player/carrier reach semantics.
+        var body = menu.bodyAuthority() == null ? null : menu.bodyAuthority().body();
+        double carrierDistance = player.distanceToSqr(menu.devicePos().getX() + .5,
                 menu.devicePos().getY() + .5, menu.devicePos().getZ() + .5);
+        double bodyDistance = body == null ? Double.NaN : body.distanceToSqr(menu.devicePos().getX() + .5,
+                menu.devicePos().getY() + .5, menu.devicePos().getZ() + .5);
+        InteractionActorContext actorContext = selectInteractionActor(menu.bodyAuthority() != null,
+                menu.bodyAuthority() == null || validBodyContext(player, menu),
+                body == null || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body),
+                body != null && com.juicyslew.moonstation14.ms14.containment.DisposalContainedActionPolicy
+                        .deniesExternalMutation(player), bodyDistance, player.mayBuild(), carrierDistance);
+        if (!actorContext.allowed()) return result(request, false, false, false, 0, 0, false);
+        double distance = actorContext.distanceSquared();
         ApcBreakerIntentPolicy.Decision decision = ApcBreakerIntentPolicy.decide(
                 request.expectedRevision(), menu.currentRevision(), device.breakerClosed(), request.desiredClosed());
         boolean accepted = decision == ApcBreakerIntentPolicy.Decision.NO_CHANGE
-                || decision == ApcBreakerIntentPolicy.Decision.TOGGLE && device.toggleBreaker(player, distance);
+                || decision == ApcBreakerIntentPolicy.Decision.TOGGLE && (menu.bodyAuthority() == null
+                ? device.toggleBreaker(player, distance) : device.toggleBreakerAuthorized(true, distance));
         return result(request, accepted, true, device.breakerClosed(), menu.currentRevision(),
                 ApcMenu.batteryPermille(device.energyJoules()), device.tripLatched());
     }
+
+    /** Selects the authorization/reach facts appropriate to a freshly validated menu actor. */
+    static InteractionActorContext selectInteractionActor(boolean bodyMenu, boolean bodyContextValid,
+                                                           boolean bodyCanAct, boolean contained,
+                                                           double bodyDistanceSquared, boolean normalMayBuild,
+                                                           double carrierDistanceSquared) {
+        if (bodyMenu) return new InteractionActorContext(bodyDistanceSquared,
+                bodyContextValid && bodyCanAct && !contained);
+        return new InteractionActorContext(carrierDistanceSquared, normalMayBuild);
+    }
+
+    record InteractionActorContext(double distanceSquared, boolean allowed) { }
 
     private static ApcToggleResponse result(ApcToggleRequest request, boolean accepted, boolean snapshot,
                                             boolean breakerClosed, long revision, int batteryPermille,

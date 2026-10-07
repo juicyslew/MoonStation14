@@ -17,6 +17,7 @@ public class ModSounds {
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
     public static final Supplier<SoundEvent> DISPOSAL_FLUSH = registerSoundEvent("disposal/flush");
     public static final Supplier<SoundEvent> DISPOSAL_PIPE_CLANG = registerSoundEvent("disposal/pipe_clang");
+    public static final Supplier<SoundEvent> DISPOSAL_INSERT = registerSoundEvent("disposal/insert");
     // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     // both end at 32 blocks, independently of the quieter playback gain at each call site.
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);

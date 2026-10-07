@@ -8,8 +8,8 @@ import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.server.GrenadeDetonationService;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.server.level.ServerLevel;
@@ -101,7 +101,7 @@ public final class BodyGrenadeHeldFuseService {
     }
 
     static void preserveContainedPayloads(LivingEntity body, ServerLevel level) {
-        DisposalContainmentOwner owner = DisposalContainmentService.forLevel(level).ownerOf(body).orElse(null);
+        ContainedBodyOwner owner = BodyContainmentService.forLevel(level).ownerOf(body).orElse(null);
         if (owner != null) owner.preserveContentsBeforeExplosion();
     }
 

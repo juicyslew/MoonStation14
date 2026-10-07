@@ -2,7 +2,7 @@ package com.juicyslew.moonstation14.ms14.disposal.unit.ui;
 
 import com.juicyslew.moonstation14.block.ModMenus;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -42,7 +42,7 @@ public final class DisposalUnitMenu extends AbstractContainerMenu {
         if(chunk==null||!chunk.getFullStatus().isOrAfter(FullChunkStatus.FULL)
                 || !(chunk.getBlockEntity(pos) instanceof DisposalUnitBlockEntity unit)
                 || !unit.identity().equals(unitId)||!unit.isValid()) return false;
-        var owner = DisposalContainmentService.forLevel(level).ownerOf(authority.body());
+        var owner = BodyContainmentService.forLevel(level).ownerOf(authority.body());
         if (owner.isPresent()) return owner.orElseThrow() == unit && unit.bodyIds().contains(authority.body().getUUID());
         return authority.body().distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)<=64;
     }

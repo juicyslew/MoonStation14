@@ -1,4 +1,4 @@
-package com.juicyslew.moonstation14.ms14.disposal.containment;
+package com.juicyslew.moonstation14.ms14.containment;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,50 +10,52 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** Server-side, transient exact-body containment. Must be driven from the owning server level's tick. */
-public final class DisposalContainmentService implements AutoCloseable {
-    private static final Map<ServerLevel, DisposalContainmentService> LEVELS = new java.util.WeakHashMap<>();
+public final class BodyContainmentService implements AutoCloseable {
+    private static final Map<ServerLevel, BodyContainmentService> LEVELS = new java.util.WeakHashMap<>();
     private final ServerLevel level;
-    private final DisposalContainmentMembership<DisposalContainmentOwner> membership = new DisposalContainmentMembership<>();
-    private final Map<UUID, OriginalFlags> saved = new HashMap<>();
+    private final ContainedBodyMembership<ContainedBodyOwner> membership = new ContainedBodyMembership<>();
+    private final Map<UUID, ContainedBodyFlags> saved = new HashMap<>();
     private boolean closed;
 
-    public DisposalContainmentService(ServerLevel level) {
+    public BodyContainmentService(ServerLevel level) {
         this.level = java.util.Objects.requireNonNull(level);
         if (level.isClientSide) throw new IllegalArgumentException("containment is server-only");
         synchronized (LEVELS) {
-            DisposalContainmentService previous = LEVELS.putIfAbsent(level, this);
+            BodyContainmentService previous = LEVELS.putIfAbsent(level, this);
             if (previous != null) throw new IllegalStateException("containment service already exists for level");
         }
     }
 
     /** The one authoritative containment index for this server level. */
-    public static DisposalContainmentService forLevel(ServerLevel level) {
+    public static BodyContainmentService forLevel(ServerLevel level) {
         if (level == null || level.isClientSide) throw new IllegalArgumentException("server level required");
         synchronized (LEVELS) {
-            DisposalContainmentService current = LEVELS.get(level);
+            BodyContainmentService current = LEVELS.get(level);
             if (current != null) return current;
             // The constructor registers itself. Do not use computeIfAbsent here: registering
             // from its mapping function mutates the same WeakHashMap during computation.
-            return new DisposalContainmentService(level);
+            return new BodyContainmentService(level);
         }
     }
 
     public static void closeLevel(ServerLevel level) {
-        DisposalContainmentService service;
+        BodyContainmentService service;
         synchronized (LEVELS) { service = LEVELS.get(level); }
         if (service != null) service.close();
     }
 
     public static void closeAll() {
-        java.util.List<DisposalContainmentService> services;
+        java.util.List<BodyContainmentService> services;
         synchronized (LEVELS) { services = java.util.List.copyOf(LEVELS.values()); }
-        services.forEach(DisposalContainmentService::close);
+        services.forEach(BodyContainmentService::close);
     }
 
     /** Bind only the exact currently loaded living entity. This never mounts or removes it. */
-    public boolean bind(LivingEntity body, DisposalContainmentOwner owner) {
+    public boolean bind(LivingEntity body, ContainedBodyOwner owner) {
         if (closed || !validBody(body) || !validOwner(owner) || saved.containsKey(body.getUUID())) return false;
-        OriginalFlags flags = capture(body);
+        if (body instanceof net.minecraft.world.entity.Mob mob)
+            com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.cancel(mob);
+        ContainedBodyFlags flags = capture(body);
         if (!membership.bind(body.getUUID(), owner)) return false;
         saved.put(body.getUUID(), flags);
         suppress(body);
@@ -62,15 +64,17 @@ public final class DisposalContainmentService implements AutoCloseable {
     }
 
     /** Export the exact pre-containment flags for persistence alongside the owning reference. */
-    public Optional<OriginalFlags> export(LivingEntity body, DisposalContainmentOwner expected) {
+    public Optional<ContainedBodyFlags> export(LivingEntity body, ContainedBodyOwner expected) {
         if (body == null || membership.get(body.getUUID()) != expected) return Optional.empty();
         return Optional.ofNullable(saved.get(body.getUUID()));
     }
 
     /** Restore a persisted containment relation without treating currently suppressed flags as original. */
-    public boolean bindRestored(LivingEntity body, DisposalContainmentOwner owner, OriginalFlags flags) {
+    public boolean bindRestored(LivingEntity body, ContainedBodyOwner owner, ContainedBodyFlags flags) {
         if (closed || flags == null || !validBody(body) || !validOwner(owner)
                 || saved.containsKey(body.getUUID()) || !membership.bind(body.getUUID(), owner)) return false;
+        if (body instanceof net.minecraft.world.entity.Mob mob)
+            com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.cancel(mob);
         saved.put(body.getUUID(), flags);
         suppress(body);
         pin(body, owner);
@@ -78,7 +82,7 @@ public final class DisposalContainmentService implements AutoCloseable {
     }
 
     /** Transfer ownership atomically without briefly restoring flags or releasing the body. */
-    public boolean transfer(LivingEntity body, DisposalContainmentOwner expected, DisposalContainmentOwner next) {
+    public boolean transfer(LivingEntity body, ContainedBodyOwner expected, ContainedBodyOwner next) {
         if (closed || !validBody(body) || membership.get(body.getUUID()) != expected || !validOwner(next)) return false;
         membership.unbind(body.getUUID(), expected);
         if (!membership.bind(body.getUUID(), next)) {
@@ -89,16 +93,16 @@ public final class DisposalContainmentService implements AutoCloseable {
         return true;
     }
 
-    public boolean unbind(LivingEntity body, DisposalContainmentOwner expected) {
+    public boolean unbind(LivingEntity body, ContainedBodyOwner expected) {
         if (body == null || membership.get(body.getUUID()) != expected || !membership.unbind(body.getUUID(), expected)) return false;
         restore(body);
         return true;
     }
 
     /** A relation authorizes contained interaction only while its exact loaded owner remains valid. */
-    public Optional<DisposalContainmentOwner> ownerOf(LivingEntity body) {
+    public Optional<ContainedBodyOwner> ownerOf(LivingEntity body) {
         if (body == null) return Optional.empty();
-        DisposalContainmentOwner owner = membership.get(body.getUUID());
+        ContainedBodyOwner owner = membership.get(body.getUUID());
         if (owner == null) return Optional.empty();
         if (!validBody(body) || !validOwner(owner)) {
             release(body, owner);
@@ -123,7 +127,7 @@ public final class DisposalContainmentService implements AutoCloseable {
         }
     }
 
-    private void release(LivingEntity body, DisposalContainmentOwner owner) {
+    private void release(LivingEntity body, ContainedBodyOwner owner) {
         if (membership.unbind(body.getUUID(), owner)) restore(body);
     }
 
@@ -132,7 +136,7 @@ public final class DisposalContainmentService implements AutoCloseable {
                 && body.isAddedToLevel() && level.getEntity(body.getUUID()) == body;
     }
 
-    private boolean validOwner(DisposalContainmentOwner owner) {
+    private boolean validOwner(ContainedBodyOwner owner) {
         if (owner == null || owner.identity() == null || owner.level() != level || !owner.isValid()) return false;
         Vec3 p = owner.position();
         return p != null && Double.isFinite(p.x) && Double.isFinite(p.y) && Double.isFinite(p.z);
@@ -146,7 +150,7 @@ public final class DisposalContainmentService implements AutoCloseable {
         body.setDeltaMovement(Vec3.ZERO);
     }
 
-    private static void pin(LivingEntity body, DisposalContainmentOwner owner) {
+    private static void pin(LivingEntity body, ContainedBodyOwner owner) {
         Vec3 p = owner.positionFor(body);
         if (p == null || !Double.isFinite(p.x) || !Double.isFinite(p.y) || !Double.isFinite(p.z)) return;
         body.teleportTo(p.x, p.y, p.z);
@@ -154,7 +158,7 @@ public final class DisposalContainmentService implements AutoCloseable {
     }
 
     private void restore(LivingEntity body) {
-        OriginalFlags flags = saved.remove(body.getUUID());
+        ContainedBodyFlags flags = saved.remove(body.getUUID());
         if (flags == null) return;
         body.setInvisible(flags.invisible);
         body.noPhysics = flags.noPhysics;
@@ -173,14 +177,15 @@ public final class DisposalContainmentService implements AutoCloseable {
         synchronized (LEVELS) { LEVELS.remove(level, this); }
     }
 
-    private static OriginalFlags capture(LivingEntity body) {
-        return new OriginalFlags(body.isInvisible(), body.noPhysics, body.isNoGravity());
+    private static ContainedBodyFlags capture(LivingEntity body) {
+        return new ContainedBodyFlags(body.isInvisible(), body.noPhysics, body.isNoGravity());
     }
 
     private static void setContainedVisual(LivingEntity body, boolean contained) {
-        if (body instanceof DisposalContainedVisual visual) visual.moonstation14$setDisposalContainedVisual(contained);
+        if (body instanceof ContainedBodyVisual visual) visual.moonstation14$setContainedBodyVisual(contained);
     }
 
     /** Immutable original entity flags captured before containment first began. */
-    public record OriginalFlags(boolean invisible, boolean noPhysics, boolean noGravity) { }
+    public record ContainedBodyFlags(boolean invisible, boolean noPhysics, boolean noGravity) { }
 }
+

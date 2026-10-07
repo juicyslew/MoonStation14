@@ -19,11 +19,11 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.ms14.disposal.item.DisposalContents;
 import com.juicyslew.moonstation14.ms14.disposal.item.DisposalWorldPayloadStage;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.OriginalFlags;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.ExposureAirSource;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import com.juicyslew.moonstation14.ms14.hands.transfer.ItemLocation;
@@ -33,17 +33,18 @@ import com.juicyslew.moonstation14.ms14.atmos.exposure.FiniteExposureAir;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 
 /** Persisted disposal machine identity/configuration and timing adapter. Payload transport is deliberately staged. */
-public final class DisposalUnitBlockEntity extends BlockEntity implements DisposalContainmentOwner {
+public final class DisposalUnitBlockEntity extends BlockEntity implements ContainedBodyOwner {
     private UUID identity = UUID.randomUUID();
     private boolean powerSwitch = true;
     private DisposalUnitTimingKernel timing;
     private DisposalUnitTimingKernel.StateSnapshot restoredTiming;
+    private boolean clockRebaseWarned;
     private long lastTick;
     private FlushSink flushSink;
     private DisposalContents contents;
     private final Set<UUID> bodies = new LinkedHashSet<>();
-    private final java.util.Map<UUID, OriginalFlags> bodyFlags = new java.util.HashMap<>();
-    private final DisposalContainmentOwner owner = this;
+    private final java.util.Map<UUID, ContainedBodyFlags> bodyFlags = new java.util.HashMap<>();
+    private final ContainedBodyOwner owner = this;
     private CompoundTag savedContents;
     private CompoundTag savedReservoir;
     private FiniteExposureAir reservoir;
@@ -68,6 +69,11 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
     public UUID identity() { return identity; }
     @Override public ServerLevel level() { return level instanceof ServerLevel server ? server : null; }
     @Override public Vec3 position() { return new Vec3(worldPosition.getX() + .5, worldPosition.getY(), worldPosition.getZ() + .5); }
+    @Override public com.juicyslew.moonstation14.ms14.containment.ContainedBodyView view() {
+        boolean cameraCollision = resolvedData() == null || resolvedData().containedView().cameraCollision();
+        return new com.juicyslew.moonstation14.ms14.containment.ContainedBodyView(identity,
+                java.util.Optional.of(worldPosition.immutable()), cameraCollision);
+    }
     @Override public java.util.Optional<ExposureAirSource> airSource() {
         return level instanceof ServerLevel server ? java.util.Optional.of(new DisposalUnitWorldAirSource(server, worldPosition)) : java.util.Optional.empty();
     }
@@ -106,7 +112,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
     }
     @Override public boolean tryEscape(LivingEntity body) {
         if (!ensureRuntime() || !(level instanceof ServerLevel server) || body == null || !bodies.contains(body.getUUID())
-                || !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body)) return false;
+                || !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canMove(body)) return false;
         advanceBeforeAction();
         var hands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
         if (hands == null || !hands.compatible(body) || hands.handIds().isEmpty() || !kernel().exitAttemptAllowed()) return false;
@@ -122,9 +128,11 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
         if (!(level instanceof ServerLevel server) || !isValid() || body == null || body.level() != server
                 || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel() || server.getEntity(body.getUUID()) != body
                 || bodies.contains(body.getUUID())) return false;
-        if (!DisposalContainmentService.forLevel(server).bind(body, owner)) return false;
-        DisposalContainmentService.forLevel(server).export(body, owner).ifPresent(flags -> bodyFlags.put(body.getUUID(), flags));
-        bodies.add(body.getUUID()); kernel().insert(1); setChanged(); return true;
+        if (!BodyContainmentService.forLevel(server).bind(body, owner)) return false;
+        BodyContainmentService.forLevel(server).export(body, owner).ifPresent(flags -> bodyFlags.put(body.getUUID(), flags));
+         bodies.add(body.getUUID()); kernel().insert(1); setChanged();
+          com.juicyslew.moonstation14.ms14.disposal.DisposalAudio.playInsert(server, worldPosition, prototype());
+         return true;
     }
     public boolean acceptWorldItem(ItemEntity source) {
         if (!ensureRuntime()) return false;
@@ -141,7 +149,9 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
         if (!contents.accept(token, sourceLocation, UUID.randomUUID().toString(), stack, ledger.snapshot().revision())) {
             source.setItem(stack); ledger.consume(ledger.snapshot().revision(), token, sourceLocation); return false;
         }
-        source.discard(); kernel().insert(1); setChanged(); return true;
+         source.discard(); kernel().insert(1); setChanged();
+         com.juicyslew.moonstation14.ms14.disposal.DisposalAudio.playInsert(server, worldPosition, prototype());
+         return true;
     }
     public boolean completeBodyAdmission(ItemToken token, ItemLocation source, ItemStack stack) {
         if (!ensureRuntime()) return false;
@@ -151,8 +161,18 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
         if (!ledger.register(token, source).accepted()) return false;
         boolean accepted = contents.accept(token, source, UUID.randomUUID().toString(), stack, ledger.snapshot().revision());
         if (!accepted) ledger.consume(ledger.snapshot().revision(), token, source);
-        if (accepted) kernel().insert(1);
+        if (accepted) {
+            kernel().insert(1);
+            com.juicyslew.moonstation14.ms14.disposal.DisposalAudio.playInsert(server, worldPosition, prototype());
+        }
         return accepted;
+    }
+    @Override public boolean acceptDroppedItem(ItemToken token, ItemLocation source, ItemStack stack) {
+        if (!ensureRuntime() || contents == null || !(level instanceof ServerLevel)) return false;
+        if (!contents.acceptDropped(token, source, stack)) return false;
+        kernel().insert(1);
+        setChanged();
+        return true;
     }
     /** Atomically accepts a holder returning through this unit's exact same-floor trunk, then ejects immediately. */
     public boolean receiveReturnedHolder(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder holder) {
@@ -162,17 +182,17 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
         // its ability to receive the exact holder at its below-cell.
         var sourceContents = holder.contents();
         if (sourceContents == null || sourceContents.ownerId().equals(identity)) return false;
-        var containment = DisposalContainmentService.forLevel(server);
+        var containment = BodyContainmentService.forLevel(server);
         var sourceOwner = holder.containmentOwner();
         Set<String> entryIds = sourceContents.snapshot().keySet();
         Set<UUID> bodyIds = holder.bodyIds();
         Map<UUID, LivingEntity> liveBodies = new java.util.LinkedHashMap<>();
-        Map<UUID, OriginalFlags> originals = new java.util.HashMap<>();
+        Map<UUID, ContainedBodyFlags> originals = new java.util.HashMap<>();
         for (UUID id : bodyIds) {
             if (!(server.getEntity(id) instanceof LivingEntity body) || body.isRemoved() || !body.isAlive()
                     || containment.ownerOf(body).orElse(null) != sourceOwner) return false;
             liveBodies.put(id, body);
-            OriginalFlags flags = containment.export(body, sourceOwner).orElse(null);
+            ContainedBodyFlags flags = containment.export(body, sourceOwner).orElse(null);
             if (flags == null) return false;
             originals.put(id, flags);
         }
@@ -214,7 +234,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
     private void rollbackReturned(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder holder,
             DisposalContents source, java.util.List<Map.Entry<String, String>> items, java.util.List<UUID> movedBodies,
             java.util.Map<UUID, LivingEntity> liveBodies, ItemLocationLedger ledger,
-            DisposalContainmentService containment, DisposalContainmentOwner sourceOwner) {
+            BodyContainmentService containment, ContainedBodyOwner sourceOwner) {
         for (int i = movedBodies.size() - 1; i >= 0; i--) {
             UUID id = movedBodies.get(i); LivingEntity body = liveBodies.get(id);
             if (body != null && containment.transfer(body, owner, sourceOwner)) { bodies.remove(id); bodyFlags.remove(id); }
@@ -228,7 +248,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
     private boolean ejectBody(ServerLevel server, LivingEntity body, boolean unitCellFreed) {
         Vec3 destination = safeEjection(server, body, unitCellFreed);
         if (destination == null) return false;
-        if (!DisposalContainmentService.forLevel(server).unbind(body, owner)) return false;
+        if (!BodyContainmentService.forLevel(server).unbind(body, owner)) return false;
         bodies.remove(body.getUUID()); bodyFlags.remove(body.getUUID()); body.teleportTo(destination.x, destination.y, destination.z); body.setDeltaMovement(Vec3.ZERO); setChanged(); return true;
     }
     private Vec3 safeEjection(ServerLevel server, LivingEntity body, boolean unitCellFreed) {
@@ -319,14 +339,18 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
     }
     private void bindSavedBodies(ServerLevel server) {
         for (UUID id : Set.copyOf(bodies)) if (server.getEntity(id) instanceof LivingEntity body) {
-            OriginalFlags flags = bodyFlags.get(id);
-            if (flags != null && DisposalContainmentService.forLevel(server).bindRestored(body, owner, flags)) { }
+            ContainedBodyFlags flags = bodyFlags.get(id);
+            if (flags != null && BodyContainmentService.forLevel(server).bindRestored(body, owner, flags)) { }
         }
     }
     public DisposalEntityData.Unit prototype() {
+        DisposalEntityData data = resolvedData();
+        return data == null ? null : data.unit();
+    }
+    private DisposalEntityData resolvedData() {
         if (level == null || !(getBlockState().getBlock() instanceof DisposalUnitBlock)) return null;
         DisposalEntityData data = (level.isClientSide ? PrototypeRuntime.clientDisposals() : PrototypeRuntime.serverDisposals()).get(ModDisposals.UNIT);
-        return data == null ? null : data.unit();
+        return data;
     }
     public boolean powerSwitch() { return powerSwitch; }
     public void setPowerSwitch(boolean value) { if (powerSwitch != value) { advanceBeforeAction(); powerSwitch = value; projectFreshPower(); if (level instanceof ServerLevel server) com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.disposalUnitChanged(server, worldPosition); setChanged(); } }
@@ -389,7 +413,10 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
         if (config == null) throw new IllegalStateException("resolved disposal unit prototype unavailable");
         if (timing == null) {
             if (restoredTiming != null) {
-                try { timing = DisposalUnitTimingKernel.restore(config, restoredTiming); }
+                try {
+                    timing = DisposalUnitTimingKernel.restore(config, restoredTiming);
+                    rebaseClock(level instanceof ServerLevel server ? server.getGameTime() : lastTick);
+                }
                 catch (RuntimeException invalid) { restoredTiming = null; }
             }
             if (timing == null) {
@@ -408,6 +435,18 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
         DisposalEntityData.Unit config = prototype();
         var meter = com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.disposalUnitMeter(server, this);
         return config != null && meter.known() && meter.deliveredWatts() == config.powerWatts();
+    }
+    private void rebaseClock(long worldTick) {
+        long previous = timing.nowTick();
+        if (worldTick >= previous) return;
+        timing.rebaseClock(worldTick);
+        lastTick = worldTick;
+        if (!clockRebaseWarned) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                    "Rebased disposal unit timing clock at {} from logical tick {} to world tick {}",
+                    worldPosition, previous, worldTick);
+            clockRebaseWarned = true;
+        }
     }
     void setGameTestPowerOverride(Boolean powered) { gameTestPowerOverride = powered; }
     /** Test-only isolated power projection is not a production electrical load. */
@@ -430,6 +469,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
         be.ensureReservoir();
         be.lastTick = level.getGameTime();
         DisposalUnitTimingKernel kernel = be.kernel();
+        be.rebaseClock(be.lastTick);
         kernel.setAnchored(state.getValue(DisposalUnitBlock.ANCHORED));
         boolean powered = be.freshPowered() && be.powerSwitch;
         if (level.getBlockState(pos).getValue(DisposalUnitBlock.POWERED) != powered)
@@ -508,7 +548,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Dispos
             var list = tag.getList("BodyOriginalFlags", net.minecraft.nbt.Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {
                 CompoundTag saved = list.getCompound(i);
-                if (saved.hasUUID("Body")) bodyFlags.put(saved.getUUID("Body"), new OriginalFlags(saved.getBoolean("Invisible"), saved.getBoolean("NoPhysics"), saved.getBoolean("NoGravity")));
+                if (saved.hasUUID("Body")) bodyFlags.put(saved.getUUID("Body"), new ContainedBodyFlags(saved.getBoolean("Invisible"), saved.getBoolean("NoPhysics"), saved.getBoolean("NoGravity")));
             }
         }
         if (tag.contains("TimingNow")) restoredTiming = new DisposalUnitTimingKernel.StateSnapshot(tag.getLong("TimingNow"), tag.getBoolean("TimingEngaged"),

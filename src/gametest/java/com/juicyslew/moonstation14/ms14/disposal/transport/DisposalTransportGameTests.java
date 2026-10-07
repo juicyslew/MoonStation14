@@ -67,7 +67,7 @@ public final class DisposalTransportGameTests {
         body.setNoGravity(false);
         require(level.addFreshEntity(body), "body added to level");
         var source = new TestTraversalOwner(level, UUID.randomUUID());
-        var containment = com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(level);
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
         require(containment.bind(body, source), "body initially contained by source owner");
         var original = containment.export(body, source).orElseThrow();
         require(holder.addBody(level, body, source), "holder admits body");
@@ -178,7 +178,7 @@ public final class DisposalTransportGameTests {
     }
 
     private record TestTraversalOwner(net.minecraft.server.level.ServerLevel level, UUID identity)
-            implements com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner {
+            implements com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner {
         @Override public net.minecraft.world.phys.Vec3 position() { return new net.minecraft.world.phys.Vec3(0, 0, 0); }
         @Override public Stage stage() { return Stage.TRANSIT; }
         @Override public boolean isValid() { return true; }
