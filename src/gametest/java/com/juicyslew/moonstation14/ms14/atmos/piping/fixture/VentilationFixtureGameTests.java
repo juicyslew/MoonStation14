@@ -31,7 +31,7 @@ public final class VentilationFixtureGameTests {
         ServerLevel level = helper.getLevel();
         AtmosphereService atmos = AtmosphereService.INSTANCE;
         Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum = atmos.vacuumDimensionsForTest();
-        atmos.configureAtServerStart(Set.of(level.dimension()));
+        atmos.configureAtServerStart(Set.of(level.dimension()), atmos.spaceDimensionsForTest());
         BlockPos origin = new BlockPos(200, 20, 200);
         VentilationFixturePlan plan = VentilationFixturePlan.standard();
         BlockPos min = origin, max = origin.offset(VentilationFixturePlan.WIDTH - 1,
@@ -52,7 +52,7 @@ public final class VentilationFixtureGameTests {
             helper.runAtTickTime(5, () -> initializeWhenReady(helper, level, origin, plan, 5, oldVacuum, newlyForced));
         } catch (RuntimeException | Error failure) {
             unforce(level, newlyForced);
-            atmos.configureAtServerStart(oldVacuum);
+            atmos.configureAtServerStart(oldVacuum, atmos.spaceDimensionsForTest());
             throw failure;
         }
     }
@@ -90,7 +90,7 @@ public final class VentilationFixtureGameTests {
                     "initial source concentration has a visible gas overlay");
             helper.runAtTickTime(10, () -> captureScrubbedGas(helper, level, origin, plan, oldVacuum, newlyForced, initial, 10));
         } catch (RuntimeException | Error failure) {
-            AtmosphereService.INSTANCE.configureAtServerStart(oldVacuum);
+            AtmosphereService.INSTANCE.configureAtServerStart(oldVacuum, AtmosphereService.INSTANCE.spaceDimensionsForTest());
             unforce(level, newlyForced);
             throw failure;
         }
@@ -170,7 +170,7 @@ public final class VentilationFixtureGameTests {
     }
 
     private static void cleanup(ServerLevel level, Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum, Set<Long> chunks) {
-        AtmosphereService.INSTANCE.configureAtServerStart(oldVacuum);
+        AtmosphereService.INSTANCE.configureAtServerStart(oldVacuum, AtmosphereService.INSTANCE.spaceDimensionsForTest());
         unforce(level, chunks);
     }
 

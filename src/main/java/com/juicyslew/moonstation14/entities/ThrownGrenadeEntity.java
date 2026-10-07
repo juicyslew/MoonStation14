@@ -32,6 +32,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile {
 
     public ThrownGrenadeEntity(Level level, LivingEntity shooter, ItemStack stack) {
         super(ModEntities.THROWN_GRENADE.get(), shooter, level);
+        initializeArmedStack(stack);
+    }
+
+    /** Creates an armed projectile emitted by a device/world process, with no actor attribution. */
+    public static ThrownGrenadeEntity fromWorld(Level level, ItemStack stack) {
+        ThrownGrenadeEntity entity = new ThrownGrenadeEntity(ModEntities.THROWN_GRENADE.get(), level);
+        entity.initializeArmedStack(stack);
+        return entity;
+    }
+
+    private void initializeArmedStack(ItemStack stack) {
         if (stack == null || stack.getCount() != 1 || stack.get(ModDataComponents.GRENADE_FUSE.get()) == null
                 || stack.get(ModDataComponents.GRENADE_FUSE.get()).phase() != GrenadeFuse.Phase.ARMED) {
             invalidState = true;

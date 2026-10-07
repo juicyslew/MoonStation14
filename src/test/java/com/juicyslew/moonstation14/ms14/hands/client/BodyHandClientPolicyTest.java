@@ -13,6 +13,56 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void deferredPlacementRequiresFreshSameIntentAndSource() {
+        var body=java.util.UUID.randomUUID(); var pos=new net.minecraft.core.BlockPos(1,2,3);
+        assertTrue(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","off","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,10,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.NORTH,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,false,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","different-stack",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,java.util.UUID.randomUUID(),4,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,5,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","minecraft:iron_ingot",9,9,pos,pos,net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+        assertFalse(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
+                "moonstation14:steel","moonstation14:steel",9,9,pos,new net.minecraft.core.BlockPos(9,9,9),net.minecraft.core.Direction.UP,
+                net.minecraft.core.Direction.UP,true,true));
+    }
+    @Test void constructionUseMayQueueAcrossEitherBlockUseBarrierForResolvedPipeRecipes() {
+        var step = new com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData.ConstructionStep(
+                2, 0, "moonstation14:steel");
+        for (String shape : List.of("disposal_pipe", "disposal_bend", "disposal_trunk",
+                "disposal_junction", "disposal_junction_flipped", "disposal_tagger",
+                "disposal_router", "disposal_router_flipped")) {
+            String prototype = "moonstation14:" + shape;
+            assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(true, true, prototype, step,
+                    "moonstation14:steel"), shape);
+        }
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(false, true, "moonstation14:disposal_bend",
+                step, "moonstation14:steel"), "no pending-use or refresh barrier");
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(true, true, "moonstation14:disposal_router",
+                step, "minecraft:iron_ingot"), "wrong active material");
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(true, false, "moonstation14:disposal_pipe",
+                step, "moonstation14:steel"), "inactive construction mode");
+    }
     private static final UUID ACCOUNT = UUID.randomUUID(), BODY = UUID.randomUUID();
 
     @Test void clientPullNominationUsesReadOnlyProjectionNotServerAuthorityResolver() throws Exception {
@@ -393,17 +443,25 @@ class BodyHandClientPolicyTest {
         assertTrue(policy.accept(hands));
         long blockUse = policy.blockUseSequence(2);
         assertTrue(blockUse > 0);
+        var pipeStep = new com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData.ConstructionStep(2,0,"moonstation14:steel");
+        assertTrue(policy.blockUseBarrier()); // request sent; awaiting result
+        assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(policy.blockUseBarrier(),true,
+                "moonstation14:disposal_bend",pipeStep,"moonstation14:steel"));
         assertNotNull(policy.hudSnapshot());
         assertNull(policy.inventoryView()); // presentation remains visible, but pending block use grants no mutation authority
         assertEquals(0, policy.blockUseSequence(3)); // one outstanding use until correlated completion
         assertTrue(policy.blockUseResult(new com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult(
                 7, blockUse, com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult.Outcome.PLACED)));
+        assertTrue(policy.blockUseBarrier()); // result received; authoritative refresh still pending
+        assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(policy.blockUseBarrier(),true,
+                "moonstation14:disposal_router",pipeStep,"moonstation14:steel"));
         assertNull(policy.hudSnapshot());
         long refresh = policy.query(3); // placement completion bypasses the periodic throttle
         assertTrue(refresh > initial);
         assertEquals(0, policy.blockUseSequence(3));
         assertTrue(policy.accept(new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
                 ACCOUNT, BODY, 7, 4, "left", hands.hands())));
+        assertFalse(policy.blockUseBarrier());
 
         long action = policy.action(4);
         assertTrue(action > blockUse);

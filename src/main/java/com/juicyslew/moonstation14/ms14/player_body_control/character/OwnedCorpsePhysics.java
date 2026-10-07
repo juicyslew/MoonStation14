@@ -22,6 +22,10 @@ public final class OwnedCorpsePhysics {
         if (!eligible(body) || !(body.level() instanceof ServerLevel level)
                 || level.getServer() == null || !level.getServer().isSameThread()
                 ) return false;
+        boolean trackedFlight = com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.tracked(body);
+        boolean externalFlight = com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.active(body);
+        if (trackedFlight && com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight
+                .alreadyAdvancedThisTick(body)) return true;
 
         var data = CharacterIdentitySystem.resolveForActor(body).orElse(null);
         if (data == null) return false;
@@ -49,9 +53,14 @@ public final class OwnedCorpsePhysics {
                 MovementVector.ZERO, 32d, body.maxUpStep(), resolver, 1d, 0d, tetherImpulse(body));
         try {
             CharacterMovementState result = new GroundedHarnessMotor(policy).tick(state, 0, 0,
-                    false, false, 0f, environment, false);
+                    false, false, 0f, environment, false, externalFlight);
             body.setDeltaMovement(result.velocity().x() / 20d, result.velocity().y() / 20d,
                     result.velocity().z() / 20d);
+            if (trackedFlight) {
+                com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.advanced(body);
+                if (!externalFlight && com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.settled(body))
+                    com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.cancel(body);
+            }
             return true;
         } catch (IllegalArgumentException | NullPointerException exception) {
             return false;
@@ -64,6 +73,9 @@ public final class OwnedCorpsePhysics {
                 || body.isPassenger() || body.isNoGravity() || body.noPhysics
                 || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.policy(body) == null
                 || !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(body)) return false;
+        if (body.level() instanceof ServerLevel level
+                && com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                .ownerOf(body).isPresent()) return false;
         var data = CharacterIdentitySystem.resolveForActor(body).orElse(null);
         if (data == null) return false;
         try {

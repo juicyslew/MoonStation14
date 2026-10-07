@@ -165,31 +165,38 @@ public final class PostureGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"merge-main-regression"})
     public static void controlledActorCanTurnRetainedDeadBodyWithoutChangingMedicalState(GameTestHelper helper) {
         Villager actor = human(helper);
         Villager target = humanAt(helper, 4.5);
         PostureSystem.forceDown(target, helper.getLevel().getServer().overworld().getGameTime());
         requireDamage(target, 200f);
         require(MobStateSystem.isDead(target) && PostureSystem.isDown(target), "target is a retained downed DEAD character");
+        require(target.getPose() == Pose.SWIMMING && Math.abs(target.getBoundingBox().getYsize() - .6) < .001,
+                "native death transition preserves prone corpse pose and dimensions");
         PostureData before = target.getData(ModDataAttachments.POSTURE.get()).data();
         require(PostureSystem.turnOtherBody(actor, target), "conscious actor with a free hand can turn dead downed body");
         PostureData after = target.getData(ModDataAttachments.POSTURE.get()).data();
-        require(!after.faceUp() && after.down() && after.knockdownUntil() == before.knockdownUntil(),
+        require(after.faceUp() != before.faceUp() && after.down() == before.down()
+                        && after.knockdownUntil() == before.knockdownUntil(),
                 "turn changes facing only");
         require(MobStateSystem.isDead(target), "turn preserves DEAD medical state");
         helper.succeed();
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"merge-main-regression"})
     public static void controlledActorCanTurnCriticalAndVoluntaryDownBodies(GameTestHelper helper) {
         Villager actor = human(helper);
         Villager critical = humanAt(helper, 4.5);
         PostureSystem.forceDown(critical, helper.getLevel().getServer().overworld().getGameTime());
         requireDamage(critical, 100f);
+        boolean criticalFaceBeforeTurn = critical.getData(ModDataAttachments.POSTURE.get()).data().faceUp();
         require(MobStateSystem.isCritical(critical) && PostureSystem.turnOtherBody(actor, critical),
                 "downed Critical target can be turned");
-        require(MobStateSystem.isCritical(critical) && !critical.getData(ModDataAttachments.POSTURE.get()).data().faceUp(),
-                "Critical state survives turn");
+        require(MobStateSystem.isCritical(critical)
+                        && critical.getData(ModDataAttachments.POSTURE.get()).data().faceUp() != criticalFaceBeforeTurn,
+                "Critical state survives facing toggle");
         Villager voluntary = humanAt(helper, 6.5);
         require(PostureSystem.voluntaryToggle(voluntary), "second target voluntarily goes down");
         boolean voluntaryFaceBeforeTurn = voluntary.getData(ModDataAttachments.POSTURE.get()).data().faceUp();

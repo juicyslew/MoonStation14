@@ -17,6 +17,8 @@ import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHa
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
+import com.juicyslew.moonstation14.ms14.player_body_control.network.CharacterMovementModeResolver;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard;
@@ -622,11 +624,15 @@ public final class LifecycleCharacterSessionControl {
                 ? com.juicyslew.moonstation14.ms14.standing.PostureSystem.crawlMultiplier(body)
                 : CharacterControlSystem.isKnockedDown(body)
                 ? com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d);
+        var owner = BodyContainmentService.forLevel((ServerLevel) body.level()).ownerOf(body).orElse(null);
+        var movementMode = CharacterMovementModeResolver.fromExactOwner(owner);
         try {
             var snapshot = new GhostControlPayloads.Snapshot(session.epoch, body.getId(), MobHarnessKind.CHARACTER,
                     tick, session.lastAppliedSequence, position.x, position.y, position.z, yaw, pitch,
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
-                    CharacterControlSystem.isStunned(body));
+                    !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
+                            ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
+                    movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view));
             if (!snapshotBoundToSession(snapshot, session.epoch, body.getId())) {
                 fail(server, session, FailureReason.SNAPSHOT_BINDING_MISMATCH);
                 return;

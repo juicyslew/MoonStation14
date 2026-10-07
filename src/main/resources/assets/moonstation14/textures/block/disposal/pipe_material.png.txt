@@ -1,0 +1,3 @@
+CC-BY-SA-3.0
+Palette provenance: Space-wizards/space-station-14, pinned commit c9df5ef5d675b0d1d226828bddf6b78c28502d91, Resources/Textures/Structures/Piping/disposal.rsi/pipe-s.png; RSI source attribution and copyright authors are recorded in docs/disposals-pneumatic-sprint/assets-and-attribution.md.
+This new 16x8 Minecraft mesh material was composed using opaque metal and dark-edge colors sampled from the native pipe-s_frame0 artwork. It is a restrained palette extraction and new pixel arrangement, not an imported or claimed upstream 3D texture. Left 8x8 is subtly varied metal; right 8x8 is the dark underside. No original asset was modified.

@@ -1,0 +1,7 @@
+UNRESOLVED — do not assume MIT or CC. No file-specific attribution or license entry for disposalflush.ogg was found in the pinned upstream Resources/Audio/Machines/attributions.yml.
+
+Upstream: Space Station 14, Resources/Audio/Machines/disposalflush.ogg
+Commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+URL: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Machines/disposalflush.ogg
+Source/local size: 37814 bytes. Source/local SHA-256: 82ed14d487928ca0e569c5e147394d520b82e85f1dbe22da490f9e6023cca744.
+Copied verbatim; no edits. Author, original source URL, and file-specific license remain unknown. The upstream README's general asset guidance is not a file-specific license.

@@ -639,4 +639,3 @@ public final class BodyWorldGridService {
         return true;
     }
 }
-

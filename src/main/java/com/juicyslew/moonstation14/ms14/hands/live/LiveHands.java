@@ -415,6 +415,36 @@ public final class LiveHands {
         return Optional.of(new LiveHands(next, active, revision, equipment));
     }
 
+    /**
+     * Ticks finite tool state without changing ownership or action revision. This is passive owner state,
+     * so a fuel decrement alone must not stale otherwise valid held-item requests.
+     */
+    public LiveHands tickWelderStacks(java.util.function.UnaryOperator<ItemStack> tick) {
+        Objects.requireNonNull(tick, "tick");
+        ArrayList<Slot> nextHands = new ArrayList<>(hands);
+        ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElse(List.of()));
+        boolean changed = tickStacks(nextHands, tick) | tickStacks(nextEquipment, tick);
+        return changed ? new LiveHands(nextHands, active, revision, equipment.isPresent()
+                ? Optional.of(nextEquipment) : Optional.empty()) : this;
+    }
+
+    private static boolean tickStacks(ArrayList<Slot> slots, java.util.function.UnaryOperator<ItemStack> tick) {
+        boolean changed = false;
+        for (int i = 0; i < slots.size(); i++) {
+            Slot slot = slots.get(i);
+            if (slot.occupant().isEmpty()) continue;
+            Occupant owner = slot.occupant().orElseThrow();
+            ItemStack before = owner.stack();
+            ItemStack after = tick.apply(before);
+            if (after == null || after.isEmpty() || after.getItem() != before.getItem()
+                    || after.getCount() != before.getCount()) continue;
+            if (ItemStack.isSameItemSameComponents(before, after)) continue;
+            slots.set(i, new Slot(slot.id(), Optional.of(new Occupant(owner.token(), after))));
+            changed = true;
+        }
+        return changed;
+    }
+
     /** Pure, single-revision movement into the pouch component; no intermediate ownership state. */
     Optional<LiveHands> insertPouch(long expectedRevision, String pouchHand, String pouchToken,
                                     String sourceHand, String sourceToken) {

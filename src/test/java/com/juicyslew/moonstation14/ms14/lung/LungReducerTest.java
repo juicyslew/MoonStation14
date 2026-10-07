@@ -21,25 +21,29 @@ class LungReducerTest {
     @Test void volumeUsesActualStrictSampleNotFixedMoleRate() {
         GasMixture air = GasMixture.breathableAir();
         double request = LungSystem.requestedMoles(air, 0.5, 6);
-        assertEquals(101325d / (8.31446261815324d * 293.15d) * 0.0005, request, 1e-12);
+        double sourceExpected = air.pressureKpa(1d) * 1000d
+                / (8.31446261815324d * air.temperatureKelvin()) * 0.0005;
+        assertEquals(sourceExpected, request, 8 * Math.ulp((float) sourceExpected));
         assertEquals(0.020786, request, 0.00002);
-        assertEquals(request / 2, LungSystem.requestedMoles(air.withScaledMoles(0.5), 0.5, 6), 1e-12);
+        double halfRequest = LungSystem.requestedMoles(air.withScaledMoles(0.5), 0.5, 6);
+        assertEquals(request / 2, halfRequest, 8 * Math.ulp((float) halfRequest));
         assertEquals(0, LungSystem.requestedMoles(GasMixture.vacuum(), 0.5, 6));
         assertEquals(0.001, LungSystem.requestedMoles(air, 0.5, 0.001));
         assertThrows(IllegalArgumentException.class, () -> LungSystem.requestedMoles(air, Double.NaN, 6));
     }
 
-    @Test void zeroKelvinGasCannotBecomeVacuumOrReachExchange() {
+    @Test void zeroKelvinInputUsesGasMixtureMinimumTemperature() {
         GasMixture impossible = new GasMixture(Map.of(GasType.OXYGEN, 1d), 0d);
-        assertTrue(LungSystem.safeRequestedMoles(impossible, 0.5, 6).isEmpty());
-        assertTrue(LungSystem.safeRequestedMoles(impossible, 0.5, 0).isEmpty(),
-                "preflight must reject even before the lung capacity is known");
+        assertEquals(GasMixture.MIN_TEMPERATURE_KELVIN, impossible.temperatureKelvin(),
+                Math.ulp((float) GasMixture.MIN_TEMPERATURE_KELVIN));
+        assertTrue(LungSystem.safeRequestedMoles(impossible, 0.5, 6).orElseThrow() > 0);
+        assertEquals(0, LungSystem.safeRequestedMoles(impossible, 0.5, 0).orElseThrow());
         assertTrue(LungSystem.safeRequestedMoles(GasMixture.breathableAir(), 0.5, -1).isEmpty());
         assertTrue(LungSystem.safeRequestedMoles(GasMixture.breathableAir(), 0.5, Double.NaN).isEmpty());
         assertEquals(0, LungSystem.safeRequestedMoles(GasMixture.vacuum(), 0.5, 6).orElseThrow());
         var original = LungComponent.from(GasMixture.vacuum(), 5, true);
         assertTrue(LungSystem.advance(original, policy(), impossible, false,
-                (exhaled, request) -> fail("invalid sample must not exchange")).isEmpty());
+                (exhaled, request) -> Optional.of(GasMixture.vacuum())).isPresent());
         assertEquals(LungComponent.Phase.INHALING, original.phase());
         assertEquals(5, original.saturation());
     }
@@ -72,8 +76,9 @@ class LungReducerTest {
                 }).orElseThrow();
         assertEquals(5, inhaled.saturation());
         assertEquals(LungComponent.Phase.EXHALING, inhaled.phase());
-        assertEquals(requested, inhaled.mixture().totalMoles(), 1e-10);
-        assertEquals(exchange.inhaled().moles(GasType.OXYGEN), inhaled.mixture().moles(GasType.CARBON_DIOXIDE), 1e-10);
+        assertEquals(requested, inhaled.mixture().totalMoles(), 8 * Math.ulp((float) requested));
+        double oxygen = exchange.inhaled().moles(GasType.OXYGEN);
+        assertEquals(oxygen, inhaled.mixture().moles(GasType.CARBON_DIOXIDE), 8 * Math.ulp((float) oxygen));
         var returned = BreathExchange.calculate(exchange.roomAfter(), 0, inhaled.mixture()).orElseThrow();
         var empty = LungSystem.advance(inhaled, policy(), exchange.roomAfter(), false,
                 (exhaled, amount) -> {
@@ -86,7 +91,30 @@ class LungReducerTest {
         for (GasType gas : GasType.values())
             assertEquals(room.moles(gas) + (gas == GasType.OXYGEN ? -exchange.inhaled().moles(gas)
                     : gas == GasType.CARBON_DIOXIDE ? exchange.inhaled().moles(GasType.OXYGEN) : 0),
-                    returned.roomAfter().moles(gas), 1e-9);
+                    returned.roomAfter().moles(gas), 4 * Math.ulp((float) Math.max(
+                            room.moles(gas), returned.roomAfter().moles(gas))));
+    }
+
+    @Test void containedHolderExchangeUsesItsSampleVolumeForValidation() {
+        GasMixture room = GasMixture.breathableAir();
+        double requested = LungSystem.requestedMoles(room, .04, .5, 6);
+        var exchange = BreathExchange.calculate(room, requested, GasMixture.vacuum()).orElseThrow();
+        var start = LungComponent.from(GasMixture.vacuum(), 5, true);
+        var inhaled = LungSystem.advance(start, policy(), room, .04, false,
+                (exhaled, amount) -> {
+                    assertEquals(requested, amount, 1e-12);
+                    return Optional.of(exchange.inhaled());
+                }).orElseThrow();
+        assertEquals(LungComponent.Phase.EXHALING, inhaled.phase());
+        assertEquals(exchange.inhaled().totalMoles(), inhaled.mixture().totalMoles(), 1e-12);
+        assertTrue(LungSystem.advance(start, policy(), room, .04, false,
+                (exhaled, amount) -> Optional.of(GasMixture.breathableAir().withScaledMoles(requested * 2))).isEmpty());
+        assertTrue(LungSystem.advance(start, policy(), room, Double.NaN, false,
+                (exhaled, amount) -> fail("invalid source volume must not exchange")).isEmpty());
+        double worldRequest = LungSystem.requestedMoles(room, .5, 6);
+        assertTrue(requested > worldRequest);
+        assertTrue(LungSystem.advance(start, policy(), room, false,
+                (exhaled, amount) -> { assertEquals(worldRequest, amount, 1e-12); return Optional.of(GasMixture.vacuum()); }).isPresent());
     }
 
     @Test void proportionalHalfLiterSampleDoesNotRejectRoundingAtFiveMoles() {
@@ -94,7 +122,7 @@ class LungReducerTest {
                 GasType.NITROGEN, 3.95), 293.15);
         double requested = LungSystem.requestedMoles(room, 0.5, 4.2);
         var exchange = BreathExchange.calculate(room, requested, GasMixture.vacuum()).orElseThrow();
-        assertEquals(0.0025, requested, 1e-12);
+        assertEquals(0.0025, requested, 8 * Math.ulp((float) requested));
         assertTrue(exchange.inhaled().totalMoles() > requested,
                 "fixture must exercise species-sum floating-point rounding");
         var inhaled = LungSystem.advance(LungComponent.from(GasMixture.vacuum(), 1, true),

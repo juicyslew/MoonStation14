@@ -17,6 +17,7 @@ class PrimaryWorldGestureTest {
         assertEquals(BodyHandActionRequest.Action.PICKUP,
                 PrimaryWorldGesture.action(PrimaryWorldGesture.route(true, false, false, true)));
         assertEquals(PrimaryWorldGesture.Route.BLOCK_USE, PrimaryWorldGesture.route(true, true, false, false));
+        assertEquals(PrimaryWorldGesture.Route.BLOCK_USE, PrimaryWorldGesture.route(true, true, true, false));
         assertEquals(PrimaryWorldGesture.Route.CONTROLLED_NONE, PrimaryWorldGesture.route(true, false, false, false));
         assertNull(PrimaryWorldGesture.action(PrimaryWorldGesture.Route.VANILLA));
     }

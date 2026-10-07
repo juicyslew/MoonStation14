@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.explosion.core.BlastPlanner;
+import com.juicyslew.moonstation14.ms14.explosion.core.BlastKnockbackPolicy;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
@@ -13,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -82,7 +84,8 @@ public final class ServerExplosionService {
                         if (hits.size() >= MAX_ENTITY_HITS)
                             return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0);
                         hits.put(entity.getUUID(), new EntityHit(entity, intensity.getValue()));
-                    } else if (intensity.getValue() > old.intensity) hits.put(entity.getUUID(), new EntityHit(entity, intensity.getValue()));
+                    } else if (intensity.getValue() > old.intensity)
+                        hits.put(entity.getUUID(), new EntityHit(entity, intensity.getValue()));
                 }
             }
         } catch (RuntimeException exception) { return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0); }
@@ -105,10 +108,44 @@ public final class ServerExplosionService {
         for (var entry : observed.entrySet()) if (!Objects.equals(entry.getValue(), stateIfLoaded(level, entry.getKey())))
             return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0);
 
+        if (data.temperatureKelvin().isPresent()) {
+            for (var entry : plan.intensities().entrySet()) {
+                if (!(entry.getValue() > 0)) continue;
+                BlockPos pos = new BlockPos(entry.getKey().x(), entry.getKey().y(), entry.getKey().z());
+                AtmosphereService.INSTANCE.exposeExplosionHotspot(level, pos, data.temperatureKelvin().get(), entry.getValue());
+            }
+        }
+
         int damaged = 0;
         var orderedHits = new ArrayList<>(hits.entrySet());
         orderedHits.sort(Map.Entry.comparingByKey(Comparator.comparing(UUID::toString)));
         boolean failed = false;
+        // Apply one outward impulse per frozen entity hit, before damage can alter entity state.
+        for (var entry : orderedHits) {
+            LivingEntity entity = entry.getValue().entity;
+            if (!eligibleForKnockback(entity)) continue;
+            try {
+                var impulse = BlastKnockbackPolicy.calculate(entry.getValue().intensity,
+                        source.getX() + 0.5, source.getY() + 0.5, source.getZ() + 0.5,
+                        entity.getX(), entity.getY() + entity.getBbHeight() * 0.5, entity.getZ());
+                if (!impulse.applicable()) continue;
+                var existing = entity.getDeltaMovement();
+                var velocity = impulse.velocity();
+                double x = (Double.isFinite(existing.x) ? existing.x : 0) + velocity.x();
+                double y = (Double.isFinite(existing.y) ? existing.y : 0) + velocity.y();
+                double z = (Double.isFinite(existing.z) ? existing.z : 0) + velocity.z();
+                double scale = Math.max(Math.max(Math.abs(x), Math.abs(y)), Math.abs(z));
+                if (!Double.isFinite(scale)) { x = velocity.x(); y = velocity.y(); z = velocity.z(); scale = Math.max(Math.max(Math.abs(x), Math.abs(y)), Math.abs(z)); }
+                double length = scale * Math.sqrt((x / scale) * (x / scale) + (y / scale) * (y / scale) + (z / scale) * (z / scale));
+                if (length > BlastKnockbackPolicy.MAX_SPEED) {
+                    double factor = BlastKnockbackPolicy.MAX_SPEED / length;
+                    x *= factor; y *= factor; z *= factor;
+                }
+                entity.setDeltaMovement(x, y, z);
+                entity.hasImpulse = true;
+                entity.hurtMarked = true;
+            } catch (RuntimeException ignored) { failed = true; }
+        }
         for (var entry : orderedHits) {
             try {
                 // APPLIED means the ledger accepted the request; vanilla hurt cancellation may still reject projected health damage.
@@ -183,6 +220,10 @@ public final class ServerExplosionService {
         return chunk == null ? null : chunk.getBlockState(pos);
     }
     private static boolean intersects(AABB box, BlockPos pos) { return box.intersects(new AABB(pos)); }
+    private static boolean eligibleForKnockback(LivingEntity entity) {
+        return entity.isAlive() && !entity.isRemoved() && !entity.noPhysics
+                && (!(entity instanceof Player player) || !player.isSpectator());
+    }
     private static Result result(Status status, int visited) { return new Result(status, visited, 0, 0, 0); }
     private record EntityHit(LivingEntity entity, double intensity) { }
 }

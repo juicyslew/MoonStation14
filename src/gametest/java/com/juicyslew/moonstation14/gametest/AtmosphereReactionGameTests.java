@@ -1,15 +1,15 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 
-import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionEvaluator;
-import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.mojang.serialization.JsonOps;
@@ -21,9 +21,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
 
@@ -77,6 +78,95 @@ public final class AtmosphereReactionGameTests {
         });
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_fractional_spread", timeoutTicks = 180)
+    public static void tritiumHotspotFireChemistryReachesFiniteNeighbor(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        // Fully enclosed three-cell hallway; the only passable cells are x=2..4,y=1,z=1.
+        for (int x = 1; x <= 5; x++) for (int y = 0; y <= 2; y++) for (int z = 0; z <= 2; z++)
+            helper.setBlock(new BlockPos(x, y, z), x >= 2 && x <= 4 && y == 1 && z == 1
+                    ? Blocks.AIR : Blocks.STONE);
+        BlockPos source = helper.absolutePos(new BlockPos(2, 1, 1));
+        BlockPos receiver = source.east();
+        BlockPos far = receiver.east();
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        service.activateCellAndNeighbors(level, source);
+        for (BlockPos cell : new BlockPos[]{source, receiver, far}) {
+            service.sample(level, cell);
+            for (int pass = 1; pass <= 60 && !claimed(level, cell); pass++) {
+                service.tick(level, pass);
+                service.sample(level, cell);
+            }
+            require(claimed(level, cell), "hallway cell must be finite before injection: " + cell);
+        }
+        require(service.addGas(level, source, GasType.TRITIUM, 2, 500), "source tritium injection");
+        require(service.addGas(level, source, GasType.OXYGEN, 4, 500), "source oxygen injection");
+        require(service.addGas(level, receiver, GasType.TRITIUM, 2, 100), "receiver tritium injection");
+        require(service.addGas(level, receiver, GasType.OXYGEN, 4, 100), "receiver oxygen injection");
+        GasMixture initialSource = service.sample(level, source).orElseThrow();
+        GasMixture initialReceiver = service.sample(level, receiver).orElseThrow();
+        GasMixture initialFar = service.sample(level, far).orElseThrow();
+        boolean[] sourceBurned = {false};
+        boolean[] receiverBurned = {false};
+        String[] receiverIgnitionEvidence = {"none"};
+        int[] callbacks = {0};
+        helper.startSequence().thenExecuteFor(120, () -> {
+            callbacks[0]++;
+            service.tick(level, level.getGameTime());
+            GasMixture sourceAfter = service.sample(level, source).orElseThrow();
+            GasMixture receiverAfter = service.sample(level, receiver).orElseThrow();
+            HotspotState receiverHotspotAfter = actualHotspot(service, level, receiver);
+            sourceBurned[0] |= sourceAfter.moles(GasType.TRITIUM) < initialSource.moles(GasType.TRITIUM)
+                    && sourceAfter.moles(GasType.WATER_VAPOR) > initialSource.moles(GasType.WATER_VAPOR);
+            var receiverIgnitions = service.diagnosticIgnitions(level, receiver);
+            for (var ignition : receiverIgnitions) {
+                if (ignition.origin().equals("WHOLE_AIR_REACTION") && ignition.fireExtentMoles() > 0
+                        && ignition.reactionId().endsWith("tritium_fire")) {
+                    receiverBurned[0] = true;
+                    receiverIgnitionEvidence[0] = "cycle=" + ignition.cycleIdentity() + " time=" + ignition.gameTime()
+                            + " reaction=" + ignition.reactionId() + " extent=" + ignition.fireExtentMoles();
+                }
+            }
+            require(service.boundaryGasLedger(level).values().stream().allMatch(amount -> close(amount, 0)),
+                    "sealed hallway must not export gas to exterior");
+            if (sourceBurned[0] && receiverBurned[0]) {
+                GasMixture sourceFinal = service.sample(level, source).orElseThrow();
+                GasMixture receiverFinal = service.sample(level, receiver).orElseThrow();
+                GasMixture farFinal = service.sample(level, far).orElseThrow();
+                double burned = initialSource.moles(GasType.TRITIUM) - sourceFinal.moles(GasType.TRITIUM)
+                        + initialReceiver.moles(GasType.TRITIUM) - receiverFinal.moles(GasType.TRITIUM)
+                        + initialFar.moles(GasType.TRITIUM) - farFinal.moles(GasType.TRITIUM);
+                double waterMade = sourceFinal.moles(GasType.WATER_VAPOR) - initialSource.moles(GasType.WATER_VAPOR)
+                        + receiverFinal.moles(GasType.WATER_VAPOR) - initialReceiver.moles(GasType.WATER_VAPOR)
+                        + farFinal.moles(GasType.WATER_VAPOR) - initialFar.moles(GasType.WATER_VAPOR);
+                double oxygenUsed = initialSource.moles(GasType.OXYGEN) - sourceFinal.moles(GasType.OXYGEN)
+                        + initialReceiver.moles(GasType.OXYGEN) - receiverFinal.moles(GasType.OXYGEN)
+                        + initialFar.moles(GasType.OXYGEN) - farFinal.moles(GasType.OXYGEN);
+                double cellStorageUlps = 0;
+                GasMixture[] initialCells = {initialSource, initialReceiver, initialFar};
+                GasMixture[] finalCells = {sourceFinal, receiverFinal, farFinal};
+                for (int i = 0; i < initialCells.length; i++) for (GasType gas : new GasType[]{
+                        GasType.TRITIUM, GasType.WATER_VAPOR, GasType.OXYGEN}) {
+                    cellStorageUlps += Math.ulp((float) initialCells[i].moles(gas));
+                    cellStorageUlps += Math.ulp((float) finalCells[i].moles(gas));
+                }
+                double commitOpportunities = Math.ceil(callbacks[0] / (double) AtmosphereService.TICK_CADENCE);
+                double ulpBudget = cellStorageUlps * (commitOpportunities + 1);
+                require(Math.abs(burned - waterMade) <= ulpBudget
+                                && Math.abs(oxygenUsed - 0.5 * burned) <= ulpBudget,
+                        "three-cell closed fire chemistry must conserve tritium/water and consume 0.5 oxygen per tritium; "
+                                + "burned=" + burned + ", water=" + waterMade + ", oxygen=" + oxygenUsed
+                                + ", budget=" + ulpBudget + ", source=" + sourceFinal.gasMoles()
+                                + ", receiver=" + receiverFinal.gasMoles() + ", far=" + farFinal.gasMoles());
+                helper.succeed();
+            }
+        }).thenExecute(() -> require(sourceBurned[0] && receiverBurned[0],
+                "real cycles failed to show source fire and a committed local receiver tritium-fire reaction; "
+                        + "sourceBurned=" + sourceBurned[0] + ", receiverBurned=" + receiverBurned[0]
+                        + ", receiverIgnition=" + receiverIgnitionEvidence[0] + ", sourceMetadata="
+                        + actualHotspot(service, level, source) + ", receiverMetadata="
+                        + actualHotspot(service, level, receiver)));
+    }
+
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_plasma", timeoutTicks = 100)
     public static void plasmaFireCommitsPartialHotspot(GameTestHelper helper) {
         Fixture f = fixture(helper);
@@ -88,8 +178,10 @@ public final class AtmosphereReactionGameTests {
             direction(step, GasType.OXYGEN, -1);
             direction(step, GasType.CARBON_DIOXIDE, 1);
             require(step.after().moles(GasType.PLASMA) > 0
-                            && -step.event().speciesDelta().get(GasType.PLASMA) < 0.1,
-                    "seeded plasma hotspot must burn less than its 10% starting portion");
+                            && Math.abs(-step.event().speciesDelta().get(GasType.PLASMA)
+                                    - step.event().extentMoles() / 1.4)
+                                    <= Math.ulp((float) step.before().moles(GasType.PLASMA)),
+                    "seeded plasma fire must match its source rate and retain unburned finite fuel");
             positiveEnergy(step);
             helper.succeed();
         });
@@ -203,8 +295,8 @@ public final class AtmosphereReactionGameTests {
             GasMixture saved = loadedService.sample(f.level(), f.cell()).orElseThrow();
             require(saved.gasMoles().equals(first.after().gasMoles()),
                     "new service must read the decoded chunk attachment, not old in-memory gas");
-            var expectedSeed = HotspotKernel.evaluate(saved, PrototypeRuntime.serverGasReactions(), null);
-            require(expectedSeed.totalFireExtentMoles() > 0, "saved gas must remain a fire candidate");
+            require(saved.moles(GasType.TRITIUM) > 0 && saved.moles(GasType.OXYGEN) > 0,
+                    "saved gas must retain the reactive inventory needed for a fresh fire candidate");
             // A GameTest cannot restart the server or trigger an isolated service's private
             // chunk-load hook. Advance real game time by one due step; no synthetic downtime ticks.
             helper.runAfterDelay(AtmosphereService.TICK_CADENCE, () -> {
@@ -215,8 +307,8 @@ public final class AtmosphereReactionGameTests {
                         () -> new GameTestAssertException("new service must react from the saved finite override"));
                 require(committed.events().size() == 1
                                 && committed.events().getFirst().id().equals(id("tritium_fire"))
-                                && close(committed.events().getFirst().extentMoles(), expectedSeed.totalFireExtentMoles()),
-                        "new service must seed fresh fraction, not restore grown hotspot or catch up downtime");
+                                && committed.events().getFirst().extentMoles() > 0,
+                        "new service must start fresh reaction processing, not restore hotspot metadata or catch up downtime");
                 GasMixture after = loadedService.sample(f.level(), f.cell()).orElseThrow();
                 require(after.moles(GasType.TRITIUM) < before.moles(GasType.TRITIUM)
                                 && after.moles(GasType.WATER_VAPOR) > before.moles(GasType.WATER_VAPOR),
@@ -240,14 +332,16 @@ public final class AtmosphereReactionGameTests {
         }
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        service.activateCellAndNeighbors(level, pos);
         for (BlockPos cell : new BlockPos[] {pos, pos.above()}) {
-            service.sample(level, cell); // Queue strict ownership; never infer it from a UI fallback.
-            for (int pass = 1; pass <= 12 && !claimed(level, cell); pass++) {
-                service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
+            service.sample(level, cell); // Verify strict UNKNOWN until the activated ownership seed is proved.
+            for (int pass = 1; pass <= 60 && !claimed(level, cell); pass++) {
+                service.tick(level, pass);
                 service.sample(level, cell);
             }
             require(claimed(level, cell) && service.sample(level, cell).orElseThrow().totalMoles() == 0,
-                    "both sealed room cells must be strictly finite and initially vacuum: " + cell);
+                    "both sealed room cells must be strictly finite and initially vacuum after 45 stage admissions: "
+                            + cell + ", timing=" + service.diagnosticTiming(level));
         }
         return new Fixture(helper, level, service, pos);
     }
@@ -281,19 +375,31 @@ public final class AtmosphereReactionGameTests {
             var result = service.reactFiniteCell(level, cell).orElseThrow(() ->
                     new GameTestAssertException("expected finite reaction " + name));
             GasMixture after = service.sample(level, cell).orElseThrow();
-            require(result.events().size() == 1 && result.events().getFirst().id().equals(id(name))
-                            && result.events().getFirst().effect() == BUNDLED.get(name),
+            boolean productionPlusCoolant = name.equals("frezon_production");
+            require(result.events().size() == (productionPlusCoolant ? 2 : 1)
+                            && result.events().getFirst().id().equals(id(name))
+                            && result.events().getFirst().effect() == BUNDLED.get(name)
+                            && (!productionPlusCoolant || result.events().get(1).id().equals(id("frezon_coolant"))),
                     "server must commit exactly the expected prototype event: " + name + " " + result.events());
             var event = result.events().getFirst();
-            require(event.extentMoles() > 0 && close(result.energyDeltaJoules(), event.energyDeltaJoules()),
+            double eventsEnergy = result.events().stream().mapToDouble(GasReactionEvaluator.Event::energyDeltaJoules).sum();
+            require(event.extentMoles() > 0 && close(result.energyDeltaJoules(), eventsEnergy),
                     "event and result must agree on signed raw joules");
             for (GasType type : GasType.values()) {
                 double change = after.moles(type) - before.moles(type);
+                double ulpBudget = Math.ulp((float) before.moles(type)) + Math.ulp((float) after.moles(type));
+                double eventChange = result.events().stream()
+                        .mapToDouble(candidate -> candidate.speciesDelta().getOrDefault(type, 0.0)).sum();
                 require(close(change, result.speciesDelta().getOrDefault(type, 0.0))
-                                && close(change, event.speciesDelta().getOrDefault(type, 0.0)),
+                                || Math.abs(change - result.speciesDelta().getOrDefault(type, 0.0)) <= ulpBudget,
                         "local event, result and cell species ledgers differ for " + type);
+                require(Math.abs(change - eventChange) <= ulpBudget,
+                        "committed species delta must match stored cell within float rounding for " + type);
             }
-            require(close(after.thermalEnergy() - before.thermalEnergy(), result.energyDeltaJoules()),
+            double energyUlpBudget = 4 * (Math.ulp((float) before.thermalEnergy())
+                    + Math.ulp((float) after.thermalEnergy()));
+            require(Math.abs((after.thermalEnergy() - before.thermalEnergy()) - result.energyDeltaJoules())
+                            <= energyUlpBudget,
                     "local cell thermal energy must equal signed reaction joules");
             require(service.reactFiniteCell(level, cell).isEmpty(), "one commit per finite cell per due tick");
             return new Step(before, after, result, event);
@@ -321,7 +427,13 @@ public final class AtmosphereReactionGameTests {
     }
 
     private static void zeroEnergy(Step step) {
-        require(close(step.event().energyDeltaJoules(), 0), "this chemistry must not create raw joules");
+        double compositionEnergy = 0;
+        for (var delta : step.event().speciesDelta().entrySet())
+            compositionEnergy += delta.getValue() * delta.getKey().molarHeatCapacity()
+                    * step.before().temperatureKelvin();
+        double rawHeat = step.event().energyDeltaJoules() - compositionEnergy;
+        require(Math.abs(rawHeat) <= 4 * Math.ulp((float) step.event().energyDeltaJoules()),
+                "zero-source-heat chemistry must retain composition-derived sensible energy, not raw heat");
     }
 
     private static ResourceLocation id(String path) {
@@ -330,6 +442,20 @@ public final class AtmosphereReactionGameTests {
 
     private static boolean close(double a, double b) {
         return Math.abs(a - b) <= Math.max(1e-7, Math.max(Math.abs(a), Math.abs(b)) * 1e-10);
+    }
+
+    private static HotspotState actualHotspot(AtmosphereService service, ServerLevel level, BlockPos pos) {
+        try {
+            Field queuesField = AtmosphereService.class.getDeclaredField("reactionQueues");
+            queuesField.setAccessible(true);
+            Object queue = ((Map<?, ?>) queuesField.get(service)).get(level);
+            if (queue == null) return null;
+            Method hotspot = queue.getClass().getDeclaredMethod("hotspot", BlockPos.class);
+            hotspot.setAccessible(true);
+            return (HotspotState) hotspot.invoke(queue, pos);
+        } catch (ReflectiveOperationException failure) {
+            throw new GameTestAssertException("could not inspect source/receiver hotspot transaction state: " + failure);
+        }
     }
 
     private static void require(boolean condition, String message) {

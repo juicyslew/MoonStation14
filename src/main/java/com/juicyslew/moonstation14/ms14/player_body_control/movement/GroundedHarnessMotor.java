@@ -25,6 +25,13 @@ public final class GroundedHarnessMotor {
     public CharacterMovementState tick(CharacterMovementState state, int wishX, int wishZ,
                                        boolean jump, boolean sprint, double yawDegrees,
                                        CharacterMovementEnvironment environment, boolean stunned) {
+        return tick(state, wishX, wishZ, jump, sprint, yawDegrees, environment, stunned, false);
+    }
+
+    public CharacterMovementState tick(CharacterMovementState state, int wishX, int wishZ,
+                                       boolean jump, boolean sprint, double yawDegrees,
+                                       CharacterMovementEnvironment environment, boolean stunned,
+                                       boolean externalFlight) {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(environment, "environment");
         if (wishX < -INPUT_QUANTIZATION || wishX > INPUT_QUANTIZATION
@@ -49,6 +56,6 @@ public final class GroundedHarnessMotor {
         double worldZ = localForward * cosine + localStrafe * sine;
 
         CharacterMovementCommand command = new CharacterMovementCommand(worldX, worldZ, jump, sprint);
-        return motor.tick(state, command, environment, stunned);
+        return motor.tick(state, command, environment, stunned, externalFlight);
     }
 }

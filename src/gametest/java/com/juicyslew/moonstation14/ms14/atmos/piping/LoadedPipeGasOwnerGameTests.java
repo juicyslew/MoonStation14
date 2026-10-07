@@ -203,7 +203,7 @@ public final class LoadedPipeGasOwnerGameTests {
         var oldVacuumDimensions = atmos.vacuumDimensionsForTest();
         var fixtureVacuumDimensions = new java.util.HashSet<>(oldVacuumDimensions);
         fixtureVacuumDimensions.add(level.dimension());
-        atmos.configureAtServerStart(fixtureVacuumDimensions);
+        atmos.configureAtServerStart(fixtureVacuumDimensions, atmos.spaceDimensionsForTest());
         try {
         for (int x = 1; x <= 5; x++) for (int z = 1; z <= 5; z++) {
             helper.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.STONE);
@@ -252,7 +252,7 @@ public final class LoadedPipeGasOwnerGameTests {
                 && !saved.snapshot().retiredSnapshot().containsKey(id), "spilled gas is not reused or archived");
         helper.succeed();
         MoonStation14.LOGGER.info("VENTILATION_REGRESSION_PASS creativeFakePlayerRemovalSpillsIntoProvenFiniteRoom");
-        } finally { atmos.configureAtServerStart(oldVacuumDimensions); }
+        } finally { atmos.configureAtServerStart(oldVacuumDimensions, atmos.spaceDimensionsForTest()); }
     }
 
     @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")

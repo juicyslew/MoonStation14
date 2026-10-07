@@ -37,10 +37,12 @@ public class ModEntities {
                     .updateInterval(10)
                     .build("thrown_grenade"));
 
+    public static final DeferredHolder<EntityType<?>, EntityType<com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder>> DISPOSAL_TRANSIT_HOLDER =
+            ENTITIES.register("disposal_transit_holder", () -> EntityType.Builder.<com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder>of(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder::new, MobCategory.MISC)
+                    .sized(0.25f, 0.25f).clientTrackingRange(8).updateInterval(1).build("disposal_transit_holder"));
     public static final DeferredHolder<EntityType<?>, EntityType<LooseItemEntity>> LOOSE_ITEM =
             ENTITIES.register("loose_item", () -> EntityType.Builder.<LooseItemEntity>of(LooseItemEntity::new, MobCategory.MISC)
                     .sized(.25f, .25f).clientTrackingRange(8).updateInterval(1).build("loose_item"));
-
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
     }

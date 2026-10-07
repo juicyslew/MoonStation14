@@ -1,0 +1,5 @@
+Source: Space Station 14, Resources/Audio/Effects/trashbag1.ogg
+Revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+SHA-256: 77adcfb6ba63abf4e4646a26a922f26a9ce5509c5ab6d468df41996fa31fbcc2
+File-specific author, original source, and license: UNKNOWN / UNRESOLVED.
+Do not infer a blanket license; this notice records provenance only.

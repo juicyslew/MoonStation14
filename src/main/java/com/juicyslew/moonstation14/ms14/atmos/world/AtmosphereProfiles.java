@@ -7,7 +7,9 @@ import net.minecraft.world.level.Level;
 import java.util.Objects;
 import java.util.Set;
 
-/** Dimension ambient defaults. Ambient is a boundary condition, not a gas reservoir. */
+/** Immutable dimension ambient profiles. Configured gas content is the ambient reservoir endpoint,
+ * kept separate from the dimension's space classification.
+ */
 public final class AtmosphereProfiles {
     private AtmosphereProfiles() { }
 
@@ -24,5 +26,17 @@ public final class AtmosphereProfiles {
 
     public static boolean vacuumDimension(ResourceKey<Level> dimension, Set<ResourceKey<Level>> vacuumDimensions) {
         return Objects.requireNonNull(vacuumDimensions, "vacuumDimensions").contains(Objects.requireNonNull(dimension, "dimension"));
+    }
+
+    /** Space classification is independent of the dimension's ambient gas composition. */
+    public static boolean spaceDimension(ResourceKey<Level> dimension, Set<ResourceKey<Level>> spaceDimensions) {
+        return Objects.requireNonNull(spaceDimensions, "spaceDimensions").contains(Objects.requireNonNull(dimension, "dimension"));
+    }
+
+    /** Ambient composition remains controlled solely by vacuum policy; space is a separate profile axis. */
+    public static GasMixture ambient(ResourceKey<Level> dimension, Set<ResourceKey<Level>> vacuumDimensions,
+                                     Set<ResourceKey<Level>> spaceDimensions) {
+        Objects.requireNonNull(spaceDimensions, "spaceDimensions");
+        return ambient(dimension, vacuumDimensions);
     }
 }

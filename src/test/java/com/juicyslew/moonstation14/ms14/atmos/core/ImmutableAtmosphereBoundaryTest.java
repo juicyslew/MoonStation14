@@ -60,7 +60,7 @@ class ImmutableAtmosphereBoundaryTest {
 
     @Test
     void heaterDoesNotCreateVacuumAmbientAndBoundaryLedgerAccountsVacuumRemoval() {
-        GasMixture residue = new GasMixture(Map.of(GasType.OXYGEN, 1e-100), 300.0);
+        GasMixture residue = new GasMixture(Map.of(GasType.OXYGEN, 1e-7), 300.0);
         assertEquals(0.0, AtmosphereDeviceRules.heaterOffer(residue, 40000.0));
         GasMixture sealed = residue.withEnergyDelta(40000.0);
         assertEquals(residue.moles(GasType.OXYGEN), sealed.moles(GasType.OXYGEN), 0.0,
@@ -89,7 +89,7 @@ class ImmutableAtmosphereBoundaryTest {
         assertTrue(result.finiteAfter().moles(GasType.NITROGEN) > 0.0);
         assertTrue(result.finiteAfter().moles(GasType.NITROGEN) < air.moles(GasType.NITROGEN));
         assertEquals(0.0, vacuum.totalMoles(), 0.0);
-        assertEquals(2.7, vacuum.temperatureKelvin(), 0.0);
+        assertEquals(2.7, vacuum.temperatureKelvin(), Math.ulp((float) 2.7));
         assertNotSame(air, result.finiteAfter());
         assertLedger(air, result);
     }

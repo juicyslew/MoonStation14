@@ -41,8 +41,13 @@ public class PowerDeviceBlockEntity extends BlockEntity {
 
     /** Server-only interaction; player permissions and range are checked before changing state. */
     public boolean toggleBreaker(Player player, double distanceSquared) {
+        return toggleBreakerAuthorized(player != null && player.mayBuild(), distanceSquared);
+    }
+
+    /** Server-only core for an interaction whose authority was validated by its server-side caller. */
+    public boolean toggleBreakerAuthorized(boolean interactionAuthorized, double distanceSquared) {
         if (level == null || level.isClientSide || !isApc()
-                || !PowerDeviceRules.canToggle(true, player != null && player.mayBuild(), distanceSquared)) return false;
+                || !PowerDeviceRules.canToggle(true, interactionAuthorized, distanceSquared)) return false;
         if (breakerRevision == Long.MAX_VALUE) return false;
         breakerClosed = !breakerClosed;
         if (breakerClosed) tripLatched = false;

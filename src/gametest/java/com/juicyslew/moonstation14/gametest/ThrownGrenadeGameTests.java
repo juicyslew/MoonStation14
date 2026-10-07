@@ -13,6 +13,7 @@ import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosiveSources;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.ms14.disposal.item.DisposalWorldPayloadStage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
@@ -30,6 +31,42 @@ import java.util.Optional;
 @GameTestTags({"explosion"})
 public final class ThrownGrenadeGameTests {
     private ThrownGrenadeGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
+    public static void disposalWorldStageRetainsArmedDeadlineAndWorldFuseTick(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos unitPos = helper.absolutePos(new BlockPos(4, 2, 4));
+        BlockPos trunkPos = unitPos.below();
+        level.setBlock(unitPos, com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_UNIT.get().defaultBlockState(), 3);
+        level.setBlock(trunkPos, com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_TUBE.get().defaultBlockState(), 3);
+        var trunk = new com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeRecord(java.util.UUID.randomUUID(), trunkPos,
+                com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals.id("disposal_trunk").toString(),
+                net.minecraft.core.Direction.DOWN, true, "", "", 0);
+        helper.assertTrue(com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData.forMutation(level)
+                .add(level, trunk, p -> level.getBlockState(p).is(com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_TUBE.get())),
+                "disposal grenade fixture has real trunk host");
+        long deadline = level.getGameTime() + 8;
+        ItemStack stack = new ItemStack(ModItems.GRENADE.get());
+        stack.set(ModDataComponents.GRENADE_FUSE.get(), new GrenadeFuseData(GrenadeFuse.Phase.ARMED,
+                deadline, false, false));
+        var staged = DisposalWorldPayloadStage.stage(level, stack,
+                new net.minecraft.world.phys.Vec3(helper.absolutePos(new BlockPos(2, 2, 2)).getX() + .5,
+                        helper.absolutePos(new BlockPos(2, 2, 2)).getY() + .5,
+                        helper.absolutePos(new BlockPos(2, 2, 2)).getZ() + .5), net.minecraft.world.phys.Vec3.ZERO).orElseThrow();
+        helper.assertTrue(staged.entity() instanceof ThrownGrenadeEntity, "armed disposal payload is a thrown grenade");
+        helper.assertTrue(!(staged.entity() instanceof net.minecraft.world.entity.item.ItemEntity), "not an ordinary item entity");
+        ThrownGrenadeEntity grenade = (ThrownGrenadeEntity) staged.entity();
+        helper.assertTrue(grenade.getItem().get(ModDataComponents.GRENADE_FUSE.get()).deadline() == deadline,
+                "world staging keeps the absolute deadline");
+        helper.runAfterDelay(2, () -> {
+            helper.assertTrue(grenade.isAlive(), "grenade remains alive before deadline");
+            helper.runAfterDelay(10, () -> {
+                helper.assertTrue(level.getGameTime() >= deadline, "expiry check is after deadline");
+                helper.assertTrue(grenade.isRemoved(), "world projectile fuse expires and removes projectile");
+                helper.succeed();
+            });
+        });
+    }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 10)
     public static void collisionLandsWithoutDetonatingAndRetainsFuse(GameTestHelper helper) {

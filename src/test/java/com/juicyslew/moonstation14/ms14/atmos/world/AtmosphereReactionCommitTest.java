@@ -4,7 +4,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionEvaluator;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionStep;
-import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +24,17 @@ class AtmosphereReactionCommitTest {
                      100, List.of());
 
     @Test
+    void excitedGroupResetRequiresCommittedAlreadyProcessedHotspotIncludingFizzle() {
+        assertFalse(AtmosphereService.shouldResetExcitedGroupCooldownsAfterCommit(
+                new HotspotState(100, 900, true, false), false), "rejected preflight/write must not reset pacing");
+        assertFalse(AtmosphereService.shouldResetExcitedGroupCooldownsAfterCommit(null, true));
+        assertFalse(AtmosphereService.shouldResetExcitedGroupCooldownsAfterCommit(
+                new HotspotState(100, 900, false, false), true), "first-pass skip is not reset");
+        assertTrue(AtmosphereService.shouldResetExcitedGroupCooldownsAfterCommit(
+                new HotspotState(0, 200, true, false), true), "committed fizzle still resets pacing");
+    }
+
+    @Test
     void reactionMixtureRequiresAttachedFiniteClaim() {
         BlockPos pos = new BlockPos(2, 64, 3);
         assertNull(AtmosphereService.reactionFiniteMixture(null, pos, BEFORE));
@@ -33,6 +44,54 @@ class AtmosphereReactionCommitTest {
         assertSame(BEFORE, AtmosphereService.reactionFiniteMixture(data, pos, BEFORE));
         data.put(2, 64, 3, AFTER, BEFORE);
         assertSame(AFTER, AtmosphereService.reactionFiniteMixture(data, pos, BEFORE));
+    }
+
+    @Test
+    void lindaWholeAirIgnitionDiagnosticRequiresNewCommittedLocalFireMetadata() {
+        BlockPos pos = new BlockPos(2, 64, 3);
+        GasMixture shared = new GasMixture(Map.of(GasType.TRITIUM, 1.0, GasType.OXYGEN, 2.0), 900);
+        var event = new GasReactionEvaluator.Event(net.minecraft.resources.ResourceLocation.parse("moonstation14:tritium_fire"),
+                com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData.EffectType.TRITIUM_FIRE,
+                .25, Map.of(GasType.TRITIUM, -.25), 100);
+        var whole = new GasReactionStep.WholeAirResult(AFTER, List.of(event), .25, 25000);
+        HotspotState created = new HotspotState(4248, 9468, false, true);
+
+        var ignition = AtmosphereService.lindaIgnitionDiagnostic(12, 345, pos, null, shared, whole, Optional.of(created))
+                .orElseThrow();
+        assertEquals("WHOLE_AIR_REACTION", ignition.origin());
+        assertEquals(12, ignition.cycleIdentity());
+        assertEquals(345, ignition.gameTime());
+        assertEquals("moonstation14:tritium_fire", ignition.reactionId());
+        assertEquals(.25, ignition.fireExtentMoles());
+        assertEquals(shared.temperatureKelvin(), ignition.bulkBeforeKelvin(), 0.0);
+        assertEquals(AFTER.temperatureKelvin(), ignition.bulkAfterKelvin(), 0.0);
+        assertEquals(1.0, ignition.tritiumBefore());
+        assertEquals(2.0, ignition.oxygenBefore());
+        assertEquals(created.temperatureKelvin(), ignition.hotspotKelvin(), 0.0);
+        assertEquals(created.volumeLiters(), ignition.hotspotVolumeLiters(), 0.0);
+        assertEquals(9468, ignition.hotspotKelvin(), 0.0);
+        assertEquals(4248, ignition.hotspotVolumeLiters(), 0.0);
+        assertTrue(AtmosphereService.lindaIgnitionDiagnostic(12, 345, pos, created, shared, whole,
+                Optional.of(created)).isEmpty(), "existing metadata must not produce a duplicate ignition record");
+        assertTrue(AtmosphereService.lindaIgnitionDiagnostic(12, 345, pos, null, shared,
+                new GasReactionStep.WholeAirResult(AFTER, List.of(event), 0, 25000), Optional.of(created)).isEmpty(),
+                "a fire event without positive extent is not a committed ignition");
+    }
+
+    @Test
+    void committedWholeAirDiagnosticExposesOnlyTheCommittedCellReactionEvents() {
+        var event = new GasReactionEvaluator.Event(net.minecraft.resources.ResourceLocation.parse("moonstation14:tritium_fire"),
+                com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData.EffectType.TRITIUM_FIRE,
+                .125, Map.of(GasType.TRITIUM, -.125), 50);
+        var committed = AtmosphereService.committedWholeAirDiagnostic(19,
+                new GasReactionStep.WholeAirResult(AFTER, List.of(event), .125, 25000)).orElseThrow();
+        assertEquals(19, committed.cycleIdentity());
+        assertEquals(.125, committed.fireExtentMoles());
+        assertEquals(List.of(event), committed.events());
+        assertTrue(AtmosphereService.committedWholeAirDiagnostic(19,
+                new GasReactionStep.WholeAirResult(AFTER, List.of(), .125, 25000)).orElseThrow().events().isEmpty(),
+                "a retained positive fire slot without a local reaction event remains distinguishable");
+        assertTrue(AtmosphereService.committedWholeAirDiagnostic(19, null).isEmpty());
     }
 
     @Test
@@ -96,7 +155,7 @@ class AtmosphereReactionCommitTest {
         AtomicReference<GasMixture> cell = new AtomicReference<>(BEFORE);
         AtomicInteger evaluations = new AtomicInteger();
         AtomicInteger writes = new AtomicInteger();
-        HotspotKernel.HotspotState next = new HotspotKernel.HotspotState(.2, 1200);
+        HotspotState next = new HotspotState(200, 1200, true, false);
         var event = new GasReactionEvaluator.Event(net.minecraft.resources.ResourceLocation.parse("moonstation14:tritium_fire"),
                 com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData.EffectType.TRITIUM_FIRE,
                 .01, Map.of(GasType.TRITIUM, -.01), 100);
@@ -107,18 +166,18 @@ class AtmosphereReactionCommitTest {
             assertSame(BEFORE, cell.get());
             return step;
         };
-        var commit = (java.util.function.Supplier<Optional<GasReactionEvaluator.Result>>) () ->
-                AtmosphereService.commitReactionStep(BEFORE, work.hotspot(pos), evaluator,
-                        () -> cell.get() == BEFORE, after -> {
-                            writes.incrementAndGet();
-                            cell.set(after);
-                            return true;
-                        }, state -> work.setHotspot(pos, state));
+        var commit = (java.util.function.Supplier<Optional<AtmosphereService.CommittedHotspot>>) () ->
+                AtmosphereService.commitHotspotCyclePass(pos, BEFORE, work.hotspot(pos), evaluator, List.of(),
+                        () -> cell.get() == BEFORE, (ignored, after) -> {
+                    writes.incrementAndGet();
+                    cell.set(after);
+                    return true;
+                }, changed -> { }, state -> work.setHotspot(pos, state), (receiver, state) -> { });
         var result = work.commitOnce(42, pos, commit).orElseThrow();
-        assertSame(AFTER, result.mixture());
-        assertEquals(List.of(event), result.events());
-        assertEquals(RESULT.speciesDelta(), result.speciesDelta());
-        assertEquals(100, result.energyDeltaJoules());
+        assertSame(AFTER, result.result().mixture());
+        assertEquals(List.of(event), result.result().events());
+        assertEquals(RESULT.speciesDelta(), result.result().speciesDelta());
+        assertEquals(100, result.result().energyDeltaJoules());
         assertSame(next, work.hotspot(pos));
         assertTrue(work.commitOnce(42, pos, commit).isEmpty());
         assertEquals(1, evaluations.get());
@@ -129,21 +188,29 @@ class AtmosphereReactionCommitTest {
     void failedWriterAndStalePreflightNeverPublishHotspotOrEvents() {
         BlockPos pos = new BlockPos(2, 64, 3);
         ReactionWorkQueue work = new ReactionWorkQueue();
-        HotspotKernel.HotspotState old = new HotspotKernel.HotspotState(.3, 900);
+        HotspotState old = new HotspotState(300, 900, true, false);
         work.setHotspot(pos, Optional.of(old));
         var step = new GasReactionStep.Result(AFTER, RESULT.speciesDelta(), 100,
-                List.of(), Optional.of(new HotspotKernel.HotspotState(.5, 1200)), true);
+                List.of(), Optional.of(new HotspotState(500, 1200, true, false)), true);
         for (boolean preflight : new boolean[] {false, true}) {
             AtomicInteger writes = new AtomicInteger();
-            assertTrue(AtmosphereService.commitReactionStep(BEFORE, work.hotspot(pos), before -> step,
-                    () -> preflight, after -> { writes.incrementAndGet(); return false; },
-                    state -> work.setHotspot(pos, state)).isEmpty());
-            assertEquals(preflight ? 1 : 0, writes.get());
+            assertTrue(AtmosphereService.commitHotspotCyclePass(pos, BEFORE, work.hotspot(pos), before -> step,
+                    List.of(), () -> preflight, (ignored, after) -> {
+                        writes.incrementAndGet();
+                        return after == BEFORE;
+                    },
+                    changed -> { }, state -> work.setHotspot(pos, state), (receiver, state) -> { }).isEmpty());
+            assertEquals(preflight ? 2 : 0, writes.get(), "failed write must also restore the original mixture");
             assertSame(old, work.hotspot(pos));
         }
-        assertTrue(AtmosphereService.commitReactionStep(BEFORE, work.hotspot(pos), before -> step,
-                () -> true, after -> { throw new IllegalStateException("writer failure"); },
-                state -> work.setHotspot(pos, state)).isEmpty());
+        AtomicInteger failedWrites = new AtomicInteger();
+        assertTrue(AtmosphereService.commitHotspotCyclePass(pos, BEFORE, work.hotspot(pos), before -> step,
+                List.of(), () -> true, (ignored, after) -> {
+                    if (failedWrites.getAndIncrement() == 0) throw new IllegalStateException("writer failure");
+                    return true;
+                },
+                changed -> { }, state -> work.setHotspot(pos, state), (receiver, state) -> { }).isEmpty());
+        assertEquals(2, failedWrites.get(), "a transient failed write is restored before returning");
         assertSame(old, work.hotspot(pos));
     }
 
@@ -151,16 +218,16 @@ class AtmosphereReactionCommitTest {
     void verifiedNoOpQuenchClearsTransientStateWithoutWritingAndUnloadDropsIt() {
         BlockPos pos = new BlockPos(2, 64, 3);
         ReactionWorkQueue work = new ReactionWorkQueue();
-        HotspotKernel.HotspotState old = new HotspotKernel.HotspotState(.3, 900);
+        HotspotState old = new HotspotState(300, 900, true, false);
         work.setHotspot(pos, Optional.of(old));
         var quench = new GasReactionStep.Result(BEFORE, Map.of(), 0, List.of(), Optional.empty(), false);
-        assertTrue(AtmosphereService.commitReactionStep(BEFORE, old, before -> quench,
-                () -> false, after -> { fail("no write"); return true; },
-                state -> work.setHotspot(pos, state)).isEmpty());
+        assertTrue(AtmosphereService.commitHotspotCyclePass(pos, BEFORE, old, before -> quench,
+                List.of(), () -> false, (ignored, after) -> { fail("no write"); return true; },
+                changed -> { }, state -> work.setHotspot(pos, state), (receiver, state) -> { }).isEmpty());
         assertSame(old, work.hotspot(pos));
-        assertTrue(AtmosphereService.commitReactionStep(BEFORE, old, before -> quench,
-                () -> true, after -> { fail("no write"); return true; },
-                state -> work.setHotspot(pos, state)).isEmpty());
+        assertTrue(AtmosphereService.commitHotspotCyclePass(pos, BEFORE, old, before -> quench,
+                List.of(), () -> true, (ignored, after) -> { fail("no write"); return true; },
+                changed -> { }, state -> work.setHotspot(pos, state), (receiver, state) -> { }).isPresent());
         assertNull(work.hotspot(pos));
         work.setHotspot(pos, Optional.of(old));
         work.removeChunk(new net.minecraft.world.level.ChunkPos(pos));

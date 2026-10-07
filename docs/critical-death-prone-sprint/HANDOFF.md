@@ -10,6 +10,13 @@ closure does not imply a clean full GameTest suite. No commit was requested.
 
 ## ARCHITECTURE
 
+Main integration adds disposal containment and outlet flight to these boundaries.
+See `merge-main-validation.md` for merge-specific decisions and validation.
+Contained Critical/Dead bodies remain pinned and skip passive corpse stepping;
+ordinary corpse physics resumes on exit. Native death must not leave a downed
+medical corpse in `DYING` pose with standing-height collision: the existing
+medical mixin reapplies physical prone posture after vanilla death handling.
+
 - Typed damage is authoritative. Resolved `MobState`/`MobThresholds` determine
   medical state; native health is a projection, not the threshold source.
   Medical state, posture, and stun remain separate composed systems.

@@ -17,7 +17,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMoveme
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostPredictionHistory;
-import com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen;
+import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyMovementIntentScreen;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import net.minecraft.client.Minecraft;
@@ -50,7 +50,7 @@ public final class GhostControlClient {
     private static boolean offerReadySent;
     private static float latestSurfaceFactor = 1f;
     private static float latestVoluntaryFactor = 1f;
-    private static boolean latestStunned;
+    private static boolean latestMovementBlocked;
     private static long activeEpoch;
     private static long sentSequence;
     private static boolean readySent;
@@ -60,6 +60,9 @@ public final class GhostControlClient {
     private static GhostPredictionHistory predictionHistory;
     private static boolean characterPredictionStopped;
     private static boolean predictionMedicalSuspended;
+    private static GhostControlPayloads.Snapshot.MovementMode characterMovementMode = GhostControlPayloads.Snapshot.MovementMode.TRANSIT;
+    private static final TransitInterpolationPolicy transitInterpolation = new TransitInterpolationPolicy();
+    private static final ExternalFlightPredictionPolicy externalFlightPrediction = new ExternalFlightPredictionPolicy();
     private static GhostControlPayloads.Begin deferredBegin;
 
     static {
@@ -103,6 +106,9 @@ public final class GhostControlClient {
                 sentSequence = 0;
                 predictionHistory = new GhostPredictionHistory(activeEpoch, ghostEntityId, harnessKind);
                 characterPredictionStopped = false;
+                characterMovementMode = harnessKind == MobHarnessKind.CHARACTER
+                        ? GhostControlPayloads.Snapshot.MovementMode.TRANSIT
+                        : GhostControlPayloads.Snapshot.MovementMode.GROUNDED;
             }
         } else if (payload instanceof GhostControlPayloads.Stop stop) {
             if (pendingEpoch == stop.epoch() && owner == player) clearSession(minecraft, true);
@@ -114,6 +120,7 @@ public final class GhostControlClient {
     @SubscribeEvent
     public static void clientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        ContainedCharacterClientView.reconcileCamera(minecraft);
         LocalPlayer player = minecraft.player;
         if (player == null || minecraft.level == null) {
             if (owner != null) clearSession(minecraft, true);
@@ -149,7 +156,7 @@ public final class GhostControlClient {
         }
 
         // A vanilla Screen suppresses LocalPlayer.input; sample only the committed CHARACTER popup.
-        var popup = harnessKind == MobHarnessKind.CHARACTER && minecraft.screen instanceof StoragePopupScreen screen
+        var popup = harnessKind == MobHarnessKind.CHARACTER && minecraft.screen instanceof BodyMovementIntentScreen screen
                 ? screen.movementIntent() : null;
         double strafe = popup == null ? player.input.leftImpulse : popup.left();
         double forward = popup == null ? player.input.forwardImpulse : popup.forward();
@@ -297,6 +304,7 @@ public final class GhostControlClient {
     }
 
     private static void clearSession(Minecraft minecraft, boolean restoreCamera) {
+        ContainedCharacterClientView.clear();
         Entity ghost = ghostEntityId < 0 ? null : currentBody(minecraft, ghostEntityId, harnessKind);
         if (restoreCamera && ghost != null && minecraft.getCameraEntity() == ghost
                 && minecraft.player != null) minecraft.setCameraEntity(minecraft.player);
@@ -316,9 +324,12 @@ public final class GhostControlClient {
         observerMovementMotor = null;
         characterPredictionStopped = false;
         predictionMedicalSuspended = false;
+        characterMovementMode = GhostControlPayloads.Snapshot.MovementMode.TRANSIT;
+        transitInterpolation.clear();
         latestSurfaceFactor = 1f;
         latestVoluntaryFactor = 1f;
-        latestStunned = false;
+        latestMovementBlocked = false;
+        externalFlightPrediction.clear();
         owner = null;
         ownerLevel = null;
         deferredBegin = ClientBeginPolicy.afterSessionClear(deferredBegin);
@@ -411,6 +422,12 @@ public final class GhostControlClient {
         return ownedCharacterForHud() == null ? 0 : activeEpoch;
     }
 
+    record OwnedCharacterBinding(java.util.UUID body, long epoch) { }
+    static OwnedCharacterBinding ownedCharacterBinding() {
+        Mob body = ownedCharacterForHud();
+        return body == null ? null : new OwnedCharacterBinding(body.getUUID(), activeEpoch);
+    }
+
     private static void reconcileSnapshot(Minecraft minecraft, LocalPlayer player,
                                           GhostControlPayloads.Snapshot snapshot) {
         if (!committed || !readySent || owner != player || minecraft.player != player || minecraft.level == null
@@ -426,13 +443,17 @@ public final class GhostControlClient {
         GhostPredictionHistory.SnapshotResult result = predictionHistory.reconcile(snapshot);
         if (result.status() == GhostPredictionHistory.SnapshotStatus.REJECTED) return;
         if (characterPredictionStopped) predictionHistory.onAuthorityBarrier();
+        characterMovementMode = snapshot.movementMode();
+        if (harnessKind == MobHarnessKind.CHARACTER)
+            ContainedCharacterClientView.update(entity.getUUID(), activeEpoch, snapshot.containedView().orElse(null));
 
         // Pulled targets are positioned by vanilla's remote entity tracker, not this
         // controller. Snapshot velocity may seed later recovery, but never teleport them.
         if (!medical.recordHistory()) {
             latestSurfaceFactor = snapshot.surfaceFactor();
             latestVoluntaryFactor = snapshot.voluntarySpeedFactor();
-            latestStunned = snapshot.stunned();
+            latestMovementBlocked = snapshot.movementBlocked();
+            externalFlightPrediction.reset(snapshot.externalFlightTicks());
             entity.setDeltaMovement(entity instanceof GhostMobHarnessEntity ? Vec3.ZERO : new Vec3(
                     snapshot.velocityX() / 20d, snapshot.velocityY() / 20d, snapshot.velocityZ() / 20d));
             return;
@@ -440,19 +461,32 @@ public final class GhostControlClient {
 
         float visualYaw = entity.getYRot();
         float visualPitch = entity.getXRot();
-        if (medical.recordHistory()) {
+        boolean transitCharacter = harnessKind == MobHarnessKind.CHARACTER
+                && snapshot.movementMode() == GhostControlPayloads.Snapshot.MovementMode.TRANSIT;
+        int interpolationSteps = harnessKind == MobHarnessKind.CHARACTER
+                ? transitInterpolation.accept(activeEpoch, entity.getUUID(), snapshot.movementMode(),
+                    snapshot.containedView().map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyView::ownerIdentity)
+                            .orElse(null))
+                : 0;
+        if (transitCharacter && interpolationSteps > 0) {
+            // Keep the server sample authoritative, but let Entity's normal client tick interpolate it
+            // rather than teleporting the camera target on every transit snapshot.
+            entity.lerpTo(snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch(), interpolationSteps);
+        } else {
             entity.setPos(snapshot.x(), snapshot.y(), snapshot.z());
             entity.lerpTo(snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch(), 0);
         }
         latestSurfaceFactor = snapshot.surfaceFactor();
         latestVoluntaryFactor = snapshot.voluntarySpeedFactor();
-        latestStunned = snapshot.stunned();
-        if (medical.recordHistory() && entity instanceof Mob) entity.setOnGround(snapshot.onGround());
-        entity.setDeltaMovement(entity instanceof GhostMobHarnessEntity ? Vec3.ZERO : new Vec3(
+        latestMovementBlocked = snapshot.movementBlocked();
+        externalFlightPrediction.reset(snapshot.externalFlightTicks());
+        if (entity instanceof Mob) entity.setOnGround(snapshot.onGround());
+        entity.setDeltaMovement(entity instanceof GhostMobHarnessEntity || isCharacterContainedMode() ? Vec3.ZERO : new Vec3(
                 snapshot.velocityX() / 20d, snapshot.velocityY() / 20d, snapshot.velocityZ() / 20d));
         if (entity instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, snapshot.yaw(), snapshot.pitch());
         else if (entity instanceof Mob mob) setOwnedBodyLook(mob, snapshot.yaw(), snapshot.pitch());
-        if (result.status() == GhostPredictionHistory.SnapshotStatus.REPLAY && !characterPredictionStopped
+        if (CharacterMovementSnapshotPolicy.requiresBarrier(characterMovementMode)) predictionHistory.onAuthorityBarrier();
+        else if (CharacterMovementSnapshotPolicy.allowsReplay(characterMovementMode, result.status(), characterPredictionStopped)
                 && medical.replaySnapshot()) {
             for (GhostControlPayloads.Intent intent : result.replayFrames()) predict(entity, intent, false);
         }
@@ -477,7 +511,8 @@ public final class GhostControlClient {
                 });
         ghost.setDeltaMovement(Vec3.ZERO);
         } else if (body instanceof Mob mob) {
-            if (!characterPredictionStopped) predictCharacter(mob, intent, animate);
+            if (!characterPredictionStopped && CharacterMovementSnapshotPolicy.allowsMotor(characterMovementMode))
+                predictCharacter(mob, intent, animate);
         }
     }
 
@@ -514,6 +549,11 @@ public final class GhostControlClient {
         return decision;
     }
 
+    private static boolean isCharacterContainedMode() {
+        return harnessKind == MobHarnessKind.CHARACTER
+                && characterMovementMode != GhostControlPayloads.Snapshot.MovementMode.GROUNDED;
+    }
+
     private static void predictCharacter(Mob body, GhostControlPayloads.Intent intent, boolean animate) {
         CharacterMovementPolicy policy = characterPolicy(body);
         if (policy == null) return;
@@ -540,7 +580,7 @@ public final class GhostControlClient {
                 new GroundedHarnessMotor(policy).tick(state, intent.wishX(), intent.wishZ(),
                         (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
                         (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
-                        intent.yaw(), environment, latestStunned), predictionHistory);
+                        intent.yaw(), environment, latestMovementBlocked, externalFlightPrediction.advanceFrame()), predictionHistory);
         if (result == null) {
             // The resolver may already have moved the entity. Never retry, roll back, or replay this frame.
             characterPredictionStopped = true;

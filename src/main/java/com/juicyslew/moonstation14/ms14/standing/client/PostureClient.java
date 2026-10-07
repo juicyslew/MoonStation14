@@ -22,6 +22,10 @@ public final class PostureClient {
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.moonstation14");
     private PostureClient() { }
     public static void register(RegisterKeyMappingsEvent event) { event.register(TOGGLE); event.register(ROLL); }
+    /** Whether another mapping currently aliases the configurable roll key. */
+    public static boolean sharesRollKey(KeyMapping mapping) {
+        return mapping != null && ROLL.getKey().equals(mapping.getKey());
+    }
     @SubscribeEvent public static void tick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {

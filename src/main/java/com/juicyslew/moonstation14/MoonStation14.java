@@ -28,6 +28,7 @@ import com.juicyslew.moonstation14.ms14.station.debug.StarterStationService;
 import com.juicyslew.moonstation14.ms14.status_effect.prototype.StatusEffectReferenceValidator;
 import com.juicyslew.moonstation14.ms14.alert.prototype.AlertReferenceValidator;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadeHeldFuseService;
+import com.juicyslew.moonstation14.ms14.construction.tool.BodyDisposalTubeAnchorUse;
 import com.juicyslew.moonstation14.recipe.ModRecipes;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -66,6 +67,7 @@ public class MoonStation14 {
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.fixture.VentilationFixtureCommands::registerCommands);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.fixture.DisposalFixtureCommands::registerCommands);
         LocalSpeechServerHooks.register(NeoForge.EVENT_BUS);
         AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
         AtmosphereVisualServerHooks.register(NeoForge.EVENT_BUS);
@@ -74,9 +76,16 @@ public class MoonStation14 {
         PowerRuntime.register(NeoForge.EVENT_BUS);
         StarterStationService.register(NeoForge.EVENT_BUS);
         BodyGrenadeHeldFuseService.register(NeoForge.EVENT_BUS);
+        BodyDisposalTubeAnchorUse.register(NeoForge.EVENT_BUS);
+        com.juicyslew.moonstation14.ms14.construction.tool.BodyDisposalTubeJunctionUse.register(NeoForge.EVENT_BUS);
+        com.juicyslew.moonstation14.ms14.construction.tool.BodyDisposalTubeWelderUse.register(NeoForge.EVENT_BUS);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalBuildMenuService::playerTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService::serverTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService::typedDamageApplied);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalRideDamageDiagnostics::onTypedDamage);
+        NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
         com.juicyslew.moonstation14.entities.LooseMotionDiagnostics.register(NeoForge.EVENT_BUS);
         com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService.register(NeoForge.EVENT_BUS);
-
         ModCreativeModeTabs.register(modEventBus);
 
         ModItems.register(modEventBus);
@@ -95,13 +104,19 @@ public class MoonStation14 {
         modEventBus.addListener(GrenadeSoundNetworking::registerPayloadHandlers);
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalBuildNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalConstructionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.ingestion.IngestionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical_observer.ObserverNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.standing.PostureNetworking::registerPayloadHandlers);
+        com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualServerHooks.install();
+        NeoForge.EVENT_BUS.register(com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualServerHooks.class);
         //ModFluids.register(modEventBus);
 
         // Register the item to a creative tab
@@ -124,12 +139,16 @@ public class MoonStation14 {
             event.accept(ModItems.CLOTH);
             event.accept(ModItems.WOOD);
             event.accept(ModItems.CROWBAR);
+            event.accept(ModItems.WRENCH);
+            event.accept(ModItems.SCREWDRIVER);
+            event.accept(ModItems.WELDER);
             event.accept(ModItems.WAFFLE);
             event.accept(ModItems.BOTTLE);
             event.accept(ModItems.ATMOSPHERE_ANALYZER);
         }
 
         if(event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS){
+            event.accept(ModBlocks.DISPOSAL_UNIT);
             event.accept(ModBlocks.STEEL_WALL_BLOCK);
             event.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
             event.accept(ModBlocks.MAGIC_BLOCK);
@@ -154,7 +173,8 @@ public class MoonStation14 {
     @SubscribeEvent
     public void onServerAboutToStart(ServerAboutToStartEvent event) {
         AtmosphereService.INSTANCE.configureAtServerStart(
-                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()));
+                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()),
+                Config.parseAtmosphereSpaceDimensions(Config.ATMOSPHERE_SPACE_DIMENSIONS.get()));
     }
 
     @SubscribeEvent
@@ -183,7 +203,29 @@ public class MoonStation14 {
 
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
+        com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService.onServerStopped();
+        com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeAll();
         AtmosphereService.INSTANCE.onServerStopped();
         PrototypeRuntime.serverManager().clearPublishedCatalogs();
+    }
+
+    private void onPlayerLoggedOut(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer actor)
+            com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService.playerLoggedOut(actor);
+    }
+
+    @SubscribeEvent
+    public void onLevelTickPost(net.neoforged.neoforge.event.tick.LevelTickEvent.Post event) {
+        if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+            com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).tick();
+            com.juicyslew.moonstation14.ms14.disposal.transport.DisposalPendingAirSavedData.retryLoaded(level);
+            com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.tick(level);
+        }
+    }
+
+    @SubscribeEvent
+    public void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
+        if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)
+            com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeLevel(level);
     }
 }

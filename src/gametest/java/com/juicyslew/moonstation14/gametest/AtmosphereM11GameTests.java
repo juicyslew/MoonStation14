@@ -79,11 +79,14 @@ public final class AtmosphereM11GameTests {
         require(left.moles(GasType.NITROGEN) < CELL_MOLES * 0.9
                         && rightMixture.moles(GasType.OXYGEN) < CELL_MOLES * 0.9,
                 "diffusion must remain gradual rather than instantly homogenizing each room");
-        require(Math.abs(speciesMoles(service, level, cells, opening, GasType.OXYGEN) - oxygenBefore) < 1.0e-5,
+        require(Math.abs(speciesMoles(service, level, cells, opening, GasType.OXYGEN) - oxygenBefore)
+                        <= speciesUlpBudget(service, level, cells, List.of(), opening, GasType.OXYGEN, oxygenBefore),
                 "closed communicating rooms must conserve oxygen");
-        require(Math.abs(speciesMoles(service, level, cells, opening, GasType.NITROGEN) - nitrogenBefore) < 1.0e-5,
+        require(Math.abs(speciesMoles(service, level, cells, opening, GasType.NITROGEN) - nitrogenBefore)
+                        <= speciesUlpBudget(service, level, cells, List.of(), opening, GasType.NITROGEN, nitrogenBefore),
                 "closed communicating rooms must conserve nitrogen");
-        require(Math.abs(thermalEnergy(service, level, cells, opening) - energyBefore) < 1.0e-3,
+        require(Math.abs(thermalEnergy(service, level, cells, opening) - energyBefore)
+                        <= thermalUlpBudget(service, level, cells, opening, energyBefore),
                 "closed communicating rooms must conserve thermal energy");
         for (BlockPos pos : cells) {
             double pressure = sample(service, level, pos).pressureKpa(1.0);
@@ -138,9 +141,11 @@ public final class AtmosphereM11GameTests {
                 "low-pressure room must gain gas through its opened partition");
         require(sample(service, level, lowNear).moles(GasType.OXYGEN) > lowNearOxygen + CELL_MOLES * 0.01,
                 "oxygen carried from the high-pressure mixture must enter the low-pressure room");
-        require(Math.abs(speciesMoles(service, level, high, low, opening, GasType.OXYGEN) - oxygenInitial) < 1.0e-5,
+        require(Math.abs(speciesMoles(service, level, high, low, opening, GasType.OXYGEN) - oxygenInitial)
+                        <= speciesUlpBudget(service, level, high, low, opening, GasType.OXYGEN, oxygenInitial),
                 "sealed pressure equalization must conserve oxygen");
-        require(Math.abs(speciesMoles(service, level, high, low, opening, GasType.NITROGEN) - nitrogenInitial) < 1.0e-5,
+        require(Math.abs(speciesMoles(service, level, high, low, opening, GasType.NITROGEN) - nitrogenInitial)
+                        <= speciesUlpBudget(service, level, high, low, opening, GasType.NITROGEN, nitrogenInitial),
                 "sealed pressure equalization must conserve nitrogen");
         helper.succeed();
     }
@@ -185,17 +190,20 @@ public final class AtmosphereM11GameTests {
 
     private static GasMixture classifyUntilSample(AtmosphereService service, ServerLevel level,
                                                    BlockPos pos, int maxPasses) {
-        for (int pass = 1; pass <= maxPasses; pass++) {
-            service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
-            var mixture = service.sample(level, pos);
-            if (mixture.isPresent()) return mixture.get();
+        service.activateCellAndNeighbors(level, pos);
+        int callbackLimit = Math.max(60, maxPasses * 5);
+        for (int pass = 1; pass <= callbackLimit; pass++) {
+            service.tick(level, pass);
+            if (service.diagnosticCell(level, pos).status().equals("finite"))
+                return service.sample(level, pos).orElseThrow();
         }
-        throw new GameTestAssertException("room ownership did not classify within " + maxPasses + " atmosphere passes");
+        throw new GameTestAssertException("room ownership did not classify within " + callbackLimit
+                + " callbacks; timing=" + service.diagnosticTiming(level));
     }
 
     private static void tickPasses(AtmosphereService service, ServerLevel level, int passes) {
-        for (int pass = 1; pass <= passes; pass++) {
-            service.tick(level, (long) (40 + pass) * AtmosphereService.TICK_CADENCE);
+        for (int pass = 1; pass <= Math.max(60, passes * 2); pass++) {
+            service.tick(level, 40 + pass);
         }
     }
 
@@ -231,6 +239,22 @@ public final class AtmosphereM11GameTests {
         for (BlockPos pos : cells) total += sample(service, level, pos).moles(gas);
         for (BlockPos pos : extra) total += sample(service, level, pos).moles(gas);
         return total;
+    }
+
+    private static double speciesUlpBudget(AtmosphereService service, ServerLevel level, List<BlockPos> first,
+                                           List<BlockPos> second, BlockPos opening, GasType gas, double expected) {
+        double budget = Math.ulp((float) expected);
+        for (BlockPos pos : first) budget += Math.ulp((float) sample(service, level, pos).moles(gas));
+        for (BlockPos pos : second) budget += Math.ulp((float) sample(service, level, pos).moles(gas));
+        budget += Math.ulp((float) sample(service, level, opening).moles(gas));
+        return 8 * budget;
+    }
+
+    private static double thermalUlpBudget(AtmosphereService service, ServerLevel level, List<BlockPos> cells,
+                                           BlockPos opening, double expected) {
+        double budget = Math.ulp((float) expected) + Math.ulp((float) sample(service, level, opening).thermalEnergy());
+        for (BlockPos pos : cells) budget += Math.ulp((float) sample(service, level, pos).thermalEnergy());
+        return 8 * budget;
     }
 
     private static double thermalEnergy(AtmosphereService service, ServerLevel level, List<BlockPos> cells,

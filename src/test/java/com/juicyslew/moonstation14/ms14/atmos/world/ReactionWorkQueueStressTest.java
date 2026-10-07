@@ -38,8 +38,7 @@ class ReactionWorkQueueStressTest {
         int inspectedTotal = 0, evaluatedTotal = 0, hotReoffers = 0, duePasses = 0;
         while (serviced.size() < CELLS && duePasses < 240) {
             int inspected = 0, evaluated = 0;
-            while (inspected < AtmosphereService.MAX_REACTION_INSPECTIONS_PER_TICK
-                    && evaluated < AtmosphereService.MAX_REACTION_EVALUATIONS_PER_TICK) {
+            while (inspected < AtmosphereService.MAX_REACTION_INSPECTIONS_PER_TICK) {
                 BlockPos pos = queue.poll();
                 if (pos == null) break;
                 inspected++;
@@ -57,7 +56,6 @@ class ReactionWorkQueueStressTest {
                 }
             }
             assertTrue(inspected <= 32);
-            assertTrue(evaluated <= 8);
             assertTrue(queue.activeSize() <= ReactionWorkQueue.ACTIVE_CAPACITY);
             inspectedTotal += inspected;
             evaluatedTotal += evaluated;
@@ -71,7 +69,8 @@ class ReactionWorkQueueStressTest {
         assertTrue(duePasses <= 240);
         assertEquals(inspectedTotal, evaluatedTotal);
         assertTrue(inspectedTotal <= duePasses * 32);
-        assertTrue(evaluatedTotal <= duePasses * 8);
+        assertEquals(inspectedTotal, evaluatedTotal,
+                "there is no separate arbitrary evaluation-count cap for visited candidates");
         assertEquals(0, queue.backlogSize());
     }
 

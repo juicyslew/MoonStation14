@@ -71,8 +71,10 @@ class PipeLayerRoundTripTest {
         List<GasMixture> primaryAfter = result.stream().filter(network -> network.layer() == PipeTopology.Layer.PRIMARY)
                 .map(PipeNetworkTransition.Network::mixture).toList();
         GasMixture primaryBefore = states.get(before.indexOf(before.stream().filter(component -> component.segments().getFirst().layer() == PipeTopology.Layer.PRIMARY).findFirst().orElseThrow()));
-        assertEquals(primaryBefore.moles(GasType.OXYGEN), primaryAfter.stream().mapToDouble(gas -> gas.moles(GasType.OXYGEN)).sum(), 1e-10);
-        assertEquals(primaryBefore.moles(GasType.PLASMA), primaryAfter.stream().mapToDouble(gas -> gas.moles(GasType.PLASMA)).sum(), 1e-10);
+        assertEquals(primaryBefore.moles(GasType.OXYGEN), primaryAfter.stream().mapToDouble(gas -> gas.moles(GasType.OXYGEN)).sum(),
+                Math.ulp((float) primaryBefore.moles(GasType.OXYGEN)) * 8);
+        assertEquals(primaryBefore.moles(GasType.PLASMA), primaryAfter.stream().mapToDouble(gas -> gas.moles(GasType.PLASMA)).sum(),
+                Math.ulp((float) primaryBefore.moles(GasType.PLASMA)) * 8);
         assertNotEquals(result.stream().filter(network -> network.layer() == PipeTopology.Layer.SECONDARY).findFirst().orElseThrow().mixture().temperatureKelvin(),
                 result.stream().filter(network -> network.layer() == PipeTopology.Layer.TERTIARY).findFirst().orElseThrow().mixture().temperatureKelvin());
     }

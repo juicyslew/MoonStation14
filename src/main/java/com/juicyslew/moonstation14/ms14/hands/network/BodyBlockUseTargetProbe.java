@@ -33,6 +33,21 @@ public final class BodyBlockUseTargetProbe {
         if (level == null || body == null || nominated == null || nominatedFace == null
                 || !level.getServer().isSameThread() || body.level() != level || !body.isAlive() || body.isRemoved()
                 || level.getEntity(body.getId()) != body) return null;
+        // Contained bodies have no camera-derived world ray: their exact live owner grants one
+        // immutable block target. Re-read owner and view on each admission; transit has no target.
+        var owner = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                .ownerOf(body).orElse(null);
+        if (owner != null) {
+            var view = owner.view();
+            if (!owner.isValid() || view == null || !view.ownerIdentity().equals(owner.identity())
+                    || view.worldTarget().isEmpty() || !view.worldTarget().orElseThrow().equals(nominated)
+                    || !level.getWorldBorder().isWithinBounds(nominated)
+                    || level.isOutsideBuildHeight(nominated)) return null;
+            var chunk = level.getChunkSource().getChunkNow(nominated.getX() >> 4, nominated.getZ() >> 4);
+            if (chunk == null || !chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL)) return null;
+            Vec3 center = Vec3.atCenterOf(nominated);
+            return new Target(nominated, Direction.UP, center.add(0, .5, 0));
+        }
         Vec3 from = body.getEyePosition(), look = body.getLookAngle();
         if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01) return null;
         Vec3 to = from.add(look.scale(MAX_REACH));
@@ -48,8 +63,16 @@ public final class BodyBlockUseTargetProbe {
             if (level.getChunkSource().getChunkNow(x, z) == null) return null;
 
         try {
-            BlockHitResult hit = new LoadedGetter(level, minX, maxX, minZ, maxZ).clip(new ClipContext(
-                    from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, body));
+            LoadedGetter getter = new LoadedGetter(level, minX, maxX, minZ, maxZ);
+            BlockHitResult hit = getter.clip(new ClipContext(
+                    from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, body) {
+                @Override public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(
+                        BlockState state, BlockGetter ignored, BlockPos pos) {
+                    // Keep state/fluid reads bounded, but preserve the real level context for
+                    // dynamic shapes (e.g. disposal tube geometry backed by live records).
+                    return super.getBlockShape(state, level, pos);
+                }
+            });
             return hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(nominated)
                     && hit.getDirection() == nominatedFace && finite(hit.getLocation())
                     && level.getWorldBorder().isWithinBounds(hit.getLocation())
