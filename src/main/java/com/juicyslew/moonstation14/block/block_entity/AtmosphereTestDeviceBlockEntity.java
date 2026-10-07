@@ -16,7 +16,7 @@ public class AtmosphereTestDeviceBlockEntity extends BlockEntity {
     }
 
     public static void tick(Level level, BlockPos pos, BlockState state, AtmosphereTestDeviceBlockEntity entity) {
-        if (!(level instanceof ServerLevel server) || !AtmosphereService.INSTANCE.isEnabled()) return;
+        if (!(level instanceof ServerLevel server)) return;
         if (!(state.getBlock() instanceof AtmosphereTestDeviceBlock block)) return;
         if (entity.isRemoved() || entity.getLevel() != server || !entity.getBlockPos().equals(pos)) return;
         long gameTime = server.getGameTime();

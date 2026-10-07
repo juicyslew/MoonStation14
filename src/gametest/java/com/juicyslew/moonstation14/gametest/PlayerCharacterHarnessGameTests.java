@@ -21,8 +21,6 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterAppearance;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
 import com.juicyslew.moonstation14.ms14.lung.LungSystem;
@@ -111,14 +109,6 @@ public final class PlayerCharacterHarnessGameTests {
         require(!body.isNoGravity() && !body.noPhysics,
                 "uses ordinary gravity and collision rather than ghost movement policy");
         require(PlayerCharacterHarnessRegistration.getEntityType().canSerialize(), "entity type is saveable");
-        if (MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()) {
-            helper.succeed();
-            return;
-        }
-        boolean boundWhileOff = PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(),
-                "main", UUID.randomUUID(), ModCharacters.HUMAN_ID);
-        require(!boundWhileOff && body.playerCharacterBinding() == null,
-                "default-off startup gates prevent instance identity mutation");
         require(ModCharacters.characterForHost(helper.getLevel(), PlayerCharacterHarnessRegistration.ID).isEmpty(),
                 "dedicated character body is binder-only, not a host mapping");
         helper.succeed();
@@ -212,10 +202,6 @@ public final class PlayerCharacterHarnessGameTests {
                 injected.get("Moonstation14PlayerCharacterBinding")), description + " is preserved exactly on resave");
         require(!PlayerCharacterHarnessBinder.bind(restored, UUID.randomUUID(), "main", UUID.randomUUID(),
                 ModCharacters.HUMAN_ID), description + " is rejected by binder");
-        if (MindGhostStartupGate.enabledForServer() && !MovementStartupGate.enabledForServer()) {
-            require(!PlayerCharacterHarnessBinder.bind(original, UUID.randomUUID(), "main", UUID.randomUUID(),
-                    ModCharacters.HUMAN_ID), description + " is rejected by binder with gates enabled");
-        }
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)

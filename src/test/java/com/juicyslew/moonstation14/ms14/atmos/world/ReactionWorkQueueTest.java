@@ -118,12 +118,12 @@ class ReactionWorkQueueTest {
     @Test void oddTickNeverEntersCommitAndNextDueStepSharesStampAfterReload() {
         ReactionWorkQueue queue = new ReactionWorkQueue();
         AtomicInteger writes = new AtomicInteger();
-        assertFalse(AtmosphereService.isTickDue(true, 41));
-        if (AtmosphereService.isTickDue(true, 41))
+        assertFalse(AtmosphereService.isTickDue(41));
+        if (AtmosphereService.isTickDue(41))
             queue.commitOnce(AtmosphereService.reactionDueStep(41), COLD,
                     () -> { writes.incrementAndGet(); return Optional.of(true); });
         assertEquals(0, writes.get());
-        assertTrue(AtmosphereService.isTickDue(true, 42));
+        assertTrue(AtmosphereService.isTickDue(42));
         long step = AtmosphereService.reactionDueStep(42);
         assertEquals(20, AtmosphereService.reactionDueStep(41));
         assertEquals(21, step);

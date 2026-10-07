@@ -7,6 +7,8 @@
   },
   "apc/switch": { "sounds": ["moonstation14:apc/machine_switch"], "subtitle": "sounds.moonstation14.apc.switch" },
   "ss14/items/drink": { "sounds": ["moonstation14:ss14/items/drink"] },
+  "gasp/male": { "sounds": ["moonstation14:gasp/gasp_male1", "moonstation14:gasp/gasp_male2"] },
+  "gasp/female": { "sounds": ["moonstation14:gasp/gasp_female1", "moonstation14:gasp/gasp_female2", "moonstation14:gasp/gasp_female3"] },
   "grenade/beep": { "sounds": [{ "name": "moonstation14:grenade/beep1", "attenuation_distance": 32 }], "subtitle": "sounds.moonstation14.grenade.beep" },
   "grenade/explode": { "sounds": [{ "name": "moonstation14:grenade/explosion1", "attenuation_distance": 32 }], "subtitle": "sounds.moonstation14.grenade.explode" },
   "grenade/explode_far": { "sounds": ["moonstation14:grenade/explosionfar"], "subtitle": "sounds.moonstation14.grenade.explode_far" },

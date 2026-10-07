@@ -82,8 +82,15 @@ class GameTestTagSelectorTest {
                             gameTest = true;
                             tests[0]++;
                             return new AnnotationVisitor(Opcodes.ASM9) {
+                                boolean namespaceSeen;
                                 @Override public void visit(String key, Object value) {
-                                    if (key.equals("templateNamespace")) assertEquals("moonstation14", value, reader.getClassName() + "." + name);
+                                    if (key.equals("templateNamespace")) {
+                                        namespaceSeen = true;
+                                        assertEquals("moonstation14", value, reader.getClassName() + "." + name);
+                                    }
+                                }
+                                @Override public void visitEnd() {
+                                    assertTrue(namespaceSeen, "GameTest must explicitly declare templateNamespace=moonstation14: " + reader.getClassName() + "." + name);
                                 }
                             };
                         }

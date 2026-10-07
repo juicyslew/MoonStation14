@@ -1,4 +1,5 @@
 {
+  "message.moonstation14.observer_return_available": "You can return to your body with R.",
   "item.moonstation14.steel": "Steel",
   "item.moonstation14.gas_vent": "Gas Vent",
   "item.moonstation14.gas_scrubber": "Gas Scrubber",
@@ -42,7 +43,9 @@
   "key.moonstation14.body_inventory": "Toggle storage pointer (Left Alt)",
   "key.moonstation14.equip_bag": "Smart bag: equip/store/take (Shift+B)",
   "key.moonstation14.equip_belt": "Smart belt: equip/store/take (Shift+E)",
-  "key.moonstation14.toggle_pull": "Toggle pull (P)",
+  "key.moonstation14.toggle_prone": "Toggle prone / get up (C)",
+  "key.moonstation14.roll_prone": "Roll face up/down (K; Shift+K turns aimed downed body)",
+  "message.moonstation14.turn_body_target": "Aim at a nearby downed body within reach to turn it.",
   "key.moonstation14.use_in_hand": "Use held item",
   "key.moonstation14.throw_item": "Throw held item",
   "key.moonstation14.cycle_pile": "Cycle pile selection",

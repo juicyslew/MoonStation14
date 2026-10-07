@@ -7,11 +7,23 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.UUID;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
     private static final UUID ACCOUNT = UUID.randomUUID(), BODY = UUID.randomUUID();
+
+    @Test void clientPullNominationUsesReadOnlyProjectionNotServerAuthorityResolver() throws Exception {
+        Path relative = Path.of("src/main/java/com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java");
+        Path root = Path.of("").toAbsolutePath();
+        while (root != null && !Files.isRegularFile(root.resolve(relative))) root = root.getParent();
+        assertNotNull(root, "BodyHandClient source must be available for authority audit");
+        String source = Files.readString(root.resolve(relative));
+        assertTrue(source.contains(".projectForActor(entity)"));
+        assertFalse(source.contains(".resolveForActor(entity)"));
+    }
 
     @Test void mappedGesturesSelectDistinctRoutes() {
         assertEquals(BodyInputGesturePolicy.Route.SMART_BELT, BodyInputGesturePolicy.resolve(false, true, false, false));

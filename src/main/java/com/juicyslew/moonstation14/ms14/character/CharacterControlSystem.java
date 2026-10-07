@@ -109,6 +109,7 @@ public final class CharacterControlSystem {
      */
     public static boolean isClientActionBlocked(LivingEntity entity) {
         Objects.requireNonNull(entity, "entity");
+        if (com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity)) return true;
         if (!entity.level().isClientSide || !(entity instanceof IAttachmentHolder holder)
                 || !holder.hasData(ModDataAttachments.CHARACTER_IDENTITY.get())
                 || !holder.hasData(ModDataAttachments.STATUS_EFFECT.get())) {
@@ -130,6 +131,11 @@ public final class CharacterControlSystem {
     }
 
     public static boolean canAct(LivingEntity entity) {
-        return !isStunned(entity);
+        if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
+            var session = com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(player);
+            if (session != null) return false;
+        }
+        return entity != null && !isStunned(entity)
+                && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
     }
 }

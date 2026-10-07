@@ -44,6 +44,21 @@ class TimedInteractionEngineTest {
         assertEquals(afterMove,TimedInteractionEngine.cancel(afterMove,movement.id(),9));
     }
 
+    @Test void damageThresholdSelectionIsPerOperationAndInclusive() {
+        var f=fixture();
+        var drink=f.start("drink","a",2,20,true,false);
+        var getup=f.start("getup","b",2,20,true,false);
+        var unaffected=f.start("other","c",2,20,false,false);
+        var threshold=java.util.Map.of(drink.id(),1.0,getup.id(),5.0,unaffected.id(),1.0);
+        java.util.function.ToDoubleFunction<TimedOperation> thresholds=op -> threshold.get(op.id());
+
+        assertEquals(java.util.List.of(drink.id()),TimedInteractionDamageSelector.select(f.state,1,thresholds));
+        assertEquals(java.util.List.of(drink.id()),TimedInteractionDamageSelector.select(f.state,4.99,thresholds));
+        assertEquals(java.util.List.of(getup.id(),drink.id()).stream().sorted().toList(),
+                TimedInteractionDamageSelector.select(f.state,5,thresholds).stream().sorted().toList());
+        assertEquals(TimedOperation.Phase.ACTIVE, f.state.operations().get(2).phase());
+    }
+
     @Test void terminalTimePruningAndIndependentKeys() {
         var f=fixture(); var a=f.start("x","a",5,2,false,false); var b=f.start("x","b",5,4,false,false);
         var advanced=TimedInteractionEngine.advance(f.state,7);

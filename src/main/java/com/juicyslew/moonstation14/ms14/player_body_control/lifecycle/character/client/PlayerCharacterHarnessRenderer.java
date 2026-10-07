@@ -16,6 +16,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Pose;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.ms14.standing.PostureSystem;
+import com.juicyslew.moonstation14.ms14.standing.PronePoseMath;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -64,6 +67,13 @@ public final class PlayerCharacterHarnessRenderer
     @Override
     protected void setupRotations(PlayerCharacterHarnessEntity entity, PoseStack poseStack, float bob,
                                   float yBodyRot, float partialTick, float scale) {
+        if (PostureSystem.isDownPosture(entity)) {
+            var posture = entity.getExistingDataOrNull(ModDataAttachments.POSTURE.get());
+            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - (posture == null ? yBodyRot : posture.data().movementFacingYaw())));
+            PronePoseMath.applySharedRootPose(poseStack, entity.getBbWidth(), 1.0F,
+                    posture != null && posture.data().faceUp());
+            return;
+        }
         // LivingEntityRenderer only tips when deathTime > 0. That timer is not synced on spawn,
         // and zero health alone does not mean the server accepted die(). Keep the confirmed pose
         // at the vanilla flip angle independently of that transient timer.

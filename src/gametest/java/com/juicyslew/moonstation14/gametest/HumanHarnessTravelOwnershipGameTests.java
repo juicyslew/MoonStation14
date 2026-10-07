@@ -97,7 +97,7 @@ public final class HumanHarnessTravelOwnershipGameTests {
         // stationary mob play vanilla hurt animation. Retry before any candidate gets a tick.
         for (int attempt = 0; attempt < 80; attempt++) {
             T body = helper.spawn(type, pos);
-            if (atmos.isEnabled()) {
+            {
                 BlockPos eye = BlockPos.containing(body.getEyePosition());
                 // Strict sample only: an unknown cell is not vacuum, and an exterior cell
                 // cannot be written. Each actor has its own eye cell in this fixture.

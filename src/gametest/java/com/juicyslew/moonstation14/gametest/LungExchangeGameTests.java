@@ -8,9 +8,14 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.atmos.world.BreathExchange;
 import com.juicyslew.moonstation14.ms14.organ.*;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.lung.LungSystem;
 import com.juicyslew.moonstation14.ms14.lung.LungComponent;
 import com.juicyslew.moonstation14.component.codec.attachment.DamageData;
+import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
+import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
+import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
@@ -64,11 +69,6 @@ public final class LungExchangeGameTests {
                         && attached.phase() == LungComponent.Phase.INHALING,
                 "late policy must attach join-equivalent empty state without advancing it");
         require(noOverride(level, cell), "unknown sample cannot create room gas");
-        AtmosphereService disabled = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
-        disabled.configureAtServerStart(false, Set.of(level.dimension()));
-        require(!LungSystem.tickIfDue(pig, due, disabled)
-                        && snapshot(pig).equals(attached),
-                "disabled atmosphere cannot advance attached lung");
         var retained = LungComponent.from(new GasMixture(Map.of(GasType.NITROGEN, 0.2), TEMPERATURE),
                 98, true, LungComponent.Phase.EXHALING);
         BodyState before = BodySystem.current(pig).orElseThrow();
@@ -140,11 +140,6 @@ public final class LungExchangeGameTests {
         require(service.addGas(level, breathCell, GasType.PLASMA, 1, TEMPERATURE), "add plasma");
         require(service.addGas(level, breathCell, GasType.TRITIUM, 1, TEMPERATURE), "add tritium");
         require(service.addGas(level, breathCell, GasType.NITROGEN, 2, TEMPERATURE), "add inert nitrogen");
-        AtmosphereService disabled = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
-        disabled.configureAtServerStart(false, Set.of(level.dimension()));
-        require(!LungSystem.tickIfDue(actor, due + 2L * interval, disabled), "disabled atmosphere refuses inhale");
-        require(typed(actor, "poison") == 0 && typed(actor, "radiation") == 0,
-                "disabled atmosphere cannot cause toxins");
         GasMixture source = service.sample(level, breathCell).orElseThrow();
         double breathMoles = source.totalMoles() * 0.0005;
         double poisonExpected = source.moles(GasType.PLASMA) * breathMoles / source.totalMoles();
@@ -164,6 +159,75 @@ public final class LungExchangeGameTests {
         require(close(typed(actor, "poison"), poisonAfter) && close(typed(actor, "radiation"), radiationAfter),
                 "exhale and retained room gas do not reapply toxins");
         actor.discard();
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 40)
+    @GameTestTags({"medical-state"})
+    public static void criticalHumanDepletesWithoutExternalExchangeAndReviveResumes(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = new BlockPos(((helper.absolutePos(BlockPos.ZERO).getX() >> 4) + 112) * 16,
+                helper.absolutePos(BlockPos.ZERO).getY(), ((helper.absolutePos(BlockPos.ZERO).getZ() >> 4) + 112) * 16);
+        level.getChunk(origin); buildRoom(level, origin);
+        BlockPos cell = origin.offset(2, 1, 2);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        classifyUntilSample(service, level, cell, 12);
+        require(service.addBreathableAir(level, cell, 20, TEMPERATURE), "oxygenated fixture gas");
+        Villager actor = EntityType.VILLAGER.create(level);
+        require(actor != null, "villager fixture required"); actor.setNoAi(true);
+        actor.moveTo(cell.getX() + .5, cell.getY(), cell.getZ() + .5); level.addFreshEntity(actor);
+        require(CharacterIdentitySystem.enroll(actor, level, ModCharacters.HUMAN_ID) && LungSystem.reconcile(actor),
+                "enrolled human resolves its respirator and lungs");
+        int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(actor).orElseThrow().breathIntervalSeconds());
+        long due = 0; while (!LungSystem.isDue(due, actor.getId(), interval)) due++;
+        require(DamageSystem.applyHealthChange(actor, Map.of(DamageKeys.BLUNT, 100f), 1f, true) == DamageSystem.Result.APPLIED
+                && MobStateSystem.isCritical(actor), "100 typed damage creates Critical");
+        var beforeRoom = service.sample(level, BlockPos.containing(actor.getEyePosition())).orElseThrow();
+        double beforeSat = BodySystem.current(actor).orElseThrow().respiration().saturation();
+        require(LungSystem.tickIfDue(actor, due, service), "critical due update continues respiration schedule");
+        require(BodySystem.current(actor).orElseThrow().respiration().saturation() < beforeSat,
+                "critical actor saturation depletes");
+        require(sameMixture(beforeRoom, service.sample(level, BlockPos.containing(actor.getEyePosition())).orElseThrow()),
+                "critical actor cannot exchange external gas");
+        require(LungSystem.tickIfDue(actor, due + interval, service), "next critical update remains scheduled");
+        double criticalSat = BodySystem.current(actor).orElseThrow().respiration().saturation();
+        require(DamageSystem.applyHealthChange(actor, Map.of(DamageKeys.BLUNT, 100f), 1f, true) == DamageSystem.Result.APPLIED
+                        && MobStateSystem.isDead(actor), "additional typed damage creates Dead");
+        require(!LungSystem.tickIfDue(actor, due + 2L * interval, service)
+                        && BodySystem.current(actor).orElseThrow().respiration().saturation() == criticalSat,
+                "dead due update leaves saturation unchanged");
+        require(DamageSystem.applyHealthChange(actor, Map.of(DamageKeys.BLUNT, -100f), 1f, true) == DamageSystem.Result.APPLIED
+                        && MobStateSystem.isDead(actor), "healing alone does not clear dead lock");
+        require(MobStateSystem.explicitRevive(actor) && MobStateSystem.isCritical(actor), "explicit revive returns same human to Critical");
+        require(LungSystem.tickIfDue(actor, due + 3L * interval, service), "revived actor resumes due breathing");
+        require(BodySystem.current(actor).orElseThrow().respiration().saturation() < criticalSat,
+                "revive resumes depletion without saturation reset");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 40)
+    @GameTestTags({"medical-state"})
+    public static void deadHumanDoesNotAdvanceRespiratorOrAsphyxiate(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = new BlockPos(((helper.absolutePos(BlockPos.ZERO).getX() >> 4) + 120) * 16,
+                helper.absolutePos(BlockPos.ZERO).getY(), ((helper.absolutePos(BlockPos.ZERO).getZ() >> 4) + 120) * 16);
+        level.getChunk(origin); buildRoom(level, origin);
+        BlockPos cell = origin.offset(2, 1, 2);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        classifyUntilSample(service, level, cell, 12); service.addBreathableAir(level, cell, 20, TEMPERATURE);
+        Villager actor = EntityType.VILLAGER.create(level); require(actor != null, "villager fixture required");
+        actor.setNoAi(true); actor.moveTo(cell.getX() + .5, cell.getY(), cell.getZ() + .5); level.addFreshEntity(actor);
+        require(CharacterIdentitySystem.enroll(actor, level, ModCharacters.HUMAN_ID) && LungSystem.reconcile(actor), "human enrolled");
+        int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(actor).orElseThrow().breathIntervalSeconds());
+        long due = 0; while (!LungSystem.isDue(due, actor.getId(), interval)) due++;
+        require(DamageSystem.applyHealthChange(actor, Map.of(DamageKeys.BLUNT, 200f), 1f, true) == DamageSystem.Result.APPLIED
+                && MobStateSystem.isDead(actor), "200 typed damage creates Dead");
+        BodyState before = BodySystem.current(actor).orElseThrow();
+        double asphyxia = typed(actor, DamageKeys.ASPHYXIATION);
+        require(!LungSystem.tickIfDue(actor, due, service) && !LungSystem.tickIfDue(actor, due + interval, service),
+                "dead human ignores due updates");
+        require(before.equals(BodySystem.current(actor).orElseThrow()), "dead respirator and saturation unchanged");
+        require(typed(actor, DamageKeys.ASPHYXIATION) == asphyxia, "dead update adds no asphyxiation");
         helper.succeed();
     }
 
@@ -281,7 +345,6 @@ public final class LungExchangeGameTests {
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         BlockPos cell = roomOrigin.offset(2, 1, 2);
 
-        require(service.isEnabled(), "the isolated service must be enabled");
         require(service.exchangeBreath(level, cell, 2.0, GasMixture.vacuum()).isEmpty(),
                 "unknown ownership must reject an exchange before changing the cell");
         require(noOverride(level, cell), "unknown exchange must not materialize a gas override");
@@ -340,6 +403,7 @@ public final class LungExchangeGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 40)
+    @GameTestTags({"simulation-defaults"})
     public static void exteriorAndInvalidCellsDoNotCreateFiniteOverrides(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -347,9 +411,8 @@ public final class LungExchangeGameTests {
         int firstFreeY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, skyCell.getX(), skyCell.getZ());
         if (firstFreeY > skyCell.getY()) skyCell = new BlockPos(skyCell.getX(), firstFreeY + 1, skyCell.getZ());
         require(skyCell.getY() < level.getMaxBuildHeight(), "fixture must provide an in-bounds sky cell");
+        require(noOverride(level, skyCell), "sky cell must begin without finite gas or claim");
         LevelChunk skyChunk = (LevelChunk) level.getChunk(skyCell);
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "sky fixture must begin without atmosphere chunk data");
         GasMixture skyAmbient = service.sample(level, skyCell).orElseThrow(
                 () -> new GameTestAssertException("sky cell should be proven exterior"));
         var exteriorExchange = service.exchangeBreath(level, skyCell, 2.0, GasMixture.vacuum()).orElseThrow(
@@ -360,12 +423,10 @@ public final class LungExchangeGameTests {
                         + ", actual=" + exteriorExchange.inhaled().totalMoles());
         require(sameMixture(skyAmbient, service.sample(level, skyCell).orElseThrow()),
                 "exterior exchange must not change ambient composition or energy");
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "exterior exchange must not materialize a finite chunk override");
+        require(noOverride(level, skyCell), "exterior exchange must not create finite gas or claim");
         require(service.exchangeBreath(level, skyCell, 2.0, GasMixture.vacuum(), inhaled -> false).isEmpty(),
                 "exterior candidate rejection must fail without writing");
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "rejected exterior exchange cannot materialize finite data");
+        require(noOverride(level, skyCell), "rejected exterior exchange cannot create finite gas or claim");
 
         BlockPos solid = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.STONE);
@@ -413,7 +474,8 @@ public final class LungExchangeGameTests {
     private static boolean noOverride(ServerLevel level, BlockPos pos) {
         LevelChunk chunk = (LevelChunk) level.getChunk(pos);
         var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
-        return data == null || data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15) == null;
+        return data == null || (data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15) == null
+                && !data.isFiniteClaimed(pos.getX() & 15, pos.getY(), pos.getZ() & 15));
     }
 
     private static boolean sameMixture(GasMixture left, GasMixture right) {

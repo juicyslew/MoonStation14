@@ -90,8 +90,8 @@ class ThermalRegulatorMathTest {
         assertEquals(BodyTemperatureSystem.Outcome.SKIPPED, BodyTemperatureSystem.transact(body,
                 null, PROFILE, POLICY, ignored -> fail("gas write"), ignored -> fail("damage")));
         assertEquals(310, body.kelvin());
-        assertTrue(BodyTemperatureSystem.eligibleForThermal(true, false, true, true));
-        assertFalse(BodyTemperatureSystem.eligibleForThermal(true, true, true, true));
+        assertTrue(BodyTemperatureSystem.eligibleForThermal(true, false, true));
+        assertFalse(BodyTemperatureSystem.eligibleForThermal(true, true, true));
     }
 
     @Test

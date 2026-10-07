@@ -154,14 +154,13 @@ class LifecycleDevelopmentModeTest {
         assertFalse(LifecycleDevelopmentMode.verifiedParkedGhostClaim(claim, claim, UUID.randomUUID()));
     }
 
-    @Test void returnRequiresGateExactTrackedOperatorCreativeAndMatchingOfflineProfile() {
-        assertTrue(eligible(true, true, true, GameType.CREATIVE, true));
-        assertFalse(eligible(false, true, true, GameType.CREATIVE, true));
-        assertFalse(eligible(true, false, true, GameType.CREATIVE, true));
-        assertFalse(eligible(true, true, false, GameType.CREATIVE, true));
-        assertFalse(eligible(true, true, true, GameType.SURVIVAL, true));
-        assertFalse(eligible(true, true, true, GameType.ADVENTURE, true));
-        assertFalse(eligible(true, true, true, GameType.CREATIVE, false));
+    @Test void returnRequiresExactTrackedOperatorCreativeAndMatchingOfflineProfile() {
+        assertTrue(eligible(true, true, GameType.CREATIVE, true));
+        assertFalse(eligible(false, true, GameType.CREATIVE, true));
+        assertFalse(eligible(true, false, GameType.CREATIVE, true));
+        assertFalse(eligible(true, true, GameType.SURVIVAL, true));
+        assertFalse(eligible(true, true, GameType.ADVENTURE, true));
+        assertFalse(eligible(true, true, GameType.CREATIVE, false));
     }
 
     @Test void failedPreActivationReturnKeepsDetachedStateAndSuccessfulReturnCanClearIt() {
@@ -173,35 +172,33 @@ class LifecycleDevelopmentModeTest {
     }
 
     @Test void staleOrDuplicateReturnIsDeniedByExactTrackedCarrierRequirement() {
-        assertFalse(eligible(true, false, true, GameType.CREATIVE, true));
-        assertFalse(eligible(true, true, true, GameType.CREATIVE, false));
+        assertFalse(eligible(false, true, GameType.CREATIVE, true));
+        assertFalse(eligible(true, true, GameType.CREATIVE, false));
     }
 
     @Test void deathExplanationRequiresExactCreativeOperatorAndUniqueCurrentPrimaryDeadProfile() {
         var dead = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM;
         assertTrue(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                true, true, true, GameType.CREATIVE, dead, true));
+                true, true, GameType.CREATIVE, dead, true));
         assertFalse(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                false, true, true, GameType.CREATIVE, dead, true));
+                false, true, GameType.CREATIVE, dead, true));
         assertFalse(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                true, false, true, GameType.CREATIVE, dead, true));
+                true, false, GameType.CREATIVE, dead, true));
         assertFalse(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                true, true, false, GameType.CREATIVE, dead, true));
+                true, true, GameType.SURVIVAL, dead, true));
         assertFalse(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                true, true, true, GameType.SURVIVAL, dead, true));
+                true, true, GameType.CREATIVE, dead, false));
         assertFalse(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                true, true, true, GameType.CREATIVE, dead, false));
-        assertFalse(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                true, true, true, GameType.CREATIVE,
+                true, true, GameType.CREATIVE,
                 com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE,
                 true));
         assertFalse(LifecycleDevelopmentMode.deadClaimReturnMessageEligible(
-                true, true, true, GameType.CREATIVE, null, true));
+                true, true, GameType.CREATIVE, null, true));
         assertTrue(LifecycleDevelopmentMode.DEAD_RETURN_MESSAGE.contains("Your character has died"));
         assertTrue(LifecycleDevelopmentMode.DEAD_RETURN_MESSAGE.contains("/ms14dev return"));
     }
 
-    private static boolean eligible(boolean gates, boolean tracked, boolean operator, GameType mode, boolean profile) {
-        return LifecycleDevelopmentMode.returnEligibilityDecision(gates, tracked, operator, mode, profile);
+    private static boolean eligible(boolean tracked, boolean operator, GameType mode, boolean profile) {
+        return LifecycleDevelopmentMode.returnEligibilityDecision(tracked, operator, mode, profile);
     }
 }

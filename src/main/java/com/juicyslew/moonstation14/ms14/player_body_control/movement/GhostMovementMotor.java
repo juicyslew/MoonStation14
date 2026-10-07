@@ -26,8 +26,28 @@ public final class GhostMovementMotor {
             SECONDS_PER_TICK, 0d, 0d, 1d, MovementVector.ZERO, 0d, 0d,
             (position, displacement, wasOnGround) -> new MovementCollisionResolver.CollisionResult(displacement, false));
 
-    private final CharacterMovementMotor motor = new CharacterMovementMotor(
-            new CharacterMovementPolicy(20d, WALK_SPEED_PER_SECOND, SPRINT_SPEED_PER_SECOND, 0d, 0d, 0d));
+    private final double verticalSpeedPerSecond;
+    private final double sprintSpeedPerSecond;
+    private final CharacterMovementMotor motor;
+
+    public GhostMovementMotor() {
+        this(WALK_SPEED_PER_SECOND, SPRINT_SPEED_PER_SECOND, VERTICAL_SPEED_PER_SECOND);
+    }
+
+    /** Adapts resolved observer walk/sprint rates; Minecraft flight keeps vertical travel independent. */
+    public GhostMovementMotor(double walkSpeedPerSecond, double sprintSpeedPerSecond, double verticalSpeedPerSecond) {
+        if (!Double.isFinite(walkSpeedPerSecond) || walkSpeedPerSecond <= 0
+                || !Double.isFinite(sprintSpeedPerSecond) || sprintSpeedPerSecond <= 0
+                || !Double.isFinite(verticalSpeedPerSecond) || verticalSpeedPerSecond <= 0)
+            throw new IllegalArgumentException("ghost movement rates must be finite and positive");
+        this.verticalSpeedPerSecond = verticalSpeedPerSecond;
+        this.sprintSpeedPerSecond = sprintSpeedPerSecond;
+        this.motor = new CharacterMovementMotor(new CharacterMovementPolicy(
+                20d, walkSpeedPerSecond, sprintSpeedPerSecond, 0d, 0d, 0d));
+    }
+
+    public double sprintSpeedPerSecond() { return sprintSpeedPerSecond; }
+    public double verticalSpeedPerSecond() { return verticalSpeedPerSecond; }
 
     /**
      * Applies quantized local wishes (strafe, forward) and an independent vertical flight wish.
@@ -73,7 +93,7 @@ public final class GhostMovementMotor {
         double worldZ = localForward * cosine + localStrafe * sine;
 
         CharacterMovementState state = new CharacterMovementState(position,
-                new MovementVector(0d, verticalWish * VERTICAL_SPEED_PER_SECOND, 0d), false);
+                new MovementVector(0d, verticalWish * verticalSpeedPerSecond, 0d), false);
         CharacterMovementCommand command = new CharacterMovementCommand(worldX, worldZ, false, sprint);
         CharacterMovementEnvironment environment = new CharacterMovementEnvironment(
                 ENVIRONMENT_TEMPLATE.secondsPerTick(), ENVIRONMENT_TEMPLATE.gravityPerSecondSquared(),

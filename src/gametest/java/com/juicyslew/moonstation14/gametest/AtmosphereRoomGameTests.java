@@ -295,9 +295,7 @@ public final class AtmosphereRoomGameTests {
     }
 
     private static void requireIsolatedReactionFixture() {
-        require(!AtmosphereService.INSTANCE.isEnabled(),
-                "isolated reaction GameTests require the global atmosphere service disabled; "
-                        + "otherwise it can tick and mutate the same claimed cells");
+        // Tests operate on fixture cells; global atmospherics is always active.
     }
 
     private static void buildSealedHotspotCell(GameTestHelper helper, int centerX, int centerZ) {

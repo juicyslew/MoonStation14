@@ -255,6 +255,28 @@ class CharacterComponentMergeStrategyTest {
         assertTrue(PrototypeResolver.resolve(raw).get(id("child")).getAsJsonArray("components").isEmpty());
     }
 
+    @Test
+    void ghostOnMoveDefaultsResolveAndStrictCodecValidatesPolicy() {
+        var resolved = resolve(
+                entry("base", "{\"abstract\":true,\"components\":[{\"type\":\"GhostOnMove\"}]}"),
+                entry("inherited", "{\"parent\":\"base\"}"),
+                entry("override", "{\"parent\":\"base\",\"components\":[{\"type\":\"GhostOnMove\",\"must_be_dead\":false,\"can_return\":false}]}"));
+        JsonObject inherited = component(resolved.get(id("inherited")));
+        var parsed = CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, inherited).getOrThrow();
+        var inheritedPolicy = assertInstanceOf(com.juicyslew.moonstation14.ms14.character.components.GhostOnMoveComponent.class, parsed);
+        assertTrue(inheritedPolicy.mustBeDead());
+        assertTrue(inheritedPolicy.canReturn());
+        JsonObject overridden = component(resolved.get(id("override")));
+        var overriddenPolicy = assertInstanceOf(com.juicyslew.moonstation14.ms14.character.components.GhostOnMoveComponent.class,
+                CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, overridden).getOrThrow());
+        assertFalse(overriddenPolicy.mustBeDead());
+        assertFalse(overriddenPolicy.canReturn());
+        assertTrue(CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE,
+                json("{\"type\":\"GhostOnMove\",\"must_be_dead\":\"yes\"}")).error().isPresent());
+        assertTrue(CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE,
+                json("{\"type\":\"GhostOnMove\",\"unexpected\":true}")).error().isPresent());
+    }
+
     private static JsonObject component(JsonObject character) {
         return character.getAsJsonArray("components").get(0).getAsJsonObject();
     }

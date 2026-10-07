@@ -9,15 +9,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AtmosphereWorkQueueTest {
     @Test
-    void atmosphereRunsEveryTwoGameTicksOnlyWhenEnabled() {
+    void atmosphereRunsEveryTwoGameTicks() {
         assertEquals(0.1, AtmosphereService.atmosphereStepSeconds, 1.0e-12);
-        assertTrue(AtmosphereService.isTickDue(true, 0));
-        assertFalse(AtmosphereService.isTickDue(true, 1));
-        assertTrue(AtmosphereService.isTickDue(true, 2));
-        assertFalse(AtmosphereService.isTickDue(true, 3));
-        assertTrue(AtmosphereService.isTickDue(true, 4));
-        for (long gameTime = 0; gameTime <= 4; gameTime++)
-            assertFalse(AtmosphereService.isTickDue(false, gameTime), "disabled at game time " + gameTime);
+        assertTrue(AtmosphereService.isTickDue(0));
+        assertFalse(AtmosphereService.isTickDue(1));
+        assertTrue(AtmosphereService.isTickDue(2));
+        assertFalse(AtmosphereService.isTickDue(3));
+        assertTrue(AtmosphereService.isTickDue(4));
     }
 
     @Test

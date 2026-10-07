@@ -26,6 +26,8 @@ import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
+import com.juicyslew.moonstation14.ms14.damage.DamageFeedbackProfile;
+import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
@@ -62,6 +64,7 @@ class PrototypeRuntimeTest {
                 ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE);
         expectedTypes = new java.util.HashSet<>(expectedTypes);
         expectedTypes.add(ModIngestionProfiles.TYPE);
+        expectedTypes.add(ModDamageFeedback.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -122,7 +125,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllFourteenFamiliesIncludingIngestionWithoutSharingState() {
+    void runtimeExportImportsAllFifteenFamiliesIncludingDamageFeedbackWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -161,6 +164,8 @@ class PrototypeRuntimeTest {
                 false, 0, 8, .1f, 10, .5f, .5f,
                 new LooseObjectProfile.VisualTuning(.5f, .5f, .5f, .5f, 1, 0));
         server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-test"), profile));
+        DamageFeedbackProfile damageFeedback = DamageFeedbackProfile.PHYSICAL;
+        server.publishDecoded(ModDamageFeedback.TYPE, Map.of(id("damage-feedback-test"), damageFeedback));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
@@ -168,7 +173,7 @@ class PrototypeRuntimeTest {
                  ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                  ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
                   ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
-                  ModIngestionProfiles.TYPE.typeId()),
+                   ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId()),
                  exported.keySet());
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
         assertTrue(exported.get(ModGasReactions.GAS_REACTION_TYPE.typeId()).containsKey(id("reaction-test")));
@@ -178,6 +183,7 @@ class PrototypeRuntimeTest {
         assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
         assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
+        assertTrue(exported.get(ModDamageFeedback.TYPE.typeId()).containsKey(id("damage-feedback-test")));
         ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
         server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("source-test"), source));
         exported = server.encodePublishedCatalogs();
@@ -194,6 +200,8 @@ class PrototypeRuntimeTest {
         assertEquals(source, PrototypeRuntime.clientExplosiveSources().get(id("source-test")));
         assertEquals(profile, PrototypeRuntime.clientLooseObjectProfiles().get(id("profile-test")));
         assertEquals(profile, PrototypeRuntime.serverLooseObjectProfiles().get(id("profile-test")));
+        assertEquals(damageFeedback, PrototypeRuntime.clientDamageFeedback().get(id("damage-feedback-test")));
+        assertEquals(damageFeedback, PrototypeRuntime.serverDamageFeedback().get(id("damage-feedback-test")));
         assertEquals(explosion, ModExplosions.EXPLOSION_TYPE.codec().parse(JsonOps.INSTANCE,
                 exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).get(id("explosion-test"))).getOrThrow());
         assertEquals(reaction, PrototypeRuntime.serverGasReactions().get(id("reaction-test")));

@@ -67,6 +67,7 @@ public final class HumanHarnessVacuumGameTests {
         require(vacuum.sample(level, eye).isEmpty(), "covered unclaimed room is unknown, not vacuum");
         require(BodySystem.reconcile(body) && LungSystem.reconcile(body),
                 "bound human harness must initialize its body and respiration");
+        com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(body);
         BodyState initialized = BodySystem.current(body).orElseThrow();
         require(initialized.find(OrganCategory.LUNGS).isPresent() && initialized.respiration().initialized(),
                 "prototype initialization must provide a real human lung and respiration");

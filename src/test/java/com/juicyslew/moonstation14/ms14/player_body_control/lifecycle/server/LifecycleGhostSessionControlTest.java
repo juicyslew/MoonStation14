@@ -142,12 +142,12 @@ class LifecycleGhostSessionControlTest {
     @Test
     void authorityDiagnosticsKeepIndependentFailureFacts() {
         var lostCamera = new LifecycleGhostSessionControl.AuthorityDiagnostic(
-                true, false, true, true, true, false, true, true, true, true);
+                true, true, true, false, true, true, true, true);
         assertTrue(lostCamera.toString().contains("exactConnected=true"));
         assertTrue(lostCamera.toString().contains("registryAuthorized=true"));
         assertTrue(lostCamera.toString().contains("cameraOwned=false"));
         var lostRegistry = new LifecycleGhostSessionControl.AuthorityDiagnostic(
-                true, false, true, true, false, true, true, true, true, true);
+                true, true, false, true, true, true, true, true);
         assertTrue(lostRegistry.toString().contains("registryAuthorized=false"));
         assertTrue(lostRegistry.cameraOwned());
     }
@@ -155,34 +155,29 @@ class LifecycleGhostSessionControlTest {
     @Test
     void tickTerminalClassifierSeparatesEachFailureWithoutTreatingAnUncommittedHandshakeAsExpiredEarly() {
         assertEquals(LifecycleGhostSessionControl.TickTerminalReason.NONE,
-                tickDiagnostic(true, false, true, true, true, true, false, 99).reasonCode());
+                tickDiagnostic(true, true, true, true, false, 99).reasonCode());
         assertEquals(LifecycleGhostSessionControl.TickTerminalReason.READY_TIMEOUT,
-                tickDiagnostic(true, false, true, true, true, true, false, 100).reasonCode());
+                tickDiagnostic(true, true, true, true, false, 100).reasonCode());
         assertEquals(LifecycleGhostSessionControl.TickTerminalReason.NONE,
-                tickDiagnostic(true, false, true, true, true, true, true, 100).reasonCode());
-        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_GATE_DISABLED,
-                tickDiagnostic(false, false, true, true, true, true, true, 0).reasonCode());
-        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.MOVEMENT_CONFLICT,
-                tickDiagnostic(true, true, true, true, true, true, true, 0).reasonCode());
+                tickDiagnostic(true, true, true, true, true, 100).reasonCode());
         assertEquals(LifecycleGhostSessionControl.TickTerminalReason.CONNECTION_DISCONNECTED,
-                tickDiagnostic(true, false, false, false, true, true, true, 0).reasonCode());
+                tickDiagnostic(false, false, true, true, true, 0).reasonCode());
         assertEquals(LifecycleGhostSessionControl.TickTerminalReason.EXACT_CONNECTION_INVALID,
-                tickDiagnostic(true, false, false, true, true, true, true, 0).reasonCode());
+                tickDiagnostic(false, true, true, true, true, 0).reasonCode());
         assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_LEVEL_MISMATCH,
-                tickDiagnostic(true, false, true, true, false, true, true, 0).reasonCode());
+                tickDiagnostic(true, true, false, true, true, 0).reasonCode());
         assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_NOT_LIVE,
-                tickDiagnostic(true, false, true, true, true, false, true, 0).reasonCode());
-        var failed = tickDiagnostic(false, true, false, false, false, false, false, 100);
-        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.GHOST_GATE_DISABLED, failed.reasonCode());
-        assertTrue(failed.toString().contains("reasonCode=GHOST_GATE_DISABLED"));
+                tickDiagnostic(true, true, true, false, true, 0).reasonCode());
+        var failed = tickDiagnostic(false, false, false, false, false, 100);
+        assertEquals(LifecycleGhostSessionControl.TickTerminalReason.CONNECTION_DISCONNECTED, failed.reasonCode());
+        assertTrue(failed.toString().contains("reasonCode=CONNECTION_DISCONNECTED"));
         assertTrue(failed.toString().contains("readyAccepted=false"));
         assertTrue(failed.toString().contains("currentGhostLevel=minecraft:the_nether"));
     }
 
     private static LifecycleGhostSessionControl.TickTerminalDiagnostic tickDiagnostic(
-            boolean gate, boolean movement, boolean exact, boolean accepting, boolean sameLevel,
-            boolean live, boolean committed, long age) {
-        return new LifecycleGhostSessionControl.TickTerminalDiagnostic(gate, movement, exact, accepting,
+            boolean exact, boolean accepting, boolean sameLevel, boolean live, boolean committed, long age) {
+        return new LifecycleGhostSessionControl.TickTerminalDiagnostic(exact, accepting,
                 sameLevel, live, committed, true, false, false, !committed && age >= 100, age,
                 "minecraft:overworld", "minecraft:the_nether");
     }

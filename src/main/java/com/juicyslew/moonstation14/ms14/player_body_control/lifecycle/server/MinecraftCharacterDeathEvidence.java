@@ -4,14 +4,12 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -33,15 +31,11 @@ public final class MinecraftCharacterDeathEvidence {
      */
     public static boolean verify(MinecraftServer server, SavedLifecycleProfile offlineProfile,
                                  MobHarness characterId) {
-        // Startup latches are intentionally consulted before server/thread/world state.
-        boolean enabled = MindGhostStartupGate.enabledForServer();
-        boolean movementConflict = MovementStartupGate.enabledForServer();
-        if (!enabled || movementConflict) return false;
         if (server == null || offlineProfile == null || characterId == null
                 || !server.isSameThread()) return false;
         if (!isMatchingOfflineIdentity(offlineProfile, characterId)) return false;
 
-        return verifyObserved(offlineProfile, characterId, enabled, movementConflict, true,
+        return verifyObserved(offlineProfile, characterId, true,
                 () -> observe(server, offlineProfile));
     }
 
@@ -80,10 +74,8 @@ public final class MinecraftCharacterDeathEvidence {
     }
 
     /** Pure seam: verifies negative/positive evidence without constructing a Minecraft world. */
-    static boolean verifyObserved(SavedLifecycleProfile profile, MobHarness character, boolean enabled,
-                                  boolean movementConflict, boolean mainThread,
+    static boolean verifyObserved(SavedLifecycleProfile profile, MobHarness character, boolean mainThread,
                                   Supplier<Observation> lookup) {
-        if (!enabled || movementConflict) return false;
         if (profile == null || character == null || !mainThread
                 || !isMatchingOfflineIdentity(profile, character) || lookup == null) return false;
         Observation observation = lookup.get();

@@ -3,6 +3,9 @@ package com.juicyslew.moonstation14.ms14.player_body_control.client;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import org.junit.jupiter.api.Test;
+import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMovementMotor;
+import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
+import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -80,6 +83,36 @@ class GhostControlClientPolicyTest {
         GhostControlPayloads.Begin begin = begin(4);
         assertTrue(GhostControlClient.ClientBeginPolicy.canAcceptPayload(begin, 3, true));
         assertFalse(GhostControlClient.ClientBeginPolicy.canAcceptPayload(begin, 3, false));
+    }
+
+    @Test
+    void readyNeedsOnlyMatchingBeginEntityAndSessionNotObserverProjection() {
+        // Observer snapshot, corpse entity, and prototype projection are deliberately absent here.
+        assertTrue(GhostControlClient.ClientReadyPolicy.canSend(4, 4, true, true, true));
+        assertFalse(GhostControlClient.ClientReadyPolicy.canSend(3, 4, true, true, true));
+        assertFalse(GhostControlClient.ClientReadyPolicy.canSend(4, 4, false, true, true));
+        assertFalse(GhostControlClient.ClientReadyPolicy.canSend(4, 4, true, true, false));
+        assertFalse(GhostControlClient.ClientReadyPolicy.canSend(4, 4, true, false, true));
+    }
+
+    @Test
+    void beginMovementRatesDriveSameMotorWithNoDefaultFallback() {
+        var begin = new GhostControlPayloads.Begin(4, 7, MobHarnessKind.GHOST, 3, 7);
+        GhostMovementMotor motor = new GhostMovementMotor(begin.ghostWalkSpeed(), begin.ghostSprintSpeed(), begin.ghostSprintSpeed());
+        var walk = motor.tick(MovementVector.ZERO, 0, 1000, 0, false, 0,
+                (position, displacement, grounded) -> new MovementCollisionResolver.CollisionResult(displacement, false));
+        var sprint = motor.tick(MovementVector.ZERO, 0, 1000, 0, true, 0,
+                (position, displacement, grounded) -> new MovementCollisionResolver.CollisionResult(displacement, false));
+        assertEquals(3, walk.position().z() / .05, 1e-9);
+        assertEquals(7, sprint.position().z() / .05, 1e-9);
+        assertEquals(7, motor.verticalSpeedPerSecond());
+    }
+
+    @Test
+    void characterBeginCarriesNoGhostMovementPolicy() {
+        var begin = new GhostControlPayloads.Begin(4, 7, MobHarnessKind.CHARACTER);
+        assertEquals(0, begin.ghostWalkSpeed());
+        assertEquals(0, begin.ghostSprintSpeed());
     }
 
     private static GhostControlPayloads.Begin begin(long epoch) {

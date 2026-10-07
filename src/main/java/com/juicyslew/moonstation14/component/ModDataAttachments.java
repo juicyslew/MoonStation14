@@ -20,6 +20,7 @@ import com.juicyslew.moonstation14.ms14.blood.BloodAttachment;
 import com.juicyslew.moonstation14.ms14.organ.BodyAttachment;
 import com.juicyslew.moonstation14.ms14.organ.BodyState;
 import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
+import com.juicyslew.moonstation14.ms14.lung.GaspCooldownAttachment;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
@@ -27,6 +28,8 @@ import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
+import com.juicyslew.moonstation14.ms14.mobs.MobStateAttachment;
+import com.juicyslew.moonstation14.ms14.standing.PostureAttachment;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -164,6 +167,10 @@ public class ModDataAttachments {
                 throw new IllegalStateException("Legacy lung must be loaded from saved data");
             }).serialize(LungAttachment.CODEC).build());
 
+    /** Volatile gasp attempt cooldown; intentionally server runtime state, not copied or synchronized. */
+    public static final Supplier<AttachmentType<GaspCooldownAttachment>> GASP_COOLDOWN = ATTACHMENT_TYPES.register(
+            "gasp_cooldown", () -> AttachmentType.builder(GaspCooldownAttachment::new).build());
+
     /** Character-owned eye damage; its canonical mutation path removes zero and its serializer omits empty state. */
     public static final Supplier<AttachmentType<EyeDamageAttachment>> EYE_DAMAGE = ATTACHMENT_TYPES.register(
             "eye_damage", () -> AttachmentType.builder((Supplier<EyeDamageAttachment>) EyeDamageAttachment::new)
@@ -182,10 +189,27 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<TimedOperationState>> TIMED_OPERATIONS = ATTACHMENT_TYPES.register(
             "timed_operations", () -> AttachmentType.builder(() -> TimedOperationState.EMPTY).build());
 
+    /** Persisted authoritative mob state; synchronized as a state projection, not client authority. */
+    public static final Supplier<AttachmentType<MobStateAttachment>> MOB_STATE = ATTACHMENT_TYPES.register(
+            "mob_state", () -> AttachmentType.builder(() -> new MobStateAttachment())
+                    .serialize(MobStateAttachment.CODEC).sync(MobStateAttachment.STREAM_CODEC).build());
+
     /** Volatile server-owned sliding projection: synchronized, never serialized or copied on death. */
     public static final Supplier<AttachmentType<SlidingAttachment>> SLIDING = ATTACHMENT_TYPES.register(
             "sliding", () -> AttachmentType.builder((Supplier<SlidingAttachment>) SlidingAttachment::new)
                     .sync(SlidingAttachment.STREAM_CODEC).build()
+    );
+
+    /** Volatile synchronized rope projection; pull lease remains server-owned. */
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.loose_objects.pulling.RopeConstraintAttachment>> ROPE_CONSTRAINT = ATTACHMENT_TYPES.register(
+            "rope_constraint", () -> AttachmentType.<com.juicyslew.moonstation14.ms14.loose_objects.pulling.RopeConstraintAttachment>builder(
+                    () -> new com.juicyslew.moonstation14.ms14.loose_objects.pulling.RopeConstraintAttachment(
+                            java.util.List.of()))
+                    .sync(com.juicyslew.moonstation14.ms14.loose_objects.pulling.RopeConstraintAttachment.STREAM_CODEC).build());
+
+    public static final Supplier<AttachmentType<PostureAttachment>> POSTURE = ATTACHMENT_TYPES.register(
+            "posture", () -> AttachmentType.builder((Supplier<PostureAttachment>) PostureAttachment::new)
+                    .serialize(PostureAttachment.CODEC).sync(PostureAttachment.STREAM_CODEC).build()
     );
 
     /** Sparse server-persisted chunk atmosphere state; deliberately not synchronized. */

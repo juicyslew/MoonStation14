@@ -24,7 +24,6 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.util.ModSpecialProperties;
 import com.juicyslew.moonstation14.ms14.alert.AlertAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
-import com.juicyslew.moonstation14.ms14.movement.client.MovementClientController;
 import com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualClientCache;
@@ -127,12 +126,16 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
         modEventBus.addListener(LocalSpeechReviewKey::register);
         modEventBus.addListener(BodyHandClient::registerKeys);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.standing.client.PostureClient::register);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient::register);
 
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
         // Do not forget to add translations for your config options to the en_us.json file.
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         PrototypeCatalogNetworking.installClientHandler(MoonStation14Client::handleCatalogPayload);
+        com.juicyslew.moonstation14.ms14.damage.DamageFeedbackNetworking.installClientHandler(
+                com.juicyslew.moonstation14.ms14.damage.client.DamageFeedbackClientState::receive);
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
         CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
         LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
@@ -143,7 +146,6 @@ public class MoonStation14Client {
         AirAlarmNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof AirAlarmScreen screen) screen.handleResponse(response);
         }));
-        MovementClientController.install();
         BodyHandClient.install();
         TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
@@ -416,6 +418,15 @@ public class MoonStation14Client {
             addFace(builder, matrix, -100, -100, 100, 100, -100, 100, 100, -100, -100, -100, -100, -100, 0, 0, 0);
             BufferUploader.drawWithShader(builder.buildOrThrow());
 
+            // Critical view suppresses the bespoke ungfogged stars and celestial discs.
+            if (isCriticalSkyView()) {
+                RenderSystem.depthMask(true);
+                RenderSystem.enableCull();
+                RenderSystem.disableBlend();
+                RenderSystem.setShaderColor(1, 1, 1, 1);
+                return true;
+            }
+
             // Deterministic procedural stars, kept deliberately texture-free.
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
@@ -471,7 +482,15 @@ public class MoonStation14Client {
         }
 
         private static boolean isMoonSkyActive(ClientLevel level) {
-            return level != null && Config.shouldRenderMoonSky(Config.MOON_SKY.get(), level.dimension());
+            return level != null && Config.shouldRenderMoonSky(level.dimension());
+        }
+
+        private static boolean isCriticalSkyView() {
+            var body = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.observedBody();
+            if (body == null) return false;
+            var state = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
+            return state != null && state.data().state()
+                    == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL;
         }
 
         private static void addFace(BufferBuilder builder, Matrix4f matrix,
@@ -529,7 +548,10 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderAlerts(RenderGuiEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
-        var body = GhostControlClient.isLocalMindCarrier() ? GhostControlClient.ownedCharacterForHud() : null;
+        var body = GhostControlClient.isLocalMindCarrier()
+                ? (com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current() != null
+                    ? com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.statusBody()
+                    : GhostControlClient.ownedCharacterForPresentation()) : null;
         if (body == null || minecraft.player == null || minecraft.level == null) BODY_HEALTH_HUD.reset();
         if (minecraft.options.hideGui) {
             BODY_HEALTH_HUD.reset();
@@ -573,14 +595,31 @@ public class MoonStation14Client {
         }
         if (body != null) {
             var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(body);
-            long epoch = GhostControlClient.committedCharacterEpoch();
-            BodyHealthHudPolicy.View healthView = BODY_HEALTH_HUD.observe(epoch > 0
-                            ? new BodyHealthHudPolicy.Key(minecraft.player.getUUID(), epoch, minecraft.level,
-                                    body.getUUID(), body.getId()) : null,
-                    body.getHealth(), body.getMaxHealth(), minecraft.level.getGameTime());
+            var observation = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();
+            long epoch = observation != null && observation.body().equals(body.getUUID())
+                    ? observation.epoch() : GhostControlClient.ownedCharacterForPresentation() == body
+                    ? GhostControlClient.presentationCharacterEpoch() : 0;
+            // MobStateSystem.policy is server-authority-only; HUD thresholds use the synced read-only client projection.
+            var medicalPolicy = character.flatMap(com.juicyslew.moonstation14.ms14.mobs.MobStatePolicy::from).orElse(null);
+            var damageLedger = body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+            float typedDamage = damageLedger == null ? 0f
+                    : (float) damageLedger.getMap().values().stream().mapToDouble(Float::doubleValue).sum();
+            float critical = medicalPolicy == null ? Float.NaN : (float) medicalPolicy.thresholds().thresholds().entrySet().stream()
+                    .filter(entry -> entry.getValue() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL)
+                    .mapToDouble(java.util.Map.Entry::getKey).min().orElse(Double.NaN);
+            float dead = medicalPolicy == null ? Float.NaN : (float) medicalPolicy.thresholds().thresholds().entrySet().stream()
+                    .filter(entry -> entry.getValue() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD)
+                    .mapToDouble(java.util.Map.Entry::getKey).min().orElse(Double.NaN);
+            var observedState = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
+            BodyHealthHudPolicy.View healthView = epoch > 0
+                    ? BodyHealthHudPolicy.medical(typedDamage, critical, dead,
+                    observedState == null ? com.juicyslew.moonstation14.ms14.mobs.MobStateData.DEFAULT.state()
+                            : observedState.data().state()) : null;
             if (healthView != null) {
                 rows.add(0, new HudStatus(healthView.label(),
                         healthView.damageFlash() ? 0xffef2727 : 0xffa83232));
+                if (healthView.debugLabel() != null)
+                    rows.add(1, new HudStatus(healthView.debugLabel(), 0xffa83232));
             }
 
             var hunger = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent.class)).isPresent()
@@ -876,7 +915,6 @@ final class MoonStation14ClientNetworkEvents {
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.resetAtmosphereVisualsForLogin();
         MoonStation14Client.resetCableVisualsForLogin();
-        MovementClientController.reset();
     }
 
     @SubscribeEvent
@@ -886,7 +924,6 @@ final class MoonStation14ClientNetworkEvents {
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();
         MoonStation14Client.clearCableVisuals();
-        MovementClientController.reset();
     }
 
     @SubscribeEvent

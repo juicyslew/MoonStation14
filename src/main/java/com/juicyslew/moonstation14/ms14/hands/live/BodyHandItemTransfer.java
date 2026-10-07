@@ -220,20 +220,31 @@ public final class BodyHandItemTransfer {
     // on a real spawned body, without synthesizing a controller or changing the production authorization route.
     static Result dropOwned(LivingEntity body, String hand, String expectedToken, long expectedHandRevision,
                             BooleanSupplier authorityValid) {
-        return dropOwned(body, null, hand, expectedToken, expectedHandRevision, authorityValid, ignored -> { });
+        return dropOwned(body, null, hand, expectedToken, expectedHandRevision, authorityValid, ignored -> { }, false);
+    }
+
+    /** System-owned drop on a medical transition; bypasses voluntary-action incapacitation only. */
+    public static Result forceDropOwned(LivingEntity body, String hand, String token, long revision) {
+        return dropOwned(body, null, hand, token, revision, () -> true, ignored -> { }, true);
     }
 
     /** Fixture overload accepts only an explicitly designated excluded carrier; it is never inferred by type. */
     static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
                             long expectedHandRevision, BooleanSupplier authorityValid) {
-        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, ignored -> { });
+        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, ignored -> { }, false);
     }
 
     private static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
-                            long expectedHandRevision, BooleanSupplier authorityValid,
-                            java.util.function.Consumer<UUID> committedWorldEntity) {
+                             long expectedHandRevision, BooleanSupplier authorityValid,
+                             java.util.function.Consumer<UUID> committedWorldEntity) {
+        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, committedWorldEntity, false);
+    }
+
+    private static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
+                             long expectedHandRevision, BooleanSupplier authorityValid,
+                             java.util.function.Consumer<UUID> committedWorldEntity, boolean forced) {
         if (expectedToken == null || body == null || body.isRemoved() || !body.isAddedToLevel()) return Result.DENIED;
-        if (!(body.level() instanceof ServerLevel level) || !CharacterControlSystem.canAct(body)
+        if (!(body.level() instanceof ServerLevel level) || (!forced && !CharacterControlSystem.canAct(body))
                 || level.getEntity(body.getUUID()) != body
                 || !finite(body.position()) || !level.hasChunkAt(body.blockPosition())) return Result.DENIED;
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
@@ -246,7 +257,7 @@ public final class BodyHandItemTransfer {
         if (!transition.succeeded()) return Result.DENIED;
         ItemStack stack = transition.takenStack().orElseThrow();
         if (!valid(stack) || !authorityValid.getAsBoolean()
-                || !CharacterControlSystem.canAct(body) || !finite(body.position())
+                || (!forced && !CharacterControlSystem.canAct(body)) || !finite(body.position())
                 || !level.hasChunkAt(body.blockPosition())
                 || body.level() != level || body.isRemoved() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body
@@ -262,7 +273,7 @@ public final class BodyHandItemTransfer {
                 profile.physicalWidth(), profile.physicalHeight());
         if (placement == null || !sourceEye.equals(body.getEyePosition())
                 || !sourceLook.equals(body.getLookAngle()) || !authorityValid.getAsBoolean()
-                || !CharacterControlSystem.canAct(body) || body.level() != level || body.isRemoved()
+                || (!forced && !CharacterControlSystem.canAct(body)) || body.level() != level || body.isRemoved()
                 || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body)) return Result.DENIED;
