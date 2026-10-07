@@ -40,6 +40,7 @@ import net.minecraft.world.level.block.FenceGateBlock;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.EnumMap;
@@ -145,7 +146,21 @@ public final class AtmosphereService {
         if (data == null) return Optional.empty();
         GasMixture stored = data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
         return Optional.of(new FiniteRoomGasEndpoint(this, level, pos.immutable(),
-                stored == null ? ambient(level) : stored));
+                stored == null ? ambient(level) : stored, true));
+    }
+
+    /** Immediate server-thread transaction endpoint for one already-owned finite cell. Unlike the
+     * trusted room endpoint, it does not require proving the entire connected component. */
+    public Optional<PipeGasTransaction.Endpoint> finiteCellEndpointForImmediateTransfer(ServerLevel level, BlockPos pos) {
+        if (!enabled || level == null || pos == null || level.getServer() == null
+                || !level.getServer().isSameThread() || !inBounds(level, pos)) return Optional.empty();
+        LevelChunk chunk = loadedChunk(level, pos);
+        if (chunk == null || !AtmosphereTopology.isPassable(level, pos)
+                || !isFiniteClaimed(chunk, pos) || isExterior(chunk, pos)) return Optional.empty();
+        AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        GasMixture stored = data == null ? null : data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+        return Optional.of(new FiniteRoomGasEndpoint(this, level, pos.immutable(),
+                stored == null ? ambient(level) : stored, false));
     }
 
     /** Loaded-only proof of the complete passable component for a live finite endpoint. */
@@ -202,6 +217,72 @@ public final class AtmosphereService {
         return write(level, pos, mixture);
     }
 
+    /**
+     * Synchronously proves and initializes a bounded authored room before normal ownership work
+     * has had a tick to run. Validation failures are mutation-free. This is for trusted,
+     * once-guarded setup only.
+     */
+    public boolean initializeEnclosedFiniteMixtureForTrustedSetup(ServerLevel level, List<BlockPos> cells,
+                                                                   GasMixture mixture) {
+        if (!enabled || level == null || cells == null || cells.isEmpty() || cells.size() > 128
+                || mixture == null || level.getServer() == null || !level.getServer().isSameThread()) return false;
+        Set<BlockPos> supplied = new HashSet<>();
+        for (BlockPos cell : cells) {
+            if (cell == null || !supplied.add(cell.immutable())) return false;
+        }
+        Set<BlockPos> proven = new HashSet<>();
+        int remaining = MAX_FINITE_ROOM_ENDPOINT_PROBES;
+        for (BlockPos seed : supplied) {
+            if (proven.contains(seed)) continue;
+            LevelChunk seedChunk = loadedChunk(level, seed);
+            if (!inBounds(level, seed) || seedChunk == null || !AtmosphereTopology.isPassable(level, seed)) return false;
+            // Neighbor discovery examines blocked boundary cells as well as the supplied room.
+            // Bound candidates by the trusted-setup inspection budget, not by room size.
+            AtmosphereOwnershipSearch search = new AtmosphereOwnershipSearch(seed, MAX_FINITE_ROOM_ENDPOINT_PROBES);
+            AtmosphereOwnershipSearch.Snapshot result;
+            do {
+                if (remaining-- <= 0) return false;
+                result = search.step(pos -> {
+                    if (!inBounds(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
+                    LevelChunk chunk = loadedChunk(level, pos);
+                    if (chunk == null) return AtmosphereOwnershipSearch.ProbeResult.UNKNOWN_UNLOADED;
+                    if (!AtmosphereTopology.isPassable(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
+                    return isExterior(chunk, pos) ? AtmosphereOwnershipSearch.ProbeResult.OPEN_SKY_SEED
+                            : AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED;
+                }, 1);
+                if (result.status() == AtmosphereOwnershipSearch.Status.UNKNOWN
+                        || result.status() == AtmosphereOwnershipSearch.Status.EXTERIOR
+                        || result.status() == AtmosphereOwnershipSearch.Status.SATURATED
+                        || result.status() == AtmosphereOwnershipSearch.Status.CANCELLED) return false;
+            } while (result.status() == AtmosphereOwnershipSearch.Status.IN_PROGRESS);
+            if (result.status() != AtmosphereOwnershipSearch.Status.FINITE) return false;
+            for (BlockPos visited : result.visitedOpenCells()) {
+                if (!supplied.contains(visited) || !proven.add(visited)) return false;
+            }
+        }
+        if (!proven.equals(supplied)) return false;
+        // All topology work and target validation finish before the first ownership or gas write.
+        Map<BlockPos, LevelChunk> targetChunks = new LinkedHashMap<>();
+        for (BlockPos cell : proven) {
+            LevelChunk chunk = loadedChunk(level, cell);
+            if (chunk == null || !AtmosphereTopology.isPassable(level, cell)) return false;
+            targetChunks.put(cell, chunk);
+        }
+
+        for (var target : targetChunks.entrySet()) {
+            BlockPos cell = target.getKey();
+            LevelChunk chunk = target.getValue();
+            if (chunk.getData(ModDataAttachments.ATMOSPHERE_CHUNK.get())
+                    .claimFinite(cell.getX() & 15, cell.getY(), cell.getZ() & 15)) {
+                chunk.setUnsaved(true);
+                AtmosphereVisualServerHooks.noteChanged(level, cell);
+            }
+        }
+        for (var target : targetChunks.entrySet())
+            writeClaimedMixture(level, target.getKey(), target.getValue(), mixture, false, true);
+        return true;
+    }
+
     private static final class FiniteRoomGasEndpoint implements PipeGasTransaction.Endpoint {
         private final AtmosphereService service;
         private final ServerLevel level;
@@ -209,15 +290,20 @@ public final class AtmosphereService {
         private final Object identity;
         private final GasMixture initial;
         private final long createdTick;
+        private final LevelChunk capturedChunk;
+        private final boolean requireEnclosure;
         private boolean pendingPublication;
         private GasMixture pendingAfter;
         private boolean published;
 
-        private FiniteRoomGasEndpoint(AtmosphereService service, ServerLevel level, BlockPos pos, GasMixture initial) {
+        private FiniteRoomGasEndpoint(AtmosphereService service, ServerLevel level, BlockPos pos, GasMixture initial,
+                                      boolean requireEnclosure) {
             this.service = service;
             this.level = level;
             this.pos = pos;
             this.initial = initial;
+            this.capturedChunk = loadedChunk(level, pos);
+            this.requireEnclosure = requireEnclosure;
             this.createdTick = level.getGameTime();
             // Per-handle identity prevents a same-tick unclaim/reclaim from reusing a stale plan.
             this.identity = new Object();
@@ -226,10 +312,11 @@ public final class AtmosphereService {
         private boolean valid() {
             return service.enabled && level.getServer() != null && level.getServer().isSameThread()
                     && level.getGameTime() == createdTick
-                    && inBounds(level, pos) && loadedChunk(level, pos) != null
+                    && inBounds(level, pos) && loadedChunk(level, pos) == capturedChunk
                     && AtmosphereTopology.isPassable(level, pos)
                     && service.isFiniteClaimed(loadedChunk(level, pos), pos)
-                    && service.finiteRoomEnclosureValid(level, pos);
+                    && !isExterior(loadedChunk(level, pos), pos)
+                    && (!requireEnclosure || service.finiteRoomEnclosureValid(level, pos));
         }
 
         @Override public Object identity() { return identity; }
@@ -238,7 +325,7 @@ public final class AtmosphereService {
             if (!valid()) return null;
             LevelChunk chunk = loadedChunk(level, pos);
             AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
-            if (data == null) return null;
+            if (data == null) return requireEnclosure ? null : service.ambient(level);
             GasMixture stored = data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
             return stored == null ? service.ambient(level) : stored;
         }
@@ -249,7 +336,8 @@ public final class AtmosphereService {
             if (!valid() || next == null || published) return false;
             LevelChunk chunk = loadedChunk(level, pos);
             AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
-            if (data == null) return false;
+            if (data == null && requireEnclosure) return false;
+            if (data == null) data = chunk.getData(ModDataAttachments.ATMOSPHERE_CHUNK.get());
             GasMixture current = data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
             GasMixture currentFull = current == null ? service.ambient(level) : current;
             if (expectedBefore == null) {
@@ -1642,9 +1730,14 @@ public final class AtmosphereService {
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null || !AtmosphereTopology.isPassable(level, pos)) return false;
         if (!isFiniteClaimed(chunk, pos)) return false;
+        return writeClaimedMixture(level, pos, chunk, state, invalidateAfterWrite, false);
+    }
+
+    private boolean writeClaimedMixture(ServerLevel level, BlockPos pos, LevelChunk chunk, GasMixture state,
+                                        boolean invalidateAfterWrite, boolean trustedNoOpSuccess) {
         GasMixture ambient = ambient(level);
         AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
-        if (data == null && same(state, ambient)) return false;
+        if (data == null && same(state, ambient)) return trustedNoOpSuccess;
         if (data == null) data = chunk.getData(ModDataAttachments.ATMOSPHERE_CHUNK.get());
         boolean changed = data.put(pos.getX() & 15, pos.getY(), pos.getZ() & 15, state, ambient);
         if (changed) {

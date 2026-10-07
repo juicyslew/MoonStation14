@@ -81,6 +81,16 @@ class DisposalTubePrototypeTest {
         assertEquals(DisposalUnitTimingKernel.FlushResult.FLUSH_REQUESTED, kernel.advanceTo(41, true));
         assertEquals(441, kernel.nextPressurizedTick()); assertEquals(DisposalUnitTimingKernel.State.FLUSHED, kernel.currentState());
     }
+    @Test void containedViewCompositionInheritsUnitDefaultAndHolderOverride() {
+        var raw = bundled(); var manager = manager(); manager.reload(ModDisposals.DISPOSAL_TYPE, raw);
+        var resolved = manager.snapshot(ModDisposals.DISPOSAL_TYPE);
+        assertTrue(resolved.get(ModDisposals.UNIT).containedView().cameraCollision());
+        assertFalse(resolved.get(ModDisposals.HOLDER).containedView().cameraCollision());
+
+        raw.get(ModDisposals.id("disposal_unit")).add("containedView", JsonParser.parseString("{\"cameraCollision\":false}").getAsJsonObject());
+        manager.reload(ModDisposals.DISPOSAL_TYPE, raw);
+        assertFalse(manager.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT).containedView().cameraCollision());
+    }
     @Test void powerEntryTrunkAndExitAttemptsFollowAuditedSchedule() {
         var m = manager(); m.reload(ModDisposals.DISPOSAL_TYPE, bundled());
         var kernel = new DisposalUnitTimingKernel(m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT).unit(), 0);
@@ -118,6 +128,39 @@ class DisposalTubePrototypeTest {
         var invalid = new DisposalUnitTimingKernel.StateSnapshot(20, true, true, true, -1, 10L, 5, null);
         assertThrows(IllegalArgumentException.class, () -> DisposalUnitTimingKernel.restore(config, invalid));
         assertEquals(snapshot, original.snapshot());
+    }
+    @Test void persistedFutureClockRebasesRemainingDeadlinesWithoutWeakeningMonotonicAdvance() {
+        var m = manager(); m.reload(ModDisposals.DISPOSAL_TYPE, bundled());
+        var config = m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT).unit();
+        var original = new DisposalUnitTimingKernel(config, 1000);
+        assertTrue(original.exitAttemptAllowed());
+        original.insert(1); original.manualEngage();
+        original.advanceTo(1020, true);
+        original.manualEngage();
+        var saved = original.snapshot();
+        var restored = DisposalUnitTimingKernel.restore(config, saved);
+        restored.rebaseClock(0);
+        assertEquals(0, restored.nowTick());
+        assertEquals(saved.nextFlushTick() - saved.logicalTick(), restored.nextFlushTick());
+        assertEquals(Math.max(0, saved.pressureDeadlineTick() - saved.logicalTick()), restored.nextPressurizedTick());
+        assertEquals(DisposalUnitTimingKernel.FlushResult.NONE, restored.advanceTo(0, true));
+        assertThrows(IllegalArgumentException.class, () -> restored.advanceTo(-1, true));
+        assertEquals(saved.engaged(), restored.engaged());
+        assertEquals(0, restored.contents()); // payload count belongs to the adapter, not timing snapshot.
+
+        var exitBefore = saved.lastExitAttemptTick();
+        assertNotNull(exitBefore);
+        assertNull(restored.snapshot().lastExitAttemptTick());
+        assertTrue(restored.exitAttemptAllowed());
+        assertEquals(restored.snapshot(), DisposalUnitTimingKernel.restore(config, restored.snapshot()).snapshot());
+
+        var flushed = new DisposalUnitTimingKernel(config, 0);
+        flushed.insert(1); flushed.manualEngage(); flushed.advanceTo(41, true);
+        var flushedSave = flushed.snapshot();
+        var flushedRestored = DisposalUnitTimingKernel.restore(config, flushedSave);
+        flushedRestored.rebaseClock(0);
+        assertEquals(flushedSave.visualDeadlineTick() - flushedSave.logicalTick(), flushedRestored.snapshot().visualDeadlineTick());
+        assertEquals(DisposalUnitTimingKernel.State.FLUSHED, flushedRestored.currentState());
     }
     private static PrototypeManager manager() { var m = new PrototypeManager(); m.register(ModDisposals.DISPOSAL_TYPE); return m; }
     @Test void resolvedCompositionInheritsTubeDefaultsAndRoutesFromCatalog() {
@@ -209,8 +252,8 @@ class DisposalTubePrototypeTest {
         var custom=m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.id("disposal_pipe"));
         assertEquals(.5,custom.geometry().diameter());
         var boxes=custom.geometry().boxes(custom.tube(),DisposalOrientation.identity());
-        assertEquals(3,boxes.size());
-        assertEquals(.5,boxes.get(0).getXsize(),1e-12);
+        assertTrue(boxes.size()>3);
+        assertTrue(boxes.stream().allMatch(box->box.getXsize()<.5));
         assertTrue(boxes.stream().anyMatch(box->box.maxZ==1));
         assertThrows(IllegalArgumentException.class,()->new DisposalEntityData.TubeGeometry(0));
     }
@@ -221,7 +264,7 @@ class DisposalTubePrototypeTest {
         var frame=new DisposalOrientation(net.minecraft.core.Direction.DOWN,net.minecraft.core.Direction.NORTH);
         assertEquals(Set.of(DisposalDirection.DOWN),DisposalTubeRouting.worldConnections(trunk,frame));
         var boxes=catalog.get(ModDisposals.id("disposal_trunk")).geometry().boxes(trunk,frame);
-        assertEquals(3,boxes.size()); // core, logical DOWN port, physical unit interface UP
+        assertTrue(boxes.size()>3); // rounded hub, logical DOWN port, physical unit interface UP
         assertTrue(boxes.stream().anyMatch(box->box.minY==0));
         assertTrue(boxes.stream().anyMatch(box->box.maxY==1));
 
@@ -242,6 +285,82 @@ class DisposalTubePrototypeTest {
         assertEquals(.75,shape.bounds().maxY,1e-9);
         assertEquals(0,shape.bounds().minZ,1e-9);
         assertEquals(1,shape.bounds().maxZ,1e-9);
+        assertTrue(occupied(shape,.5,.5,.9));
+        assertFalse(occupied(shape,.1,.1,.9));
+        assertFalse(occupied(shape,.01,.01,.01));
     }
+    @Test void collisionAndMeshProductsAreSharedByPhysicalConfiguration() {
+        var m=manager();m.reload(ModDisposals.DISPOSAL_TYPE,bundled());
+        var entity=m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.id("disposal_pipe"));
+        var frame=DisposalOrientation.identity();
+        var first=com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeGeometryCache.get(entity.geometry(),entity.tube(),frame);
+        var second=com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeGeometryCache.get(entity.geometry(),entity.tube(),frame);
+        assertSame(first,second);
+        assertSame(first.shape(),DisposalTubeBlock.shapeFor(entity,new DisposalTubeRecord(UUID.randomUUID(),new net.minecraft.core.BlockPos(0,0,0),
+                ModDisposals.id("disposal_pipe").toString(),frame,true,"","",0,DisposalTubeRecord.HostKind.EXPOSED,"",null)));
+        assertSame(first.mesh(),entity.geometry().mesh(entity.tube(),frame));
+        var custom=new DisposalEntityData.TubeGeometry(.53125);
+        var cold=com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeGeometryCache.get(custom,entity.tube(),frame);
+        assertNotSame(first,cold);
+        for(var axis:net.minecraft.core.Direction.Axis.values()) assertTrue(cold.shape().getCoords(axis).size()<=17);
+    }
+    @Test void coldTrunkAndJunctionCollisionGridsAreBoundedForEveryFrame() {
+        var m=manager();m.reload(ModDisposals.DISPOSAL_TYPE,bundled());var catalog=m.snapshot(ModDisposals.DISPOSAL_TYPE);
+        int sample=0;
+        for(String id:List.of("disposal_trunk","disposal_junction","disposal_x_junction")) {
+            var entity=catalog.get(ModDisposals.id(id));
+            for(var forward:net.minecraft.core.Direction.values()) for(var up:net.minecraft.core.Direction.values()) if(forward.getAxis()!=up.getAxis()) {
+                var frame=new DisposalOrientation(forward,up);
+                // A unique non-lattice diameter forces genuine cold construction for each test configuration.
+                var geometry=new DisposalEntityData.TubeGeometry(.6+sample++/2048.0);
+                long coldStart=System.nanoTime();
+                var products=com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeGeometryCache.get(geometry,entity.tube(),frame);
+                long coldNanos=System.nanoTime()-coldStart;
+                for(var axis:net.minecraft.core.Direction.Axis.values()) assertTrue(products.shape().getCoords(axis).size()<=17,id+" "+frame+" "+axis);
+                long warmStart=System.nanoTime();
+                for(int i=0;i<1000;i++) assertSame(products,com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeGeometryCache.get(geometry,entity.tube(),frame));
+                long warmNanos=System.nanoTime()-warmStart;
+                System.out.printf("tube geometry %s %s cold=%.3fms warm1000=%.3fms%n",id,frame,coldNanos/1_000_000.0,warmNanos/1_000_000.0);
+            }
+        }
+    }
+    @Test void roundedPortCrossSectionsFollowAllSixAxesAndResolvedDiameter() {
+        var raw=bundled();var m=manager();m.reload(ModDisposals.DISPOSAL_TYPE,raw);
+        var parent=m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.id("disposal_pipe"));
+        raw=bundled();raw.get(ModDisposals.BASE).addProperty("tubeDiameter",.5);m.reload(ModDisposals.DISPOSAL_TYPE,raw);
+        var child=m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.id("disposal_pipe"));
+        assertEquals(14.0/16,parent.geometry().diameter());assertEquals(.5,child.geometry().diameter());
+        assertEquals(.0625,parent.geometry().mesh(parent.tube(),DisposalOrientation.identity()).stream().flatMap(q->java.util.stream.Stream.of(q.a(),q.b(),q.c(),q.d())).mapToDouble(DisposalMeshGeometry.Vertex::x).min().orElseThrow(),1e-9);
+        assertEquals(.25,child.geometry().mesh(child.tube(),DisposalOrientation.identity()).stream().flatMap(q->java.util.stream.Stream.of(q.a(),q.b(),q.c(),q.d())).mapToDouble(DisposalMeshGeometry.Vertex::x).min().orElseThrow(),1e-9);
+        for(var forward:net.minecraft.core.Direction.values())for(var up:net.minecraft.core.Direction.values())if(forward.getAxis()!=up.getAxis()){
+            var frame=new DisposalOrientation(forward,up);var tube=parent.tube();var a=parent.geometry().boxes(tube,frame);var b=child.geometry().boxes(tube,frame);
+            for(var port:DisposalTubeRouting.worldConnections(tube,frame)){
+                var d=port.toMC();double[] p={.5,.5,.5};int axial=d.getAxis()==net.minecraft.core.Direction.Axis.X?0:d.getAxis()==net.minecraft.core.Direction.Axis.Y?1:2;p[axial]=d.getStepX()+d.getStepY()+d.getStepZ()>0?.9:.1;
+                int transverse1=d.getAxis()==net.minecraft.core.Direction.Axis.X?1:0,transverse2=d.getAxis()==net.minecraft.core.Direction.Axis.Z?1:2;p[transverse1]=.8;
+                assertTrue(occupied(a,p[0],p[1],p[2]));assertFalse(occupied(b,p[0],p[1],p[2]));
+                double[] corner={.1,.1,.1};corner[axial]=p[axial];
+                corner[transverse1]=.1;corner[transverse2]=.1;assertFalse(occupied(a,corner[0],corner[1],corner[2]));
+            }
+        }
+    }
+    @Test void straightCollisionHasNoUnrenderedHubBulgeOnAnyAxis(){
+        var m=manager();m.reload(ModDisposals.DISPOSAL_TYPE,bundled());var straight=m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.id("disposal_pipe"));
+        var cases=java.util.List.of(new Object[]{DisposalOrientation.identity(),.85,.85,.5},new Object[]{new DisposalOrientation(net.minecraft.core.Direction.EAST,net.minecraft.core.Direction.UP),.5,.85,.85},new Object[]{new DisposalOrientation(net.minecraft.core.Direction.UP,net.minecraft.core.Direction.NORTH),.85,.5,.85});
+        for(var test:cases){var frame=(DisposalOrientation)test[0];var shape=straight.geometry().boxes(straight.tube(),frame);assertFalse(occupied(shape,(double)test[1],(double)test[2],(double)test[3]));
+            var port=DisposalTubeRouting.worldConnections(straight.tube(),frame).iterator().next().toMC();double[] center={.5,.5,.5};int axis=port.getAxis()==net.minecraft.core.Direction.Axis.X?0:port.getAxis()==net.minecraft.core.Direction.Axis.Y?1:2;center[axis]=port.getStepX()+port.getStepY()+port.getStepZ()>0?.9:.1;
+            assertTrue(occupied(shape,center[0],center[1],center[2]));
+        }
+    }
+    @Test void resolvedBendUsesTheSameClosedJoinInsteadOfTwoCutArms(){
+        var m=manager();m.reload(ModDisposals.DISPOSAL_TYPE,bundled());var bend=m.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.id("disposal_bend"));
+        var frame=DisposalOrientation.identity();var shape=bend.geometry().boxes(bend.tube(),frame);
+        assertTrue(occupied(shape,.78,.5,.78));
+        var ports=DisposalTubeRouting.worldConnections(bend.tube(),frame).stream().map(DisposalDirection::toMC).collect(java.util.stream.Collectors.toSet());
+        assertTrue(DisposalMeshGeometry.needsHub(ports));assertTrue(bend.geometry().mesh(bend.tube(),frame).stream().anyMatch(q->!q.dark()&&q.a().y()<.5&&q.b().y()<.5));
+        assertFalse(occupied(shape,.5,.9,.46));
+        assertTrue(occupied(shape,.5,.9,.3));assertTrue(occupied(shape,.5,.5,.5));
+    }
+    private static boolean occupied(net.minecraft.world.phys.shapes.VoxelShape shape,double x,double y,double z){return shape.toAabbs().stream().anyMatch(b->x>=b.minX-1e-9&&x<=b.maxX+1e-9&&y>=b.minY-1e-9&&y<=b.maxY+1e-9&&z>=b.minZ-1e-9&&z<=b.maxZ+1e-9);}
+    private static boolean occupied(java.util.List<net.minecraft.world.phys.AABB> boxes,double x,double y,double z){return boxes.stream().anyMatch(b->x>=b.minX-1e-9&&x<=b.maxX+1e-9&&y>=b.minY-1e-9&&y<=b.maxY+1e-9&&z>=b.minZ-1e-9&&z<=b.maxZ+1e-9);}
     private static DisposalEntityData straight(com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog<DisposalEntityData> c) { return c.get(ModDisposals.id("disposal_pipe")); }
 }

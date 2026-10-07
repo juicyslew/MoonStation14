@@ -2,8 +2,8 @@ package com.juicyslew.moonstation14.ms14.disposal.unit;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.ms14.disposal.item.DisposalContents;
 import com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeRecord;
@@ -47,7 +47,7 @@ public final class DisposalUnitReturnGameTests {
         var sourceOwner = new TestOwner(level);
         LivingEntity body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 2, 2));
         boolean wasInvisible = body.isInvisible(), wasNoPhysics = body.noPhysics, wasNoGravity = body.isNoGravity();
-        var containment = DisposalContainmentService.forLevel(level);
+        var containment = BodyContainmentService.forLevel(level);
         require(containment.bind(body, sourceOwner), "source body ownership bound");
         ItemLocationLedger ledger = DisposalUnitLedger.forLevel(level);
         DisposalContents source = new DisposalContents(sourceOwner.identity(), ledger);
@@ -124,7 +124,7 @@ public final class DisposalUnitReturnGameTests {
         require(source.accept(token, external, "disconnected-stack", new ItemStack(Items.BREAD, 2), ledger.snapshot().revision()), "holder owns stack");
         LivingEntity body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 2, 2));
         var owner = new TestOwner(level, sourceId);
-        var containment = DisposalContainmentService.forLevel(level);
+        var containment = BodyContainmentService.forLevel(level);
         require(containment.bind(body, owner), "body bound to holder owner");
         var holder = DisposalTransitHolder.spawnFlushed(level, trunkPos, new GasMixture(Map.of(), 293.15), source,
                 source.snapshot().keySet(), java.util.List.of(body), owner).orElseThrow();
@@ -144,7 +144,7 @@ public final class DisposalUnitReturnGameTests {
         helper.succeed();
     }
 
-    private static final class TestOwner implements DisposalContainmentOwner {
+    private static final class TestOwner implements ContainedBodyOwner {
         private final net.minecraft.server.level.ServerLevel level;
         private final UUID id;
         TestOwner(net.minecraft.server.level.ServerLevel level) { this(level, UUID.randomUUID()); }

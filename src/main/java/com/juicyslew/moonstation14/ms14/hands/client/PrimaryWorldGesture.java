@@ -10,9 +10,13 @@ public final class PrimaryWorldGesture {
 
     public static Route route(boolean ownedWorldInput, boolean aimedBlock, boolean handOccupied, boolean aimedItem) {
         if (!ownedWorldInput) return Route.VANILLA;
+        // An eligible item nominated by lookTarget has already passed the item
+        // ray's reach and solid-block occlusion checks. Let it win over the
+        // floor/background block hit when the hand is empty.
+        if (!handOccupied && aimedItem) return Route.PICKUP;
         if (aimedBlock) return Route.BLOCK_USE;
         if (handOccupied) return Route.HELD_USE;
-        return aimedItem ? Route.PICKUP : Route.VANILLA;
+        return Route.VANILLA;
     }
 
     public static BodyHandActionRequest.Action action(Route route) {

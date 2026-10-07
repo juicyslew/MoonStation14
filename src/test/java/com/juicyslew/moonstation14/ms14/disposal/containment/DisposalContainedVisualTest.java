@@ -1,4 +1,4 @@
-package com.juicyslew.moonstation14.ms14.disposal.containment;
+package com.juicyslew.moonstation14.ms14.containment;
 
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DisposalContainedVisualTest {
     @Test
     void renderGateUsesOnlyExplicitPresentationMarker() {
-        assertTrue(DisposalContainedVisual.shouldHide(true));
-        assertFalse(DisposalContainedVisual.shouldHide(false));
+        assertTrue(ContainedBodyVisual.shouldHide(true));
+        assertFalse(ContainedBodyVisual.shouldHide(false));
     }
 }

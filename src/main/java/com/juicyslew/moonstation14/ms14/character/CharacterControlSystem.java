@@ -132,4 +132,10 @@ public final class CharacterControlSystem {
     public static boolean canAct(LivingEntity entity) {
         return !isStunned(entity);
     }
+
+    /** Movement eligibility shared by voluntary movement and containment escape. */
+    public static boolean canMove(LivingEntity entity) {
+        Objects.requireNonNull(entity, "entity");
+        return entity.isAlive() && !entity.isDeadOrDying() && !entity.isSleeping() && !isStunned(entity);
+    }
 }

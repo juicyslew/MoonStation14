@@ -225,6 +225,42 @@ public final class BodyHandItemTransfer {
                 || level.getEntity(body.getUUID()) != body
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body))
             return Result.DENIED;
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        var containedOwner = containment.ownerOf(body).orElse(null);
+        if (containedOwner != null) {
+            UUID ownerIdentity = containedOwner.identity();
+            LiveHands cleared = transition.state();
+            if (!authorityValid.getAsBoolean() || containment.ownerOf(body).orElse(null) != containedOwner)
+                return Result.DENIED;
+            try { body.setData(ModDataAttachments.LIVE_HANDS.get(), cleared); }
+            catch (RuntimeException failure) {
+                return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                        ? Result.DENIED : Result.RECOVERY_REQUIRED;
+            }
+            if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != cleared || !cleared.compatible(body))
+                return Result.RECOVERY_REQUIRED;
+            boolean ownerStillExact = body.level() == level && !body.isRemoved() && body.isAlive()
+                    && level.getEntity(body.getUUID()) == body && authorityValid.getAsBoolean()
+                    && containment.ownerOf(body).filter(owner -> owner == containedOwner
+                    && owner.identity().equals(ownerIdentity) && owner.isValid()).isPresent()
+                    && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == cleared;
+            boolean accepted = ownerStillExact && containedOwner.acceptDroppedItem(token,
+                    new com.juicyslew.moonstation14.ms14.hands.transfer.ItemLocation.BodyHand(body.getUUID(), hand), stack.copy());
+            if (accepted) return body.level() == level && !body.isRemoved() && body.isAlive()
+                    && level.getEntity(body.getUUID()) == body
+                    && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == cleared
+                    && containment.ownerOf(body).filter(owner -> owner == containedOwner
+                    && owner.identity().equals(ownerIdentity) && owner.isValid()).isPresent()
+                    ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+            if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != cleared
+                    || !cleared.compatible(body)) return Result.RECOVERY_REQUIRED;
+            if (!ownerStillExact) return restoreContainedHand(body, before, cleared, hand, token, stack);
+            Vec3 ownerPosition = containedOwner.position();
+            if (!finite(ownerPosition) || !level.hasChunkAt(net.minecraft.core.BlockPos.containing(ownerPosition)))
+                return restoreContainedHand(body, before, cleared, hand, token, stack);
+            return dropAtContainedOwner(body, level, containedOwner, ownerIdentity, authorityValid,
+                    before, cleared, hand, token, stack, ownerPosition, committedWorldEntity);
+        }
         Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
         BodyItemTargetProbe.DropPlacement placement = BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier);
         if (placement == null || !sourceEye.equals(body.getEyePosition())
@@ -268,6 +304,56 @@ public final class BodyHandItemTransfer {
             return Result.SUCCESS;
         }
         return Result.RECOVERY_REQUIRED;
+    }
+
+    private static Result dropAtContainedOwner(LivingEntity body, ServerLevel level,
+            com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner owner, UUID ownerIdentity,
+            BooleanSupplier authorityValid, LiveHands before, LiveHands cleared, String hand,
+            ItemToken token, ItemStack stack, Vec3 position,
+            java.util.function.Consumer<UUID> committedWorldEntity) {
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        if (!authorityValid.getAsBoolean() || !owner.isValid() || owner.identity() == null
+                || !owner.identity().equals(ownerIdentity) || containment.ownerOf(body).orElse(null) != owner
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != cleared) return Result.RECOVERY_REQUIRED;
+        ItemEntity dropped;
+        try {
+            dropped = new ItemEntity(level, position.x, position.y, position.z, stack.copy());
+            dropped.setDeltaMovement(Vec3.ZERO);
+            dropped.setUnlimitedLifetime();
+        } catch (RuntimeException failure) { return restoreContainedHand(body, before, cleared, hand, token, stack); }
+        if (!same(stack, dropped.getItem())) return restoreContainedHand(body, before, cleared, hand, token, stack);
+        try {
+            if (!level.addFreshEntity(dropped)) return compensateContainedWorldDrop(body, level, dropped, before, cleared, hand, token, stack);
+        } catch (RuntimeException failure) {
+            return compensateContainedWorldDrop(body, level, dropped, before, cleared, hand, token, stack);
+        }
+        if (level.getEntity(dropped.getUUID()) == dropped && dropped.isAddedToLevel() && !dropped.isRemoved()
+                && same(stack, dropped.getItem())
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == cleared) {
+            committedWorldEntity.accept(dropped.getUUID());
+            return Result.SUCCESS;
+        }
+        return Result.RECOVERY_REQUIRED;
+    }
+
+    private static Result compensateContainedWorldDrop(LivingEntity body, ServerLevel level, ItemEntity dropped,
+            LiveHands before, LiveHands cleared, String hand, ItemToken token, ItemStack stack) {
+        if (level.getEntity(dropped.getUUID()) != null || dropped.isAddedToLevel() || dropped.isRemoved()
+                || body.level() != level || body.isRemoved() || level.getEntity(body.getUUID()) != body
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != cleared)
+            return Result.RECOVERY_REQUIRED;
+        return restoreContainedHand(body, before, cleared, hand, token, stack);
+    }
+
+    private static Result restoreContainedHand(LivingEntity body, LiveHands before, LiveHands cleared,
+                                                String hand, ItemToken token, ItemStack stack) {
+        if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != cleared) return Result.RECOVERY_REQUIRED;
+        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), before); }
+        catch (RuntimeException failure) { return Result.RECOVERY_REQUIRED; }
+        return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                && before.token(hand).filter(token.value()::equals).isPresent()
+                && before.stackCopy(hand).filter(owned -> same(stack, owned)).isPresent()
+                ? Result.DENIED : Result.RECOVERY_REQUIRED;
     }
 
     private static Result compensateUnspawnedDrop(LivingEntity body, ServerLevel level, ItemEntity dropped,

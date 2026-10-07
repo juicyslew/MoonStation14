@@ -95,7 +95,7 @@ public final class CharacterBodyDespawnGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", batch = "character_body_despawn", timeoutTicks = 100)
+    @GameTest(template = "empty", batch = "character-distance", timeoutTicks = 100)
     public static void farPlayerCannotDespawnBoundUnboundOrCorpse(GameTestHelper helper) {
         PlayerCharacterHarnessEntity bound = spawnUnforced(helper, 1);
         PlayerCharacterHarnessEntity unbound = spawnUnforced(helper, 2);
@@ -141,61 +141,64 @@ public final class CharacterBodyDespawnGameTests {
         FakePlayer distant = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "far-body-test"));
         distant.setPos(bound.getX() - 129, bound.getY(), bound.getZ());
         require(helper.getLevel().addFreshEntity(distant), "distant server player joins level");
-        for (PlayerCharacterHarnessEntity body : new PlayerCharacterHarnessEntity[]{bound, unbound, corpse}) {
-            require(helper.getLevel().getNearestPlayer(body, -1) == distant,
-                    "actual nearest server player is the distant fixture: nearest="
-                            + helper.getLevel().getNearestPlayer(body, -1));
-            int despawn = body.getType().getCategory().getDespawnDistance();
-            require(distant.distanceToSqr(body) > (double) despawn * despawn,
-                    "player is beyond vanilla category instant-despawn radius");
-            require(!body.isPersistenceRequired() && body.requiresCustomPersistence(),
-                    "body relies on dedicated custom persistence, not vanilla persistenceRequired");
-            // Exercise the real Mob.checkDespawn branch while the structure chunk is loaded.
-            body.checkDespawn();
-            require(!body.isRemoved(), "far-player checkDespawn cannot discard character body");
-        }
-        // This checks distance despawn before any chunk transition; it does not observe
-        // a server entity-chunk unload or a reload from disk.
-        {
-            verify(helper, bound, boundId);
-            verify(helper, unbound, unboundId);
-            verify(helper, corpse, corpseId);
-            require(corpse.hasConfirmedDeath(), "corpse remains confirmed after natural ticks");
-            require(bound.playerCharacterBinding().equals(new PlayerCharacterBinding(account, "main", mind)),
-                    "exact owner/profile/Mind binding survives distance and ticks");
-            require(CharacterIdentitySystem.resolveForActor(bound).isPresent()
-                            && bound.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == boundHands
-                            && boundHands.compatible(bound),
-                    "same world body keeps actor authority and its live hands after despawn check");
-            require(Long.valueOf(12345L).equals(bound.offlineSinceMillis()),
-                    "OFFLINE timestamp remains unchanged by despawn protection");
+        try {
+            for (PlayerCharacterHarnessEntity body : new PlayerCharacterHarnessEntity[]{bound, unbound, corpse}) {
+                require(helper.getLevel().getNearestPlayer(body, -1) == distant,
+                        "actual nearest server player is the distant fixture: nearest="
+                                + helper.getLevel().getNearestPlayer(body, -1));
+                int despawn = body.getType().getCategory().getDespawnDistance();
+                require(distant.distanceToSqr(body) > (double) despawn * despawn,
+                        "player is beyond vanilla category instant-despawn radius");
+                require(!body.isPersistenceRequired() && body.requiresCustomPersistence(),
+                        "body relies on dedicated custom persistence, not vanilla persistenceRequired");
+                // Exercise the real Mob.checkDespawn branch while the structure chunk is loaded.
+                body.checkDespawn();
+                require(!body.isRemoved(), "far-player checkDespawn cannot discard character body");
+            }
+            // This checks distance despawn before any chunk transition; it does not observe
+            // a server entity-chunk unload or a reload from disk.
+            {
+                verify(helper, bound, boundId);
+                verify(helper, unbound, unboundId);
+                verify(helper, corpse, corpseId);
+                require(corpse.hasConfirmedDeath(), "corpse remains confirmed after natural ticks");
+                require(bound.playerCharacterBinding().equals(new PlayerCharacterBinding(account, "main", mind)),
+                        "exact owner/profile/Mind binding survives distance and ticks");
+                require(CharacterIdentitySystem.resolveForActor(bound).isPresent()
+                                && bound.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == boundHands
+                                && boundHands.compatible(bound),
+                        "same world body keeps actor authority and its live hands after despawn check");
+                require(Long.valueOf(12345L).equals(bound.offlineSinceMillis()),
+                        "OFFLINE timestamp remains unchanged by despawn protection");
 
-            // Detached codec checks only: the original world body still owns this UUID.
-            CompoundTag saved = bound.saveWithoutId(new CompoundTag());
-            PlayerCharacterHarnessEntity loaded = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
-            require(loaded != null, "registered type can reload saved body");
-            loaded.load(saved);
-            require(loaded.getUUID().equals(boundId) && loaded.playerCharacterBinding().equals(bound.playerCharacterBinding()),
-                    "save/load preserves exact UUID and binding");
-            require(loaded.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get()) != null
-                            && ModCharacters.HUMAN_ID.equals(loaded.getExistingDataOrNull(
-                                    ModDataAttachments.CHARACTER_IDENTITY.get()).characterId())
-                            && loaded.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != null
-                            && loaded.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).handIds()
-                            .equals(boundHands.handIds())
-                            && CharacterIdentitySystem.resolveForActor(loaded).isEmpty()
-                            && HandCapability.resolve(loaded).isEmpty(),
-                    "detached save/load preserves HUMAN identity and hand data without actor authority");
-            require(Long.valueOf(12345L).equals(loaded.offlineSinceMillis()),
-                    "OFFLINE claim timestamp survives save/load");
-            CompoundTag corpseSave = corpse.saveWithoutId(new CompoundTag());
-            PlayerCharacterHarnessEntity loadedCorpse = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
-            require(loadedCorpse != null, "corpse can reload");
-            loadedCorpse.load(corpseSave);
-            require(loadedCorpse.getUUID().equals(corpseId) && loadedCorpse.hasConfirmedDeath(),
-                    "corpse retains exact UUID and confirmed death after save/load");
+                // Detached codec checks only: the original world body still owns this UUID.
+                CompoundTag saved = bound.saveWithoutId(new CompoundTag());
+                PlayerCharacterHarnessEntity loaded = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
+                require(loaded != null, "registered type can reload saved body");
+                loaded.load(saved);
+                require(loaded.getUUID().equals(boundId) && loaded.playerCharacterBinding().equals(bound.playerCharacterBinding()),
+                        "save/load preserves exact UUID and binding");
+                require(loaded.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get()) != null
+                                && ModCharacters.HUMAN_ID.equals(loaded.getExistingDataOrNull(
+                                        ModDataAttachments.CHARACTER_IDENTITY.get()).characterId())
+                                && loaded.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != null
+                                && loaded.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).handIds()
+                                .equals(boundHands.handIds())
+                                && CharacterIdentitySystem.resolveForActor(loaded).isEmpty()
+                                && HandCapability.resolve(loaded).isEmpty(),
+                        "detached save/load preserves HUMAN identity and hand data without actor authority");
+                require(Long.valueOf(12345L).equals(loaded.offlineSinceMillis()),
+                        "OFFLINE claim timestamp survives save/load");
+                CompoundTag corpseSave = corpse.saveWithoutId(new CompoundTag());
+                PlayerCharacterHarnessEntity loadedCorpse = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
+                require(loadedCorpse != null, "corpse can reload");
+                loadedCorpse.load(corpseSave);
+                require(loadedCorpse.getUUID().equals(corpseId) && loadedCorpse.hasConfirmedDeath(),
+                        "corpse retains exact UUID and confirmed death after save/load");
+                helper.succeed();
+            }
+        } finally {
             distant.discard();
-            helper.succeed();
         }
     }
 

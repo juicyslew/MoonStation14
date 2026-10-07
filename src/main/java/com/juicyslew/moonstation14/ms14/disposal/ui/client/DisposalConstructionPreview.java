@@ -22,8 +22,19 @@ import java.util.function.*;
 
 /** Client-only construction preview; it never places blocks or sends construction authority. */
 public final class DisposalConstructionPreview {
+    private static final RenderType SEALED_GHOST = RenderType.create("moonstation14_sealed_disposal_preview",
+            com.mojang.blaze3d.vertex.DefaultVertexFormat.NEW_ENTITY, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, 1536,
+            RenderType.CompositeState.builder().setShaderState(net.minecraft.client.renderer.RenderStateShard.RENDERTYPE_ENTITY_TRANSLUCENT_SHADER)
+                    .setTextureState(new net.minecraft.client.renderer.RenderStateShard.TextureStateShard(ResourceLocation.fromNamespaceAndPath("moonstation14","textures/block/disposal/pipe_material.png"),false,false))
+                    .setTransparencyState(net.minecraft.client.renderer.RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(net.minecraft.client.renderer.RenderStateShard.NO_DEPTH_TEST)
+                    .setWriteMaskState(net.minecraft.client.renderer.RenderStateShard.COLOR_WRITE)
+                    .setCullState(net.minecraft.client.renderer.RenderStateShard.NO_CULL).setLightmapState(net.minecraft.client.renderer.RenderStateShard.LIGHTMAP)
+                    .setOverlayState(net.minecraft.client.renderer.RenderStateShard.OVERLAY).createCompositeState(false));
     public record PreviewPlan(UUID body, long epoch, String prototype, int rotationOffset) { }
-    public record PlacementStatus(boolean aimed, boolean valid, String reason) { }
+    public record PlacementStatus(boolean aimed, boolean valid, String reason, boolean sealed) {
+        public PlacementStatus(boolean aimed, boolean valid, String reason) { this(aimed,valid,reason,false); }
+    }
     public record ConfigurationPlan(UUID body,long epoch,BlockPos pos,String prototype,DisposalOrientation frame) { }
     private static Supplier<PreviewPlan> planProvider = () -> null;
     private static BiFunction<UUID, Long, Optional<ItemStack>> heldStackProvider = BodyHandClient::activeHeldStackFor;
@@ -64,9 +75,11 @@ public final class DisposalConstructionPreview {
                     ||config.epoch()!=GhostControlClient.committedCharacterEpoch()||!mc.level.hasChunkAt(config.pos()))return;
             var id=ResourceLocation.tryParse(config.prototype());var data=id==null?null:PrototypeRuntime.clientDisposals().get(id);
             if(data==null||data.tube()==null||data.geometry()==null)return;
-            var boxes=data.geometry().boxes(data.tube(),config.frame());var pose=event.getPoseStack();if(pose==null)return;
-            var camera=event.getCamera().getPosition();MultiBufferSource.BufferSource buffers=mc.renderBuffers().bufferSource();var consumer=buffers.getBuffer(RenderType.debugFilledBox());
-            DisposalTubeVisualRenderer.renderColoredGhostBoxes(consumer,pose,boxes,config.pos().getX()-camera.x,config.pos().getY()-camera.y,config.pos().getZ()-camera.z,40,220,255,105);buffers.endBatch();return;
+            var pose=event.getPoseStack();if(pose==null)return;
+            var camera=event.getCamera().getPosition();MultiBufferSource.BufferSource buffers=mc.renderBuffers().bufferSource();var consumer=buffers.getBuffer(RenderType.entityTranslucent(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14","textures/block/disposal/pipe_material.png")));
+             double x=config.pos().getX()-camera.x,y=config.pos().getY()-camera.y,z=config.pos().getZ()-camera.z;int light=net.minecraft.client.renderer.LevelRenderer.getLightColor(mc.level,config.pos());
+             DisposalTubeVisualRenderer.renderMesh(consumer,pose,data.geometry().mesh(data.tube(),config.frame()),x,y,z,40,220,255,170,light);
+             DisposalTubeVisualRenderer.renderRoles(consumer,pose,data.tube(),config.frame(),data.geometry().diameter(),x,y,z,light);buffers.endBatch();return;
         }
         PreviewPlan plan=planProvider.get();
         PlacementStatus status=new PlacementStatus(false,false,"no_target");
@@ -78,11 +91,11 @@ public final class DisposalConstructionPreview {
             if(data==null||data.tube()==null||data.geometry()==null||data.construction()==null||held==null||!materialMatches(held,data.construction().material()))return;
             boolean enough=enoughMaterial(held,data.construction().material(),data.construction().steelCount());
             var hit=previewTarget(body); if(hit==null)return;
-            boolean sealed=mc.level.hasChunkAt(hit.getBlockPos())&&mc.level.getBlockState(hit.getBlockPos()).is(com.juicyslew.moonstation14.block.ModBlocks.STEEL_WALL_BLOCK.get())
-                    &&com.juicyslew.moonstation14.ms14.atmos.piping.SealedWallHostEligibility.defaults().eligible(mc.level,hit.getBlockPos())
-                    &&data.tube().kind()==com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData.Kind.STRAIGHT;
+            boolean eligibleSteel=mc.level.hasChunkAt(hit.getBlockPos())&&mc.level.getBlockState(hit.getBlockPos()).is(com.juicyslew.moonstation14.block.ModBlocks.STEEL_WALL_BLOCK.get())
+                    &&com.juicyslew.moonstation14.ms14.atmos.piping.SealedWallHostEligibility.defaults().eligible(mc.level,hit.getBlockPos());
+            boolean occupied=mc.level.hasChunkAt(hit.getBlockPos())&&tubeRecordProvider.apply(hit.getBlockPos(),mc.level.dimension().location()).isPresent();
+            boolean sealed=com.juicyslew.moonstation14.ms14.disposal.ui.DisposalConstructionTargetPolicy.sealed(eligibleSteel,occupied,data.tube().kind());
             BlockPos target=target(hit,sealed); if(!mc.level.hasChunkAt(target))return;
-            if(sealed&&tubeRecordProvider.apply(target,mc.level.dimension().location()).isPresent())return;
             var preferred=DisposalOrientation.placement(hit.getDirection(),net.minecraft.core.Direction.getNearest(body.getLookAngle().x,body.getLookAngle().y,body.getLookAngle().z));
             var neighbours=EnumSet.noneOf(net.minecraft.core.Direction.class);
             for(var d:net.minecraft.core.Direction.values()) { var p=target.relative(d); if(!mc.level.hasChunkAt(p))continue;
@@ -96,9 +109,10 @@ public final class DisposalConstructionPreview {
                 for(var entity:mc.level.getEntities(body,world.inflate(1.0e-7)))if(entity.getBoundingBox().intersects(world))valid=false;
                 int x0=net.minecraft.util.Mth.floor(world.minX),x1=net.minecraft.util.Mth.floor(Math.nextDown(world.maxX)),y0=net.minecraft.util.Mth.floor(world.minY),y1=net.minecraft.util.Mth.floor(Math.nextDown(world.maxY)),z0=net.minecraft.util.Mth.floor(world.minZ),z1=net.minecraft.util.Mth.floor(Math.nextDown(world.maxZ));
                 for(int x=x0;x<=x1;x++)for(int y=y0;y<=y1;y++)for(int z=z0;z<=z1;z++){BlockPos p=new BlockPos(x,y,z);if(!mc.level.hasChunkAt(p)){valid=false;continue;}if(p.equals(target)&&sealed)continue;var state=mc.level.getBlockState(p);if(interactive(state))valid=false;for(var c:state.getCollisionShape(mc.level,p,CollisionContext.empty()).toAabbs())if(c.move(p).intersects(world))valid=false;}}
-            status=new PlacementStatus(true,valid&&enough,!enough?"insufficient_material":valid?"ready":"blocked");
-            var pose=event.getPoseStack(); if(pose==null)return; var camera=event.getCamera().getPosition(); MultiBufferSource.BufferSource buffers=mc.renderBuffers().bufferSource();var consumer=buffers.getBuffer(RenderType.debugFilledBox());
-            int r=valid?(enough?40:135):255,g=valid?(enough?255:135):35,b=valid?(enough?80:35):35; DisposalTubeVisualRenderer.renderColoredGhostBoxes(consumer,pose,boxes,target.getX()-camera.x,target.getY()-camera.y,target.getZ()-camera.z,r,g,b,valid&&enough?220:150);buffers.endBatch();
+            status=new PlacementStatus(true,valid&&enough,!enough?"moonstation14.disposal.construction.insufficient_material_reason":valid?"ready":"moonstation14.disposal.construction.blocked_reason",sealed);
+            var pose=event.getPoseStack(); if(pose==null)return; var camera=event.getCamera().getPosition(); MultiBufferSource.BufferSource buffers=mc.renderBuffers().bufferSource();var renderType=sealed?SEALED_GHOST:RenderType.entityTranslucent(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14","textures/block/disposal/pipe_material.png"));var consumer=buffers.getBuffer(renderType);
+             int r=valid?(enough?40:135):255,g=valid?(enough?255:135):35,b=valid?(enough?80:135):35;double x=target.getX()-camera.x,y=target.getY()-camera.y,z=target.getZ()-camera.z;int light=net.minecraft.client.renderer.LevelRenderer.getLightColor(mc.level,target);DisposalTubeVisualRenderer.renderMesh(consumer,pose,data.geometry().mesh(data.tube(),frame),x,y,z,r,g,b,valid&&enough?220:150,light);
+              DisposalTubeVisualRenderer.renderRoles(consumer,pose,data.tube(),frame,data.geometry().diameter(),x,y,z,light);buffers.endBatch(renderType);
         } finally { readiness.accept(status); }
     }
     static boolean materialMatches(ItemStack stack,String material){var id=ResourceLocation.tryParse(material);return id!=null&&net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(id)&&stack.is(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id));}

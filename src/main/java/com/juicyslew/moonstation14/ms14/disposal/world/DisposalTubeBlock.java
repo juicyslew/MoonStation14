@@ -44,10 +44,7 @@ public final class DisposalTubeBlock extends Block {
     /** Shared exact resolved-prototype geometry path used by server collision and client outline. */
     public static VoxelShape shapeFor(DisposalEntityData entity, DisposalTubeRecord record) {
         if (entity == null || entity.tube() == null || record == null) return Shapes.empty();
-        VoxelShape shape=Shapes.empty();
-        for (AABB box : entity.geometry().boxes(entity.tube(),record.frame()))
-            shape=Shapes.or(shape,Shapes.box(box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ));
-        return shape;
+        return DisposalTubeGeometryCache.get(entity.geometry(),entity.tube(),record.frame()).shape();
     }
     @Override public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) { return shape(level,pos); }
     @Override public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) { return shape(level,pos); }

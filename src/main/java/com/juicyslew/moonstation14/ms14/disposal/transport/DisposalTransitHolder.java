@@ -2,7 +2,7 @@ package com.juicyslew.moonstation14.ms14.disposal.transport;
 
 import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.FiniteExposureAir;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
@@ -25,7 +25,7 @@ public final class DisposalTransitHolder extends Entity {
     private double segmentSeconds;
     private UUID identity = UUID.randomUUID();
     private final Set<UUID> bodies = new LinkedHashSet<>();
-    private final Map<UUID, com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.OriginalFlags> originalBodyFlags = new LinkedHashMap<>();
+    private final Map<UUID, com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags> originalBodyFlags = new LinkedHashMap<>();
     private final Set<String> tags = new LinkedHashSet<>();
     private DisposalContents contents;
     private FiniteExposureAir air;
@@ -40,7 +40,7 @@ public final class DisposalTransitHolder extends Entity {
     private boolean pendingRelease;
     private boolean pendingUnitReturn;
     private TransitCallbacks callbacks;
-    private final DisposalContainmentOwner owner = new TransitOwner();
+    private final ContainedBodyOwner owner = new TransitOwner();
 
     public DisposalTransitHolder(EntityType<? extends DisposalTransitHolder> type, Level level) { super(type, level); }
 
@@ -89,13 +89,13 @@ public final class DisposalTransitHolder extends Entity {
     /** Atomically admits an existing unit's whole payload and exact bodies before the caller clears its store. */
     public static Optional<DisposalTransitHolder> spawnFlushed(ServerLevel level, BlockPos entry,
             com.juicyslew.moonstation14.ms14.atmos.core.GasMixture sampledAir, DisposalContents sourceContents,
-            Collection<String> sourceEntryIds, Collection<LivingEntity> sourceBodies, DisposalContainmentOwner sourceOwner) {
+            Collection<String> sourceEntryIds, Collection<LivingEntity> sourceBodies, ContainedBodyOwner sourceOwner) {
         Objects.requireNonNull(sourceContents); Objects.requireNonNull(sourceEntryIds); Objects.requireNonNull(sourceBodies); Objects.requireNonNull(sourceOwner);
         Set<String> uniqueEntries = new HashSet<>(sourceEntryIds);
         if (uniqueEntries.size() != sourceEntryIds.size() || !sourceContents.snapshot().keySet().containsAll(uniqueEntries)) return Optional.empty();
-        var containment = com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(level);
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
         Set<UUID> uniqueBodies = new HashSet<>();
-        Map<UUID, com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.OriginalFlags> flags = new LinkedHashMap<>();
+        Map<UUID, com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags> flags = new LinkedHashMap<>();
         for (LivingEntity body : sourceBodies) {
             if (body == null || !uniqueBodies.add(body.getUUID()) || body.level() != level || body.isRemoved() || !body.isAlive()
                     || containment.ownerOf(body).orElse(null) != sourceOwner) return Optional.empty();
@@ -200,7 +200,7 @@ public final class DisposalTransitHolder extends Entity {
 
     private void pinBodies() {
         if (!(level() instanceof ServerLevel server)) return;
-        var containment = com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(server);
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(server);
         for (UUID id : List.copyOf(bodies)) if (server.getEntity(id) instanceof LivingEntity body) {
             var existing = containment.ownerOf(body).orElse(null);
             if (existing == null) {
@@ -228,9 +228,9 @@ public final class DisposalTransitHolder extends Entity {
         }
     }
 
-    public boolean addBody(ServerLevel level, LivingEntity body, DisposalContainmentOwner source) {
+    public boolean addBody(ServerLevel level, LivingEntity body, ContainedBodyOwner source) {
         if (exited || level != level() || body == null || source == null || !bodies.add(body.getUUID())) return false;
-        var containment = com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(level);
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
         if (!containment.transfer(body, source, owner)) {
             bodies.remove(body.getUUID()); return false;
         }
@@ -245,9 +245,9 @@ public final class DisposalTransitHolder extends Entity {
     }
     public void removeBody(UUID id) { bodies.remove(id); originalBodyFlags.remove(id); }
     public Set<UUID> bodyIds() { return Set.copyOf(bodies); }
-    public Map<UUID, com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.OriginalFlags> originalBodyFlags() { return Map.copyOf(originalBodyFlags); }
+    public Map<UUID, com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags> originalBodyFlags() { return Map.copyOf(originalBodyFlags); }
     public Set<String> tags() { return Set.copyOf(tags); }
-    public DisposalContainmentOwner containmentOwner() { return owner; }
+    public ContainedBodyOwner containmentOwner() { return owner; }
     public Optional<FiniteExposureAir> finiteAir() { return Optional.ofNullable(air); }
     public DisposalContents contents() { return contents; }
     public boolean ejectItems(net.minecraft.core.BlockPos exitAt) {
@@ -311,7 +311,7 @@ public final class DisposalTransitHolder extends Entity {
     }
     private boolean ejectBodies(BlockPos pos, net.minecraft.core.Direction direction) {
         if (!(level() instanceof ServerLevel server)) return bodies.isEmpty();
-        var containment = com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(server);
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(server);
         for (UUID id : List.copyOf(bodies)) if (server.getEntity(id) instanceof LivingEntity body) {
             if (!containment.unbind(body, owner)) continue;
             if (!callbacks.ejectBody(body, pos, direction, DisposalsEjection.SPEED_BLOCKS_PER_SECOND)) { containment.bind(body, owner); return false; }
@@ -320,11 +320,21 @@ public final class DisposalTransitHolder extends Entity {
         }
         return bodies.isEmpty();
     }
-    private final class TransitOwner implements DisposalContainmentOwner {
+    private final class TransitOwner implements ContainedBodyOwner {
+        @Override public boolean acceptDroppedItem(com.juicyslew.moonstation14.ms14.hands.ItemToken token,
+            ItemLocation source, net.minecraft.world.item.ItemStack stack) {
+            return contents != null && contents.acceptDropped(token, source, stack);
+        }
         @Override public void preserveContentsBeforeExplosion() { ejectItems(currentPos()); }
         @Override public UUID identity() { return identity; }
         @Override public ServerLevel level() { return (ServerLevel) DisposalTransitHolder.this.level(); }
         @Override public Vec3 position() { return DisposalTransitHolder.this.position(); }
+        @Override public com.juicyslew.moonstation14.ms14.containment.ContainedBodyView view() {
+            var data = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverDisposals()
+                    .get(com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals.HOLDER);
+            boolean cameraCollision = data == null || data.containedView().cameraCollision();
+            return new com.juicyslew.moonstation14.ms14.containment.ContainedBodyView(identity, Optional.empty(), cameraCollision);
+        }
         @Override public Vec3 positionFor(LivingEntity body) {
             return DisposalTransitHolder.this.position().subtract(0, body.getEyeHeight(), 0);
         }
@@ -348,7 +358,7 @@ public final class DisposalTransitHolder extends Entity {
         for (int i = 0; i < savedBodies.size(); i++) try { bodies.add(UUID.fromString(savedBodies.getString(i))); } catch (IllegalArgumentException ignored) { }
         ListTag savedFlags = tag.getList("OriginalBodyFlags", net.minecraft.nbt.Tag.TAG_COMPOUND);
         for (int i = 0; i < savedFlags.size(); i++) {
-            var decoded = decodeOriginalFlags(savedFlags.getCompound(i));
+            var decoded = decodeContainedBodyFlags(savedFlags.getCompound(i));
             if (decoded != null) originalBodyFlags.put(decoded.getKey(), decoded.getValue());
         }
         if (tag.contains("Air", net.minecraft.nbt.Tag.TAG_COMPOUND)) air = decodeAir(tag.getCompound("Air"));
@@ -381,7 +391,7 @@ public final class DisposalTransitHolder extends Entity {
         tag.putInt("TicksRemaining", ticksRemaining); tag.putBoolean("Exited", exited); tag.putBoolean("PendingAirRelease", pendingRelease); tag.putBoolean("PendingUnitReturn", pendingUnitReturn);
         ListTag savedTags = new ListTag(); tags.forEach(value -> savedTags.add(net.minecraft.nbt.StringTag.valueOf(value))); tag.put("RoutingTags", savedTags);
         ListTag savedBodies = new ListTag(); bodies.forEach(value -> savedBodies.add(net.minecraft.nbt.StringTag.valueOf(value.toString()))); tag.put("BodyUUIDs", savedBodies);
-        ListTag savedFlags = new ListTag(); originalBodyFlags.forEach((body, flags) -> savedFlags.add(encodeOriginalFlags(body, flags)));
+        ListTag savedFlags = new ListTag(); originalBodyFlags.forEach((body, flags) -> savedFlags.add(encodeContainedBodyFlags(body, flags)));
         tag.put("OriginalBodyFlags", savedFlags);
         if (air != null) tag.put("Air", encodeAir(air.sample().orElseThrow().mixture(), air.sample().orElseThrow().volumeCubicMeters()));
         if (segmentFrom != null) tag.put("SegmentFrom", writeVector(segmentFrom)); if (segmentTo != null) tag.put("SegmentTo", writeVector(segmentTo));
@@ -402,13 +412,13 @@ public final class DisposalTransitHolder extends Entity {
     }
     private static CompoundTag writeVector(Vec3 v) { CompoundTag t = new CompoundTag(); t.putDouble("X", v.x); t.putDouble("Y", v.y); t.putDouble("Z", v.z); return t; }
     private static Vec3 readVector(CompoundTag t) { return new Vec3(t.getDouble("X"), t.getDouble("Y"), t.getDouble("Z")); }
-    static CompoundTag encodeOriginalFlags(UUID body, com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.OriginalFlags flags) {
+    static CompoundTag encodeContainedBodyFlags(UUID body, com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags flags) {
         CompoundTag tag = new CompoundTag(); tag.putUUID("Body", body); tag.putBoolean("Invisible", flags.invisible());
         tag.putBoolean("NoPhysics", flags.noPhysics()); tag.putBoolean("NoGravity", flags.noGravity()); return tag;
     }
-    static Map.Entry<UUID, com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.OriginalFlags> decodeOriginalFlags(CompoundTag tag) {
+    static Map.Entry<UUID, com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags> decodeContainedBodyFlags(CompoundTag tag) {
         if (!tag.hasUUID("Body")) return null;
-        return Map.entry(tag.getUUID("Body"), new com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.OriginalFlags(
+        return Map.entry(tag.getUUID("Body"), new com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags(
                 tag.getBoolean("Invisible"), tag.getBoolean("NoPhysics"), tag.getBoolean("NoGravity")));
     }
 

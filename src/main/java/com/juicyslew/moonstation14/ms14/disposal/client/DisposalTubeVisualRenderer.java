@@ -11,6 +11,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import com.juicyslew.moonstation14.ms14.disposal.domain.*;
 
 /** Client-only thick disposal mesh. This is a Minecraft geometry adaptation, not an upstream 3D asset. */
 public final class DisposalTubeVisualRenderer {
@@ -30,15 +31,24 @@ public final class DisposalTubeVisualRenderer {
             if(prototypeId==null||!prototypeId.getNamespace().equals(ModDisposals.BASE.getNamespace()))continue;
             var data=PrototypeRuntime.clientDisposals().get(prototypeId);
             if(data==null||data.tube()==null||data.geometry()==null)continue;
-            ResourceLocation frame=DisposalTubePresentation.texture(record.prototypeId());if(frame==null)continue;
-            int index=DisposalTubePresentation.frame(record.frame());
-            frame=ResourceLocation.fromNamespaceAndPath(frame.getNamespace(),frame.getPath()+index+".png");
-            var consumer=buffers.getBuffer(RenderType.entityCutout(frame));
+            var consumer=buffers.getBuffer(RenderType.entityCutout(ResourceLocation.fromNamespaceAndPath("moonstation14","textures/block/disposal/pipe_material.png")));
             double ox=pos.getX()-camera.x,oy=pos.getY()-camera.y,oz=pos.getZ()-camera.z;
-            renderGhostBoxes(consumer,pose,data.geometry().boxes(data.tube(),record.frame()),ox,oy,oz,255,255,255,255);
+            int light=net.minecraft.client.renderer.LevelRenderer.getLightColor(minecraft.level,pos);
+            renderMesh(consumer,pose,data.geometry().mesh(data.tube(),record.frame()),ox,oy,oz,255,255,255,255,light);
+            renderRoles(consumer,pose,data.tube(),record.frame(),data.geometry().diameter(),ox,oy,oz,light);
         }
         buffers.endBatch();
     }
+    public static void renderRoles(com.mojang.blaze3d.vertex.VertexConsumer out,PoseStack pose,com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData.Tube tube,DisposalOrientation frame,double diameter,double x,double y,double z,int light) {
+        for(var mark:DisposalTubeRoleVisual.markings(tube,frame,diameter)) renderMesh(out,pose,mark.mesh(),x,y,z,mark.red(),mark.green(),mark.blue(),255,light);
+    }
+    public static void renderMesh(com.mojang.blaze3d.vertex.VertexConsumer out,PoseStack stack,java.util.List<DisposalMeshGeometry.Quad> mesh,double ox,double oy,double oz,int r,int g,int b,int a){
+        renderMesh(out,stack,mesh,ox,oy,oz,r,g,b,a,0x00f000f0);
+    }
+    public static void renderMesh(com.mojang.blaze3d.vertex.VertexConsumer out,PoseStack stack,java.util.List<DisposalMeshGeometry.Quad> mesh,double ox,double oy,double oz,int r,int g,int b,int a,int light){
+        var p=stack.last();for(var q:mesh){emit(out,p,q.a(),q.dark(),ox,oy,oz,r,g,b,a,light);emit(out,p,q.b(),q.dark(),ox,oy,oz,r,g,b,a,light);emit(out,p,q.c(),q.dark(),ox,oy,oz,r,g,b,a,light);emit(out,p,q.d(),q.dark(),ox,oy,oz,r,g,b,a,light);}
+    }
+    private static void emit(com.mojang.blaze3d.vertex.VertexConsumer out,PoseStack.Pose p,DisposalMeshGeometry.Vertex v,boolean dark,double ox,double oy,double oz,int r,int g,int b,int a,int light){float u=(float)(dark?.5+v.u()*.5:v.u()*.5),vv=(float)v.v();float shade=dark?.32f:1f;out.addVertex(p,(float)(v.x()+ox),(float)(v.y()+oy),(float)(v.z()+oz)).setColor((int)(r*shade),(int)(g*shade),(int)(b*shade),a).setUv(u,vv).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p,(float)v.nx(),(float)v.ny(),(float)v.nz());}
     /** Shared geometry path for construction ghosts; the caller owns selection and validity state. */
     public static void renderGhostBoxes(com.mojang.blaze3d.vertex.VertexConsumer out,PoseStack stack,java.util.List<net.minecraft.world.phys.AABB> boxes,double ox,double oy,double oz,int red,int green,int blue,int alpha){
         for(var box:unionBoxes(boxes))drawBox(out,stack,box.minX+ox,box.minY+oy,box.minZ+oz,box.maxX+ox,box.maxY+oy,box.maxZ+oz,red,green,blue,alpha);

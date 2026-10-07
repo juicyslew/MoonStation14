@@ -23,6 +23,24 @@ sourceSets {
     gametest
 }
 
+// The focused camera-tour namespace is also the GameTest template namespace.
+// Mirror only these fixture structures there so namespace-filtered runs resolve them.
+def cameraTourTemplateResources = layout.buildDirectory.dir('generated/gametest-camera-tour-resources')
+sourceSets.gametest.resources.srcDir(cameraTourTemplateResources)
+def generateCameraTourTemplateResources = tasks.register('generateCameraTourTemplateResources', Copy) {
+    from('src/gametest/resources/data/moonstation14/structure') {
+        include 'disposal_clear.nbt', 'disposal_power_clear.nbt'
+        into 'data/moonstation14_camera_tour/structure'
+    }
+    into cameraTourTemplateResources
+}
+tasks.named('processGametestResources') {
+    dependsOn generateCameraTourTemplateResources
+}
+tasks.named('processTestResources') {
+    dependsOn generateCameraTourTemplateResources
+}
+
 sourceSets.test.resources.srcDir sourceSets.gametest.resources
 
 sourceSets.main.resources {
@@ -91,7 +109,7 @@ neoForge {
             if (project.hasProperty('ms14GameTestDir')) {
                 gameDirectory = project.file(project.property('ms14GameTestDir'))
             }
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.findProperty('ms14GameTestNamespaces') ?: "${project.mod_id},moonstation14_camera_tour"
         }
 
         data {

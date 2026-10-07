@@ -120,14 +120,14 @@ public final class MovementServerController {
         CharacterMovementCommand command = tracked.lastCommand;
         CharacterMovementMotor motor = new CharacterMovementMotor(policy);
         if (command == null) command = new CharacterMovementCommand(0, 0, false, false);
-        boolean stunned = CharacterControlSystem.isStunned(player);
+        boolean movementBlocked = !CharacterControlSystem.canMove(player);
         double voluntarySpeedFactor = CharacterControlSystem.isKnockedDown(player)
                 ? CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d;
         Vec3 initial = player.position();
         Vec3 vanillaVelocity = player.getDeltaMovement();
         double surfaceFactor = SlidingFrictionSystem.frictionFactor(player);
-        double wishX = stunned ? 0d : command.wishX();
-        double wishZ = stunned ? 0d : command.wishZ();
+        double wishX = movementBlocked ? 0d : command.wishX();
+        double wishZ = movementBlocked ? 0d : command.wishZ();
         double wishLength = Math.hypot(wishX, wishZ);
         double wishSpeed = wishLength
                 * (command.sprint() ? policy.sprintSpeedPerSecond()
@@ -170,7 +170,7 @@ public final class MovementServerController {
         }
         CharacterMovementState result;
         try {
-            result = motor.tick(state, command, environment, stunned);
+            result = motor.tick(state, command, environment, movementBlocked);
         } catch (IllegalArgumentException exception) {
             // Entity.move may already have applied its collision-resolved displacement. Do not
             // restore vanilla state or retry; stop this owned tick and disconnect fail-closed.

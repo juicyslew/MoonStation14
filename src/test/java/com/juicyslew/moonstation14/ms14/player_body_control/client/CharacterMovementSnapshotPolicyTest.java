@@ -4,7 +4,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostPredictionHistory;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.CharacterMovementModeResolver;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,9 +14,9 @@ class CharacterMovementSnapshotPolicyTest {
         assertEquals(GhostControlPayloads.Snapshot.MovementMode.GROUNDED,
                 CharacterMovementModeResolver.fromExactOwner(null));
         assertEquals(GhostControlPayloads.Snapshot.MovementMode.UNIT,
-                CharacterMovementModeResolver.fromExactOwner(owner(DisposalContainmentOwner.Stage.UNIT)));
+                CharacterMovementModeResolver.fromExactOwner(owner(ContainedBodyOwner.Stage.UNIT)));
         assertEquals(GhostControlPayloads.Snapshot.MovementMode.TRANSIT,
-                CharacterMovementModeResolver.fromExactOwner(owner(DisposalContainmentOwner.Stage.TRANSIT)));
+                CharacterMovementModeResolver.fromExactOwner(owner(ContainedBodyOwner.Stage.TRANSIT)));
     }
 
     @Test void containedModesBarrierReplayAndOnlyGroundedCanResumeMotor() {
@@ -42,8 +42,8 @@ class CharacterMovementSnapshotPolicyTest {
         return new GhostControlPayloads.Intent(4, sequence, (short) 1, (short) 0, (byte) 0, 0, 0, 0);
     }
 
-    private static DisposalContainmentOwner owner(DisposalContainmentOwner.Stage stage) {
-        return new DisposalContainmentOwner() {
+    private static ContainedBodyOwner owner(ContainedBodyOwner.Stage stage) {
+        return new ContainedBodyOwner() {
             public java.util.UUID identity() { return new java.util.UUID(0, 1); }
             public net.minecraft.server.level.ServerLevel level() { return null; }
             public net.minecraft.world.phys.Vec3 position() { return net.minecraft.world.phys.Vec3.ZERO; }

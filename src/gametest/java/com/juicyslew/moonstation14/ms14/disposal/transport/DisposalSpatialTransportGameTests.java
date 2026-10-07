@@ -63,7 +63,7 @@ public final class DisposalSpatialTransportGameTests {
         LivingEntity body = EntityType.ZOMBIE.create(level);
         require(body != null && level.addFreshEntity(body), "real body added");
         var sourceOwner = new SourceOwner(level, ownerId);
-        var containment = com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(level);
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
         require(containment.bind(body, sourceOwner), "body exact owner established");
         var holder = DisposalTransitHolder.spawnFlushed(level, start,
                 new com.juicyslew.moonstation14.ms14.atmos.core.GasMixture(java.util.Map.of(), 293.15), contents,
@@ -93,7 +93,7 @@ public final class DisposalSpatialTransportGameTests {
         body.setInvisible(true); body.noPhysics = true; body.setNoGravity(true);
         require(level.addFreshEntity(body), "reload body added");
         var sourceOwner = new SourceOwner(level, storeId);
-        var containment = com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(level);
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
         require(containment.bind(body, sourceOwner), "reload body starts with exact source owner");
         var holder = DisposalTransitHolder.spawnFlushed(level, tube,
                 new com.juicyslew.moonstation14.ms14.atmos.core.GasMixture(java.util.Map.of(), 293.15), sourceContents,
@@ -140,7 +140,7 @@ public final class DisposalSpatialTransportGameTests {
                     helper.runAfterDelay(5, () -> {
                         require(holder.isRemoved(), "open outlet released holder");
                         require(level.getEntity(body.getUUID()) == body, "same body entity retained");
-                        require(com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService.forLevel(level)
+                        require(com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
                                 .ownerOf(body).isEmpty(), "body returned to world ownership");
                         require(DisposalUnitLedger.forLevel(level).snapshot().locations().get(token) instanceof ItemLocation.WorldEntity,
                                 "whole item ledger ownership became one world item");
@@ -161,7 +161,7 @@ public final class DisposalSpatialTransportGameTests {
     }
 
     private record SourceOwner(net.minecraft.server.level.ServerLevel level, UUID identity)
-            implements com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner {
+            implements com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner {
         @Override public Vec3 position() { return Vec3.ZERO; }
         @Override public Stage stage() { return Stage.TRANSIT; }
         @Override public boolean isValid() { return true; }

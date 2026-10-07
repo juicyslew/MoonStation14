@@ -94,9 +94,11 @@ public final class DisposalBuildMenuService {
                     ||!hands.token(request.handId()).filter(request.expectedToken()::equals).isPresent()
                     ||hands.stackCopy(request.handId()).filter(s->DisposalConstructionPlacementPolicy.enoughMaterial(resolved.construction(),s.getItem(),s.getCount())).isEmpty())return false;
           BlockPos host=request.target().immutable(); var state=level.getBlockState(host);
-           boolean sealed=com.juicyslew.moonstation14.ms14.atmos.piping.SealedWallHostEligibility.defaults().eligible(level,host);
-           if(!eligibleHost(level,host,sealed))return false;
-           if(sealed&&!prototype.equals(ModDisposals.id("disposal_pipe").toString()))return false;
+            boolean eligibleSteel=com.juicyslew.moonstation14.ms14.atmos.piping.SealedWallHostEligibility.defaults().eligible(level,host);
+            boolean liveTube=com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData.existing(level)
+                    .map(data -> data.lookup(level,host).kind()==com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData.LookupKind.PRESENT).orElse(false);
+            boolean sealed=DisposalConstructionTargetPolicy.sealed(eligibleSteel,liveTube,resolved.tube().kind());
+            if(!eligibleHost(level,host,sealed))return false;
            BlockPos target=sealed?host:host.relative(request.face());
            var chunk=level.getChunkSource().getChunk(target.getX()>>4,target.getZ()>>4,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false);
            if(!(chunk instanceof net.minecraft.world.level.chunk.LevelChunk)||(!sealed&&!level.getBlockState(target).isAir()))return false;
@@ -118,8 +120,12 @@ public final class DisposalBuildMenuService {
               hostChunk.setUnsaved(true);
           }
            var pending=new Pending(null,authority,actor,authority.body(),authority.body().position(),request.handId(),request.expectedToken(),hands.revision(),host,target,sealed,prototype,plan.revision(),frame,level.getGameTime(),state,generation);
-          PENDING.put(authority.body().getUUID(),pending);
-          return true;
+           PENDING.put(authority.body().getUUID(),pending);
+           // Zero-time recipes are deliberately synchronous: there is no tick-sized
+           // pending-action barrier for the ordinary pipe placement adaptation.
+           if (DisposalConstructionPlacementPolicy.requiredTicks(resolved.construction()) == 0)
+               finish(pending, level);
+           return true;
       }
 
       private static boolean collisionFree(ServerLevel level, LivingEntity body, BlockPos pos, String prototype,

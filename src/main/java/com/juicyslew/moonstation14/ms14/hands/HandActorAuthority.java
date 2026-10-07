@@ -40,7 +40,13 @@ public final class HandActorAuthority {
 
     /** Resolves exactly one authority's eligible, authenticated CHARACTER body; never materializes state. */
     public static Optional<Snapshot> resolve(ServerPlayer actor) {
-        return resolve(actor, null);
+        if (actor == null || actor.containerMenu == actor.inventoryMenu) return resolve(actor, null);
+        // A persistent owner menu may be a valid body-HUD context, but only when the exact
+        // current containment relation proves that this menu belongs to that controlled body.
+        var contextual = resolve(actor, actor.containerMenu).orElse(null);
+        return contextual != null && com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService
+                .isExactContainedBodyMenu(actor, contextual.body(), actor.containerMenu)
+                ? Optional.of(contextual) : Optional.empty();
     }
 
     /** Passive owned-item processing admits any current body-owned menu, without changing action admission. */

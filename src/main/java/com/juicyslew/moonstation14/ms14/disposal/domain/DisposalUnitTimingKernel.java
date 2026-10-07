@@ -50,6 +50,26 @@ public final class DisposalUnitTimingKernel {
     }
     public void setAnchored(boolean value) { anchored = value; }
 
+    /** Rebase persisted unit deadlines when a world's game-time origin moves backwards. */
+    public void rebaseClock(long tick) {
+        if (tick < 0) throw new IllegalArgumentException("game tick must be nonnegative");
+        if (tick >= now) return;
+        long oldNow = now;
+        nextPressurized = rebaseDeadline(nextPressurized, oldNow, tick);
+        visualDeadline = rebaseDeadline(visualDeadline, oldNow, tick);
+        if (nextFlush != null) nextFlush = rebaseDeadline(nextFlush, oldNow, tick);
+        if (lastExitAttempt != null) {
+            long cooldown = ticks(config.exitAttemptCooldownSeconds());
+            long remaining = Math.max(0, Math.subtractExact(Math.addExact(lastExitAttempt, cooldown), oldNow));
+            lastExitAttempt = remaining == 0 ? null : Math.subtractExact(tick, cooldown - remaining);
+        }
+        now = tick;
+    }
+    private static long rebaseDeadline(long deadline, long oldNow, long newNow) {
+        long remaining = Math.max(0, Math.subtractExact(deadline, oldNow));
+        return Math.addExact(newNow, remaining);
+    }
+
     /** Mirrors SharedDisposalUnitSystem.Update: while charging, only state changes; otherwise timed flush precedes ready transition. */
     public FlushResult advanceTo(long tick, boolean sameCellEntryTrunkPresent) {
         if (tick < now) throw new IllegalArgumentException("game tick must be monotonic");
@@ -110,8 +130,9 @@ public final class DisposalUnitTimingKernel {
         Objects.requireNonNull(snapshot, "snapshot");
         if (snapshot.logicalTick() < 0 || snapshot.pressureDeadlineTick() < 0 || snapshot.visualDeadlineTick() < 0
                 || snapshot.nextFlushTick() != null && snapshot.nextFlushTick() < 0
-                || snapshot.lastExitAttemptTick() != null && (snapshot.lastExitAttemptTick() < 0
-                || snapshot.lastExitAttemptTick() > snapshot.logicalTick()))
+                || snapshot.lastExitAttemptTick() != null && (snapshot.lastExitAttemptTick() > snapshot.logicalTick()
+                || snapshot.lastExitAttemptTick() < 0 && snapshot.lastExitAttemptTick()
+                < Math.subtractExact(snapshot.logicalTick(), ticks(config.exitAttemptCooldownSeconds()))))
             throw new IllegalArgumentException("invalid disposal unit timing snapshot");
         DisposalUnitTimingKernel restored = new DisposalUnitTimingKernel(config, snapshot.logicalTick());
         restored.engaged = snapshot.engaged();

@@ -35,7 +35,7 @@ public class ModCreativeModeTabs {
             ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER, ModBlocks.ATMOS_FREZON_PRODUCER,
             ModBlocks.ATMOS_GAS_SINK, ModBlocks.ATMOS_HEATER, ModBlocks.ATMOS_COOLER,
             ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY, ModItems.GAS_PIPE_VISUAL_TERTIARY,
-            ModBlocks.DISPOSAL_UNIT);
+             ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TAB =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MoonStation14.MOD_ID);
 

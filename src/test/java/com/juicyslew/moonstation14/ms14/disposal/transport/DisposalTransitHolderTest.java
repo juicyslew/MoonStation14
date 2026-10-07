@@ -1,7 +1,7 @@
 package com.juicyslew.moonstation14.ms14.disposal.transport;
 
 import net.minecraft.world.phys.Vec3;
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentService;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -34,8 +34,8 @@ class DisposalTransitHolderTest {
     }
     @Test void originalBodyFlagsRoundTripIndependentOfSuppressedRuntimeFlags() {
         UUID body = UUID.randomUUID();
-        var expected = new DisposalContainmentService.OriginalFlags(false, true, false);
-        var decoded = DisposalTransitHolder.decodeOriginalFlags(DisposalTransitHolder.encodeOriginalFlags(body, expected));
+        var expected = new BodyContainmentService.ContainedBodyFlags(false, true, false);
+        var decoded = DisposalTransitHolder.decodeContainedBodyFlags(DisposalTransitHolder.encodeContainedBodyFlags(body, expected));
         assertNotNull(decoded); assertEquals(body, decoded.getKey()); assertEquals(expected, decoded.getValue());
     }
     @Test void finiteAirNbtRetainsExactVolumeSpeciesAndTemperature() {

@@ -1,11 +1,11 @@
-package com.juicyslew.moonstation14.ms14.disposal.containment;
+package com.juicyslew.moonstation14.ms14.containment;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 /** Small server-thread membership index. Identity equality is intentional: an owner UUID alone is insufficient. */
-public final class DisposalContainmentMembership<O> {
+public final class ContainedBodyMembership<O> {
     private final Map<UUID, O> owners = new HashMap<>();
 
     public boolean bind(UUID body, O owner) {

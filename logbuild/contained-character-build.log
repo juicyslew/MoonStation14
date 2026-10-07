@@ -1,0 +1,106 @@
+Reusing configuration cache.
+> Task :jarJar NO-SOURCE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :jar
+> Task :assemble
+
+> Task :compileTestJava
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\test\java\com\juicyslew\moonstation14\ms14\disposal\containment\DisposalContainedActionPolicyTest.java:8: error: cannot find symbol
+        assertTrue(DisposalContainedActionPolicy.deniesMembership(true));
+                                                ^
+  symbol:   method deniesMembership(boolean)
+  location: class DisposalContainedActionPolicy
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\test\java\com\juicyslew\moonstation14\ms14\disposal\containment\DisposalContainedActionPolicyTest.java:9: error: cannot find symbol
+        assertFalse(DisposalContainedActionPolicy.deniesMembership(false));
+                                                 ^
+  symbol:   method deniesMembership(boolean)
+  location: class DisposalContainedActionPolicy
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\test\java\com\juicyslew\moonstation14\ms14\disposal\fixture\DisposalFixtureOrientationTest.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+2 errors
+
+> Task :compileTestJava FAILED
+
+> Task :compileGametestJava
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\disposal\unit\DisposalUnitFlushGameTests.java:33: error: putWhole(long,String,ItemToken,ItemStack) is not public in LiveHands; cannot be accessed from outside package
+        var held = initial.putWhole(initial.revision(), "left",
+                          ^
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\disposal\unit\DisposalUnitFlushGameTests.java:35: error: WholeResult.state() is defined in an inaccessible class or interface
+        body.setData(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get(), held.state());
+                                                                                                    ^
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\disposal\unit\DisposalUnitFlushGameTests.java:38: error: WholeResult.state() is defined in an inaccessible class or interface
+                .dropOwned(body, "left", "unit-drop", held.state().revision())
+                                                          ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+3 errors
+
+
+> Task :compileGametestJava FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-01/build/reports/problems/problems-report.html
+FAILURE: Build completed with 2 failures.
+
+1: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':compileTestJava'.
+> Compilation failed; see the compiler output below.
+  Note: Recompile with -Xlint:deprecation for details.
+  Note: C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\test\java\com\juicyslew\moonstation14\ms14\disposal\fixture\DisposalFixtureOrientationTest.java uses unchecked or unsafe operations.
+  Note: Recompile with -Xlint:unchecked for details.
+  Note: Some input files use or override a deprecated API.
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\test\java\com\juicyslew\moonstation14\ms14\disposal\containment\DisposalContainedActionPolicyTest.java:8: error: cannot find symbol
+          assertTrue(DisposalContainedActionPolicy.deniesMembership(true));
+                                                  ^
+    symbol:   method deniesMembership(boolean)
+    location: class DisposalContainedActionPolicy
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\test\java\com\juicyslew\moonstation14\ms14\disposal\containment\DisposalContainedActionPolicyTest.java:9: error: cannot find symbol
+          assertFalse(DisposalContainedActionPolicy.deniesMembership(false));
+                                                   ^
+    symbol:   method deniesMembership(boolean)
+    location: class DisposalContainedActionPolicy
+  2 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':compileGametestJava'.
+> Compilation failed; see the compiler output below.
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\disposal\unit\DisposalUnitFlushGameTests.java:35: error: WholeResult.state() is defined in an inaccessible class or interface
+          body.setData(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get(), held.state());
+                                                                                                      ^
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\disposal\unit\DisposalUnitFlushGameTests.java:38: error: WholeResult.state() is defined in an inaccessible class or interface
+                  .dropOwned(body, "left", "unit-drop", held.state().revision())
+                                                            ^
+  Note: Recompile with -Xlint:deprecation for details.
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\disposal\unit\DisposalUnitFlushGameTests.java:33: error: putWhole(long,String,ItemToken,ItemStack) is not public in LiveHands; cannot be accessed from outside package
+          var held = initial.putWhole(initial.revision(), "left",
+                            ^
+  Note: Some input files use or override a deprecated API.
+  3 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+==============================================================================
+
+BUILD FAILED in 8s
+12 actionable tasks: 3 executed, 9 up-to-date
+Configuration cache entry reused.

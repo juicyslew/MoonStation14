@@ -48,7 +48,7 @@ public final class GhostControlClient {
     private static boolean offerReadySent;
     private static float latestSurfaceFactor = 1f;
     private static float latestVoluntaryFactor = 1f;
-    private static boolean latestStunned;
+    private static boolean latestMovementBlocked;
     private static long activeEpoch;
     private static long sentSequence;
     private static boolean readySent;
@@ -58,6 +58,8 @@ public final class GhostControlClient {
     private static GhostPredictionHistory predictionHistory;
     private static boolean characterPredictionStopped;
     private static GhostControlPayloads.Snapshot.MovementMode characterMovementMode = GhostControlPayloads.Snapshot.MovementMode.TRANSIT;
+    private static final TransitInterpolationPolicy transitInterpolation = new TransitInterpolationPolicy();
+    private static final ExternalFlightPredictionPolicy externalFlightPrediction = new ExternalFlightPredictionPolicy();
     private static GhostControlPayloads.Begin deferredBegin;
 
     static {
@@ -115,6 +117,7 @@ public final class GhostControlClient {
     @SubscribeEvent
     public static void clientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        ContainedCharacterClientView.reconcileCamera(minecraft);
         LocalPlayer player = minecraft.player;
         if (player == null || minecraft.level == null) {
             if (owner != null) clearSession(minecraft, true);
@@ -277,6 +280,7 @@ public final class GhostControlClient {
     }
 
     private static void clearSession(Minecraft minecraft, boolean restoreCamera) {
+        ContainedCharacterClientView.clear();
         Entity ghost = ghostEntityId < 0 ? null : currentBody(minecraft, ghostEntityId, harnessKind);
         if (restoreCamera && ghost != null && minecraft.getCameraEntity() == ghost
                 && minecraft.player != null) minecraft.setCameraEntity(minecraft.player);
@@ -294,9 +298,11 @@ public final class GhostControlClient {
         predictionHistory = null;
         characterPredictionStopped = false;
         characterMovementMode = GhostControlPayloads.Snapshot.MovementMode.TRANSIT;
+        transitInterpolation.clear();
         latestSurfaceFactor = 1f;
         latestVoluntaryFactor = 1f;
-        latestStunned = false;
+        latestMovementBlocked = false;
+        externalFlightPrediction.clear();
         owner = null;
         ownerLevel = null;
         deferredBegin = ClientBeginPolicy.afterSessionClear(deferredBegin);
@@ -366,6 +372,12 @@ public final class GhostControlClient {
         return ownedCharacterForHud() == null ? 0 : activeEpoch;
     }
 
+    record OwnedCharacterBinding(java.util.UUID body, long epoch) { }
+    static OwnedCharacterBinding ownedCharacterBinding() {
+        Mob body = ownedCharacterForHud();
+        return body == null ? null : new OwnedCharacterBinding(body.getUUID(), activeEpoch);
+    }
+
     private static void reconcileSnapshot(Minecraft minecraft, LocalPlayer player,
                                           GhostControlPayloads.Snapshot snapshot) {
         if (!committed || !readySent || owner != player || minecraft.player != player || minecraft.level == null
@@ -380,14 +392,30 @@ public final class GhostControlClient {
         if (result.status() == GhostPredictionHistory.SnapshotStatus.REJECTED) return;
         if (characterPredictionStopped) predictionHistory.onAuthorityBarrier();
         characterMovementMode = snapshot.movementMode();
+        if (harnessKind == MobHarnessKind.CHARACTER)
+            ContainedCharacterClientView.update(entity.getUUID(), activeEpoch, snapshot.containedView().orElse(null));
 
         float visualYaw = entity.getYRot();
         float visualPitch = entity.getXRot();
-        entity.setPos(snapshot.x(), snapshot.y(), snapshot.z());
-        entity.lerpTo(snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch(), 0);
+        boolean transitCharacter = harnessKind == MobHarnessKind.CHARACTER
+                && snapshot.movementMode() == GhostControlPayloads.Snapshot.MovementMode.TRANSIT;
+        int interpolationSteps = harnessKind == MobHarnessKind.CHARACTER
+                ? transitInterpolation.accept(activeEpoch, entity.getUUID(), snapshot.movementMode(),
+                    snapshot.containedView().map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyView::ownerIdentity)
+                            .orElse(null))
+                : 0;
+        if (transitCharacter && interpolationSteps > 0) {
+            // Keep the server sample authoritative, but let Entity's normal client tick interpolate it
+            // rather than teleporting the camera target on every transit snapshot.
+            entity.lerpTo(snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch(), interpolationSteps);
+        } else {
+            entity.setPos(snapshot.x(), snapshot.y(), snapshot.z());
+            entity.lerpTo(snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch(), 0);
+        }
         latestSurfaceFactor = snapshot.surfaceFactor();
         latestVoluntaryFactor = snapshot.voluntarySpeedFactor();
-        latestStunned = snapshot.stunned();
+        latestMovementBlocked = snapshot.movementBlocked();
+        externalFlightPrediction.reset(snapshot.externalFlightTicks());
         if (entity instanceof Mob) entity.setOnGround(snapshot.onGround());
         entity.setDeltaMovement(entity instanceof GhostMobHarnessEntity || isCharacterContainedMode()
                 ? Vec3.ZERO : new Vec3(
@@ -454,7 +482,7 @@ public final class GhostControlClient {
                 new GroundedHarnessMotor(policy).tick(state, intent.wishX(), intent.wishZ(),
                         (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
                         (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
-                        intent.yaw(), environment, latestStunned), predictionHistory);
+                        intent.yaw(), environment, latestMovementBlocked, externalFlightPrediction.advanceFrame()), predictionHistory);
         if (result == null) {
             // The resolver may already have moved the entity. Never retry, roll back, or replay this frame.
             characterPredictionStopped = true;

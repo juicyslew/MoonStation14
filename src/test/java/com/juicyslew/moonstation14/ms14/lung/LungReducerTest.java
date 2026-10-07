@@ -89,6 +89,28 @@ class LungReducerTest {
                     returned.roomAfter().moles(gas), 1e-9);
     }
 
+    @Test void containedHolderExchangeUsesItsSampleVolumeForValidation() {
+        GasMixture room = GasMixture.breathableAir();
+        double requested = LungSystem.requestedMoles(room, .04, .5, 6);
+        var exchange = BreathExchange.calculate(room, requested, GasMixture.vacuum()).orElseThrow();
+        var start = LungComponent.from(GasMixture.vacuum(), 5, true);
+        var inhaled = LungSystem.advance(start, policy(), room, .04, false,
+                (exhaled, amount) -> {
+                    assertEquals(requested, amount, 1e-12);
+                    return Optional.of(exchange.inhaled());
+                }).orElseThrow();
+        assertEquals(LungComponent.Phase.EXHALING, inhaled.phase());
+        assertEquals(exchange.inhaled().totalMoles(), inhaled.mixture().totalMoles(), 1e-12);
+        assertTrue(LungSystem.advance(start, policy(), room, .04, false,
+                (exhaled, amount) -> Optional.of(GasMixture.breathableAir().withScaledMoles(requested * 2))).isEmpty());
+        assertTrue(LungSystem.advance(start, policy(), room, Double.NaN, false,
+                (exhaled, amount) -> fail("invalid source volume must not exchange")).isEmpty());
+        double worldRequest = LungSystem.requestedMoles(room, .5, 6);
+        assertTrue(requested > worldRequest);
+        assertTrue(LungSystem.advance(start, policy(), room, false,
+                (exhaled, amount) -> { assertEquals(worldRequest, amount, 1e-12); return Optional.of(GasMixture.vacuum()); }).isPresent());
+    }
+
     @Test void proportionalHalfLiterSampleDoesNotRejectRoundingAtFiveMoles() {
         GasMixture room = new GasMixture(Map.of(GasType.OXYGEN, 1.05,
                 GasType.NITROGEN, 3.95), 293.15);

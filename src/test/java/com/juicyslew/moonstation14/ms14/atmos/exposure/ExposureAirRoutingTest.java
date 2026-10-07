@@ -1,6 +1,6 @@
 package com.juicyslew.moonstation14.ms14.atmos.exposure;
 
-import com.juicyslew.moonstation14.ms14.disposal.containment.DisposalContainmentOwner;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -15,7 +15,7 @@ class ExposureAirRoutingTest {
     @Test void absenceMeansWorldButContainedOwnerWithoutSampleIsKnownUnknown() {
         var world = ExposureAirRouting.fromOwner(Optional.empty());
         assertFalse(world.contained());
-        var owner = new DisposalContainmentOwner() {
+        var owner = new ContainedBodyOwner() {
             @Override public UUID identity() { return UUID.randomUUID(); }
             @Override public ServerLevel level() { return null; }
             @Override public Vec3 position() { return Vec3.ZERO; }
