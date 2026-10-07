@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GhostControlNetworkingTest {
     @Test
     void protocolVersionRequiresMatchingBuildsAfterOfferWireAddition() {
-        assertEquals("3", GhostControlNetworking.PROTOCOL_VERSION);
+        assertEquals("4", GhostControlNetworking.PROTOCOL_VERSION);
     }
 
     @Test

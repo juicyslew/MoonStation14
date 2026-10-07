@@ -40,7 +40,27 @@ public final class HandActorAuthority {
 
     /** Resolves exactly one authority's eligible, authenticated CHARACTER body; never materializes state. */
     public static Optional<Snapshot> resolve(ServerPlayer actor) {
-        return resolve(actor, null);
+        if (actor == null || actor.containerMenu == actor.inventoryMenu) return resolve(actor, null);
+        // A persistent owner menu may be a valid body-HUD context, but only when the exact
+        // current containment relation proves that this menu belongs to that controlled body.
+        var contextual = resolve(actor, actor.containerMenu).orElse(null);
+        return contextual != null && com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService
+                .isExactContainedBodyMenu(actor, contextual.body(), actor.containerMenu)
+                ? Optional.of(contextual) : Optional.empty();
+    }
+
+    /** Passive owned-item processing admits any current body-owned menu, without changing action admission. */
+    public static Optional<Snapshot> resolveForOwnedItemTick(ServerPlayer actor) {
+        if (actor == null || actor.containerMenu == null) return Optional.empty();
+        return actor.containerMenu == actor.inventoryMenu ? resolve(actor) : resolve(actor, actor.containerMenu);
+    }
+
+    public static boolean revalidateForOwnedItemTick(ServerPlayer actor, Snapshot snapshot,
+                                                      net.minecraft.world.inventory.AbstractContainerMenu expectedMenu) {
+        if (expectedMenu == null || actor == null || actor.containerMenu != expectedMenu || snapshot == null
+                || actor != snapshot.actor()) return false;
+        return (expectedMenu == actor.inventoryMenu ? resolve(actor) : resolve(actor, expectedMenu))
+                .filter(current -> sameResolvedActor(snapshot, current)).isPresent();
     }
 
     private static Optional<Snapshot> resolve(ServerPlayer actor, net.minecraft.world.inventory.AbstractContainerMenu menu) {

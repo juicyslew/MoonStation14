@@ -29,6 +29,8 @@ import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
 import com.juicyslew.moonstation14.ms14.damage.DamageFeedbackProfile;
 import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
+import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
+import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -56,13 +58,13 @@ class PrototypeRuntimeTest {
         client.clearPublishedCatalogs();
 
         assertNotSame(server, client);
-        var expectedTypes = Set.of(ModReagents.REAGENT_TYPE, ModStatusEffects.STATUS_EFFECT_TYPE,
+
+        var expectedTypes = new java.util.HashSet<>(Set.of(ModReagents.REAGENT_TYPE, ModStatusEffects.STATUS_EFFECT_TYPE,
                 ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
                 ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
+                ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE,
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
-                ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE,
-                ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE);
-        expectedTypes = new java.util.HashSet<>(expectedTypes);
+                ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
         expectedTypes.add(ModDamageFeedback.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
@@ -157,7 +159,9 @@ class PrototypeRuntimeTest {
                 ModAirAlarms.WALLMOUNT, alarm("base_wallmount"),
                 ModAirAlarms.METALLIC, alarm("base_wallmount_metallic"),
                 ModAirAlarms.MACHINE, alarm("base_wallmount_machine"),
-                ModAirAlarms.AIR_ALARM, alarm("air_alarm")));
+                 ModAirAlarms.AIR_ALARM, alarm("air_alarm")));
+        server.reload(ModTools.TOOL_TYPE, toolFixtures());
+        server.reload(ModDisposals.DISPOSAL_TYPE, disposalFixtures());
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
@@ -167,14 +171,19 @@ class PrototypeRuntimeTest {
         DamageFeedbackProfile damageFeedback = DamageFeedbackProfile.PHYSICAL;
         server.publishDecoded(ModDamageFeedback.TYPE, Map.of(id("damage-feedback-test"), damageFeedback));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
+
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
                 ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
-                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
-                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                  ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
-                   ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId()),
-                 exported.keySet());
+                ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
+                ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
+                ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
+                ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
+                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId()), exported.keySet());
+        assertTrue(exported.get(ModTools.TOOL_TYPE.typeId()).keySet().containsAll(Set.of(
+                ModTools.WRENCH, ModTools.SCREWDRIVER, ModTools.WELDER)));
+        assertTrue(exported.get(ModDisposals.DISPOSAL_TYPE.typeId()).keySet().containsAll(Set.of(
+                ModDisposals.UNIT, ModDisposals.HOLDER, ModDisposals.id("disposal_pipe"))));
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
         assertTrue(exported.get(ModGasReactions.GAS_REACTION_TYPE.typeId()).containsKey(id("reaction-test")));
         assertTrue(exported.get(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()).containsKey(id("common")));
@@ -190,6 +199,19 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
         client.publishEncodedCatalogs(exported);
+        var serverWelder = PrototypeRuntime.serverTools().get(ModTools.WELDER);
+        assertEquals(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));
+        assertNotSame(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));
+        assertTrue(ModTools.hasQuality(PrototypeRuntime.serverTools(), ModTools.WRENCH,
+                com.juicyslew.moonstation14.ms14.construction.tool.ToolPrototypeData.Quality.Anchoring));
+        assertEquals(serverWelder.speedModifier(), PrototypeRuntime.clientTools().get(ModTools.WELDER).speedModifier());
+        assertEquals(PrototypeRuntime.serverDisposals().get(ModDisposals.UNIT).unit(),
+                PrototypeRuntime.clientDisposals().get(ModDisposals.UNIT).unit());
+        assertEquals(1000, PrototypeRuntime.clientDisposals().get(ModDisposals.UNIT).unit().powerWatts());
+        assertEquals(PrototypeRuntime.serverDisposals().get(ModDisposals.HOLDER).holder(),
+                PrototypeRuntime.clientDisposals().get(ModDisposals.HOLDER).holder());
+        assertNotSame(PrototypeRuntime.serverDisposals().get(ModDisposals.UNIT),
+                PrototypeRuntime.clientDisposals().get(ModDisposals.UNIT));
         assertEquals(status, PrototypeRuntime.clientStatusEffects().get(id("status-test")));
         assertEquals(character, PrototypeRuntime.clientCharacters().get(id("human-test")));
         assertEquals(radio, PrototypeRuntime.clientRadioChannels().get(id("common")));
@@ -254,6 +276,34 @@ class PrototypeRuntimeTest {
         } catch (java.io.IOException exception) {
             throw new java.io.UncheckedIOException(exception);
         }
+    }
+
+    private static Map<ResourceLocation, JsonObject> toolFixtures() {
+        Map<ResourceLocation, JsonObject> values = new LinkedHashMap<>();
+        for (String name : java.util.List.of("base_tool", "wrench", "screwdriver", "welder"))
+            values.put(ModTools.id(name), fixture("construction_tool", name));
+        return values;
+    }
+
+    private static Map<ResourceLocation, JsonObject> disposalFixtures() {
+        Map<ResourceLocation, JsonObject> values = new LinkedHashMap<>();
+        try (var paths = java.nio.file.Files.list(java.nio.file.Path.of(
+                java.net.URI.create(PrototypeRuntimeTest.class
+                        .getResource("/data/moonstation14/moonstation14/disposal_entity").toExternalForm())))) {
+            paths.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
+                String name = path.getFileName().toString().replaceFirst("\\.json$", "");
+                values.put(ModDisposals.id(name), fixture("disposal_entity", name));
+            });
+        } catch (java.io.IOException exception) { throw new java.io.UncheckedIOException(exception); }
+        return values;
+    }
+
+    private static JsonObject fixture(String family, String name) {
+        String path = "/data/moonstation14/moonstation14/" + family + "/" + name + ".json";
+        try (var stream = PrototypeRuntimeTest.class.getResourceAsStream(path)) {
+            if (stream == null) throw new IllegalStateException("Missing test resource " + path);
+            return JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (java.io.IOException exception) { throw new java.io.UncheckedIOException(exception); }
     }
 
     private static ExplosionData explosion(float damage) {

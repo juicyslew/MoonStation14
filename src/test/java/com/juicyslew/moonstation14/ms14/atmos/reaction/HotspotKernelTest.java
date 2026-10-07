@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.atmos.reaction;
 
+import com.juicyslew.moonstation14.ms14.atmos.core.AtmosphereUnits;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
@@ -20,8 +21,8 @@ class HotspotKernelTest {
                     List.of(new GasReactionData.Effect(GasReactionData.EffectType.N2O_DECOMPOSITION)))));
 
     private static GasReactionData fire(GasType fuel, int priority, GasReactionData.EffectType effect) {
-        return new GasReactionData(Map.of(fuel, .01, GasType.OXYGEN, .01),
-                373.149, 2000, 0, priority, List.of(new GasReactionData.Effect(effect)));
+        return new GasReactionData(Map.of(fuel, .01, GasType.OXYGEN, .01), 373.149, 2000, 0, priority,
+                List.of(new GasReactionData.Effect(effect)));
     }
 
     private static GasMixture mix(double temperature, double tritium, double plasma, double oxygen, double n2o) {
@@ -29,128 +30,171 @@ class HotspotKernelTest {
                 GasType.OXYGEN, oxygen, GasType.NITROUS_OXIDE, n2o), temperature);
     }
 
-    private static void budget(GasMixture before, HotspotKernel.Result result) {
-        for (GasType gas : GasType.values()) {
-            double events = result.events().stream().mapToDouble(e -> e.speciesDelta().getOrDefault(gas, 0.0)).sum();
-            assertEquals(before.moles(gas) + events, result.mixture().moles(gas), 1e-10, gas.name());
-        }
-        double heat = result.events().stream().mapToDouble(GasReactionEvaluator.Event::energyDeltaJoules).sum();
-        assertEquals(before.thermalEnergy() + heat, result.mixture().thermalEnergy(),
-                Math.max(1e-8, before.thermalEnergy() * 1e-12));
-        assertTrue(Double.isFinite(result.mixture().heatCapacity()));
-        assertTrue(result.mixture().heatCapacity() >= 0);
-        assertTrue(Double.isFinite(result.mixture().temperatureKelvin()));
+    private static HotspotState ready(double liters, double temperature) {
+        return new HotspotState(liters, temperature, true, false);
     }
 
-    @Test void coldFuelOxygenAndNoActualFireQuenchWithoutChange() {
-        for (var gas : List.of(mix(373.15, 1, 0, 1, 0), mix(400, 0, 0, 1, 0),
-                mix(400, 1, 0, 0, 0), mix(373.151, 0, 1, 100, 0),
-                mix(850, 0, 0, 0, 2))) {
-            var result = HotspotKernel.evaluate(gas, CATALOG, null);
-            assertSame(gas, result.mixture());
-            assertTrue(result.nextState().isEmpty());
-            assertTrue(result.events().isEmpty());
-            assertEquals(0, result.totalFireExtentMoles());
-            budget(gas, result);
-        }
+    @Test void onlyAlreadyProcessedHotspotsResetExcitedGroupCooldowns() {
+        assertFalse(HotspotKernel.shouldResetExcitedGroupCooldowns(null));
+        assertFalse(HotspotKernel.shouldResetExcitedGroupCooldowns(new HotspotState(0, 200, false, false)));
+        assertTrue(HotspotKernel.shouldResetExcitedGroupCooldowns(new HotspotState(0, 200, true, false)),
+                "an already-processed but now-fizzling hotspot still resets before viability checks");
     }
 
-    @Test void seedPartitionAndMergeAccountForSpeciesAndJoules() {
-        var gas = mix(400, 1, 0, 1, 2);
-        var result = HotspotKernel.evaluate(gas, CATALOG, null);
-        assertEquals(1, result.events().size());
-        assertEquals(GasReactionData.EffectType.TRITIUM_FIRE, result.events().getFirst().effect());
-        assertEquals(.001, result.totalFireExtentMoles(), 1e-12);
-        assertEquals(.999, result.mixture().moles(GasType.TRITIUM), 1e-12);
-        assertEquals(.9995, result.mixture().moles(GasType.OXYGEN), 1e-12);
-        assertEquals(.001, result.mixture().moles(GasType.WATER_VAPOR), 1e-12);
-        assertEquals(2, result.mixture().moles(GasType.NITROUS_OXIDE));
-        assertEquals(284, result.events().getFirst().energyDeltaJoules(), 1e-8);
-        assertEquals(.14, result.nextState().orElseThrow().fraction(), 1e-12);
-        budget(gas, result);
+    @Test void firstDueVisitOnlyClearsSkipBeforeAnyQuenchOrTemperatureCheck() {
+        var gas = mix(293, .1, 0, 1, 0);
+        var state = new HotspotState(.01, 200, false, true);
+        var result = HotspotKernel.process(CATALOG, gas, state, 0);
+        assertSame(gas, result.mixture());
+        assertTrue(result.events().isEmpty());
+        assertEquals(new HotspotState(.01, 200, true, true), result.nextState().orElseThrow());
     }
 
-    @Test void growthThresholdOnlyBurnsFullCellOnFollowingPass() {
+    @Test void temperatureMetadataBurnsHotPartitionWithoutHeatingColdBulk() {
+        var gas = mix(300, 1, 0, 1, 0);
+        var result = HotspotKernel.process(CATALOG, gas, ready(250, 400), 0);
+        assertFalse(result.events().isEmpty());
+        assertEquals(.0025, result.fireExtentMoles(), 1e-12);
+        assertEquals(1, result.mixture().moles(GasType.TRITIUM) + result.mixture().moles(GasType.WATER_VAPOR), 1e-7);
+        assertTrue(result.mixture().temperatureKelvin() < 400);
+        assertEquals(result.fireExtentMoles() > 0
+                && result.nextState().orElseThrow().temperatureKelvin() > 423.15,
+                result.spreadEligibleThisPass());
+    }
+
+    @Test void partialSpreadRequiresPositiveFireExtentAndHotLocalFlame() {
+        var gas = mix(300, 1, 0, 1, 0);
+        var hot = HotspotKernel.process(CATALOG, gas, ready(250, 900), 0);
+        assertTrue(hot.fireExtentMoles() > 0);
+        assertTrue(hot.nextState().orElseThrow().temperatureKelvin() > 423.15);
+        assertTrue(hot.spreadEligibleThisPass());
+        var warm = HotspotKernel.process(CATALOG, gas, ready(250, 400), 0);
+        assertEquals(warm.fireExtentMoles() > 0 && warm.nextState().orElseThrow().temperatureKelvin() > 423.15,
+                warm.spreadEligibleThisPass());
+        assertFalse(HotspotKernel.process(new PrototypeCatalog<>(Map.of()), gas, ready(250, 900), 0)
+                .spreadEligibleThisPass());
+    }
+
+    @Test void extinctionThresholdIsPointFourLitersNotPointSixteenOrOne() {
         var gas = mix(400, 1, 0, 1, 0);
-        var near = HotspotKernel.evaluate(gas, CATALOG, new HotspotKernel.HotspotState(.94, 400));
-        assertEquals(.0094, near.totalFireExtentMoles(), 1e-12);
-        assertEquals(1, near.nextState().orElseThrow().fraction());
-        budget(gas, near);
-        var full = HotspotKernel.evaluate(near.mixture(), CATALOG, near.nextState().orElseThrow());
-        assertTrue(full.totalFireExtentMoles() > near.totalFireExtentMoles());
-        assertEquals(1, full.nextState().orElseThrow().fraction());
-        budget(near.mixture(), full);
+        double thresholdLiters = AtmosphereUnits.referenceTileQuantity(1.0);
+        for (double liters : new double[]{.16, .3}) {
+            var survives = HotspotKernel.process(CATALOG, gas, ready(liters, 400), 0);
+            assertTrue(survives.nextState().isEmpty(), liters + " liters is below the 0.4 L minimum");
+        }
+        var at = HotspotKernel.process(CATALOG, gas, ready(thresholdLiters, 400), 0);
+        assertTrue(at.nextState().isEmpty());
+        assertTrue(at.events().isEmpty());
+        var above = HotspotKernel.process(CATALOG, gas,
+                ready(.40001, 400), 0);
+        assertTrue(above.nextState().isPresent(), "volume above the extinction gate persists even with insufficient reaction inventory");
+        assertTrue(above.events().isEmpty());
     }
 
-    @Test void reconcilesStaleTemperatureWithoutAddingHeatAndRejectsInvalidState() {
+    @Test void boostControlsWhetherExistingMetadataChangesAndDoesNotRescaleExistingVolume() {
         var gas = mix(400, 1, 0, 1, 0);
-        var stale = HotspotKernel.evaluate(gas, CATALOG, new HotspotKernel.HotspotState(.1, 500));
-        budget(gas, stale);
-        assertEquals(stale.mixture().temperatureKelvin(), stale.nextState().orElseThrow().temperatureKelvin());
-        assertThrows(IllegalArgumentException.class, () -> new HotspotKernel.HotspotState(Double.NaN, 400));
-        assertThrows(IllegalArgumentException.class, () -> new HotspotKernel.HotspotState(-1, 400));
-        var tiny = mix(400, .001, 0, .001, 0);
-        assertSame(tiny, HotspotKernel.evaluate(tiny, CATALOG, null).mixture());
-        var vacuum = GasMixture.vacuum();
-        budget(vacuum, HotspotKernel.evaluate(vacuum, CATALOG, null));
+        var old = new HotspotState(100, 500, false, true);
+        var unchanged = HotspotKernel.expose(gas, old, 800, 250, false, true).orElseThrow();
+        assertEquals(old, unchanged);
+        var boosted = HotspotKernel.expose(gas, old, 800, 250, true, true).orElseThrow();
+        assertEquals(250, boosted.volumeLiters());
+        assertEquals(800, boosted.temperatureKelvin());
+        assertFalse(boosted.skippedFirstProcess());
+        assertTrue(boosted.bypass());
     }
 
-    @Test void exactFullThresholdAndLowInventorySeed() {
-        var gas = mix(400, .01, 0, .01, 0);
-        var seed = HotspotKernel.evaluate(gas, CATALOG, null);
-        assertEquals(1, seed.nextState().orElseThrow().fraction());
-        assertEquals(.0001, seed.totalFireExtentMoles(), 1e-12);
-        budget(gas, seed);
-        var below = HotspotKernel.evaluate(mix(400, 1, 0, 1, 0), CATALOG,
-                new HotspotKernel.HotspotState(Math.nextDown(.95), 400));
-        var at = HotspotKernel.evaluate(mix(400, 1, 0, 1, 0), CATALOG,
-                new HotspotKernel.HotspotState(.95, 400));
-        assertTrue(below.totalFireExtentMoles() < at.totalFireExtentMoles());
-        assertEquals(.01, at.totalFireExtentMoles(), 1e-12);
+    @Test void newQuarterCellExposureScalesByTwentyFiveOnceAndRequiresStrictFuelAndOxygen() {
+        var gas = mix(400, 1, 0, 1, 0);
+        var seeded = HotspotKernel.expose(gas, null, 400, 250, false, true).orElseThrow();
+        assertEquals(6250, seeded.volumeLiters());
+        double cutoff = AtmosphereUnits.referenceTileQuantity(.5);
+        double belowCutoff = Math.nextDown((float) cutoff);
+        var atCutoff = new GasMixture(Map.of(GasType.OXYGEN, belowCutoff,
+                GasType.TRITIUM, belowCutoff, GasType.PLASMA, 0.0), 400);
+        assertTrue(HotspotKernel.expose(atCutoff, null, 400, 10, false, true).isEmpty());
+        var belowFuel = new GasMixture(Map.of(GasType.OXYGEN, cutoff + .1,
+                GasType.TRITIUM, belowCutoff, GasType.PLASMA, 0.0), 400);
+        assertTrue(HotspotKernel.expose(belowFuel, null, 400, 10, false, true).isEmpty());
     }
 
-    @Test void mixedFuelSkipsNonburningPlasmaSeedAndIgnitesEligibleTritium() {
-        var requested = mix(400, .01, 1, 1, 0);
-        var requestedResult = HotspotKernel.evaluate(requested, CATALOG, null);
-        assertEquals(1, requestedResult.nextState().orElseThrow().fraction());
-        assertEquals(GasReactionData.EffectType.TRITIUM_FIRE, requestedResult.events().getFirst().effect());
-        assertEquals(.01, requestedResult.events().getFirst().extentMoles(), 1e-12);
-        budget(requested, requestedResult);
-
-        var before = mix(400, .01, 1, .1, 0);
-        var result = HotspotKernel.evaluate(before, CATALOG, null);
-        assertEquals(1, result.events().size());
-        assertEquals(GasReactionData.EffectType.TRITIUM_FIRE, result.events().getFirst().effect());
-        assertEquals(.001, result.totalFireExtentMoles(), 1e-12);
-        assertEquals(1, result.nextState().orElseThrow().fraction());
-        assertEquals(1, result.mixture().moles(GasType.PLASMA));
-        budget(before, result);
-
-        var below = mix(400, Math.nextDown(.01), 1, .1, 0);
-        var quenched = HotspotKernel.evaluate(below, CATALOG, null);
-        assertSame(below, quenched.mixture());
-        assertTrue(quenched.events().isEmpty());
-        assertTrue(quenched.nextState().isEmpty());
-        budget(below, quenched);
+    @Test void ignitionGateUsesFloatNormalizedThresholdAndCombinedFuel() {
+        double threshold = (double) (float) AtmosphereUnits.referenceTileQuantity(.5);
+        var exact = mix(400, threshold, 0, threshold, 0);
+        assertTrue(HotspotKernel.expose(exact, null, 400, 10, false, true).isEmpty());
+        var mixedExact = mix(400, (double) .1f, (double) .1f, Math.nextUp((float) threshold), 0);
+        assertTrue(HotspotKernel.expose(mixedExact, null, 400, 10, false, true).isEmpty());
+        var above = mix(400, Math.nextUp((float) threshold), 0, Math.nextUp((float) threshold), 0);
+        assertTrue(HotspotKernel.expose(above, null, 400, 10, false, true).isPresent());
     }
 
-    @Test void plasmaSeedMustPassStrictPreliminaryRateWithoutOverIgniting() {
-        var before = mix(400, 0, 2, 2, 0);
-        var result = HotspotKernel.evaluate(before, CATALOG, null);
-        assertEquals(1, result.events().size());
-        assertEquals(GasReactionData.EffectType.PLASMA_FIRE, result.events().getFirst().effect());
-        assertTrue(result.totalFireExtentMoles() > 0);
-        double burned = before.moles(GasType.PLASMA) - result.mixture().moles(GasType.PLASMA);
-        assertTrue(burned > .0003, "preliminary rate must be strictly above the cutoff");
-        assertTrue(burned < .000301, "seed should not fall back to a full-cell burn");
-        budget(before, result);
+    @Test void bypassRequiresStrictlyMoreThanNinetyFivePercentAndReusesPriorExtent() {
+        var gas = mix(500, 1, 0, 1, 0);
+        var bypass = HotspotKernel.process(CATALOG, gas, ready(951, 900), .012);
+        assertSame(gas, bypass.mixture());
+        assertTrue(bypass.events().isEmpty());
+        assertEquals(.012, bypass.fireExtentMoles());
+        assertEquals(480, bypass.nextState().orElseThrow().volumeLiters());
+        var exactly = HotspotKernel.process(CATALOG, gas, ready(950, 900), .012);
+        assertFalse(exactly.events().isEmpty());
+    }
 
-        var ordinary = HotspotKernel.evaluate(mix(1643.15, 0, 1, 100, 0), CATALOG, null);
-        assertEquals(.1 + 40 * ordinary.totalFireExtentMoles(),
-                ordinary.nextState().orElseThrow().fraction(), 1e-12);
-        assertTrue(ordinary.totalFireExtentMoles() > 0);
-        assertTrue(ordinary.totalFireExtentMoles() < .05);
-        var below = mix(400, 0, Math.nextDown(.01), 100, 0);
-        assertTrue(HotspotKernel.evaluate(below, CATALOG, null).events().isEmpty());
+    @Test void fullPriorityCatalogRunsButOnlyFireEventsContributeToExtent() {
+        var gas = mix(900, 1, 0, 1, 2);
+        var result = HotspotKernel.process(CATALOG, gas, ready(250, 900), 0);
+        assertTrue(result.events().stream().anyMatch(e -> e.effect() == GasReactionData.EffectType.N2O_DECOMPOSITION));
+        assertTrue(result.events().stream().anyMatch(e -> e.effect() == GasReactionData.EffectType.TRITIUM_FIRE));
+        double fireExtent = result.events().stream()
+                .filter(e -> e.effect() == GasReactionData.EffectType.TRITIUM_FIRE
+                        || e.effect() == GasReactionData.EffectType.PLASMA_FIRE)
+                .mapToDouble(GasReactionEvaluator.Event::extentMoles).sum();
+        assertEquals(fireExtent, result.fireExtentMoles(), 1e-12);
+        assertEquals(fireExtent * 40000, result.nextState().orElseThrow().volumeLiters(), 1e-8);
+    }
+
+    @Test void lastFireEffectResultWinsEvenWhenItHasNoReactionEvent() {
+        var gas = mix(373.15, 1, .02, 1, 0);
+        var result = HotspotKernel.process(CATALOG, gas, ready(250, 373.15), 0);
+        assertTrue(result.events().stream().anyMatch(e -> e.effect() == GasReactionData.EffectType.TRITIUM_FIRE));
+        assertFalse(result.events().stream().anyMatch(e -> e.effect() == GasReactionData.EffectType.PLASMA_FIRE));
+        assertEquals(0, result.fireExtentMoles());
+        assertEquals(0, result.nextState().orElseThrow().volumeLiters());
+    }
+
+    @Test void zeroFireExtentKeepsZeroVolumeStateUntilFollowingDuePass() {
+        var empty = new PrototypeCatalog<GasReactionData>(Map.of());
+        var gas = mix(400, 1, 0, 1, 0);
+        var first = HotspotKernel.process(empty, gas, ready(20, 400), 0);
+        assertTrue(first.events().isEmpty());
+        assertEquals(0, first.nextState().orElseThrow().volumeLiters());
+        var next = HotspotKernel.process(empty, gas, first.nextState().orElseThrow(), 0);
+        assertTrue(next.nextState().isEmpty());
+    }
+
+    @Test void priorWholeFireResultIsReusedOnlyByBypass() {
+        var empty = new PrototypeCatalog<GasReactionData>(Map.of());
+        var gas = mix(400, 1, 0, 1, 0);
+        var partial = HotspotKernel.process(empty, gas, ready(100, 400), 7);
+        assertEquals(0, partial.nextState().orElseThrow().volumeLiters());
+        var bypass = HotspotKernel.process(empty, gas, ready(951, 400), 7);
+        assertSame(gas, bypass.mixture());
+        assertTrue(bypass.events().isEmpty());
+        assertEquals(280000, bypass.nextState().orElseThrow().volumeLiters());
+    }
+
+    @Test void explicitHeatTransferReconciliationPreservesMetadataEvenWhenGasQuenches() {
+        var before = mix(500, 1, 0, 1, 0);
+        var state = ready(250, 600);
+        var reconciled = HotspotKernel.reconcileAfterHeatTransfer(before, GasMixture.vacuum(), state).orElseThrow();
+        assertEquals(state, reconciled);
+    }
+
+    @Test void explicitStateAndExposureRetainInputValidation() {
+        assertThrows(IllegalArgumentException.class, () -> new HotspotState(Double.NaN, 400, true, false));
+        assertThrows(IllegalArgumentException.class, () -> new HotspotState(-1, 400, true, false));
+        assertThrows(IllegalArgumentException.class, () -> new HotspotState(1, Double.POSITIVE_INFINITY, true, false));
+        var gas = mix(400, 1, 0, 1, 0);
+        assertTrue(HotspotKernel.expose(gas, null, Double.NaN, 10, false, true).isEmpty());
+        assertTrue(HotspotKernel.expose(gas, null, 400, Double.POSITIVE_INFINITY, false, true).isEmpty());
+        assertTrue(HotspotKernel.expose(gas, null, 400, 0, false, true).isEmpty());
     }
 }

@@ -18,12 +18,15 @@ import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 @PrefixGameTestTemplate(false)
 @GameTestTags({"explosion"})
 public final class ExplosionGameTests {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExplosionGameTests.class);
     private static final BlastPlanner.Proposal PROPOSAL = new BlastPlanner.Proposal(120, 3, 10);
 
     private ExplosionGameTests() { }
@@ -60,7 +63,7 @@ public final class ExplosionGameTests {
     public static void entityDamageIsAppliedOnceAcrossAdjacentBlastCells(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = pos(helper, 2, 2, 2);
-        Zombie zombie = helper.spawn(EntityType.ZOMBIE, pos(helper, 3, 2, 2));
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 2, 2));
         zombie.setNoAi(true);
         zombie.setNoGravity(true);
         // Center at the boundary so its bounding box occupies the source voxel and neighboring blast voxels.
@@ -73,6 +76,71 @@ public final class ExplosionGameTests {
             var damage = zombie.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
             require(damage != null && damage.getMap().values().stream().mapToDouble(Float::doubleValue).sum() > 0,
                     "blast applies typed damage attachment");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"merge-main-regression"})
+    public static void blastKnocksLivingTargetsOutwardAndSkipsIneligibleTargets(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlastPlanner.Proposal nonlethalProposal = new BlastPlanner.Proposal(10, 3, 10);
+        BlockPos source = pos(helper, 5, 2, 5);
+        Zombie east = helper.spawn(EntityType.ZOMBIE, new BlockPos(6, 2, 5));
+        Zombie west = helper.spawn(EntityType.ZOMBIE, new BlockPos(4, 2, 5));
+        Zombie immovable = helper.spawn(EntityType.ZOMBIE, new BlockPos(5, 2, 6));
+        east.setNoAi(true); west.setNoAi(true); immovable.setNoAi(true);
+        east.setNoGravity(true); west.setNoGravity(true); immovable.setNoGravity(true);
+        // Keep the east target in voxel X6 while its center is west of that voxel's center.
+        // Voxel-origin knockback incorrectly points it back toward the blast at X5.
+        east.setPos(source.getX() + 0.75, source.getY(), source.getZ() + 0.5);
+        west.setPos(source.getX() - 0.75, source.getY(), source.getZ() + 0.5);
+        immovable.noPhysics = true;
+        // Keep this target eligible for blast damage accounting, but prevent vanilla hurt
+        // knockback from obscuring whether the custom blast impulse respects noPhysics.
+        immovable.setInvulnerable(true);
+        helper.runAfterDelay(2, () -> {
+            require(east.isAlive() && west.isAlive() && immovable.isAlive(), "all blast targets alive before execution");
+            require(!east.noPhysics && !west.noPhysics && immovable.noPhysics, "blast target eligibility setup");
+            require(east.blockPosition().equals(new BlockPos(source.getX(), source.getY(), source.getZ()))
+                            && west.blockPosition().equals(new BlockPos(source.getX() - 1, source.getY(), source.getZ())),
+                    "blast target placement before execution: east=" + east.position() + " west=" + west.position());
+            east.setDeltaMovement(10, 0, 0);
+            immovable.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            var immovableBefore = immovable.getDeltaMovement();
+            LOGGER.info("Blast knockback fixture before execute: east pos={} alive={} hp={} vel={}, west pos={} alive={} hp={} vel={}, "
+                            + "immovable pos={} alive={} hp={} noPhysics={} vel={}",
+                    east.position(), east.isAlive(), east.getHealth(), east.getDeltaMovement(), west.position(),
+                    west.isAlive(), west.getHealth(), west.getDeltaMovement(), immovable.position(),
+                    immovable.isAlive(), immovable.getHealth(), immovable.noPhysics, immovableBefore);
+            var result = ServerExplosionService.execute(level, source, ModExplosions.DEFAULT_ID, nonlethalProposal);
+            require(result.status() == ServerExplosionService.Status.APPLIED, "blast applied: " + result);
+            LOGGER.info("Blast knockback fixture after execute: result={}, east pos={} alive={} hp={} vel={}, "
+                            + "west pos={} alive={} hp={} vel={}, immovable pos={} alive={} hp={} noPhysics={} vel={}",
+                    result, east.position(), east.isAlive(), east.getHealth(), east.getDeltaMovement(), west.position(),
+                    west.isAlive(), west.getHealth(), west.getDeltaMovement(), immovable.position(),
+                    immovable.isAlive(), immovable.getHealth(), immovable.noPhysics, immovable.getDeltaMovement());
+            require(east.getDeltaMovement().x > 0 && west.getDeltaMovement().x < 0,
+                    "opposite targets move outward: east=" + east.getDeltaMovement() + " west=" + west.getDeltaMovement());
+            require(east.getDeltaMovement().length() <= 1.500001 && west.getDeltaMovement().length() <= 1.500001,
+                    "blast impulse is bounded");
+            require(immovable.getDeltaMovement().equals(immovableBefore), "no-physics target untouched");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void rejectedBlastDoesNotKnockBackLivingTarget(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos source = pos(helper, 3, 2, 3);
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, pos(helper, 4, 2, 3));
+        zombie.setNoAi(true);
+        zombie.setNoGravity(true);
+        helper.runAfterDelay(2, () -> {
+            var result = ServerExplosionService.execute(level, source,
+                    ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "missing-explosion"), PROPOSAL);
+            require(result.status() == ServerExplosionService.Status.UNKNOWN_PROTOTYPE, "unknown blast rejected");
+            require(zombie.getDeltaMovement().equals(net.minecraft.world.phys.Vec3.ZERO), "rejected blast has no motion effect");
             helper.succeed();
         });
     }

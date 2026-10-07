@@ -38,6 +38,15 @@ import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualNetworkin
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualPayload;
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualResyncRequest;
 import com.juicyslew.moonstation14.ms14.power.ui.client.ApcScreen;
+import com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalBuildScreen;
+import com.juicyslew.moonstation14.ms14.disposal.unit.ui.client.DisposalUnitScreen;
+import com.juicyslew.moonstation14.ms14.disposal.client.DisposalTubeClientCache;
+import com.juicyslew.moonstation14.ms14.disposal.client.DisposalTubeVisualRenderer;
+import com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalConstructionPreview;
+import com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalConstructionClient;
+import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
+import com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualNetworking;
+import com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualPayload;
 import com.juicyslew.moonstation14.ms14.ui.client.gallery.MachineUiGalleryCommands;
 import com.juicyslew.moonstation14.ms14.power.ui.ApcNetworking;
 import com.juicyslew.moonstation14.block.ModMenus;
@@ -106,6 +115,7 @@ public class MoonStation14Client {
     private static final CableVisualClientCache CABLE_VISUALS = new CableVisualClientCache();
     private static final CableVisualResyncScheduler CABLE_RESYNC = new CableVisualResyncScheduler();
     private static final CableVisualPendingSnapshots CABLE_PENDING = new CableVisualPendingSnapshots();
+    private static final DisposalTubeClientCache DISPOSAL_TUBES = new DisposalTubeClientCache();
     private static net.minecraft.resources.ResourceLocation cableWorldDimension;
     private static net.minecraft.resources.ResourceLocation atmosphereDimension;
     private static transient boolean serverAtmosVisualsActive;
@@ -128,6 +138,7 @@ public class MoonStation14Client {
         modEventBus.addListener(BodyHandClient::registerKeys);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.standing.client.PostureClient::register);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient::register);
+        modEventBus.addListener(DisposalConstructionClient::registerKeys);
 
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
@@ -138,6 +149,7 @@ public class MoonStation14Client {
                 com.juicyslew.moonstation14.ms14.damage.client.DamageFeedbackClientState::receive);
         AtmosphereVisualNetworking.installClientHandler(MoonStation14Client::handleAtmospherePayload);
         CableVisualNetworking.installClientHandler(MoonStation14Client::handleCableVisualPayload);
+        DisposalTubeVisualNetworking.installClientHandler(MoonStation14Client::handleDisposalTubePayload);
         LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
         GrenadeSoundNetworking.installClientHandler(GrenadeSoundClient::receive);
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
@@ -154,12 +166,19 @@ public class MoonStation14Client {
 
     static void onClientSetup(FMLClientSetupEvent event) {
         ModSpecialProperties.addCustomItemProperties(event);
+        DisposalTubeBlock.setRecordProvider((level,pos) -> DISPOSAL_TUBES.get(level.dimension().location(),pos));
+        DisposalConstructionClient.register();
+        DisposalConstructionClient.installPreviewProviders();
+        DisposalConstructionClient.setTubeRecordProvider((pos,dimension) -> DISPOSAL_TUBES.get(dimension,pos));
+        DisposalConstructionPreview.register();
         // SET ALL BLOCK RENDERTYPES THAT NEED TO BE TRANSPARENT
     }
 
     private static void registerMenuScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.APC.get(), ApcScreen::new);
         event.register(ModMenus.AIR_ALARM.get(), AirAlarmScreen::new);
+        event.register(ModMenus.DISPOSAL_BUILD.get(), DisposalBuildScreen::new);
+        event.register(ModMenus.DISPOSAL_UNIT.get(), DisposalUnitScreen::new);
     }
 
     private static void handleCableVisualPayload(CableVisualPayload payload) {
@@ -176,6 +195,18 @@ public class MoonStation14Client {
     public static void renderCableVisuals(RenderLevelStageEvent event) {
         CableVisualRenderer.render(event, CABLE_VISUALS);
     }
+
+    @SubscribeEvent public static void renderDisposalTubes(RenderLevelStageEvent event) {
+        DisposalTubeVisualRenderer.render(event, DISPOSAL_TUBES);
+    }
+    private static void handleDisposalTubePayload(DisposalTubeVisualPayload payload) {
+        Minecraft minecraft=Minecraft.getInstance();
+        if(minecraft.level==null||minecraft.player==null||!minecraft.level.dimension().location().equals(payload.dimension())
+                ||!minecraft.level.hasChunk(payload.chunkX(),payload.chunkZ()))return;
+        DISPOSAL_TUBES.replace(payload.dimension(),payload.chunkX(),payload.chunkZ(),payload.reset(),payload.records());
+    }
+    static void clearDisposalTubeVisuals(){DISPOSAL_TUBES.clear();}
+    static void unloadDisposalTubeChunk(net.minecraft.resources.ResourceLocation dimension,int x,int z){DISPOSAL_TUBES.remove(dimension,x,z);}
 
     @SubscribeEvent
     public static void renderBodyBlockOutline(RenderLevelStageEvent event) {
@@ -732,6 +763,11 @@ public class MoonStation14Client {
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.VISUAL_PIPE.get(), VisualPipeBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.THROWN_GRENADE.get(), ThrownItemRenderer::new);
+        event.registerEntityRenderer(ModEntities.DISPOSAL_TRANSIT_HOLDER.get(), context -> new net.minecraft.client.renderer.entity.EntityRenderer<>(context) {
+            @Override public net.minecraft.resources.ResourceLocation getTextureLocation(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder entity) {
+                return net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/misc/white.png");
+            }
+        });
     }
 
     private static void handleCatalogPayload(PrototypeCatalogSyncPayload payload,
@@ -915,6 +951,7 @@ final class MoonStation14ClientNetworkEvents {
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.resetAtmosphereVisualsForLogin();
         MoonStation14Client.resetCableVisualsForLogin();
+        MoonStation14Client.clearDisposalTubeVisuals();
     }
 
     @SubscribeEvent
@@ -924,6 +961,7 @@ final class MoonStation14ClientNetworkEvents {
         MoonStation14Client.clearCatalogSync();
         MoonStation14Client.clearAtmosphereVisuals();
         MoonStation14Client.clearCableVisuals();
+        MoonStation14Client.clearDisposalTubeVisuals();
     }
 
     @SubscribeEvent
@@ -932,6 +970,7 @@ final class MoonStation14ClientNetworkEvents {
         var position = event.getChunk().getPos();
         MoonStation14Client.unloadAtmosphereChunk(level.dimension().location(), position.x, position.z);
         MoonStation14Client.unloadCableChunk(level.dimension().location(), position.x, position.z);
+        MoonStation14Client.unloadDisposalTubeChunk(level.dimension().location(),position.x,position.z);
     }
 
     @SubscribeEvent

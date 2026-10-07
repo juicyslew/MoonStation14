@@ -3,7 +3,6 @@ package com.juicyslew.moonstation14.ms14.atmos.world;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 
-import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,24 +27,13 @@ public record BreathExchange(GasMixture inhaled, GasMixture roomAfter) {
             if (requestedMoles == 0.0 && exhaled.totalMoles() == 0.0)
                 return Optional.of(new BreathExchange(new GasMixture(Map.of(), room.temperatureKelvin()), room));
             double available = room.totalMoles();
-            double inhaledMoles = Math.min(requestedMoles, available);
-            GasMixture inhaled = available == 0.0
-                    ? new GasMixture(Map.of(), room.temperatureKelvin())
-                    : room.withScaledMoles(inhaledMoles / available);
-            GasMixture remainder = available == 0.0
-                    ? room
-                    : room.withScaledMoles((available - inhaledMoles) / available);
-
-            EnumMap<GasType, Double> combined = new EnumMap<>(GasType.class);
-            remainder.gasMoles().forEach(combined::put);
-            exhaled.gasMoles().forEach((type, amount) -> combined.merge(type, amount, Double::sum));
-            double energy = remainder.thermalEnergy() + exhaled.thermalEnergy();
-            double capacity = combined.entrySet().stream()
-                    .mapToDouble(entry -> entry.getValue() * entry.getKey().molarHeatCapacity()).sum();
-            double temperature = capacity == 0.0 ? remainder.temperatureKelvin() : energy / capacity;
-            GasMixture after = new GasMixture(combined, temperature);
-            if (!Double.isFinite(energy) || !Double.isFinite(capacity) || !Double.isFinite(temperature))
-                return Optional.empty();
+            double ratio = available == 0.0 ? 0.0 : Math.min(1.0, requestedMoles / available);
+            GasMixture.Removal split = room.splitRatio(ratio);
+            GasMixture inhaled = split.removed();
+            GasMixture remainder = split.remaining();
+            // An empty former lung is not merged: upstream breathing has no exhalation on
+            // its initial fresh-lung pass, and merging an empty giver changes thermal gates.
+            GasMixture after = exhaled.totalMoles() == 0.0 ? remainder : remainder.mergedWith(exhaled);
             return Optional.of(new BreathExchange(inhaled, after));
         } catch (IllegalArgumentException | IllegalStateException exception) {
             return Optional.empty();

@@ -12,7 +12,7 @@ import net.minecraft.resources.ResourceLocation;
 /** Untrusted block-use nomination; it never requests an edit or item consumption. */
 public record BodyBlockUseRequest(long epoch, long sequence, long expectedRevision, String handId, String expectedToken,
                                  BlockPos target, Direction face, boolean sneaking, Intent intent) implements CustomPacketPayload {
-    public enum Intent { USE, ACTIVATE_WORLD }
+    public enum Intent { USE, ACTIVATE_WORLD, CLIMB_INSIDE }
     public static final Type<BodyBlockUseRequest> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("moonstation14", "body_block_use"));
     public static final StreamCodec<RegistryFriendlyByteBuf, BodyBlockUseRequest> STREAM_CODEC = StreamCodec.of((b,r)->{
         b.writeVarLong(r.epoch); b.writeVarLong(r.sequence); b.writeVarLong(r.expectedRevision);

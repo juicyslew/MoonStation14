@@ -26,6 +26,7 @@
     "ServerPlayerCommittedSpectatorCameraMixin",
     "ServerPlayerCommittedSpectatorTeleportMixin",
     "MobMindHarnessOwnerMixin",
+    "MobDisposalContainmentAiMixin",
     "LivingEntityMindHarnessTravelMixin",
     "LivingEntityDeathStateAccessor",
     "LivingEntityMedicalCorpseMixin",
@@ -55,7 +56,11 @@
     "client.MobMindHarnessWalkAnimationMixin",
     "client.GameRendererDamageFeedbackMixin",
     "client.LivingEntityRendererDamageFeedbackMixin",
-    "client.LevelRendererCriticalCloudsMixin"
+    "client.LevelRendererCriticalCloudsMixin",
+    "client.LivingEntityDisposalContainmentRenderMixin",
+    "client.ContainedBodyCameraMixin",
+    "client.ContainedPerspectiveLockMixin",
+    "client.ContainedOwnerPickMixin"
   ],
   "injectors": {
     "defaultRequire": 1

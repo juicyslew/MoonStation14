@@ -3,144 +3,91 @@ package com.juicyslew.moonstation14.ms14.atmos.reaction;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
-import java.util.EnumMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeSet;
-import net.minecraft.resources.ResourceLocation;
 
-/** Detached one-step partial-volume fire. No cell ownership, persistence or spread is implied. */
+/** Explicit-volume local fire processing. */
 public final class HotspotKernel {
-    private static final double IGNITION_KELVIN = 373.15;
-    private static final double SEED_FRACTION = 0.10;
+    private static final double IGNITION_KELVIN = (double) 373.15f;
+    private static final double SPREAD_MINIMUM_KELVIN = 423.15;
     private static final double FULL_THRESHOLD = 0.95;
-    // SS14's 40,000 L/mol growth divided by the local 1,000 L cell: provisional tuning.
-    private static final double GROWTH_PER_MOLE = 40;
+    private static final double IGNITABLE_MOLES = (double) (float)
+            com.juicyslew.moonstation14.ms14.atmos.core.AtmosphereUnits.referenceTileQuantity(0.5);
 
-    private HotspotKernel() {}
+    private HotspotKernel() { }
 
-    /** Temperature is informational, never an independent energy source. */
-    public record HotspotState(double fraction, double temperatureKelvin) {
-        public HotspotState {
-            if (!Double.isFinite(fraction) || fraction <= 0 || fraction > 1
-                    || !Double.isFinite(temperatureKelvin) || temperatureKelvin < 0)
-                throw new IllegalArgumentException("invalid hotspot state");
-        }
+    /** Only an already-past-first-process hotspot visit resets excited-group pacing. */
+    public static boolean shouldResetExcitedGroupCooldowns(HotspotState state) {
+        return state != null && state.skippedFirstProcess();
     }
 
-    /** Empty nextState means quenched; events and extent contain only actual fire reactions. */
-    public record Result(GasMixture mixture, List<GasReactionEvaluator.Event> events,
-                         double totalFireExtentMoles, Optional<HotspotState> nextState) {
-        public Result {
-            events = List.copyOf(events);
-            nextState = Objects.requireNonNull(nextState, "nextState");
-        }
+    public record ProcessResult(GasMixture mixture, List<GasReactionEvaluator.Event> events,
+                                double fireExtentMoles, Optional<HotspotState> nextState,
+                                boolean spreadEligibleThisPass) {
+        public ProcessResult { events = List.copyOf(events); Objects.requireNonNull(nextState); }
     }
 
-    /** Null state seeds a new hotspot; an existing fraction is retained after external cooling/diffusion. */
-    public static Result evaluate(GasMixture gas, PrototypeCatalog<GasReactionData> catalog, HotspotState state) {
-        Objects.requireNonNull(gas, "gas");
-        Objects.requireNonNull(catalog, "catalog");
-        if (!viable(gas)) return quenched(gas);
-
-        // Only full-cell eligible prototypes may ignite. Try the smallest fractions which
-        // satisfy their portion gates, then verify actual effect viability on a detached portion.
-        Map<ResourceLocation, GasReactionData> eligible = new LinkedHashMap<>();
-        TreeSet<Double> candidates = new TreeSet<>();
-        double base = state == null ? SEED_FRACTION : state.fraction();
-        for (var entry : catalog.asMap().entrySet()) {
-            var reaction = entry.getValue();
-            if (gas.temperatureKelvin() < reaction.minimumTemperature()
-                    || gas.temperatureKelvin() > reaction.maximumTemperature()
-                    || gas.thermalEnergy() < reaction.minimumEnergy()) continue;
-            double required = reaction.minimumEnergy() / gas.thermalEnergy();
-            boolean allowed = true;
-            for (var requirement : reaction.minimumRequirements().entrySet()) {
-                double available = gas.moles(requirement.getKey());
-                if (available < requirement.getValue()) { allowed = false; break; }
-                if (requirement.getValue() > 0)
-                    required = Math.max(required, requirement.getValue() / available);
-            }
-            if (!allowed) continue;
-            boolean hasFire = false;
-            for (var effect : reaction.effects()) {
-                GasType fuel = switch (effect.type()) {
-                    case TRITIUM_FIRE -> GasType.TRITIUM;
-                    case PLASMA_FIRE -> GasType.PLASMA;
-                    default -> null;
-                };
-                if (fuel == null || gas.moles(fuel) <= 0 || gas.moles(GasType.OXYGEN) <= 0) continue;
-                hasFire = true;
-                double candidate = Math.max(base, required);
-                if (effect.type() == GasReactionData.EffectType.PLASMA_FIRE) {
-                    double scale = Math.min(1, (gas.temperatureKelvin() - IGNITION_KELVIN) / 1270);
-                    double preliminary = (gas.moles(GasType.OXYGEN) > gas.moles(fuel) * 10
-                            ? gas.moles(fuel) : gas.moles(GasType.OXYGEN) / 10) * scale / 9;
-                    if (preliminary <= 0.0003) continue;
-                    // A small margin covers roundoff when the portion recomputes temperature
-                    // from scaled heat capacity; the actual evaluator still decides viability.
-                    candidate = Math.max(candidate, Math.min(1, Math.nextUp(
-                            (0.0003 / preliminary) * (1 + 1e-12))));
-                }
-                if (candidate <= 1) candidates.add(candidate);
-            }
-            if (hasFire) eligible.put(entry.getKey(), reaction);
+    /** State lifecycle: first due visit only clears skip; subsequent visits process metadata volume. */
+    public static ProcessResult process(PrototypeCatalog<GasReactionData> catalog, GasMixture mixture,
+                                        HotspotState state, double priorFireResultMoles) {
+        Objects.requireNonNull(catalog); Objects.requireNonNull(mixture);
+        if (!Double.isFinite(priorFireResultMoles) || priorFireResultMoles < 0)
+            throw new IllegalArgumentException("invalid prior fire extent");
+        double cellLiters = mixture.volumeCubicMeters() * 1000;
+        if (state == null) return new ProcessResult(mixture, List.of(), 0, Optional.empty(), false);
+        if (!state.skippedFirstProcess()) return new ProcessResult(mixture, List.of(), 0,
+                Optional.of(new HotspotState(state.volumeLiters(), state.temperatureKelvin(), true, state.bypass())), false);
+        if (state.temperatureKelvin() < IGNITION_KELVIN || state.volumeLiters() <=
+                (double) (float) com.juicyslew.moonstation14.ms14.atmos.core.AtmosphereUnits.referenceTileQuantity(1.0)
+                || !mixtureIsIgnitable(mixture))
+            return new ProcessResult(mixture, List.of(), 0, Optional.empty(), false);
+        boolean bypass = state.volumeLiters() > cellLiters * FULL_THRESHOLD;
+        if (bypass) {
+            double volume = priorFireResultMoles * 40000;
+            return new ProcessResult(mixture, List.of(), priorFireResultMoles,
+                    Optional.of(new HotspotState(volume, mixture.temperatureKelvin(), true, true)),
+                    mixture.temperatureKelvin() > SPREAD_MINIMUM_KELVIN);
         }
-        if (candidates.isEmpty()) return quenched(gas);
-        // The final full-cell trial also handles roundoff at a strict effect threshold.
-        candidates.add(1.0);
-        var fireCatalog = new PrototypeCatalog<>(eligible);
-        GasReactionEvaluator.Result fire = null;
-        GasMixture portion = null;
-        double fraction = 0;
-        double reactingFraction = 0;
-        for (double candidate : candidates) {
-            double trialFraction = candidate >= FULL_THRESHOLD ? 1 : candidate;
-            var trialPortion = gas.withScaledMoles(trialFraction);
-            var trial = GasReactionEvaluator.evaluate(fireCatalog, trialPortion,
-                    type -> type == GasReactionData.EffectType.TRITIUM_FIRE
-                            || type == GasReactionData.EffectType.PLASMA_FIRE);
-            if (trial.events().isEmpty()) continue;
-            fraction = candidate;
-            reactingFraction = trialFraction;
-            portion = trialPortion;
-            fire = trial;
-            break;
-        }
-        if (fire == null) return quenched(gas);
-        // Crossing the threshold this pass only changes nextState; full burn begins next due pass.
-
-        double extent = 0;
-        for (var event : fire.events()) extent += event.extentMoles();
-        if (!Double.isFinite(extent) || extent <= 0) throw new IllegalArgumentException("invalid fire extent");
-
-        EnumMap<GasType, Double> combined = new EnumMap<>(GasType.class);
-        for (GasType type : GasType.values()) {
-            double amount = (gas.moles(type) - portion.moles(type)) + fire.mixture().moles(type);
-            if (!Double.isFinite(amount) || amount < 0) throw new IllegalArgumentException("invalid merged inventory");
-            if (amount > 0) combined.put(type, amount);
-        }
-        double energy = (gas.thermalEnergy() - portion.thermalEnergy()) + fire.mixture().thermalEnergy();
-        if (!Double.isFinite(energy) || energy < 0) throw new IllegalArgumentException("invalid merged energy");
-        double capacity = 0;
-        for (var entry : combined.entrySet()) capacity += entry.getValue() * entry.getKey().molarHeatCapacity();
-        if (!Double.isFinite(capacity) || capacity <= 0) throw new IllegalArgumentException("invalid merged capacity");
-        GasMixture merged = new GasMixture(combined, energy / capacity);
-        if (!viable(merged)) return new Result(merged, fire.events(), extent, Optional.empty());
-        double nextFraction = reactingFraction == 1 ? 1 : Math.min(1, fraction + GROWTH_PER_MOLE * extent);
-        return new Result(merged, fire.events(), extent,
-                Optional.of(new HotspotState(nextFraction, merged.temperatureKelvin())));
+        var split = mixture.splitRatio(state.volumeLiters() / cellLiters);
+        GasMixture hot = new GasMixture(split.removed().gasMoles(), state.temperatureKelvin(),
+                split.removed().volumeCubicMeters());
+        GasReactionEvaluator.Result fired = GasReactionEvaluator.evaluate(catalog, hot, 0.0);
+        GasMixture merged = merge(split.remaining(), fired.mixture());
+        double extent = fired.fireReactionResultMoles();
+        double nextVolume = extent * 40000;
+        // Zero-volume continuation is intentional: the next due pass performs canonical extinction.
+        HotspotState next = new HotspotState(nextVolume, fired.mixture().temperatureKelvin(), true, false);
+        return new ProcessResult(merged, fired.events(), extent, Optional.of(next),
+                extent > 0 && fired.mixture().temperatureKelvin() > SPREAD_MINIMUM_KELVIN);
     }
 
-    private static boolean viable(GasMixture gas) {
-        return gas.temperatureKelvin() > IGNITION_KELVIN && gas.moles(GasType.OXYGEN) > 0
-                && (gas.moles(GasType.TRITIUM) > 0 || gas.moles(GasType.PLASMA) > 0);
+    /** Adds exposure metadata only; volume is multiplied by 25 exactly once for a new exposure. */
+    public static Optional<HotspotState> expose(GasMixture gas, HotspotState existing,
+                                                 double exposedTemperatureKelvin, double exposedVolumeLiters,
+                                                 boolean boost, boolean skippedFirstProcess) {
+        Objects.requireNonNull(gas);
+        exposedTemperatureKelvin = (double) (float) exposedTemperatureKelvin;
+        if (!Double.isFinite(exposedTemperatureKelvin) || !Double.isFinite(exposedVolumeLiters)
+                || exposedVolumeLiters <= 0 || (existing == null && exposedTemperatureKelvin <= IGNITION_KELVIN)
+                || !mixtureIsIgnitable(gas)) return Optional.ofNullable(existing);
+        double volume = existing == null ? exposedVolumeLiters * 25
+                : boost ? Math.max(existing.volumeLiters(), exposedVolumeLiters) : existing.volumeLiters();
+        double temperature = existing == null ? exposedTemperatureKelvin : boost
+                ? Math.max(existing.temperatureKelvin(), exposedTemperatureKelvin) : existing.temperatureKelvin();
+        return Optional.of(new HotspotState(volume, temperature,
+                existing == null ? skippedFirstProcess : existing.skippedFirstProcess(), existing != null && existing.bypass()));
     }
 
-    private static Result quenched(GasMixture gas) {
-        return new Result(gas, List.of(), 0, Optional.empty());
+    private static GasMixture merge(GasMixture a, GasMixture b) { return a.mergedWith(b); }
+    private static boolean mixtureIsIgnitable(GasMixture gas) {
+        return (double) (float) gas.moles(GasType.OXYGEN) > IGNITABLE_MOLES
+                && (double) (float) (gas.moles(GasType.PLASMA) + gas.moles(GasType.TRITIUM)) > IGNITABLE_MOLES;
+    }
+
+    public static Optional<com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState> reconcileAfterHeatTransfer(
+            GasMixture before, GasMixture after, com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState state) {
+        Objects.requireNonNull(before); Objects.requireNonNull(after); Objects.requireNonNull(state);
+        return Optional.of(state);
     }
 }

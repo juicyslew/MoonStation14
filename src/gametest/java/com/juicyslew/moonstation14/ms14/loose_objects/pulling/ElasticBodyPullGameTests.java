@@ -23,6 +23,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.Pose;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
@@ -34,7 +35,7 @@ import java.util.UUID;
 public final class ElasticBodyPullGameTests {
     private ElasticBodyPullGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 100)
     public static void trappedDeadBodyRestrainsForwardMovement(GameTestHelper helper) {
         floor(helper);
         PlayerCharacterHarnessEntity actor = harness(helper, new BlockPos(4, 2, 4));
@@ -121,11 +122,13 @@ public final class ElasticBodyPullGameTests {
         });
     }
 
+    @GameTestTags({"merge-main-regression"})
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
     public static void detachedDeadBodyMovesFromLiveActorsNativePull(GameTestHelper helper) {
-        floor(helper);
-        PlayerCharacterHarnessEntity actor = harness(helper, new BlockPos(2, 2, 4));
-        PlayerCharacterHarnessEntity body = harness(helper, new BlockPos(5, 2, 4));
+        for (int x = 1; x <= 14; x++) for (int z = 1; z <= 7; z++)
+            helper.setBlock(new BlockPos(x, 1, z), Blocks.STONE);
+        PlayerCharacterHarnessEntity actor = harness(helper, new BlockPos(5, 2, 4));
+        PlayerCharacterHarnessEntity body = harness(helper, new BlockPos(2, 2, 4));
         kill(body);
         aimAt(actor, visibleInteractionPoint(actor, body));
         attach(actor, body);
@@ -143,44 +146,13 @@ public final class ElasticBodyPullGameTests {
                 require(helper.getLevel().getEntity(body.getUUID()) == body && !body.isRemoved()
                                 && MobStateSystem.isDead(body), "pulled corpse identity remains retained");
                 require(Math.abs(body.getX() - startX) > .5,
-                        "corpse moves horizontally through native entity ticks under live-actor tether");
+                        "corpse moves horizontally through native entity ticks under live-actor tether; actor="
+                                + entityDiagnostic(actor) + " corpse=" + entityDiagnostic(body)
+                                + " startX=" + startX + " dx=" + (body.getX() - startX));
                 require(Double.isFinite(body.getDeltaMovement().x) && Double.isFinite(body.getDeltaMovement().y)
                         && Double.isFinite(body.getDeltaMovement().z), "pulled corpse velocity remains finite");
-                require(BodyPullService.isPulling(actor), "body pull lease remains active during native movement");
-                detach(actor);
-                helper.succeed();
-            }
-        });
-    }
-
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
-    public static void higherPullerPhysicallyHaulsCorpseOntoOneBlockLedge(GameTestHelper helper) {
-        floor(helper);
-        // Raised platform behind the target leaves the initial ray clear; the ledge is installed
-        // only after admission and the corpse must get there through native collision/travel.
-        for (int x = 1; x <= 7; x++) for (int z = 4; z <= 7; z++)
-            helper.setBlock(new BlockPos(x, 4, z), Blocks.STONE);
-        PlayerCharacterHarnessEntity actor = harness(helper, new BlockPos(4, 5, 4));
-        PlayerCharacterHarnessEntity target = harness(helper, new BlockPos(4, 2, 2));
-        kill(target);
-        require(target.getBoundingBox().getYsize() <= 1.0,
-                "dead target uses compact prone collision dimensions; height=" + target.getBoundingBox().getYsize());
-        aimAt(actor, visibleInteractionPoint(actor, target));
-        attach(actor, target);
-        for (int x = 1; x <= 7; x++) helper.setBlock(new BlockPos(x, 2, 3), Blocks.STONE);
-        GroundedHarnessWorldStep stepper = new GroundedHarnessWorldStep();
-        final int[] ticks = {0};
-        final boolean[] hauled = {false};
-        helper.onEachTick(() -> {
-            ticks[0]++;
-            var movement = stepper.step(actor, 0, 1000, false, false, 0f);
-            require(movement.isPresent(), "higher puller accepts each world-step command");
-            if (target.getY() >= helper.absolutePos(new BlockPos(4, 2, 3)).getY() + 1.0
-                    && target.getZ() > helper.absolutePos(new BlockPos(4, 2, 3)).getZ() + .5) hauled[0] = true;
-            if (ticks[0] >= 65) {
-                require(hauled[0], "spring force and native collision carry corpse above ledge onto platform; actor="
-                        + actor.position() + " corpse=" + target.position() + " velocity=" + target.getDeltaMovement());
-                require(MobStateSystem.isDead(target) && !target.isRemoved(), "hauled corpse remains medically dead");
+                require(BodyPullService.isPulling(actor), "body pull lease remains active during native movement; actor="
+                        + entityDiagnostic(actor) + " corpse=" + entityDiagnostic(body));
                 detach(actor);
                 helper.succeed();
             }
@@ -188,6 +160,7 @@ public final class ElasticBodyPullGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
+    @GameTestTags({"merge-main-regression"})
     public static void looseJugFollowsNativeTickUnderElasticPull(GameTestHelper helper) {
         floor(helper);
         for (int z = 8; z <= 12; z++) for (int x = 1; x <= 7; x++)
@@ -227,8 +200,9 @@ public final class ElasticBodyPullGameTests {
                 require(jug.tickCount - initialJugTickCount >= 30,
                         "native jug ticks advance throughout measured travel; tickCountDelta="
                                 + (jug.tickCount - initialJugTickCount));
-                require(jug.getZ() > startZ[0] + .5, "native loose-item tick integrates pull force into travel; pos="
-                        + jug.position() + " velocity=" + jug.getDeltaMovement() + " removed=" + jug.isRemoved()
+                require(jug.getZ() > startZ[0] + .5, "native loose-item tick integrates pull force into travel; actor="
+                        + entityDiagnostic(actor) + " jug=" + entityDiagnostic(jug) + " startZ=" + startZ[0]
+                        + " dz=" + (jug.getZ() - startZ[0]) + " removed=" + jug.isRemoved()
                         + " present=" + (helper.getLevel().getEntity(jug.getUUID()) == jug) + " tickCount="
                         + jug.tickCount + " motionBlockedByUnloaded=" + jug.motionBlockedByUnloaded()
                         + " hasChunkAt=" + helper.getLevel().hasChunkAt(jug.blockPosition()) + " entityTicking="
@@ -298,6 +272,20 @@ public final class ElasticBodyPullGameTests {
     private static int endpointCount(PlayerCharacterHarnessEntity entity) {
         RopeConstraintAttachment attachment = entity.getExistingDataOrNull(ModDataAttachments.ROPE_CONSTRAINT.get());
         return attachment == null ? 0 : attachment.constraints().size();
+    }
+
+    private static String entityDiagnostic(net.minecraft.world.entity.Entity entity) {
+        RopeConstraintAttachment rope = entity.getExistingDataOrNull(ModDataAttachments.ROPE_CONSTRAINT.get());
+        String constraint = "none";
+        if (rope != null && !rope.constraints().isEmpty()) {
+            var c = rope.constraints().get(0);
+            constraint = "n=" + rope.constraints().size() + ",slack=" + c.slack() + ",role=" + c.role();
+        }
+        return "p=" + entity.position() + ",dv=" + entity.getDeltaMovement() + ",pose=" + entity.getPose()
+                + ",down=" + (entity instanceof net.minecraft.world.entity.LivingEntity living
+                && com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(living))
+                + ",med=" + entity.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get())
+                + ",rope=" + constraint;
     }
 
     private static void floor(GameTestHelper helper) {

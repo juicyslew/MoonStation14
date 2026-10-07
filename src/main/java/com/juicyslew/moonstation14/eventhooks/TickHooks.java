@@ -20,6 +20,7 @@ import com.juicyslew.moonstation14.ms14.stomach.StomachSystem;
 import com.juicyslew.moonstation14.ms14.stomach.StomachDigestionTransfer;
 import com.juicyslew.moonstation14.ms14.status_effect.IStatusEffectTrait;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
+import com.juicyslew.moonstation14.ms14.hands.live.WelderOwnerTickService;
 import com.juicyslew.moonstation14.ms14.fire.FireStackSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.CarrierActivityPolicy;
@@ -48,10 +49,13 @@ public class TickHooks {
             new java.util.concurrent.atomic.AtomicBoolean();
     public static void onLivingEntityTick(EntityTickEvent.Pre event) {
         Entity entity = event.getEntity();
-        if (entity.level().isClientSide() || !(entity instanceof LivingEntity livingEntity)
-                || !(entity.level() instanceof ServerLevel serverLevel)) {
+        if (entity.level().isClientSide() || !(entity.level() instanceof ServerLevel serverLevel)) {
             return;
         }
+        // Fuel belongs to the current item/body owner, not to the carrier inventory.
+        // Run before the living-only systems guard so dropped world items are covered too.
+        WelderOwnerTickService.tick(entity, serverLevel);
+        if (!(entity instanceof LivingEntity livingEntity)) return;
         com.juicyslew.moonstation14.ms14.slip.SlipSystem.reconcileTarget(entity);
         // Resolve policy lazily on entity ticks so entities that joined before
         // prototype publication retry without eager state on ineligible hosts.
@@ -259,7 +263,12 @@ public class TickHooks {
                         EffectContext effectContext = new EffectContext(serverLevel, livingEntity,
                                 invocation.scale(), serverLevel.getRandom(), conditionContext,
                                 EffectCause.METABOLISM, Optional.of(reagentContext));
-                        EFFECT_SYSTEM.apply(effect, effectContext);
+                        var result = EFFECT_SYSTEM.apply(effect, effectContext);
+                        if (SickPopupProvenance.shouldTrace(result,
+                                livingEntity instanceof net.minecraft.server.level.ServerPlayer, effect)
+                                && livingEntity instanceof net.minecraft.server.level.ServerPlayer player) {
+                            SickPopupProvenance.log(player, invocation, profile);
+                        }
                     });
                 }, excludedReagents);
     }

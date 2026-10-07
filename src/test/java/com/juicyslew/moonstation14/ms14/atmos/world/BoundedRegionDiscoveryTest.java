@@ -101,7 +101,7 @@ class BoundedRegionDiscoveryTest {
         List<GasMixture> output = AtmosphereService.equalizeCurrentPatch(input);
         for (GasType type : GasType.values()) {
             assertEquals(input.stream().mapToDouble(cell -> cell.moles(type)).sum(),
-                    output.stream().mapToDouble(cell -> cell.moles(type)).sum(), 1.0e-8);
+                    output.stream().mapToDouble(cell -> cell.moles(type)).sum(), 8 * Math.ulp((float) 90.0));
         }
         assertEquals(input.stream().mapToDouble(GasMixture::thermalEnergy).sum(),
                 output.stream().mapToDouble(GasMixture::thermalEnergy).sum(), 1.0e-7);

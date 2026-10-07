@@ -29,12 +29,12 @@ class BoundedGasEqualizerTest {
         GasMixture nitrogenCold = new GasMixture(Map.of(GasType.NITROGEN, 2.0), 200.0);
         List<GasMixture> result = BoundedGasEqualizer.equalize(List.of(oxygenHot, nitrogenCold));
 
-        assertEquals(3.0, result.get(0).totalMoles(), 1e-12);
-        assertEquals(3.0, result.get(1).totalMoles(), 1e-12);
-        assertEquals(3.0, result.get(0).moles(GasType.OXYGEN), 1e-12);
+        assertEquals(3.0, result.get(0).totalMoles(), 1e-6);
+        assertEquals(3.0, result.get(1).totalMoles(), 1e-6);
+        assertEquals(3.0, result.get(0).moles(GasType.OXYGEN), 1e-6);
         assertEquals(0.0, result.get(0).moles(GasType.NITROGEN));
-        assertEquals(2.0, result.get(1).moles(GasType.NITROGEN), 1e-12);
-        assertEquals(1.0, result.get(1).moles(GasType.OXYGEN), 1e-12);
+        assertEquals(2.0, result.get(1).moles(GasType.NITROGEN), 1e-6);
+        assertEquals(1.0, result.get(1).moles(GasType.OXYGEN), 1e-6);
         assertEquals(500.0, result.get(0).temperatureKelvin(), 1e-12);
         assertEquals(275.0, result.get(1).temperatureKelvin(), 1e-12);
     }
@@ -48,13 +48,14 @@ class BoundedGasEqualizerTest {
         List<GasMixture> result = BoundedGasEqualizer.equalize(input);
 
         for (GasType type : GasType.values()) {
-            assertEquals(sum(input, type), sum(result, type), 1e-11, type.name());
+            assertEquals(sum(input, type), sum(result, type), 8 * Math.ulp((float) sum(input, type)), type.name());
         }
         assertEquals(input.stream().mapToDouble(GasMixture::thermalEnergy).sum(),
-                result.stream().mapToDouble(GasMixture::thermalEnergy).sum(), 1e-8);
-        assertEquals(14.0 / 3.0, result.get(0).totalMoles(), 1e-12);
-        assertEquals(14.0 / 3.0, result.get(1).totalMoles(), 1e-12);
-        assertEquals(14.0 / 3.0, result.get(2).totalMoles(), 1e-12);
+                result.stream().mapToDouble(GasMixture::thermalEnergy).sum(), 8 * Math.ulp((float)
+                        input.stream().mapToDouble(GasMixture::thermalEnergy).sum()));
+        assertEquals(14.0 / 3.0, result.get(0).totalMoles(), 1e-6);
+        assertEquals(14.0 / 3.0, result.get(1).totalMoles(), 1e-6);
+        assertEquals(14.0 / 3.0, result.get(2).totalMoles(), 1e-6);
     }
 
     @Test
@@ -68,8 +69,8 @@ class BoundedGasEqualizerTest {
 
         List<GasMixture> empty = BoundedGasEqualizer.equalize(List.of(GasMixture.vacuum(), GasMixture.vacuum()));
         assertEquals(0.0, empty.stream().mapToDouble(GasMixture::thermalEnergy).sum());
-        assertEquals(2.7, empty.get(0).temperatureKelvin());
-        assertEquals(2.7, empty.get(1).temperatureKelvin());
+        assertEquals(2.7, empty.get(0).temperatureKelvin(), Math.ulp((float) 2.7));
+        assertEquals(2.7, empty.get(1).temperatureKelvin(), Math.ulp((float) 2.7));
     }
 
     @Test

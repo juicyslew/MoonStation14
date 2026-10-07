@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /** Pure domain location. These records describe identity only, never Minecraft objects. */
 public sealed interface ItemLocation permits ItemLocation.BodyHand, ItemLocation.BodyEquipment,
-        ItemLocation.StorageCell, ItemLocation.WorldEntity {
+        ItemLocation.StorageCell, ItemLocation.WorldEntity, ItemLocation.DisposalContainer {
     int MAX_ID_LENGTH = 64;
 
     record BodyHand(UUID bodyId, String handId) implements ItemLocation {
@@ -32,6 +32,11 @@ public sealed interface ItemLocation permits ItemLocation.BodyHand, ItemLocation
 
     record WorldEntity(UUID worldId, UUID entityId) implements ItemLocation {
         public WorldEntity { Objects.requireNonNull(worldId, "worldId"); Objects.requireNonNull(entityId, "entityId"); }
+    }
+
+    /** Whole payload ownership by a disposal unit or transit holder. */
+    record DisposalContainer(UUID ownerId, String entryId) implements ItemLocation {
+        public DisposalContainer { Objects.requireNonNull(ownerId, "ownerId"); validateId(entryId, "entryId"); }
     }
 
     private static void validateId(String value, String name) {

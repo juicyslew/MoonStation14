@@ -47,8 +47,12 @@ public final class LoosePullGameTests {
         target.setNoPickUpDelay();
         require(level.addFreshEntity(target), "loose target spawned");
         target.tick(); // settle initial motion on the stone support before measuring pull behavior
-        body.setXRot((float) Math.toDegrees(Math.atan2(body.getEyeY() - target.getBoundingBox().getCenter().y,
-                Math.sqrt(Math.pow(body.getX() - target.getX(), 2) + Math.pow(body.getZ() - target.getZ(), 2)))));
+        Vec3 eye = body.getEyePosition();
+        Vec3 aim = target.getBoundingBox().getCenter();
+        double horizontal = Math.sqrt(Math.pow(aim.x - eye.x, 2) + Math.pow(aim.z - eye.z, 2));
+        body.setYRot((float) Math.toDegrees(Math.atan2(-(aim.x - eye.x), aim.z - eye.z)));
+        body.setYHeadRot(body.getYRot());
+        body.setXRot((float) -Math.toDegrees(Math.atan2(aim.y - eye.y, horizontal)));
         // The production tick intentionally requires its motion-sweep neighborhood to be resident.
         var motionBounds = target.getBoundingBox().expandTowards(target.getDeltaMovement()).inflate(1.0);
         var chunks = LooseChunkBounds.from(motionBounds);
@@ -58,8 +62,9 @@ public final class LoosePullGameTests {
         var worldStack = target.getItem().copy();
         var targetId = target.getUUID();
 
-        require(BodyPullService.toggleFixture(body, target.getUUID(), "left", initial.revision(), () -> true)
-                == BodyPullService.Result.SUCCESS, "pull starts with trusted authority");
+        BodyPullService.Result admission = BodyPullService.toggleFixture(body, target.getUUID(), "left",
+                initial.revision(), () -> true);
+        require(admission == BodyPullService.Result.SUCCESS, "pull starts with trusted authority: " + admission);
         LiveHands reserved = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         require(reserved.reservation("left").equals(java.util.Optional.of(target.getUUID())),
                 "exact target reserved in hand");
@@ -67,12 +72,14 @@ public final class LoosePullGameTests {
                 && level.getEntity(target.getUUID()) == target && !target.isRemoved(),
                 "pull reservation does not move world ownership");
 
-        // Stretch beyond the admitted slack before testing that ordinary item travel consumes force.
-        body.setPos(body.getX() - .5, body.getY(), body.getZ());
-        // Publish the production endpoint snapshot and let the normal loose-item tick consume spring force.
-        BodyPullService.onPreServerTick(null);
+        // Walk the live puller beyond resolved tether slack; ordinary item ticks
+        // then consume force from the production endpoint snapshots.
         Vec3 beforeMotion = target.position();
-        target.tick();
+        for (int i = 0; i < 12; i++) {
+            body.setPos(body.getX() - .2, body.getY(), body.getZ());
+            BodyPullService.onPreServerTick(null);
+            target.tick();
+        }
         Vec3 nativeDisplacement = target.position().subtract(beforeMotion);
         require(nativeDisplacement.x < 0,
                 "native loose-item travel consumes tether force toward the puller");

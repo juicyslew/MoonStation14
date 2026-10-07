@@ -16,7 +16,7 @@ class VentilationGasFlowTest {
         GasMixture room = new GasMixture(Map.of(GasType.NITROGEN, 1.0), 300.0);
         var plan = VentilationGasFlow.planVentRelease(pipe, room, 1, 1, 1, config.settings()).orElseThrow();
         double expected = (101.325 - room.pressureKpa(1)) * 1000 / (8.31446261815324 * 300);
-        assertEquals(expected, plan.packet().totalMoles(), 1e-10);
+        assertEquals(expected, plan.packet().totalMoles(), Math.ulp((float) expected) * 8);
         assertEquals(0, plan.packet().moles(GasType.NITROGEN), 0);
         assertConserved(pipe, room, plan);
     }
@@ -78,9 +78,13 @@ class VentilationGasFlowTest {
     }
 
     private static void assertConserved(GasMixture source, GasMixture destination, PipeGasTransfer.Plan plan) {
-        for (GasType gas : GasType.values()) assertEquals(source.moles(gas) + destination.moles(gas),
-                plan.sourceAfter().moles(gas) + plan.destinationAfter().moles(gas), 1e-10);
+        for (GasType gas : GasType.values()) {
+            double expected = source.moles(gas) + destination.moles(gas);
+            double actual = plan.sourceAfter().moles(gas) + plan.destinationAfter().moles(gas);
+            assertEquals(expected, actual, Math.ulp((float) expected) * 8);
+        }
         assertEquals(source.thermalEnergy() + destination.thermalEnergy(),
-                plan.sourceAfter().thermalEnergy() + plan.destinationAfter().thermalEnergy(), 1e-8);
+                plan.sourceAfter().thermalEnergy() + plan.destinationAfter().thermalEnergy(),
+                Math.ulp((float) (source.thermalEnergy() + destination.thermalEnergy())) * 8);
     }
 }

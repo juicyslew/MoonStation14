@@ -234,7 +234,7 @@ public final class FiniteRoomGasEndpointGameTests {
         pendingMoles.put(GasType.TRITIUM, ambient.moles(GasType.TRITIUM) + 1);
         GasMixture pendingNext = new GasMixture(pendingMoles, ambient.temperatureKelvin());
         require(pending.writeRaw(ambient, pendingNext), "prepare sparse pending endpoint");
-        service.configureAtServerStart(Set.of(level.dimension()));
+        service.configureAtServerStart(Set.of(level.dimension()), service.spaceDimensionsForTest());
         require(pending.writeRaw(null, ambient), "compensate unpublished sparse pending endpoint");
         require(sparseData.get(lx, sparsePos.getY(), lz) == null && sparseData.isFiniteClaimed(lx, sparsePos.getY(), lz),
                 "pending compensation restores sparse absence and retains finite claim");

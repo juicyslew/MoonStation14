@@ -11,7 +11,7 @@ import java.util.*;
 
 /** Organ-owned inventory only; physiological status belongs to the body. */
 public record LungOrganState(Map<String, Double> gasMoles, double temperatureKelvin) {
-    public static final LungOrganState EMPTY = new LungOrganState(Map.of(), 2.7);
+    public static final LungOrganState EMPTY = new LungOrganState(Map.of(), GasMixture.vacuum().temperatureKelvin());
     private static final Codec<Double> NONNEGATIVE = Codec.DOUBLE.comapFlatMap(v ->
             Double.isFinite(v) && v >= 0 ? DataResult.success(v) : DataResult.error(() -> "invalid nonnegative value"), v -> v);
     private static final Codec<LungOrganState> RECORD = RecordCodecBuilder.create(i -> i.group(

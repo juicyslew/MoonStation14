@@ -22,6 +22,10 @@ import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosiveSources;
+import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
+import com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData;
+import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
+import com.juicyslew.moonstation14.ms14.construction.tool.ToolPrototypeData;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles;
 import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
@@ -123,6 +127,10 @@ public final class PrototypeRuntime {
 
     public static PrototypeCatalog<ExplosiveSourceData> serverExplosiveSources() { return SERVER_MANAGER.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE); }
     public static PrototypeCatalog<ExplosiveSourceData> clientExplosiveSources() { return CLIENT_MANAGER.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE); }
+    public static PrototypeCatalog<DisposalEntityData> serverDisposals() { return SERVER_MANAGER.snapshot(ModDisposals.DISPOSAL_TYPE); }
+    public static PrototypeCatalog<DisposalEntityData> clientDisposals() { return CLIENT_MANAGER.snapshot(ModDisposals.DISPOSAL_TYPE); }
+    public static PrototypeCatalog<ToolPrototypeData> serverTools() { return SERVER_MANAGER.snapshot(ModTools.TOOL_TYPE); }
+    public static PrototypeCatalog<ToolPrototypeData> clientTools() { return CLIENT_MANAGER.snapshot(ModTools.TOOL_TYPE); }
     public static PrototypeCatalog<LooseObjectProfile> serverLooseObjectProfiles() { return SERVER_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
     public static PrototypeCatalog<LooseObjectProfile> clientLooseObjectProfiles() { return CLIENT_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
     public static PrototypeCatalog<ItemFootprintProfile> serverItemFootprints() { return SERVER_MANAGER.snapshot(ModItemFootprints.TYPE); }
@@ -145,6 +153,8 @@ public final class PrototypeRuntime {
         manager.register(ModAirAlarms.AIR_ALARM_TYPE);
         manager.register(ModExplosions.EXPLOSION_TYPE);
         manager.register(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
+        manager.register(ModDisposals.DISPOSAL_TYPE);
+        manager.register(ModTools.TOOL_TYPE);
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
         manager.register(ModIngestionProfiles.TYPE);

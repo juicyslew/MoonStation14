@@ -230,6 +230,7 @@ public final class DamageSystem {
             if (committedTypedDamage > 0d) {
                 NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, committedTypedDamage, pending.feedback));
             }
+            if (!committedPositive.isEmpty()) NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, committedPositive));
             return;
         }
 
@@ -240,7 +241,9 @@ public final class DamageSystem {
         float typed = appliedDamage * TYPED_PER_HEALTH;
         commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
         com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
-        NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed, ModDamageFeedback.server(causeFor(source).profile)));
+        NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed,
+                ModDamageFeedback.server(causeFor(source).profile)));
+        NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, Map.of(key, typed)));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */

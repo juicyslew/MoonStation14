@@ -125,10 +125,15 @@ public final class LungGameTests {
                     Map.of("oxygen", -1f, "carbon_dioxide", 1f)), context) != EffectResult.APPLIED)
                 throw new GameTestAssertException("gas adjustment must work independently of world atmosphere");
             var changed = snapshot(pig);
-            if (Math.abs(changed.mixture().moles(GasType.OXYGEN) - 0.15) > 1e-9
-                    || Math.abs(changed.mixture().moles(GasType.CARBON_DIOXIDE) - 0.25) > 1e-9
+            double expectedOxygen = (double) (float) (initial.mixture().moles(GasType.OXYGEN) - 0.25f);
+            double expectedCarbonDioxide = (double) 0.25f;
+            if (changed.mixture().moles(GasType.OXYGEN) != expectedOxygen
+                    || changed.mixture().moles(GasType.CARBON_DIOXIDE) != expectedCarbonDioxide
                      || changed.saturation() != 2.5)
-                throw new GameTestAssertException("scaled gas delta must affect only the lung inventory once");
+                throw new GameTestAssertException("scaled gas delta must affect only the lung inventory once; oxygen="
+                        + changed.mixture().moles(GasType.OXYGEN) + " expected=" + expectedOxygen
+                        + ", carbon_dioxide=" + changed.mixture().moles(GasType.CARBON_DIOXIDE)
+                        + " expected=" + expectedCarbonDioxide);
             if (!AtmosphereService.INSTANCE.sample(helper.getLevel(), BlockPos.containing(pig.getEyePosition())).equals(roomBefore))
                 throw new GameTestAssertException("lung gas effect must not mutate room atmosphere");
              unconfigured.setData(ModDataAttachments.BODY.get(), new BodyAttachment(BodyState.EMPTY));

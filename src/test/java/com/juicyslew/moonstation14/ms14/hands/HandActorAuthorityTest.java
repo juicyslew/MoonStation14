@@ -27,6 +27,13 @@ class HandActorAuthorityTest {
     }
 
     @Test
+    void genericActionsStayInventoryMenuOnlyWhileOwnedTicksHaveSeparateAdmissionPath() {
+        // Passive processing uses the separately named resolver; mutation APIs are unchanged and strict.
+        assertFalse(HandActorAuthority.acceptsExactlyOneAuthority(false, false));
+        assertTrue(HandActorAuthority.acceptsExactlyOneAuthority(true, false));
+    }
+
+    @Test
     void persistedLayoutMismatchFailsClosedWithoutAlteringHeldTokens() {
         List<String> ids = List.of("left", "right");
         HandComponent stored = HandComponent.from(HandState.create(ids)

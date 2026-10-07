@@ -11,6 +11,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
+import net.minecraft.server.level.ServerLevel;
+import java.util.UUID;
 
 public final class BodyDropPlacementGameTests {
     private BodyDropPlacementGameTests() { }
@@ -34,6 +37,90 @@ public final class BodyDropPlacementGameTests {
                 "air drop has deterministic forward motion and retains natural gravity");
         require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").isEmpty(),
                 "body hand no longer owns dropped stack");
+        helper.succeed();
+    }
+
+    public static void containedRefusalDropsAtOwnerPosition(GameTestHelper helper) {
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 2, 2));
+        require(LiveHands.initialize(body).isPresent(), "body hands initialized");
+        LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemStack held = new ItemStack(Items.DIAMOND, 3);
+        LiveHands stored = initial.putWhole(initial.revision(), "left", new ItemToken("contained-refusal"), held).state();
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), stored);
+        UUID ownerId = UUID.randomUUID();
+        Vec3 ownerPosition = body.position().add(0, 0, 2);
+        ContainedBodyOwner refusingOwner = new ContainedBodyOwner() {
+            @Override public UUID identity() { return ownerId; }
+            @Override public ServerLevel level() { return helper.getLevel(); }
+            @Override public Vec3 position() { return ownerPosition; }
+            @Override public Stage stage() { return Stage.UNIT; }
+            @Override public boolean isValid() { return true; }
+            @Override public boolean tryEscape(net.minecraft.world.entity.LivingEntity ignored) { return false; }
+        };
+        require(com.juicyslew.moonstation14.ms14.containment.BodyContainmentService
+                .forLevel(helper.getLevel()).bind(body, refusingOwner), "fixture owner binds");
+        require(BodyHandItemTransfer.dropOwned(body, "left", "contained-refusal", stored.revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "semantic refusal uses contained-owner fallback");
+        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
+                item -> item.getItem().is(Items.DIAMOND));
+        require(items.size() == 1 && items.getFirst().getItem().getCount() == 3,
+                "fallback creates one whole-stack world owner");
+        require(items.getFirst().position().distanceToSqr(ownerPosition) < .001,
+                "fallback uses owner transform, not camera/aim ray");
+        require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").isEmpty(),
+                "body hand is cleared after successful fallback");
+        helper.succeed();
+    }
+
+    public static void containedHandDropMovesWholeStackIntoTransitHolder(GameTestHelper helper) {
+        var level = (ServerLevel) helper.getLevel();
+        BlockPos trunk = helper.absolutePos(new BlockPos(3, 1, 3));
+        level.setBlock(trunk, com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_TUBE.get().defaultBlockState(), 3);
+        require(com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData.forMutation(level).add(level,
+                new com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeRecord(UUID.randomUUID(), trunk,
+                        "moonstation14:disposal_trunk", net.minecraft.core.Direction.NORTH, true, "", "", 0),
+                pos -> level.getBlockState(pos).is(com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_TUBE.get())),
+                "live trunk record installed");
+        var holder = com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder.spawnFlushed(level,
+                trunk, new com.juicyslew.moonstation14.ms14.atmos.core.GasMixture(java.util.Map.of(), 293.15)).orElseThrow();
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(5, 2, 3));
+        require(LiveHands.initialize(body).isPresent(), "body hands initialized");
+        LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemStack held = new ItemStack(Items.DIAMOND, 4);
+        LiveHands.WholeResult stored = initial.putWhole(initial.revision(), "left", new ItemToken("transit-drop"), held);
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), stored.state());
+        UUID sourceId = UUID.randomUUID();
+        ContainedBodyOwner source = new ContainedBodyOwner() {
+            @Override public UUID identity() { return sourceId; }
+            @Override public ServerLevel level() { return level; }
+            @Override public Vec3 position() { return body.position(); }
+            @Override public Stage stage() { return Stage.UNIT; }
+            @Override public boolean isValid() { return true; }
+            @Override public boolean tryEscape(net.minecraft.world.entity.LivingEntity ignored) { return false; }
+        };
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        require(containment.bind(body, source) && holder.addBody(level, body, source), "body transfers into live holder");
+        int beforeItems = level.getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
+                item -> item.getItem().is(Items.DIAMOND)).size();
+        require(BodyHandItemTransfer.dropOwned(body, "left", "transit-drop", stored.state().revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "real body transfer kernel commits drop");
+        require(holder.contents().snapshot().size() == 1
+                && holder.contents().snapshot().values().iterator().next().stack().getCount() == 4,
+                "transit holder owns exactly the complete stack");
+        require(containment.ownerOf(body).orElse(null) == holder.containmentOwner()
+                && level.getEntity(body.getUUID()) == body, "same live body remains contained by holder");
+        var resolvedHolder = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverDisposals()
+                .get(com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals.HOLDER);
+        var holderView = holder.containmentOwner().view();
+        require(resolvedHolder != null && holderView.ownerIdentity().equals(holder.containmentOwner().identity())
+                        && holderView.worldTarget().isEmpty()
+                        && holderView.cameraCollision() == resolvedHolder.containedView().cameraCollision()
+                        && !holderView.cameraCollision(),
+                "live holder view publishes its identity, no target, and resolved collision override");
+        require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").isEmpty(),
+                "source hand cleared");
+        require(level.getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
+                item -> item.getItem().is(Items.DIAMOND)).size() == beforeItems, "no world item was spawned");
         helper.succeed();
     }
 

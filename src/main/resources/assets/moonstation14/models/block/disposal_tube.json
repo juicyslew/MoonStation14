@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "moonstation14:block/disposal/pipe-s_frame0"
+  },
+  "elements": []
+}
