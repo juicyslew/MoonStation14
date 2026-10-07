@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.PriorityQueue;
 
 /** Pure payload cache; deliberately has no client-side Minecraft dependencies. */
 public final class AtmosphereVisualClientCache {
@@ -16,6 +17,12 @@ public final class AtmosphereVisualClientCache {
     public static final int MAX_VISIBLE_CELLS = 65_536;
     public static final int MAX_QUEUED_DELTA_CELLS_PER_CHUNK = 4096;
     private static final int MAX_RESYNC_CANDIDATES = 4096;
+    private static final Comparator<VisibleCell> VISIBLE_ORDER = Comparator.comparingDouble(VisibleCell::distanceSquared)
+            .thenComparing(Comparator.comparingInt(
+                    (VisibleCell candidate) -> candidate.cell().tritiumAlpha()).reversed())
+            .thenComparingDouble(VisibleCell::x)
+            .thenComparingDouble(VisibleCell::y)
+            .thenComparingDouble(VisibleCell::z);
     private final LinkedHashMap<ChunkKey, ChunkState> chunks = new LinkedHashMap<>(16, .75f, true);
     private final LinkedHashSet<ChunkKey> evicted = new LinkedHashSet<>();
     private int cellCount;
@@ -31,17 +38,20 @@ public final class AtmosphereVisualClientCache {
             if (state == null) { state = new ChunkState(); chunks.put(key, state); }
             if (state.staging != null) cellCount -= state.staging.size();
             state.staging = new LinkedHashMap<>(); state.stagingRevision = payload.revision();
+            if (state.published == null) state.published = new LinkedHashMap<>();
             state.queuedDeltas.entrySet().removeIf(entry -> entry.getValue().revision <= payload.revision());
             addToStage(state, payload);
+            overlayStage(state, payload.cells());
             if (payload.finalPacket()) publish(state, key);
             enforceBounds();
-            return payload.finalPacket();
+            return true;
         }
         if (state != null && state.staging != null && payload.revision() == state.stagingRevision) {
             addToStage(state, payload);
+            overlayStage(state, payload.cells());
             if (payload.finalPacket()) publish(state, key);
             enforceBounds();
-            return payload.finalPacket();
+            return true;
         }
         if (state == null || payload.revision() < state.revision) return false;
         if (state.staging == null && payload.revision() == state.lastSnapshotRevision) return false;
@@ -57,7 +67,9 @@ public final class AtmosphereVisualClientCache {
                 }
                 state.queuedDeltas.put(cellKey, new QueuedDelta(payload.revision(), cell));
             }
-            return false;
+            applyDelta(state, payload.revision(), payload.cells());
+            enforceBounds();
+            return true;
         }
         if (state.published == null) return false;
         applyDelta(state, payload.revision(), payload.cells());
@@ -80,8 +92,23 @@ public final class AtmosphereVisualClientCache {
     private void addToStage(ChunkState state, AtmosphereVisualPayload payload) {
         if (state.staging == null || payload.revision() != state.stagingRevision) return;
         for (AtmosphereVisualPayload.VisualCell cell : payload.cells()) {
-            if (state.staging.put(new CellKey(cell.localX(), cell.y(), cell.localZ()), cell) == null) cellCount++;
+            CellKey key = new CellKey(cell.localX(), cell.y(), cell.localZ());
+            if (isClear(cell)) {
+                if (state.staging.remove(key) != null) cellCount--;
+            } else if (state.staging.put(key, cell) == null) cellCount++;
         }
+    }
+
+    private void overlay(ChunkState state, List<AtmosphereVisualPayload.VisualCell> cells) {
+        applyDelta(state, state.revision, cells);
+    }
+
+    private void overlayStage(ChunkState state, List<AtmosphereVisualPayload.VisualCell> cells) {
+        List<AtmosphereVisualPayload.VisualCell> eligible = cells.stream().filter(cell -> {
+            QueuedDelta newer = state.queuedDeltas.get(new CellKey(cell.localX(), cell.y(), cell.localZ()));
+            return newer == null || newer.revision <= state.stagingRevision;
+        }).toList();
+        if (!eligible.isEmpty()) overlay(state, eligible);
     }
 
     private void publish(ChunkState state, ChunkKey key) {
@@ -95,10 +122,14 @@ public final class AtmosphereVisualClientCache {
         evicted.remove(key);
         refreshView(state);
         List<QueuedDelta> replay = state.queuedDeltas.values().stream()
-                .filter(delta -> delta.revision > state.revision)
+                .filter(delta -> delta.revision > state.lastSnapshotRevision)
                 .sorted(java.util.Comparator.comparingLong(QueuedDelta::revision)).toList();
         state.queuedDeltas.clear();
-        for (QueuedDelta delta : replay) applyDelta(state, delta.revision, List.of(delta.cell));
+        if (!replay.isEmpty()) {
+            List<AtmosphereVisualPayload.VisualCell> cells = replay.stream().map(QueuedDelta::cell).toList();
+            long revision = replay.stream().mapToLong(QueuedDelta::revision).max().orElse(state.revision);
+            applyDelta(state, revision, cells);
+        }
     }
 
     private static void refreshView(ChunkState state) {
@@ -127,7 +158,9 @@ public final class AtmosphereVisualClientCache {
                                           double cameraZ, double maxDistance, int limit) {
         if (limit <= 0 || maxDistance < 0) return List.of();
         double maxDistanceSquared = maxDistance * maxDistance;
-        List<VisibleCell> candidates = new ArrayList<>();
+        int selectionLimit = Math.min(limit, MAX_VISIBLE_CELLS);
+        // The queue head is the worst retained candidate, so noncompetitive cells need no wrapper allocation.
+        PriorityQueue<VisibleCell> candidates = new PriorityQueue<>(selectionLimit, VISIBLE_ORDER.reversed());
         int minChunkX = ((int) Math.floor(cameraX - maxDistance)) >> 4;
         int maxChunkX = ((int) Math.floor(cameraX + maxDistance)) >> 4;
         int minChunkZ = ((int) Math.floor(cameraZ - maxDistance)) >> 4;
@@ -145,19 +178,33 @@ public final class AtmosphereVisualClientCache {
                     double z = baseZ + cell.localZ() + .5;
                     double distanceSquared = (x - cameraX) * (x - cameraX) + (y - cameraY) * (y - cameraY)
                             + (z - cameraZ) * (z - cameraZ);
-                    if (distanceSquared <= maxDistanceSquared)
-                        candidates.add(new VisibleCell(x, y, z, distanceSquared, cell));
+                    if (distanceSquared <= maxDistanceSquared) {
+                        VisibleCell worst = candidates.peek();
+                        if (candidates.size() < selectionLimit || compareCandidate(distanceSquared, cell.tritiumAlpha(),
+                                x, y, z, worst) < 0) {
+                            VisibleCell candidate = new VisibleCell(x, y, z, distanceSquared, cell);
+                            if (candidates.size() == selectionLimit) candidates.remove();
+                            candidates.add(candidate);
+                        }
+                    }
                 }
             }
         }
-        candidates.sort(Comparator.comparingDouble(VisibleCell::distanceSquared)
-                .thenComparing(Comparator.comparingInt(
-                        (VisibleCell candidate) -> candidate.cell().tritiumAlpha()).reversed())
-                .thenComparingDouble(VisibleCell::x)
-                .thenComparingDouble(VisibleCell::y)
-                .thenComparingDouble(VisibleCell::z));
-        if (candidates.size() > limit) candidates.subList(limit, candidates.size()).clear();
-        return List.copyOf(candidates);
+        List<VisibleCell> result = new ArrayList<>(candidates);
+        result.sort(VISIBLE_ORDER);
+        return List.copyOf(result);
+    }
+
+    private static int compareCandidate(double distanceSquared, int tritiumAlpha, double x, double y, double z,
+                                        VisibleCell other) {
+        int compared = Double.compare(distanceSquared, other.distanceSquared());
+        if (compared != 0) return compared;
+        compared = Integer.compare(other.cell().tritiumAlpha(), tritiumAlpha);
+        if (compared != 0) return compared;
+        compared = Double.compare(x, other.x());
+        if (compared != 0) return compared;
+        compared = Double.compare(y, other.y());
+        return compared != 0 ? compared : Double.compare(z, other.z());
     }
 
     public long revision(ResourceLocation dimension, int chunkX, int chunkZ) {

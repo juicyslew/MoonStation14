@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.movement.CharacterMovementEnvironment;
@@ -28,19 +29,18 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"movement", "character"})
 public final class HumanHarnessMovementGameTests {
     private static final double DT = .05d;
 
     private HumanHarnessMovementGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
     public static void disposalContainmentLookupAndDeadBodyRelease(GameTestHelper helper) {
         var first = BodyContainmentService.forLevel(helper.getLevel());
         require(first == BodyContainmentService.forLevel(helper.getLevel()), "level lookup must share service identity");
@@ -63,7 +63,7 @@ public final class HumanHarnessMovementGameTests {
         });
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
     public static void disposalContainmentExportsAndRestoresContainedBodyFlags(GameTestHelper helper) {
         var service = BodyContainmentService.forLevel(helper.getLevel());
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 3));
@@ -91,7 +91,7 @@ public final class HumanHarnessMovementGameTests {
         });
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
     public static void disposalContainmentTickFollowsOwnerWithoutUnitTick(GameTestHelper helper) {
         var service = BodyContainmentService.forLevel(helper.getLevel());
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 3));
@@ -108,7 +108,7 @@ public final class HumanHarnessMovementGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void realHumanVillagerMovesAndJumpsThroughHarnessMotor(GameTestHelper helper) {
         for (int x = 1; x <= 9; x++) {
             for (int z = 1; z <= 9; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -152,7 +152,7 @@ public final class HumanHarnessMovementGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void sharedWorldStepAppliesHumanAndPigProfiles(GameTestHelper helper) {
         for (int x = 1; x <= 20; x++) {
             for (int z = 1; z <= 20; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -190,7 +190,7 @@ public final class HumanHarnessMovementGameTests {
     }
 
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
     public static void ownedWorldStepAllowsRealDescendingLandingOntoResolvedDisposalPipe(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos slab = new BlockPos(10, 1, 12);
@@ -240,7 +240,7 @@ public final class HumanHarnessMovementGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
     public static void ownedWorldStepAllowsDescendingLandingFromResolvedPipeOntoResolvedTrunk(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos previous = new BlockPos(10, 1, 12);
@@ -292,7 +292,7 @@ public final class HumanHarnessMovementGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
     public static void containedOwnedMovementIsStationaryAndTransitCannotEscape(GameTestHelper helper) {
         for (int x = 1; x <= 9; x++) for (int z = 1; z <= 9; z++) helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 3));

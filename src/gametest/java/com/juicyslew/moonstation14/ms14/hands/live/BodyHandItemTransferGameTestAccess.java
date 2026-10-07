@@ -28,4 +28,13 @@ public final class BodyHandItemTransferGameTestAccess {
         body.setData(ModDataAttachments.LIVE_HANDS.get(), held.state());
         return held.state().revision();
     }
+
+    public static BodyHandItemTransfer.Result pickupSelectedOwned(LivingEntity body, UUID target, String handId,
+                                                                    long expectedRevision) {
+        return BodyHandItemTransfer.pickupSelectedOwned(body, target, handId, expectedRevision, () -> true);
+    }
+
+    public static BodyLooseThrow.Result throwOwned(LivingEntity body, String handId, String token, long revision) {
+        return BodyLooseThrow.throwOwned(body, handId, token, revision, () -> true, ignored -> { });
+    }
 }

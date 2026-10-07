@@ -10,19 +10,19 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.UUID;
 
 /** Unregistered player fixture verifies production ownership rejection, not command acceptance. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleGhostCreativeRuntimeGameTests {
     private LifecycleGhostCreativeRuntimeGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void unregisteredGhostCannotRegisterOrRestoreCarrier(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         ServerPlayer fixture = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),

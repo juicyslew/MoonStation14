@@ -3,6 +3,8 @@ package com.juicyslew.moonstation14.ms14.hands.network;
 import com.juicyslew.moonstation14.ms14.hands.HandState;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.component.ModDataComponents;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -33,12 +35,20 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
         this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, List.of());
     }
 
-    public record GridEntry(String token, String itemId, int count, int x, int y, int rotation) {
+    public record GridEntry(String token, String itemId, int count, int x, int y, int rotation, ReagentComponent reagent,
+                            ItemPresentation presentation) {
+        public GridEntry(String token, String itemId, int count, int x, int y, int rotation, ReagentComponent reagent) {
+            this(token, itemId, count, x, y, rotation, reagent, fixturePresentation(itemId, count, reagent));
+        }
+        public GridEntry(String token, String itemId, int count, int x, int y, int rotation) {
+            this(token, itemId, count, x, y, rotation, null, null);
+        }
         public GridEntry {
             if (token == null || token.isBlank() || token.length() > ItemToken.MAX_LENGTH || itemId == null || itemId.isBlank()
                     || itemId.length() > 256 || count < 1 || count > 99 || x < 0 || x > 7 || y < 0 || y > 3
                     || rotation != 0 && rotation != 90 && rotation != 180 && rotation != 270)
                 throw new IllegalArgumentException("Invalid grid entry");
+            if (presentation != null) reagent = presentation.stack().get(ModDataComponents.REAGENT.get());
         }
     }
 
@@ -50,23 +60,23 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 throw new IllegalArgumentException("Invalid grid host");
             entries = List.copyOf(entries);
             var tokens = new HashSet<String>();
-            var occupied = GridGeometry.Snapshot.empty(GridGeometry.StorageMask.rectangle(width, height));
             for (GridEntry entry : entries) {
                 if (!tokens.add(entry.token())) throw new IllegalArgumentException("Duplicate grid token");
                 ResourceLocation id = ResourceLocation.tryParse(entry.itemId());
                 if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) throw new IllegalArgumentException("Unregistered grid item");
                 if (entry.itemId().equals("moonstation14:pouch") || entry.itemId().equals(ModItems.BAG.getId().toString())
                         || entry.itemId().equals(ModItems.BELT.getId().toString())) throw new IllegalArgumentException("Nested grid host");
-                var rotation = GridGeometry.Rotation.values()[entry.rotation() / 90];
-                var placed = occupied.place(entry.token(), ItemFootprints.forId(id), new GridGeometry.Cell(entry.x(), entry.y()), rotation);
-                if (!placed.accepted()) throw new IllegalArgumentException("Invalid grid placement");
-                occupied = placed.snapshot();
+                if (entry.x() >= width || entry.y() >= height) throw new IllegalArgumentException("Out-of-bounds grid anchor");
             }
         }
     }
 
     public record EquipmentSlot(String id, String token, String itemId, int count,
-                                String childToken, String childItemId, int childCount) {
+                                String childToken, String childItemId, int childCount,
+                                ItemPresentation presentation, ItemPresentation childPresentation) {
+        public EquipmentSlot(String id, String token, String itemId, int count, String childToken, String childItemId, int childCount) {
+            this(id, token, itemId, count, childToken, childItemId, childCount, null, null);
+        }
         public EquipmentSlot {
             if (!("belt".equals(id) || "back".equals(id))
                     || (token == null ? itemId != null || count != 0 || childToken != null
@@ -85,9 +95,16 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
     }
 
     public record Hand(String id, String token, String itemId, int count,
-                       boolean pouch, String childToken, String childItemId, int childCount) {
+                       boolean pouch, String childToken, String childItemId, int childCount, String pullTarget,
+                       ItemPresentation presentation, ItemPresentation childPresentation) {
+        public Hand(String id, String token, String itemId, int count, boolean pouch, String childToken, String childItemId, int childCount, String pullTarget) {
+            this(id, token, itemId, count, pouch, childToken, childItemId, childCount, pullTarget, null, null);
+        }
+        public Hand(String id, String token, String itemId, int count, boolean pouch, String childToken, String childItemId, int childCount) {
+            this(id, token, itemId, count, pouch, childToken, childItemId, childCount, null);
+        }
         public Hand(String id, String token, String itemId, int count) {
-            this(id, token, itemId, count, false, null, null, 0);
+            this(id, token, itemId, count, false, null, null, 0, null);
         }
 
         public Hand {
@@ -97,7 +114,8 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                              || itemId.isBlank() || itemId.length() > 256 || count <= 0 || count > 99)
                     || pouch
                     || (token != null && "moonstation14:pouch".equals(itemId))
-                    || (childToken == null ? childItemId != null || childCount != 0
+                     || pullTarget != null && (pullTarget.isBlank() || pullTarget.length() > 64)
+                     || (childToken == null ? childItemId != null || childCount != 0
                             : !(pouch || token != null && (ModItems.BAG.getId().toString().equals(itemId)
                                     || ModItems.BELT.getId().toString().equals(itemId)))
                                     || childToken.isBlank() || childToken.length() > ItemToken.MAX_LENGTH
@@ -131,14 +149,18 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                             buf.writeUtf(hand.token(), ItemToken.MAX_LENGTH);
                             buf.writeUtf(hand.itemId(), 256);
                             buf.writeVarInt(hand.count());
+                            writePresentation(buf, hand.presentation());
                         }
                         buf.writeBoolean(hand.pouch());
+                        buf.writeBoolean(hand.pullTarget() != null);
+                        if (hand.pullTarget() != null) buf.writeUtf(hand.pullTarget(), HandState.MAX_ID_LENGTH);
                         if (hand.token() != null) {
                             buf.writeBoolean(hand.childToken() != null);
                             if (hand.childToken() != null) {
                                 buf.writeUtf(hand.childToken(), ItemToken.MAX_LENGTH);
                                 buf.writeUtf(hand.childItemId(), 256);
                                 buf.writeVarInt(hand.childCount());
+                                writePresentation(buf, hand.childPresentation());
                             }
                         }
                     }
@@ -150,11 +172,13 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                             buf.writeUtf(slot.token(), ItemToken.MAX_LENGTH);
                             buf.writeUtf(slot.itemId(), 256);
                             buf.writeVarInt(slot.count());
+                            writePresentation(buf, slot.presentation());
                             buf.writeBoolean(slot.childToken() != null);
                             if (slot.childToken() != null) {
                                 buf.writeUtf(slot.childToken(), ItemToken.MAX_LENGTH);
                                 buf.writeUtf(slot.childItemId(), 256);
                                 buf.writeVarInt(slot.childCount());
+                                writePresentation(buf, slot.childPresentation());
                             }
                         }
                     }
@@ -166,6 +190,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                         for (GridEntry entry : grid.entries()) {
                             buf.writeUtf(entry.token(), ItemToken.MAX_LENGTH); buf.writeUtf(entry.itemId(), 256);
                             buf.writeVarInt(entry.count()); buf.writeByte(entry.x()); buf.writeByte(entry.y()); buf.writeVarInt(entry.rotation());
+                            writePresentation(buf, entry.presentation());
                         }
                     }
                 }
@@ -191,11 +216,16 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     String token = occupied ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
                     String itemId = occupied ? buf.readUtf(256) : null;
                     int count = occupied ? buf.readVarInt() : 0;
+                    ItemPresentation presentation = occupied ? readPresentation(buf) : null;
                     boolean pouch = buf.readBoolean();
+                    String pullTarget = buf.readBoolean() ? buf.readUtf(HandState.MAX_ID_LENGTH) : null;
                     boolean child = occupied && buf.readBoolean();
+                    String childToken = child ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
+                    String childItemId = child ? buf.readUtf(256) : null;
+                    int childCount = child ? buf.readVarInt() : 0;
+                    ItemPresentation childPresentation = child ? readPresentation(buf) : null;
                     slots.add(new Hand(id, token, itemId, count, pouch,
-                            child ? buf.readUtf(ItemToken.MAX_LENGTH) : null,
-                            child ? buf.readUtf(256) : null, child ? buf.readVarInt() : 0));
+                            childToken, childItemId, childCount, pullTarget, presentation, childPresentation));
                 }
                 int equipmentSize = buf.readVarInt();
                 if (equipmentSize < 0 || equipmentSize > 2) throw new IllegalArgumentException("Invalid equipment count");
@@ -206,10 +236,14 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     String token = occupied ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
                     String item = occupied ? buf.readUtf(256) : null;
                     int count = occupied ? buf.readVarInt() : 0;
+                    ItemPresentation presentation = occupied ? readPresentation(buf) : null;
                     boolean child = occupied && buf.readBoolean();
+                    String childToken = child ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
+                    String childItemId = child ? buf.readUtf(256) : null;
+                    int childCount = child ? buf.readVarInt() : 0;
+                    ItemPresentation childPresentation = child ? readPresentation(buf) : null;
                     equipment.add(new EquipmentSlot(id, token, item, count,
-                            child ? buf.readUtf(ItemToken.MAX_LENGTH) : null,
-                            child ? buf.readUtf(256) : null, child ? buf.readVarInt() : 0));
+                            childToken, childItemId, childCount, presentation, childPresentation));
                 }
                 int gridCount = buf.isReadable() ? buf.readVarInt() : 0;
                 if (gridCount < 0 || gridCount > size + equipmentSize) throw new IllegalArgumentException("Invalid grid host count");
@@ -221,8 +255,13 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     totalEntries += count;
                     if (count < 0 || count > 32 || totalEntries > 32 * (HandState.MAX_HANDS + 2)) throw new IllegalArgumentException("Invalid grid entry count");
                     var entries = new java.util.ArrayList<GridEntry>(count);
-                    for (int j = 0; j < count; j++) entries.add(new GridEntry(buf.readUtf(ItemToken.MAX_LENGTH), buf.readUtf(256),
-                            buf.readVarInt(), buf.readUnsignedByte(), buf.readUnsignedByte(), buf.readVarInt()));
+                    for (int j = 0; j < count; j++) {
+                        String token = buf.readUtf(ItemToken.MAX_LENGTH), item = buf.readUtf(256);
+                        int amount = buf.readVarInt(), x = buf.readUnsignedByte(), y = buf.readUnsignedByte(), rotation = buf.readVarInt();
+                        ItemPresentation presentation = readPresentation(buf);
+                        ReagentComponent reagent = presentation == null ? null : presentation.stack().get(ModDataComponents.REAGENT.get());
+                        entries.add(new GridEntry(token, item, amount, x, y, rotation, reagent, presentation));
+                    }
                     grids.add(new GridHost(host, kind, width, height, entries));
                 }
                 if (buf.isReadable()) throw new IllegalArgumentException("Unexpected snapshot payload");
@@ -278,6 +317,24 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
         if (ModItems.BAG.getId().toString().equals(itemId)) return "bag";
         if (ModItems.BELT.getId().toString().equals(itemId)) return "belt";
         return null;
+    }
+
+    private static void writePresentation(RegistryFriendlyByteBuf buf, ItemPresentation presentation) {
+        buf.writeBoolean(presentation != null);
+        if (presentation != null) ItemPresentation.STREAM_CODEC.encode(buf, presentation);
+    }
+
+    private static ItemPresentation readPresentation(RegistryFriendlyByteBuf buf) {
+        return buf.readBoolean() ? ItemPresentation.STREAM_CODEC.decode(buf) : null;
+    }
+
+    private static ItemPresentation fixturePresentation(String itemId, int count, ReagentComponent reagent) {
+        if (reagent == null) return null;
+        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
+        var stack = new net.minecraft.world.item.ItemStack(BuiltInRegistries.ITEM.get(id), count);
+        stack.set(ModDataComponents.REAGENT.get(), reagent);
+        return ItemPresentation.fromStack(stack);
     }
 
     public static BodyHandStateSnapshot rejected(BodyHandStateQuery query, Reason reason) {

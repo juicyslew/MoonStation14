@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.organ.*;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
@@ -27,7 +28,6 @@ import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.util.RandomSource;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -35,12 +35,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.nbt.CompoundTag;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "atmosphere"})
 public final class LungGameTests {
     private LungGameTests() {}
-    @GameTest(template="empty",timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty",timeoutTicks=20)
     public static void explicitBodyRetainsPersistedOrganAndRevokesCachedPolicy(GameTestHelper helper) {
         var body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(), new BlockPos(1,1,1));
         Zombie unmapped = helper.spawn(EntityType.ZOMBIE, new BlockPos(3,1,1));
@@ -77,7 +76,7 @@ public final class LungGameTests {
             helper.succeed();
         });
     }
-    @GameTest(template="empty",timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty",timeoutTicks=20)
     public static void pigBloodstreamOxygenMetabolizesIntoSaturation(GameTestHelper helper) {
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(1,1,1));
         pig.setNoAi(true);
@@ -105,7 +104,7 @@ public final class LungGameTests {
             helper.succeed();
         });
     }
-    @GameTest(template="empty",timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty",timeoutTicks=20)
     public static void lungEffectsScaleOnceAndStayInPersistedInventory(GameTestHelper helper) {
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(1,1,1));
         pig.setNoAi(true);
@@ -126,10 +125,15 @@ public final class LungGameTests {
                     Map.of("oxygen", -1f, "carbon_dioxide", 1f)), context) != EffectResult.APPLIED)
                 throw new GameTestAssertException("gas adjustment must work independently of world atmosphere");
             var changed = snapshot(pig);
-            if (Math.abs(changed.mixture().moles(GasType.OXYGEN) - 0.15) > 1e-9
-                    || Math.abs(changed.mixture().moles(GasType.CARBON_DIOXIDE) - 0.25) > 1e-9
+            double expectedOxygen = (double) (float) (initial.mixture().moles(GasType.OXYGEN) - 0.25f);
+            double expectedCarbonDioxide = (double) 0.25f;
+            if (changed.mixture().moles(GasType.OXYGEN) != expectedOxygen
+                    || changed.mixture().moles(GasType.CARBON_DIOXIDE) != expectedCarbonDioxide
                      || changed.saturation() != 2.5)
-                throw new GameTestAssertException("scaled gas delta must affect only the lung inventory once");
+                throw new GameTestAssertException("scaled gas delta must affect only the lung inventory once; oxygen="
+                        + changed.mixture().moles(GasType.OXYGEN) + " expected=" + expectedOxygen
+                        + ", carbon_dioxide=" + changed.mixture().moles(GasType.CARBON_DIOXIDE)
+                        + " expected=" + expectedCarbonDioxide);
             if (!AtmosphereService.INSTANCE.sample(helper.getLevel(), BlockPos.containing(pig.getEyePosition())).equals(roomBefore))
                 throw new GameTestAssertException("lung gas effect must not mutate room atmosphere");
              unconfigured.setData(ModDataAttachments.BODY.get(), new BodyAttachment(BodyState.EMPTY));
@@ -149,7 +153,7 @@ public final class LungGameTests {
             helper.succeed();
         });
     }
-    @GameTest(template="empty",timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty",timeoutTicks=20)
     public static void pigLungInitializesConfiguredSaturationAndPersistsEmptyState(GameTestHelper helper) {
         Pig pig=helper.spawn(EntityType.PIG,new BlockPos(1,1,1)); pig.setNoAi(true);
         Villager human=helper.spawn(EntityType.VILLAGER,new BlockPos(3,1,1)); human.setNoAi(true);

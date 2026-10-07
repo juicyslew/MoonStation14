@@ -1,19 +1,19 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.mojang.brigadier.ParseResults;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"interaction", "command"})
 public final class ManualCommandGameTests {
     private ManualCommandGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void bottleGiveCommandsParseCompletely(GameTestHelper helper) {
         String[] commands = {
                 "give @s moonstation14:bottle[moonstation14:reagent={\"moonstation14:water\":30.0f}]",

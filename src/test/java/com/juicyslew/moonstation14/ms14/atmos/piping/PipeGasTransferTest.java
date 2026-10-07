@@ -35,11 +35,17 @@ class PipeGasTransferTest {
     }
 
     @Test void validatesParametersAndHandlesTinyTraceAndZeroRequest() {
-        GasMixture trace = new GasMixture(Map.of(GasType.OXYGEN, 1e-100), 300.0);
-        assertTrue(PipeGasTransfer.plan(trace, GasMixture.vacuum(), 1, 1, 1e-101, 1, Set.of(GasType.OXYGEN)).isPresent());
+        GasMixture trace = new GasMixture(Map.of(GasType.OXYGEN, 1e-30), 300.0);
+        assertTrue(PipeGasTransfer.plan(trace, GasMixture.vacuum(), 1, 1, 1e-31, 1, Set.of(GasType.OXYGEN)).isPresent());
         assertTrue(PipeGasTransfer.plan(trace, GasMixture.vacuum(), 1, 1, 0, 1, Set.of(GasType.OXYGEN)).isEmpty());
         assertThrows(IllegalArgumentException.class, () -> PipeGasTransfer.plan(trace, GasMixture.vacuum(), 0, 1, 1, 1, Set.of(GasType.OXYGEN)));
         assertThrows(IllegalArgumentException.class, () -> PipeGasTransfer.plan(trace, GasMixture.vacuum(), 1, 1, Double.POSITIVE_INFINITY, 1, Set.of(GasType.OXYGEN)));
+    }
+
+    @Test void selectedPacketThatQuantizesToZeroIsRejected() {
+        GasMixture trace = new GasMixture(Map.of(GasType.OXYGEN, (double) Float.MIN_VALUE), 300.0);
+        assertTrue(PipeGasTransfer.plan(trace, GasMixture.vacuum(), 1, 1,
+                (double) Float.MIN_VALUE * 0.25, 1, Set.of(GasType.OXYGEN)).isEmpty());
     }
 
     @Test void rejectsFractionThatCannotRepresentEverySelectedSpecies() {
@@ -48,9 +54,7 @@ class PipeGasTransferTest {
         assertTrue(PipeGasTransfer.plan(source, destination, 1, 1, 1e-5, 1e300,
                 Set.of(GasType.OXYGEN, GasType.PLASMA)).isEmpty());
 
-        var oxygenOnly = PipeGasTransfer.plan(source, destination, 1, 1, 1e-5, 1e300,
-                Set.of(GasType.OXYGEN)).orElseThrow();
-        assertTrue(oxygenOnly.perGasMoved().get(GasType.OXYGEN) > 0.0);
-        assertFalse(oxygenOnly.perGasMoved().containsKey(GasType.PLASMA));
+        assertTrue(PipeGasTransfer.plan(source, destination, 1, 1, 1e-5, 1e300,
+                Set.of(GasType.OXYGEN)).isEmpty());
     }
 }

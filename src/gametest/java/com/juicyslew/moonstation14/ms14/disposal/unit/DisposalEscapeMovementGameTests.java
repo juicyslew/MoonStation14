@@ -15,7 +15,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder("moonstation14_camera_tour")
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "movement", "containment"})
 @PrefixGameTestTemplate(false)
 public final class DisposalEscapeMovementGameTests {
     private DisposalEscapeMovementGameTests() { }

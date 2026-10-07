@@ -26,7 +26,12 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.construction.tool.ToolPrototypeData;
-
+import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
+import com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles;
+import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
+import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
+import com.juicyslew.moonstation14.ms14.ingestion.IngestionProfile;
+import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
     private static final PrototypeManager SERVER_MANAGER = createManager();
@@ -123,7 +128,12 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<DisposalEntityData> clientDisposals() { return CLIENT_MANAGER.snapshot(ModDisposals.DISPOSAL_TYPE); }
     public static PrototypeCatalog<ToolPrototypeData> serverTools() { return SERVER_MANAGER.snapshot(ModTools.TOOL_TYPE); }
     public static PrototypeCatalog<ToolPrototypeData> clientTools() { return CLIENT_MANAGER.snapshot(ModTools.TOOL_TYPE); }
-
+    public static PrototypeCatalog<LooseObjectProfile> serverLooseObjectProfiles() { return SERVER_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
+    public static PrototypeCatalog<LooseObjectProfile> clientLooseObjectProfiles() { return CLIENT_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
+    public static PrototypeCatalog<ItemFootprintProfile> serverItemFootprints() { return SERVER_MANAGER.snapshot(ModItemFootprints.TYPE); }
+    public static PrototypeCatalog<ItemFootprintProfile> clientItemFootprints() { return CLIENT_MANAGER.snapshot(ModItemFootprints.TYPE); }
+    public static PrototypeCatalog<IngestionProfile> serverIngestionProfiles() { return SERVER_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
+    public static PrototypeCatalog<IngestionProfile> clientIngestionProfiles() { return CLIENT_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModReagents.REAGENT_TYPE);
@@ -139,6 +149,9 @@ public final class PrototypeRuntime {
         manager.register(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
         manager.register(ModDisposals.DISPOSAL_TYPE);
         manager.register(ModTools.TOOL_TYPE);
+        manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
+        manager.register(ModItemFootprints.TYPE);
+        manager.register(ModIngestionProfiles.TYPE);
         return manager;
     }
 }

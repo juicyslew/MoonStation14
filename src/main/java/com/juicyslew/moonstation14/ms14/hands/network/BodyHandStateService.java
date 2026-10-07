@@ -44,6 +44,16 @@ public final class BodyHandStateService {
         if (gate != null) gate.clearIssued();
     }
 
+    public static void ingestionCommitted(ServerPlayer actor, java.util.UUID bodyId, long controlEpoch) {
+        if (actor == null || bodyId == null || controlEpoch <= 0) return;
+        var current = HandActorAuthority.resolve(actor).orElse(null);
+        if (current == null || !current.body().getUUID().equals(bodyId) || current.epoch() != controlEpoch
+                || !HandActorAuthority.revalidate(actor, current)) return;
+        requireFreshQuery(actor);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(actor,
+                new com.juicyslew.moonstation14.ms14.ingestion.IngestionCommitted(bodyId, controlEpoch));
+    }
+
     public static BodyHandStateSnapshot query(ServerPlayer actor, BodyHandStateQuery query) {
         QueryGate gate = GATES.get(actor);
         if (gate != null) gate.clearIssued();
@@ -136,7 +146,8 @@ public final class BodyHandStateService {
             if (token.isPresent() != stack.isPresent())
                 return null;
             if (token.isEmpty()) {
-                slots.add(new BodyHandStateSnapshot.Hand(id, null, null, 0));
+                slots.add(new BodyHandStateSnapshot.Hand(id, null, null, 0, false, null, null, 0,
+                        hands.reservation(id).map(Object::toString).orElse(null)));
             } else {
                 var item = stack.orElseThrow();
                 String itemId = BuiltInRegistries.ITEM.getKey(item.getItem()).toString();
@@ -145,7 +156,7 @@ public final class BodyHandStateService {
                 if (item.is(ModItems.BAG) || item.is(ModItems.BELT)) {
                     if (item.has(ModDataComponents.GRID_CONTENTS.get())) {
                         if (GridContents.read(item).isEmpty()) return null;
-                        slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount()));
+                        slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(), false, null, null, 0, hands.reservation(id).map(Object::toString).orElse(null), ItemPresentation.fromStack(item), null));
                     } else {
                         var contents = PouchContents.read(item);
                         if (contents.isEmpty()) return null;
@@ -154,10 +165,10 @@ public final class BodyHandStateService {
                             var value = child.orElseThrow();
                             String childId = BuiltInRegistries.ITEM.getKey(value.stack().getItem()).toString();
                             slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(),
-                                    false, value.token(), childId, value.stack().getCount()));
-                        } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount()));
+                                    false, value.token(), childId, value.stack().getCount(), hands.reservation(id).map(Object::toString).orElse(null), ItemPresentation.fromStack(item), ItemPresentation.fromStack(value.stack())));
+                        } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(), false, null, null, 0, hands.reservation(id).map(Object::toString).orElse(null), ItemPresentation.fromStack(item), null));
                     }
-                } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount()));
+                } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(), false, null, null, 0, hands.reservation(id).map(Object::toString).orElse(null), ItemPresentation.fromStack(item), null));
             }
         }
         var tokens = new HashSet<String>();
@@ -212,9 +223,14 @@ public final class BodyHandStateService {
                 }
             }
             try {
+                ItemPresentation childPresentation = null;
+                if (childToken != null) {
+                    var legacyChild = PouchContents.read(stack).orElseThrow().child().orElseThrow();
+                    childPresentation = ItemPresentation.fromStack(legacyChild.stack());
+                }
                 result.add(new BodyHandStateSnapshot.EquipmentSlot(slot.id(), slot.token().orElseThrow(),
                         BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(), stack.getCount(),
-                        childToken, childId, childCount));
+                        childToken, childId, childCount, ItemPresentation.fromStack(stack), childPresentation));
             } catch (IllegalArgumentException invalid) { return null; }
         }
         return result;
@@ -249,7 +265,8 @@ public final class BodyHandStateService {
         }
         var content = GridContents.read(stack).orElseThrow(() -> new IllegalArgumentException("Invalid grid host"));
         var entries = content.entries().stream().map(e -> new BodyHandStateSnapshot.GridEntry(e.token(),
-                BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString(), e.stack().getCount(), e.x(), e.y(), e.rotation().degrees())).toList();
+                BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString(), e.stack().getCount(), e.x(), e.y(), e.rotation().degrees(),
+                e.stack().get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get()), ItemPresentation.fromStack(e.stack()))).toList();
         result.add(new BodyHandStateSnapshot.GridHost(token, stack.is(ModItems.BAG) ? "bag" : "belt",
                 stack.is(ModItems.BAG) ? 7 : 8, stack.is(ModItems.BAG) ? 4 : 2, entries));
     }

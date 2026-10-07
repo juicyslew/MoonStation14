@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.entities.ThrownGrenadeEntity;
@@ -26,13 +27,12 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Optional;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"explosion"})
 public final class ThrownGrenadeGameTests {
     private ThrownGrenadeGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
     public static void disposalWorldStageRetainsArmedDeadlineAndWorldFuseTick(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos unitPos = helper.absolutePos(new BlockPos(4, 2, 4));
@@ -68,7 +68,7 @@ public final class ThrownGrenadeGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 10)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 10)
     public static void collisionLandsWithoutDetonatingAndRetainsFuse(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos wall = helper.absolutePos(new BlockPos(4, 2, 2));
@@ -109,7 +109,7 @@ public final class ThrownGrenadeGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void lowSpeedFloorContactSettlesAndDoesNotDetonate(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos floor = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -172,7 +172,7 @@ public final class ThrownGrenadeGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 10)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 10)
     public static void losingFullFloorSupportResumesGravity(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos floor = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -215,7 +215,7 @@ public final class ThrownGrenadeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 120)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 120)
     public static void productionTickOrAutomaticSchedulingAfterFuseDeadlineDetonatesOnceAndBreachesStationWall(GameTestHelper helper) {
         ExplosiveSourceData sourceData = PrototypeRuntime.serverExplosiveSources().get(ModExplosiveSources.EX_GRENADE_ID);
         helper.assertTrue(sourceData != null, "live server catalog must contain bundled grenade explosive source");

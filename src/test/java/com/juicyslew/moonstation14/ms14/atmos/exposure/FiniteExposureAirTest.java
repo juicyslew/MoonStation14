@@ -21,10 +21,11 @@ class FiniteExposureAirTest {
 
         var exchange = source.exchange(1, exhaled, gas -> { validations.incrementAndGet(); return true; }).orElseThrow();
         assertEquals(2, validations.get());
-        assertEquals(1, exchange.inhaled().moles(GasType.OXYGEN), 1e-12);
+        assertEquals(1, exchange.inhaled().moles(GasType.OXYGEN), 1e-7);
         var after = source.sample().orElseThrow().mixture();
-        assertEquals(.2, after.moles(GasType.CARBON_DIOXIDE), 1e-12);
-        assertEquals(2, after.moles(GasType.OXYGEN), 1e-12);
+        // Mixture species are stored as floats; compare against the representable input.
+        assertEquals((double) .2f, after.moles(GasType.CARBON_DIOXIDE), 1e-7);
+        assertEquals(2, after.moles(GasType.OXYGEN), 1e-7);
         assertTrue(after.thermalEnergy() > 0);
     }
 

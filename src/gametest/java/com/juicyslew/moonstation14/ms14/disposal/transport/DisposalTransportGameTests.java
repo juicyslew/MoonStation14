@@ -28,12 +28,12 @@ import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import java.util.UUID;
 
 /** Live server coverage for the resolved tube-to-holder admission boundary. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "containment"})
 @PrefixGameTestTemplate(false)
 public final class DisposalTransportGameTests {
     private DisposalTransportGameTests() { }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 20)
     public static void resolvedAnchoredTrunkAdmitsRealTransitHolder(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos entry = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -51,7 +51,7 @@ public final class DisposalTransportGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 20)
     public static void holderCapturesBodyFlagsAtAdmissionBeforeAnySave(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos entry = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -77,7 +77,7 @@ public final class DisposalTransportGameTests {
     }
 
     /** Live traversal regression: selector time budget 30 ticks; each resolved segment is two ticks. */
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 40)
     public static void liveHolderTraversesBendAndStagesPayloadOnce(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var world = DisposalTubeWorldData.forMutation(level);
@@ -185,7 +185,8 @@ public final class DisposalTransportGameTests {
         @Override public boolean tryEscape(net.minecraft.world.entity.LivingEntity body) { return false; }
     }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 100)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"atmosphere"})
     public static void finiteRoomUnitAndHolderGasConserved(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var atmos = AtmosphereService.INSTANCE;

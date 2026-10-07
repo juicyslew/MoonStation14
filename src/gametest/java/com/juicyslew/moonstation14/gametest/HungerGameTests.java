@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.ConditionData;
@@ -31,15 +32,13 @@ import net.minecraft.world.entity.player.Player;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.level.ServerLevel;
 import java.util.UUID;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology"})
 public final class HungerGameTests {
     private HungerGameTests() { }
 
-    @GameTest(template="empty", timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty", timeoutTicks=20)
     public static void fractionalApplyClampAndAttachment(GameTestHelper helper) {
         Player character = boundPlayer(helper);
         EffectSystem system = EffectSystem.withDefaults();
@@ -74,7 +73,7 @@ public final class HungerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template="empty", timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty", timeoutTicks=20)
     public static void authoritativeAndInjectedHungerConditionsAndUnsupportedTarget(GameTestHelper helper) {
         Player character = boundPlayer(helper);
         Entity arrow = helper.spawn(EntityType.ARROW, new BlockPos(3,1,1));
@@ -95,7 +94,7 @@ public final class HungerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template="empty", timeoutTicks=20)
+    @GameTest(templateNamespace = "moonstation14", template="empty", timeoutTicks=20)
     public static void eligibleInitializationDecayAndIndependentProjection(GameTestHelper helper) {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1,1,1));
         villager.setNoAi(true);

@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder("moonstation14_camera_tour")
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"movement", "character"})
 @PrefixGameTestTemplate(false)
 public final class MovementEligibilityGameTests {
     private MovementEligibilityGameTests() { }

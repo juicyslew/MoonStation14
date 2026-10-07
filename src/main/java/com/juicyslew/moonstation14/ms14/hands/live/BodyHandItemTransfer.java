@@ -12,6 +12,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import com.juicyslew.moonstation14.entities.LooseItemEntity;
+import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
@@ -29,22 +31,43 @@ public final class BodyHandItemTransfer {
     }
 
     public static Result pickup(ServerPlayer actor, UUID itemEntityUuid, String hand, long expectedHandRevision,
-                                java.util.function.Consumer<UUID> committedSource) {
+                                 java.util.function.Consumer<UUID> committedSource) {
         var authority = HandActorAuthority.resolve(actor);
         if (authority.isEmpty() || itemEntityUuid == null) return Result.DENIED;
         LivingEntity body = authority.orElseThrow().body();
         return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision,
-                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource);
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource, false);
+    }
+
+    /** Pickup a specifically selected visible pile member; unlike legacy pickup, UUID is selection, not hint. */
+    public static Result pickupSelected(ServerPlayer actor, UUID itemEntityUuid, String hand, long expectedHandRevision,
+                                        java.util.function.Consumer<UUID> committedSource) {
+        var authority = HandActorAuthority.resolve(actor);
+        if (authority.isEmpty() || itemEntityUuid == null) return Result.DENIED;
+        LivingEntity body = authority.orElseThrow().body();
+        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision,
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource, true);
     }
 
     // Trusted fixture seam only: tests use a real spawned body and world item, never a fake actor authority.
     static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
                               BooleanSupplier authorityValid) {
-        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { });
+        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { }, false);
+    }
+
+    static Result pickupSelectedOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
+                                      BooleanSupplier authorityValid) {
+        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { }, true);
     }
 
     private static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
-                                      BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource) {
+                                       BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource) {
+        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, committedSource, false);
+    }
+
+    private static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
+                                       BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource,
+                                       boolean selectedPolicy) {
         if (body == null || itemEntityUuid == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || !CharacterControlSystem.canAct(body)) return Result.DENIED;
         if (!level.getServer().isSameThread() || body.isRemoved() || !body.isAddedToLevel()
@@ -55,8 +78,9 @@ public final class BodyHandItemTransfer {
         // The packet UUID is only a hint. The body-eye ray selects the actual source on this tick.
         // A reserved/delayed first item blocks a farther pickup rather than being skipped.
         Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
-        BodyItemTargetProbe.Target selected = BodyItemTargetProbe.nearestVisible(level, body,
-                BodyItemTargetProbe.MAX_REACH);
+        BodyItemTargetProbe.Target selected = selectedPolicy
+                ? BodyItemTargetProbe.probeSelected(level, body, itemEntityUuid, BodyItemTargetProbe.MAX_REACH)
+                : BodyItemTargetProbe.nearestVisible(level, body, BodyItemTargetProbe.MAX_REACH);
         if (selected == null) return Result.DENIED;
         UUID sourceId = selected.itemId();
         Entity entity = level.getEntity(sourceId);
@@ -69,7 +93,8 @@ public final class BodyHandItemTransfer {
         ItemToken token = new ItemToken(UUID.randomUUID().toString());
         LiveHands.WholeResult transition = before.putWhole(expectedHandRevision, hand, token, source);
         BodyItemTargetProbe.Target confirmed = transition.succeeded()
-                ? BodyItemTargetProbe.nearestVisible(level, body, BodyItemTargetProbe.MAX_REACH) : null;
+                ? (selectedPolicy ? BodyItemTargetProbe.probeSelected(level, body, sourceId, BodyItemTargetProbe.MAX_REACH)
+                : BodyItemTargetProbe.nearestVisible(level, body, BodyItemTargetProbe.MAX_REACH)) : null;
         if (!transition.succeeded() || !BodyHandStateService.representable(transition.state(), body)
                 || !authorityValid.getAsBoolean()
                 || !CharacterControlSystem.canAct(body) || body.level() != level
@@ -93,7 +118,9 @@ public final class BodyHandItemTransfer {
                  || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem())
                  || !BodyHandStateService.representable(transition.state(), body)
                  || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
-                 || BodyItemTargetProbe.probe(level, body, item, BodyItemTargetProbe.MAX_REACH) == null
+                  || (selectedPolicy
+                  ? BodyItemTargetProbe.probeSelected(level, body, sourceId, BodyItemTargetProbe.MAX_REACH) == null
+                  : BodyItemTargetProbe.probe(level, body, item, BodyItemTargetProbe.MAX_REACH) == null)
                  || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
                  || !authorityValid.getAsBoolean() || !CharacterControlSystem.canAct(body)
                  || body.level() != level || body.isRemoved() || !body.isAddedToLevel()
@@ -262,7 +289,13 @@ public final class BodyHandItemTransfer {
                     before, cleared, hand, token, stack, ownerPosition, committedWorldEntity);
         }
         Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
-        BodyItemTargetProbe.DropPlacement placement = BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier);
+        LooseItemEntity profileEntity;
+        LooseObjectProfile profile;
+        try {
+            profile = LooseObjectProfile.resolveForStack(stack, false);
+        } catch (RuntimeException failure) { return Result.DENIED; }
+        BodyItemTargetProbe.DropPlacement placement = BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier,
+                profile.physicalWidth(), profile.physicalHeight());
         if (placement == null || !sourceEye.equals(body.getEyePosition())
                 || !sourceLook.equals(body.getLookAngle()) || !authorityValid.getAsBoolean()
                 || !CharacterControlSystem.canAct(body) || body.level() != level || body.isRemoved()
@@ -270,11 +303,10 @@ public final class BodyHandItemTransfer {
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body)) return Result.DENIED;
         Vec3 position = placement.position();
-        ItemEntity dropped;
+        LooseItemEntity dropped;
         try {
-            dropped = new ItemEntity(level, position.x, position.y, position.z, stack.copy());
-            dropped.setDeltaMovement(placement.velocity());
-            dropped.setUnlimitedLifetime();
+            dropped = LooseItemEntity.create(level, position, stack);
+            dropped.launch(placement.velocity(), 0);
         } catch (RuntimeException failure) {
             return Result.DENIED;
         }

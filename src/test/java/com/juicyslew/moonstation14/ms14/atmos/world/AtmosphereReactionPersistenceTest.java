@@ -3,7 +3,7 @@ package com.juicyslew.moonstation14.ms14.atmos.world;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
-import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotKernel;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.BlockPos;
@@ -51,7 +51,7 @@ class AtmosphereReactionPersistenceTest {
     }
 
     @Test
-    void unloadDropsHotspotButPreservesSavedGasAndNextCandidateSeedsFreshFraction() {
+    void unloadDropsHotspotButPreservesSavedGasForFreshProcessing() {
         AtmosphereChunkData data = new AtmosphereChunkData();
         data.claimFinite(3, -20, 5);
         data.put(3, -20, 5, HOT_GAS, GasMixture.vacuum());
@@ -59,10 +59,8 @@ class AtmosphereReactionPersistenceTest {
         ChunkPos chunk = new ChunkPos(CELL);
         work.startLoad(chunk);
         work.offer(CELL);
-        var grown = new HotspotKernel.HotspotState(.8, 900);
+        var grown = new HotspotState(800, 900, true, false);
         work.setHotspot(CELL, Optional.of(grown));
-        assertTrue(HotspotKernel.evaluate(HOT_GAS, FIRE, grown).totalFireExtentMoles()
-                > HotspotKernel.evaluate(HOT_GAS, FIRE, null).totalFireExtentMoles());
 
         work.removeChunk(chunk);
         assertNull(work.hotspot(CELL));
@@ -91,15 +89,13 @@ class AtmosphereReactionPersistenceTest {
         GasMixture candidate = loaded.nextAfter(null).orElseThrow().getValue();
         assertTrue(loaded.isFiniteClaimed(3, -20, 5));
         assertEquals(HOT_GAS.gasMoles(), candidate.gasMoles());
-        var fresh = HotspotKernel.evaluate(candidate, FIRE, work.hotspot(CELL));
-        assertEquals(.1 + 40 * fresh.totalFireExtentMoles(),
-                fresh.nextState().orElseThrow().fraction(), 1e-12);
+        assertNull(work.hotspot(CELL), "transient hotspot metadata is not restored from saved gas");
     }
 
     @Test
     void missingSnapshotPreservesHotspotButVerifiedSolidQuenchRemovesTransientVisualState() {
         ReactionWorkQueue work = new ReactionWorkQueue();
-        var hotspot = new HotspotKernel.HotspotState(.8, 900);
+        var hotspot = new HotspotState(800, 900, true, false);
         work.setHotspot(CELL, Optional.of(hotspot));
         work.setBurning(CELL, 204);
 

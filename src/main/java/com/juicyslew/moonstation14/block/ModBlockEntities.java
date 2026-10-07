@@ -1,7 +1,6 @@
 package com.juicyslew.moonstation14.block;
 
 import com.juicyslew.moonstation14.MoonStation14;
-import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.AtmosphereTestDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
@@ -33,9 +32,6 @@ import java.util.function.Supplier;
 public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, MoonStation14.MOD_ID);
 
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<JugBlockEntity>> JUG = BLOCK_ENTITY_TYPES.register("jug",
-            () -> BlockEntityType.Builder.of(JugBlockEntity::new, ModBlocks.JUG.get()).build(null)
-    );
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PuddleBlockEntity>> PUDDLE = BLOCK_ENTITY_TYPES.register("puddle",
             () -> BlockEntityType.Builder.of(PuddleBlockEntity::new, ModBlocks.PUDDLE.get()).build(null)
     );

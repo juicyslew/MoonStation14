@@ -16,17 +16,17 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"lifecycle", "character"})
 public final class CharacterControlGameTests {
     private CharacterControlGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void boundHumanPlayerAndVillagerShareTimedStunPolicy(GameTestHelper helper) {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         var pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));

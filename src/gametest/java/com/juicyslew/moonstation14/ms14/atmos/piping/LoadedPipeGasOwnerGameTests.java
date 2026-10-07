@@ -6,7 +6,7 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.LoadedPipeGasOwner;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -21,12 +21,12 @@ import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import com.mojang.authlib.GameProfile;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class LoadedPipeGasOwnerGameTests {
     private LoadedPipeGasOwnerGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void freshVacuumRollbackRemovesIdentityAndOwner(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -40,7 +40,7 @@ public final class LoadedPipeGasOwnerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void freshVacuumRollbackRejectsWrongIdentityAndSeededGas(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -61,7 +61,7 @@ public final class LoadedPipeGasOwnerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void separateNonPrimaryLanesGetIndependentOwners(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -106,7 +106,7 @@ public final class LoadedPipeGasOwnerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void replacedVisualPipeCannotReconnectStalePrimaryOwner(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -137,7 +137,7 @@ public final class LoadedPipeGasOwnerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void mismatchedPrimaryIdentityLeavesSavedGasInert(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -167,7 +167,7 @@ public final class LoadedPipeGasOwnerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void physicalRemovalArchivesFiniteGasAndAllowsFreshIncarnation(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -195,7 +195,7 @@ public final class LoadedPipeGasOwnerGameTests {
         MoonStation14.LOGGER.info("VENTILATION_REGRESSION_PASS physicalRemovalArchivesFiniteGasAndAllowsFreshIncarnation");
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")
     public static void creativeFakePlayerRemovalSpillsIntoProvenFiniteRoom(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         // Small sealed 5x5x3 probe volume, with the pipe at its center.
@@ -256,7 +256,7 @@ public final class LoadedPipeGasOwnerGameTests {
         } finally { atmos.configureAtServerStart(wasEnabled, oldVacuumDimensions); }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void provenAirRetiresAllStaleLanesAtOnlyThatPosition(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));

@@ -45,4 +45,23 @@ class LungToxicityTest {
         assertEquals(2f, LungToxicity.perInhale(stored,
                 Map.of("plasma", Map.of("poison", 1d)), 5).orElseThrow().get("poison"));
     }
+
+    @Test void configuredGasMinimumIsInclusiveAndOnlyGatesThatGas() {
+        double minimum = 0.5 / 1144d;
+        var rates = Map.of("carbon_dioxide", Map.of("poison", 0.5d), "plasma", Map.of("poison", 1d));
+        var thresholds = Map.of("carbon_dioxide", minimum);
+        var nominal = new GasMixture(Map.of(GasType.CARBON_DIOXIDE, 5e-7), 293.6);
+        assertEquals(Map.of(), LungToxicity.perInhale(nominal, rates, thresholds, 4).orElseThrow());
+        var boundary = new GasMixture(Map.of(GasType.CARBON_DIOXIDE, minimum), 293.6);
+        assertEquals((float) (minimum * 0.5), LungToxicity.perInhale(boundary, rates, thresholds, 4)
+                .orElseThrow().get("poison"));
+        var substantial = new GasMixture(Map.of(GasType.CARBON_DIOXIDE, 0.01), 293.6);
+        assertEquals(0.005f, LungToxicity.perInhale(substantial, rates, thresholds, 4)
+                .orElseThrow().get("poison"));
+        var plasma = new GasMixture(Map.of(GasType.PLASMA, 0.001), 293.6);
+        assertEquals(0.001f, LungToxicity.perInhale(plasma, rates, thresholds, 4)
+                .orElseThrow().get("poison"));
+        assertTrue(LungToxicity.perInhale(nominal, rates, Map.of("unknown", 0d), 4).isEmpty());
+        assertTrue(LungToxicity.perInhale(nominal, rates, Map.of("carbon_dioxide", Double.NaN), 4).isEmpty());
+    }
 }

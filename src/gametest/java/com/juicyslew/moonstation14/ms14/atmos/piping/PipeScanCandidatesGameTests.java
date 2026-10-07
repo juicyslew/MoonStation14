@@ -6,7 +6,7 @@ import com.juicyslew.moonstation14.ms14.infrastructure.scanner.ScanGeometry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -15,12 +15,12 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class PipeScanCandidatesGameTests {
     private PipeScanCandidatesGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void findsOnlyActiveFunctionalLanesWithoutMutatingInventory(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -68,7 +68,7 @@ public final class PipeScanCandidatesGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void concealedWallCandidateRequiresCurrentHostGeneration(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos wall = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -109,7 +109,7 @@ public final class PipeScanCandidatesGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void missingFullNeighborChunkFailsClosedWhenFixtureLeavesItUnloaded(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos boundary = helper.absolutePos(new BlockPos(15, 1, 3));

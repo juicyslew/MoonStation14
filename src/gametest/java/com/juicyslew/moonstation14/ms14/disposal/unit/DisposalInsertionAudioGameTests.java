@@ -16,12 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "audio"})
 @PrefixGameTestTemplate(false)
 public final class DisposalInsertionAudioGameTests {
     private DisposalInsertionAudioGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void successfulBodyAdmissionPlaysResolvedInsertionSoundOnlyOnce(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 2, 3));

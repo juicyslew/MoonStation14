@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ServerClassloadingTest {
     private static final String CLIENT_UI_SOURCE_PREFIX = "com/juicyslew/moonstation14/ms14/ui/client/";
     private static final String CLIENT_UI_PACKAGE = "com.juicyslew.moonstation14.ms14.ui.client";
+    private static final String CLIENT_LOOSE_OBJECT_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/loose_objects/client/";
     private static final Set<String> CLIENT_ONLY_SOURCES = Set.of(
             "com/juicyslew/moonstation14/MoonStation14Client.java",
             "com/juicyslew/moonstation14/CameraJitterHandler.java",
@@ -53,14 +55,18 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/hands/client/BodyBlockOutlineRenderer.java",
             "com/juicyslew/moonstation14/ms14/atmos/piping/client/VisualPipeBlockEntityRenderer.java",
             "com/juicyslew/moonstation14/ms14/power/ui/client/ApcScreen.java",
-            "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java",
             "com/juicyslew/moonstation14/ms14/explosion/grenade/client/GrenadeSoundClient.java",
+            "com/juicyslew/moonstation14/ms14/hands/client/SelectedLooseOutlineRenderer.java",
+            "com/juicyslew/moonstation14/ms14/hands/client/ItemUiRenderer.java",
+            "com/juicyslew/moonstation14/ms14/hands/client/ItemUiAppearance.java",
+            "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java",
             "com/juicyslew/moonstation14/ms14/disposal/client/DisposalTubeVisualRenderer.java",
              "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionPreview.java",
              "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionClient.java",
             "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalBuildScreen.java",
-            "com/juicyslew/moonstation14/ms14/disposal/unit/ui/client/DisposalUnitScreen.java"
-    );
+            "com/juicyslew/moonstation14/ms14/disposal/unit/ui/client/DisposalUnitScreen.java",
+            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionClient.java",
+            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java");
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
                     + "net\\.neoforged\\.neoforge\\.client|com\\.mojang\\.blaze3d)\\.[^;]+;");
@@ -81,7 +87,8 @@ class ServerClassloadingTest {
         try (Stream<Path> files = Files.walk(sourceRoot)) {
             for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
-                if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)) {
+                if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
+                        || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)) {
                     continue;
                 }
 
@@ -135,6 +142,20 @@ class ServerClassloadingTest {
     }
 
     @Test
+    void timedInteractionPresentationClassesAreExplicitlyClientOnly() throws IOException {
+        Path sourceRoot = findProductionSourceRoot();
+        for (String relativePath : List.of(
+                "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionClient.java",
+                "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java")) {
+            Path source = sourceRoot.resolve(relativePath);
+            assertTrue(Files.isRegularFile(source), relativePath + " should exist");
+            String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+            assertTrue(code.matches("(?s).*@OnlyIn\\s*\\(\\s*Dist\\.CLIENT\\s*\\).*"),
+                    relativePath + " must be annotated @OnlyIn(Dist.CLIENT)");
+        }
+    }
+
+    @Test
     void playerCharacterHarnessRendererIsExplicitlyClientOnlyAndRegistered() throws IOException {
         Path source = findProductionSourceRoot().resolve(
                 "com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java");
@@ -160,6 +181,27 @@ class ServerClassloadingTest {
         assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
                         + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
                 "Ghost control client must be explicitly subscribed on Dist.CLIENT");
+    }
+
+    @Test
+    void itemUiRendererIsExplicitlyClientOnly() throws IOException {
+        assertOnlyInClient("com/juicyslew/moonstation14/ms14/hands/client/ItemUiRenderer.java",
+                "Item UI renderer");
+    }
+
+    @Test
+    void itemUiAppearanceIsExplicitlyClientOnly() throws IOException {
+        assertOnlyInClient("com/juicyslew/moonstation14/ms14/hands/client/ItemUiAppearance.java",
+                "Item UI appearance");
+    }
+
+    private static void assertOnlyInClient(String relativePath, String description) throws IOException {
+        Path source = findProductionSourceRoot().resolve(relativePath);
+        assertTrue(Files.isRegularFile(source), description + " source should exist");
+
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        assertTrue(code.matches("(?s).*@OnlyIn\\s*\\(\\s*Dist\\.CLIENT\\s*\\).*"),
+                description + " must be explicitly annotated @OnlyIn(Dist.CLIENT)");
     }
 
     private static Path findProductionSourceRoot() {

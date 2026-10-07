@@ -15,12 +15,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.UUID;
 
 /** Confirms a downward route port is independent of the trunk's upward unit-interface port. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class DisposalVerticalUnitInletGameTests {
     private DisposalVerticalUnitInletGameTests() { }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 10)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 10)
     public static void downwardTrunkRouteIsValidUnitInlet(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos unitPos = helper.absolutePos(new BlockPos(3, 2, 3));

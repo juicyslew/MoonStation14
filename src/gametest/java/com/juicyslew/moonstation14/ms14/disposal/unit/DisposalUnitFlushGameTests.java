@@ -17,12 +17,13 @@ import java.util.UUID;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "containment"})
 @PrefixGameTestTemplate(false)
 public final class DisposalUnitFlushGameTests {
     private DisposalUnitFlushGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"hands"})
     public static void containedHandDropAppendsToUnitPayloadStore(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 2, 3));
@@ -59,7 +60,7 @@ public final class DisposalUnitFlushGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void firstActionUsesCurrentWorldClock(GameTestHelper helper) {
         helper.runAtTickTime(5, () -> {
             var level = helper.getLevel();
@@ -77,7 +78,8 @@ public final class DisposalUnitFlushGameTests {
         });
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"power"})
     public static void stalePoweredBlockStateDoesNotPowerUnitKernel(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 2, 3));
@@ -90,7 +92,8 @@ public final class DisposalUnitFlushGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 80)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"power"})
     public static void missingTrunkAndPowerLossRetainOwnedItem(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos local = new BlockPos(3, 2, 3), pos = helper.absolutePos(local);
@@ -114,7 +117,8 @@ public final class DisposalUnitFlushGameTests {
         });
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 100)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"power"})
     public static void poweredFlushTransfersWholeItemThroughOpenTrunkToHolder(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos local = new BlockPos(3, 2, 3), pos = helper.absolutePos(local), entry = pos.below();
@@ -140,7 +144,8 @@ public final class DisposalUnitFlushGameTests {
         });
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"atmosphere"})
     public static void failedReservoirReserveCannotLeaveHolderOrLoseUnitOwnership(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 2, 3)), entry = pos.below();

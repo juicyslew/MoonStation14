@@ -11,18 +11,18 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
 /** Functional and visual acceptance for exposed-to-concealed primary joins. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class ConcealedPipeJoinGameTests {
     private ConcealedPipeJoinGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
     public static void everyDirectionRequiresLiveMatchingPrimaryAndRoundTripsRenderMask(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pipe = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -52,7 +52,7 @@ public final class ConcealedPipeJoinGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
     public static void cosmeticWrongLaneAndWrongAxisNeverArm(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pipe = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -73,7 +73,7 @@ public final class ConcealedPipeJoinGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
     public static void secondaryOnlyDoesNotConnectPrimaryToPrimaryNeighbor(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos primary = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -89,7 +89,7 @@ public final class ConcealedPipeJoinGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "concealed_pipe_join", timeoutTicks = 100)
     public static void adjacentWrongAxisWallDoesNotRenderJoin(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pipe = helper.absolutePos(new BlockPos(3, 1, 3));

@@ -50,7 +50,8 @@ class AtmosphereVacuumConfigTest {
     @Test
     void ambientWriteComparisonDoesNotDiscardSubEpsilonChanges() {
         GasMixture ambient = new GasMixture(Map.of(GasType.OXYGEN, 1.0), 293.15);
-        GasMixture almostAmbient = new GasMixture(Map.of(GasType.OXYGEN, 1.0 + 1.0e-10), 293.15);
+        GasMixture almostAmbient = new GasMixture(Map.of(GasType.OXYGEN,
+                (double) Math.nextUp(1.0f)), 293.15);
         assertFalse(AtmosphereService.same(ambient, almostAmbient));
         assertTrue(AtmosphereService.same(ambient, ambient));
     }

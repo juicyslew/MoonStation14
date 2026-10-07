@@ -2,6 +2,10 @@ package com.juicyslew.moonstation14.ms14.storage.grid;
 
 import org.junit.jupiter.api.Test;
 import net.minecraft.resources.ResourceLocation;
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,10 +16,23 @@ class GridGeometryTest {
     private static GridGeometry.Cell c(int x, int y) { return new GridGeometry.Cell(x, y); }
 
     @Test
-    void onlyMoonstationPickaxeGetsTFootprint() {
+    void onlyCataloguedMoonstationPickaxeGetsTFootprint() throws Exception {
+        var server = PrototypeRuntime.serverManager();
+        var client = PrototypeRuntime.clientManager();
+        server.clearPublishedCatalogs();
+        client.clearPublishedCatalogs();
+        try (var reader = new java.io.InputStreamReader(getClass().getClassLoader().getResourceAsStream(
+                "data/moonstation14/moonstation14/item_footprint/pickaxe.json"))) {
+            var profile = ItemFootprintProfile.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseReader(reader)).getOrThrow();
+            server.publishDecoded(ModItemFootprints.TYPE, java.util.Map.of(
+                    ResourceLocation.fromNamespaceAndPath("moonstation14", "pickaxe"), profile));
         var ss14Pickaxe = ItemFootprints.forId(ResourceLocation.fromNamespaceAndPath("moonstation14", "pickaxe"));
         assertEquals(5, ss14Pickaxe.cells().size());
         assertEquals(1, ItemFootprints.forId(ResourceLocation.fromNamespaceAndPath("minecraft", "iron_pickaxe")).cells().size());
+        } finally {
+            server.clearPublishedCatalogs();
+            client.clearPublishedCatalogs();
+        }
     }
 
     @Test

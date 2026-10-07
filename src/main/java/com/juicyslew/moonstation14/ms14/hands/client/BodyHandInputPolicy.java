@@ -17,6 +17,6 @@ final class BodyHandInputPolicy {
 
     static BodyHandActionRequest.Action dropAction(boolean dropPressed, boolean controlDown) {
         if (!dropPressed) return null;
-        return controlDown ? BodyHandActionRequest.Action.THROW : BodyHandActionRequest.Action.DROP;
+        return controlDown ? BodyHandActionRequest.Action.THROW_ITEM : BodyHandActionRequest.Action.DROP;
     }
 }

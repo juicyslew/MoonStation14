@@ -10,19 +10,19 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class LoadedPipeComponentGameTests {
     private LoadedPipeComponentGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void discoverySeparatesLanesAndDoesNotMutateGas(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(8, 2, 8));

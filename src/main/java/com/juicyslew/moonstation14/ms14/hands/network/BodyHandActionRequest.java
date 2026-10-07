@@ -6,6 +6,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 
 import java.util.UUID;
@@ -15,7 +16,7 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                                     long expectedRevision, UUID pickupTarget, String expectedToken,
                                      String expectedChildOrSourceToken, int cellX, int cellY, int rotation,
                                       int oldCellX, int oldCellY, int oldRotation, String destinationHostToken,
-                                      String sourceHostId, String destinationHostId)
+                                       String sourceHostId, String destinationHostId, BlockPos targetBlock)
         implements CustomPacketPayload {
     public enum Action { PICKUP, DROP, INSERT_POUCH, EXTRACT_POUCH, SELECT_HAND,
         EQUIP_BELT, EQUIP_BACK, UNEQUIP_BELT, UNEQUIP_BACK,
@@ -25,7 +26,16 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         SMART_STORE_BELT, SMART_STORE_BACK, SMART_TAKE_BELT, SMART_TAKE_BACK,
         GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
         GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
-        TRANSFER_HAND, USE_HELD, ACTIVATE_HELD, THROW }
+        TRANSFER_HAND, PRIME_GRENADE, THROW_GRENADE, PICKUP_SELECTED, THROW_ITEM,
+        USE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE }
+
+    /** Compatibility constructor preserving the prior canonical signature. */
+    public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
+            UUID pickupTarget, String expectedToken, String child, int x, int y, int rotation,
+            int oldX, int oldY, int oldRotation, String destinationHostToken, String sourceHostId, String destinationHostId) {
+        this(action, handId, epoch, sequence, expectedRevision, pickupTarget, expectedToken, child, x, y, rotation,
+                oldX, oldY, oldRotation, destinationHostToken, sourceHostId, destinationHostId, null);
+    }
 
     public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
             UUID pickupTarget, String expectedToken, String child, int x, int y, int rotation,
@@ -61,8 +71,12 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                 buf.writeVarLong(request.epoch);
                 buf.writeVarLong(request.sequence);
                 buf.writeVarLong(request.expectedRevision);
-                if (request.action == Action.PICKUP) buf.writeUUID(request.pickupTarget);
-                else if (request.action != Action.SELECT_HAND) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
+                if (request.action == Action.SIP_PUDDLE) buf.writeBlockPos(request.targetBlock);
+                if (isWorldAction(request.action)) buf.writeUUID(request.pickupTarget);
+                if (request.action == Action.ALTERNATE_TARGET || request.action == Action.TOGGLE_PULL) {
+                    buf.writeBoolean(request.expectedToken != null);
+                    if (request.expectedToken != null) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
+                } else if (requiresToken(request.action)) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
                 if (isGrid(request.action)) {
                     buf.writeUtf(request.expectedChildOrSourceToken, ItemToken.MAX_LENGTH);
                     buf.writeVarInt(request.cellX); buf.writeVarInt(request.cellY);
@@ -83,13 +97,25 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                 long epoch = buf.readVarLong();
                 long sequence = buf.readVarLong();
                 long revision = buf.readVarLong();
-                if (action == Action.PICKUP) {
+                if (action == Action.SIP_PUDDLE) {
+                    BlockPos pos = buf.readBlockPos();
+                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected puddle sip payload");
+                    return sipPuddle(hand, epoch, sequence, revision, pos);
+                }
+                if (isWorldAction(action)) {
                     UUID target = buf.readUUID();
-                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected pickup payload");
-                    return new BodyHandActionRequest(action, hand, epoch, sequence, revision, target, null);
+                    String token = action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL
+                            ? buf.readBoolean() ? buf.readUtf(ItemToken.MAX_LENGTH) : null
+                            : requiresToken(action) ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
+                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected world action payload");
+                    return new BodyHandActionRequest(action, hand, epoch, sequence, revision, target, token);
                 }
                 if (action == Action.SELECT_HAND) {
                     if (buf.isReadable()) throw new IllegalArgumentException("Unexpected hand-selection payload");
+                    return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, null);
+                }
+                if (!requiresToken(action)) {
+                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected token-free action payload");
                     return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, null);
                 }
                 String token = buf.readUtf(ItemToken.MAX_LENGTH);
@@ -124,11 +150,19 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
     public BodyHandActionRequest {
         if (action == null || handId == null || handId.isBlank() || handId.length() > HandState.MAX_ID_LENGTH
                 || epoch <= 0 || sequence <= 0 || expectedRevision < 0
-                  || (action == Action.PICKUP && (pickupTarget == null || expectedToken != null))
-                 || (action == Action.SELECT_HAND && (pickupTarget != null || expectedToken != null))
-                 || (action != Action.PICKUP && action != Action.SELECT_HAND
-                         && (pickupTarget != null || expectedToken == null
-                          || expectedToken.isBlank() || expectedToken.length() > ItemToken.MAX_LENGTH))
+                  || (isWorldAction(action) && pickupTarget == null)
+                  || (action == Action.PICKUP && expectedToken != null)
+                  || (action == Action.USE_TARGET && (expectedToken == null || expectedToken.isBlank()
+                            || expectedToken.length() > ItemToken.MAX_LENGTH))
+                  || (action == Action.SELECT_HAND && (pickupTarget != null || expectedToken != null))
+                  || (action == Action.SIP_PUDDLE ? targetBlock == null || pickupTarget != null || expectedToken != null
+                          : targetBlock != null)
+                  || (requiresToken(action) && !isWorldAction(action)
+                           && (pickupTarget != null || expectedToken == null
+                            || expectedToken.isBlank() || expectedToken.length() > ItemToken.MAX_LENGTH))
+                   || ((action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL) && expectedToken != null
+                            && (expectedToken.isBlank() || expectedToken.length() > ItemToken.MAX_LENGTH))
+                  || (!isWorldAction(action) && pickupTarget != null)
                   || (action == Action.TRANSFER_HAND ? !validHostId(destinationHostId) || sourceHostId != null || destinationHostToken != null
                           : isCross(action) ? destinationHostToken == null || destinationHostToken.isBlank()
                          || destinationHostToken.length() > ItemToken.MAX_LENGTH || destinationHostToken.equals(expectedToken)
@@ -152,6 +186,14 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
             throw new IllegalArgumentException("Invalid body hand intent");
     }
 
+    public static BodyHandActionRequest sipPuddle(String hand, long epoch, long sequence, long revision, BlockPos pos) {
+        if (pos == null) throw new IllegalArgumentException("Missing puddle target");
+        return new BodyHandActionRequest(Action.SIP_PUDDLE, hand, epoch, sequence, revision, null, null,
+                null, -1, -1, -1, -1, -1, -1, null, null, null, pos.immutable());
+    }
+
+     private static boolean isWorldAction(Action action) { return action == Action.PICKUP || action == Action.PICKUP_SELECTED || action == Action.USE_TARGET || action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL; }
+      private static boolean requiresToken(Action action) { return action != Action.SELECT_HAND && action != Action.PICKUP && action != Action.PICKUP_SELECTED && action != Action.STOP_PULL && action != Action.ALTERNATE_TARGET && action != Action.SIP_PUDDLE; }
      private static boolean isBodyCross(Action action) { return action == Action.GRID_BODY_WORN_TO_HELD || action == Action.GRID_BODY_HELD_TO_WORN || action == Action.GRID_BODY_HELD_TO_HELD; }
      private static boolean wornId(String id) { return "back".equals(id) || "belt".equals(id); }
      private static boolean validHostId(String id) { return id != null && !id.isBlank() && id.length() <= HandState.MAX_ID_LENGTH; }

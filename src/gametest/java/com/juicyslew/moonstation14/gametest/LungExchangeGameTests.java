@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -23,20 +24,18 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "atmosphere"})
 public final class LungExchangeGameTests {
     private static final double TEMPERATURE = 293.15;
 
     private LungExchangeGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void lateBodyReconcilesWithoutUnknownBreath(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
@@ -106,7 +105,7 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void actualInhaleAloneAppliesConfiguredTypedToxins(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
@@ -148,8 +147,9 @@ public final class LungExchangeGameTests {
                 "disabled atmosphere cannot cause toxins");
         GasMixture source = service.sample(level, breathCell).orElseThrow();
         double breathMoles = source.totalMoles() * 0.0005;
-        double poisonExpected = source.moles(GasType.PLASMA) * breathMoles / source.totalMoles();
-        double radiationExpected = source.moles(GasType.TRITIUM) * breathMoles / source.totalMoles();
+        GasMixture inhaledPacket = source.splitRatio(breathMoles / source.totalMoles()).removed();
+        double poisonExpected = inhaledPacket.moles(GasType.PLASMA);
+        double radiationExpected = inhaledPacket.moles(GasType.TRITIUM);
         double poisonBefore = typed(actor, "poison");
         double radiationBefore = typed(actor, "radiation");
         require(LungSystem.tickIfDue(actor, due + 2L * interval, service), "mixed inhale succeeds");
@@ -168,6 +168,47 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    public static void traceCarbonDioxideIsSafeUntilInhaledThreshold(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
+        BlockPos origin = new BlockPos(((fixture.getX() >> 4) + 112) * 16,
+                fixture.getY(), ((fixture.getZ() >> 4) + 112) * 16);
+        level.getChunk(origin);
+        buildRoom(level, origin);
+        BlockPos cell = origin.offset(2, 1, 2);
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        Villager actor = EntityType.VILLAGER.create(level);
+        require(actor != null, "villager fixture required");
+        actor.setNoAi(true);
+        actor.moveTo(cell.getX() + 0.5, cell.getY(), cell.getZ() + 0.5);
+        level.addFreshEntity(actor);
+        require(LungSystem.reconcile(actor), "human lung must be enrolled");
+        int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(actor).orElseThrow().breathIntervalSeconds());
+        long due = 0;
+        while (!LungSystem.isDue(due, actor.getId(), interval)) due++;
+        BlockPos breathCell = BlockPos.containing(actor.getEyePosition());
+        classifyUntilSample(service, level, breathCell, 12);
+        require(service.addGas(level, breathCell, GasType.OXYGEN, 8.7, 293.6), "add oxygen");
+        require(service.addGas(level, breathCell, GasType.NITROGEN, 32.9, 293.6), "add nitrogen");
+        require(service.addGas(level, breathCell, GasType.CARBON_DIOXIDE, 0.001, 293.6), "add trace carbon dioxide");
+
+        float healthBefore = actor.getHealth();
+        require(LungSystem.tickIfDue(actor, due, service), "trace-gas inhale succeeds");
+        require(typed(actor, "poison") == 0f && actor.getHealth() == healthBefore,
+                "trace carbon dioxide below per-inhale threshold must not poison or hurt");
+        require(snapshot(actor).saturation() >= 0, "trace-gas inhalation must not underflow saturation");
+        require(LungSystem.tickIfDue(actor, due + interval, service), "trace-gas exhale succeeds");
+        require(typed(actor, "poison") == 0f && actor.getHealth() == healthBefore,
+                "exhaling trace carbon dioxide must not poison or hurt");
+
+        require(service.addGas(level, breathCell, GasType.CARBON_DIOXIDE, 40, 293.6), "raise carbon dioxide");
+        require(LungSystem.tickIfDue(actor, due + 2L * interval, service), "above-threshold inhale succeeds");
+        require(typed(actor, "poison") > 0f, "above-threshold inhaled carbon dioxide must apply poison");
+        actor.discard();
+        helper.succeed();
+    }
+
     private static LungComponent snapshot(net.minecraft.world.entity.LivingEntity entity) {
         BodyState body = BodySystem.current(entity).orElseThrow();
         LungOrganState lung = body.find(OrganCategory.LUNGS).orElseThrow().lung();
@@ -181,8 +222,8 @@ public final class LungExchangeGameTests {
         return stored == null ? 0f : stored.getMap().getOrDefault(key, 0f);
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
-    public static void zeroKelvinStrictInhaleLeavesRoomAndBodyUnchanged(GameTestHelper helper) {
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    public static void minimumTemperatureClampAllowsStrictInhale(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
         BlockPos origin = new BlockPos(((fixture.getX() >> 4) + 96) * 16,
@@ -191,8 +232,6 @@ public final class LungExchangeGameTests {
         buildRoom(level, origin);
         BlockPos cell = origin.offset(2, 1, 2);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
-        classifyUntilSample(service, level, cell, 12);
-        require(service.addGas(level, cell, GasType.OXYGEN, 1, 0), "fixture needs nonzero gas at zero kelvin");
         Pig pig = EntityType.PIG.create(level);
         require(pig != null, "pig fixture required");
         pig.setNoAi(true);
@@ -200,27 +239,32 @@ public final class LungExchangeGameTests {
         level.addFreshEntity(pig);
         require(LungSystem.reconcile(pig), "pig must have initialized BODY");
         BlockPos eye = BlockPos.containing(pig.getEyePosition());
+        classifyUntilSample(service, level, eye, 12);
+        require(service.addGas(level, eye, GasType.OXYGEN, 1, 0), "fixture needs nonzero gas at zero kelvin input");
         GasMixture beforeRoom = service.sample(level, eye).orElseThrow();
-        require(beforeRoom.totalMoles() > 0 && beforeRoom.temperatureKelvin() == 0,
-                "strict sample must be nonzero gas at zero kelvin");
+        require(beforeRoom.totalMoles() > 0
+                        && Math.abs(beforeRoom.temperatureKelvin() - 2.7) <= 4 * Math.ulp((float) 2.7),
+                "valid nonzero gas input must be clamped to the documented 2.7 K floor");
         BodyState beforeBody = BodySystem.current(pig).orElseThrow();
         int interval = LungSystem.intervalTicks(LungSystem.resolvePolicy(pig).orElseThrow().breathIntervalSeconds());
         long due = 0;
         while (!LungSystem.isDue(due, pig.getId(), interval)) due++;
-        require(!LungSystem.tickIfDue(pig, due, service), "invalid strict inhale must fail without throwing");
-        require(beforeBody.equals(BodySystem.current(pig).orElseThrow()), "invalid inhale must preserve BODY and phase");
-        require(sameMixture(beforeRoom, service.sample(level, eye).orElseThrow()),
-                "invalid inhale must preserve room gas");
-        pig.removeData(ModDataAttachments.BODY.get());
-        require(!LungSystem.tickIfDue(pig, due, service) && !pig.hasData(ModDataAttachments.BODY.get()),
-                "invalid sample must not initialize a missing BODY either");
-        require(sameMixture(beforeRoom, service.sample(level, eye).orElseThrow()),
-                "invalid sample must not change room during late reconciliation");
+        require(LungSystem.tickIfDue(pig, due, service), "clamped finite gas supports a valid strict inhale");
+        LungComponent afterInhale = snapshot(pig);
+        GasMixture afterRoom = service.sample(level, eye).orElseThrow();
+        double removed = beforeRoom.totalMoles() - afterRoom.totalMoles();
+        require(afterInhale.phase() == LungComponent.Phase.EXHALING
+                        && !afterInhale.gasMoles().isEmpty() && afterInhale.temperatureKelvin() >= 2.7,
+                "clamped inhaled packet must be retained in BODY without invalid temperature state");
+        require(removed > 0 && removed < beforeRoom.totalMoles(),
+                "successful inhale removes only the requested volume-equivalent packet");
+        require(beforeBody.respiration().saturation() == 5,
+                "valid inhale begins from the initialized saturation baseline");
         pig.discard();
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void isolatedWorldTickAlternatesAndReturnsOnlyStoredGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixture = helper.absolutePos(BlockPos.ZERO);
@@ -260,7 +304,9 @@ public final class LungExchangeGameTests {
         require(LungSystem.tickIfDue(pig, due + 3L * interval, service), "stored gas is exhaled");
         GasMixture afterReturn = service.sample(level, cell).orElseThrow();
         for (GasType type : GasType.values())
-            require(close(afterReturn.moles(type), beforeReturn.moles(type) + full.mixture().moles(type)),
+            require(Math.abs(afterReturn.moles(type)
+                            - (beforeReturn.moles(type) + full.mixture().moles(type)))
+                            <= mixtureUlpBudget(beforeReturn, full.mixture(), afterReturn),
                     "exhale returns exactly stored " + type);
         require(snapshot(pig).gasMoles().isEmpty(),
                 "successful exhale clears lung inventory");
@@ -268,7 +314,7 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 80)
     public static void serviceExchangeIsAtomicAndConservesFiniteCellGasAndEnergy(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos fixtureAnchor = helper.absolutePos(BlockPos.ZERO);
@@ -317,18 +363,22 @@ public final class LungExchangeGameTests {
         GasMixture after = service.sample(level, cell).orElseThrow();
         require(sameMixture(exchange.roomAfter(), after),
                 "the finite cell must contain exactly the exchange result after its atomic write");
-        require(Math.abs(exchange.inhaled().totalMoles() - 3.0) < 1.0e-9,
+        GasMixture expectedPacket = before.splitRatio(3.0 / before.totalMoles()).removed();
+        require(Math.abs(exchange.inhaled().totalMoles() - expectedPacket.totalMoles())
+                        <= mixtureUlpBudget(exchange.inhaled(), expectedPacket),
                 "inhaled gas must be capped at and match the requested sample amount");
         for (GasType type : GasType.values()) {
-            require(close(exchange.inhaled().moles(type),
-                            before.moles(type) * 3.0 / before.totalMoles()),
+            require(Math.abs(exchange.inhaled().moles(type) - expectedPacket.moles(type))
+                            <= Math.ulp((float) before.moles(type)) + Math.ulp((float) expectedPacket.moles(type)),
                     "inhaled " + type + " must match the proportional source sample");
-            require(close(before.moles(type) + exhaled.moles(type),
-                            exchange.inhaled().moles(type) + after.moles(type)),
+            require(Math.abs((before.moles(type) + exhaled.moles(type))
+                            - (exchange.inhaled().moles(type) + after.moles(type)))
+                            <= mixtureUlpBudget(before, exhaled, exchange.inhaled(), after),
                     "finite room plus inhaled portion must conserve " + type);
         }
-        require(close(before.thermalEnergy() + exhaled.thermalEnergy(),
-                        exchange.inhaled().thermalEnergy() + after.thermalEnergy()),
+        require(Math.abs((before.thermalEnergy() + exhaled.thermalEnergy())
+                        - (exchange.inhaled().thermalEnergy() + after.thermalEnergy()))
+                        <= energyUlpBudget(before, exhaled, exchange.inhaled(), after),
                 "finite room plus inhaled portion must conserve thermal energy");
 
         // A rejected request exercises the public API's no-partial-write failure path.
@@ -340,7 +390,7 @@ public final class LungExchangeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "lung_breath_exchange", timeoutTicks = 40)
     public static void exteriorAndInvalidCellsDoNotCreateFiniteOverrides(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -349,8 +399,9 @@ public final class LungExchangeGameTests {
         if (firstFreeY > skyCell.getY()) skyCell = new BlockPos(skyCell.getX(), firstFreeY + 1, skyCell.getZ());
         require(skyCell.getY() < level.getMaxBuildHeight(), "fixture must provide an in-bounds sky cell");
         LevelChunk skyChunk = (LevelChunk) level.getChunk(skyCell);
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "sky fixture must begin without atmosphere chunk data");
+        var initialSkyData = skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        require(noOverride(level, skyCell) && !isFiniteClaimed(skyChunk, skyCell),
+                "sky fixture cell must begin without a finite gas override or finite claim");
         GasMixture skyAmbient = service.sample(level, skyCell).orElseThrow(
                 () -> new GameTestAssertException("sky cell should be proven exterior"));
         var exteriorExchange = service.exchangeBreath(level, skyCell, 2.0, GasMixture.vacuum()).orElseThrow(
@@ -361,12 +412,12 @@ public final class LungExchangeGameTests {
                         + ", actual=" + exteriorExchange.inhaled().totalMoles());
         require(sameMixture(skyAmbient, service.sample(level, skyCell).orElseThrow()),
                 "exterior exchange must not change ambient composition or energy");
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "exterior exchange must not materialize a finite chunk override");
+        assertSkyCellUnchanged(level, skyChunk, skyCell, initialSkyData,
+                "exterior exchange must not create finite cell state");
         require(service.exchangeBreath(level, skyCell, 2.0, GasMixture.vacuum(), inhaled -> false).isEmpty(),
                 "exterior candidate rejection must fail without writing");
-        require(skyChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
-                "rejected exterior exchange cannot materialize finite data");
+        assertSkyCellUnchanged(level, skyChunk, skyCell, initialSkyData,
+                "rejected exterior exchange cannot create finite cell state");
 
         BlockPos solid = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.STONE);
@@ -403,18 +454,35 @@ public final class LungExchangeGameTests {
 
     private static GasMixture classifyUntilSample(AtmosphereService service, ServerLevel level,
                                                    BlockPos pos, int maxPasses) {
-        for (int pass = 1; pass <= maxPasses; pass++) {
-            service.tick(level, (long) pass * AtmosphereService.TICK_CADENCE);
-            var sample = service.sample(level, pos);
-            if (sample.isPresent()) return sample.get();
+        service.activateCellAndNeighbors(level, pos);
+        int callbackLimit = Math.max(60, maxPasses * 5);
+        for (int pass = 1; pass <= callbackLimit; pass++) {
+            service.tick(level, pass);
+            if (service.diagnosticCell(level, pos).status().equals("finite"))
+                return service.sample(level, pos).orElseThrow();
         }
-        throw new GameTestAssertException("finite cell ownership did not classify within " + maxPasses + " passes");
+        throw new GameTestAssertException("finite cell ownership did not classify within " + callbackLimit
+                + " callbacks; timing=" + service.diagnosticTiming(level));
     }
 
     private static boolean noOverride(ServerLevel level, BlockPos pos) {
         LevelChunk chunk = (LevelChunk) level.getChunk(pos);
         var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
         return data == null || data.get(pos.getX() & 15, pos.getY(), pos.getZ() & 15) == null;
+    }
+
+    private static boolean isFiniteClaimed(LevelChunk chunk, BlockPos pos) {
+        var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        return data != null && data.isFiniteClaimed(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+    }
+
+    private static void assertSkyCellUnchanged(ServerLevel level, LevelChunk chunk, BlockPos pos,
+                                               com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData initialData,
+                                               String message) {
+        var currentData = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        require(currentData == initialData, message + ": chunk attachment allocation/identity changed");
+        require(noOverride(level, pos) && !isFiniteClaimed(chunk, pos),
+                message + ": target cell acquired finite override or claim");
     }
 
     private static boolean sameMixture(GasMixture left, GasMixture right) {
@@ -426,6 +494,19 @@ public final class LungExchangeGameTests {
 
     private static boolean close(double left, double right) {
         return Math.abs(left - right) <= 1.0e-9 * Math.max(1.0, Math.max(Math.abs(left), Math.abs(right)));
+    }
+
+    private static double mixtureUlpBudget(GasMixture... mixtures) {
+        double budget = 0;
+        for (GasMixture mixture : mixtures)
+            for (GasType type : GasType.values()) budget += Math.ulp((float) mixture.moles(type));
+        return 4 * budget;
+    }
+
+    private static double energyUlpBudget(GasMixture... mixtures) {
+        double budget = 0;
+        for (GasMixture mixture : mixtures) budget += Math.ulp((float) mixture.thermalEnergy());
+        return 4 * budget;
     }
 
     private static void require(boolean condition, String message) {

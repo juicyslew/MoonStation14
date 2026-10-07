@@ -4,7 +4,7 @@
 
 **Closed by owner acceptance.** The owner reports all observed issues resolved after the live finite-air intake fix. Construction, connected containment/camera, full-route transport and exit behavior are accepted. This is not a claim of complete upstream feature coverage or a green full GameTest suite.
 
-Latest artifact: `build/libs/moonstation14-0.0.1.jar`. Original feature commit: `d0a0152`; follow-up changes remain uncommitted. Preserve unrelated working-tree edits, especially atmosphere and character lifecycle work.
+Latest artifact: `build/libs/moonstation14-0.0.1.jar`. Closure changes are included in `78d47a9`; subsequent main integration is staged but not committed. Preserve unrelated atmosphere and character lifecycle work. See `merge-main-validation.md` for current aggregate validation and its unresolved native failures.
 
 ## ARCHITECTURE
 
@@ -52,8 +52,10 @@ Client self-entry prediction and canonical critical mob-state eligibility remain
 
 Latest focused validation: **123 JUnit tests passed**, Java/GameTest compilation and jar generation passed; independent review passed. Log: `build/disposals-live-intake-focused.log`. New `DisposalLiveIntakeGameTests` cover local intake despite strict-proof rejection, species/thermal conservation, holder pressure, vacuum/unavailable sources and stale endpoints; these native cases compiled but were not run.
 
+Subsequent main integration: **2,467 JUnit tests passed**; full isolated native run selected **586/586**, with **577 passes and 9 required failures**. Both full tours and the new live-intake cases passed. Ray-hit and airborne-settling fixtures were corrected afterward; a focused `disposal-regression` run selected **2/586**, both passed, with no gameplay changes or weakened assertions. The other seven power/ventilation, lease, ingestion and fixture-isolation failures remain unresolved; no post-correction full-suite pass is claimed. Tag-based registration now preserves camera-tour batch callbacks. See `merge-main-validation.md` for evidence and limits.
+
 Earlier focused native tests completed both full tours with objects and bound HUMAN identity/inventory/breathing preserved. Last consolidated movement batch was **11/12**; landing cleanup was corrected afterward with focused unit coverage, without a headless rerun. Broader historical GameTest failures remain unresolved and are not claimed unrelated. Failure artifacts are retained. No additional server/client was launched for recent fixes. Owner connected acceptance closes the observed issues.
 
 ## NEXT WORK
 
-Start future disposal work here and consult the parity audit before extending composition. Add critical mob-state restrictions through the shared capability query, not disposal-specific health thresholds. Run the compiled live-intake and landing regressions in a future consolidated approved native validation batch; keep full-suite failures visible. Treat shared construction browsing and unrelated atmosphere work as separate scopes.
+Start future disposal work here and consult the parity audit before extending composition. Add critical mob-state restrictions through the shared capability query, not disposal-specific health thresholds. Investigate the remaining broader native failures recorded in `merge-main-validation.md` before claiming an aggregate suite pass. Treat shared construction browsing and unrelated atmosphere work as separate scopes.

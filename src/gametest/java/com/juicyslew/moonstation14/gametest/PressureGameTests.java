@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.gametest;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BarotraumaSystem;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -21,18 +22,17 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere", "physiology"})
 public final class PressureGameTests {
     private PressureGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void boundPigReadsCommittedIsolatedComponentSnapshots(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -124,7 +124,7 @@ public final class PressureGameTests {
         return pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().getOrDefault("blunt", 0f);
     }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void absentComponentDoesNotEnrollOrDamage(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -141,7 +141,7 @@ public final class PressureGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void crossingCeilingAppliesFullHitThenHealingReopens(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -177,7 +177,7 @@ public final class PressureGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void missingLedgerAboveCeilingSkipsVacuumHitWithoutImport(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -199,7 +199,7 @@ public final class PressureGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void missingLedgerBelowCeilingImportsOnceAndAppliesFullVacuumHit(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -225,7 +225,7 @@ public final class PressureGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void isolatedStrictKnownAndUnknownPressure(GameTestHelper helper) {
         var level = helper.getLevel();
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
@@ -253,9 +253,11 @@ public final class PressureGameTests {
                 "stagger must reject an off-cadence tick");
 
         // Claim the closed room as finite, using an independent air-configured service.
-        for (int i = 1; i <= 12 && air.sample(level, eye).isEmpty(); i++)
-            air.tick(level, i * AtmosphereService.TICK_CADENCE);
-        require(air.sample(level, eye).isPresent() && air.sample(level, eye).orElseThrow().pressureKpa(1) > 20,
+        air.activateCellAndNeighbors(level, eye);
+        for (int i = 1; i <= 60 && !air.diagnosticCell(level, eye).status().equals("finite"); i++)
+            air.tick(level, i);
+        require(air.diagnosticCell(level, eye).status().equals("finite")
+                        && air.sample(level, eye).orElseThrow().pressureKpa(1) > 20,
                 "sealed finite cell must contain air");
         require(!BarotraumaSystem.tickIfDue(pig, -pig.getId(), air), "ordinary air must be inert");
         level.setBlockAndUpdate(eye, Blocks.STONE.defaultBlockState());

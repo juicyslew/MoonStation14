@@ -17,8 +17,8 @@ import java.util.Set;
 
 /**
  * Immutable SS14 gas reaction gates and whitelisted effect identities; no executable reaction state.
- * Requirements are absolute moles per local 1 m³ cell (0.01 mol in bundled data),
- * deliberately not scaled from SS14's 2.5 m³ cell.
+ * Requirements and minimum energy use canonical upstream reference-tile quantities; the evaluator
+ * converts those fixed quantities once when comparing against a local 1,000 L cell.
  */
 public record GasReactionData(Map<GasType, Double> minimumRequirements, double minimumTemperature,
                               double maximumTemperature, double minimumEnergy, int priority, List<Effect> effects) {

@@ -62,8 +62,9 @@ class ModCreativeModeTabsTest {
          assertFalse(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.GAS_SCRUBBER));
          assertFalse(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.AIR_ALARM));
         // Custom BlockItems are represented by their blocks in the Blocks tab, not as standalone items.
-        registeredItems.removeIf(item -> item == ModItems.JUG);
-        assertTrue(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.JUG));
+        assertEquals(1, ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.stream()
+                .filter(entry -> entry == ModItems.JUG).count(), "the portable jug must appear once in Items");
+        assertFalse(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModItems.JUG));
         assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModItems.GAS_PIPE_VISUAL));
         for (var visual : List.of(ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY,
                 ModItems.GAS_PIPE_VISUAL_TERTIARY)) {

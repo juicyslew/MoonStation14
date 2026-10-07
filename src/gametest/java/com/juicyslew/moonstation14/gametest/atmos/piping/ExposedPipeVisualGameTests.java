@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest.atmos.piping;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.atmos.piping.ExposedPipeVisualBlock;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology;
@@ -11,18 +12,17 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "hands"})
 @PrefixGameTestTemplate(false)
 public final class ExposedPipeVisualGameTests {
     private ExposedPipeVisualGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void primaryPipeDoesNotConnectToSecondaryOnlyNeighbor(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos primary = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -53,7 +53,7 @@ public final class ExposedPipeVisualGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void independentlyPlacedLayersConnectOnlyAlongTheirOwnLane(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -101,7 +101,7 @@ public final class ExposedPipeVisualGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void exposedPipeConnectsOnlyToAdjacentPipeAndLeavesWallsSealed(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(3, 1, 3));

@@ -7,7 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Correlated completion of one body block-use intent; carries no owner or inventory data. */
 public record BodyBlockUseResult(long epoch, long sequence, Outcome outcome) implements CustomPacketPayload {
-    public enum Outcome { PLACED, DENIED, RECOVERY_REQUIRED, NO_CHANGE }
+    public enum Outcome { PLACED, DENIED, RECOVERY_REQUIRED, NO_CHANGE, HAND_CHANGED }
     public static final Type<BodyBlockUseResult> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("moonstation14", "body_block_use_result"));
     public static final StreamCodec<RegistryFriendlyByteBuf, BodyBlockUseResult> STREAM_CODEC = StreamCodec.of(
             (buf, value) -> { buf.writeVarLong(value.epoch); buf.writeVarLong(value.sequence); buf.writeEnum(value.outcome); },

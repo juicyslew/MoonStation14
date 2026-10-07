@@ -27,12 +27,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Real owner blocks and natural entity ticks through a vertical disposal route. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "containment"})
 @PrefixGameTestTemplate(false)
 public final class DisposalSpatialTransportGameTests {
     private DisposalSpatialTransportGameTests() { }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 30)
     public static void verticalBendCarriesBodyWholeItemAndZeroAir(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos start = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -73,7 +73,7 @@ public final class DisposalSpatialTransportGameTests {
         awaitVertical(helper, holder, vertical, bend, outlet, level, body, token);
     }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 20)
     public static void restoredHolderWithChangedTubeIdentitySafelyReleasesOwnedPayload(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos tube = helper.absolutePos(new BlockPos(3, 1, 3));

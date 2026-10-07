@@ -16,7 +16,7 @@ class ContainedHandActionPolicyTest {
                         SMART_STORE_BELT, SMART_STORE_BACK, SMART_TAKE_BELT, SMART_TAKE_BACK,
                         GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
                         GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
-                        USE_HELD, ACTIVATE_HELD, DROP -> true;
+                        USE_HELD, USE_IN_HAND, PRIME_GRENADE, STOP_PULL, DROP -> true;
                 default -> false;
             };
             assertEquals(bodyLocal, DisposalContainedActionPolicy.permitsBodyHandAction(action), action.name());

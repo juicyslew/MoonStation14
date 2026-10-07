@@ -43,7 +43,7 @@ public final class BodyWorldItemActions {
                     request.expectedToken(), request.expectedRevision());
             if (primed == BodyGrenadePrime.Result.SUCCESS) {
                 BodyHandStateService.requireFreshQuery(actor);
-                return BodyBlockUseResult.Outcome.NO_CHANGE;
+                return BodyBlockUseResult.Outcome.HAND_CHANGED;
             }
             return primed == BodyGrenadePrime.Result.RECOVERY_REQUIRED
                     ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;

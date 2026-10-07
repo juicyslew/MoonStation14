@@ -1,0 +1,3 @@
+SS14 upstream source: Resources/Audio/Items/drink.ogg at commit c9df5ef5d675b0d1d226828bddf6b78c28502d91.
+Copied verbatim; SHA-256: 6c09f978706f20302eafbd79a03ac25cc719fb34dfe1443251a026eda6867b1f.
+File-specific author and license are unresolved. This notice makes no permission or license claim.

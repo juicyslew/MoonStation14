@@ -13,26 +13,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 
 /**
- * Transient, server-thread-owned excited-group membership and cycle processing. Unlike SS14's
- * unconditional fifth-pass averaging, Minecraft group breakdown waits until LINDA has made every
- * species and temperature gradient small enough that final averaging is visually imperceptible.
+ * Transient, server-thread-owned excited-group membership and cycle processing.
  */
 public final class ExcitedAtmosphereGroups {
     private static final double STANDARD_MOLES = 101_325.0 / (8.31446261815324 * 293.15);
     public static final double MINIMUM_AIR_TO_SUSPEND = STANDARD_MOLES * 0.1;
     public static final double MINIMUM_MOLES_DELTA_TO_MOVE = STANDARD_MOLES * 0.001;
-    private static final double MAX_BREAKDOWN_GAS_DEVIATION = STANDARD_MOLES * 0.05;
-    private static final double MAX_BREAKDOWN_TEMPERATURE_DEVIATION = 4.0;
     private static final int BREAKDOWN_CYCLES = 4;
     private static final int DISMANTLE_CYCLES = 16;
-    private static final int MAX_TRACKED_CELLS = 800;
 
     private final Map<Long, Group> groups = new LinkedHashMap<>();
     private final Map<BlockPos, Long> membership = new HashMap<>();
     private long nextId;
-    private PendingBreakdown pending;
+    private long lastCycleId = Long.MIN_VALUE;
+    private List<Long> groupQueue = List.of();
+    private int groupQueueCursor;
+    private long legacyCycleId;
 
     /**
      * Register a LINDA-qualified shared pair, including temperature-only comparisons that move no
@@ -53,7 +53,6 @@ public final class ExcitedAtmosphereGroups {
         Long secondId = membership.get(second);
         Group group;
         if (firstId == null && secondId == null) {
-            if (membership.size() + 2 > MAX_TRACKED_CELLS) return;
             group = new Group(nextId++);
             group.cells.add(first);
             group.cells.add(second);
@@ -64,23 +63,19 @@ public final class ExcitedAtmosphereGroups {
             group = groups.get(firstId);
         } else if (firstId == null || secondId == null) {
             group = groups.get(firstId != null ? firstId : secondId);
-            if (membership.size() >= MAX_TRACKED_CELLS) return;
             BlockPos added = firstId == null ? first : second;
             group.cells.add(added);
             membership.put(added, group.id);
         } else {
             Group left = groups.get(firstId);
             Group right = groups.get(secondId);
-            if ((long) membership.size() > MAX_TRACKED_CELLS) return;
             group = preferred(left, right);
             Group loser = group == left ? right : left;
-            if (group.cells.size() + loser.cells.size() > MAX_TRACKED_CELLS) return;
             group.cells.addAll(loser.cells);
             for (BlockPos cell : loser.cells) membership.put(cell, group.id);
             groups.remove(loser.id);
             group.breakdownCooldown = 0;
             group.dismantleCooldown = 0;
-            if (pending != null && pending.groupId == loser.id) pending = null;
         }
         if (group == null) return;
         if (movedMoles > MINIMUM_AIR_TO_SUSPEND) {
@@ -103,153 +98,179 @@ public final class ExcitedAtmosphereGroups {
         return Collections.unmodifiableSet(new LinkedHashSet<>(membership.keySet()));
     }
 
+    /** Detached position-to-group snapshot for LINDA's component-aware share gate. */
+    public Map<BlockPos, Long> groupMembership() { return Map.copyOf(membership); }
+
+    /** True when both endpoints belong to some excited group, including different groups. */
+    public boolean bothGrouped(LindaGasSharing.Pair pair) {
+        return membership.containsKey(pair.first()) && membership.containsKey(pair.second());
+    }
+
+    /** Reset both pacing timers for the existing group containing this cell; never creates membership. */
+    public boolean resetCooldownsForCell(BlockPos pos) {
+        Objects.requireNonNull(pos, "pos");
+        Long id = membership.get(pos);
+        Group group = id == null ? null : groups.get(id);
+        if (group == null) return false;
+        group.breakdownCooldown = 0;
+        group.dismantleCooldown = 0;
+        return true;
+    }
+
     /** Advances each group exactly once for an atmosphere cycle; partial breakdowns are atomic. */
     public CycleResult advanceFullCycle(Map<BlockPos, GasMixture> currentFiniteCells, int workBudget) {
-        Objects.requireNonNull(currentFiniteCells, "currentFiniteCells");
-        if (workBudget < 0 || workBudget > MAX_TRACKED_CELLS)
-            throw new IllegalArgumentException("workBudget must be between 0 and 800");
-        Map<BlockPos, GasMixture> current = immutableMixtures(currentFiniteCells);
+        return advanceCycle(++legacyCycleId, currentFiniteCells, workBudget);
+    }
+
+    /** Advances/resumes work for a stable caller-supplied cycle id without ticking groups twice. */
+    public CycleResult advanceCycle(long cycleId, Map<BlockPos, GasMixture> currentFiniteCells, int workBudget) {
+        return advanceCycle(cycleId, currentFiniteCells, Set.of(), Set.of(), false, workBudget);
+    }
+
+    /** Advances all loaded members; immutable members participate in averaging but are never replaced. */
+    public CycleResult advanceCycle(long cycleId, Map<BlockPos, GasMixture> allLoadedMixtures,
+                                     Set<BlockPos> immutablePositions, Set<BlockPos> spacePositions,
+                                     boolean spaceAllConsuming, int workBudget) {
+        return advanceCycle(cycleId, group -> snapshotGroup(group, allLoadedMixtures, immutablePositions, spacePositions),
+                spaceAllConsuming, workBudget, () -> false);
+    }
+
+    /** Captures only the group currently being processed. Null means a member is unavailable. */
+    public CycleResult advanceCycle(long cycleId, Function<Set<BlockPos>, LoadedGroupSnapshot> provider,
+                                     boolean spaceAllConsuming, int groupOperationBudget,
+                                     BooleanSupplier deadlineReached) {
+        Objects.requireNonNull(provider, "provider");
+        Objects.requireNonNull(deadlineReached, "deadlineReached");
+        if (groupOperationBudget < 0) throw new IllegalArgumentException("groupOperationBudget must be nonnegative");
+        if (groupOperationBudget == 0) return new CycleResult(Map.of(), Set.of(), 0);
+        if (cycleId != lastCycleId) {
+            lastCycleId = cycleId;
+            List<GroupOrder> ordered = new ArrayList<>(groups.size());
+            for (Group group : groups.values()) ordered.add(new GroupOrder(group,
+                    group.cells.stream().min(ExcitedAtmosphereGroups::compare).orElseThrow()));
+            ordered.sort(Comparator.comparing(GroupOrder::firstCell, ExcitedAtmosphereGroups::compare));
+            groupQueue = ordered.stream().map(entry -> entry.group().id).toList();
+            groupQueueCursor = 0;
+        }
         Map<BlockPos, GasMixture> replacements = new LinkedHashMap<>();
         Set<BlockPos> deactivated = new LinkedHashSet<>();
+        EnumMap<GasType, Double> boundarySpeciesMoles = new EnumMap<>(GasType.class);
+        double boundaryEnergyJoules = 0.0;
         int work = 0;
-        Long resumedGroupId = pending == null ? null : pending.groupId;
-
-        if (pending != null) {
-            Group group = groups.get(pending.groupId);
-            if (group == null || !allLoaded(group, current)) {
-                if (group != null) group.breakdownCooldown = 0;
-                pending = null;
-            } else if (pending.snapshots.size() != group.cells.size()
-                    || !pending.snapshots.keySet().containsAll(group.cells)
-                    || !snapshotsMatch(pending.snapshots, current)) {
-                // Gas changed while this bounded job was suspended; discard its stale average.
-                group.breakdownCooldown = 0;
-                pending = null;
-            } else {
-                while (pending.progress < pending.cells.size() && work < workBudget) {
-                    pending.progress++;
-                    work++;
-                }
-                if (pending.progress == pending.cells.size()) {
-                    for (BlockPos cell : pending.cells) replacements.put(cell, pending.average);
-                    group.breakdownCooldown = 0;
-                    pending = null;
-                }
-            }
-        }
-
-        List<Group> ordered = new ArrayList<>(groups.values());
-        ordered.sort(Comparator.comparing(group -> group.cells.stream().min(ExcitedAtmosphereGroups::compare).orElseThrow(),
-                ExcitedAtmosphereGroups::compare));
-        for (Group group : ordered) {
-            if (resumedGroupId != null && group.id == resumedGroupId) continue;
-            if (group.id == (pending == null ? -1 : pending.groupId)) continue;
-            if (!allLoaded(group, current)) continue;
-            group.breakdownCooldown++;
+        int averages = 0;
+        long captureNanos = 0, averageNanos = 0;
+        int skippedQueueEntries = 0;
+        while (groupQueueCursor < groupQueue.size()) {
+            if (work >= groupOperationBudget) break;
+            if ((work > 0 || skippedQueueEntries > 0) && deadlineReached.getAsBoolean()) break;
+            long id = groupQueue.get(groupQueueCursor++);
+            Group group = groups.get(id);
+            if (group == null) { skippedQueueEntries++; continue; }
+            work++;
             group.dismantleCooldown++;
-            if (group.dismantleCooldown > DISMANTLE_CYCLES) {
-                for (BlockPos cell : group.cells) {
-                    membership.remove(cell);
-                    deactivated.add(cell);
-                }
-                groups.remove(group.id);
-                continue;
-            }
+            group.breakdownCooldown++;
             if (group.breakdownCooldown > BREAKDOWN_CYCLES) {
-                GasMixture average = average(group.cells, current);
-                if (!isNearUniform(group.cells, current, average)) {
-                    // LINDA continues doing the visible diffusion; never turn a large gradient into
-                    // an instantaneous full-room equalization merely because a cycle elapsed.
-                    group.breakdownCooldown = 0;
+                LoadedGroupSnapshot captured = provider.apply(Set.copyOf(group.cells));
+                if (captured == null || !captured.mixtures().keySet().containsAll(group.cells)) {
+                    removeGroup(group, deactivated);
                     continue;
                 }
-                pending = new PendingBreakdown(group.id, sorted(group.cells), snapshot(group.cells, current),
-                        average);
-                // Do not apply even a partial average. Future cycle calls resume this atomic job.
-                while (pending.progress < pending.cells.size() && work < workBudget) {
-                    pending.progress++;
-                    work++;
-                }
-                if (pending.progress == pending.cells.size()) {
-                    for (BlockPos cell : pending.cells) replacements.put(cell, pending.average);
-                    group.breakdownCooldown = 0;
-                    pending = null;
-                }
-            }
+                Map<BlockPos, GasMixture> current = captured.mixtures();
+                captureNanos += captured.captureNanos();
+                averages++;
+                long averageStarted = System.nanoTime();
+                GasMixture average = average(group.cells, current, captured.immutablePositions(), captured.spacePositions(), spaceAllConsuming);
+                BoundaryExchange exchange = boundaryExchange(group.cells, current, captured.immutablePositions(), average);
+                for (BlockPos cell : group.cells) if (!captured.immutablePositions().contains(cell)) replacements.put(cell, average);
+                exchange.speciesMoles().forEach((gas, amount) -> boundarySpeciesMoles.merge(gas, amount, Double::sum));
+                boundaryEnergyJoules += exchange.energyJoules();
+                group.breakdownCooldown = 0;
+                averageNanos += System.nanoTime() - averageStarted;
+            } else if (group.dismantleCooldown > DISMANTLE_CYCLES) removeGroup(group, deactivated);
         }
-        return new CycleResult(Collections.unmodifiableMap(replacements),
-                Collections.unmodifiableSet(deactivated), work);
+        return new CycleResult(Collections.unmodifiableMap(replacements), Collections.unmodifiableSet(deactivated), work,
+                Collections.unmodifiableMap(boundarySpeciesMoles), boundaryEnergyJoules, averages, captureNanos, averageNanos);
+    }
+
+    private static LoadedGroupSnapshot snapshotGroup(Set<BlockPos> group, Map<BlockPos, GasMixture> all,
+                                                       Set<BlockPos> immutable, Set<BlockPos> space) {
+        Map<BlockPos, GasMixture> mixtures = new LinkedHashMap<>();
+        for (BlockPos pos : group) { GasMixture gas = all.get(pos); if (gas == null) return null; mixtures.put(pos, gas); }
+        Set<BlockPos> imm = new LinkedHashSet<>(immutable); imm.retainAll(group);
+        Set<BlockPos> sp = new LinkedHashSet<>(space); sp.retainAll(group);
+        return new LoadedGroupSnapshot(mixtures, imm, sp);
+    }
+
+    private void removeGroup(Group group, Set<BlockPos> deactivated) {
+        for (BlockPos cell : group.cells) { membership.remove(cell); deactivated.add(cell); }
+        groups.remove(group.id);
+    }
+
+    public record LoadedGroupSnapshot(Map<BlockPos, GasMixture> mixtures, Set<BlockPos> immutablePositions,
+                                      Set<BlockPos> spacePositions, long captureNanos) {
+        public LoadedGroupSnapshot(Map<BlockPos, GasMixture> mixtures, Set<BlockPos> immutablePositions,
+                                   Set<BlockPos> spacePositions) { this(mixtures, immutablePositions, spacePositions, 0); }
+        public LoadedGroupSnapshot { mixtures = Map.copyOf(mixtures); immutablePositions = Set.copyOf(immutablePositions); spacePositions = Set.copyOf(spacePositions); }
+    }
+
+    private static BoundaryExchange boundaryExchange(Set<BlockPos> cells, Map<BlockPos, GasMixture> current,
+                                                       Set<BlockPos> immutablePositions, GasMixture average) {
+        if (cells.stream().noneMatch(immutablePositions::contains)) return new BoundaryExchange(Map.of(), 0.0);
+        int finiteCount = 0;
+        EnumMap<GasType, Double> species = new EnumMap<>(GasType.class);
+        double finiteBeforeEnergy = 0.0;
+        for (BlockPos cell : cells) {
+            if (immutablePositions.contains(cell)) continue;
+            GasMixture mixture = current.get(cell);
+            if (mixture == null) continue;
+            finiteCount++;
+            finiteBeforeEnergy += mixture.thermalEnergy();
+            for (GasType gas : GasType.values()) species.merge(gas, mixture.moles(gas), Double::sum);
+        }
+        if (finiteCount == 0) return new BoundaryExchange(Map.of(), 0.0);
+        for (GasType gas : GasType.values()) {
+            double moved = species.getOrDefault(gas, 0.0) - average.moles(gas) * finiteCount;
+            if (moved == 0.0) species.remove(gas);
+            else species.put(gas, moved);
+        }
+        return new BoundaryExchange(Collections.unmodifiableMap(species),
+                finiteBeforeEnergy - average.thermalEnergy() * finiteCount);
+    }
+
+    /** Whether a caller still owes this cycle a group counter/tick or pending breakdown work. */
+    public boolean hasUnprocessedCycleWork() {
+        return groupQueueCursor < groupQueue.size();
     }
 
     private static Group preferred(Group a, Group b) {
         if (a.cells.size() != b.cells.size()) return a.cells.size() > b.cells.size() ? a : b;
-        BlockPos aMin = a.cells.stream().min(ExcitedAtmosphereGroups::compare).orElseThrow();
-        BlockPos bMin = b.cells.stream().min(ExcitedAtmosphereGroups::compare).orElseThrow();
-        return compare(aMin, bMin) <= 0 ? a : b;
+        return b;
     }
 
-    private static boolean allLoaded(Group group, Map<BlockPos, GasMixture> current) {
-        return group.cells.stream().allMatch(current::containsKey);
-    }
-
-    private static Map<BlockPos, GasMixture> snapshot(Set<BlockPos> cells, Map<BlockPos, GasMixture> current) {
-        Map<BlockPos, GasMixture> result = new HashMap<>();
-        for (BlockPos cell : cells) result.put(cell, current.get(cell));
-        return Map.copyOf(result);
-    }
-
-    private static boolean snapshotsMatch(Map<BlockPos, GasMixture> snapshots, Map<BlockPos, GasMixture> current) {
-        for (Map.Entry<BlockPos, GasMixture> entry : snapshots.entrySet()) {
-            GasMixture candidate = current.get(entry.getKey());
-            if (candidate == null || !sameMixture(entry.getValue(), candidate)) return false;
-        }
-        return true;
-    }
-
-    private static boolean sameMixture(GasMixture first, GasMixture second) {
-        return first.temperatureKelvin() == second.temperatureKelvin()
-                && first.gasMoles().equals(second.gasMoles());
-    }
-
-    private static GasMixture average(Set<BlockPos> cells, Map<BlockPos, GasMixture> current) {
-        EnumMap<GasType, Double> totals = new EnumMap<>(GasType.class);
-        double energy = 0.0;
+    private static GasMixture average(Set<BlockPos> cells, Map<BlockPos, GasMixture> current,
+                                      Set<BlockPos> immutablePositions, Set<BlockPos> spacePositions,
+                                      boolean spaceAllConsuming) {
+        GasMixture merged = GasMixture.vacuum();
         for (BlockPos cell : cells) {
-            GasMixture mixture = current.get(cell);
-            for (GasType gas : GasType.values()) totals.merge(gas, mixture.moles(gas), Double::sum);
-            energy += mixture.thermalEnergy();
-        }
-        double count = cells.size();
-        totals.replaceAll((gas, amount) -> amount / count);
-        double capacity = totals.entrySet().stream()
-                .mapToDouble(entry -> entry.getValue() * entry.getKey().molarHeatCapacity()).sum();
-        double temperature = capacity == 0.0 ? current.get(cells.iterator().next()).temperatureKelvin()
-                : energy / count / capacity;
-        return new GasMixture(totals, temperature);
-    }
-
-    private static boolean isNearUniform(Set<BlockPos> cells, Map<BlockPos, GasMixture> current,
-                                         GasMixture average) {
-        for (BlockPos cell : cells) {
-            GasMixture mixture = current.get(cell);
+            GasMixture giver = current.get(cell);
+            if (spaceAllConsuming && spacePositions.contains(cell))
+                merged = new GasMixture(Map.of(), merged.temperatureKelvin(), merged.volumeCubicMeters());
+            float receiverCapacity = (float) merged.heatCapacity() / 8f;
+            float giverCapacity = immutablePositions.contains(cell) ? 2800f
+                    : (float) giver.heatCapacity() / 8f;
+            float combined = receiverCapacity + giverCapacity;
+            double temperature = merged.temperatureKelvin();
+            if (Math.abs(temperature - giver.temperatureKelvin()) > 0.01 && combined > 0.0003f)
+                temperature = (float) (((float) temperature * receiverCapacity
+                        + (float) giver.temperatureKelvin() * giverCapacity) / combined);
+            EnumMap<GasType, Double> totals = new EnumMap<>(GasType.class);
             for (GasType gas : GasType.values()) {
-                if (Math.abs(mixture.moles(gas) - average.moles(gas)) > MAX_BREAKDOWN_GAS_DEVIATION) return false;
+                double sum = merged.moles(gas) + giver.moles(gas);
+                if (sum > 0) totals.put(gas, sum);
             }
-            if (Math.abs(mixture.temperatureKelvin() - average.temperatureKelvin())
-                    > MAX_BREAKDOWN_TEMPERATURE_DEVIATION) return false;
+            merged = new GasMixture(totals, temperature, merged.volumeCubicMeters());
         }
-        return true;
-    }
-
-    private static Map<BlockPos, GasMixture> immutableMixtures(Map<BlockPos, GasMixture> input) {
-        Map<BlockPos, GasMixture> result = new HashMap<>();
-        input.forEach((pos, mixture) -> result.put(Objects.requireNonNull(pos, "cell position").immutable(),
-                Objects.requireNonNull(mixture, "cell mixture")));
-        return result;
-    }
-
-    private static List<BlockPos> sorted(Set<BlockPos> cells) {
-        return cells.stream().sorted(ExcitedAtmosphereGroups::compare).toList();
+        return merged.withScaledMoles(1.0 / cells.size());
     }
 
     private static boolean faceNeighbor(BlockPos first, BlockPos second) {
@@ -264,7 +285,18 @@ public final class ExcitedAtmosphereGroups {
         return result;
     }
 
-    public record CycleResult(Map<BlockPos, GasMixture> replacements, Set<BlockPos> deactivatedCells, int workCount) { }
+    public record CycleResult(Map<BlockPos, GasMixture> replacements, Set<BlockPos> deactivatedCells, int groupOperations,
+                              Map<GasType, Double> boundarySpeciesMoles, double boundaryEnergyJoules, int averages,
+                              long captureNanos, long averageNanos) {
+        public CycleResult(Map<BlockPos, GasMixture> replacements, Set<BlockPos> deactivatedCells, int workCount) {
+            this(replacements, deactivatedCells, workCount, Map.of(), 0.0, 0, 0, 0);
+        }
+        public CycleResult { boundarySpeciesMoles = Map.copyOf(boundarySpeciesMoles); }
+    }
+
+    private record BoundaryExchange(Map<GasType, Double> speciesMoles, double energyJoules) { }
+
+    private record GroupOrder(Group group, BlockPos firstCell) { }
 
     private static final class Group {
         private final long id;
@@ -275,19 +307,4 @@ public final class ExcitedAtmosphereGroups {
         private Group(long id) { this.id = id; }
     }
 
-    private static final class PendingBreakdown {
-        private final long groupId;
-        private final List<BlockPos> cells;
-        private final Map<BlockPos, GasMixture> snapshots;
-        private final GasMixture average;
-        private int progress;
-
-        private PendingBreakdown(long groupId, List<BlockPos> cells, Map<BlockPos, GasMixture> snapshots,
-                                 GasMixture average) {
-            this.groupId = groupId;
-            this.cells = cells;
-            this.snapshots = snapshots;
-            this.average = average;
-        }
-    }
 }

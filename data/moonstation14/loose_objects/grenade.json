@@ -1,0 +1,1 @@
+{"id":"moonstation14:grenade","parent":"moonstation14:generic","mass":0.5,"friction":0.2,"restitution":0.3,"throw_speed":0.5,"throw_spin":0.25,"geometry":"grenade","render_kind":"grenade","break_on_impact":false}

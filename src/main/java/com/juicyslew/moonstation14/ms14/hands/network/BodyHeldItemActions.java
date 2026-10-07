@@ -39,7 +39,9 @@ public final class BodyHeldItemActions {
     }
 
     public static BodyHandActionResult.Reason activate(ServerPlayer actor, BodyHandActionRequest request) {
-        if (actor == null || request == null || request.action() != BodyHandActionRequest.Action.ACTIVATE_HELD)
+        // Welder activation is the held item's normal in-hand use capability. Do not
+        // revive the removed block-use-only ACTIVATE_HELD wire action.
+        if (actor == null || request == null || request.action() != BodyHandActionRequest.Action.USE_IN_HAND)
             return BodyHandActionResult.Reason.DENIED;
         var resolved = HandActorAuthority.resolve(actor);
         if (resolved.isEmpty()) return BodyHandActionResult.Reason.DENIED;

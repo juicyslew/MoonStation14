@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AtmosphereProfilesTest {
     @Test
@@ -19,5 +21,15 @@ class AtmosphereProfilesTest {
         assertEquals(GasMixture.breathableAir().gasMoles(), AtmosphereProfiles.ambient(custom).gasMoles());
         assertEquals(GasMixture.vacuum().gasMoles(), AtmosphereProfiles.ambient(custom, Set.of(custom)).gasMoles());
         assertEquals(GasMixture.breathableAir().gasMoles(), AtmosphereProfiles.ambient(overworld, Set.of(custom)).gasMoles());
+    }
+
+    @Test
+    void spaceClassificationIsIndependentOfAmbientComposition() {
+        ResourceKey<Level> finiteSpace = ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath("example", "finite_space"));
+        ResourceKey<Level> vacuumWorld = ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath("example", "vacuum_world"));
+        assertTrue(AtmosphereProfiles.spaceDimension(finiteSpace, Set.of(finiteSpace)));
+        assertEquals(GasMixture.breathableAir().gasMoles(), AtmosphereProfiles.ambient(finiteSpace, Set.of(), Set.of(finiteSpace)).gasMoles());
+        assertFalse(AtmosphereProfiles.spaceDimension(vacuumWorld, Set.of()));
+        assertEquals(GasMixture.vacuum().gasMoles(), AtmosphereProfiles.ambient(vacuumWorld, Set.of(vacuumWorld), Set.of()).gasMoles());
     }
 }

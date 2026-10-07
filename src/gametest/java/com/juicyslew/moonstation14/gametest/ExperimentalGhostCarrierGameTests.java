@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
@@ -16,18 +18,16 @@ import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Collections;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"lifecycle", "character"})
 public final class ExperimentalGhostCarrierGameTests {
     private ExperimentalGhostCarrierGameTests() { }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void unregisteredParkedCarrierAndBootstrappedBodyHaveNoHandAuthority(GameTestHelper helper) {
         var body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         if (BodyHandBootstrap.ensure(body) != BodyHandBootstrap.Result.INITIALIZED)

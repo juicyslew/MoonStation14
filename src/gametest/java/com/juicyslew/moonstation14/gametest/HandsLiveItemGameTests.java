@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
@@ -27,13 +29,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands"})
 public final class HandsLiveItemGameTests {
     private HandsLiveItemGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void liveStacksPersistComponentsAndReadsDoNotInitialize(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         Zombie unbound = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 1, 1));
@@ -91,7 +92,7 @@ public final class HandsLiveItemGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void restoredEmptyHandsRevalidateHostAndMetadata(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         helper.runAfterDelay(1, () -> {
@@ -121,7 +122,7 @@ public final class HandsLiveItemGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void invalidStatesAndRevisionsFailClosed(GameTestHelper helper) {
         ItemStack stack = new ItemStack(Items.DIAMOND, 4);
         LiveHands live = decode(helper, fixture(helper, stack, 0, "left", "right", "unique", false));
@@ -158,7 +159,7 @@ public final class HandsLiveItemGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void liveSnapshotNbtRoundTripPreservesStackComponentsAndActiveSelection(GameTestHelper helper) {
         ItemStack source = new ItemStack(Items.DIAMOND, 6);
         source.set(DataComponents.CUSTOM_NAME, Component.literal("round-trip component"));

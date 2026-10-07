@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
@@ -11,7 +12,6 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Collections;
@@ -19,12 +19,12 @@ import java.util.List;
 import java.util.UUID;
 
 /** Unregistered fixtures cannot impersonate the connected account, even with a copied marker. */
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "lifecycle", "parked"})
 public final class ParkedInventoryPacketPolicyGameTests {
     private ParkedInventoryPacketPolicyGameTests() { }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void unregisteredMarkerDoesNotGateOtherPlayers(GameTestHelper helper) {
         UUID id = UUID.randomUUID();
         ServerPlayer fixture = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),

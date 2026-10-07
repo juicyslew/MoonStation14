@@ -88,7 +88,8 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService::typedDamageApplied);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalRideDamageDiagnostics::onTypedDamage);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
-
+        com.juicyslew.moonstation14.entities.LooseMotionDiagnostics.register(NeoForge.EVENT_BUS);
+        com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService.register(NeoForge.EVENT_BUS);
         ModCreativeModeTabs.register(modEventBus);
 
         ModItems.register(modEventBus);
@@ -114,6 +115,8 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalConstructionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.ingestion.IngestionNetworking::registerPayloadHandlers);
         MovementServerController.install();
         com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualServerHooks.install();
         NeoForge.EVENT_BUS.register(com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualServerHooks.class);
@@ -152,7 +155,7 @@ public class MoonStation14 {
             event.accept(ModBlocks.STEEL_WALL_BLOCK);
             event.accept(ModBlocks.STEEL_WALL_GIRDER_BLOCK);
             event.accept(ModBlocks.MAGIC_BLOCK);
-            event.accept(ModBlocks.JUG);
+            event.accept(ModItems.JUG);
             event.accept(ModBlocks.ATMOS_AIR_PRODUCER);
             event.accept(ModBlocks.ATMOS_OXYGEN_PRODUCER);
             event.accept(ModBlocks.ATMOS_NITROGEN_PRODUCER);
@@ -184,7 +187,8 @@ public class MoonStation14 {
             PowerRuntime.onSimulationDisabled();
         }
         AtmosphereService.INSTANCE.configureAtServerStart(Config.ENABLE_ATMOSPHERICS.get(),
-                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()));
+                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()),
+                Config.parseAtmosphereSpaceDimensions(Config.ATMOSPHERE_SPACE_DIMENSIONS.get()));
     }
 
     @SubscribeEvent

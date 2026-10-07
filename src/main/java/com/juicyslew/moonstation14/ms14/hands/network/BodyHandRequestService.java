@@ -13,9 +13,16 @@ import com.juicyslew.moonstation14.ms14.hands.live.BodyHandTransfer;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadePrime;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadeThrow;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyLiquidInteraction;
+import com.juicyslew.moonstation14.ms14.ingestion.BodyTimedIngestionService;
+import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
+import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
+import com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
+import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -93,6 +100,14 @@ public final class BodyHandRequestService {
         if (hands == null || !hands.compatible(authority.body()) || !hands.handIds().contains(request.handId())
                  || !authority.handIds().contains(request.handId()) || hands.revision() != request.expectedRevision())
             return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+
+        if (request.action() == BodyHandActionRequest.Action.SIP_PUDDLE) {
+            return result(request, BodyTimedIngestionService.startPuddle(actor, request.targetBlock(),
+                    request.handId(), request.expectedRevision(), request.sequence()), authority);
+        }
+
+        if (storageMutation(request.action()) && ModItemFootprints.serverCatalog().size() == 0)
+            return result(request, BodyHandActionResult.Reason.DENIED, authority);
 
         if (request.action() == BodyHandActionRequest.Action.SELECT_HAND) {
             var next = hands.selectActive(request.expectedRevision(), request.handId());
@@ -436,25 +451,108 @@ public final class BodyHandRequestService {
                 || request.action() == BodyHandActionRequest.Action.EXTRACT_POUCH)
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
 
+        if (request.action() == BodyHandActionRequest.Action.PICKUP_SELECTED) {
+            if (!HandActorAuthority.revalidate(actor, authority))
+                return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            java.util.concurrent.atomic.AtomicReference<java.util.UUID> source = new java.util.concurrent.atomic.AtomicReference<>();
+            var outcome = BodyHandItemTransfer.pickupSelected(actor, request.pickupTarget(), request.handId(),
+                    request.expectedRevision(), source::set);
+            BodyHandActionResult.Reason pickupReason = reason(outcome);
+            BodyHandActionResult.HostTransition transition = null;
+            if (pickupReason == BodyHandActionResult.Reason.OK) {
+                LiveHands committedHands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                var committedTransition = pickupTransition(committedHands, source.get(), request.handId(),
+                        HandActorAuthority.revalidate(actor, authority), authority.body());
+                if (committedTransition.isEmpty()) pickupReason = BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+                else transition = committedTransition.orElseThrow();
+            }
+            return result(request, pickupReason, authority, transition);
+        }
+        if (request.action() == BodyHandActionRequest.Action.STOP_PULL) {
+            var outcome = BodyPullService.stop(actor);
+            BodyHandActionResult response = result(request, pullReason(outcome), authority);
+            if (outcome != BodyPullService.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+        if (request.action() == BodyHandActionRequest.Action.TOGGLE_PULL) {
+            var outcome = BodyPullService.toggle(actor, request.pickupTarget(), request.handId(), request.expectedRevision());
+            BodyHandActionResult response = result(request, pullReason(outcome), authority);
+            if (outcome != BodyPullService.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+        if (request.action() == BodyHandActionRequest.Action.ALTERNATE_TARGET) {
+            if (!HandActorAuthority.revalidate(actor, authority))
+                return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            if (hands.revision() != request.expectedRevision())
+                return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var ownedToken = hands.token(request.handId()).orElse(null);
+            if (request.expectedToken() != null && !request.expectedToken().equals(ownedToken))
+                return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            if (ownedToken != null) {
+                var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), ownedToken,
+                        request.expectedRevision(), true);
+                BodyHandActionResult response = result(request, liquidReason(outcome), authority);
+                if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                return response;
+            }
+            if (hands.reservation(request.handId()).isPresent())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            return result(request, BodyTimedIngestionService.startWorld(actor, request.pickupTarget(),
+                    request.handId(), request.expectedRevision(), request.sequence()), authority);
+        }
         if (hands.token(request.handId()).filter(request.expectedToken()::equals).isEmpty())
             return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
         if (!HandActorAuthority.revalidate(actor, authority))
             return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
 
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
-        if (request.action() == BodyHandActionRequest.Action.USE_HELD
-                || request.action() == BodyHandActionRequest.Action.THROW) {
-            var outcome = request.action() == BodyHandActionRequest.Action.USE_HELD
-                    ? heldUseReason(actor, request, hands)
-                    : grenadeReason(BodyGrenadeThrow.throwGrenade(actor, request.handId(), request.expectedToken(),
-                            request.expectedRevision()));
+        if (request.action() == BodyHandActionRequest.Action.THROW_ITEM) {
+            var outcome = BodyLooseThrow.throwHeld(actor, request.handId(), request.expectedToken(), request.expectedRevision(), spawned::set);
+            BodyHandActionResult.Reason throwReason = looseThrowReason(outcome);
+            if (throwReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
+                BodyWorldGridService.authorizeTransferredOpen(actor, authority, spawned.get());
+            BodyHandActionResult.HostTransition transition = throwReason == BodyHandActionResult.Reason.OK && spawned.get() != null
+                    ? new BodyHandActionResult.HostTransition(BodyHandActionResult.HostTransition.Direction.DROP, spawned.get(), request.expectedToken()) : null;
+            if (outcome != BodyLooseThrow.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+            return result(request, throwReason, authority, transition);
+        }
+        if (request.action() == BodyHandActionRequest.Action.USE_TARGET) {
+            var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), request.expectedToken(),
+                    request.expectedRevision(), false);
+            BodyHandActionResult response = result(request, liquidReason(outcome), authority);
+            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+        if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
+            var stack = hands.stackCopy(request.handId()).orElse(null);
+            if (stack == null) return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            if (!(stack.getItem() instanceof IReagentTrait))
+                return result(request, BodyHeldItemActions.activate(actor, request), authority);
+            if (!ModIngestionProfiles.serverReady())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            if (itemId == null || ModIngestionProfiles.serverLookup(itemId) == null)
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            BodyHandActionResult.Reason reason = BodyTimedIngestionService.startHeld(actor, request.handId(),
+                    request.expectedToken(), request.expectedRevision(), request.sequence());
+            BodyHandActionResult response = result(request, reason, authority);
+            return response;
+        }
+        if (request.action() == BodyHandActionRequest.Action.PRIME_GRENADE) {
+            var primeOutcome = BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(), request.expectedRevision());
+            BodyHandActionResult.Reason outcome = grenadeReason(primeOutcome);
             BodyHandActionResult response = result(request, outcome, authority);
-            if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
+            if (primeOutcome == BodyGrenadePrime.Result.SUCCESS) BodyHandStateService.requireFreshQuery(actor);
             return response;
         }
 
-        if (request.action() == BodyHandActionRequest.Action.ACTIVATE_HELD)
-            return result(request, BodyHeldItemActions.activate(actor, request), authority);
+        if (request.action() == BodyHandActionRequest.Action.USE_HELD) {
+            BodyHandActionResult response = result(request, heldUseReason(actor, request, hands), authority);
+            if (response.reason() == BodyHandActionResult.Reason.OK
+                    && hands.stackCopy(request.handId()).filter(stack -> stack.is(ModItems.GRENADE.get())).isPresent())
+                BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
 
         if (!isDropAction(request.action()))
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
@@ -537,6 +635,28 @@ public final class BodyHandRequestService {
 
     static boolean isDropAction(BodyHandActionRequest.Action action) {
         return action == BodyHandActionRequest.Action.DROP;
+    }
+
+    private static boolean storageMutation(BodyHandActionRequest.Action action) {
+        return switch (action) {
+            case STORE_BELT, STORE_BACK, TAKE_BELT, TAKE_BACK,
+                    SMART_STORE_BELT, SMART_STORE_BACK, SMART_TAKE_BELT, SMART_TAKE_BACK,
+                    GRID_STORE_BELT, GRID_STORE_BACK, GRID_TAKE_BELT, GRID_TAKE_BACK,
+                    GRID_MOVE_BELT, GRID_MOVE_BACK, HELD_GRID_STORE, HELD_GRID_TAKE, HELD_GRID_MOVE,
+                    GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
+                    GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT -> true;
+            default -> false;
+        };
+    }
+
+    private static BodyHandActionResult.Reason liquidReason(BodyLiquidInteraction.Result outcome) {
+        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
+    }
+    private static BodyHandActionResult.Reason looseThrowReason(BodyLooseThrow.Result outcome) {
+        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
+    }
+    private static BodyHandActionResult.Reason pullReason(BodyPullService.Result outcome) {
+        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
     }
 
     private static BodyHandActionResult.Reason grenadeReason(BodyGrenadePrime.Result outcome) {
