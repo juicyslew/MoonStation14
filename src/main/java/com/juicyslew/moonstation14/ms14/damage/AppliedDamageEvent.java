@@ -9,13 +9,15 @@ import java.util.Objects;
 public final class AppliedDamageEvent extends Event {
     private final LivingEntity entity;
     private final double typedDamage;
+    private final DamageFeedbackProfile feedback;
 
-    public AppliedDamageEvent(LivingEntity entity, double typedDamage) {
+    public AppliedDamageEvent(LivingEntity entity, double typedDamage, DamageFeedbackProfile feedback) {
         this.entity = Objects.requireNonNull(entity, "entity");
         if (!Double.isFinite(typedDamage) || typedDamage < 0d) {
             throw new IllegalArgumentException("typedDamage must be finite and non-negative");
         }
         this.typedDamage = typedDamage;
+        this.feedback = Objects.requireNonNull(feedback, "feedback");
     }
 
     public LivingEntity entity() {
@@ -25,4 +27,5 @@ public final class AppliedDamageEvent extends Event {
     public double typedDamage() {
         return typedDamage;
     }
+    public DamageFeedbackProfile feedback() { return feedback; }
 }

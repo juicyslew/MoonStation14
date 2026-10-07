@@ -8,6 +8,7 @@ Missing standard handoffs were reconstructed on 2026-10-03 from project records 
 - [Powered ventilation](powered-ventilation-sprint/HANDOFF.md)
 - [Loose world objects — foundation and jug](loose-world-objects-foundation-sprint/HANDOFF.md)
 - [Visible timed interactions and ingestion](timed-interactions-ingestion-sprint/HANDOFF.md)
+- [Disposals, containment and pipe construction](disposals-pneumatic-sprint/HANDOFF.md)
 
 ## Delivered infrastructure
 

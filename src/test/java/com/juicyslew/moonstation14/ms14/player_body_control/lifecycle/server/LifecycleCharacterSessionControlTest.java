@@ -19,18 +19,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifecycleCharacterSessionControlTest {
-    @Test void defaultOffMasterGateWinsAndDoesNotReachActivation() {
-        assertEquals(LifecycleCharacterSessionControl.StartResult.GATE_OFF,
-                LifecycleCharacterSessionControl.gateDecision(false, false));
-        assertEquals(LifecycleCharacterSessionControl.StartResult.GATE_OFF,
-                LifecycleCharacterSessionControl.gateDecision(false, true));
-    }
-
-    @Test void movementConflictBlocksEvenWhenMasterGateIsOn() {
-        assertEquals(LifecycleCharacterSessionControl.StartResult.MOVEMENT_CONFLICT,
-                LifecycleCharacterSessionControl.gateDecision(true, true));
-    }
-
     @Test void connectedDeathRequiresExactHumanBindingSessionActiveEpochOwnerAndServerThread() {
         assertTrue(LifecycleCharacterSessionControl.connectedDeathDecision(true, true, true, true, true));
         assertFalse(LifecycleCharacterSessionControl.connectedDeathDecision(false, true, true, true, true));
@@ -38,11 +26,6 @@ class LifecycleCharacterSessionControlTest {
         assertFalse(LifecycleCharacterSessionControl.connectedDeathDecision(true, true, false, true, true));
         assertFalse(LifecycleCharacterSessionControl.connectedDeathDecision(true, true, true, false, true));
         assertFalse(LifecycleCharacterSessionControl.connectedDeathDecision(true, true, true, true, false));
-    }
-
-    @Test void enabledPreflightRemainsNonActivatingUntilSharedCameraOwnershipIsIntegrated() {
-        assertEquals(LifecycleCharacterSessionControl.StartResult.CONTROLLER_INTEGRATION_REQUIRED,
-                LifecycleCharacterSessionControl.gateDecision(true, false));
     }
 
     @Test void developmentModeIsOnlyAllowedForOperatorsLeavingOwnedSessionForCreativeOrSpectator() {

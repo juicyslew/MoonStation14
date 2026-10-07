@@ -256,7 +256,7 @@ class LocalSpeechReviewOverlayTest {
         assertEquals(8, LocalSpeechReviewOverlay.pageOffset(0, 1, 100, 8));
         assertEquals(10, LocalSpeechReviewOverlay.pageOffset(8, 1, 100, 2));
         assertEquals(0, LocalSpeechReviewOverlay.pageOffset(3, -1, 100, 8));
-        assertEquals(99, LocalSpeechReviewOverlay.pageOffset(97, 1, 100, 8));
+        assertEquals(92, LocalSpeechReviewOverlay.pageOffset(97, 1, 100, 8));
         assertEquals(0, LocalSpeechReviewOverlay.pageOffset(0, 1, 0, 8));
     }
 
@@ -265,6 +265,24 @@ class LocalSpeechReviewOverlayTest {
         assertEveryRowReachable(List.of(23), 5);
         assertEquals(18, LocalSpeechReviewOverlay.window(List.of(23), 0, 5).firstRow());
         assertEveryRowReachable(Collections.nCopies(20, 8), 13);
+    }
+
+    @Test
+    void longSingleMessagePagingClampsAtOldestFullViewport() {
+        int capacity = 8;
+        List<Integer> rows = List.of(37);
+        int totalRows = 37;
+        int offset = 0;
+        while (offset < totalRows - capacity)
+            offset = LocalSpeechReviewOverlay.pageOffset(rows, offset, 1, capacity);
+        assertEquals(totalRows - capacity, offset);
+        assertEquals(new LocalSpeechReviewOverlay.Window(0, 1, capacity, 0),
+                LocalSpeechReviewOverlay.window(rows, offset, capacity));
+        assertEquals(offset, LocalSpeechReviewOverlay.pageOffset(rows, offset, 1, capacity));
+        offset = LocalSpeechReviewOverlay.pageOffset(rows, offset, -1, capacity);
+        assertEquals(24, offset); // The oldest partial overlap is compensated when paging newer.
+        while (offset > 0) offset = LocalSpeechReviewOverlay.pageOffset(rows, offset, -1, capacity);
+        assertEquals(0, offset);
     }
 
     @Test
@@ -278,10 +296,10 @@ class LocalSpeechReviewOverlayTest {
     void shortMessagesKeepFastFullPageJumps() {
         List<Integer> heights = Collections.nCopies(30, 1);
         assertEquals(13, LocalSpeechReviewOverlay.pageOffset(heights, 0, 1, 13));
-        assertEquals(26, LocalSpeechReviewOverlay.pageOffset(heights, 13, 1, 13));
-        assertEquals(26, LocalSpeechReviewOverlay.pageOffset(heights, 26, 1, 13));
-        assertEquals(16, LocalSpeechReviewOverlay.pageOffset(heights, 29, -1, 13));
-        assertEquals(13, LocalSpeechReviewOverlay.pageOffset(heights, 26, -1, 13));
+        assertEquals(17, LocalSpeechReviewOverlay.pageOffset(heights, 13, 1, 13));
+        assertEquals(17, LocalSpeechReviewOverlay.pageOffset(heights, 26, 1, 13));
+        assertEquals(13, LocalSpeechReviewOverlay.pageOffset(heights, 17, -1, 13));
+        assertEquals(0, LocalSpeechReviewOverlay.pageOffset(heights, 13, -1, 13));
     }
 
     @Test
@@ -297,21 +315,21 @@ class LocalSpeechReviewOverlayTest {
     private static void assertEveryRowReachable(List<Integer> heights, int capacity) {
         int total = heights.stream().mapToInt(Integer::intValue).sum();
         int offset = 0;
-        List<Integer> older = new ArrayList<>();
+        boolean[] seen = new boolean[total];
         List<List<Integer>> pages = new ArrayList<>();
         for (int i = 0; i <= total; i++) {
             var page = LocalSpeechReviewOverlay.window(heights, offset, capacity);
             List<Integer> rows = new ArrayList<>();
-            for (int row = page.firstRow(); row < page.firstRow() + page.rows(); row++) rows.add(row);
+            for (int row = page.firstRow(); row < page.firstRow() + page.rows(); row++) {
+                rows.add(row);
+                seen[row] = true;
+            }
             pages.add(rows);
-            older.addAll(rows);
             int next = LocalSpeechReviewOverlay.pageOffset(heights, offset, 1, capacity);
             if (next == offset) break;
             offset = next;
         }
-        assertEquals(total, older.size());
-        Collections.sort(older);
-        for (int row = 0; row < total; row++) assertEquals(row, older.get(row));
+        for (int row = 0; row < total; row++) assertTrue(seen[row], "wrapped row " + row + " must be reachable");
         for (int page = pages.size() - 2; page >= 0; page--) {
             offset = LocalSpeechReviewOverlay.pageOffset(heights, offset, -1, capacity);
             var view = LocalSpeechReviewOverlay.window(heights, offset, capacity);
@@ -372,7 +390,7 @@ class LocalSpeechReviewOverlayTest {
             assertEquals(1, state("unseen"));
             LocalSpeechReviewOverlay.scroll(1, LocalSpeechReviewOverlay.historySize());
             assertEquals(99, state("fromNewest"));
-            assertEquals(new LocalSpeechReviewOverlay.Window(0, 1, 1),
+            assertEquals(new LocalSpeechReviewOverlay.Window(0, 13, 13),
                     LocalSpeechReviewOverlay.window(Collections.nCopies(100, 1), state("fromNewest"), 13));
             assertEquals(1, state("unseen"));
             for (int i = 0; i < 99; i++) LocalSpeechReviewOverlay.scroll(-1, LocalSpeechReviewOverlay.historySize());

@@ -10,6 +10,8 @@ public final class PrimaryWorldGesture {
 
     public static Route route(boolean ownedWorldInput, boolean aimedBlock, boolean handOccupied, boolean aimedItem) {
         if (!ownedWorldInput) return Route.VANILLA;
+        // The item target has already passed reach and occlusion admission. It is
+        // the primary target even when the ray also reports a background block.
         if (aimedItem) return handOccupied ? Route.TARGET_USE : Route.PICKUP;
         if (aimedBlock) return Route.BLOCK_USE;
         if (handOccupied) return Route.HELD_USE;

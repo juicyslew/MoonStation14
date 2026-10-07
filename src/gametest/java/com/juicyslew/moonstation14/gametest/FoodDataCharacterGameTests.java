@@ -43,6 +43,7 @@ public final class FoodDataCharacterGameTests {
         player.setHealth(player.getMaxHealth() - 5f);
         player.setData(ModDataAttachments.DAMAGE.get(),
                 new DamageData(new DamageMap(Map.of(DamageKeys.BLUNT, 25f))));
+        com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(player);
 
         float initialHealth = player.getHealth();
         float initialFood = player.getFoodData().getFoodLevel();

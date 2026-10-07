@@ -20,7 +20,7 @@ import java.util.function.Predicate;
 /** Common play-phase registration and fail-closed dispatch for ghost control payloads. */
 @EventBusSubscriber(modid = MoonStation14.MOD_ID)
 public final class GhostControlNetworking {
-    public static final String PROTOCOL_VERSION = "3";
+    public static final String PROTOCOL_VERSION = "4";
 
     private static volatile ServerHandler legacyServerHandler;
     private static volatile ServerHandler debugServerHandler;

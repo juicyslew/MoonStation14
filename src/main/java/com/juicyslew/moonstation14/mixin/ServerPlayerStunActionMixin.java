@@ -1,8 +1,6 @@
 package com.juicyslew.moonstation14.mixin;
 
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
-import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
@@ -37,9 +35,6 @@ public abstract class ServerPlayerStunActionMixin {
 
     @Inject(method = "handleMovePlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/PacketUtils;ensureRunningOnSameThread(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketListener;Lnet/minecraft/server/level/ServerLevel;)V", shift = At.Shift.AFTER), cancellable = true, require = 1)
     private void moonstation14$denyMove(CallbackInfo callback) {
-        // Custom movement's packet boundary rejects client positions without teleporting; let it
-        // process movement packets even when stunned, and avoid issuing a competing correction.
-        if (MovementStartupGate.enabledForServer() && MovementServerController.owns(player)) return;
         if (moonstation14$denyAction()) {
             callback.cancel();
             // Use vanilla's position-sync correction path; do not accept a client-proposed position.

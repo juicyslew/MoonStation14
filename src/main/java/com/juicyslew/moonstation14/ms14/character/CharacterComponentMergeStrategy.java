@@ -60,7 +60,13 @@ public final class CharacterComponentMergeStrategy implements PrototypeMergeStra
                     for (Map.Entry<String, JsonElement> field : inherited.get(type).entrySet()) {
                         // Nested JSON is atomic: an explicit damage object replaces
                         // the prior damage object, including its entire types map.
-                        if (!merged.has(field.getKey())) merged.add(field.getKey(), field.getValue().deepCopy());
+                        if ("Puller".equals(type) && "tether".equals(field.getKey())
+                                && merged.has("tether") && merged.get("tether").isJsonObject()
+                                && field.getValue().isJsonObject()) {
+                            JsonObject childTether = merged.getAsJsonObject("tether");
+                            for (Map.Entry<String, JsonElement> setting : field.getValue().getAsJsonObject().entrySet())
+                                if (!childTether.has(setting.getKey())) childTether.add(setting.getKey(), setting.getValue().deepCopy());
+                        } else if (!merged.has(field.getKey())) merged.add(field.getKey(), field.getValue().deepCopy());
                     }
                 }
                 resultEntries.put(type, merged);

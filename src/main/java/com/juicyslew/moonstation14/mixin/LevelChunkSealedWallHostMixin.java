@@ -27,5 +27,8 @@ public abstract class LevelChunkSealedWallHostMixin {
             if (level instanceof net.minecraft.server.level.ServerLevel server)
                 com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity.refreshLoadedAdjacent(server, pos);
         }
+        if (level instanceof net.minecraft.server.level.ServerLevel server)
+            com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData.existing(server)
+                    .ifPresent(data -> data.invalidate(server, pos));
     }
 }

@@ -4,6 +4,10 @@
     "minecraft:villager"
   ],
   "components": [
+    {"type": "MobState"},
+    {"type": "MobThresholds", "thresholds": {"0": "ALIVE", "100": "CRITICAL", "200": "DEAD"}},
+    {"type": "Crawler"},
+    {"type": "GhostOnMove", "must_be_dead": true, "can_return": true},
     {
       "type": "Barotrauma",
       "damage": {
@@ -63,7 +67,8 @@
       "suffocation_threshold": 0.0,
       "suffocation_damage_per_update": 1.0,
       "suffocation_recovery_per_update": 1.0,
-      "suffocation_ignore_resistances": true
+      "suffocation_ignore_resistances": true,
+      "gasp_sound": "moonstation14:gasp/male"
     },
     {
       "type": "Temperature",
@@ -97,6 +102,9 @@
       "type": "Hands",
       "hands": ["left", "right"]
     },
+    {"type": "Pullable"},
+    {"type": "Puller", "walk_modifier": 0.95, "sprint_modifier": 0.95,
+      "tether": {"stiffness": 60.0, "progressive_stiffness": 40.0, "damping": 6.0, "maximum_acceleration": 160.0, "slackAllowance": 1.5}},
     {"type": "EquipmentSlots", "slots": ["belt", "back"]},
     {"type": "StandingState", "standing_eligible": true, "prone_eligible": true},
     {"type": "Stunnable"},

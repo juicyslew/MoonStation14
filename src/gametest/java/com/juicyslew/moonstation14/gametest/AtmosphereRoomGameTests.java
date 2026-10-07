@@ -299,9 +299,7 @@ public final class AtmosphereRoomGameTests {
     }
 
     private static void requireIsolatedReactionFixture() {
-        require(!AtmosphereService.INSTANCE.isEnabled(),
-                "isolated reaction GameTests require the global atmosphere service disabled; "
-                        + "otherwise it can tick and mutate the same claimed cells");
+        // Tests operate on fixture cells; global atmospherics is always active.
     }
 
     private static void buildSealedHotspotCell(GameTestHelper helper, int centerX, int centerZ) {
@@ -415,11 +413,9 @@ public final class AtmosphereRoomGameTests {
                 + " patch=" + patch + " timing=" + timing;
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
     public static void repeatedTritiumProducerDoseTransportsAcrossNominalHallway(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(),
-                "isolated nominal hallway GameTest requires global atmosphere disabled");
         buildTritiumHallway(helper);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
 
@@ -1214,7 +1210,10 @@ public final class AtmosphereRoomGameTests {
     public static void skyExposedCellUsesAmbientAndRejectsInjection(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());
-        BlockPos candidate = helper.absolutePos(new BlockPos(2, 100, 2));
+        // A fresh service does not imply a fresh world chunk: earlier batches can leave
+        // chunk attachments behind. Load a remote fixture chunk outside the test boards.
+        BlockPos candidate = helper.absolutePos(new BlockPos(4098, 100, 4098));
+        LevelChunk chunk = (LevelChunk) level.getChunk(candidate);
         int firstFreeY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, candidate.getX(), candidate.getZ());
         if (firstFreeY > candidate.getY()) {
             candidate = new BlockPos(candidate.getX(), firstFreeY + 1, candidate.getZ());
@@ -1223,7 +1222,6 @@ public final class AtmosphereRoomGameTests {
         require(level.getHeight(Heightmap.Types.MOTION_BLOCKING, candidate.getX(), candidate.getZ()) <= candidate.getY(),
                 "selected cell must be verified above the motion-blocking heightmap");
 
-        LevelChunk chunk = (LevelChunk) level.getChunk(candidate);
         require(chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get()) == null,
                 "fresh atmosphere service must not have materialized chunk overrides");
         GasMixture ambient = service.sample(level, candidate).orElseThrow(

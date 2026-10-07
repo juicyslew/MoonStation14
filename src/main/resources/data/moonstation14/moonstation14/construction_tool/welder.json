@@ -1,0 +1,9 @@
+{
+  "parent": "base_tool",
+  "qualities": ["Welding"],
+  "welder": {
+    "initialFuel": 100.0,
+    "ignitionCost": 0.5,
+    "fuelPerSecond": 1.0
+  }
+}

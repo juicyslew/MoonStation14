@@ -88,16 +88,24 @@ public final class LocalSpeechReviewOverlay {
 
     static int pageOffset(int offset, int direction, int size, int visibleEntries) {
         int step = Math.max(1, visibleEntries);
-        return (int) Math.max(0, Math.min(Math.max(0, size - 1), (long) offset + (long) direction * step));
+        int oldestFullViewport = Math.max(0, size - step);
+        return (int) Math.max(0, Math.min(oldestFullViewport, (long) offset + (long) direction * step));
     }
 
     static int pageOffset(List<Integer> rowCounts, int offset, int direction, int capacity) {
         int totalRows = countsTotal(rowCounts);
-        int current = Math.min(Math.max(0, offset), Math.max(0, totalRows - 1));
+        int step = Math.max(1, capacity);
+        int oldestFullViewport = Math.max(0, totalRows - step);
+        int current = Math.min(Math.max(0, offset), oldestFullViewport);
         if (totalRows == 0 || direction == 0) return current;
         if (direction > 0 && window(rowCounts, current, capacity).firstRow() == 0) return current;
-        return (int) Math.max(0, Math.min(totalRows - 1L,
-                (long) current + (long) direction * Math.max(1, capacity)));
+        if (direction < 0 && current == oldestFullViewport) {
+            int remainder = totalRows % step;
+            int backStep = remainder == 0 ? step : remainder;
+            return Math.max(0, current - backStep);
+        }
+        return (int) Math.max(0, Math.min(oldestFullViewport,
+                (long) current + (long) direction * step));
     }
 
     public static void onLineReceived() {
@@ -116,14 +124,15 @@ public final class LocalSpeechReviewOverlay {
         int removedRows = countsTotal(oldCounts.subList(0, Math.min(evicted, oldCounts.size())));
         int first = window(oldCounts, oldOffset, oldCapacity).firstRow();
         int newTotal = countsTotal(newCounts);
-        return Math.max(0, Math.min(Math.max(0, newTotal - 1),
+        return Math.max(0, Math.min(Math.max(0, newTotal - Math.max(1, newCapacity)),
                 newTotal - Math.max(1, newCapacity) - Math.max(0, first - removedRows)));
     }
 
     /** Find the newest capacity rows; entries may continue across multiple pages. */
     static Window window(List<Integer> rowCounts, int offset, int capacity) {
         int total = countsTotal(rowCounts);
-        int endRow = total - Math.min(Math.max(0, offset), Math.max(0, total - 1));
+        int maxOffset = Math.max(0, total - Math.max(1, capacity));
+        int endRow = total - Math.min(Math.max(0, offset), maxOffset);
         int startRow = Math.max(0, endRow - Math.max(1, capacity));
         int start = 0, end = 0, before = 0;
         boolean foundStart = false;
@@ -209,7 +218,9 @@ public final class LocalSpeechReviewOverlay {
                     fromNewest, pageCapacity, layout.capacity(unseen > 0));
         }
         pendingAppends = 0;
-        fromNewest = Math.max(0, Math.min(fromNewest, Math.max(0, countsTotal(counts) - 1)));
+        int currentCapacity = layout.capacity(fromNewest > 0 && unseen > 0);
+        fromNewest = Math.max(0, Math.min(fromNewest,
+                Math.max(0, countsTotal(counts) - currentCapacity)));
         if (pendingScroll != 0) {
             int direction = Integer.signum(pendingScroll);
             for (int i = 0; i < Math.abs(pendingScroll); i++)

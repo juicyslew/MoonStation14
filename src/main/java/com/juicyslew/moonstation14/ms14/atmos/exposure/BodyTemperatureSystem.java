@@ -30,18 +30,18 @@ public final class BodyTemperatureSystem {
     public static boolean isEligible(LivingEntity entity) {
         return eligibleForThermal(true,
                 entity instanceof ServerPlayer && entity.isSpectator(),
-                AtmosphereService.INSTANCE.isEnabled(), profile(entity).isPresent());
+                profile(entity).isPresent());
     }
 
     /** Pure policy seam for server-independent eligibility checks; supportedActor is structural only. */
     public static boolean eligibleForThermal(boolean supportedActor, boolean spectatorPlayer,
-                                             boolean atmosphereEnabled, boolean hasThermalProfile) {
-        return supportedActor && !spectatorPlayer && atmosphereEnabled && hasThermalProfile;
+                                             boolean hasThermalProfile) {
+        return supportedActor && !spectatorPlayer && hasThermalProfile;
     }
 
     /** Initializes once from character policy; persisted temperatures are never overwritten. */
     public static void reconcile(LivingEntity entity) {
-        if (!supported(entity) || !(entity.level() instanceof ServerLevel) || !AtmosphereService.INSTANCE.isEnabled()) return;
+        if (!supported(entity) || !(entity.level() instanceof ServerLevel)) return;
         Optional<TemperatureComponent> thermal = profile(entity);
         if (thermal.isEmpty()) return;
         if (entity.getExistingDataOrNull(ModDataAttachments.BODY_TEMPERATURE.get()) == null) {
@@ -51,11 +51,30 @@ public final class BodyTemperatureSystem {
     }
 
     public static Outcome exposeOneSecond(LivingEntity entity, ServerLevel level) {
-        if (!supported(entity) || entity.level() != level || !AtmosphereService.INSTANCE.isEnabled()) return Outcome.SKIPPED;
+        if (!supported(entity) || entity.level() != level) return Outcome.SKIPPED;
         Optional<TemperatureComponent> selected = profile(entity);
         if (selected.isEmpty()) return Outcome.SKIPPED;
         reconcile(entity);
         BlockPos eye = BlockPos.containing(entity.getX(), entity.getEyeY(), entity.getZ());
+        var selection = ExposureAirRouting.select(entity);
+        if (selection.contained()) {
+            Optional<TemperatureDamageComponent> damage = damage(entity);
+            if (selection.source().isEmpty()) return applyStoredBodyDamage(entity, damage);
+            var containedSample = selection.source().get().sample();
+            if (containedSample.isEmpty()) return applyStoredBodyDamage(entity, damage);
+            BodyTemperatureAttachment detached = MS14Provider.getDetached(entity, MS14Bridges.BODY_TEMPERATURE);
+            BodyTemperatureComponent before = detached.toComponent();
+            var source = selection.source().get();
+            Outcome result = transact(detached, containedSample.get().mixture(), selected.get().toProfile(),
+                    damage.map(TemperatureDamageComponent::toProfile).orElse(null),
+                    regulator(entity).map(ThermalRegulatorComponent::toPolicy).orElse(null), null,
+                    source::exchangeThermalEnergy,
+                    amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true)
+                            == DamageSystem.Result.APPLIED);
+            if (result == Outcome.APPLIED)
+                MS14Provider.updateIfChanged(entity, MS14Bridges.BODY_TEMPERATURE, before, detached);
+            return result;
+        }
         var sample = AtmosphereService.INSTANCE.sample(level, eye);
         Optional<TemperatureDamageComponent> damage = damage(entity);
         if (sample.isEmpty()) return applyStoredBodyDamage(entity, damage);
@@ -73,7 +92,7 @@ public final class BodyTemperatureSystem {
                 regulator(entity).map(ThermalRegulatorComponent::toPolicy).orElse(null),
                 provenVacuum ? selected.get().toVacuumPolicy() : null,
                 energyCommitFor(reading.get().status(), joules -> AtmosphereService.INSTANCE.addEnergy(level, eye, joules)),
-                 amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true)
+                 amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true, DamageSystem.Cause.TEMPERATURE)
                         == DamageSystem.Result.APPLIED);
         if (result == Outcome.APPLIED) MS14Provider.updateIfChanged(entity, MS14Bridges.BODY_TEMPERATURE, before, detached);
         return result;
@@ -85,7 +104,7 @@ public final class BodyTemperatureSystem {
         if (stored == null) return Outcome.SKIPPED;
         if (damage.isEmpty()) return Outcome.APPLIED;
         applyBodyDamage(stored.kelvin(), damage.get().toProfile(), 1.0,
-                amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true)
+                amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true, DamageSystem.Cause.TEMPERATURE)
                         == DamageSystem.Result.APPLIED);
         return Outcome.APPLIED;
     }
@@ -142,7 +161,6 @@ public final class BodyTemperatureSystem {
     public static EffectResult adjustHeat(Entity target, float amountJoules, float scale) {
         if (!(target instanceof LivingEntity living) || !(target.level() instanceof ServerLevel)
                 || !supported(living)) return EffectResult.SKIPPED_UNSUPPORTED;
-        if (!AtmosphereService.INSTANCE.isEnabled()) return EffectResult.SKIPPED_UNSUPPORTED;
         Optional<TemperatureComponent> thermal = profile(living);
         if (thermal.isEmpty()) return EffectResult.SKIPPED_UNSUPPORTED;
         if (!Float.isFinite(amountJoules) || !Float.isFinite(scale)) return EffectResult.FAILED;

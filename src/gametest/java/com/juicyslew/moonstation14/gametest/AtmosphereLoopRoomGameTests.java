@@ -36,7 +36,6 @@ public final class AtmosphereLoopRoomGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_circular_hallway", timeoutTicks = 260, templateNamespace = "moonstation14")
     public static void nominalCircularHallwayEqualizesAroundSolidCenter(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere service must remain disabled");
         List<BlockPos> cells = buildLoop(helper);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         List<BlockPos> worldCells = cells.stream().map(helper::absolutePos).toList();

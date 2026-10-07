@@ -30,7 +30,6 @@ public final class AtmosphereFractionalChainGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_reaction_fractional_chain", timeoutTicks = 420, templateNamespace = "moonstation14")
     public static void fractionalHotspotCarriesFireThroughSealedThreeCellHallway(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "isolated chain fixture requires singleton atmosphere disabled");
         for (int x = 1; x <= 5; x++) for (int y = 0; y <= 2; y++) for (int z = 0; z <= 2; z++)
             helper.setBlock(new BlockPos(x, y, z), x >= 2 && x <= 4 && y == 1 && z == 1
                     ? Blocks.AIR : Blocks.STONE);

@@ -41,6 +41,16 @@ public final class GhostPredictionHistory {
         return RecordResult.RECORDED;
     }
 
+    /** Advances the wire sequence over an intentionally unpredicted input frame. */
+    public RecordResult skip(GhostControlPayloads.Intent intent) {
+        Objects.requireNonNull(intent, "intent");
+        if (intent.epoch() != epoch || intent.sequence() <= lastRecordedSequence)
+            return RecordResult.REJECTED;
+        lastRecordedSequence = intent.sequence();
+        pending.clear();
+        return RecordResult.RECORDED;
+    }
+
     /**
      * Accepts a newer authoritative snapshot and returns the exact pending intents to replay in sequence order.
      * The snapshot acknowledgement is settled-through: sequences at or below it were applied or permanently
@@ -81,6 +91,9 @@ public final class GhostPredictionHistory {
     /** Clears buffered inputs after an authority barrier without resetting this session's tracking. */
     public void onAuthorityBarrier() {
         pending.clear();
+        // Inputs sent before the barrier are intentionally abandoned locally. Treat their
+        // sequence range as settled so newly-recorded intents form a replayable suffix.
+        lastAcknowledgedSequence = Math.max(lastAcknowledgedSequence, lastRecordedSequence);
     }
 
     /** Starts a fresh session, suitable after stop, teleport, or dimension change. */

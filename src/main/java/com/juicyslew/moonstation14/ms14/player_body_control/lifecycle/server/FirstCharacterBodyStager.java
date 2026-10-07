@@ -4,7 +4,6 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
@@ -14,7 +13,6 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,8 +35,6 @@ public final class FirstCharacterBodyStager {
 
     static ReservationResult reserve(ServerPlayer player, MinecraftServer server) {
         // Gate checks precede all player, context, store, and world access.
-        if (!MindGhostStartupGate.enabledForServer()) return ReservationResult.failed("lifecycle master gate is off");
-        if (MovementStartupGate.enabledForServer()) return ReservationResult.failed("movement conflict is active");
         if (server == null || player == null || !server.isSameThread())
             return ReservationResult.failed("server thread or player is unavailable");
 
@@ -78,8 +74,6 @@ public final class FirstCharacterBodyStager {
     }
 
     static Result stageReserved(ReservedFirstCharacter reservation, ServerPlayer player, MinecraftServer server) {
-        if (!MindGhostStartupGate.enabledForServer()) return Result.failed("lifecycle master gate is off");
-        if (MovementStartupGate.enabledForServer()) return Result.failed("movement conflict is active");
         if (reservation == null || server == null || player == null || reservation.server() != server
                 || player.getServer() != server || !reservation.accountUUID().equals(player.getUUID()))
             return Result.failed("reservation does not match this player and server; PREPARING retained");

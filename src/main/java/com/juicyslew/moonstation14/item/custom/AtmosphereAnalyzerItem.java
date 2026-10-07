@@ -21,7 +21,6 @@ import java.util.function.Function;
 
 /** A handheld, read-only probe of the atmosphere cell at a target position. */
 public class AtmosphereAnalyzerItem extends Item {
-    private static final String DISABLED_MESSAGE = "Atmosphere system is disabled.";
     private static final String UNAVAILABLE_MESSAGE = "Atmosphere sample unavailable.";
 
     public AtmosphereAnalyzerItem(Properties properties) {
@@ -50,11 +49,6 @@ public class AtmosphereAnalyzerItem extends Item {
     }
 
     public static void reportForBody(ServerLevel level, Player recipient, LivingEntity body, BlockPos clicked, Direction face) {
-        if (!AtmosphereService.INSTANCE.isEnabled()) {
-            recipient.sendSystemMessage(Component.literal(DISABLED_MESSAGE));
-            return;
-        }
-
         TargetSample<AtmosphereReading> result = sampleTarget(true, clicked, face,
                 pos -> AtmosphereService.INSTANCE.readAtmosphere(level, pos));
         if (result.sample().isPresent()) {

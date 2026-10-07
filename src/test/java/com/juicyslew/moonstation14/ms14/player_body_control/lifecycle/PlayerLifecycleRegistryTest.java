@@ -195,6 +195,47 @@ class PlayerLifecycleRegistryTest {
         assertTrue(ownership.registeredHarness(corpse).isPresent());
     }
 
+    @Test void durableRevivedCorpseReturnPersistsBeforeMovingExactMindAndRejectsReplay() throws Exception {
+        UUID account = uuid(1840), mindId = uuid(1841), epoch = uuid(1842);
+        MobHarnessId corpse = harnessId(1843), ghost = harnessId(1844);
+        SavedLifecycleProfile dead = saved(account, "revive", mindId, corpse.value(), epoch, 0,
+                SavedLifecycleProfile.State.DEAD_CLAIM);
+        LifecycleProfileStore store = new LifecycleProfileStore(directory.resolve("revived-corpse.json"));
+        store.compareAndSwap(-1, epoch, 0, java.util.List.of(dead));
+        BodyControlRegistry ownership = new BodyControlRegistry();
+        PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(ownership);
+        harness(ownership, 1843, MobHarnessKind.CHARACTER);
+        harness(ownership, 1844, MobHarnessKind.GHOST);
+        store.withCurrentPrimary(primary -> lifecycle.stageDeadClaimGhost(primary, dead, ghost, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var activeGhost = store.withCurrentPrimary(primary -> lifecycle.activateDeadClaimGhostDurably(
+                primary, dead, ghost, true, ELIGIBLE)).orElseThrow().orElseThrow();
+        var ghostSaved = store.read().orElseThrow().profiles().get(0);
+
+        assertTrue(store.withCurrentPrimary(primary -> lifecycle.returnRevivedCorpseDurably(
+                primary, ghostSaved, activeGhost.connectionGeneration() - 1, ELIGIBLE)).orElseThrow().isEmpty());
+        var returned = store.withCurrentPrimary(primary -> lifecycle.returnRevivedCorpseDurably(
+                primary, ghostSaved, activeGhost.connectionGeneration(), ELIGIBLE)).orElseThrow().orElseThrow();
+
+        assertEquals(activeGhost.mindId(), returned.mindId());
+        assertEquals(corpse, returned.bodyId());
+        assertEquals(PlayerLifecycleRegistry.LifecycleState.ACTIVE, returned.state());
+        assertTrue(returned.active());
+        assertFalse(returned.deadClaim());
+        assertTrue(returned.connectionGeneration() > activeGhost.connectionGeneration());
+        assertEquals(activeGhost.mindId(), ownership.mind(account).orElseThrow().id());
+        assertEquals(corpse, ownership.mind(account).orElseThrow().harnessId());
+        assertTrue(lifecycle.authorizes(account, returned.connectionGeneration(), corpse, ELIGIBLE));
+        assertFalse(lifecycle.authorizes(account, activeGhost.connectionGeneration(), ghost, ELIGIBLE));
+        assertTrue(ownership.registeredHarness(ghost).isEmpty());
+        assertEquals(corpse.value(), store.read().orElseThrow().profiles().get(0).bodyId());
+        assertEquals(SavedLifecycleProfile.State.ACTIVE, store.read().orElseThrow().profiles().get(0).state());
+        assertNull(store.read().orElseThrow().profiles().get(0).offlineSinceMillis());
+        assertTrue(store.withCurrentPrimary(primary -> lifecycle.returnRevivedCorpseDurably(
+                primary, ghostSaved, activeGhost.connectionGeneration(), ELIGIBLE)).orElseThrow().isEmpty(),
+                "a completed return cannot be replayed");
+    }
+
     @Test void sharedRegistryEnforcesExclusiveMindBodyOwnershipAndRejectedClaimsAreAtomic() {
         BodyControlRegistry shared = new BodyControlRegistry();
         PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(shared);

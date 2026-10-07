@@ -26,7 +26,7 @@ class AtmosphereDamageDiagnosticCommandTest {
         var air = new GasMixture(Map.of(GasType.OXYGEN, 2.0, GasType.NITROGEN, 7.5,
                 GasType.CARBON_DIOXIDE, 0.01), 293.15);
         List<String> lines = AtmosphereDamageDiagnosticCommand.format(new BlockPos(3, 64, -2),
-                true, air, 310.0, new RespirationState(0.95, true, LungComponent.Phase.EXHALING),
+                air, 310.0, new RespirationState(0.95, true, LungComponent.Phase.EXHALING),
                 Map.of("asphyxiation", 0.0f), 20.0f, 20.0f);
         assertTrue(lines.stream().anyMatch(line -> line.startsWith("Eye block: 3, 64, -2")));
         assertTrue(lines.stream().anyMatch(line -> line.contains("Typed damage: {asphyxiation=0.0}")));
@@ -40,7 +40,7 @@ class AtmosphereDamageDiagnosticCommandTest {
 
     @Test
     void missingSampleIsClearlyUnavailable() {
-        var lines = AtmosphereDamageDiagnosticCommand.format(BlockPos.ZERO, false, null,
+        var lines = AtmosphereDamageDiagnosticCommand.format(BlockPos.ZERO, null,
                 null, null, null, 10.0f, 20.0f);
         assertTrue(lines.contains("Eye-cell gas: unavailable"));
         assertTrue(lines.contains("Body temperature: unavailable"));

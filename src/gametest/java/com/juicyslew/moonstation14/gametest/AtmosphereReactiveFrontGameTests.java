@@ -37,8 +37,6 @@ public final class AtmosphereReactiveFrontGameTests {
 
     private static void runReactiveFrontFixture(GameTestHelper helper, boolean requireSustainedHotspot) {
         ServerLevel level = helper.getLevel();
-        if (AtmosphereService.INSTANCE.isEnabled())
-            throw new GameTestAssertException("reactive-front fixture requires global atmosphere disabled");
 
         // 10x10 finite, sealed room: all cells are loaded and reserved by this fixture.
         for (int x = 1; x <= 12; x++) for (int z = 1; z <= 12; z++) {

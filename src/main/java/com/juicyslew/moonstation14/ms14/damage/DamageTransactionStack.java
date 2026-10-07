@@ -32,6 +32,11 @@ final class DamageTransactionStack<S, T> {
         return false;
     }
 
+    T peekMatching(S source) {
+        for (Entry<S, T> entry : entries) if (entry.source == source) return entry.value;
+        return null;
+    }
+
     boolean isEmpty() {
         return entries.isEmpty();
     }

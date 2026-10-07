@@ -832,6 +832,61 @@ public final class BodyControlRegistry {
         return false;
     }
 
+    /** Renews authorization for an already-owned character body after a temporary medical pause. */
+    public synchronized Optional<MindSnapshot> renewBinding(UUID sessionId, MobHarnessId bodyId,
+            long expectedEpoch, TargetEligibility eligibility) {
+        Objects.requireNonNull(sessionId, "sessionId");
+        Objects.requireNonNull(bodyId, "bodyId");
+        Objects.requireNonNull(eligibility, "eligibility");
+        MindState mind = mindFor(sessionId);
+        MobHarness body = harnesses.get(bodyId);
+        if (mind == null || !mind.connected || mind.lifecycleOwned || mind.deadClaim
+                || mind.epoch != expectedEpoch || !bodyId.equals(mind.harnessId)
+                || !mind.id.equals(ownersByHarness.get(bodyId)) || body == null
+                || body.kind() != MobHarnessKind.CHARACTER || !eligibility.isEligible(body))
+            return Optional.empty();
+        mind.epoch = nextGeneration();
+        return Optional.of(mind.snapshot());
+    }
+
+    /** Preview returning this exact lifecycle Mind from its ghost/dead claim to its retained character. */
+    public synchronized Optional<ReconnectPreview> previewRevivedDeadClaim(UUID accountId, MindId mindId,
+            MobHarnessId currentBodyId, MobHarnessId corpseId, long expectedEpoch, long generationFloor,
+            TargetEligibility eligibility, LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || generationFloor < 0 || currentBodyId.equals(corpseId)) return Optional.empty();
+        MindState mind = mindFor(Objects.requireNonNull(accountId));
+        MobHarness current = harnesses.get(currentBodyId), corpse = harnesses.get(corpseId);
+        if (mind == null || !mind.lifecycleOwned || mind.epoch != expectedEpoch
+                || !mind.id.equals(mindId) || !currentBodyId.equals(mind.harnessId)
+                || !mind.id.equals(ownersByHarness.get(currentBodyId)) || current == null
+                || !(current.kind() == MobHarnessKind.GHOST || mind.deadClaim)
+                || corpse == null || corpse.kind() != MobHarnessKind.CHARACTER
+                || ownersByHarness.containsKey(corpseId) || !eligibility.isEligible(corpse)) return Optional.empty();
+        try { return Optional.of(new ReconnectPreview(accountId, mindId, corpseId, expectedEpoch,
+                Math.incrementExact(Math.max(generation, generationFloor)))); }
+        catch (ArithmeticException overflow) { return Optional.empty(); }
+    }
+
+    /** Commit exact preview after durable ACTIVE CAS; only transfers this Mind to the retained body. */
+    public synchronized Optional<MindSnapshot> commitRevivedDeadClaim(ReconnectPreview preview,
+            MobHarnessId oldBodyId, TargetEligibility eligibility, LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || preview == null) return Optional.empty();
+        MindState mind = mindFor(preview.sessionId);
+        MobHarness old = harnesses.get(oldBodyId), corpse = harnesses.get(preview.bodyId);
+        if (mind == null || !mind.lifecycleOwned || !mind.id.equals(preview.mindId)
+                || mind.epoch != preview.expectedEpoch || !oldBodyId.equals(mind.harnessId)
+                || !mind.id.equals(ownersByHarness.get(oldBodyId)) || old == null
+                || old.kind() != MobHarnessKind.GHOST || corpse == null
+                || corpse.kind() != MobHarnessKind.CHARACTER || !eligibility.isEligible(corpse)
+                || ownersByHarness.containsKey(preview.bodyId) || preview.nextEpoch <= generation) return Optional.empty();
+        ownersByHarness.remove(oldBodyId);
+        harnesses.remove(oldBodyId);
+        ownersByHarness.put(preview.bodyId, mind.id);
+        mind.harnessId = preview.bodyId; mind.deadClaim = false; mind.connected = true;
+        mind.epoch = preview.nextEpoch; generation = preview.nextEpoch;
+        return Optional.of(mind.snapshot());
+    }
+
     /** Checks current ownership and eligibility without revoking or otherwise mutating a binding. */
     public synchronized boolean authorizesReadOnly(UUID sessionId, MobHarnessId harnessId, long epoch,
                                                     TargetEligibility eligibility) {

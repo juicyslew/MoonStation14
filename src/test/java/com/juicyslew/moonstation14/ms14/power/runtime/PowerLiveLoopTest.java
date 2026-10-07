@@ -8,6 +8,17 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PowerLiveLoopTest {
+    @Test void disposalUnitsAreActualFullDemandApcLoads() {
+        var src = List.of(new PowerLiveLoop.Source("src", 1, true, 2_000));
+        var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));
+        var apc = List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 0));
+        var unit = new PowerLiveLoop.DisposalLoad("unit", 3, true, 1_000);
+        var result = PowerLiveLoop.solve(new PowerLiveLoop.Input(src, sub, apc, List.of(), List.of(), List.of(), List.of(), List.of(unit), 20));
+        assertEquals(1_000, result.disposalWatts().get("unit"), 1e-9);
+        var unknown = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(), List.of(), List.of(), List.of(),
+                List.of(new PowerLiveLoop.DisposalLoad("unit", 3, false, 1_000)), 20));
+        assertEquals(0, unknown.disposalWatts().get("unit"), 1e-9);
+    }
     @Test void ventsShareApcAllocationWithLampsAndAreBilledOnlyForElapsedTime() {
         var source = List.of(new PowerLiveLoop.Source("source", 1, true, 1_000));
         var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));
@@ -40,10 +51,10 @@ final class PowerLiveLoopTest {
         var sub=List.of(new PowerLiveLoop.Substation("sub",1,true,2,true));
         var apc=List.of(new PowerLiveLoop.Apc("apc",2,true,3,true,true,0));
         var door=new PowerLiveLoop.AirlockLoad("airlock",3,true,20);
-        var result=PowerLiveLoop.solve(new PowerLiveLoop.Input(source,sub,apc,List.of(),List.of(),List.of(),List.of(door),20));
+        var result=PowerLiveLoop.solve(new PowerLiveLoop.Input(source,sub,apc,List.of(),List.of(),List.of(),List.of(door),List.of(),20));
         assertEquals(20,result.airlockWatts().get("airlock"),1e-9);
         var shortSupply=PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("source2",1,true,10)),sub,
-                List.of(new PowerLiveLoop.Apc("apc2",2,true,3,true,true,0)),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.AirlockLoad("door2",3,true,20)),20));
+                List.of(new PowerLiveLoop.Apc("apc2",2,true,3,true,true,0)),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.AirlockLoad("door2",3,true,20)),List.of(),20));
         assertTrue(shortSupply.airlockWatts().get("door2")<20);
     }
 

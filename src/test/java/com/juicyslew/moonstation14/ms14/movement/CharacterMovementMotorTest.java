@@ -20,6 +20,39 @@ class CharacterMovementMotorTest {
             new MovementCollisionResolver.CollisionResult(displacement, grounded);
 
     @Test
+    void tetherConstraintActsAfterStandingFrictionAndVoluntaryWish() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 3d, 0d, OPEN, 1d, 1d,
+                new MovementVector(-3d, 0d, 0d));
+        CharacterMovementState result = motor.tick(state(MovementVector.ZERO,
+                        new MovementVector(2.5d, 0d, 0d), true),
+                new CharacterMovementCommand(1d, 0d, false, false), environment, false);
+        assertEquals(-.5d, result.velocity().x(), 1e-12,
+                "standing friction and voluntary acceleration must not erase/reverse the opposing tether impulse");
+        assertEquals(-.025d, result.position().x(), 1e-12);
+
+        CharacterMovementEnvironment ordinary = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 0d, 0d, OPEN);
+        CharacterMovementState unchanged = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false), ordinary, false);
+        assertEquals(MovementVector.ZERO, unchanged.velocity(),
+                "the compatibility constructor retains neutral constraint input");
+
+        CharacterMovementEnvironment upwardTether = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 1d, 0d, OPEN, 1d, 1d,
+                new MovementVector(0d, 1d, 0d));
+        CharacterMovementState jump = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, true, false), upwardTether, false);
+        assertEquals(.47d, jump.position().y(), 1e-12,
+                "tether force augments the ordinary jump after jump velocity is selected");
+
+        assertThrows(IllegalArgumentException.class, () -> new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 0d, 0d, OPEN, 1d, 1d,
+                new MovementVector(Double.NaN, 0d, 0d)));
+    }
+
+    @Test
     void playerAndVillagerHostsUseTheSameHumanMotorPolicy() {
         CharacterMovementPolicy playerProfile = CharacterMovementPolicy.forCharacterPrototype("moonstation14:human");
         CharacterMovementPolicy villagerProfile = CharacterMovementPolicy.forCharacterPrototype("moonstation14:human");
@@ -763,6 +796,88 @@ class CharacterMovementMotorTest {
                 env(.05d, 0d, 8d, MovementVector.ZERO, 0d, .5d, teleportStep), false));
     }
 
+    @Test
+    void descendingLandingMayResolveBoundedHorizontalStepWhenPreviouslyAirborne() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementState falling = state(MovementVector.ZERO, new MovementVector(0d, -2d, 0d), false);
+        CharacterMovementCommand walking = new CharacterMovementCommand(1d, 0d, false, false);
+        MovementCollisionResolver landingStep = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(
+                        new MovementVector(requested.x(), .4d, requested.z()), true);
+        CharacterMovementState stepped = motor.tick(falling, walking,
+                env(.05d, 0d, 0d, MovementVector.ZERO, 0d, .5d, landingStep), false);
+        assertEquals(.4d, stepped.position().y(), 0d);
+        assertTrue(stepped.onGround());
+
+        MovementCollisionResolver notLanded = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(
+                        new MovementVector(requested.x(), .4d, requested.z()), false);
+        assertThrows(IllegalArgumentException.class, () -> motor.tick(falling, walking,
+                env(.05d, 0d, 0d, MovementVector.ZERO, 0d, .5d, notLanded), false));
+
+        CharacterMovementState ascending = state(MovementVector.ZERO, new MovementVector(0d, 2d, 0d), false);
+        assertThrows(IllegalArgumentException.class, () -> motor.tick(ascending, walking,
+                env(.05d, 0d, 0d, MovementVector.ZERO, 0d, .5d, landingStep), false));
+
+        MovementCollisionResolver tooHigh = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(
+                        new MovementVector(requested.x(), .6d, requested.z()), true);
+        assertThrows(IllegalArgumentException.class, () -> motor.tick(falling, walking,
+                env(.05d, 0d, 0d, MovementVector.ZERO, 0d, .5d, tooHigh), false));
+    }
+
+    @Test
+    void externalFlightRetainsLaunchMomentumAndSuppressesInputAndGroundFriction() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementState start = state(MovementVector.ZERO, new MovementVector(10d, 0d, 0d), true);
+        CharacterMovementState flight = start;
+        for (int tick = 0; tick < 6; tick++) {
+            flight = motor.tick(flight, new CharacterMovementCommand(1d, 0d, true, true),
+                    env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false, true);
+            assertEquals(10d, flight.velocity().x(), 1e-12, "external momentum is not accumulated or damped");
+        }
+        assertEquals(3d, flight.position().x(), 1e-12);
+        assertEquals(0d, flight.position().y(), 1e-12);
+        CharacterMovementState landed = motor.tick(flight,
+                new CharacterMovementCommand(0d, 0d, false, false),
+                env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
+        assertEquals(0d, landed.velocity().x(), 0d, "ordinary ground friction resumes after flight ends");
+    }
+
+    @Test
+    void ordinaryPhysicsMustTakeGroundedFrictionStepAfterAirborneThrowExpires() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        MovementCollisionResolver floor = (position, displacement, grounded) ->
+                new MovementCollisionResolver.CollisionResult(
+                        new MovementVector(displacement.x(), -position.y(), displacement.z()), true);
+        CharacterMovementEnvironment environment = env(.05d, 32d, 0d, MovementVector.ZERO, 0d, floor);
+        CharacterMovementState airborne = state(new MovementVector(0d, .1d, 0d),
+                new MovementVector(10d, -4d, 0d), false);
+        CharacterMovementCommand idle = new CharacterMovementCommand(0d, 0d, false, false);
+
+        CharacterMovementState landed = motor.tick(airborne, idle, environment, false, false);
+        assertTrue(landed.onGround());
+        assertEquals(10d, landed.velocity().x(), 0d,
+                "the collision landing tick retains horizontal momentum; tracking must not end yet");
+        CharacterMovementState settled = motor.tick(landed, idle, environment, false, false);
+        assertEquals(0d, settled.velocity().horizontalLength(), 0d,
+                "the following normal grounded idle step applies native-profile friction");
+    }
+
+    @Test
+    void westwardLandingWithNegativeZeroVelocityIsPhysicallySettled() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN);
+        CharacterMovementCommand idle = new CharacterMovementCommand(0d, 0d, false, false);
+        CharacterMovementState landed = state(MovementVector.ZERO, new MovementVector(-10d, 0d, 0d), true);
+        CharacterMovementState settled = motor.tick(landed, idle, environment, false);
+        assertEquals(0d, settled.velocity().x(), 0d);
+        assertEquals(0d, settled.velocity().x() * settled.velocity().x()
+                        + settled.velocity().y() * settled.velocity().y()
+                        + settled.velocity().z() * settled.velocity().z(), 0d,
+                "negative zero from westward friction is still physically settled");
+    }
+
     private static CharacterMovementState state(MovementVector position, MovementVector velocity, boolean grounded) {
         return new CharacterMovementState(position, velocity, grounded);
     }
@@ -792,5 +907,38 @@ class CharacterMovementMotorTest {
                                                                         MovementCollisionResolver resolver) {
         return new CharacterMovementEnvironment(dt, gravity, jump, 1d, MovementVector.ZERO,
                 0d, 0d, resolver, 1d, speedFactor);
+    }
+
+    @Test
+    void externalFlightRetainsVerticalLaunchMomentumThenResumesAdapterGravity() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d, .98d,
+                MovementVector.ZERO, 0d, 0d, OPEN);
+        CharacterMovementState current = state(MovementVector.ZERO, new MovementVector(0d, 10d, 0d), false);
+        CharacterMovementCommand noInput = new CharacterMovementCommand(0d, 0d, false, false);
+
+        for (int tick = 0; tick < 6; tick++) {
+            current = motor.tick(current, noInput, environment, false, true);
+            assertEquals(10d, current.velocity().y(), 0d, "flight lease retains vertical launch momentum");
+        }
+        assertEquals(3d, current.position().y(), 1e-12);
+
+        current = motor.tick(current, noInput, environment, false, false);
+        assertEquals(8.232d, current.velocity().y(), 1e-12,
+                "adapter gravity and vertical drag resume when the lease expires");
+    }
+
+    @Test
+    void externalFlightCollisionClipsUpwardVelocityWithoutReapplyingLaunchMomentum() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        MovementCollisionResolver ceiling = (position, displacement, grounded) ->
+                new MovementCollisionResolver.CollisionResult(new MovementVector(displacement.x(), 0d, displacement.z()), false);
+        CharacterMovementEnvironment environment = env(.05d, 32d, 8.4d, MovementVector.ZERO, 0d, ceiling);
+        CharacterMovementState blocked = motor.tick(state(MovementVector.ZERO,
+                        new MovementVector(0d, 10d, 0d), false),
+                new CharacterMovementCommand(0d, 0d, false, false), environment, false, true);
+
+        assertEquals(0d, blocked.position().y(), 0d);
+        assertEquals(0d, blocked.velocity().y(), 0d);
     }
 }

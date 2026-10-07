@@ -23,13 +23,7 @@ public final class VentilationGasRuntime {
     private VentilationGasRuntime() { }
 
     public static void onCompletedPaidSolve(ServerLevel level, VentilationDeviceBlockEntity device) {
-        onCompletedPaidSolveWithServiceForTest(level, device, AtmosphereService.INSTANCE);
-    }
-
-    /** Same paid-solve path with an isolated atmosphere policy for package-local integration tests. */
-    static void onCompletedPaidSolveWithServiceForTest(ServerLevel level, VentilationDeviceBlockEntity device,
-            AtmosphereService atmosphere) {
-        if (level == null || device == null || atmosphere == null || !atmosphere.isEnabled()
+        if (level == null || device == null
                 || QUARANTINED.getOrDefault(level, Set.of()).contains(device.getBlockPos())) return;
         try {
             PowerRuntime.performCompletedVentilationWork(level, device, seconds -> {
@@ -37,7 +31,7 @@ public final class VentilationGasRuntime {
                 // it may remain even if room-side transfer preflight subsequently fails.
                 LoadedPipeEqualization.equalize(level, device);
                 return FiniteVentilationTransfer.executeTrustedAfterPaidInterval(
-                        level, atmosphere, device, seconds).moved();
+                        level, AtmosphereService.INSTANCE, device, seconds).moved();
             });
         } catch (PipeGasTransaction.RecoveryRequiredException recoveryRequired) {
             QUARANTINED.computeIfAbsent(level, ignored -> new HashSet<>()).add(device.getBlockPos().immutable());

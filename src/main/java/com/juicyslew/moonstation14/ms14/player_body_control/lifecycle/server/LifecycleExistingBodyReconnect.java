@@ -5,7 +5,6 @@ import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransiti
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierSnapshotProbe;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
@@ -14,7 +13,6 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistenc
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.MinecraftLoadedBodyAdapter;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -55,8 +53,7 @@ public final class LifecycleExistingBodyReconnect {
 
     /** Same-connection return loads only the saved chunk, without parking Creative until body proof. */
     static ReturnResult returnDevelopmentDetached(ServerPlayer player, MinecraftServer server) {
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
-                || server == null || player == null || !server.isSameThread()
+        if (server == null || player == null || !server.isSameThread()
                 || !LifecycleDevelopmentMode.isTracked(server, player)
                 || player.connection == null || !player.connection.isAcceptingMessages()
                 || player.isRemoved() || player.getServer() != server
@@ -235,7 +232,6 @@ public final class LifecycleExistingBodyReconnect {
 
     static void handle(ServerPlayer player, MinecraftServer server, LifecycleServerContext context,
                        Consumer<String> disconnect) {
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()) return;
         if (server == null || context == null || !server.isSameThread() || player == null
                 || player.connection == null || !player.connection.isAcceptingMessages()
                 || player.isRemoved() || server.getPlayerList().getPlayer(player.getUUID()) != player
@@ -405,8 +401,7 @@ public final class LifecycleExistingBodyReconnect {
     private static void complete(MinecraftServer server, ServerPlayer player, LifecycleServerContext context,
                                   SavedLifecycleProfile saved, LoadedBodyResolver.Resolution observed,
                                   Consumer<String> disconnect, boolean newlyParked) {
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
-                || observed.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
+        if (observed.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
                 || !(observed.candidate().entity() instanceof PlayerCharacterHarnessEntity body)
                 || !body.isNoAi()) {
             disconnect.accept(observed.outcome() == LoadedBodyResolver.Outcome.DEFER_KNOWN_BODY ? DEFER : RECOVERY);
@@ -493,8 +488,7 @@ public final class LifecycleExistingBodyReconnect {
 
     private static boolean retryOwnerValid(MinecraftServer server, ServerPlayer player, LifecycleServerContext context,
                                            SavedLifecycleProfile saved) {
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
-                || server == null || context == null || !server.isSameThread() || player == null
+        if (server == null || context == null || !server.isSameThread() || player == null
                 || player.getServer() != server || player.connection == null || !player.connection.isAcceptingMessages()
                 || player.isRemoved() || server.getPlayerList().getPlayer(player.getUUID()) != player
                 || GhostMobHarnessControl.ownsDebugSession(player)) return false;

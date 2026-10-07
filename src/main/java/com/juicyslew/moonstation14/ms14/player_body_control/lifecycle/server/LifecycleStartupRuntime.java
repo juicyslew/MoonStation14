@@ -1,12 +1,10 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
 import com.juicyslew.moonstation14.MoonStation14;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.LifecycleProfileStore;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.LifecycleStoreEnvelope;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -36,7 +34,7 @@ public final class LifecycleStartupRuntime {
 
     private LifecycleStartupRuntime() { }
 
-    public enum State { DISABLED, CONFLICT, UNINITIALIZED, EMPTY, RECOVERY_REQUIRED, DEFERRED, STOPPED }
+    public enum State { UNINITIALIZED, EMPTY, RECOVERY_REQUIRED, DEFERRED, STOPPED }
 
     /** Immutable bounded status intended for a future coordinator/diagnostic surface. */
     public record StartupSnapshot(State state, String diagnostic, int profileCount) {
@@ -55,10 +53,7 @@ public final class LifecycleStartupRuntime {
 
     record StartupResult(StartupSnapshot snapshot, LifecycleServerContext context) { }
 
-    static StartupResult start(boolean masterEnabled, boolean movementConflict,
-                                LifecycleProfileStore store, EnvelopeReader reader) {
-        if (!masterEnabled) return new StartupResult(new StartupSnapshot(State.DISABLED, "shared lifecycle master gate is off", 0), null);
-        if (movementConflict) return new StartupResult(new StartupSnapshot(State.CONFLICT, "legacy movement startup conflict is active", 0), null);
+    static StartupResult start(LifecycleProfileStore store, EnvelopeReader reader) {
         try {
             Optional<LifecycleStoreEnvelope> envelope = reader.read();
             StartupSnapshot snapshot;
@@ -88,9 +83,7 @@ public final class LifecycleStartupRuntime {
                 "OFFLINE/DEAD_CLAIM profiles are reserved; loaded-body proof and lifecycle activation are deferred", states.size());
     }
 
-    static StartupSnapshot inspect(boolean masterEnabled, boolean movementConflict, StoreReader reader) {
-        if (!masterEnabled) return new StartupSnapshot(State.DISABLED, "shared lifecycle master gate is off", 0);
-        if (movementConflict) return new StartupSnapshot(State.CONFLICT, "legacy movement startup conflict is active", 0);
+    static StartupSnapshot inspect(StoreReader reader) {
         try {
             Optional<java.util.List<SavedLifecycleProfile.State>> states = reader.read();
             if (states.isEmpty()) return new StartupSnapshot(State.UNINITIALIZED, "no primary or backup profile store exists", 0);
@@ -103,20 +96,14 @@ public final class LifecycleStartupRuntime {
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
         MinecraftServer server = event.getServer();
-        boolean master = MindGhostStartupGate.enabledForServer();
-        boolean conflict = MovementStartupGate.enabledForServer();
         StartupResult result;
-        if (!master) result = start(false, conflict, null, Optional::empty);
-        else if (conflict) result = start(true, true, null, Optional::empty);
-        else {
-            try {
-                Path storePath = safeStorePath(server.getWorldPath(LevelResource.ROOT));
-                LifecycleProfileStore store = new LifecycleProfileStore(storePath);
-                result = start(true, false, store, store::read);
-            } catch (IOException | RuntimeException failure) {
-                result = new StartupResult(new StartupSnapshot(State.RECOVERY_REQUIRED,
-                        "profile store/path recovery required: " + failure.getMessage(), 0), null);
-            }
+        try {
+            Path storePath = safeStorePath(server.getWorldPath(LevelResource.ROOT));
+            LifecycleProfileStore store = new LifecycleProfileStore(storePath);
+            result = start(store, store::read);
+        } catch (IOException | RuntimeException failure) {
+            result = new StartupResult(new StartupSnapshot(State.RECOVERY_REQUIRED,
+                    "profile store/path recovery required: " + failure.getMessage(), 0), null);
         }
         StartupSnapshot snapshot = result.snapshot();
         synchronized (SERVERS) {
@@ -158,8 +145,7 @@ public final class LifecycleStartupRuntime {
      */
     public static boolean rememberPreparingClaim(MinecraftServer server,
             LifecycleProfileStore.CurrentPrimary lease, SavedLifecycleProfile claim) {
-        if (server == null || !server.isSameThread() || !MindGhostStartupGate.enabledForServer()
-                || MovementStartupGate.enabledForServer()) return false;
+        if (server == null || !server.isSameThread()) return false;
         LifecycleServerContext context;
         synchronized (SERVERS) {
             if (!SERVERS.containsKey(server)) return false;
@@ -177,8 +163,7 @@ public final class LifecycleStartupRuntime {
     static boolean reserveFirstProfile(MinecraftServer server, UUID authenticatedAccountId, String profileKey,
             UUID mindId, UUID bodyId, String dimension, SavedLifecycleProfile.Location location,
             Map<String, String> defaultValidatedAppearance) {
-        if (server == null || !server.isSameThread() || authenticatedAccountId == null
-                || !MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()) return false;
+        if (server == null || !server.isSameThread() || authenticatedAccountId == null) return false;
         StartupSnapshot snapshot;
         LifecycleServerContext context;
         synchronized (SERVERS) {

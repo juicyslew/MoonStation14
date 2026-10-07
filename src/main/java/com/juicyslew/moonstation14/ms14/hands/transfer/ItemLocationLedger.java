@@ -60,6 +60,21 @@ public final class ItemLocationLedger {
         return Result.success(snapshot);
     }
 
+    /** Permanently consume one owner only when both ledger revision and exact source still match. */
+    public synchronized Result consume(long expectedRevision, ItemToken token, ItemLocation expectedSource) {
+        Objects.requireNonNull(token, "token");
+        Objects.requireNonNull(expectedSource, "expectedSource");
+        if (expectedRevision != snapshot.revision()) return Result.rejected(snapshot, Rejection.STALE_REVISION);
+        ItemLocation source = snapshot.locations().get(token);
+        if (source == null) return Result.rejected(snapshot, Rejection.MISSING_ITEM);
+        if (!source.equals(expectedSource)) return Result.rejected(snapshot, Rejection.SOURCE_MISMATCH);
+        if (snapshot.revision() == Long.MAX_VALUE) return Result.rejected(snapshot, Rejection.REVISION_OVERFLOW);
+        LinkedHashMap<ItemToken, ItemLocation> next = new LinkedHashMap<>(snapshot.locations());
+        next.remove(token);
+        snapshot = new ItemLocationSnapshot(snapshot.revision() + 1, next);
+        return Result.success(snapshot);
+    }
+
     /** Exact ledger identity only: arbitrary geometric storage overlap belongs to an adapter. */
     private static boolean isOccupied(ItemLocation destination, ItemToken movingToken,
             Map<ItemToken, ItemLocation> locations) {
