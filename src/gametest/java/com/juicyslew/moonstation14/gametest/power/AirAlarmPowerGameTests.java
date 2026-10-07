@@ -21,17 +21,17 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"power", "air-alarm", "ventilation"})
 @PrefixGameTestTemplate(false)
 public final class AirAlarmPowerGameTests {
     private AirAlarmPowerGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")
     public static void unconnectedAlarmIsNotPowered(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
@@ -45,7 +45,7 @@ public final class AirAlarmPowerGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 320)
+    @GameTest(template = "empty", timeoutTicks = 320, templateNamespace = "moonstation14")
     public static void alarmUsesInheritedHundredWattsAndRadiusThree(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         int y = 12;

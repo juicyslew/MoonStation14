@@ -16,12 +16,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.Map;
 
 /** Regressions for finite-cell live disposal intake, separate from trusted closed-room simulation. */
-@GameTestHolder("moonstation14_camera_tour")
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class DisposalLiveIntakeGameTests {
     private DisposalLiveIntakeGameTests() { }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear", batch = "disposals", timeoutTicks = 100)
     public static void liveIntakeWorksWithoutWholeComponentProof(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var atmos = AtmosphereService.INSTANCE;
@@ -88,7 +88,7 @@ public final class DisposalLiveIntakeGameTests {
         } finally { atmos.configureAtServerStart(wasEnabled, oldVacuum); }
     }
 
-    @GameTest(template = "disposal_clear", batch = "disposals", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear", batch = "disposals", timeoutTicks = 100)
     public static void liveIntakeVacuumUnavailableAndStaleEndpointAreSafe(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var atmos = AtmosphereService.INSTANCE;
@@ -97,6 +97,7 @@ public final class DisposalLiveIntakeGameTests {
         var dimensions = new java.util.HashSet<>(oldVacuum);
         dimensions.add(level.dimension());
         atmos.configureAtServerStart(true, dimensions);
+        boolean callbackScheduled = false;
         try {
             for (int x = 1; x <= 5; x++) for (int z = 1; z <= 5; z++) {
                 helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -125,13 +126,21 @@ public final class DisposalLiveIntakeGameTests {
             require(afterVacuumPrepare.totalMoles() == 0, "vacuum intake does not create oxygen");
 
             var endpoint = atmos.finiteCellEndpointForImmediateTransfer(level, unitPos.above()).orElseThrow();
-            GasMixture endpointSnapshot = endpoint.snapshot();
+            GasMixture sourceBefore = atmos.sample(level, unitPos.above()).orElseThrow();
+            callbackScheduled = true;
             helper.runAfterDelay(1, () -> {
-                require(!endpoint.eligible(), "endpoint from previous game tick is ineligible");
-                require(same(endpointSnapshot, endpoint.snapshot()), "stale endpoint cannot mutate gas");
-                helper.succeed();
+                try {
+                    require(atmos.isEnabled(), "atmosphere remains enabled through delayed game tick");
+                    require(!endpoint.eligible(), "endpoint from previous game tick is ineligible");
+                    require(endpoint.snapshot() == null, "stale endpoint has no valid snapshot");
+                    GasMixture sourceAfter = atmos.sample(level, unitPos.above()).orElseThrow();
+                    require(same(sourceBefore, sourceAfter), "stale endpoint cannot mutate physical source gas");
+                    helper.succeed();
+                } finally { atmos.configureAtServerStart(wasEnabled, oldVacuum); }
             });
-        } finally { atmos.configureAtServerStart(wasEnabled, oldVacuum); }
+        } finally {
+            if (!callbackScheduled) atmos.configureAtServerStart(wasEnabled, oldVacuum);
+        }
     }
 
     private static void assertConserved(GasMixture roomBefore, GasMixture invBefore, GasMixture roomAfter, GasMixture invAfter) {

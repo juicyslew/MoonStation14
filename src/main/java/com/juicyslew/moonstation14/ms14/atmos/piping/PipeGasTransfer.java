@@ -66,7 +66,7 @@ public final class PipeGasTransfer {
         double upper = Math.min(1.0, maximumMoles / total);
         if (!(upper > 0.0)) return Optional.empty();
         Plan candidate = create(source, destination, selected, upper);
-        if (candidate != null && candidate.destinationAfter().pressureKpa(destinationVolumeM3) <= destinationMaxPressureKpa)
+        if (candidate != null && withinPressureBound(candidate.destinationAfter().pressureKpa(destinationVolumeM3), destinationMaxPressureKpa))
             return Optional.of(candidate);
 
         double low = 0.0, high = upper;
@@ -75,7 +75,7 @@ public final class PipeGasTransfer {
             double mid = low + (high - low) * 0.5;
             if (mid == low || mid == high) break;
             Plan attempt = create(source, destination, selected, mid);
-            if (attempt != null && attempt.destinationAfter().pressureKpa(destinationVolumeM3) <= destinationMaxPressureKpa) {
+            if (attempt != null && withinPressureBound(attempt.destinationAfter().pressureKpa(destinationVolumeM3), destinationMaxPressureKpa)) {
                 best = attempt;
                 low = mid;
             } else high = mid;
@@ -89,13 +89,13 @@ public final class PipeGasTransfer {
         EnumMap<GasType, Double> remaining = new EnumMap<>(GasType.class);
         remaining.putAll(source.gasMoles());
         for (var entry : selected.entrySet()) {
-            double moved = entry.getValue() * fraction;
-            if (!(moved > 0.0) || moved > entry.getValue()) return null;
-            double rest = entry.getValue() - moved;
+            float moved = entry.getValue().floatValue() * (float) fraction;
+            if (!(moved > 0.0f) || moved > entry.getValue().floatValue()) return null;
+            float rest = entry.getValue().floatValue() - moved;
             if (fraction < 1.0 && (rest <= 0.0 || rest == entry.getValue())) return null;
             if (rest == 0.0) remaining.remove(entry.getKey());
-            else remaining.put(entry.getKey(), rest);
-            packetMoles.put(entry.getKey(), moved);
+            else remaining.put(entry.getKey(), (double) rest);
+            packetMoles.put(entry.getKey(), (double) moved);
         }
         if (packetMoles.isEmpty()) return null;
         try {
@@ -120,7 +120,10 @@ public final class PipeGasTransfer {
     }
 
     private static boolean close(double a, double b) {
-        return Math.abs(a - b) <= Math.max(1e-12, Math.max(Math.abs(a), Math.abs(b)) * 1e-12);
+        return Math.abs(a - b) <= Math.max(Math.ulp((float) a), Math.ulp((float) b)) * 8.0;
+    }
+    private static boolean withinPressureBound(double pressure, double bound) {
+        return pressure <= bound;
     }
     private static void positiveFinite(double v, String name) {
         if (!Double.isFinite(v) || v <= 0.0) throw new IllegalArgumentException(name + " must be positive and finite");

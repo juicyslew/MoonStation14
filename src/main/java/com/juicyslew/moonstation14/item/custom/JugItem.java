@@ -18,24 +18,23 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 
 import javax.annotation.Nullable;
 
 import static com.juicyslew.moonstation14.util.Constants.SIP_INTERVAL_TICKS;
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
 
-public class JugItem extends BlockItem implements IReagentTrait {
+public class JugItem extends Item implements IReagentTrait {
     private final float capacity;
 
-    public JugItem(Block block, Properties properties) {
-        super(block, properties);
-        this.capacity = 200f;
+    public JugItem(Properties properties) {
+        super(properties);
+        this.capacity = 150f;
     }
 
     @Override
@@ -62,7 +61,9 @@ public class JugItem extends BlockItem implements IReagentTrait {
             }
             return ReagentSystem.handleSpill(toHandle(stack), context.getLevel(), context.getClickedPos(), 5f);
         }
-        return super.useOn(context);
+        // A jug is a reagent container, never a placeable block. Ordinary block
+        // use deliberately passes through so the targeted world liquid can be used.
+        return InteractionResult.PASS;
     }
 
     @Override

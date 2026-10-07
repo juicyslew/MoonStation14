@@ -1,8 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
-import com.juicyslew.moonstation14.block.ModBlocks;
-import com.juicyslew.moonstation14.block.block_entity.JugBlockEntity;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.item.ModItems;
@@ -27,7 +26,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -39,9 +37,8 @@ import java.util.UUID;
 
 import static com.juicyslew.moonstation14.util.Constants.SIP_INTERVAL_TICKS;
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry", "jug", "interaction"})
 public final class JugInteractionGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
@@ -52,7 +49,7 @@ public final class JugInteractionGameTests {
 
     private JugInteractionGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredHeldJugSneakUseIngestsAtSipBoundaryAndPreservesFullSource(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Player player = mockPlayer(level, helper.absolutePos(new BlockPos(2, 2, 2)), true);
@@ -115,90 +112,6 @@ public final class JugInteractionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void registeredJugEmptyHandDispatcherIngestsAndRejectsWithoutMutation(GameTestHelper helper) {
-        ServerLevel level = (ServerLevel) helper.getLevel();
-        BlockPos sourcePos = placeJug(helper, new BlockPos(2, 1, 2), 12f);
-        Player player = mockPlayer(level, helper.absolutePos(new BlockPos(2, 2, 2)));
-        MS14Provider.update(player, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(SUGAR, 11f)));
-
-        InteractionResult drank = dispatchEmptyHand(level, sourcePos, player);
-        require(drank == InteractionResult.SUCCESS, "accepted nonempty jug sip returns SUCCESS");
-        require(jugWater(level, sourcePos) == 7f, "one empty-hand click removes exactly five jug units");
-        require(stomachWater(player) == 5f, "the same click adds exactly five units to player stomach");
-        require(MS14Provider.get(player, MS14Bridges.REAGENT).getMap().equals(Map.of(SUGAR, 11f)),
-                "jug drinking leaves player shared REAGENT unchanged");
-
-        BlockPos fullPos = placeJug(helper, new BlockPos(5, 1, 2), 12f);
-        Player fullPlayer = mockPlayer(level, helper.absolutePos(new BlockPos(5, 2, 2)));
-        MS14Provider.update(fullPlayer, MS14Bridges.STOMACH,
-                new ReagentAttachment(Map.of(SUGAR, StomachSystem.CAPACITY)));
-        require(dispatchEmptyHand(level, fullPos, fullPlayer) == InteractionResult.PASS,
-                "full stomach causes the jug's empty-hand callback to return PASS");
-        require(jugWater(level, fullPos) == 12f, "full stomach does not drain jug source");
-        require(MS14Provider.get(fullPlayer, MS14Bridges.STOMACH).getMap()
-                        .equals(Map.of(SUGAR, StomachSystem.CAPACITY)), "full stomach remains unchanged");
-        require(MS14Provider.get(fullPlayer, MS14Bridges.REAGENT).getMap().isEmpty(),
-                "rejected jug sip does not alter shared REAGENT");
-
-        BlockPos emptyPos = placeJug(helper, new BlockPos(8, 1, 2), 0f);
-        Player emptyPlayer = mockPlayer(level, helper.absolutePos(new BlockPos(8, 2, 2)));
-        require(dispatchEmptyHand(level, emptyPos, emptyPlayer) == InteractionResult.PASS,
-                "empty jug causes the empty-hand callback to return PASS");
-        require(jugWater(level, emptyPos) == 0f && stomachWater(emptyPlayer) == 0f,
-                "empty jug does not mutate source or stomach");
-        require(MS14Provider.get(emptyPlayer, MS14Bridges.REAGENT).getMap().isEmpty(),
-                "empty jug does not mutate shared REAGENT");
-        helper.succeed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void registeredBottleOnJugRefillsWithoutDrinking(GameTestHelper helper) {
-        ServerLevel level = (ServerLevel) helper.getLevel();
-        BlockPos sourcePos = placeJug(helper, new BlockPos(2, 1, 2), 12f);
-        Player player = mockPlayer(level, helper.absolutePos(new BlockPos(2, 2, 2)));
-        MS14Provider.update(player, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(SUGAR, 11f)));
-        ItemStack bottle = new ItemStack(ModItems.BOTTLE.get());
-        bottle.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, 10f)));
-        player.setItemInHand(InteractionHand.MAIN_HAND, bottle);
-
-        BlockState state = level.getBlockState(sourcePos);
-        ItemInteractionResult result = state.useItemOn(bottle, level, player, InteractionHand.MAIN_HAND, hit(sourcePos));
-        require(result.consumesAction(), "registered bottle-on-jug interaction consumes the action");
-        require(jugWater(level, sourcePos) == 17f, "bottle transfers five units into the jug");
-        require(bottle.get(ModDataComponents.REAGENT.get()).contents().get(WATER) == 5f,
-                "bottle source decreases by the transferred quantity");
-        require(stomachWater(player) == 0f, "bottle-on-jug does not drink into the player's stomach");
-        require(MS14Provider.get(player, MS14Bridges.REAGENT).getMap().equals(Map.of(SUGAR, 11f)),
-                "bottle-on-jug leaves player shared REAGENT unchanged");
-        helper.succeed();
-    }
-
-    private static InteractionResult dispatchEmptyHand(ServerLevel level, BlockPos pos, Player player) {
-        BlockState state = level.getBlockState(pos);
-        ItemInteractionResult itemResult = state.useItemOn(ItemStack.EMPTY, level, player, InteractionHand.MAIN_HAND,
-                hit(pos));
-        require(itemResult == ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION,
-                "empty held stack must request default block interaction before useWithoutItem");
-        return state.useWithoutItem(level, player, hit(pos));
-    }
-
-    private static BlockHitResult hit(BlockPos pos) {
-        return new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
-    }
-
-    private static BlockPos placeJug(GameTestHelper helper, BlockPos relativePos, float water) {
-        BlockPos pos = helper.absolutePos(relativePos);
-        helper.getLevel().setBlock(pos.below(), Blocks.STONE.defaultBlockState(), 3);
-        helper.getLevel().setBlock(pos, ModBlocks.JUG.get().defaultBlockState(), 3);
-        require(helper.getLevel().getBlockState(pos).is(ModBlocks.JUG.get()), "fixture contains the registered JUG block");
-        require(helper.getLevel().getBlockEntity(pos) instanceof JugBlockEntity,
-                "registered jug creates its actual block entity");
-        MS14Provider.update(helper.getLevel().getBlockEntity(pos), MS14Bridges.REAGENT,
-                new ReagentAttachment(water == 0f ? Map.of() : Map.of(WATER, water)));
-        return pos;
-    }
-
     private static Player mockPlayer(ServerLevel level, BlockPos pos) {
         return mockPlayer(level, pos, false);
     }
@@ -212,11 +125,6 @@ public final class JugInteractionGameTests {
         player.setPos(pos.getX(), pos.getY(), pos.getZ());
         com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(player, level);
         return player;
-    }
-
-    private static float jugWater(ServerLevel level, BlockPos pos) {
-        return MS14Provider.get((JugBlockEntity) level.getBlockEntity(pos), MS14Bridges.REAGENT)
-                .getMap().getOrDefault(WATER, 0f);
     }
 
     private static float stomachWater(Player player) {

@@ -26,6 +26,7 @@ import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -176,6 +177,10 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<EntityActivityAttachment>> ACTIVE_SYSTEMS = ATTACHMENT_TYPES.register(
             "active_systems", () -> AttachmentType.builder((Supplier<EntityActivityAttachment>) EntityActivityAttachment::new).build()
     );
+
+    /** Volatile actor-owned timed actions; runtime callbacks are held by the server system, never serialized. */
+    public static final Supplier<AttachmentType<TimedOperationState>> TIMED_OPERATIONS = ATTACHMENT_TYPES.register(
+            "timed_operations", () -> AttachmentType.builder(() -> TimedOperationState.EMPTY).build());
 
     /** Volatile server-owned sliding projection: synchronized, never serialized or copied on death. */
     public static final Supplier<AttachmentType<SlidingAttachment>> SLIDING = ATTACHMENT_TYPES.register(

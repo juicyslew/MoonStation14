@@ -10,21 +10,23 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class SealedWallHostGenerationsGameTests {
     private SealedWallHostGenerationsGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+@GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void chunkWritesInvalidateOnlyRegisteredHostGenerations(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
         BlockPos unrelated = pos.east();
+        BlockPos otherPos = helper.absolutePos(new BlockPos(5, 1, 5));
+        var otherStateBeforeMetadata = level.getBlockState(otherPos);
         var chunk = level.getChunkAt(pos);
         var attachment = new SealedWallHostGenerations();
         UUID first = UUID.randomUUID();
@@ -54,7 +56,7 @@ public final class SealedWallHostGenerationsGameTests {
         attachment.register(pos.asLong(), freshEpoch);
         require(!freshEpoch.equals(second) && attachment.active(pos.asLong()).orElseThrow().equals(freshEpoch), "replacement generation is distinct");
         require(level.getChunkSource().hasChunk(chunk.getPos().x, chunk.getPos().z), "chunk remains loaded without lookup loads");
-        require(level.getBlockState(helper.absolutePos(new BlockPos(5, 1, 5))).isAir(), "host metadata does not change air passability");
+        require(level.getBlockState(otherPos).equals(otherStateBeforeMetadata), "host metadata does not change unrelated block state or passability");
         require(level.getBlockState(pos).is(ModBlocks.STEEL_WALL_BLOCK.get()), "host state remains placed");
         require(PipeGasInventorySavedData.existing(level).map(data -> data.snapshot()
                 .get(new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY)).isEmpty()).orElse(true),
@@ -62,7 +64,7 @@ public final class SealedWallHostGenerationsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void sealedSegmentAdmissionIsClickedOnlyAndQuarantinesReplacement(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
@@ -85,7 +87,7 @@ public final class SealedWallHostGenerationsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void failedAdmissionVerificationRollsBackWithoutGas(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));

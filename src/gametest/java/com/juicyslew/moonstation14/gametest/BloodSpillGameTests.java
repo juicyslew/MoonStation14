@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
@@ -19,13 +20,12 @@ import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology"})
 public final class BloodSpillGameTests {
     private BloodSpillGameTests() { }
 
@@ -68,7 +68,7 @@ public final class BloodSpillGameTests {
         tick(pig, from);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void deadPigDrainsWithoutRefreshOrBloodlossAndSpillsSavedBatchOnce(GameTestHelper helper) {
         helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
@@ -109,7 +109,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void uninitializedDeadPigCannotEnrollOrRefresh(GameTestHelper helper) {
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
         pig.setNoAi(true);
@@ -128,7 +128,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void belowAndEqualThresholdBatchThenStrictlyGreaterCreatesPuddle(GameTestHelper helper) {
         helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
@@ -167,7 +167,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void existingNearlyFullPuddleAdmitsOnlyCapacityThenDiscardsRemainder(GameTestHelper helper) {
         helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
@@ -195,7 +195,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void blockedPlacementAndSavedOverthresholdBatchGetOneLossyAttempt(GameTestHelper helper) {
         helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
@@ -217,7 +217,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void unmappedHostCannotMutateBloodOrTemporaryState(GameTestHelper helper) {
         Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 1, 2));
         zombie.setNoAi(true);
@@ -230,7 +230,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void mappedHumanAndPigShareThresholdAndInvalidSavedBatchFailsClosed(GameTestHelper helper) {
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
         villager.setNoAi(true);
@@ -252,7 +252,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void oversizedSavedBatchDoesNotSearchSecondPuddle(GameTestHelper helper) {
         helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
         helper.setBlock(new BlockPos(2, 0, 1), Blocks.STONE);
@@ -278,7 +278,7 @@ public final class BloodSpillGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void bleedingRemovesActualMixedConstituentsIntoOrdinaryPuddle(GameTestHelper helper) {
         helper.setBlock(new BlockPos(2, 0, 2), Blocks.STONE);
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));

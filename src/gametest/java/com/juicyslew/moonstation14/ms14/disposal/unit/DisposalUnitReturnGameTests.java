@@ -28,12 +28,12 @@ import java.util.UUID;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "containment", "hands"})
 @PrefixGameTestTemplate(false)
 public final class DisposalUnitReturnGameTests {
     private DisposalUnitReturnGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
     public static void holderReturnsItemsAndExactBodyToUnitThenEjects(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos local = new BlockPos(4, 2, 4), unitPos = helper.absolutePos(local), trunkPos = unitPos.below();
@@ -77,7 +77,7 @@ public final class DisposalUnitReturnGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
     public static void blockedReturnExitRetainsValidUnitOwnership(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos local = new BlockPos(4, 2, 4), unitPos = helper.absolutePos(local), trunkPos = unitPos.below();
@@ -105,7 +105,7 @@ public final class DisposalUnitReturnGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 30)
     public static void disconnectedReturnTrunkStillAllowsTerminalUnitReturn(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos unitPos = helper.absolutePos(new BlockPos(4, 2, 4)), trunkPos = helper.absolutePos(new BlockPos(4, 1, 4));

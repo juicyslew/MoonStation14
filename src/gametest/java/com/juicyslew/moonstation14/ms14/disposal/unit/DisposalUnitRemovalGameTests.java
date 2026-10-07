@@ -9,12 +9,12 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "containment"})
 @PrefixGameTestTemplate(false)
 public final class DisposalUnitRemovalGameTests {
     private DisposalUnitRemovalGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void freedUnitCellIsSafeRemovalExitWhenAdjacentCellsBlocked(GameTestHelper helper) {
         var level = helper.getLevel();
         var pos = helper.absolutePos(new net.minecraft.core.BlockPos(3, 2, 3));

@@ -1,0 +1,1 @@
+{"id":"moonstation14:jug","parent":"moonstation14:generic","mass":1.0,"friction":0.2,"restitution":0.3,"throw_speed":0.5,"throw_spin":0.15,"geometry":"bottle","render_kind":"jug","break_on_impact":true,"break_threshold":4.0}

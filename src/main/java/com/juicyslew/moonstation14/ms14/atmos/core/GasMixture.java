@@ -7,32 +7,45 @@ import java.util.Objects;
 
 /** Immutable ideal-gas mixture. Amounts are moles, temperature is kelvin, and energy is joules. */
 public final class GasMixture {
-    private static final double GAS_CONSTANT = 8.31446261815324;
-    private static final double VACUUM_TEMPERATURE_KELVIN = 2.7;
+    private static final float GAS_CONSTANT = 8.3144626f;
+    public static final double MIN_TEMPERATURE_KELVIN = 2.7;
+    public static final double MAX_TEMPERATURE_KELVIN = 262144.0;
+    public static final double GAS_MIN_MOLES = 5e-8;
 
-    private final Map<GasType, Double> moles;
-    private final double temperatureKelvin;
+    private final float[] speciesMoles;
+    private final float temperatureKelvin;
+    private final float volumeCubicMeters;
 
     public GasMixture(Map<GasType, Double> moles, double temperatureKelvin) {
-        this.moles = snapshot(moles);
-        this.temperatureKelvin = nonNegativeFinite(temperatureKelvin, "temperatureKelvin");
+        this(moles, temperatureKelvin, AtmosphereUnits.minecraftCellVolumeCubicMeters());
+    }
+
+    public GasMixture(Map<GasType, Double> moles, double temperatureKelvin, double volumeCubicMeters) {
+        this.speciesMoles = snapshot(moles);
+        this.temperatureKelvin = (float) clampTemperature(temperatureKelvin);
+        this.volumeCubicMeters = (float) nonNegativeFinite(volumeCubicMeters, "volumeCubicMeters");
         if (!Double.isFinite(totalMoles()) || !Double.isFinite(heatCapacity())
                 || !Double.isFinite(thermalEnergy())) {
             throw new IllegalArgumentException("Mixture aggregate values must be finite");
         }
     }
 
-    private static Map<GasType, Double> snapshot(Map<GasType, Double> values) {
+    private static double clampTemperature(double temperature) {
+        if (!Double.isFinite(temperature)) throw new IllegalArgumentException("temperatureKelvin must be finite");
+        return Math.max(MIN_TEMPERATURE_KELVIN, Math.min(MAX_TEMPERATURE_KELVIN, temperature));
+    }
+
+    private static float[] snapshot(Map<GasType, Double> values) {
         Objects.requireNonNull(values, "moles");
-        EnumMap<GasType, Double> copy = new EnumMap<>(GasType.class);
+        float[] copy = new float[GasType.values().length];
         for (Map.Entry<GasType, Double> entry : values.entrySet()) {
             GasType type = Objects.requireNonNull(entry.getKey(), "gas type");
             double amount = nonNegativeFinite(Objects.requireNonNull(entry.getValue(), "gas moles"), "gas moles");
-            if (amount > 0.0) {
-                copy.put(type, amount);
-            }
+            float rounded = (float) amount;
+            if (!Float.isFinite(rounded)) throw new IllegalArgumentException("gas moles exceed float range");
+            copy[type.ordinal()] = rounded;
         }
-        return Collections.unmodifiableMap(copy);
+        return copy;
     }
 
     private static double nonNegativeFinite(double value, String name) {
@@ -43,7 +56,7 @@ public final class GasMixture {
     }
 
     public static GasMixture vacuum() {
-        return new GasMixture(Map.of(), VACUUM_TEMPERATURE_KELVIN);
+        return new GasMixture(Map.of(), MIN_TEMPERATURE_KELVIN);
     }
 
     public static GasMixture breathableAir() {
@@ -56,24 +69,33 @@ public final class GasMixture {
         return temperatureKelvin;
     }
 
+    public double volumeCubicMeters() { return volumeCubicMeters; }
+
     public double moles(GasType type) {
-        return moles.getOrDefault(Objects.requireNonNull(type, "type"), 0.0);
+        return speciesMoles[Objects.requireNonNull(type, "type").ordinal()];
     }
 
     public Map<GasType, Double> gasMoles() {
-        return moles;
+        EnumMap<GasType, Double> result = new EnumMap<>(GasType.class);
+        for (GasType type : GasType.values()) if (speciesMoles[type.ordinal()] > 0)
+            result.put(type, (double) speciesMoles[type.ordinal()]);
+        return Collections.unmodifiableMap(result);
     }
 
     public double totalMoles() {
-        return moles.values().stream().mapToDouble(Double::doubleValue).sum();
+        float total = 0;
+        for (float amount : speciesMoles) total += amount;
+        return total;
     }
 
     public double heatCapacity() {
-        return moles.entrySet().stream().mapToDouble(entry -> entry.getValue() * entry.getKey().molarHeatCapacity()).sum();
+        float capacity = 0;
+        for (GasType type : GasType.values()) capacity += speciesMoles[type.ordinal()] * (float) type.molarHeatCapacity();
+        return capacity;
     }
 
     public double thermalEnergy() {
-        return heatCapacity() * temperatureKelvin;
+        return (float) heatCapacity() * temperatureKelvin;
     }
 
     /** Returns a detached mixture with every species scaled by the same fraction. */
@@ -82,19 +104,92 @@ public final class GasMixture {
             throw new IllegalArgumentException("fraction must be finite and between zero and one");
         }
         EnumMap<GasType, Double> scaled = new EnumMap<>(GasType.class);
-        for (Map.Entry<GasType, Double> entry : moles.entrySet()) {
-            double amount = entry.getValue() * fraction;
-            if (amount > 0.0) scaled.put(entry.getKey(), amount);
-        }
-        return new GasMixture(scaled, temperatureKelvin);
+        for (GasType type : GasType.values()) if (moles(type) > 0) scaled.put(type, (double) ((float) moles(type) * (float) fraction));
+        return new GasMixture(scaled, temperatureKelvin, volumeCubicMeters);
     }
 
+    /** Upstream default-scaled capacity, including its 0.0003 J/K floor for ordinary mixtures. */
+    public double normalizedHeatCapacity() {
+        return Math.max((float) heatCapacity() / (float) AtmosphereUnits.UPSTREAM_HEAT_SCALE_DEFAULT, 0.0003f);
+    }
+
+    /** Effective raw-unit equivalent of upstream's normalized capacity, including the floor. */
+    public double effectiveHeatCapacity() {
+        return (float) normalizedHeatCapacity() * (float) AtmosphereUnits.UPSTREAM_HEAT_SCALE_DEFAULT;
+    }
+
+    /** Thermal energy used by default-scaled SS14 simulation kernels. {@link #thermalEnergy()} stays physical raw Cp × K. */
+    public double simulationThermalEnergy() {
+        return (float) normalizedHeatCapacity() * temperatureKelvin;
+    }
+
+    /** Upstream immutable-space normalized Cp translated to this 1,000 L cell. */
+    public static double spaceNormalizedHeatCapacity() {
+        return AtmosphereUnits.referenceTileQuantity(7000.0);
+    }
+
+    public record Removal(GasMixture remaining, GasMixture removed) { }
+
+    /** SS14 RemoveRatio semantics, cleaning tiny species in both source remainder and packet. */
+    public Removal splitRatio(double ratio) {
+        if (!Double.isFinite(ratio)) throw new IllegalArgumentException("ratio must be finite");
+        if (ratio <= 0) return new Removal(this, new GasMixture(Map.of(), temperatureKelvin, volumeCubicMeters));
+        ratio = Math.min(1, ratio);
+        EnumMap<GasType, Double> removed = new EnumMap<>(GasType.class);
+        EnumMap<GasType, Double> remaining = new EnumMap<>(GasType.class);
+        for (GasType type : GasType.values()) {
+            float original = (float) moles(type);
+            float packet = original * (float) ratio;
+            float residual = original - packet;
+            if (packet >= GAS_MIN_MOLES) removed.put(type, (double) packet);
+            if (residual >= GAS_MIN_MOLES) remaining.put(type, (double) residual);
+        }
+        return new Removal(new GasMixture(remaining, temperatureKelvin, volumeCubicMeters),
+                new GasMixture(removed, temperatureKelvin, volumeCubicMeters));
+    }
+
+    /** Compatibility convenience returning only the packet; use splitRatio when source cleanup matters. */
+    public GasMixture removeRatio(double ratio) { return splitRatio(ratio).removed(); }
+
+    /** SS14 Merge temperature and heat-capacity gates; composition is summed after temperature selection. */
+    public GasMixture mergedWith(GasMixture giver) {
+        Objects.requireNonNull(giver, "giver");
+        return mergedWith(giver, giver.normalizedHeatCapacity());
+    }
+
+    /**
+     * Merge using an adapter-supplied giver capacity, for example immutable space's virtual heat
+     * capacity. The supplied capacity affects temperature weighting only; actual species remain
+     * unchanged and the virtual capacity is not materialized in the resulting mixture.
+     */
+    public GasMixture mergedWith(GasMixture giver, double giverNormalizedCapacity) {
+        Objects.requireNonNull(giver, "giver");
+        if (!Double.isFinite(giverNormalizedCapacity) || giverNormalizedCapacity < 0.0003) {
+            throw new IllegalArgumentException("giverNormalizedCapacity must be finite and at least the upstream capacity floor");
+        }
+        // Upstream capacity is raw molar Cp divided by default AtmosHeatScale (8).
+        float receiverCapacity = (float) normalizedHeatCapacity();
+        float giverCapacity = (float) giverNormalizedCapacity;
+        float combined = receiverCapacity + giverCapacity;
+        double temperature = temperatureKelvin;
+        if (Math.abs(temperatureKelvin - giver.temperatureKelvin) > 0.01 && combined > 0.0003f)
+            temperature = (float) (((float) temperatureKelvin * receiverCapacity
+                    + (float) giver.temperatureKelvin * giverCapacity) / combined);
+        EnumMap<GasType, Double> result = new EnumMap<>(GasType.class);
+        for (GasType gas : GasType.values()) {
+            float sum = (float) moles(gas) + (float) giver.moles(gas);
+            if (sum > 0) result.put(gas, (double) sum);
+        }
+        return new GasMixture(result, temperature, volumeCubicMeters);
+    }
+
+    /** Pressure calculated from this mixture's stored physical volume. */
+    public double pressureKpa() { return pressureKpa(volumeCubicMeters); }
+
+    /** Pressure using a caller-supplied physical volume (boundary/adaptor API). */
     public double pressureKpa(double volumeCubicMeters) {
         nonNegativeFinite(volumeCubicMeters, "volumeCubicMeters");
-        if (volumeCubicMeters == 0.0) {
-            throw new IllegalArgumentException("volumeCubicMeters must be greater than zero");
-        }
-        return totalMoles() * GAS_CONSTANT * temperatureKelvin / volumeCubicMeters / 1000.0;
+        return volumeCubicMeters == 0 ? 0 : (float) ((float) totalMoles() * GAS_CONSTANT * temperatureKelvin / (float) volumeCubicMeters / 1000f);
     }
 
     /** Changes composition while adding/removing gas at the mixture's current temperature. */
@@ -112,38 +207,40 @@ public final class GasMixture {
         if (!Double.isFinite(deltaMoles)) {
             throw new IllegalArgumentException("deltaMoles must be finite");
         }
-        nonNegativeFinite(gasTemperatureKelvin, "gasTemperatureKelvin");
-        double newAmount = moles(type) + deltaMoles;
+        float specifiedGasTemperature = (float) clampTemperature(gasTemperatureKelvin);
+        float newAmount = (float) moles(type) + (float) deltaMoles;
         if (newAmount < 0.0) {
             throw new IllegalArgumentException("Gas delta would make inventory negative");
         }
         if (!Double.isFinite(newAmount)) {
             throw new IllegalArgumentException("Gas delta would result in non-finite inventory");
         }
-        if (deltaMoles < 0.0 && gasTemperatureKelvin != temperatureKelvin) {
+        if (deltaMoles < 0.0 && specifiedGasTemperature != temperatureKelvin) {
             throw new IllegalArgumentException("Removed gas must be at the mixture's current temperature");
         }
-        double energy = thermalEnergy() + deltaMoles * type.molarHeatCapacity() * gasTemperatureKelvin;
+        float energy = (float) thermalEnergy() + (float) deltaMoles * (float) type.molarHeatCapacity() * specifiedGasTemperature;
         if (energy < 0.0 && energy > -1e-10) {
-            energy = 0.0;
+            energy = 0.0f;
         }
         if (!Double.isFinite(energy) || energy < 0.0) {
             throw new IllegalArgumentException("Gas change would result in invalid thermal energy");
         }
         EnumMap<GasType, Double> changed = new EnumMap<>(GasType.class);
-        changed.putAll(moles);
-        if (newAmount == 0.0) changed.remove(type); else changed.put(type, newAmount);
-        double capacity = changed.entrySet().stream().mapToDouble(entry -> entry.getValue() * entry.getKey().molarHeatCapacity()).sum();
+        changed.putAll(gasMoles());
+        if (newAmount == 0.0f) changed.remove(type); else changed.put(type, (double) newAmount);
+        float capacity = 0;
+        for (GasType gas : GasType.values()) capacity += changed.getOrDefault(gas, 0.0).floatValue()
+                * (float) gas.molarHeatCapacity();
         if (capacity == 0.0) {
             if (energy != 0.0) {
                 throw new IllegalArgumentException("Gas change would leave thermal energy without heat capacity");
             }
-            return new GasMixture(changed, temperatureKelvin);
+            return new GasMixture(changed, temperatureKelvin, volumeCubicMeters);
         }
         if (!Double.isFinite(capacity)) {
             throw new IllegalArgumentException("Gas change would result in non-finite heat capacity");
         }
-        return new GasMixture(changed, energy / capacity);
+        return new GasMixture(changed, energy / capacity, volumeCubicMeters);
     }
 
     public GasMixture withThermalEnergy(double energyJoules) {
@@ -155,14 +252,14 @@ public final class GasMixture {
             }
             return this;
         }
-        return new GasMixture(moles, energyJoules / capacity);
+        return new GasMixture(gasMoles(), (float) energyJoules / (float) capacity, volumeCubicMeters);
     }
 
     public GasMixture withEnergyDelta(double deltaJoules) {
         if (!Double.isFinite(deltaJoules)) {
             throw new IllegalArgumentException("deltaJoules must be finite");
         }
-        double energy = thermalEnergy() + deltaJoules;
+        float energy = (float) thermalEnergy() + (float) deltaJoules;
         if (energy < 0.0) {
             throw new IllegalArgumentException("Energy delta would make thermal energy negative");
         }

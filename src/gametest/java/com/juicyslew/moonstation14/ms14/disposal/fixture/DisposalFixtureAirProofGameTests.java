@@ -17,12 +17,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.List;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class DisposalFixtureAirProofGameTests {
     private DisposalFixtureAirProofGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void boundedTrustedSeedRejectsConnectedCellOutsideInputWithoutMutation(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         AtmosphereService atmos = AtmosphereService.INSTANCE;

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
@@ -19,13 +20,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.entity.EntityType;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"lifecycle", "character"})
 public final class CharacterBodyDespawnGameTests {
     private CharacterBodyDespawnGameTests() { }
 
@@ -36,7 +35,7 @@ public final class CharacterBodyDespawnGameTests {
      * The body is spawned in the structure's entity-visible chunk; only the originally
      * added instance is checked here.
      */
-    @GameTest(template = "empty", batch = "character_body_despawn_creative", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "character_body_despawn_creative", timeoutTicks = 100)
     public static void creativeOwnerFarAwayCannotNaturallyDespawnBoundBody(GameTestHelper helper) {
         // Spawn in the GameTest's entity-visible chunk so exact actor lookup can prove this body.
         PlayerCharacterHarnessEntity body = spawnUnforced(helper, 5);
@@ -95,7 +94,7 @@ public final class CharacterBodyDespawnGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", batch = "character-distance", timeoutTicks = 100)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "character_body_despawn", timeoutTicks = 100)
     public static void farPlayerCannotDespawnBoundUnboundOrCorpse(GameTestHelper helper) {
         PlayerCharacterHarnessEntity bound = spawnUnforced(helper, 1);
         PlayerCharacterHarnessEntity unbound = spawnUnforced(helper, 2);

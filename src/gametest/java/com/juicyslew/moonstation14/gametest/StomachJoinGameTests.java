@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
@@ -25,16 +26,15 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"physiology", "lifecycle"})
 public final class StomachJoinGameTests {
     private static final ResourceKey<ReagentData> WATER = ResourceKey.create(
             ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "water"));
 
     private StomachJoinGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void unknownHostRetainsStomachButDoesNotScheduleDigestion(GameTestHelper helper) {
         Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 1, 1));
         ReagentAttachment saved = populatedStomach();
@@ -49,7 +49,7 @@ public final class StomachJoinGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void stomachReconcilesAfterJoinAndCodecReload(GameTestHelper helper) {
         require(helper.getLevel() instanceof ServerLevel && !helper.getLevel().isClientSide,
                 "test actors must be server-side");

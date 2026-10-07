@@ -39,6 +39,7 @@ public final class CharacterComponentRegistry {
             Map.entry(InitialBodyComponent.TYPE, new Entry<>(InitialBodyComponent.class, InitialBodyComponent.CODEC)),
             Map.entry(MetabolizerPrototypeComponent.TYPE, new Entry<>(MetabolizerPrototypeComponent.class, MetabolizerPrototypeComponent.CODEC)),
             Map.entry(MovementSpeedModifierComponent.TYPE, new Entry<>(MovementSpeedModifierComponent.class, MovementSpeedModifierComponent.CODEC)),
+            Map.entry(MouthComponent.TYPE, new Entry<>(MouthComponent.class, MouthComponent.CODEC)),
             Map.entry(NoSlipComponent.TYPE, new Entry<>(NoSlipComponent.class, NoSlipComponent.CODEC)),
             Map.entry(ReactiveComponent.TYPE, new Entry<>(ReactiveComponent.class, ReactiveComponent.CODEC)),
             Map.entry(RespiratorComponent.TYPE, new Entry<>(RespiratorComponent.class, RespiratorComponent.CODEC)),

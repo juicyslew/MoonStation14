@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
@@ -12,15 +13,14 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry"})
 public final class PuddleBlockEntityGameTests {
     private PuddleBlockEntityGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 50)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
     public static void overflowWaitsUntilAboveFiftyAndConservesCents(GameTestHelper helper) {
         BlockPos lowSourcePos = new BlockPos(2, 1, 2);
         BlockPos lowTargetPos = new BlockPos(3, 1, 2);
@@ -67,7 +67,7 @@ public final class PuddleBlockEntityGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void legacyOverCapacityPuddleSurvivesTickUnchanged(GameTestHelper helper) {
         BlockPos pos = new BlockPos(2, 1, 2);
         helper.setBlock(pos.below(), Blocks.STONE);

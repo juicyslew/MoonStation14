@@ -41,7 +41,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-@GameTestHolder("moonstation14_camera_tour")
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "atmosphere", "power", "character", "containment", "physiology", "hands"})
 @PrefixGameTestTemplate(false)
 public final class DisposalFixtureCharacterTourGameTests {
     private static final BlockPos FLOOR_REF = new BlockPos(7, 0, 9);

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest.atmos;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
@@ -14,15 +15,14 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"air-alarm", "ventilation", "hands", "placement"})
 @PrefixGameTestTemplate(false)
 public final class FunctionalAirAlarmPlacementGameTests {
     private FunctionalAirAlarmPlacementGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void horizontalFacesMountOutwardAndDetachWithTheirSupport(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos clicked = helper.absolutePos(new BlockPos(2, 2, 2));

@@ -181,6 +181,8 @@ public final class AtmosphereOwnershipSearch {
 
     /** Chunks already observed by this search; future frontier chunks are deliberately absent. */
     boolean hasTouchedChunk(ChunkPos chunk) { return touchedChunks.contains(chunk); }
+    int activeCandidateCount() { return candidates.size(); }
+    boolean hasCandidate(BlockPos position) { return candidates.contains(position); }
 
     /** Unloaded chunks whose cells were actually probed, for targeted parked-search wakeups. */
     Set<ChunkPos> unresolvedChunks() { return Set.copyOf(unresolvedChunks); }

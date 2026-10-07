@@ -24,12 +24,12 @@ import java.util.UUID;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "power"})
 @PrefixGameTestTemplate(false)
 public final class DisposalPowerGameTests {
     private DisposalPowerGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_power_clear", timeoutTicks = 360)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_power_clear", timeoutTicks = 360)
     public static void liveApcSupplyMetersDisposalUnitAndLossRevokesPower(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         PowerSimulationGate.configureAtServerStart(true);

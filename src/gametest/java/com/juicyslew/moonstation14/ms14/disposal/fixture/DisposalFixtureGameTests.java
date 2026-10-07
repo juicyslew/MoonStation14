@@ -31,7 +31,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.Set;
 
 /** Exercises the same explicit build/initialize/status path used by operators, then transports a real item stack. */
-@GameTestHolder("moonstation14_camera_tour")
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "atmosphere", "power", "character"})
 @PrefixGameTestTemplate(false)
 public final class DisposalFixtureGameTests {
     // Keep the complete fixture (including the 30-block outdoor tour) inside the 32x32 template.

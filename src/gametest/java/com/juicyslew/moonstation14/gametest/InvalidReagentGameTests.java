@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.ParseResults;
 import com.juicyslew.moonstation14.MoonStation14;
@@ -26,7 +27,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -34,9 +34,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry", "invalid", "jug"})
 public final class InvalidReagentGameTests {
     private static final ResourceKey<ReagentData> WATER = ModReagents.createKey("water");
     private static final ResourceKey<ReagentData> INVALID = ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
@@ -44,7 +43,7 @@ public final class InvalidReagentGameTests {
 
     private InvalidReagentGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void unknownGiveComponentParsesButBottleUseRejectsWithoutMutation(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         String command = "give @s moonstation14:bottle[moonstation14:reagent={\"moonstation14:nonexistent_test\":5.0f}]";
@@ -87,7 +86,7 @@ public final class InvalidReagentGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void invalidJugPlacementAndPuddleTickPreserveUnknownContents(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Player player = mockPlayer(helper, level, new BlockPos(1, 1, 1));
@@ -101,7 +100,7 @@ public final class InvalidReagentGameTests {
         require(jug.get(ModDataComponents.REAGENT.get()).contents().equals(Map.of(INVALID, 5f)),
                 "failed jug placement must preserve item contents");
         BlockPos expected = stone.above();
-        require(!level.getBlockState(expected).is(ModBlocks.JUG.get()), "invalid jug must not create a jug block");
+        require(level.getBlockState(expected).isAir(), "using a jug item does not create a block");
 
         BlockPos puddlePos = helper.absolutePos(new BlockPos(5, 1, 1));
         level.setBlock(puddlePos, ModBlocks.PUDDLE.get().defaultBlockState(), 3);
@@ -115,7 +114,7 @@ public final class InvalidReagentGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void invalidBottleAndJugMidUseStopWithoutConsumingSource(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         Player bottlePlayer = mockPlayer(helper, level, new BlockPos(1, 1, 1));

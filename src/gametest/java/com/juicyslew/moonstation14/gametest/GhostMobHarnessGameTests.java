@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessRegistration;
@@ -19,18 +20,16 @@ import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"lifecycle", "character"})
 public final class GhostMobHarnessGameTests {
     private GhostMobHarnessGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void mindGhostCommandIsRegisteredOnDedicatedServer(GameTestHelper helper) {
         var dispatcher = helper.getLevel().getServer().getCommands().getDispatcher();
         var root = dispatcher.getRoot();
@@ -59,7 +58,7 @@ public final class GhostMobHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void registeredGhostIsASeparateNonPlayerMobHarness(GameTestHelper helper) {
         GhostMobHarnessEntity ghost = helper.spawn(GhostMobHarnessRegistration.getEntityType(), new BlockPos(1, 1, 1));
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 1));
@@ -83,7 +82,7 @@ public final class GhostMobHarnessGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void ghostRemainsStationaryWithoutInput(GameTestHelper helper) {
         GhostMobHarnessEntity ghost = helper.spawn(GhostMobHarnessRegistration.getEntityType(), new BlockPos(1, 1, 1));
         Vec3 spawnPosition = ghost.position();
@@ -99,7 +98,7 @@ public final class GhostMobHarnessGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void ghostMovesThroughRegularStoneWithNoPhysics(GameTestHelper helper) {
         GhostMobHarnessEntity ghost = helper.spawn(GhostMobHarnessRegistration.getEntityType(), new BlockPos(1, 1, 1));
         BlockPos wall = new BlockPos(2, 1, 1);
@@ -126,7 +125,7 @@ public final class GhostMobHarnessGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void ghostMovementMotorUsesEntityMoveAndStopsImmediately(GameTestHelper helper) {
         GhostMobHarnessEntity ghost = helper.spawn(GhostMobHarnessRegistration.getEntityType(), new BlockPos(1, 1, 1));
         GhostMovementMotor motor = new GhostMovementMotor();

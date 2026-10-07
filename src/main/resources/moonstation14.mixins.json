@@ -18,6 +18,8 @@
     "ServerPlayerParkedDirectDropMixin",
     "HandActorParkedCarrierGuardMixin",
     "ServerPlayerStunPickupMixin",
+    "GiveCommandCreativeFakeDropMixin",
+    "ItemInputReagentValidationMixin",
     "ServerPlayerAcceptedMoveMixin",
     "ServerPlayerMovementTickMixin",
     "ServerPlayerMovementPacketMixin",

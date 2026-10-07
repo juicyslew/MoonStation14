@@ -20,7 +20,7 @@ class AtmosphereReadingTest {
         AtmosphereReading fallback = AtmosphereService.readingFor(
                 AtmosphereService.OwnershipKind.UNKNOWN, null, VACUUM);
         assertEquals(AtmosphereReading.Status.PROVISIONAL, fallback.status());
-        assertEquals(2.7, fallback.mixture().temperatureKelvin());
+        assertEquals(2.7, fallback.mixture().temperatureKelvin(), Math.ulp((float) 2.7));
         assertEquals(0.0, fallback.mixture().totalMoles());
         assertNotSame(VACUUM, fallback.mixture());
 

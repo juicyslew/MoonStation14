@@ -11,7 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"power", "interaction"})
 @PrefixGameTestTemplate(false)
 public final class ApcBodyInteractionGameTests {
     private ApcBodyInteractionGameTests() { }

@@ -23,12 +23,13 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestHolder("moonstation14_camera_tour")
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"movement", "character"})
 @PrefixGameTestTemplate(false)
 public final class ExternalBodyFlightGameTests {
     private ExternalBodyFlightGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear", batch = "disposals_external_flight", timeoutTicks = 40)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal"})
     public static void disposalEjectionPassivelyMovesBoundBodyAndExpiresFlight(GameTestHelper helper) {
         var level = helper.getLevel();
         for (int x = 0; x <= 8; x++) for (int z = 0; z <= 6; z++)
@@ -57,6 +58,7 @@ public final class ExternalBodyFlightGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear", batch = "disposals_external_flight", timeoutTicks = 40)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"containment"})
     public static void worldStepDeduplicatesFlightAndContainmentCancelsIt(GameTestHelper helper) {
         var level = helper.getLevel();
         for (int x = 0; x <= 8; x++) for (int z = 0; z <= 6; z++)
@@ -78,12 +80,16 @@ public final class ExternalBodyFlightGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear", batch = "disposals_external_flight", timeoutTicks = 60)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal-regression"})
     public static void airborneFlightExpiryContinuesPassiveGravityToLanding(GameTestHelper helper) {
         var level = helper.getLevel();
         for (int x = 0; x <= 8; x++) for (int z = 0; z <= 8; z++)
             level.setBlock(helper.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 3);
         var body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(), new BlockPos(4, 6, 4));
         bindAndPrepare(body, level);
+        UUID id = body.getUUID();
+        Object binding = body.playerCharacterBinding();
+        Object hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
         require(!body.isNoGravity() && !body.onGround(), "human starts airborne with ordinary gravity");
         ExternalBodyFlight.launch(body, new Vec3(.5, 0, 0), 6);
@@ -93,24 +99,37 @@ public final class ExternalBodyFlightGameTests {
             helper.runAfterDelay(2, () -> {
                 require(body.getY() < yAtExpiry - .05 && body.getDeltaMovement().y < 0,
                         "ordinary passive gravity continues after the flight lease expires");
-                pollForLanding(helper, body, body.getUUID(), body.playerCharacterBinding(), 0);
+                pollForLanding(helper, body, id, binding, hands, 0);
             });
         });
     }
 
     private static void pollForLanding(GameTestHelper helper,
             com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity body,
-            UUID id, Object binding, int elapsed) {
+            UUID id, Object binding, Object hands, int elapsed) {
         if (body.onGround()) {
-            require(body.getDeltaMovement().horizontalDistanceSqr() < .001,
-                    "normal grounded idle friction settles horizontal flight velocity");
-            require(body.getUUID().equals(id) && body.playerCharacterBinding().equals(binding),
-                    "landing preserves the original bound human entity");
-            helper.succeed();
+            long firstLandingTime = helper.getLevel().getGameTime();
+            if (body.getDeltaMovement().horizontalDistanceSqr() >= .001)
+                require(ExternalBodyFlight.tracked(body),
+                        "flight remains tracked at first landing until grounded friction runs");
+            helper.runAfterDelay(1, () -> {
+                require(helper.getLevel().getGameTime() > firstLandingTime,
+                        "a subsequent world post-hook had an opportunity to run");
+                require(body.onGround() && body.getDeltaMovement().horizontalDistanceSqr() < .001,
+                        "normal grounded idle friction settles horizontal flight velocity");
+                require(body.getUUID().equals(id) && body.playerCharacterBinding().equals(binding)
+                                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands,
+                        "settling preserves original body identity, binding, and hands");
+                require(((MindControlledMob) (Object) body).moonstation14$isMovementOwned(),
+                        "passive flight settling preserves movement ownership");
+                require(!ExternalBodyFlight.tracked(body),
+                        "flight tracking is cleaned up after grounded friction settles");
+                helper.succeed();
+            });
             return;
         }
         if (elapsed >= 25) throw new GameTestAssertException("ordinary gravity did not land the body within the bounded wait");
-        helper.runAfterDelay(1, () -> pollForLanding(helper, body, id, binding, elapsed + 1));
+        helper.runAfterDelay(1, () -> pollForLanding(helper, body, id, binding, hands, elapsed + 1));
     }
 
     private static void bindAndPrepare(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity body,

@@ -1,0 +1,18 @@
+{
+  "id": "moonstation14:jug",
+  "parent": "moonstation14:generic",
+  "mass": 1.0,
+  "friction": 0.2,
+  "restitution": 0.3,
+  "throw_spin": 0.15,
+  "geometry": "bottle",
+  "render_kind": "jug",
+  "break_on_impact": true,
+  "break_threshold": 0.5,
+  "throw_range": 8.0,
+  "minimum_throw_range": 0.1,
+  "throw_cooldown": 10,
+  "physical_width": 0.5,
+  "physical_height": 0.75,
+  "visual": {"sprite_scale_x": 0.5, "sprite_scale_y": 0.75, "sprite_offset_x": 0.0, "sprite_offset_y": 0.0, "model_scale": 1.0, "model_floor_offset": 0.0}
+}

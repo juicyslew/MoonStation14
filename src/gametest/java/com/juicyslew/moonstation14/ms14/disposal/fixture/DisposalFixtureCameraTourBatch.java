@@ -12,7 +12,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
 
-@GameTestHolder("moonstation14_camera_tour")
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal", "atmosphere", "power"})
 @PrefixGameTestTemplate(false)
 public final class DisposalFixtureCameraTourBatch {
     private static boolean previousPower;

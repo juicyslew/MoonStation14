@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeQuarantineRecord;
@@ -13,7 +15,6 @@ import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -21,8 +22,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "lifecycle"})
 public final class CreativeQuarantineRecordGameTests {
     private static final UUID WORLD = UUID.fromString("00a260ca-0975-4f19-806d-f94e1e377951");
     private static final UUID ACCOUNT = UUID.fromString("00a260ca-0975-4f19-806d-f94e1e377952");
@@ -49,7 +50,7 @@ public final class CreativeQuarantineRecordGameTests {
         return CreativeQuarantineRecord.decode(tag, registries, WORLD, ACCOUNT, 6, TRANSITION, 3);
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void phasesRoundtripWithoutGrantAndCopyIsolation(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         for (var phase : CreativeQuarantineRecord.Phase.values()) {
@@ -75,7 +76,7 @@ public final class CreativeQuarantineRecordGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void rejectsWrongIdentityOrderingAndMalformedData(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         var base = record(registries, CreativeQuarantineRecord.Phase.PARKED).encode();

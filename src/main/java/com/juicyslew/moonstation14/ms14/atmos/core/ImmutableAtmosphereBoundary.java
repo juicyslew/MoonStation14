@@ -74,9 +74,15 @@ public final class ImmutableAtmosphereBoundary {
                 finiteAfter = finite;
             }
         } else {
-            // An immutable non-vacuum exterior acts as a reservoir; bounded pair relaxation
-            // converges without changing the reservoir or creating gas beyond its composition.
-            finiteAfter = AtmosphereTransfer.step(finite, exterior, Math.max(fraction, SPACE_PRESSURE_RELAXATION)).first();
+            // Run the same archived LINDA species/heat equations as an ordinary face. The exterior
+            // is an immutable sharer; only the finite result is published.
+            var finitePos = new net.minecraft.core.BlockPos(0, 0, 0);
+            var exteriorPos = new net.minecraft.core.BlockPos(1, 0, 0);
+            var result = LindaGasSharing.process(Map.of(finitePos, finite),
+                    Map.of(finitePos, finite, exteriorPos, exterior),
+                    Map.of(finitePos, java.util.Set.of(exteriorPos)), java.util.Set.of(finitePos),
+                    java.util.Set.of(), 1);
+            finiteAfter = result.mixtures().get(finitePos);
         }
         if (exteriorIsSpace) {
             double capacity = finiteAfter.heatCapacity();

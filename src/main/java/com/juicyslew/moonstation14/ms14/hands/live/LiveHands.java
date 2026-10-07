@@ -179,6 +179,47 @@ public final class LiveHands {
     public String activeHand() { return active; }
     public long revision() { return revision; }
 
+    /** Transient pull lock; the UUID is the exact target and is not an item/stack token. */
+    public Optional<java.util.UUID> reservation(String hand) {
+        return hands.stream().filter(slot -> slot.id().equals(hand)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("unknown hand")).reservation();
+    }
+
+    public Optional<LiveHands> reserveHand(long expectedRevision, String hand, java.util.UUID target) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || target == null) return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0 || hands.get(index).occupant().isPresent() || hands.get(index).reservation().isPresent())
+            return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        next.set(index, new Slot(hand, Optional.empty(), Optional.of(target)));
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
+    /** Pure component update for an owned stack; item identity and count cannot change. */
+    Optional<LiveHands> replaceOwnedComponents(long expectedRevision, String hand, ItemToken expectedToken,
+                                                ItemStack replacement) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || hand == null || expectedToken == null
+                || replacement == null || replacement.isEmpty()) return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0 || hands.get(index).reservation().isPresent()) return Optional.empty();
+        Optional<Occupant> current = hands.get(index).occupant();
+        if (current.isEmpty() || !current.orElseThrow().token().equals(expectedToken.value())) return Optional.empty();
+        ItemStack original = current.orElseThrow().stack();
+        if (!original.is(replacement.getItem()) || original.getCount() != replacement.getCount()) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        next.set(index, new Slot(hand, Optional.of(new Occupant(expectedToken.value(), replacement))));
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
+    public Optional<LiveHands> releaseHand(String hand, java.util.UUID exactTarget) {
+        if (revision == Long.MAX_VALUE || exactTarget == null) return Optional.empty();
+        int index = handIds().indexOf(hand);
+        if (index < 0 || !hands.get(index).reservation().equals(Optional.of(exactTarget))) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        next.set(index, new Slot(hand, hands.get(index).occupant()));
+        return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
     /** Returns a defensive snapshot, never a transferable ownership claim. */
     public Optional<ItemStack> stackCopy(String hand) {
         return hands.stream().filter(slot -> slot.id().equals(hand)).findFirst()
@@ -228,7 +269,7 @@ public final class LiveHands {
         if (revision == Long.MAX_VALUE) return reject(Rejection.REVISION_OVERFLOW);
         int index = handIds().indexOf(hand);
         if (index < 0) return reject(Rejection.UNKNOWN_HAND);
-        if (hands.get(index).occupant().isPresent()) return reject(Rejection.HAND_OCCUPIED);
+        if (hands.get(index).occupant().isPresent() || hands.get(index).reservation().isPresent()) return reject(Rejection.HAND_OCCUPIED);
         if (token == null || stack == null || stack.isEmpty() || stack.getCount() <= 0
                 || stack.getCount() > stack.getMaxStackSize()) return reject(Rejection.INVALID_STACK);
         if (allOccupants().stream().anyMatch(value -> value.token().equals(token.value())))
@@ -244,6 +285,7 @@ public final class LiveHands {
         if (revision == Long.MAX_VALUE) return reject(Rejection.REVISION_OVERFLOW);
         int index = handIds().indexOf(hand);
         if (index < 0) return reject(Rejection.UNKNOWN_HAND);
+        if (hands.get(index).reservation().isPresent()) return reject(Rejection.HAND_OCCUPIED);
         Optional<Occupant> occupant = hands.get(index).occupant();
         if (occupant.isEmpty()) return reject(Rejection.HAND_EMPTY);
         if (expectedToken == null || !occupant.orElseThrow().token().equals(expectedToken.value()))
@@ -316,7 +358,8 @@ public final class LiveHands {
         Optional<Occupant> occupant = hands.get(from).occupant();
         if (occupant.isEmpty()) return reject(Rejection.HAND_EMPTY);
         if (expectedToken == null || !occupant.orElseThrow().token().equals(expectedToken.value())) return reject(Rejection.TOKEN_MISMATCH);
-        if (hands.get(to).occupant().isPresent()) return reject(Rejection.DESTINATION_OCCUPIED);
+        if (hands.get(from).reservation().isPresent() || hands.get(to).occupant().isPresent()
+                || hands.get(to).reservation().isPresent()) return reject(Rejection.DESTINATION_OCCUPIED);
         ArrayList<Slot> next = new ArrayList<>(hands);
         next.set(from, new Slot(source, Optional.empty()));
         next.set(to, new Slot(destination, occupant));
@@ -328,14 +371,14 @@ public final class LiveHands {
                                           ItemStack replacement) {
         if (revision != expectedRevision || revision == Long.MAX_VALUE || hand == null || expectedToken == null
                 || replacement == null || replacement.isEmpty() || replacement.getCount() != 1
-                || !replacement.is(ModItems.GRENADE)) return Optional.empty();
+                || !replacement.has(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get())) return Optional.empty();
         int index = handIds().indexOf(hand);
         if (index < 0) return Optional.empty();
         Optional<Occupant> current = hands.get(index).occupant();
         if (current.isEmpty() || !current.orElseThrow().token().equals(expectedToken.value())) return Optional.empty();
         ItemStack original = current.orElseThrow().stack();
-        if (!original.is(ModItems.GRENADE) || original.getCount() != 1
-                || !replacement.is(ModItems.GRENADE)) return Optional.empty();
+        if (!original.has(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get())
+                || original.getCount() != 1) return Optional.empty();
         ArrayList<Slot> next = new ArrayList<>(hands);
         next.set(index, new Slot(hand, Optional.of(new Occupant(expectedToken.value(), replacement))));
         return Optional.of(new LiveHands(next, active, revision + 1, equipment));
@@ -345,14 +388,16 @@ public final class LiveHands {
     Optional<LiveHands> advanceOwnedGrenadeBeep(long expectedRevision, String hand, ItemToken expectedToken,
                                                 ItemStack replacement) {
         if (revision != expectedRevision || hand == null || expectedToken == null || replacement == null
-                || replacement.isEmpty() || replacement.getCount() != 1 || !replacement.is(ModItems.GRENADE))
+                || replacement.isEmpty() || replacement.getCount() != 1
+                || !replacement.has(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get()))
             return Optional.empty();
         int index = handIds().indexOf(hand);
         if (index < 0) return Optional.empty();
         Optional<Occupant> current = hands.get(index).occupant();
         if (current.isEmpty() || !current.orElseThrow().token().equals(expectedToken.value())) return Optional.empty();
         ItemStack original = current.orElseThrow().stack();
-        if (!original.is(ModItems.GRENADE) || original.getCount() != 1) return Optional.empty();
+        if (!original.has(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get())
+                || original.getCount() != 1) return Optional.empty();
         var beforeFuse = original.get(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get());
         var afterFuse = replacement.get(com.juicyslew.moonstation14.component.ModDataComponents.GRENADE_FUSE.get());
         if (beforeFuse == null || afterFuse == null
@@ -448,7 +493,7 @@ public final class LiveHands {
                                                 String containerToken, String hand, String childToken) {
         if (!validEquippedStorage(expectedRevision, declared, slot, containerToken)) return Optional.empty();
         int handIndex = handIds().indexOf(hand);
-        if (handIndex < 0 || hands.get(handIndex).occupant().isPresent() || childToken == null
+        if (handIndex < 0 || hands.get(handIndex).occupant().isPresent() || hands.get(handIndex).reservation().isPresent() || childToken == null
                 || childToken.equals(containerToken) || allOccupants().stream()
                 .anyMatch(value -> value.token().equals(childToken))) return Optional.empty();
         int equipmentIndex = declared.indexOf(slot);
@@ -519,7 +564,7 @@ public final class LiveHands {
                                             GridGeometry.Cell anchor) {
         if (!validEquippedStorage(expectedRevision, declared, slot, containerToken) || anchor == null) return Optional.empty();
         int handIndex = handIds().indexOf(hand), equipmentIndex = declared.indexOf(slot);
-        if (handIndex < 0 || hands.get(handIndex).occupant().isPresent() || childToken == null
+        if (handIndex < 0 || hands.get(handIndex).occupant().isPresent() || hands.get(handIndex).reservation().isPresent() || childToken == null
                 || childToken.equals(containerToken) || allOccupants().stream().anyMatch(v -> v.token().equals(childToken)))
             return Optional.empty();
         Occupant container = equipmentSlot(equipmentIndex).occupant().orElseThrow();
@@ -785,7 +830,8 @@ public final class LiveHands {
                 || hostToken == null || childToken == null || anchor == null || hostToken.equals(childToken))
             return Optional.empty();
         int hostIndex = handIds().indexOf(hostHand), destinationIndex = handIds().indexOf(destinationHand);
-        if (hostIndex < 0 || destinationIndex < 0 || hands.get(destinationIndex).occupant().isPresent()) return Optional.empty();
+        if (hostIndex < 0 || destinationIndex < 0 || hands.get(destinationIndex).occupant().isPresent()
+                || hands.get(destinationIndex).reservation().isPresent()) return Optional.empty();
         Optional<Occupant> host = hands.get(hostIndex).occupant();
         if (host.isEmpty() || !host.orElseThrow().token().equals(hostToken)
                 || allOccupants().stream().anyMatch(v -> v.token().equals(childToken))) return Optional.empty();
@@ -866,6 +912,8 @@ public final class LiveHands {
                 .flatMap(slot -> slot.occupant().stream()).toList();
     }
 
+    private boolean handReserved(int index) { return hands.get(index).reservation().isPresent(); }
+
     /** Runtime entry point: the body must own both the hand and the exact declared equipment layout. */
     Optional<LiveHands> equip(long expectedRevision, Entity body, String hand, String slot, String token) {
         return compatible(body) ? hostEquipmentIds(body).flatMap(ids -> equip(expectedRevision, ids, hand, slot, token))
@@ -921,9 +969,11 @@ public final class LiveHands {
     private record Raw(List<Slot> hands, String active, long revision, Optional<List<Slot>> equipment) { }
     private record RawOccupant(String token, ItemStack stack) { }
 
-    private record Slot(String id, Optional<Occupant> occupant) {
+    private record Slot(String id, Optional<Occupant> occupant, Optional<java.util.UUID> reservation) {
+        private Slot(String id, Optional<Occupant> occupant) { this(id, occupant, Optional.empty()); }
         private Slot {
-            if (id == null || id.isBlank() || id.length() > HandState.MAX_ID_LENGTH || occupant == null)
+            if (id == null || id.isBlank() || id.length() > HandState.MAX_ID_LENGTH || occupant == null || reservation == null
+                    || occupant.isPresent() && reservation.isPresent())
                 throw new IllegalArgumentException("invalid slot");
         }
     }

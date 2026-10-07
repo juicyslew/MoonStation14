@@ -57,8 +57,11 @@ class MovementProtocolTest {
         assertEquals(intent, roundTrip(MovementPayloads.Intent.STREAM_CODEC, intent));
 
         MovementPayloads.Snapshot snapshot = new MovementPayloads.Snapshot(4, 12,
-                1.25, 64, -3.5, 0.1, 0, -0.2, true);
+                1.25, 64, -3.5, 0.1, 0, -0.2, true, true);
         assertEquals(snapshot, roundTrip(MovementPayloads.Snapshot.STREAM_CODEC, snapshot));
+        MovementPayloads.Snapshot notPulling = new MovementPayloads.Snapshot(4, 13,
+                1.25, 64, -3.5, 0.1, 0, -0.2, true, false);
+        assertEquals(notPulling, roundTrip(MovementPayloads.Snapshot.STREAM_CODEC, notPulling));
         assertThrows(IllegalArgumentException.class,
                 () -> new MovementPayloads.Intent(4, 1, (short) 1001, (short) 0, 0));
         assertThrows(IllegalArgumentException.class,

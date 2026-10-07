@@ -2,7 +2,6 @@ package com.juicyslew.moonstation14.ms14.atmos.device;
 
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
-import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
@@ -10,7 +9,8 @@ import java.util.Optional;
 
 /** Small, side-effect-free policy boundary for the placeable atmosphere test devices. */
 public final class AtmosphereDeviceRules {
-    public static final int TICK_CADENCE = AtmosphereService.TICK_CADENCE;
+    /** Test/placeable-device cadence: run each 20 TPS game tick; independent of atmosphere solver cadence. */
+    public static final int TICK_CADENCE = 1;
     public static final double MOLES_PER_SECOND = 20.0;
     public static final double PRODUCER_PRESSURE_LIMIT_KPA = 202.65;
     public static final double HEATER_JOULES_PER_SECOND = 400000.0;

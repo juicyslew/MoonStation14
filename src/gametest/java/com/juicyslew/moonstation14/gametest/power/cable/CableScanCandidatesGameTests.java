@@ -14,7 +14,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -23,12 +23,12 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"power"})
 @PrefixGameTestTemplate(false)
 public final class CableScanCandidatesGameTests {
     private CableScanCandidatesGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void readsValidatedFacesAtTheirSurfacePositionsWithoutMutation(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos host = helper.absolutePos(new BlockPos(3, 1, 3));

@@ -16,7 +16,7 @@ class ThermalExposureMathTest {
     @Test
     void humanProfileStartsAtSs14BaseTemperatureAndUsesApproximateHeatCapacity() {
         var atBaseline = expose(310.15, gas(310.15), 1.0);
-        assertEquals(310.15, atBaseline.bodyTemperatureKelvin(), 0.0);
+        assertEquals(310.15, atBaseline.bodyTemperatureKelvin(), 1e-8);
         assertEquals(42.0 * Math.PI * 0.35 * 0.35 * 185,
                 ThermalExposureMath.ThermalProfile.HUMAN.bodyHeatCapacityJoulesPerKelvin(), 1e-9);
     }

@@ -16,18 +16,18 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"storage", "hands"})
 @PrefixGameTestTemplate(false)
 public final class GridContentsGameTests {
     private GridContentsGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void codecsLegacyReadAndValidation(GameTestHelper helper) {
         ItemStack stack = new ItemStack(Items.STICK, 50);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal("kept native component"));
@@ -68,6 +68,14 @@ public final class GridContentsGameTests {
                 "dual representation rejected without overwrite");
         require(GridContents.read(new ItemStack(Items.STICK)).isEmpty(), "ordinary stick is not a grid host");
 
+        GridContents overlapping = GridContents.of(List.of(
+                new GridContents.Entry("overlap-a", new ItemStack(Items.STICK), 0, 0, GridGeometry.Rotation.DEG_0),
+                new GridContents.Entry("overlap-b", new ItemStack(Items.STICK), 0, 0, GridGeometry.Rotation.DEG_0)));
+        require(overlapping.entries().size() == 2, "structural construction preserves overlapping decoded entries");
+        ItemStack overlappingBag = new ItemStack(ModItems.BAG.get());
+        overlappingBag.set(ModDataComponents.GRID_CONTENTS.get(), overlapping);
+        require(GridContents.read(overlappingBag).isEmpty(), "live host read rejects overlap using authoritative footprints");
+
         List<GridContents.Entry> tooMany = new ArrayList<>();
         for (int i = 0; i < 33; i++) tooMany.add(new GridContents.Entry("t" + i, new ItemStack(Items.STICK), i % 8, i / 8,
                 GridGeometry.Rotation.DEG_0));
@@ -79,7 +87,7 @@ public final class GridContentsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void boundedCodecRejectsOversizedAndMalformedLists(GameTestHelper helper) {
         var ops = helper.getLevel().registryAccess().createSerializationContext(JsonOps.INSTANCE);
         List<GridContents.Entry> entries = new ArrayList<>();

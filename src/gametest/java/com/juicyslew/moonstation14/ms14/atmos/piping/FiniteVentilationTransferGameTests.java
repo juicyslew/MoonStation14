@@ -14,21 +14,21 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"ventilation", "atmosphere"})
 @PrefixGameTestTemplate(false)
 public final class FiniteVentilationTransferGameTests {
     private static long syntheticGameTime;
 
     private FiniteVentilationTransferGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100)
+@GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void ventTransfersFinitePipeGasToRoomConservatively(GameTestHelper helper) {
         Fixture f = fixture(helper, VentilationDeviceConfig.Kind.VENT);
         GasMixture pipeBefore = f.pipeMixture();
@@ -50,7 +50,7 @@ public final class FiniteVentilationTransferGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void scrubberCapturesOnlySelectedGasIntoSelectedWastePipe(GameTestHelper helper) {
         Fixture f = fixture(helper, VentilationDeviceConfig.Kind.SCRUBBER);
         require(f.atmosphere.addGas(f.level, f.room, GasType.CARBON_DIOXIDE, 5, 300), "seed room CO2");
@@ -80,7 +80,7 @@ public final class FiniteVentilationTransferGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void invalidOwnershipLayerAndDisabledSettingsDoNotMoveGas(GameTestHelper helper) {
         Fixture f = fixture(helper, VentilationDeviceConfig.Kind.VENT);
         GasMixture pipeBefore = f.pipeMixture();
@@ -119,7 +119,7 @@ public final class FiniteVentilationTransferGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", batch = "atmosphere_ventilation_transfer", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void distantExteriorBreachRejectsVentTransfer(GameTestHelper helper) {
         Fixture f = fixture(helper, VentilationDeviceConfig.Kind.VENT);
         require(FiniteVentilationTransfer.executeTrustedAfterPaidInterval(f.level, f.atmosphere, f.device, 1).moved(),

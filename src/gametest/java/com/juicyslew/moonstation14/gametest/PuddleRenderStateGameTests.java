@@ -11,7 +11,6 @@ import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import net.minecraft.core.BlockPos;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -19,12 +18,14 @@ import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 @PrefixGameTestTemplate(false)
+@GameTestTags({"chemistry"})
 public final class PuddleRenderStateGameTests {
     private PuddleRenderStateGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void providerUpdatesRenderStateForTinyAndEmptyPuddleVolume(GameTestHelper helper) {
         BlockPos relativePos = new BlockPos(2, 1, 2);
         helper.setBlock(relativePos.below(), net.minecraft.world.level.block.Blocks.STONE);

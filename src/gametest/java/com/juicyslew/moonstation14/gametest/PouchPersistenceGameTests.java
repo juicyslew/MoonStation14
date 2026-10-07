@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
@@ -23,18 +24,17 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.item.component.ItemContainerContents;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.Optional;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "storage", "persistence"})
 public final class PouchPersistenceGameTests {
     private PouchPersistenceGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void wearableOneCellStoragePersistsAndRejectsNesting(GameTestHelper helper) {
         RegistryOps<net.minecraft.nbt.Tag> ops = RegistryOps.create(NbtOps.INSTANCE, helper.getLevel().registryAccess());
         Item[] hosts = { ModItems.BAG.get(), ModItems.BELT.get() };
@@ -96,7 +96,7 @@ public final class PouchPersistenceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void pouchContentsTravelWithDroppedStack(GameTestHelper helper) {
         ItemStack pouch = new ItemStack(ModItems.BAG.get());
         ItemStack apples = new ItemStack(Items.APPLE, 19);
@@ -139,7 +139,7 @@ public final class PouchPersistenceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void invalidChildrenAndForeignHostsAreRejected(GameTestHelper helper) {
         ItemStack pouch = new ItemStack(ModItems.BAG.get());
         require(PouchContents.read(pouch).orElseThrow().child().isEmpty(), "absent component means empty bag");
@@ -167,7 +167,7 @@ public final class PouchPersistenceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void nestedRemainderAndNativeHostStorageAreRejected(GameTestHelper helper) {
         ItemStack pouch = new ItemStack(ModItems.BAG.get());
         ItemStack filled = PouchContents.put(pouch, "inside", new ItemStack(Items.APPLE)).orElseThrow();

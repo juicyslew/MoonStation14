@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeInventorySnapshot;
@@ -16,7 +18,6 @@ import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -24,12 +25,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "lifecycle"})
 public final class CreativeParkedInventoryGameTests {
     private CreativeParkedInventoryGameTests() { }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void playerAttachmentSurvivesVanillaSaveAndLoad(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         ServerPlayer first = player(helper, account);
@@ -84,7 +85,7 @@ public final class CreativeParkedInventoryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void emptyPresenceAndMalformedPayload(GameTestHelper helper) {
         UUID account = UUID.randomUUID();
         ServerPlayer source = player(helper, account);

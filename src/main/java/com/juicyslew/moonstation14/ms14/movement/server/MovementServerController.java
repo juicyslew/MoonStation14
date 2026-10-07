@@ -14,9 +14,11 @@ import com.juicyslew.moonstation14.ms14.movement.CharacterMovementState;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
+import com.juicyslew.moonstation14.ms14.movement.PullMovementPolicy;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementPayloads;
 import com.juicyslew.moonstation14.ms14.movement.protocol.MovementSession;
+import com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
@@ -121,8 +123,8 @@ public final class MovementServerController {
         CharacterMovementMotor motor = new CharacterMovementMotor(policy);
         if (command == null) command = new CharacterMovementCommand(0, 0, false, false);
         boolean movementBlocked = !CharacterControlSystem.canMove(player);
-        double voluntarySpeedFactor = CharacterControlSystem.isKnockedDown(player)
-                ? CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d;
+        double voluntarySpeedFactor = PullMovementPolicy.voluntaryMovementFactor(
+                CharacterControlSystem.isKnockedDown(player), BodyPullService.isPulling(player));
         Vec3 initial = player.position();
         Vec3 vanillaVelocity = player.getDeltaMovement();
         double surfaceFactor = SlidingFrictionSystem.frictionFactor(player);
@@ -199,7 +201,7 @@ public final class MovementServerController {
         // reduce this cadence/bandwidth before production rollout.
         MovementNetworking.sendToPlayer(player, new MovementPayloads.Snapshot(session.epoch(), acknowledged,
                 position.x, position.y, position.z, velocity.x * 20d, velocity.y * 20d, velocity.z * 20d,
-                player.onGround()));
+                player.onGround(), BodyPullService.isPulling(player)));
         tracked.lastCommand = null; // Input is consumed at most once; no stale jump is replayed.
     }
 

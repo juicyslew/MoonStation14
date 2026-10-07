@@ -21,7 +21,8 @@ public final class VentilationGasFlow {
         if (!settings.configuredEnabled() || pipeBefore.totalMoles() == 0.0) return Optional.empty();
         double roomPressure = roomBefore.pressureKpa(roomVolumeM3);
         double remainingPressure = Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa()) - roomPressure;
-        if (!(remainingPressure > 0.0) || roomBefore.temperatureKelvin() <= 0.0) return Optional.empty();
+        if (!(remainingPressure > Math.ulp((float) Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa())))
+                || roomBefore.temperatureKelvin() <= 0.0) return Optional.empty();
         double maxMoles = Math.min(settings.targetPressureChangeKPaPerSecond() * elapsedSeconds,
                 remainingPressure) * 1000.0 * roomVolumeM3
                 / (GAS_CONSTANT * roomBefore.temperatureKelvin());

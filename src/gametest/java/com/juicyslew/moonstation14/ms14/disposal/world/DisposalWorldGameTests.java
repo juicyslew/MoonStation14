@@ -15,12 +15,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@GameTestHolder(MoonStation14.MOD_ID)
+@com.juicyslew.moonstation14.gametest.support.GameTestTags({"disposal"})
 @PrefixGameTestTemplate(false)
 public final class DisposalWorldGameTests {
     private DisposalWorldGameTests() { }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void installingRecordReplacesAirWithTubeHost(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(8, 2, 8));
@@ -33,7 +33,7 @@ public final class DisposalWorldGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void sealedInstallLeavesWallAndHostReplacementInvalidates(GameTestHelper helper) {
         ServerLevel level=helper.getLevel();
         BlockPos pos=helper.absolutePos(new BlockPos(8,2,8));
@@ -49,7 +49,7 @@ public final class DisposalWorldGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void sameStateHostWriteInvalidatesIncarnation(GameTestHelper helper) {
         ServerLevel level=helper.getLevel(); BlockPos pos=helper.absolutePos(new BlockPos(8,2,8));
         level.setBlock(pos,ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState(),3);
@@ -61,7 +61,7 @@ public final class DisposalWorldGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void independentFloorDoesNotCoverTube(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(8, 2, 8));
@@ -76,7 +76,7 @@ public final class DisposalWorldGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void replacingTubeInvalidatesRecordWithoutChangingNeighbors(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(8, 2, 8));
@@ -95,7 +95,7 @@ public final class DisposalWorldGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void staleRecordAndMissingSourceCannotMutate(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(8, 2, 8));
@@ -112,7 +112,7 @@ public final class DisposalWorldGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void unanchorAndRemovalDisconnectExactlyOnce(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(8, 2, 8));
@@ -132,7 +132,7 @@ public final class DisposalWorldGameTests {
         helper.succeed();
     }
 
-    @GameTest(batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 20)
     public static void lookupOfUnloadedNeighborIsUnknownWithoutLoading(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = new BlockPos(1_000_000, 2, 1_000_000);

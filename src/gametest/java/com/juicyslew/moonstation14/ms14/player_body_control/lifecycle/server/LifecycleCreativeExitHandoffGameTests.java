@@ -5,18 +5,18 @@ import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransiti
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Callback policy, not synthetic connected-player authority. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleCreativeExitHandoffGameTests {
     private LifecycleCreativeExitHandoffGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void successfulCreativeExitRestoresOnlyExactCleanPark(GameTestHelper helper) {
         AtomicInteger restores = new AtomicInteger();
         AtomicInteger syncs = new AtomicInteger();
@@ -39,7 +39,7 @@ public final class LifecycleCreativeExitHandoffGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void canceledAndFailedExitNeverRestoresIntoCarrier(GameTestHelper helper) {
         AtomicInteger restores = new AtomicInteger();
         AtomicInteger disconnects = new AtomicInteger();
@@ -66,7 +66,7 @@ public final class LifecycleCreativeExitHandoffGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void conflictingProfileRetainsMarkerAndDisconnects(GameTestHelper helper) {
         AtomicInteger restores = new AtomicInteger();
         AtomicInteger disconnects = new AtomicInteger();
@@ -80,7 +80,7 @@ public final class LifecycleCreativeExitHandoffGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void ghostParkRegistrationPolicyRestoresOnceAndRejectsUnsafeCarrier(GameTestHelper helper) {
         int[] calls = new int[3];
         require(LifecycleDevelopmentMode.creativeExitHandoffPolicy(true, true, GameType.CREATIVE,

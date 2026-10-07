@@ -102,7 +102,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                         if (drag.proposedAnchor().x() >= 0 && drag.proposedAnchor().y() >= 0
                                 && drag.proposedAnchor().x() < layout.columns() && drag.proposedAnchor().y() < layout.rows())
                             GridEntrySpriteRenderer.draw(g, source.itemId(), source.count(), footprint, drag.proposedRotation(),
-                                    bounds.x() + drag.proposedAnchor().x() * CELL, bounds.y() + drag.proposedAnchor().y() * CELL);
+                                    bounds.x() + drag.proposedAnchor().x() * CELL, bounds.y() + drag.proposedAnchor().y() * CELL,
+                                    source.presentation());
                         g.disableScissor();
                     }
                 }
@@ -122,8 +123,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             for (var entry : grid.host().entries()) {
                 var id = ResourceLocation.tryParse(entry.itemId());
                 if (id != null) GridEntrySpriteRenderer.draw(g, entry.itemId(), entry.count(),
-                        ItemFootprints.forId(id), GridGeometry.Rotation.values()[entry.rotation() / 90],
-                        left + entry.x() * CELL, top + entry.y() * CELL);
+                        ItemFootprints.clientForId(id), GridGeometry.Rotation.values()[entry.rotation() / 90],
+                        left + entry.x() * CELL, top + entry.y() * CELL, entry.presentation());
             }
             if (grid != null) {
                 var ordered = grid.host().entries();
@@ -162,7 +163,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                                 && drag.proposedAnchor().x() < columns && drag.proposedAnchor().y() < rows)
                             GridEntrySpriteRenderer.draw(g, item, source.count(),
                                     footprint, drag.proposedRotation(), left + drag.proposedAnchor().x() * CELL,
-                                    top + drag.proposedAnchor().y() * CELL);
+                                    top + drag.proposedAnchor().y() * CELL, source.presentation());
                     }
                 }
             }
@@ -191,8 +192,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         for (var entry : view.entries()) {
             var id = ResourceLocation.tryParse(entry.itemId());
             if (id != null) GridEntrySpriteRenderer.draw(g, entry.itemId(), entry.count(),
-                    ItemFootprints.forId(id), GridGeometry.Rotation.values()[entry.rotation() / 90],
-                    left + entry.x() * CELL, top + entry.y() * CELL);
+                    ItemFootprints.clientForId(id), GridGeometry.Rotation.values()[entry.rotation() / 90],
+                    left + entry.x() * CELL, top + entry.y() * CELL, entry.presentation());
         }
         var ordered = view.entries();
         for (int i = Math.max(0, ordered.size() - 2); i < ordered.size(); i++) {
@@ -208,7 +209,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                     BodyHandClient.inventoryView());
             var entry = view.entries().stream().filter(e -> e.token().equals(dragToken)).findFirst().orElse(null);
             if (entry != null) source = new StorageDragPreviewPolicy.Source(entry.itemId(), entry.count(),
-                    ItemFootprints.forId(ResourceLocation.parse(entry.itemId())), "entry:" + entry.token(), BodyHandClient.worldActionable(view.target()));
+                    ItemFootprints.clientForId(ResourceLocation.parse(entry.itemId())), "entry:" + entry.token(), BodyHandClient.worldActionable(view.target()), entry.presentation());
             String item = source == null ? null : source.itemId();
             var id = ResourceLocation.tryParse(item == null ? "" : item);
             if (id != null) {
@@ -227,7 +228,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                 if (drag.proposedAnchor().x() >= 0 && drag.proposedAnchor().y() >= 0
                         && drag.proposedAnchor().x() < view.width() && drag.proposedAnchor().y() < view.height())
                     GridEntrySpriteRenderer.draw(g, item, source.count(), footprint,
-                            drag.proposedRotation(), left + drag.proposedAnchor().x() * CELL, top + drag.proposedAnchor().y() * CELL);
+                            drag.proposedRotation(), left + drag.proposedAnchor().x() * CELL, top + drag.proposedAnchor().y() * CELL,
+                            source.presentation());
             }
         }
         if (view.stale())
@@ -286,11 +288,16 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     private static void sprite(net.minecraft.client.gui.GuiGraphics g, String itemId, int count, int x, int y) {
+        sprite(g, itemId, count, null, x, y);
+    }
+
+    private static void sprite(net.minecraft.client.gui.GuiGraphics g, String itemId, int count,
+                               com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation presentation, int x, int y) {
         var id = ResourceLocation.tryParse(itemId);
         if (id == null) return;
         var item = BuiltInRegistries.ITEM.getOptional(id).orElse(null);
         if (item == null || item == net.minecraft.world.item.Items.AIR) return;
-        g.renderItem(new ItemStack(item), x, y);
+        ItemUiRenderer.render(g, itemId, count, presentation, x, y);
         if (count > 1) g.drawString(net.minecraft.client.Minecraft.getInstance().font,
                 Integer.toString(count), x + 12, y + 10, 0xffffffff, true);
     }
@@ -320,7 +327,9 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                         : target == HandBarLayout.Layout.Tile.BELT ? bar.belt() : null;
                 if (rect != null) g.fill(rect.x(), rect.y(), rect.x() + rect.width(), rect.y() + rect.height(),
                         valid ? 0x8858b867 : 0x88da4545);
-                sprite(g, equipmentDrag.itemId(), equipmentDrag.count(), mouseX - 8, mouseY - 8);
+                var held = BodyHandClient.inventoryPresentation();
+                var heldItem = held == null ? null : equipmentDrag.handId().equals(held.first().id()) ? held.first() : held.second();
+                sprite(g, equipmentDrag.itemId(), equipmentDrag.count(), heldItem == null ? null : heldItem.presentation(), mouseX - 8, mouseY - 8);
                 g.drawString(font, Component.translatable(valid ? "gui.moonstation14.popup.release"
                         : "gui.moonstation14.popup.cancel"), mouseX + 12, mouseY + 8,
                         valid ? 0xff8ce39a : 0xffe99898, true);
@@ -339,12 +348,12 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                                 ? BodyHandClient.worldStoreEligible(world.target(), handGridDrag.token())
                                 : BodyHandClient.inventoryView() != null && !w.provisional();
                         var preview = id == null ? null : StoragePopupWorkspace.preview(world != null ? world.geometry() : grid.occupancy(), null,
-                                ItemFootprints.forId(id), anchor, GridGeometry.Rotation.values()[handGridRotation],
+                                ItemFootprints.clientForId(id), anchor, GridGeometry.Rotation.values()[handGridRotation],
                                 actionable);
                         var bounds = layout(w).gridBounds();
                         var left = bounds.x(); var top = bounds.y();
-                        sprite(g, handGridDrag.itemId(), handGridDrag.count(), mouseX - 8, mouseY - 8);
-                        var footprint = id == null ? null : ItemFootprints.forId(id);
+                        sprite(g, handGridDrag.itemId(), handGridDrag.count(), hand.presentation(), mouseX - 8, mouseY - 8);
+                        var footprint = id == null ? null : ItemFootprints.clientForId(id);
                         var visible = layout(w).visibleGrid(w.width(), w.height());
                         for (var piece : workspace.uncovered(visible, w)) {
                             g.enableScissor(piece.x(), piece.y(), piece.x() + piece.width(), piece.y() + piece.height());
@@ -358,7 +367,11 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                             g.disableScissor();
                         }
                     }
-                } else sprite(g, handGridDrag.itemId(), handGridDrag.count(), mouseX - 8, mouseY - 8);
+                } else {
+                    var held = BodyHandClient.inventoryPresentation();
+                    var hand = held == null ? null : handGridDrag.handId().equals(held.first().id()) ? held.first() : held.second();
+                    sprite(g, handGridDrag.itemId(), handGridDrag.count(), hand == null ? null : hand.presentation(), mouseX - 8, mouseY - 8);
+                }
             }
         }
         if (menuTile != null) {
@@ -384,7 +397,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         if (drag == null) return;
         var id = ResourceLocation.tryParse(crossSource.itemId());
         if (id == null) return;
-        var footprint = ItemFootprints.forId(id);
+        var footprint = ItemFootprints.clientForId(id);
         var rotation = drag.proposedRotation();
         boolean permitted = PopupActionPlan.crossRequest(crossSource, target.key(), proof, anchor, rotation, 0, 1) != null;
         var layout = layout(target);
@@ -399,7 +412,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             }
             if (anchor.x() >= 0 && anchor.y() >= 0 && anchor.x() < layout.columns() && anchor.y() < layout.rows())
                 GridEntrySpriteRenderer.draw(g, crossSource.itemId(), crossSource.count(), footprint, rotation,
-                        bounds.x() + anchor.x() * CELL, bounds.y() + anchor.y() * CELL);
+                        bounds.x() + anchor.x() * CELL, bounds.y() + anchor.y() * CELL, crossSource.presentation());
             g.disableScissor();
         }
     }
@@ -432,7 +445,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             var visible = layout(target).visibleGrid(target.width(), target.height());
             for (var piece : workspace.uncovered(visible, target)) {
                 g.enableScissor(piece.x(), piece.y(), piece.x() + piece.width(), piece.y() + piece.height());
-                for (var cell : new GridGeometry.Placement<>(worldCrossSource.child(), ItemFootprints.forId(id),
+                for (var cell : new GridGeometry.Placement<>(worldCrossSource.child(), ItemFootprints.clientForId(id),
                     anchor, drag.proposedRotation()).occupiedCells()) {
                 if (cell.x() < 0 || cell.y() < 0 || cell.x() >= layout(target).columns()
                         || cell.y() >= layout(target).rows()) continue;
@@ -462,7 +475,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         var anchor = itemCell(target, x, y);
         for (var piece : workspace.uncovered(visible, target)) {
             g.enableScissor(piece.x(), piece.y(), piece.x() + piece.width(), piece.y() + piece.height());
-            for (var cell : new GridGeometry.Placement<>(source.child(), ItemFootprints.forId(item), anchor,
+            for (var cell : new GridGeometry.Placement<>(source.child(), ItemFootprints.clientForId(item), anchor,
                 sourceWindow.drag().proposedRotation()).occupiedCells()) {
             if (cell.x() < 0 || cell.y() < 0 || cell.x() >= layout.columns() || cell.y() >= layout.rows()) continue;
             int px = bounds.x() + cell.x() * CELL, py = bounds.y() + cell.y() * CELL;

@@ -16,17 +16,19 @@ class BodyHandInputPolicyTest {
     }
 
     @Test void ownedPrimaryGestureCancelsVanillaEvenWhenActionGateCannotSend() {
-        var route = PrimaryWorldGesture.route(true, false, true, true);
-        assertEquals(BodyHandActionRequest.Action.USE_HELD, PrimaryWorldGesture.action(route));
+        var targetRoute = PrimaryWorldGesture.route(true, false, true, true);
+        assertEquals(BodyHandActionRequest.Action.USE_TARGET, PrimaryWorldGesture.action(targetRoute));
+        var heldRoute = PrimaryWorldGesture.route(true, false, true, false);
+        assertEquals(BodyHandActionRequest.Action.USE_HELD, PrimaryWorldGesture.action(heldRoute));
         // Cancellation depends on input ownership/route, not whether the live request gate has proof.
-        assertTrue(BodyHandInputPolicy.cancelsVanillaAttack(route));
+        assertTrue(BodyHandInputPolicy.cancelsVanillaAttack(targetRoute));
         assertFalse(BodyHandInputPolicy.cancelsVanillaAttack(
                 PrimaryWorldGesture.route(false, false, true, true)));
     }
 
     @Test void dropModifierChoosesExclusiveDropOrThrow() {
         assertEquals(BodyHandActionRequest.Action.DROP, BodyHandInputPolicy.dropAction(true, false));
-        assertEquals(BodyHandActionRequest.Action.THROW, BodyHandInputPolicy.dropAction(true, true));
+        assertEquals(BodyHandActionRequest.Action.THROW_ITEM, BodyHandInputPolicy.dropAction(true, true));
         assertNull(BodyHandInputPolicy.dropAction(false, true));
     }
 }

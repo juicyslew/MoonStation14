@@ -30,7 +30,12 @@ public class ModEventHooks {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingDamagePost);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingIncomingDamage);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingHeal);
+        NeoForge.EVENT_BUS.addListener(ModEventHooks::onAppliedTypedDamage);
         NeoForge.EVENT_BUS.addListener(TickHooks::onLivingEntityTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onPostServerTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onEntityLeave);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onStartTracking);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onServerStopped);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onEntityLeaveLevel);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onPlayerClone);
@@ -38,6 +43,11 @@ public class ModEventHooks {
     }
 
     private static void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        if (event.getLevel() instanceof ServerLevel level
+                && event.getEntity() instanceof net.minecraft.world.entity.item.ItemEntity original
+                && !(original instanceof com.juicyslew.moonstation14.entities.LooseItemEntity)) {
+            replaceCreativeModDrop(level, original, event);
+        }
         if (event.getLevel() instanceof ServerLevel && event.getEntity() instanceof LivingEntity livingEntity) {
             com.juicyslew.moonstation14.ms14.slip.SlipSystem.onEntityJoin(livingEntity);
             CharacterIdentitySystem.enrollSupportedActor(livingEntity, (ServerLevel) event.getLevel());
@@ -59,6 +69,28 @@ public class ModEventHooks {
         }
     }
 
+    private static void onAppliedTypedDamage(
+            com.juicyslew.moonstation14.ms14.damage.AppliedDamageEvent event) {
+        com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.damage(
+                event.entity(), event.typedDamage());
+    }
+
+    private static void replaceCreativeModDrop(ServerLevel level,
+            net.minecraft.world.entity.item.ItemEntity original, EntityJoinLevelEvent event) {
+        ServerPlayer player = original.getOwner() instanceof ServerPlayer owner ? owner : null;
+        if (player == null || !player.isCreative()
+                || player.level() != level || original.getItem().isEmpty()
+                || original.getItem().getItem().builtInRegistryHolder().unwrapKey()
+                    .map(key -> !"moonstation14".equals(key.location().getNamespace())).orElse(true)) return;
+        var loose = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level, original.position(), original.getItem());
+        loose.setUUID(original.getUUID());
+        loose.setYRot(original.getYRot());
+        loose.setXRot(original.getXRot());
+        loose.launch(original.getDeltaMovement(), 0);
+        loose.setCreativePickupDelay(level.random.nextInt(2, 41));
+        if (level.addFreshEntity(loose)) event.setCanceled(true);
+    }
+
     private static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
         if (event.getLevel() instanceof ServerLevel level && event.getEntity() instanceof LivingEntity livingEntity) {
             com.juicyslew.moonstation14.ms14.slip.SlipSystem.onEntityLeave(level, livingEntity);
@@ -75,6 +107,7 @@ public class ModEventHooks {
 
     private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.onLogout(player);
             com.juicyslew.moonstation14.ms14.movement.server.MovementServerController.onDisconnect(player);
         }
     }

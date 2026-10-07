@@ -31,7 +31,8 @@ class AtmosphereChamberFixtureTest {
         assertEquals((2.0 * GasType.OXYGEN.molarHeatCapacity()
                 + 3.0 * GasType.NITROGEN.molarHeatCapacity()) * TEMPERATURE,
                 chamber.finiteCells.values().iterator().next().thermalEnergy());
-        assertEquals(101.325, new GasMixture(Map.of(GasType.OXYGEN, ONE_ATM_MOLES), TEMPERATURE).pressureKpa(1.0), 1e-10);
+        assertEquals(101.325, new GasMixture(Map.of(GasType.OXYGEN, ONE_ATM_MOLES), TEMPERATURE).pressureKpa(1.0),
+                4 * Math.ulp((float) 101.325));
 
         AtmosphereChamberFixture.Snapshot snapshot = chamber.snapshot();
         chamber.finiteCells.put(new BlockPos(0, 0, 0), GasMixture.vacuum());
@@ -48,10 +49,10 @@ class AtmosphereChamberFixtureTest {
                 AtmosphereChamberFixture.pureGasAtPressure(GasType.OXYGEN, 101.325, TEMPERATURE),
                 AtmosphereChamberFixture.pureGasAtPressure(GasType.NITROGEN, 101.325, TEMPERATURE));
         assertEquals(96, chamber.finiteCells.size());
-        assertEquals(101.325, chamber.finiteCells.get(new BlockPos(0, 0, 0)).pressureKpa(1.0), 1e-10);
-        assertEquals(101.325, chamber.finiteCells.get(new BlockPos(5, 0, 0)).pressureKpa(1.0), 1e-10);
-        assertEquals(ONE_ATM_MOLES, chamber.finiteCells.get(new BlockPos(0, 0, 0)).moles(GasType.OXYGEN), 1e-12);
-        assertEquals(ONE_ATM_MOLES, chamber.finiteCells.get(new BlockPos(5, 0, 0)).moles(GasType.NITROGEN), 1e-12);
+        assertEquals(101.325, chamber.finiteCells.get(new BlockPos(0, 0, 0)).pressureKpa(1.0), 4 * Math.ulp((float) 101.325));
+        assertEquals(101.325, chamber.finiteCells.get(new BlockPos(5, 0, 0)).pressureKpa(1.0), 4 * Math.ulp((float) 101.325));
+        assertEquals(ONE_ATM_MOLES, chamber.finiteCells.get(new BlockPos(0, 0, 0)).moles(GasType.OXYGEN), 2 * Math.ulp((float) ONE_ATM_MOLES));
+        assertEquals(ONE_ATM_MOLES, chamber.finiteCells.get(new BlockPos(5, 0, 0)).moles(GasType.NITROGEN), 2 * Math.ulp((float) ONE_ATM_MOLES));
 
         BlockPos doorPosition = new BlockPos(4, 2, 1);
         assertEquals(WALL, chamber.neighborKind(doorPosition));

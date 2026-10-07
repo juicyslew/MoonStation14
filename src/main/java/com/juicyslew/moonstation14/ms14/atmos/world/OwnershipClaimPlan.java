@@ -45,5 +45,7 @@ final class OwnershipClaimPlan {
     boolean isComplete() { return !cancelled && cursor == positions.size(); }
     int cursor() { return cursor; }
     int size() { return positions.size(); }
+    /** Remaining positions are retry candidates only; callers must revalidate/research topology. */
+    List<BlockPos> uncommittedPositions() { return positions.subList(cursor, positions.size()); }
     boolean dependsOn(ChunkPos chunk) { return chunks.contains(chunk); }
 }

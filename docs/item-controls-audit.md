@@ -10,6 +10,11 @@ Z held activation, Q drop, Ctrl+Q throw, and X hand selection. The accepted
 local inventory/cursor gestures remain unchanged. Shift+B equips/stores to
 the backpack; it is not the retired B installation shortcut.
 
+Integration with the loose-object foundation retains Shift+E belt equip/store,
+Alt+E and Alt+left-click alternate world use, and tick-owned mapped keyboard
+dispatch. An aimed loose item takes priority over the block behind it for
+primary pickup/target use. E remains world activation, not primary held use.
+
 Grenades inherit `TriggerOnUse` through `TimerGrenadeBase`: primary Use
 primes them, not Z. Held activation and throwing are separate intents.
 Six-face structure installation is an existing Minecraft adaptation.
@@ -26,7 +31,7 @@ APC menus retain exact-menu authority and fresh body target access.
 | --- | --- |
 | Three functional pipe lanes; vent, scrubber, alarm supplies | Left-click installation, existing geometry/consumption rules |
 | Air alarm and APC menus | E activation; never install the held supply on E |
-| Grenade | Left-click prime; Ctrl+Q specialized armed-grenade throw |
+| Grenade | Left-click prime; Ctrl+Q whole-stack loose-object throw, armed or unarmed |
 | HV/MV/APC cable spools and cutter | Left-click place/cut; cut spool returned to the world |
 | Steel and crowbar | Left-click existing girder/wall transitions |
 | Both station floor tiles and pry tool | Left-click existing finish placement/removal |
@@ -40,15 +45,15 @@ Ordinary block placement does not imply every block callback is supported.
 
 ## Known unsupported behavior
 
-- Generic ordinary-item throwing and throwing unarmed grenades. SS14 holder
-  defaults are speed 11, range 8, cooldown 0.5 seconds; these are not the
-  local grenade projectile settings. Do not substitute those projectile
-  settings or invent a per-item Throwable marker. SS14 stacks throw whole
-  unless `ThrowIndividually` applies.
+- Charged throws and full upstream throw-speed/range/cooldown parity. The
+  loose-object foundation supports generic whole-stack throwing at the local
+  fixed `.75` blocks/tick; SS14 holder defaults are speed 11, range 8 and
+  cooldown 0.5 seconds. See its handoff for deliberate departures.
 - Pickaxe body mining/attack; waffle body eating.
-- Bottle/jug body reagent use, drinking, and jug placement. The withdrawn
-  bare placed-jug sip is not an approved action; see the character capability
-  audit. Ingestion needs an actual item, timing, and body capability contract.
+- Jug placement as a block remains withdrawn: jugs are portable loose items.
+  Bottle/jug transfers and held drinking, and immediate explicit puddle sips,
+  are now covered by the [foundation handoff](loose-world-objects-foundation-sprint/HANDOFF.md).
+  Continuous ingestion and visible generic timed interactions remain deferred.
 - T-ray scanner activation/reveal.
 - Magic-block activation sound and atmosphere-test-block activation
   diagnostics. Placement and automatic block behavior are distinct.

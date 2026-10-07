@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.EffectCommonData;
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
@@ -33,14 +34,13 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"atmosphere", "chemistry", "damage"})
 public final class FireStackGameTests {
     private FireStackGameTests() {
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void flammableUsesScaleAndExistingMultiplier(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -57,7 +57,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
     public static void igniteOnlyChangesAuthoritativeState(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -120,7 +120,7 @@ public final class FireStackGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void igniteWithoutPositiveStacksIsQuietAndDoesNotMaterialize(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
         Villager absent = spawn(helper, 1);
@@ -152,7 +152,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
     public static void zeroScaleExtinguishClearsIgnitedBaseline(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -171,7 +171,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void extinguishAdjustsOffFireStacks(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -185,7 +185,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void newDryingActivityWaitsForNextTickSnapshot(GameTestHelper helper) {
         Villager stand = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -203,7 +203,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void fireCapabilityRejectsUnsupportedTargets(GameTestHelper helper) {
         EffectSystem effects = EffectSystem.withDefaults();
         Entity projectile = helper.spawn(EntityType.ARROW, new BlockPos(1, 1, 1));
@@ -228,7 +228,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
     public static void negativeStacksDryOnePerDueIntervalAndCleanUp(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -239,30 +239,51 @@ public final class FireStackGameTests {
         require(hasActivity(zombie, EntityActivity.FIRE_DRYING),
                 "negative state must enable drying");
 
-        long start = zombie.level().getGameTime();
+        long start = helper.getTick();
+        int startEntityTick = zombie.tickCount;
+        long startGameTime = zombie.level().getGameTime();
         long[] firstDry = {-1L};
         helper.startSequence()
                 .thenWaitUntil(() -> {
                     FireStackComponent state = state(zombie);
-                    if (state != null && state.stacks() == -1f) {
-                        firstDry[0] = zombie.level().getGameTime();
+                    long elapsed = helper.getTick() - start;
+                    long gameTimeElapsed = zombie.level().getGameTime() - startGameTime;
+                    // thenWaitUntil retries assertion failures. Keep waiting while the
+                    // staggered activity has not yet reached its first due tick.
+                    if (state == null || state.stacks() != -1f) {
+                        if (elapsed <= 20) return;
+                        require(false, "first due drying interval must add exactly one stack; actualStack="
+                                + (state == null ? "absent" : state.stacks()) + ", elapsedTicks=" + elapsed
+                                + ", gameTimeElapsed=" + gameTimeElapsed + ", entityTickElapsed="
+                                + (zombie.tickCount - startEntityTick));
                     }
-                    require(firstDry[0] >= 0L, "first due drying interval must add exactly one stack");
-                    require(firstDry[0] >= start && firstDry[0] - start <= 20,
-                            "first drying update must occur within one 20-tick interval");
+                    firstDry[0] = helper.getTick();
+                    require(elapsed >= 1 && elapsed <= 20,
+                            "first drying update must occur within one 20-tick interval; actualStack="
+                                    + state.stacks() + ", elapsedTicks=" + elapsed + ", gameTimeElapsed="
+                                    + gameTimeElapsed + ", entityTickElapsed=" + (zombie.tickCount - startEntityTick));
                 })
                 .thenWaitUntil(() -> {
+                    FireStackComponent state = state(zombie);
+                    long elapsed = helper.getTick() - firstDry[0];
+                    long gameTimeElapsed = zombie.level().getGameTime() - startGameTime;
+                    if (state != null && state.stacks() == -1f && elapsed <= 20) return;
                     require(!zombie.hasData(ModDataAttachments.FIRE_STACK.get()),
-                            "second due interval must clean up at zero");
+                            "second due interval must clean up at zero; actualStack="
+                                    + (state == null ? "absent" : state.stacks()) + ", elapsedTicks=" + elapsed
+                                    + ", gameTimeElapsed=" + gameTimeElapsed + ", entityTickElapsed="
+                                    + (zombie.tickCount - startEntityTick));
                     require(!hasActivity(zombie, EntityActivity.FIRE_DRYING),
-                            "drying activity must be removed at zero");
-                    require(zombie.level().getGameTime() > firstDry[0],
-                            "cleanup must occur on a later due interval");
+                            "drying activity must be removed at zero; actualStack=0, elapsedTicks=" + elapsed);
+                    require(elapsed > 0,
+                            "cleanup must occur on a later due interval; actualStack=0, elapsedTicks=" + elapsed);
+                    require(elapsed <= 20,
+                            "second drying update must occur within one 20-tick interval; actualStack=0, elapsedTicks=" + elapsed);
                 })
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
     public static void reconcileRehydratesPersistedDryingActivity(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         zombie.setData(ModDataAttachments.FIRE_STACK.get(),
@@ -301,7 +322,7 @@ public final class FireStackGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void unaffectedLivingEntityNeverMaterializesFireWork(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         long start = zombie.level().getGameTime();
@@ -321,7 +342,7 @@ public final class FireStackGameTests {
                 .thenExecute(helper::succeed);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void dormantSavedFireSurvivesStaleDueAndReconciliation(GameTestHelper helper) {
         Villager host = spawn(helper, 1);
         FireStackAttachment saved = new FireStackAttachment(new FireStackComponent(-2f, false));
@@ -343,7 +364,7 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void reconciliationRestoresOnlyIgnitedFireActivity(GameTestHelper helper) {
         Villager ignited = spawn(helper, 1);
         Villager unlit = spawn(helper, 3);

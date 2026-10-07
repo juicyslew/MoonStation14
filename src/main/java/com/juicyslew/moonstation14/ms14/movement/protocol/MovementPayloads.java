@@ -98,17 +98,21 @@ public final class MovementPayloads {
     /** Server-authored state snapshot and input acknowledgement. */
     public record Snapshot(long epoch, long acknowledgedSequence,
                            double x, double y, double z, double velocityX, double velocityY, double velocityZ,
-                           boolean onGround) implements CustomPacketPayload {
+                            boolean onGround, boolean pulling) implements CustomPacketPayload {
         public static final Type<Snapshot> TYPE = MovementPayloads.type("movement_snapshot");
         public static final StreamCodec<RegistryFriendlyByteBuf, Snapshot> STREAM_CODEC = StreamCodec.of(
                 (buf, value) -> {
                     buf.writeLong(value.epoch); buf.writeLong(value.acknowledgedSequence);
                     buf.writeDouble(value.x); buf.writeDouble(value.y); buf.writeDouble(value.z);
                     buf.writeDouble(value.velocityX); buf.writeDouble(value.velocityY); buf.writeDouble(value.velocityZ);
-                    buf.writeBoolean(value.onGround);
-                }, buf -> new Snapshot(readEpoch(buf), readNonNegative(buf, "acknowledged sequence"),
+                     buf.writeBoolean(value.onGround); buf.writeBoolean(value.pulling);
+        }, buf -> new Snapshot(readEpoch(buf), readNonNegative(buf, "acknowledged sequence"),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readDouble(),
-                        buf.readDouble(), buf.readBoolean()));
+                        buf.readDouble(), buf.readBoolean(), buf.readBoolean()));
+        public Snapshot(long epoch, long acknowledgedSequence, double x, double y, double z,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround) {
+            this(epoch, acknowledgedSequence, x, y, z, velocityX, velocityY, velocityZ, onGround, false);
+        }
         public Snapshot {
             requireEpoch(epoch);
             if (acknowledgedSequence < 0) throw new IllegalArgumentException("acknowledged sequence must be nonnegative");

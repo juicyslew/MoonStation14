@@ -4,16 +4,16 @@ import com.juicyslew.moonstation14.MoonStation14;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.gametest.GameTestHolder;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Pure routing fixtures; no unregistered player is treated as a connected lifecycle owner. */
-@GameTestHolder(MoonStation14.MOD_ID)
+@GameTestTags({"lifecycle", "character"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleDevelopmentCreativeCommandGameTests {
     private LifecycleDevelopmentCreativeCommandGameTests() { }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void creativeRoutesOnlyExclusiveCommittedOwner(GameTestHelper helper) {
         require(LifecycleDevelopmentMode.creativeRoute(true, false) == LifecycleDevelopmentMode.CreativeRoute.BODY,
                 "exact body selects body park");
@@ -26,7 +26,7 @@ public final class LifecycleDevelopmentCreativeCommandGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void rawCreativeDeniedButScopedBodySwitchAllowed(GameTestHelper helper) {
         require(LifecycleDevelopmentMode.rejectRawBodyCreativeChange(true, GameType.CREATIVE, false),
                 "external raw Creative denied");
@@ -39,7 +39,7 @@ public final class LifecycleDevelopmentCreativeCommandGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+@GameTest(template = "empty", templateNamespace = "moonstation14")
     public static void canceledOrUnverifiedBodySwitchNeverReportsSuccess(GameTestHelper helper) {
         require(LifecycleDevelopmentMode.bodyCreativeCompleted(true, GameType.CREATIVE,
                 true, true, true, true, true), "verified transition succeeds");

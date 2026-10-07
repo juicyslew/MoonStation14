@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -12,27 +13,29 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
-
-@GameTestHolder(MoonStation14.MOD_ID)
 @PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "interaction"})
 public final class BodyItemTargetProbeGameTests {
     private BodyItemTargetProbeGameTests() { }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void bodyEyeFirstItemAndBlocker(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
         Villager body = body(level, origin);
         ItemEntity near = item(level, origin, 2);
         require(BodyItemTargetProbe.probe(level, body, near, 4) != null, "body eye sees item");
+        require(BodyItemTargetProbe.probeSelected(level, body, near.getUUID(), 4) != null,
+                "explicit selection accepts a visible pile member");
         require(BodyItemTargetProbe.probe(level, body, near, 5.01) == null, "reach ceiling");
         require(BodyItemTargetProbe.probe(level, body, near, Double.NaN) == null, "nonfinite reach");
         ItemEntity far = item(level, origin, 3);
         require(BodyItemTargetProbe.probe(level, body, far, 4) == null, "nearer item wins");
+        require(BodyItemTargetProbe.probeSelected(level, body, far.getUUID(), 4) != null,
+                "explicit selection can select a farther visible pile member");
         require(BodyItemTargetProbe.probe(level, body, near, 4) != null, "far item does not hide near one");
         body.setYRot(90);
         body.setYHeadRot(90);
@@ -54,7 +57,7 @@ public final class BodyItemTargetProbeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void nearMissAndInflatedWallCannotHideFirstItem(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -81,7 +84,7 @@ public final class BodyItemTargetProbeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void itemOverlappingEyeRemainsVisibleAtZeroDistanceBlockHit(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -98,12 +101,12 @@ public final class BodyItemTargetProbeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void equalDistanceUuidWinsWhenLowSpawnsFirst(GameTestHelper helper) {
         tie(helper, true);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void equalDistanceUuidWinsWhenHighSpawnsFirst(GameTestHelper helper) {
         tie(helper, false);
     }
@@ -132,7 +135,7 @@ public final class BodyItemTargetProbeGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void absentShapeMarginDeniesWithoutLoading(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));

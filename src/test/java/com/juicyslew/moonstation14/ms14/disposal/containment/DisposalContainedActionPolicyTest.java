@@ -8,7 +8,12 @@ class DisposalContainedActionPolicyTest {
     @Test void bodyLocalActionsPassButWorldActionsRemainDenied() {
         assertTrue(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.DROP));
         assertTrue(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.USE_HELD));
-        assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.THROW));
+        assertTrue(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.USE_IN_HAND));
+        assertTrue(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.PRIME_GRENADE));
+        assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.THROW_ITEM));
+        assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.THROW_GRENADE));
+        assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.USE_TARGET));
+        assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.TOGGLE_PULL));
         assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.PICKUP));
     }
 }
