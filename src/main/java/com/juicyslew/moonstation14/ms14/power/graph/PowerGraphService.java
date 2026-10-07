@@ -68,6 +68,7 @@ public final class PowerGraphService {
                                                           com.juicyslew.moonstation14.ms14.power.cable.CableTier tier) {
         LevelState state = STATES.get(level);
         if (!PowerSimulationGate.isEnabled() || state == null || !state.pending.isEmpty()) return null;
+        if (!ensureLoadedFootprint(level, state, center, radius)) return null;
         return state.graph.nodesNear(center, radius, tier);
     }
 
@@ -81,6 +82,7 @@ public final class PowerGraphService {
         if (radius < 1 || radius > 16) return null;
         LevelState state = STATES.get(level);
         if (!PowerSimulationGate.isEnabled() || state == null || !state.pending.isEmpty()) return null;
+        if (!ensureLoadedFootprint(level, state, center, radius)) return null;
         long revision = state.graph.revision();
         CachedLampNode cached = state.lampChoices.get(center);
         if (cached != null && cached.revision == revision && cached.radius == radius) return cached.node;
@@ -90,6 +92,27 @@ public final class PowerGraphService {
         CableFaceNode nearest = nearestKnownLampNode(state.graph, center, nearby);
         state.lampChoices.put(center.immutable(), new CachedLampNode(revision, radius, nearest));
         return nearest;
+    }
+
+    /** Reconcile missed load bookkeeping only for chunks already present in the FULL cache. */
+    private static boolean ensureLoadedFootprint(ServerLevel level, LevelState state, BlockPos center, int radius) {
+        if (center == null || radius < 0 || radius > 16) return false;
+        int minChunkX = (center.getX() - radius) >> 4;
+        int maxChunkX = (center.getX() + radius) >> 4;
+        int minChunkZ = (center.getZ() - radius) >> 4;
+        int maxChunkZ = (center.getZ() + radius) >> 4;
+        boolean complete = true;
+        for (int cx = minChunkX; cx <= maxChunkX; cx++) for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+            ChunkPos pos = new ChunkPos(cx, cz);
+            if (state.graph.isChunkLoaded(pos)) continue;
+            if (level.getChunkSource().getChunkNow(cx, cz) == null) {
+                complete = false;
+                continue;
+            }
+            if (state.pending.add(pos)) state.topologyGeneration++;
+            complete = false;
+        }
+        return complete;
     }
 
     public static CableFaceNode nearestLampNode(ServerLevel level, BlockPos center) {

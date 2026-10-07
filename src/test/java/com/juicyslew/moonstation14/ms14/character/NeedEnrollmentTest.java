@@ -9,6 +9,7 @@ import com.juicyslew.moonstation14.ms14.character.components.StomachPrototypeCom
 import com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
+import com.juicyslew.moonstation14.ms14.character.components.DoorBumpOpenerComponent;
 import com.juicyslew.moonstation14.ms14.hunger.HungerAttachment;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
@@ -116,12 +117,16 @@ class NeedEnrollmentTest {
             pig = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                     JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))).getOrThrow();
         }
-        assertEquals(23, human.components().size());
+        assertEquals(24, human.components().size());
         assertTrue(human.components().stream().anyMatch(component -> component.type().equals("Mouth")),
                 "human mouth is explicitly opted in");
         assertTrue(human.components().stream().anyMatch(component -> component.type().equals("Speech")),
                 "human speech is explicitly opted in");
         assertTrue(human.component(ComplexInteractionComponent.class).isPresent());
+        assertTrue(human.component(DoorBumpOpenerComponent.class).isPresent(),
+                "human explicitly opts in to opening doors by contact");
+        assertTrue(pig.component(DoorBumpOpenerComponent.class).isEmpty(),
+                "pig does not opt in to opening doors by contact");
         assertEquals(List.of(PLAYER, ResourceLocation.parse("minecraft:villager")), human.hostEntityTypes());
         for (var type : List.of(HungerPrototypeComponent.class, ThirstPrototypeComponent.class, StomachPrototypeComponent.class)) {
             assertTrue(human.component(type).isPresent());

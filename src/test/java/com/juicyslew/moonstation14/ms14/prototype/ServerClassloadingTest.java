@@ -55,7 +55,13 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/hands/client/ItemUiAppearance.java",
             "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java",
             "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionClient.java",
-            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java"
+            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java",
+            "com/juicyslew/moonstation14/ms14/doors/client/AirlockBlockEntityRenderer.java",
+            "com/juicyslew/moonstation14/ms14/doors/client/AirlockFramePlanner.java",
+            "com/juicyslew/moonstation14/ms14/doors/ui/client/AirlockWireScreen.java",
+            "com/juicyslew/moonstation14/ms14/doors/ui/client/AirlockWireClient.java",
+            "com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java",
+            "com/juicyslew/moonstation14/ms14/hands/client/StoragePopupScreen.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"

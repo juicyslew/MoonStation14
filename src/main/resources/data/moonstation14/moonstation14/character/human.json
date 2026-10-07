@@ -110,6 +110,7 @@
     {"type": "ComplexInteraction"},
     {"type": "Metabolizer", "types": ["human"]},
     {"type": "Speech"},
-    {"type": "Mouth"}
+    {"type": "Mouth"},
+    {"type": "DoorBumpOpener"}
   ]
 }

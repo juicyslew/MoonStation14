@@ -101,6 +101,7 @@ public class MoonStation14 {
         modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.ingestion.IngestionNetworking::registerPayloadHandlers);
@@ -198,6 +199,7 @@ public class MoonStation14 {
 
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
+        com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireMenuService.onServerStopped();
         AtmosphereService.INSTANCE.onServerStopped();
         PowerSimulationGate.onServerStopped();
         MovementServerController.onServerStopped();

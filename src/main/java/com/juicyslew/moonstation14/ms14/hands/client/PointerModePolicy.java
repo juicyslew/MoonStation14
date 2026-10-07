@@ -10,6 +10,12 @@ final class PointerModePolicy {
     void popupOpen() { if (origin == Origin.CLOSED) origin = Origin.POPUP_AUTOMATIC; }
     void dismiss() { origin = Origin.CLOSED; }
     void authorityClear() { origin = Origin.CLOSED; }
+    static boolean keepOpenForWindow(boolean activeWire, boolean visibleStorageWindow) {
+        return activeWire || visibleStorageWindow;
+    }
+    static boolean shouldRestoreHost(boolean pointerOpen, boolean screenNull, boolean bodyAuthorized) {
+        return pointerOpen && screenNull && bodyAuthorized;
+    }
     boolean closeWhenEmpty() {
         if (origin != Origin.POPUP_AUTOMATIC) return false;
         origin = Origin.CLOSED;

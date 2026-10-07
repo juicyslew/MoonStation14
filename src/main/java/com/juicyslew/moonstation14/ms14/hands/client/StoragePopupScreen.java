@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Transparent pointer layer. Windows are snapshot presentations, never client inventories. */
-public final class StoragePopupScreen extends net.minecraft.client.gui.screens.Screen {
+public final class StoragePopupScreen extends net.minecraft.client.gui.screens.Screen implements com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow {
     private static final int CELL = StoragePopupLayout.CELL_SIZE;
     private final StoragePopupWorkspace workspace;
     private StoragePopupWorkspace.HostKey moving, dragging;
@@ -310,6 +310,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     @Override public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // Deliberately no super.render/background: the world and hand bar stay visible.
         drawWindows(g, workspace, width, height);
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if (wire != null) { wire.workspaceSize(width, height); wire.render(g, mouseX, mouseY, partialTick); }
         drawCrossPreview(g, mouseX, mouseY);
         var bar = HandBarLayout.calculate(width, height);
         var display = BodyHandClient.inventoryPresentation();
@@ -494,6 +496,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if (wire != null && wire.contains(mouseX, mouseY)) return wire.workspaceMouseClicked(mouseX, mouseY, button);
         if (button == 1 && rotateCurrent(mouseX, mouseY)) return true;
         if (button == 0 && moving == null && dragging == null && handGridDrag == null
                 && equipmentDrag == null && hit(mouseX, mouseY) == null
@@ -503,6 +507,10 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             if (bar == null || bar.tileAt((int) mouseX, (int) mouseY) == null) {
                 menuTile = null;
                 menuSource = null;
+                if (wire != null) {
+                    BodyHandClient.gameplayWindowMouseUse(button);
+                    return true;
+                }
                 BodyHandClient.dismissPopupPointerMode();
                 return true;
             }
@@ -645,6 +653,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if (wire != null && wire.workspaceMouseDragged(x, y, button, dx, dy)) return true;
         if (dragging != null) updateItemPointer(x, y, leftButtonDown());
         if (button != 0) return true;
         if (moving != null) workspace.place(moving, (int) x - grabX, (int) y - grabY);
@@ -678,6 +688,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseReleased(double x, double y, int button) {
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if (wire != null && wire.workspaceMouseReleased(x, y, button)) return true;
         if (button != 0) return true;
         if (inactiveClickHand != null) {
             var selected = inactiveClickHand;
@@ -834,6 +846,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public boolean keyPressed(int key, int scan, int modifiers) {
         if (!BodyHandClient.hasCommittedBody()) { clearMovement(); return true; }
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if (wire != null && key == GLFW.GLFW_KEY_ESCAPE) { wire.onClose(); return true; }
         if (BodyHandClient.popupAction(key, scan, modifiers, actionKeys.add(scan != 0 ? -scan : key))) return true;
         if (key == GLFW.GLFW_KEY_R) {
             var mc = net.minecraft.client.Minecraft.getInstance();
@@ -960,7 +974,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         menuSource = null;
     }
 
-    public PopupMovementIntent.State movementIntent() {
+    @Override public PopupMovementIntent.State movementIntent() {
         var mc = net.minecraft.client.Minecraft.getInstance();
         long window = mc.getWindow().getWindow();
         boolean focused = mc.screen == this && BodyHandClient.hasCommittedBody()
@@ -971,6 +985,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                 held(o.keyLeft, window), held(o.keyRight, window), held(o.keyJump, window),
                 held(o.keyShift, window), held(o.keySprint, window));
     }
+
+    @Override public boolean capturesKeyboard() { return false; }
 
     private static boolean held(net.minecraft.client.KeyMapping mapping, long window) {
         var bound = mapping.getKey();

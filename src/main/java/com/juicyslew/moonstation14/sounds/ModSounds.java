@@ -14,7 +14,18 @@ public class ModSounds {
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, MoonStation14.MOD_ID);
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
+    public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
+    public static final Supplier<SoundEvent> AIRLOCK_OPEN = registerSoundEvent("airlock/airlock_open");
+    public static final Supplier<SoundEvent> AIRLOCK_CLOSE = registerSoundEvent("airlock/airlock_close");
+    public static final Supplier<SoundEvent> AIRLOCK_DENY = registerSoundEvent("airlock/airlock_deny");
+    public static final Supplier<SoundEvent> AIRLOCK_BOLTS_UP = registerSoundEvent("airlock/boltsup");
+    public static final Supplier<SoundEvent> AIRLOCK_BOLTS_DOWN = registerSoundEvent("airlock/boltsdown");
+    public static final Supplier<SoundEvent> AIRLOCK_PANEL_OPEN = registerSoundEvent("airlock/panel_open");
+    public static final Supplier<SoundEvent> AIRLOCK_PANEL_CLOSE = registerSoundEvent("airlock/panel_close");
+    public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_ON = registerSoundEvent("airlock/airlock_electrify_on");
+    public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
+    public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
     // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     // both end at 32 blocks, independently of the quieter playback gain at each call site.

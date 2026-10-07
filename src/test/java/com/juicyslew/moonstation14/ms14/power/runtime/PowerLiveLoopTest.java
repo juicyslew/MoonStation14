@@ -35,6 +35,17 @@ final class PowerLiveLoopTest {
         assertEquals(0, zeroElapsed.ventWatts().get("vent"), 1e-9);
         assertEquals(10_000, zeroElapsed.batteryEnergyJoules().get("battery"), 1e-9);
     }
+    @Test void airlockIsAnIndependentTwentyWattContinuousLoad() {
+        var source=List.of(new PowerLiveLoop.Source("source",1,true,1_000));
+        var sub=List.of(new PowerLiveLoop.Substation("sub",1,true,2,true));
+        var apc=List.of(new PowerLiveLoop.Apc("apc",2,true,3,true,true,0));
+        var door=new PowerLiveLoop.AirlockLoad("airlock",3,true,20);
+        var result=PowerLiveLoop.solve(new PowerLiveLoop.Input(source,sub,apc,List.of(),List.of(),List.of(),List.of(door),20));
+        assertEquals(20,result.airlockWatts().get("airlock"),1e-9);
+        var shortSupply=PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("source2",1,true,10)),sub,
+                List.of(new PowerLiveLoop.Apc("apc2",2,true,3,true,true,0)),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.AirlockLoad("door2",3,true,20)),20));
+        assertTrue(shortSupply.airlockWatts().get("door2")<20);
+    }
 
     @Test void ventsFailClosedForUnknownOrOpenPortsAndBatteryDeliveryIsBilledOnce() {
         var vent = PowerLiveLoop.VentLoad.defaultUnaryAtmos("vent", 3, true);
