@@ -10,6 +10,8 @@ import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.ExposureAirRouting;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.ExposureAirSource;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
@@ -20,6 +22,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import java.util.*;
+import com.juicyslew.moonstation14.sounds.ModSounds;
+import net.minecraft.sounds.SoundSource;
 
 /** Server-authoritative prototype-enrolled respiration. No host/species rules are implicit. */
 public final class LungSystem {
@@ -156,25 +160,37 @@ public final class LungSystem {
      }
       /** Isolated service seam for enabled world tests; production uses the global service. */
       public static boolean tickIfDue(LivingEntity entity,long gameTime,AtmosphereService atmosphere) {
-           Optional<RespiratorPolicy> policy=policyAtCadence(entity,gameTime); if(policy.isEmpty()) return false;
+            Optional<RespiratorPolicy> policy=policyAtCadence(entity,gameTime); if(policy.isEmpty()) return false;
           if (!entity.isAlive() || !validPolicy(policy.get())) return false;
           int interval = intervalTicks(policy.get().breathIntervalSeconds());
-          boolean due = isDue(gameTime, entity.getId(), interval);
+           boolean due = isDue(gameTime, entity.getId(), interval);
           // A known but unusable sample must not even trigger late BODY reconciliation.
           // An unknown sample remains unknown; the existing join-equivalent reconciliation
           // below may still run, but it must never turn the missing sample into vacuum.
-          Optional<GasMixture> strictSample = Optional.empty();
-          if (due && atmosphere != null && atmosphere.isEnabled()) {
-              try {
-                  strictSample = atmosphere.sample((ServerLevel) entity.level(), BlockPos.containing(entity.getEyePosition()));
-                  if (strictSample.isPresent() && safeRequestedMoles(strictSample.get(),
-                          policy.get().breathVolumeLiters(), 0d).isEmpty()) return false;
-              } catch (RuntimeException invalid) { return false; }
+           Optional<GasMixture> strictSample = Optional.empty();
+           Optional<ExposureAirSource> containedSource = Optional.empty();
+           double sourceVolume = 1d;
+            if (due && atmosphere != null) {
+               try {
+                   var selection = ExposureAirRouting.select(entity);
+                   if (selection.contained()) {
+                       containedSource = selection.source();
+                       if (containedSource.isPresent()) {
+                           var sample = containedSource.get().sample();
+                           if (sample.isPresent()) {
+                               strictSample = Optional.of(sample.get().mixture());
+                               sourceVolume = sample.get().volumeCubicMeters();
+                           }
+                       }
+                   } else strictSample = atmosphere.sample((ServerLevel) entity.level(), BlockPos.containing(entity.getEyePosition()));
+                   if (strictSample.isPresent() && safeRequestedMoles(strictSample.get(), sourceVolume,
+                            policy.get().breathVolumeLiters(), 0d).isEmpty()) return false;
+               } catch (RuntimeException invalid) { return false; }
           }
           // A prototype can become available after the spawn/load join hook ran. Reconcile
           // only the attachment here; breathing still requires a due, strict world sample.
-          if(!reconcile(entity)) return false;
-          if(!due || !entity.isAlive() || atmosphere==null || !atmosphere.isEnabled()) return false;
+           if(!reconcile(entity)) return false;
+            if(!due || !entity.isAlive() || atmosphere==null) return false;
           BodyState body = BodySystem.current(entity).orElseThrow();
           RespirationState respiration = body.respiration();
             PrototypeCatalog<OrganData> organs = ModOrgans.catalog(entity.level());
@@ -182,7 +198,8 @@ public final class LungSystem {
            var p=policy.get();
         // Validate and reduce persisted state before the atmosphere's atomic exchange. In
         // particular an uninitialized/migrating attachment and a newly over-cap policy fail shut.
-         if(!respiration.initialized() || !validPolicy(p)) return false;
+           if(!respiration.initialized() || !validPolicy(p)) return false;
+          final double sampledSourceVolume = sourceVolume;
          GasMixture oldGas;
           OrganData.Lung lung = currentLung(organ, organs).orElse(null);
           try { oldGas=organ == null ? GasMixture.vacuum() : organ.lung().mixture(); if((lung != null && oldGas.totalMoles()>lung.maxLungMoles()) || respiration.saturation()>p.maxSaturation()) return false; }
@@ -191,9 +208,10 @@ public final class LungSystem {
          BlockPos eye=BlockPos.containing(entity.getEyePosition());
          // A missing strict sample is unknown, not vacuum. It cannot drain saturation or
          // advance phase, even while incapacitated.
-         if(strictSample.isEmpty()) return false;
+          if(strictSample.isEmpty()) return false;
          GasMixture room = strictSample.get();
-         boolean incapacitated=entity.isSleeping();
+          boolean critical = com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isCritical(entity);
+          boolean incapacitated=critical || entity.isSleeping();
            GasMixture[] inhaled = new GasMixture[1];
            LungComponent[] validated = new LungComponent[1];
            BodyState[] validatedBody = new BodyState[1];
@@ -202,56 +220,81 @@ public final class LungSystem {
                  double depleted = LungReducer.deplete(old.saturation(), p.saturationLossPerUpdate(), p.minSaturation());
                  candidate = Optional.of(LungComponent.from(oldGas, depleted, true, old.phase()));
             } else if (incapacitated) {
-                  candidate = advance(old,new LungRuntimePolicy(p, lung),room,true,(exhaled,requested) -> Optional.empty());
+                   candidate = advance(old,new LungRuntimePolicy(p, lung),room,sampledSourceVolume,true,(exhaled,requested) -> Optional.empty());
             } else {
                LungRuntimePolicy runtime = new LungRuntimePolicy(p, lung);
               boolean inhale = old.phase() == LungComponent.Phase.INHALING;
               GasMixture exhaled = inhale ? GasMixture.vacuum() : oldGas;
-               OptionalDouble request = inhale ? safeRequestedMoles(room, p.breathVolumeLiters(),
-                       lung.maxLungMoles()-oldGas.totalMoles()) : OptionalDouble.of(0d);
-               if (request.isEmpty()) return false;
+                OptionalDouble request = inhale ? safeRequestedMoles(room, sourceVolume, p.breathVolumeLiters(),
+                        lung.maxLungMoles()-oldGas.totalMoles()) : OptionalDouble.of(0d);
+                if (request.isEmpty()) return false;
                double requested = request.getAsDouble();
-               var exchanged = atmosphere.exchangeBreath((ServerLevel)entity.level(),eye,requested,exhaled, portion -> {
-                    Optional<LungComponent> next = advance(old,runtime,room,false,(gas,amount) -> Optional.of(portion));
+               java.util.function.Predicate<GasMixture> validator = portion -> {
+                      Optional<LungComponent> next = advance(old,runtime,room,sampledSourceVolume,false,(gas,amount) -> Optional.of(portion));
                   if (next.isEmpty()) return false;
                    try { validatedBody[0] = updatedBody(body, organ, next.get(), entity); }
                    catch (RuntimeException invalid) { return false; }
                    validated[0] = next.get();
-                  if (inhale) inhaled[0] = portion;
-                  return true;
-              });
+                   if (inhale) inhaled[0] = portion;
+                   return true;
+               };
+               var exchanged = containedSource.isPresent()
+                       ? containedSource.get().exchange(requested, exhaled, validator)
+                       : atmosphere.exchangeBreath((ServerLevel)entity.level(),eye,requested,exhaled,validator);
               candidate = exchanged.isPresent() ? Optional.ofNullable(validated[0]) : Optional.empty();
           }
-         if(candidate.isEmpty()) return false;
+           if(candidate.isEmpty()) return false;
           LungComponent result = candidate.get();
           BodyState next;
           try { next = incapacitated || organ == null ? updatedBody(body, organ, result, entity) : validatedBody[0]; }
           catch (RuntimeException invalid) { return false; }
-          if (next == null) return false;
+           if (next == null) return false;
           writeBody(entity, next);
          if (old.phase() == LungComponent.Phase.INHALING && !incapacitated && inhaled[0] != null) {
               LungToxicity.perInhale(inhaled[0], lung.toxicGasDamagePerMole(),
                               lung.toxicGasMinimumMolesPerInhale(), lung.toxicGasDamageCapPerInhale())
                      .filter(damage -> !damage.isEmpty())
-                     .ifPresent(damage -> DamageSystem.applyHealthChange(entity, damage, 1f, false));
+                     .ifPresent(damage -> DamageSystem.applyHealthChange(entity, damage, 1f, false, DamageSystem.Cause.RESPIRATION));
          }
         if(candidate.get().saturation()<p.suffocationThreshold()) {
+            attemptGasp(entity, candidate.get().saturation(), p, gameTime);
             if(p.suffocationDamagePerUpdate()>0) DamageSystem.applyHealthChange(entity,Map.of(DamageKeys.ASPHYXIATION,(float)p.suffocationDamagePerUpdate()),1f,p.suffocationIgnoreResistances());
         } else if(p.suffocationRecoveryPerUpdate()>0) {
             DamageSystem.applyHealthChange(entity,Map.of(DamageKeys.ASPHYXIATION,(float)-p.suffocationRecoveryPerUpdate()),1f,p.suffocationIgnoreResistances());
         }
-        return true;
+         return true;
      }
 
-     private static BodyState updatedBody(BodyState body, OrganInstance organ, LungComponent result, LivingEntity entity) {
+      private static BodyState updatedBody(BodyState body, OrganInstance organ, LungComponent result, LivingEntity entity) {
          BodyState next = body.updateRespiration(RespirationState.from(result));
          return organ == null ? next : next.updateLung(organ.id(), LungOrganState.from(result), ModOrgans.catalog(entity.level()));
      }
 
      /** One due update, after an authoritative sample. Callback commits one directional exchange. */
        static Optional<LungComponent> advance(LungComponent current, LungRuntimePolicy policy, GasMixture room, boolean incapacitated,
-             java.util.function.BiFunction<GasMixture,Double,Optional<GasMixture>> exchange) {
-         if(current==null || policy==null || room==null || exchange==null || !current.initialized() || !validPolicy(policy)) return Optional.empty();
+              java.util.function.BiFunction<GasMixture,Double,Optional<GasMixture>> exchange) {
+          return advance(current,policy,room,1d,incapacitated,exchange);
+      }
+
+      private static void attemptGasp(LivingEntity entity, double saturation, RespiratorPolicy policy, long gameTime) {
+          if (saturation >= policy.suffocationThreshold() || policy.gaspSound().isEmpty()
+                  || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(entity)) return;
+          int cooldown = intervalTicks(policy.gaspIntervalSeconds());
+          if (!entity.getData(ModDataAttachments.GASP_COOLDOWN).consume(gameTime, cooldown)) return;
+          ResourceLocation female = ResourceLocation.fromNamespaceAndPath("moonstation14", "gasp/female");
+          ResourceLocation male = ResourceLocation.fromNamespaceAndPath("moonstation14", "gasp/male");
+          if (policy.gaspSound().get().equals(female)) {
+              entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(), ModSounds.FEMALE_GASP.get(),
+                      SoundSource.PLAYERS, 1.0F, 0.875F + entity.getRandom().nextFloat() * 0.25F);
+          } else if (policy.gaspSound().get().equals(male)) {
+              entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(), ModSounds.MALE_GASP.get(),
+                      SoundSource.PLAYERS, 1.0F, 0.875F + entity.getRandom().nextFloat() * 0.25F);
+          }
+      }
+      static Optional<LungComponent> advance(LungComponent current, LungRuntimePolicy policy, GasMixture room,double sourceVolumeCubicMeters, boolean incapacitated,
+              java.util.function.BiFunction<GasMixture,Double,Optional<GasMixture>> exchange) {
+          if(current==null || policy==null || room==null || exchange==null || !current.initialized() || !validPolicy(policy)) return Optional.empty();
+          if(!Double.isFinite(sourceVolumeCubicMeters) || sourceVolumeCubicMeters<=0) return Optional.empty();
         try {
             GasMixture old=current.mixture();
              if(old.totalMoles()>policy.maxLungMoles() || current.saturation()>policy.maxSaturation()
@@ -259,7 +302,7 @@ public final class LungSystem {
               double depleted=LungReducer.deplete(current.saturation(),policy.saturationLossPerUpdate(),policy.minSaturation());
              if(incapacitated) return Optional.of(LungComponent.from(old,depleted,true,current.phase()));
              if(current.phase()==LungComponent.Phase.INHALING) {
-                  double requested=requestedMoles(room,policy.breathVolumeLiters(),policy.maxLungMoles()-old.totalMoles());
+                   double requested=requestedMoles(room,sourceVolumeCubicMeters,policy.breathVolumeLiters(),policy.maxLungMoles()-old.totalMoles());
                  Optional<GasMixture> response=exchange.apply(GasMixture.vacuum(),requested);
                  if(response==null || response.isEmpty()) return Optional.empty();
                  GasMixture inhaled=response.get();
@@ -289,27 +332,38 @@ public final class LungSystem {
      }
 
      /** Cell volume is 1 m³; use the strict sample's actual pressure and temperature. */
-     static double requestedMoles(GasMixture room,double liters,double capacity) {
-         if(room==null || !Double.isFinite(liters) || liters<=0 || !Double.isFinite(capacity) || capacity<0)
-             throw new IllegalArgumentException("invalid breath request");
-         if(room.totalMoles()==0) return 0;
+      static double requestedMoles(GasMixture room,double liters,double capacity) {
+          return requestedMoles(room, 1d, liters, capacity);
+      }
+      /** Computes breath demand using the sampled source volume (not the world-cell default). */
+      static double requestedMoles(GasMixture room,double volumeCubicMeters,double liters,double capacity) {
+          if(room==null || !Double.isFinite(liters) || liters<=0 || !Double.isFinite(capacity) || capacity<0)
+              throw new IllegalArgumentException("invalid breath request");
+          if(!Double.isFinite(volumeCubicMeters) || volumeCubicMeters<=0)
+              throw new IllegalArgumentException("invalid gas source volume");
+          if(room.totalMoles()==0) return 0;
          double temperature=room.temperatureKelvin();
          if(temperature<=0) throw new IllegalArgumentException("nonzero gas at zero kelvin");
-         double pressurePa=room.pressureKpa(1d)*1000d;
+          double pressurePa=room.pressureKpa(volumeCubicMeters)*1000d;
          double moles=(pressurePa/(8.31446261815324d*temperature))*(liters/1000d);
          if(!Double.isFinite(moles)) throw new IllegalArgumentException("non-finite breath request");
          return Math.min(capacity,moles);
      }
      /** Invalid known gas is not a vacuum breath and must never reach exchange. */
-     static OptionalDouble safeRequestedMoles(GasMixture room, double liters, double capacity) {
-         try { return OptionalDouble.of(requestedMoles(room, liters, capacity)); }
-         catch (RuntimeException invalid) { return OptionalDouble.empty(); }
-     }
+      static OptionalDouble safeRequestedMoles(GasMixture room, double liters, double capacity) {
+          try { return OptionalDouble.of(requestedMoles(room, liters, capacity)); }
+          catch (RuntimeException invalid) { return OptionalDouble.empty(); }
+      }
+      static OptionalDouble safeRequestedMoles(GasMixture room,double volumeCubicMeters,double liters,double capacity) {
+          try { return OptionalDouble.of(requestedMoles(room, volumeCubicMeters, liters, capacity)); }
+          catch (RuntimeException invalid) { return OptionalDouble.empty(); }
+      }
       private static boolean validPolicy(RespiratorPolicy p) {
-         return Double.isFinite(p.breathVolumeLiters()) && p.breathVolumeLiters()>0
-                 && Double.isFinite(p.maxSaturation()) && p.maxSaturation()>0
-                 && Double.isFinite(p.minSaturation()) && p.minSaturation()>=-2 && p.minSaturation()<=0
-                && Double.isFinite(p.saturationLossPerUpdate()) && p.saturationLossPerUpdate()>=0;
+          return Double.isFinite(p.breathVolumeLiters()) && p.breathVolumeLiters()>0
+                  && Double.isFinite(p.maxSaturation()) && p.maxSaturation()>0
+                  && Double.isFinite(p.minSaturation()) && p.minSaturation()>=-2 && p.minSaturation()<=0
+                 && Double.isFinite(p.saturationLossPerUpdate()) && p.saturationLossPerUpdate()>=0
+                  && Double.isFinite(p.gaspIntervalSeconds()) && p.gaspIntervalSeconds()>0;
      }
      private static boolean validPolicy(LungRuntimePolicy p) {
          return validPolicy(p.respirator()) && p.lung() != null;

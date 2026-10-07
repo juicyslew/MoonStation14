@@ -47,6 +47,17 @@ class GhostMovementMotorTest {
     }
 
     @Test
+    void resolvedObserverRatesDriveTheSameFlightKernelIncludingVerticalSprintRate() {
+        GhostMovementMotor resolved = new GhostMovementMotor(3d, 7d, 7d);
+        assertEquals(.15d, resolved.tick(MovementVector.ZERO, 0, 1000, 0, false, 0d, OPEN)
+                .position().z(), 1e-12);
+        assertEquals(.35d, resolved.tick(MovementVector.ZERO, 0, 1000, 0, true, 0d, OPEN)
+                .position().z(), 1e-12);
+        assertEquals(.35d, resolved.tick(MovementVector.ZERO, 0, 0, 1, false, 0d, OPEN)
+                .position().y(), 1e-12);
+    }
+
+    @Test
     void resolverIsCalledOnceAndItsMeasuredDisplacementIsPreserved() {
         AtomicInteger calls = new AtomicInteger();
         MovementCollisionResolver resolver = (position, requested, wasOnGround) -> {

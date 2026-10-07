@@ -100,7 +100,6 @@ public final class VentilationFixtureService {
         var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
         if (entry.isEmpty()) return "No saved fixture at that origin.";
         var e = entry.get(); if (e.initialized()) return "Fixture was already initialized; refusing reseed.";
-        if (!AtmosphereService.INSTANCE.isEnabled()) return "Initialization refused: enable atmospherics during startup before initializing this fixture.";
         if (!footprintLoaded(level, origin)) return "Initialization refused: fixture footprint chunks must all be loaded.";
         BlockPos source = origin.offset(PLAN.scrubber()), receiver = origin.offset(PLAN.vent());
         if (!(level.getBlockEntity(source) instanceof VentilationDeviceBlockEntity s) || !e.scrubberUUID().equals(s.deviceId())

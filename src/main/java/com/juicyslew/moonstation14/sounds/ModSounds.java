@@ -27,7 +27,14 @@ public class ModSounds {
     public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
     public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
+    // Default human gasp profile is MaleHuman (HumanUnsexed); female collection is
+    // registered for a later supported voice-profile consumer.
+    public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
+    public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
     // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
+    public static final Supplier<SoundEvent> DISPOSAL_FLUSH = registerSoundEvent("disposal/flush");
+    public static final Supplier<SoundEvent> DISPOSAL_PIPE_CLANG = registerSoundEvent("disposal/pipe_clang");
+    public static final Supplier<SoundEvent> DISPOSAL_INSERT = registerSoundEvent("disposal/insert");
     // both end at 32 blocks, independently of the quieter playback gain at each call site.
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE = registerFixedRangeSoundEvent("grenade/explode", 32.0F);

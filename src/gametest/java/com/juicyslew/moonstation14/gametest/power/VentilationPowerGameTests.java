@@ -19,6 +19,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Direction;
@@ -78,6 +79,7 @@ public final class VentilationPowerGameTests {
     }
 
     @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
+    @GameTestTags("simulation-defaults")
     public static void poweredVentMeterTracksBreakerAndReplacement(GameTestHelper helper) {
         Fixture fixture = connectVent(helper);
         helper.runAfterDelay(100, () -> {
@@ -100,47 +102,6 @@ public final class VentilationPowerGameTests {
                 require(!PowerRuntime.ventilationMeter(level, replacement).known(), "replacement awaits fresh solve");
                 helper.succeed();
             });
-        });
-    }
-
-    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
-    public static void paidWorkCallbackIsSingleUseAndInvalidated(GameTestHelper helper) {
-        Fixture fixture = connectVent(helper);
-        helper.succeedWhen(() -> {
-            ServerLevel level = fixture.level();
-            VentilationDeviceBlockEntity vent = fixture.vent();
-            require(PowerRuntime.ventilationMeter(level, vent).known()
-                    && PowerRuntime.peekCompletedVentilationSeconds(level, vent) >= 1,
-                    "a completed solve authorizes at least one second of paid work");
-            int[] calls = {0};
-            double[] seconds = {0};
-            require(!PowerRuntime.performCompletedVentilationWork(level, vent, elapsed -> {
-                calls[0]++;
-                seconds[0] = elapsed;
-                return false;
-            }), "callback may decline gas transfer");
-            require(calls[0] == 1 && seconds[0] == 1,
-                    "callback runs once with solver-derived elapsed time");
-            require(!PowerRuntime.performCompletedVentilationWork(level, vent, elapsed -> {
-                calls[0]++;
-                return true;
-            }) && calls[0] == 1, "consumed authorization cannot be replayed");
-            PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(fixture.apc());
-            require(apcEntity.toggleBreaker(creativePlayer(level, fixture.apc()), 0), "open APC breaker");
-            require(!PowerRuntime.ventilationMeter(level, vent).known(), "open breaker immediately invalidates meter");
-            require(!PowerRuntime.performCompletedVentilationWork(level, vent, elapsed -> {
-                calls[0]++;
-                return true;
-            }) && calls[0] == 1,
-                    "open breaker invalidates budget immediately");
-            VentilationDeviceBlockEntity oldVent = vent;
-            level.setBlock(fixture.ventPos(), Blocks.AIR.defaultBlockState(), 3);
-            level.setBlock(fixture.ventPos(), ModBlocks.GAS_VENT.get().defaultBlockState().setValue(
-                    com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock.FACING, Direction.NORTH), 3);
-            VentilationDeviceBlockEntity replacement = (VentilationDeviceBlockEntity) level.getBlockEntity(fixture.ventPos());
-            require(replacement != null && replacement != oldVent
-                    && !PowerRuntime.performCompletedVentilationWork(level, replacement, elapsed -> true),
-                    "replacement cannot use the old vent authorization");
         });
     }
 
@@ -224,6 +185,11 @@ public final class VentilationPowerGameTests {
         BlockPos substation = helper.absolutePos(new BlockPos(3, 1, 4));
         BlockPos apc = helper.absolutePos(new BlockPos(3, 1, 6));
         BlockPos ventPos = helper.absolutePos(new BlockPos(3, 1, 8));
+        // The receiver search fails closed if any chunk in its radius-three footprint is unloaded.
+        // GameTest templates can straddle chunk edges, so explicitly load that query footprint.
+        for (int cx = (ventPos.getX() - 3) >> 4; cx <= (ventPos.getX() + 3) >> 4; cx++)
+            for (int cz = (ventPos.getZ() - 3) >> 4; cz <= (ventPos.getZ() + 3) >> 4; cz++)
+                level.getChunk(cx, cz);
         for (int z = 2; z <= 8; z++)
             level.setBlock(helper.absolutePos(new BlockPos(4, 1, z)), Blocks.STONE.defaultBlockState(), 3);
         for (int z = 4; z <= 6; z++)

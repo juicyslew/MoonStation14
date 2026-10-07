@@ -4,14 +4,12 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
@@ -22,10 +20,9 @@ public final class LifecycleCharacterDeathHandler {
 
     /** Called solely by PlayerCharacterHarnessEntity after vanilla accepts its first server-side death. */
     public static void onConfirmedDeath(PlayerCharacterHarnessEntity body) {
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()) return;
         if (body == null || !(body.level() instanceof ServerLevel level)) return;
         MinecraftServer server = level.getServer();
-        if (server == null || !callbackEligible(true, false, body.hasConfirmedDeath(), server.isSameThread(),
+        if (server == null || !callbackEligible(body.hasConfirmedDeath(), server.isSameThread(),
                 !level.isClientSide && !body.isRemoved() && body.isAddedToLevel()
                         && body.getType() == PlayerCharacterHarnessRegistration.getEntityType()
                         && level.getEntity(body.getUUID()) == body,
@@ -69,9 +66,9 @@ public final class LifecycleCharacterDeathHandler {
     }
 
     /** Pure gate seam shared by focused tests; rejected death evidence never initiates durable work. */
-    static boolean callbackEligible(boolean enabled, boolean conflict, boolean confirmed, boolean serverThread,
+    static boolean callbackEligible(boolean confirmed, boolean serverThread,
                                     boolean exactWorldBody, boolean dead) {
-        return enabled && !conflict && confirmed && serverThread && exactWorldBody && dead;
+        return confirmed && serverThread && exactWorldBody && dead;
     }
 
     /** Startup is immutable: fresh enrollment can leave it EMPTY/UNINITIALIZED after an OFFLINE row is persisted. */

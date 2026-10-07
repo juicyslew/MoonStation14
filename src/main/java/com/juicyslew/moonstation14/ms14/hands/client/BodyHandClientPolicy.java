@@ -400,6 +400,30 @@ public final class BodyHandClientPolicy {
         return true;
     }
 
+    /** True only while a correlated block-use request or its authoritative refresh is outstanding. */
+    public boolean blockUseBarrier() { return pendingBlockUse != 0 || refreshRequired; }
+
+    /** Restrict the one deferred pointer intent to an active resolved disposal construction recipe. */
+    public static boolean mayDeferConstructionUse(boolean barrier, boolean planActive, String prototype,
+            com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData.ConstructionStep step,
+            String sourceItemId) {
+        return barrier && planActive && prototype != null && prototype.startsWith("moonstation14:disposal_")
+                && step != null && sourceItemId != null && step.material().equals(sourceItemId);
+    }
+
+    public static boolean deferredPlacementStillValid(UUID body, long epoch, UUID currentBody, long currentEpoch,
+            long capturedHandsRevision, long freshHandsRevision,
+            String hand, String currentHand, String token, String currentToken, String itemId, String currentItemId, long planRevision,
+            long currentPlanRevision, net.minecraft.core.BlockPos target, net.minecraft.core.BlockPos currentTarget,
+            net.minecraft.core.Direction face, net.minecraft.core.Direction currentFace, boolean activePlan,
+            boolean screenClosed) {
+        return body != null && body.equals(currentBody) && epoch > 0 && epoch == currentEpoch
+                && capturedHandsRevision >= 0 && freshHandsRevision >= capturedHandsRevision
+                && hand != null && hand.equals(currentHand) && token != null && token.equals(currentToken)
+                && itemId != null && itemId.equals(currentItemId)
+                && planRevision >= 0 && planRevision == currentPlanRevision && activePlan && screenClosed
+                && target != null && target.equals(currentTarget) && face != null && face == currentFace;
+    }
     public boolean requestThrowAfterPrime(long tick) {
         if (!inputEnabled || tick < 0) return false;
         if (throwIntent != null) return account.equals(throwIntent.account) && body.equals(throwIntent.body)
@@ -411,6 +435,9 @@ public final class BodyHandClientPolicy {
         throwIntent = new ThrowIntent(primeAccount, primeBody, primeEpoch, primeHand, primeToken, primeRevision, tick + 40);
         return true;
     }
+
+    /** Containment has no external throw trajectory: discard all buffered prime/throw intent. */
+    public void containedEntry() { cancelThrowIntent(); }
 
     private UUID primeAccount, primeBody;
     private long primeEpoch, primeRevision;

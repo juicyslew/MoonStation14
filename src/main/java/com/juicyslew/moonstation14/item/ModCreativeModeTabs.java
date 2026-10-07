@@ -22,7 +22,9 @@ public class ModCreativeModeTabs {
             ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE,
             ModItems.ATMOSPHERE_ANALYZER, ModItems.GRENADE, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE,
             ModItems.JUG, ModItems.GAS_PIPE_SEGMENT, ModItems.GAS_PIPE_SEGMENT_SECONDARY, ModItems.GAS_PIPE_SEGMENT_TERTIARY,
-             ModItems.GAS_VENT, ModItems.GAS_SCRUBBER, ModItems.AIR_ALARM);
+            ModItems.GAS_VENT, ModItems.GAS_SCRUBBER, ModItems.AIR_ALARM,
+            ModItems.DISPOSAL_UNIT,
+            ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
             ModBlocks.STEEL_WALL_BLOCK, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR, ModBlocks.AIRLOCK,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,
@@ -33,7 +35,8 @@ public class ModCreativeModeTabs {
             ModBlocks.ATMOS_WATER_VAPOR_PRODUCER, ModBlocks.ATMOS_AMMONIA_PRODUCER,
             ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER, ModBlocks.ATMOS_FREZON_PRODUCER,
             ModBlocks.ATMOS_GAS_SINK, ModBlocks.ATMOS_HEATER, ModBlocks.ATMOS_COOLER,
-            ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY, ModItems.GAS_PIPE_VISUAL_TERTIARY);
+            ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY, ModItems.GAS_PIPE_VISUAL_TERTIARY,
+             ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TAB =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MoonStation14.MOD_ID);
 

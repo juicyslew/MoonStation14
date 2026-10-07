@@ -7,6 +7,8 @@ import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.server.GrenadeDetonationService;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.server.level.ServerLevel;
@@ -38,9 +40,10 @@ public final class BodyGrenadeHeldFuseService {
         CURSORS.put(server, (start + count) % players.size());
         for (int n = 0; n < count; n++) {
             ServerPlayer actor = players.get((start + n) % players.size());
-            var authority = HandActorAuthority.resolve(actor);
+            var authority = HandActorAuthority.resolveForOwnedItemTick(actor);
             if (authority.isEmpty()) continue;
             var snapshot = authority.orElseThrow();
+            var expectedMenu = actor.containerMenu;
             LivingEntity body = authority.orElseThrow().body();
             if (!(actor.level() instanceof ServerLevel level) || body.level() != level
                     || level.getEntity(body.getUUID()) != body || body.isRemoved() || !body.isAlive()
@@ -52,7 +55,7 @@ public final class BodyGrenadeHeldFuseService {
                 hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                 if (hands == null || !hands.compatible(body)) break;
                 tickHand(body, level, hands, hand,
-                        () -> HandActorAuthority.revalidate(actor, snapshot));
+                        () -> HandActorAuthority.revalidateForOwnedItemTick(actor, snapshot, expectedMenu));
             }
         }
     }
@@ -74,10 +77,12 @@ public final class BodyGrenadeHeldFuseService {
         catch (IllegalArgumentException invalid) { return; }
 
         if (evaluation.expired()) {
+            net.minecraft.core.BlockPos blastOrigin = body.blockPosition();
             LiveHands.WholeResult removal = before.takeWhole(before.revision(), hand, token);
             if (!removal.succeeded() || !authorityValid.getAsBoolean()
                     || !publish(body, before, removal.state(), hand, null)) return;
-            GrenadeDetonationService.detonate(level, body.blockPosition());
+            expireAtOrigin(blastOrigin, () -> preserveContainedPayloads(body, level),
+                    origin -> GrenadeDetonationService.detonate(level, origin));
             return;
         }
 
@@ -92,6 +97,18 @@ public final class BodyGrenadeHeldFuseService {
                 : publish(body, before, next.orElseThrow(), hand, replacement))) return;
         if (evaluation.beepDue()) level.playSound(null, body.blockPosition(), ModSounds.GRENADE_BEEP.get(),
                 SoundSource.PLAYERS, 0.35F, 1.0F);
+    }
+
+    static void preserveContainedPayloads(LivingEntity body, ServerLevel level) {
+        ContainedBodyOwner owner = BodyContainmentService.forLevel(level).ownerOf(body).orElse(null);
+        if (owner != null) owner.preserveContentsBeforeExplosion();
+    }
+
+    static void expireAtOrigin(net.minecraft.core.BlockPos origin, Runnable preserve,
+                               java.util.function.Consumer<net.minecraft.core.BlockPos> detonate) {
+        if (origin == null || preserve == null || detonate == null) return;
+        preserve.run();
+        detonate.accept(origin);
     }
 
     private static boolean publishBeep(LivingEntity body, LiveHands before, LiveHands next, String hand,

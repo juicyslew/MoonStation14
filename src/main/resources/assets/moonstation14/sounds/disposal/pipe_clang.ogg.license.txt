@@ -1,0 +1,7 @@
+UNRESOLVED — do not assume MIT or CC. No file-specific attribution or license entry for clang.ogg was found in the pinned upstream Resources/Audio/Effects/attributions.yml.
+
+Upstream: Space Station 14, Resources/Audio/Effects/clang.ogg
+Commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+URL: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Effects/clang.ogg
+Source/local size: 19932 bytes. Source/local SHA-256: 861bf3e6ddff30f7c066037ae286caeda3ed7b010745c5c8a8d9c2bb5c994fc8.
+Copied verbatim; no edits. Author, original source URL, and file-specific license remain unknown. The upstream README's general asset guidance is not a file-specific license.

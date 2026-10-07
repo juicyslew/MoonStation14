@@ -88,7 +88,7 @@ public final class ElectrocutionSystem {
         // DamageSystem receives scale 1 exactly once and the typed delta is
         // already fully reduced by the electrocution arithmetic plan.
         return switch (DamageSystem.applyHealthChange((LivingEntity) context.entity(),
-                Map.of(DamageKeys.SHOCK, (float) plan.effectiveDamage()), 1f, false)) {
+                Map.of(DamageKeys.SHOCK, (float) plan.effectiveDamage()), 1f, false, DamageSystem.Cause.ELECTRICAL)) {
             case APPLIED -> EffectResult.APPLIED;
             case SKIPPED_UNSUPPORTED -> EffectResult.SKIPPED_UNSUPPORTED;
             case FAILED -> EffectResult.FAILED;

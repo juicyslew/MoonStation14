@@ -90,7 +90,7 @@ public final class PuddleReactiveTouchGameTests {
         player.getAbilities().invulnerable = false;
         player.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
         villager.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
-        player.setHealth(20f);
+        player.setHealth(30f);
         villager.setHealth(20f);
         putAt(player, helper, new BlockPos(2, 1, 2));
         require(level.addFreshEntity(player), "direct-control FakePlayer must join the GameTest level");
@@ -121,7 +121,7 @@ public final class PuddleReactiveTouchGameTests {
                         + ", villager=" + villagerResult);
         require(player.isInvulnerableTo(level.damageSources().generic()),
                 "NeoForge FakePlayer is inherently invulnerable; it cannot prove the connected-player damage path");
-        require(playerCaustic == 0f && player.getHealth() == 20f,
+        require(playerCaustic == 0f && player.getHealth() == 30f,
                 "FakePlayer's invulnerability must prevent direct typed damage; caustic=" + playerCaustic
                         + ", health=" + player.getHealth());
         require(Math.abs(villagerCaustic - .3f) < .0001f,
@@ -347,9 +347,10 @@ public final class PuddleReactiveTouchGameTests {
         require(SlipSystem.addListener(observer), "register scoped SlipEvent observer");
         BlockPos absoluteSource = helper.absolutePos(puddlePosition);
         BlockPos absoluteSecondSource = helper.absolutePos(secondPosition);
-        Trial firstTrial = new Trial(puddlePosition, puddle, villager, true, "repeated-entry-first", initialUnits);
+        Trial firstTrial = new Trial(puddlePosition, puddle, villager, true, "repeated-entry-first", initialUnits,
+                villager.getHealth());
         Trial secondTrial = new Trial(secondPosition, secondPuddle, villager, true, "repeated-entry-second",
-                secondInitialUnits);
+                secondInitialUnits, villager.getHealth());
         List<Trial> trials = List.of(firstTrial, secondTrial);
         try {
             ReactiveTouchSystem.registerTestRandom(level, absoluteSource, villager.getUUID(), randomFor(true));
@@ -482,7 +483,8 @@ public final class PuddleReactiveTouchGameTests {
         contents.specificAdd(POLYTRINIC_ACID, 4f, puddle.getCapacity());
         require(contents.totalUnits() == 2_000, label + " fixture must contain exactly 20 units");
         MS14Provider.update(puddle, MS14Bridges.REAGENT, contents);
-        return new Trial(puddlePosition.immutable(), puddle, target, true, label, contents.snapshotUnits());
+        return new Trial(puddlePosition.immutable(), puddle, target, true, label, contents.snapshotUnits(),
+                target.getHealth());
     }
 
     private static Trial makeTrial(GameTestHelper helper, BlockPos puddlePosition, boolean fakePlayer,
@@ -516,8 +518,9 @@ public final class PuddleReactiveTouchGameTests {
         MS14Provider.update(puddle, MS14Bridges.REAGENT, contents);
 
         require(CharacterIdentitySystem.resolve(target).isPresent(), "real actor must receive the human binding");
+        com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.ensureProjection(target);
         return new Trial(puddlePosition.immutable(), puddle, target, accepted, label,
-                contents.snapshotUnits());
+                contents.snapshotUnits(), target.getHealth());
     }
 
     private static void assertDose(Trial trial, boolean accepted) {
@@ -532,7 +535,7 @@ public final class PuddleReactiveTouchGameTests {
             DamageData damage = trial.target.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
             float caustic = damage == null ? 0f : damage.getMap().getOrDefault(DamageKeys.CAUSTIC, 0f);
             if (trial.target instanceof FakePlayer) {
-                require(caustic == 0f && trial.target.getHealth() == 10f,
+                require(caustic == 0f && trial.target.getHealth() == trial.expectedHealth,
                         trial.label + " FakePlayer Touch dose is consumed but FakePlayer is invulnerable; got caustic="
                                 + caustic + ", health=" + trial.target.getHealth());
             } else {
@@ -579,5 +582,6 @@ public final class PuddleReactiveTouchGameTests {
     }
 
     private record Trial(BlockPos puddlePosition, PuddleBlockEntity puddle, LivingEntity target,
-                         boolean accepted, String label, java.util.Map<ResourceKey<ReagentData>, Long> initial) { }
+                         boolean accepted, String label, java.util.Map<ResourceKey<ReagentData>, Long> initial,
+                         float expectedHealth) { }
 }

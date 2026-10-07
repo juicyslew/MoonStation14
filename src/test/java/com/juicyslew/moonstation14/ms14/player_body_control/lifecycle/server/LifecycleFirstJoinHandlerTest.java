@@ -13,20 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifecycleFirstJoinHandlerTest {
     @TempDir Path directory;
-    @Test void disabledOrConflictingGatePreservesVanillaRouteBeforePlayerValidation() {
-        assertEquals(LifecycleFirstJoinHandler.JoinRoute.VANILLA,
-                LifecycleFirstJoinHandler.routeDecision(false, false, false, false));
-        assertEquals(LifecycleFirstJoinHandler.JoinRoute.VANILLA,
-                LifecycleFirstJoinHandler.routeDecision(true, true, false, false));
-    }
-
-    @Test void enabledGateRejectsUnlistedPlayerAndSeparatesFreshFromKnownAccount() {
+    @Test void routeSeparatesUnlistedPlayerAndFreshFromKnownAccount() {
         assertEquals(LifecycleFirstJoinHandler.JoinRoute.INVALID_PLAYER,
-                LifecycleFirstJoinHandler.routeDecision(true, false, false, false));
+                LifecycleFirstJoinHandler.routeDecision(false, false));
         assertEquals(LifecycleFirstJoinHandler.JoinRoute.FIRST_ACCOUNT,
-                LifecycleFirstJoinHandler.routeDecision(true, false, true, false));
+                LifecycleFirstJoinHandler.routeDecision(true, false));
         assertEquals(LifecycleFirstJoinHandler.JoinRoute.EXISTING_ACCOUNT,
-                LifecycleFirstJoinHandler.routeDecision(true, false, true, true));
+                LifecycleFirstJoinHandler.routeDecision(true, true));
     }
 
     @Test void onlyDeferredOfflineStartupCanEnterExistingAccountReconnect() {

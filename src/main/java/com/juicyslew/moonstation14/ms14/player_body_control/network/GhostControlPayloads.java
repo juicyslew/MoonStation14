@@ -1,6 +1,8 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.network;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyView;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -36,16 +38,19 @@ public final class GhostControlPayloads {
     }
 
     /** The entity id is a server-resolved binding hint, never a client-selected body identity. */
-    public record Begin(long mindEpoch, int harnessEntityId, MobHarnessKind harnessKind) implements CustomPacketPayload {
+    public record Begin(long mindEpoch, int harnessEntityId, MobHarnessKind harnessKind, double ghostWalkSpeed, double ghostSprintSpeed) implements CustomPacketPayload {
         public static final Type<Begin> TYPE = GhostControlPayloads.type("ghost_control_begin");
         public static final StreamCodec<RegistryFriendlyByteBuf, Begin> STREAM_CODEC = StreamCodec.of(
-                (buf, value) -> { buf.writeLong(value.mindEpoch); buf.writeInt(value.harnessEntityId); buf.writeByte(wireId(value.harnessKind)); },
-                buf -> new Begin(readEpoch(buf), readNonNegativeEntityId(buf), readHarnessKind(buf)));
+                (buf, value) -> { buf.writeLong(value.mindEpoch); buf.writeInt(value.harnessEntityId); buf.writeByte(wireId(value.harnessKind)); if (value.harnessKind == MobHarnessKind.GHOST) { buf.writeDouble(value.ghostWalkSpeed); buf.writeDouble(value.ghostSprintSpeed); } },
+                buf -> { long epoch = readEpoch(buf); int id = readNonNegativeEntityId(buf); MobHarnessKind kind = readHarnessKind(buf); return kind == MobHarnessKind.GHOST ? new Begin(epoch, id, kind, buf.readDouble(), buf.readDouble()) : new Begin(epoch, id, kind); });
         public Begin {
             requireEpoch(mindEpoch);
             if (harnessEntityId < 0) throw new IllegalArgumentException("harness entity id must be nonnegative");
             if (harnessKind == null) throw new IllegalArgumentException("harness kind must be specified");
+            if (harnessKind == MobHarnessKind.GHOST && (!Double.isFinite(ghostWalkSpeed) || ghostWalkSpeed <= 0 || !Double.isFinite(ghostSprintSpeed) || ghostSprintSpeed <= 0)) throw new IllegalArgumentException("ghost movement speeds must be finite and positive");
+            if (harnessKind == MobHarnessKind.CHARACTER && (ghostWalkSpeed != 0 || ghostSprintSpeed != 0)) throw new IllegalArgumentException("character begin cannot carry ghost movement");
         }
+        public Begin(long epoch, int id, MobHarnessKind kind) { this(epoch, id, kind, kind == MobHarnessKind.GHOST ? 8 : 0, kind == MobHarnessKind.GHOST ? 12 : 0); }
         /** Compatibility constructor for the existing ghost-only controller. */
         public Begin(long mindEpoch, int ghostEntityId) { this(mindEpoch, ghostEntityId, MobHarnessKind.GHOST); }
         /** Compatibility accessor for existing ghost-only code. */
@@ -141,7 +146,10 @@ public final class GhostControlPayloads {
                            long serverGameTick, long acknowledgedAppliedSequence,
                            double x, double y, double z, float yaw, float pitch,
                            double velocityX, double velocityY, double velocityZ, boolean onGround,
-                           float surfaceFactor, float voluntarySpeedFactor, boolean stunned) implements CustomPacketPayload {
+                              float surfaceFactor, float voluntarySpeedFactor, boolean movementBlocked,
+                              int externalFlightTicks,
+                              MovementMode movementMode, java.util.Optional<ContainedBodyView> containedView) implements CustomPacketPayload {
+        public enum MovementMode { GROUNDED, UNIT, TRANSIT }
         public static final Type<Snapshot> TYPE = GhostControlPayloads.type("ghost_control_snapshot");
         public static final StreamCodec<RegistryFriendlyByteBuf, Snapshot> STREAM_CODEC = StreamCodec.of(
                 (buf, value) -> {
@@ -151,18 +159,28 @@ public final class GhostControlPayloads {
                     buf.writeFloat(value.yaw); buf.writeFloat(value.pitch);
                     buf.writeDouble(value.velocityX); buf.writeDouble(value.velocityY); buf.writeDouble(value.velocityZ);
                     buf.writeBoolean(value.onGround); buf.writeFloat(value.surfaceFactor);
-                    buf.writeFloat(value.voluntarySpeedFactor); buf.writeBoolean(value.stunned);
+                     buf.writeFloat(value.voluntarySpeedFactor); buf.writeBoolean(value.movementBlocked); buf.writeVarInt(value.externalFlightTicks); buf.writeEnum(value.movementMode);
+                     buf.writeBoolean(value.containedView.isPresent());
+                     value.containedView.ifPresent(view -> { buf.writeUUID(view.ownerIdentity()); buf.writeBoolean(view.worldTarget().isPresent());
+                         view.worldTarget().ifPresent(pos -> buf.writeBlockPos(pos)); buf.writeBoolean(view.cameraCollision()); });
                 }, buf -> new Snapshot(readEpoch(buf), readNonNegativeEntityId(buf), readHarnessKind(buf),
                         readNonNegative(buf, "server game tick"), readNonNegative(buf, "acknowledged applied sequence"),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readFloat(),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readBoolean(),
-                        buf.readFloat(), buf.readFloat(), buf.readBoolean()));
+                           buf.readFloat(), buf.readFloat(), buf.readBoolean(), readExternalFlightTicks(buf), buf.readEnum(MovementMode.class), readContainedView(buf)));
         public Snapshot {
             requireEpoch(epoch);
+            containedView = java.util.Objects.requireNonNull(containedView);
+            if (harnessKind == MobHarnessKind.GHOST && containedView.isPresent()) throw new IllegalArgumentException("ghost cannot have contained view");
             if (harnessEntityId < 0) throw new IllegalArgumentException("harness entity id must be nonnegative");
             if (harnessKind == null) throw new IllegalArgumentException("harness kind must be specified");
+            if (movementMode == null || harnessKind == MobHarnessKind.GHOST && movementMode != MovementMode.GROUNDED)
+                throw new IllegalArgumentException("invalid movement mode for harness kind");
             requireNonNegative(serverGameTick, "server game tick");
             requireNonNegative(acknowledgedAppliedSequence, "acknowledged applied sequence");
+            if (externalFlightTicks < 0 || externalFlightTicks > 6) throw new IllegalArgumentException("external flight ticks must be within [0,6]");
+            if ((harnessKind == MobHarnessKind.GHOST || movementMode != MovementMode.GROUNDED) && externalFlightTicks != 0)
+                throw new IllegalArgumentException("external flight requires a grounded character harness");
             requireWorldCoordinate(x, "x");
             requireWorldCoordinate(y, "y");
             requireWorldCoordinate(z, "z");
@@ -180,11 +198,50 @@ public final class GhostControlPayloads {
         public Snapshot(long epoch, int ghostEntityId, long serverGameTick, long acknowledgedAppliedSequence,
                         double x, double y, double z, float yaw, float pitch) {
             this(epoch, ghostEntityId, MobHarnessKind.GHOST, serverGameTick, acknowledgedAppliedSequence,
-                    x, y, z, yaw, pitch, 0, 0, 0, false, 1, 1, false);
+                     x, y, z, yaw, pitch, 0, 0, 0, false, 1, 1, false, 0, MovementMode.GROUNDED, java.util.Optional.empty());
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind,
+                        long serverGameTick, long acknowledgedAppliedSequence,
+                        double x, double y, double z, float yaw, float pitch,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround,
+                        float surfaceFactor, float voluntarySpeedFactor, boolean movementBlocked) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence,
+                    x, y, z, yaw, pitch, velocityX, velocityY, velocityZ, onGround, surfaceFactor,
+                     voluntarySpeedFactor, movementBlocked, 0, MovementMode.GROUNDED, java.util.Optional.empty());
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind, long serverGameTick,
+                        long acknowledgedAppliedSequence, double x, double y, double z, float yaw, float pitch,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround, float surfaceFactor,
+                        float voluntarySpeedFactor, boolean movementBlocked, MovementMode movementMode) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z, yaw, pitch,
+                     velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor, movementBlocked, 0,
+                     movementMode, java.util.Optional.empty());
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind, long serverGameTick,
+                        long acknowledgedAppliedSequence, double x, double y, double z, float yaw, float pitch,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround, float surfaceFactor,
+                        float voluntarySpeedFactor, boolean movementBlocked, MovementMode movementMode,
+                        java.util.Optional<ContainedBodyView> containedView) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z, yaw, pitch,
+                    velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor, movementBlocked,
+                    0, movementMode, containedView);
         }
         /** Compatibility accessor for existing ghost-only code. */
         public int ghostEntityId() { return harnessEntityId; }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    private static java.util.Optional<ContainedBodyView> readContainedView(RegistryFriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return java.util.Optional.empty();
+        java.util.UUID owner = buf.readUUID();
+        java.util.Optional<BlockPos> target = buf.readBoolean() ? java.util.Optional.of(buf.readBlockPos().immutable()) : java.util.Optional.empty();
+        return java.util.Optional.of(new ContainedBodyView(owner, target, buf.readBoolean()));
+    }
+
+    private static int readExternalFlightTicks(RegistryFriendlyByteBuf buf) {
+        int ticks = buf.readVarInt();
+        if (ticks < 0 || ticks > 6) throw new IllegalArgumentException("external flight ticks must be within [0,6]");
+        return ticks;
     }
 
     private static <T> StreamCodec<RegistryFriendlyByteBuf, T> epochCodec(

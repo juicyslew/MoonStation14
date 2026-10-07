@@ -11,11 +11,9 @@ import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMoveme
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -48,7 +46,7 @@ public final class LifecycleGhostSessionControl {
     private static final int MAX_INTENTS_PER_TICK = 8;
     private static final double WORLD_BOUND = 30_000_000.0;
     private static final double MOTION_BOUNDARY_ULPS = 4d;
-    private static final GhostMovementMotor GHOST_MOVEMENT_MOTOR = new GhostMovementMotor();
+    private static final GhostMovementMotor DEFAULT_GHOST_MOVEMENT_MOTOR = new GhostMovementMotor();
     private static final Map<MinecraftServer, Map<UUID, Session>> SERVERS = new IdentityHashMap<>();
 
     private LifecycleGhostSessionControl() { }
@@ -56,19 +54,28 @@ public final class LifecycleGhostSessionControl {
     /** Called only after a future trusted caller has durably activated the registered transient ghost. */
     static StartResult beginPrepared(ServerPlayer player, GhostMobHarnessEntity ghost,
                                      PlayerLifecycleRegistry lifecycle, long epoch, MobHarnessId corpseId) {
+        return beginPrepared(player, ghost, lifecycle, epoch, corpseId, null);
+    }
+
+    static StartResult beginPrepared(ServerPlayer player, GhostMobHarnessEntity ghost,
+                                     PlayerLifecycleRegistry lifecycle, long epoch, MobHarnessId corpseId,
+                                     com.juicyslew.moonstation14.ms14.character.components.ObserverMovementComponent movement) {
         StartResult invalid = preflight(player, ghost, lifecycle, epoch, corpseId);
         if (invalid != null) return invalid;
         MinecraftServer server = ((ServerLevel) player.level()).getServer();
         Map<UUID, Session> sessions = SERVERS.computeIfAbsent(server, ignored -> new HashMap<>());
         if (sessions.containsKey(player.getUUID())) return StartResult.SESSION_CONFLICT;
-        Session session = new Session(player, ghost, lifecycle, epoch, corpseId, player.level().getGameTime());
+        GhostMovementMotor motor = movement == null ? DEFAULT_GHOST_MOVEMENT_MOTOR
+                : new GhostMovementMotor(movement.walkSpeed(), movement.sprintSpeed(), movement.sprintSpeed());
+        Session session = new Session(player, ghost, lifecycle, epoch, corpseId, player.level().getGameTime(), motor);
         sessions.put(player.getUUID(), session);
         try {
             LifecycleSessionPacketRouter router = LifecycleSessionPacketRouter.instance();
             if (!router.ghostHandlerInstalled())
                 router.installGhostHandler(LifecycleGhostSessionControl::onPayload, LifecycleGhostSessionControl::ownsAny);
             GhostControlNetworking.sendToPlayer(player,
-                    new GhostControlPayloads.Begin(epoch, ghost.getId(), MobHarnessKind.GHOST));
+                    new GhostControlPayloads.Begin(epoch, ghost.getId(), MobHarnessKind.GHOST,
+                            movement == null ? 8 : movement.walkSpeed(), movement == null ? 12 : movement.sprintSpeed()));
             session.beginSent = true;
             return StartResult.PREPARED;
         } catch (RuntimeException | Error failure) {
@@ -107,8 +114,7 @@ public final class LifecycleGhostSessionControl {
             if (!readyDecision(ready.epoch(), session.epoch, session.committed,
                     level.getGameTime() - session.startedTick, READY_TIMEOUT_TICKS)) return;
             session.readyAccepted = true;
-            if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
-                    || !authorized(session) || !live(session.ghost, level)
+            if (!authorized(session) || !live(session.ghost, level)
                     || session.ghost.level() != player.level()
                     || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR) {
                 end(server, session, true, "ready_validation_failed",
@@ -121,8 +127,7 @@ public final class LifecycleGhostSessionControl {
             session.commitSent = true;
         } else if (payload instanceof GhostControlPayloads.Intent intent) {
             if (!session.committed || !intentMatchesSession(intent, session.epoch)) return;
-            if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
-                    || !intentEligible(session, level)) {
+            if (!intentEligible(session, level)) {
                 end(server, session, true, "intent_validation_failed",
                         authorityDiagnostic(server, session, level));
                 return;
@@ -146,8 +151,7 @@ public final class LifecycleGhostSessionControl {
         MinecraftServer server = level.getServer();
         Session session = server == null ? null : session(server, player.getUUID());
         if (session == null || session.player != player || !session.committed) return;
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
-                || !connectedExact(server, player) || !authorized(session)
+        if (!connectedExact(server, player) || !authorized(session)
                 || !shouldKeepGhostCamera(player) || !intentEligible(session, level)) {
             // Capture the camera and all other facts before end() restores/discards the session.
             end(server, session, true, "session_authority_or_eligibility_lost",
@@ -160,11 +164,11 @@ public final class LifecycleGhostSessionControl {
                 GhostMobHarnessEntity ghost = session.ghost;
                 ghost.setNoGravity(true);
                 ghost.noPhysics = true;
-                ghost.setYRot(intent.yaw());
-                ghost.setXRot(intent.pitch());
+                com.juicyslew.moonstation14.ms14.medical_observer.ObserverGhostLook.apply(
+                        ghost, intent.yaw(), intent.pitch());
                 ghost.setDeltaMovement(Vec3.ZERO);
                 MovementVector before = movementPosition(ghost);
-                var result = GHOST_MOVEMENT_MOTOR.tick(before, intent.wishX(), intent.wishZ(), intent.verticalWish(),
+                var result = session.movementMotor.tick(before, intent.wishX(), intent.wishZ(), intent.verticalWish(),
                         (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw(),
                         (position, requested, wasOnGround) -> {
                             Vec3 prior = ghost.position();
@@ -175,7 +179,8 @@ public final class LifecycleGhostSessionControl {
                         });
                 Vec3 displacement = ghost.position().subtract(new Vec3(before.x(), before.y(), before.z()));
                 MovementVector actual = movementPosition(ghost);
-                if (!validMotion(actual, displacement, result.position())) {
+                if (!validMotion(actual, displacement, result.position(), session.movementMotor.sprintSpeedPerSecond(),
+                        session.movementMotor.verticalSpeedPerSecond())) {
                     end(server, session, true, "invalid_motion",
                             motionDiagnostic(before, actual, displacement, result.position()));
                     return;
@@ -202,6 +207,32 @@ public final class LifecycleGhostSessionControl {
                 && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR;
     }
 
+    /** Exact active lifecycle ghost owner; observer's legacy intent loop must not move it again. */
+    public static boolean ownsPreparedGhostTransport(ServerPlayer player, Entity ghost) {
+        if (player == null || ghost == null || !(player.level() instanceof ServerLevel level)) return false;
+        Session pinned = session(level.getServer(), player.getUUID());
+        return pinned != null && pinned.player == player && pinned.ghost == ghost
+                && pinned.ghostId.value().equals(ghost.getUUID()) && authorized(pinned);
+    }
+
+    /** Revokes only transport state after durable revival has already changed lifecycle ownership. */
+    static boolean teardownAfterRevive(ServerPlayer player, MobHarnessId ghostId, long ghostEpoch) {
+        if (player == null || ghostId == null || !(player.level() instanceof ServerLevel level)) return false;
+        MinecraftServer server = level.getServer();
+        Session pinned = session(server, player.getUUID());
+        if (pinned == null) return true;
+        if (pinned.player != player || !pinned.ghostId.equals(ghostId) || pinned.epoch != ghostEpoch
+                || !pinned.committed || !pinned.readyAccepted || !pinned.commitSent) return false;
+        Map<UUID, Session> sessions = SERVERS.get(server);
+        if (sessions == null || !sessions.remove(player.getUUID(), pinned)) return false;
+        if (sessions.isEmpty()) SERVERS.remove(server);
+        pinned.gate.reset();
+        if (player.getCamera() == pinned.ghost) player.setCamera(player);
+        GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Stop(pinned.epoch));
+        clearRouterIfEmpty();
+        return true;
+    }
+
     /** Explicit operator escape; never invoked from the cancellable game-mode event. */
     static Optional<SavedLifecycleProfile> parkForDevelopmentMode(ServerPlayer player) {
         if (player == null || !(player.level() instanceof ServerLevel level)) return Optional.empty();
@@ -210,7 +241,6 @@ public final class LifecycleGhostSessionControl {
         if (server == null || !server.isSameThread() || !player.hasPermissions(2)
                 || player.connection == null || !player.connection.isAcceptingMessages()
                 || pinned == null || pinned.player != player || !pinned.committed
-                || !MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
                 || !connectedExact(server, player) || !intentEligible(pinned, level)
                 || !CarrierHandInventoryGate.allows(player)
                 || LifecycleCharacterSessionControl.ownsAny(player)
@@ -353,7 +383,6 @@ public final class LifecycleGhostSessionControl {
             var ghostLevel = session.ghost.level();
             long age = session.player.level().getGameTime() - session.startedTick;
             var diagnostic = new TickTerminalDiagnostic(
-                    MindGhostStartupGate.enabledForServer(), MovementStartupGate.enabledForServer(),
                     connectedExact(server, session.player),
                     session.player.connection != null && session.player.connection.isAcceptingMessages(),
                     ghostLevel == session.player.level(),
@@ -376,19 +405,16 @@ public final class LifecycleGhostSessionControl {
     }
 
     enum TickTerminalReason {
-        NONE, GHOST_GATE_DISABLED, MOVEMENT_CONFLICT, CONNECTION_DISCONNECTED,
+        NONE, CONNECTION_DISCONNECTED,
         EXACT_CONNECTION_INVALID, GHOST_LEVEL_MISMATCH, GHOST_NOT_LIVE, READY_TIMEOUT
     }
 
-    record TickTerminalDiagnostic(boolean ghostStartupEnabled, boolean movementStartupEnabled,
-                                  boolean exactConnected, boolean connectionAcceptingMessages,
+    record TickTerminalDiagnostic(boolean exactConnected, boolean connectionAcceptingMessages,
                                   boolean ghostLevelMatchesPlayer, boolean ghostLive,
                                   boolean committed, boolean beginSent, boolean readyAccepted, boolean commitSent,
                                   boolean readyTimedOut, long handshakeAgeTicksCapped,
                                   String expectedGhostLevel, String currentGhostLevel) {
         TickTerminalReason reasonCode() {
-            if (!ghostStartupEnabled) return TickTerminalReason.GHOST_GATE_DISABLED;
-            if (movementStartupEnabled) return TickTerminalReason.MOVEMENT_CONFLICT;
             if (!exactConnected) return connectionAcceptingMessages
                     ? TickTerminalReason.EXACT_CONNECTION_INVALID : TickTerminalReason.CONNECTION_DISCONNECTED;
             if (!ghostLevelMatchesPlayer) return TickTerminalReason.GHOST_LEVEL_MISMATCH;
@@ -400,8 +426,6 @@ public final class LifecycleGhostSessionControl {
         @Override
         public String toString() {
             return "TickTerminalDiagnostic[reasonCode=" + reasonCode()
-                    + ", ghostStartupEnabled=" + ghostStartupEnabled
-                    + ", movementStartupEnabled=" + movementStartupEnabled
                     + ", exactConnected=" + exactConnected
                     + ", connectionAcceptingMessages=" + connectionAcceptingMessages
                     + ", ghostLevelMatchesPlayer=" + ghostLevelMatchesPlayer
@@ -498,11 +522,17 @@ public final class LifecycleGhostSessionControl {
     }
 
     static boolean validMotion(MovementVector position, Vec3 displacement, MovementVector resolved) {
+        return validMotion(position, displacement, resolved, GhostMovementMotor.SPRINT_SPEED_PER_SECOND,
+                GhostMovementMotor.VERTICAL_SPEED_PER_SECOND);
+    }
+
+    private static boolean validMotion(MovementVector position, Vec3 displacement, MovementVector resolved,
+                                       double horizontalSpeed, double verticalSpeed) {
         return boundedCoordinate(position.x()) && boundedCoordinate(position.y()) && boundedCoordinate(position.z())
                 && Double.isFinite(displacement.x) && Double.isFinite(displacement.y) && Double.isFinite(displacement.z)
-                && withinMotionBound(displacement.x, position.x(), GhostMovementMotor.SPRINT_SPEED_PER_SECOND / 20d)
-                && withinMotionBound(displacement.y, position.y(), GhostMovementMotor.VERTICAL_SPEED_PER_SECOND / 20d)
-                && withinMotionBound(displacement.z, position.z(), GhostMovementMotor.SPRINT_SPEED_PER_SECOND / 20d)
+                && withinMotionBound(displacement.x, position.x(), horizontalSpeed / 20d)
+                && withinMotionBound(displacement.y, position.y(), verticalSpeed / 20d)
+                && withinMotionBound(displacement.z, position.z(), horizontalSpeed / 20d)
                 && Math.abs(position.x() - resolved.x()) <= 1.0e-6
                 && Math.abs(position.y() - resolved.y()) <= 1.0e-6
                 && Math.abs(position.z() - resolved.z()) <= 1.0e-6;
@@ -561,8 +591,7 @@ public final class LifecycleGhostSessionControl {
 
     private static AuthorityDiagnostic authorityDiagnostic(MinecraftServer server, Session session, ServerLevel level) {
         var profile = session.lifecycle.profile(session.accountId).orElse(null);
-        return new AuthorityDiagnostic(MindGhostStartupGate.enabledForServer(),
-                MovementStartupGate.enabledForServer(), connectedExact(server, session.player),
+        return new AuthorityDiagnostic(connectedExact(server, session.player),
                 profile != null && profile.active() && profile.deadClaim()
                         && profile.state() == PlayerLifecycleRegistry.LifecycleState.GHOST
                         && profile.connectionGeneration() == session.epoch && profile.mindId().equals(session.mindId)
@@ -576,8 +605,7 @@ public final class LifecycleGhostSessionControl {
                 live(session.ghost, level));
     }
 
-    record AuthorityDiagnostic(boolean ghostStartupEnabled, boolean movementStartupEnabled,
-                               boolean exactConnected, boolean profileAuthorized, boolean registryAuthorized,
+    record AuthorityDiagnostic(boolean exactConnected, boolean profileAuthorized, boolean registryAuthorized,
                                boolean cameraOwned, boolean spectator, boolean bodyIdMatches,
                                boolean sameLevel, boolean ghostLive) { }
 
@@ -667,6 +695,7 @@ public final class LifecycleGhostSessionControl {
         final com.juicyslew.moonstation14.ms14.player_body_control.MindId mindId;
         final MobHarnessId ghostId, corpseId;
         final long epoch, startedTick;
+        final GhostMovementMotor movementMotor;
         boolean committed;
         boolean beginSent, readyAccepted, commitSent;
         final GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
@@ -674,10 +703,11 @@ public final class LifecycleGhostSessionControl {
         int intentCount;
 
         Session(ServerPlayer player, GhostMobHarnessEntity ghost, PlayerLifecycleRegistry lifecycle,
-                long epoch, MobHarnessId corpseId, long startedTick) {
+                long epoch, MobHarnessId corpseId, long startedTick, GhostMovementMotor movementMotor) {
             this.player = player; this.ghost = ghost; this.lifecycle = lifecycle; this.epoch = epoch;
             this.accountId = player.getUUID(); this.mindId = lifecycle.profile(accountId).orElseThrow().mindId();
             this.ghostId = new MobHarnessId(ghost.getUUID()); this.corpseId = corpseId; this.startedTick = startedTick;
+            this.movementMotor = movementMotor;
         }
     }
 }

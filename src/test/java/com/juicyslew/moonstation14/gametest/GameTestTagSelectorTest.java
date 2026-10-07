@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.List;
 import java.nio.file.Path;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.AfterBatch;
 import com.juicyslew.moonstation14.gametest.support.GameTestTagRegistrar;
 import org.objectweb.asm.*;
@@ -23,13 +24,11 @@ class GameTestTagSelectorTest {
     static class UntaggedFixture {
         @GameTest(templateNamespace = "moonstation14", template = "empty") void test() {}
     }
-
     static class BatchFixture {
-        @GameTest(batch = "selected", templateNamespace = "moonstation14", template = "empty") @GameTestTags("power") void first() {}
-        @GameTest(batch = "selected", templateNamespace = "moonstation14", template = "empty") @GameTestTags("power") void second() {}
-        @GameTest(batch = "other", templateNamespace = "moonstation14", template = "empty") @GameTestTags("chat") void other() {}
-        @AfterBatch(batch = "selected") static void selectedHook(net.minecraft.server.level.ServerLevel level) {}
-        @AfterBatch(batch = "other") static void otherHook(net.minecraft.server.level.ServerLevel level) {}
+        @GameTest(batch = "tour") @GameTestTags("tour") void tour() {}
+        @GameTest(batch = "other") @GameTestTags("other") void other() {}
+        @BeforeBatch(batch = "tour") public static void setup() {}
+        @AfterBatch(batch = "tour") public static void teardown() {}
     }
 
     @Test void absentMeansFullRunAndPresentBlankFails() {
@@ -67,6 +66,7 @@ class GameTestTagSelectorTest {
         }
         int[] tests = {0};
         Set<String> catalogue = new java.util.HashSet<>();
+        Set<String> supportedTemplateNamespaces = Set.of("moonstation14", "moonstation14_camera_tour");
         for (String file : classFiles) {
             ClassReader reader = new ClassReader(java.nio.file.Files.readAllBytes(Path.of(file)));
             if (!reader.getClassName().startsWith("com/juicyslew/moonstation14/")) continue;
@@ -91,8 +91,18 @@ class GameTestTagSelectorTest {
                             gameTest = true;
                             tests[0]++;
                             return new AnnotationVisitor(Opcodes.ASM9) {
+                                boolean namespaceSeen;
+                                boolean supportedNamespace;
                                 @Override public void visit(String key, Object value) {
-                                    if (key.equals("templateNamespace")) assertEquals("moonstation14", value, reader.getClassName() + "." + name);
+                                    if (key.equals("templateNamespace")) {
+                                        namespaceSeen = true;
+                                        supportedNamespace = supportedTemplateNamespaces.contains(value);
+                                        assertTrue(supportedNamespace, "unsupported template namespace " + value + " at " + reader.getClassName() + "." + name);
+                                    }
+                                }
+                                @Override public void visitEnd() {
+                                    assertTrue(namespaceSeen, "GameTest must explicitly declare templateNamespace=moonstation14: " + reader.getClassName() + "." + name);
+                                    assertTrue(supportedNamespace, "unsupported template namespace at " + reader.getClassName() + "." + name);
                                 }
                             };
                         }
@@ -135,17 +145,21 @@ class GameTestTagSelectorTest {
         assertTrue(published.isEmpty());
     }
 
-    @Test void afterBatchHooksFollowSelectedBatchesAndDeduplicateBatchMethods() throws Exception {
-        var first = BatchFixture.class.getDeclaredMethod("first");
-        var second = BatchFixture.class.getDeclaredMethod("second");
+    @Test void batchCallbacksFollowSelectedTestBatches() throws Exception {
+        var tour = BatchFixture.class.getDeclaredMethod("tour");
         var other = BatchFixture.class.getDeclaredMethod("other");
-        var selectedHook = BatchFixture.class.getDeclaredMethod("selectedHook", net.minecraft.server.level.ServerLevel.class);
-        var otherHook = BatchFixture.class.getDeclaredMethod("otherHook", net.minecraft.server.level.ServerLevel.class);
-        var tests = List.of(first, second, other);
-        var hooks = List.of(selectedHook, otherHook);
-
-        assertEquals(Set.of(selectedHook), GameTestTagRegistrar.selectAfterBatchMethods(tests, hooks, Set.of("power")));
-        assertEquals(Set.of(), GameTestTagRegistrar.selectAfterBatchMethods(tests, hooks, Set.of("missing")));
-        assertEquals(Set.of(selectedHook, otherHook), GameTestTagRegistrar.selectAfterBatchMethods(tests, hooks, Set.of()));
+        var setup = BatchFixture.class.getDeclaredMethod("setup");
+        var teardown = BatchFixture.class.getDeclaredMethod("teardown");
+        List<java.lang.reflect.Method> methods = List.of(tour, other);
+        List<java.lang.reflect.Method> callbacks = List.of(setup, teardown);
+        List<java.lang.reflect.Method> published = new java.util.ArrayList<>();
+        GameTestTagRegistrar.registerMethods(methods, Set.of("tour"), callbacks, published::add);
+        assertEquals(Set.of(tour, setup, teardown), Set.copyOf(published));
+        published.clear();
+        GameTestTagRegistrar.registerMethods(methods, Set.of(), callbacks, published::add);
+        assertEquals(Set.of(tour, other, setup, teardown), Set.copyOf(published));
+        published.clear();
+        assertThrows(IllegalStateException.class, () -> GameTestTagRegistrar.registerMethods(methods, Set.of("missing"), callbacks, published::add));
+        assertTrue(published.isEmpty());
     }
 }

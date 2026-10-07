@@ -198,13 +198,12 @@ class BodyTemperatureSystemTest {
     }
 
     @Test
-    void spectatorControllerAndUnboundOrDisabledActorPoliciesAreInert() {
-        assertFalse(BodyTemperatureSystem.eligibleForThermal(true, true, true, true));
-        assertFalse(BodyTemperatureSystem.eligibleForThermal(true, false, false, true));
-        assertFalse(BodyTemperatureSystem.eligibleForThermal(true, false, true, false));
-        assertTrue(BodyTemperatureSystem.eligibleForThermal(true, false, true, true));
+    void spectatorControllerAndUnboundActorPoliciesAreInert() {
+        assertFalse(BodyTemperatureSystem.eligibleForThermal(true, true, true));
+        assertFalse(BodyTemperatureSystem.eligibleForThermal(true, false, false));
+        assertTrue(BodyTemperatureSystem.eligibleForThermal(true, false, true));
         // A corporeal villager is not rejected by the spectator-player policy.
-        assertTrue(BodyTemperatureSystem.eligibleForThermal(true, false, true, true));
+        assertTrue(BodyTemperatureSystem.eligibleForThermal(true, false, true));
     }
 
     @Test

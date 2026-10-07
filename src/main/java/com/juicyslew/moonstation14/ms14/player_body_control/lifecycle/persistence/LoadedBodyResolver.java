@@ -9,13 +9,11 @@ import java.util.function.Predicate;
 public final class LoadedBodyResolver {
     private LoadedBodyResolver() { }
 
-    /** The caller must establish both startup gates before enabling a lookup. */
-    public static Resolution resolve(SavedLifecycleProfile profile, boolean runtimeEnabled,
+    public static Resolution resolve(SavedLifecycleProfile profile,
                                      ReadOnlyLookup lookup, Predicate<Candidate> eligibleCharacter) {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(lookup, "lookup");
         Objects.requireNonNull(eligibleCharacter, "eligibleCharacter");
-        if (!runtimeEnabled) return new Resolution(Outcome.DISABLED, null);
         if (profile.state() != SavedLifecycleProfile.State.OFFLINE) return recovery();
 
         LookupResult result = lookup.findExact(profile.bodyId());
@@ -54,7 +52,7 @@ public final class LoadedBodyResolver {
     }
 
     public enum LookupKind { LOADED, UNLOADED, MISSING, AMBIGUOUS }
-    public enum Outcome { DISABLED, SAME_BODY_AVAILABLE, DEFER_KNOWN_BODY, RECOVERY_REQUIRED }
+    public enum Outcome { SAME_BODY_AVAILABLE, DEFER_KNOWN_BODY, RECOVERY_REQUIRED }
 
     public record LookupResult(LookupKind kind, List<Candidate> candidates) {
         public LookupResult {

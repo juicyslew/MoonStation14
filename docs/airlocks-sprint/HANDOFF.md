@@ -11,6 +11,9 @@ in the working tree.
 Final artifact: `build/libs/moonstation14-0.0.1.jar`.
 SHA-256: `C9A2D693C5F865F5D287B1480DDC76342CBE0561EF0A467BF7E2C4AE26C34A74`.
 
+This is the sprint-closure artifact, not the subsequent main-integration build.
+See `MERGE-MAIN.md` for that merge's current artifact and validation evidence.
+
 ## ARCHITECTURE
 
 - One lower controller owns a one-wide, two-tall doorway. Upper/lower interaction
@@ -32,6 +35,13 @@ SHA-256: `C9A2D693C5F865F5D287B1480DDC76342CBE0561EF0A467BF7E2C4AE26C34A74`.
   Global L-Alt pointer intent does not close the session. HUD, hands, storage,
   chat, and ordinary gameplay routing remain available. Embedded screens must
   undergo normal `Screen.init` before rendering, including first use and resize.
+- Subsequent main integration retains medical/posture, disposal/containment,
+  observer, and native movement ownership. Airlock workspace routing coexists
+  with `BodyMovementIntentScreen`; shared power services retain both airlock and
+  disposal loads. Main's retired simulation gates and legacy movement protocol
+  must not be restored. The registered `Entity.move` observer remains the bump
+  entry point. Active admission includes main's medical/containment policies as
+  well as stun; read-only UI lifetime remains separate.
 
 ## IMPORTANT FILES
 
@@ -42,8 +52,10 @@ SHA-256: `C9A2D693C5F865F5D287B1480DDC76342CBE0561EF0A467BF7E2C4AE26C34A74`.
 - `.../ms14/hands/client/{BodyHandClient,StoragePopupScreen}.java`: shared
   workspace/HUD/pointer routing.
 - `.../ms14/character/CharacterControlSystem.java`: authoritative status gates.
-- `.../mixin/client/LivingEntityWishFacingMixin.java`: knockdown projection;
-  renderer injection requires the fourth `scale` float.
+- `.../mixin/client/LivingEntityProneRenderMixin.java`: main's canonical prone
+  renderer with synchronized knockdown fallback; injection retains the fourth
+  `scale` float. The obsolete `LivingEntityWishFacingMixin` was retired during
+  main integration. Preserve physical posture and avoid duplicate pose scaling.
 - `src/gametest/java/com/juicyslew/moonstation14/ms14/doors/`: live fixtures.
 - Supporting indexes: `PARITY.md`, `ELECTRIFICATION.md`, `WIRE-UI.md`,
   `RENDERING.md`, `ASSETS.md`, `BUMP.md`, `VALIDATION.md`, and `MANUAL.md` here;

@@ -957,6 +957,71 @@ public final class PlayerLifecycleRegistry {
         }
     }
 
+    /**
+     * Durably returns a revived corpse to its original character body. The caller must already have
+     * authenticated this account and provide a world-backed eligibility predicate (including alive).
+     */
+    public synchronized Optional<Snapshot> returnRevivedCorpseDurably(
+            LifecycleProfileStore.CurrentPrimary primary, SavedLifecycleProfile saved, long expectedGeneration,
+            TargetEligibility eligibleLivingCharacter) throws IOException {
+        synchronized (ownership) {
+            Objects.requireNonNull(primary); Objects.requireNonNull(saved); Objects.requireNonNull(eligibleLivingCharacter);
+            if (!primary.isActive() || saved.schemaVersion() != SavedLifecycleProfile.CURRENT_SCHEMA
+                    || (saved.state() != SavedLifecycleProfile.State.DEAD_CLAIM && saved.state() != SavedLifecycleProfile.State.GHOST))
+                return Optional.empty();
+            LifecycleStoreEnvelope envelope = primary.envelope();
+            if (envelope.schemaVersion() != LifecycleStoreEnvelope.CURRENT_SCHEMA
+                    || !saved.connectionEpoch().equals(envelope.epochToken())
+                    || envelope.profiles().stream().filter(saved::equals).count() != 1) return Optional.empty();
+            ProfileRecord record = byAccount.get(saved.accountId());
+            MindId mindId = new MindId(saved.mindId());
+            MobHarnessId corpseId = new MobHarnessId(saved.bodyId());
+            // The durable row deliberately remains DEAD_CLAIM while the resumed ghost is active;
+            // GHOST is an in-memory lifecycle state, not a persisted profile state.
+            boolean savedGhostClaim = saved.state() == SavedLifecycleProfile.State.DEAD_CLAIM
+                    || saved.state() == SavedLifecycleProfile.State.GHOST;
+            if (record == null || !record.restoredFromStore || !savedGhostClaim
+                    || record.active != (record.state == LifecycleState.GHOST)
+                    || !record.deadClaim || record.generation != expectedGeneration || !record.mindId.equals(mindId)
+                    || !record.profileId.equals(saved.profileKey()) || !Objects.equals(record.corpseBodyId, corpseId)
+                    || saved.connectionGeneration() > envelope.generationCounter()) return Optional.empty();
+            MobHarnessId previousBody = record.bodyId;
+            var mind = ownership.mind(saved.accountId()).orElse(null);
+            if (mind == null || !mind.id().equals(mindId) || !previousBody.equals(mind.harnessId())
+                    || mind.epoch() != expectedGeneration) return Optional.empty();
+            var preview = ownership.previewRevivedDeadClaim(saved.accountId(), mindId, previousBody, corpseId,
+                    expectedGeneration, envelope.generationCounter(), eligibleLivingCharacter, capability);
+            if (preview.isEmpty()) return Optional.empty();
+            final long revision;
+            try { revision = Math.incrementExact(saved.revision()); } catch (ArithmeticException overflow) { return Optional.empty(); }
+            long next = preview.orElseThrow().nextEpoch();
+            SavedLifecycleProfile active = new SavedLifecycleProfile(saved.schemaVersion(), saved.accountId(),
+                    saved.profileKey(), saved.mindId(), saved.bodyId(), saved.dimension(), saved.location(),
+                    saved.appearance(), saved.connectionEpoch(), next, SavedLifecycleProfile.State.ACTIVE, revision, null);
+            ArrayList<SavedLifecycleProfile> profiles = new ArrayList<>(envelope.profiles().size());
+            boolean replaced = false;
+            for (SavedLifecycleProfile item : envelope.profiles()) {
+                if (item.equals(saved)) { if (replaced) return Optional.empty(); profiles.add(active); replaced = true; }
+                else profiles.add(item);
+            }
+            if (!replaced) return Optional.empty();
+            primary.compareAndSwap(Math.max(envelope.generationCounter(), next), profiles);
+            var committed = ownership.commitRevivedDeadClaim(preview.orElseThrow(), previousBody,
+                    eligibleLivingCharacter, capability);
+            if (committed.isEmpty()) {
+                ownership.suspendLifecycleForRecovery(saved.accountId(), mindId, capability);
+                byBody.remove(previousBody); record.bodyId = corpseId; record.generation = next;
+                record.active = false; record.deadClaim = false; record.state = LifecycleState.RECOVERY_REQUIRED;
+                byBody.put(corpseId, record); return Optional.empty();
+            }
+            byBody.remove(previousBody); record.bodyId = corpseId; record.corpseBodyId = null;
+            record.generation = committed.orElseThrow().epoch(); record.active = true;
+            record.deadClaim = false; record.state = LifecycleState.ACTIVE; record.durableActive = true;
+            byBody.put(corpseId, record);
+            return Optional.of(record.snapshot());
+        }
+    }
+
     /** Read-only exact ACTIVE CHARACTER authority check for runtime snapshots. */
     public synchronized boolean authorizesActiveCharacterReadOnly(UUID accountId, MindId expectedMindId,
             long expectedGeneration, MobHarnessId bodyId) {

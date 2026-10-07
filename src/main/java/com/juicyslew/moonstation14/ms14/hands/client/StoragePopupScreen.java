@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Transparent pointer layer. Windows are snapshot presentations, never client inventories. */
-public final class StoragePopupScreen extends net.minecraft.client.gui.screens.Screen implements com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow {
+public final class StoragePopupScreen extends net.minecraft.client.gui.screens.Screen implements com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow, com.juicyslew.moonstation14.ms14.player_body_control.client.BodyMovementIntentScreen {
     private static final int CELL = StoragePopupLayout.CELL_SIZE;
     private final StoragePopupWorkspace workspace;
     private StoragePopupWorkspace.HostKey moving, dragging;

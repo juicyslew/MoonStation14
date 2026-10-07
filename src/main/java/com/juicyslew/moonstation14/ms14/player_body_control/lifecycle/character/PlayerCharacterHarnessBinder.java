@@ -3,8 +3,6 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -19,8 +17,6 @@ public final class PlayerCharacterHarnessBinder {
 
     public static boolean bind(Mob body, UUID accountId, String profileKey,
                                UUID mindId, ResourceLocation characterPrototypeKey) {
-        // Startup-sampled policy is checked before inspecting the target or its server/lifecycle state.
-        if (!gatesPermitBinding()) return false;
         if (body == null || !(body.level() instanceof ServerLevel level)
                 || level.getServer() == null || !level.getServer().isSameThread()) return false;
         if (!(body instanceof PlayerCharacterHarnessEntity harness)
@@ -59,13 +55,7 @@ public final class PlayerCharacterHarnessBinder {
     /** Exact binding inspection; does not resolve or infer ownership from a prototype key. */
     public static PlayerCharacterBinding binding(Entity entity) {
         return entity instanceof PlayerCharacterHarnessEntity harness ? harness.playerCharacterBinding() : null;
-    }
-
-    static boolean gatesPermitBinding() {
-        return MindGhostStartupGate.enabledForServer() && !MovementStartupGate.enabledForServer();
-    }
-
-    static boolean canReuseBinding(PlayerCharacterBinding current, PlayerCharacterBinding requested) {
+    }static boolean canReuseBinding(PlayerCharacterBinding current, PlayerCharacterBinding requested) {
         return current == null || current.equals(requested);
     }
 

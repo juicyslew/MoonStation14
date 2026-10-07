@@ -20,17 +20,9 @@ class MinecraftCharacterDeathEvidenceTest {
     private static final MobHarness CHARACTER = new MobHarness(new MobHarnessId(id(3)), MobHarnessKind.CHARACTER);
 
     @Test
-    void gatesOffAndMovementConflictReturnBeforeWorldLookup() {
-        AtomicInteger lookups = new AtomicInteger();
-        assertFalse(verify(false, false, lookups, UnaryOperator.identity()));
-        assertFalse(verify(true, true, lookups, UnaryOperator.identity()));
-        assertEquals(0, lookups.get());
-    }
-
-    @Test
     void aliveBodyIsNotDeathEvidence() {
         AtomicInteger lookups = new AtomicInteger();
-        assertFalse(verify(true, false, lookups, observation -> new MinecraftCharacterDeathEvidence.Observation(
+        assertFalse(verify(lookups, observation -> new MinecraftCharacterDeathEvidence.Observation(
                 observation.entityId(), observation.dimension(), observation.accountId(), observation.profileKey(),
                 observation.mindId(), observation.registeredCustomEntity(), observation.validBinding(),
                 observation.humanPrototype(), false)));
@@ -51,14 +43,14 @@ class MinecraftCharacterDeathEvidenceTest {
         assertTrue(result(UnaryOperator.identity()));
     }
 
-    private static boolean verify(boolean enabled, boolean conflict, AtomicInteger lookups,
+    private static boolean verify(AtomicInteger lookups,
                                   UnaryOperator<MinecraftCharacterDeathEvidence.Observation> transform) {
-        return MinecraftCharacterDeathEvidence.verifyObserved(PROFILE, CHARACTER, enabled, conflict, true,
+        return MinecraftCharacterDeathEvidence.verifyObserved(PROFILE, CHARACTER, true,
                 () -> { lookups.incrementAndGet(); return transform.apply(good()); });
     }
 
     private static boolean result(UnaryOperator<MinecraftCharacterDeathEvidence.Observation> transform) {
-        return verify(true, false, new AtomicInteger(), transform);
+        return verify(new AtomicInteger(), transform);
     }
 
     private static MinecraftCharacterDeathEvidence.Observation good() {

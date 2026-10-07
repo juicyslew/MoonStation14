@@ -27,8 +27,6 @@ public final class AtmosphereAmbientBreachGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_ambient_breach", timeoutTicks = 120, templateNamespace = "moonstation14")
     public static void nominalAmbientRoomDrainsAndStopsAfterReseal(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        if (AtmosphereService.INSTANCE.isEnabled())
-            throw new GameTestAssertException("isolated ambient breach test requires global atmosphere disabled");
         // 2x2x2 room (8 cells), fully enclosed; its east wall opens directly into the template's open sky.
         shell(helper, true);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());

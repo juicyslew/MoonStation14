@@ -6,6 +6,15 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.FunctionalVentilationDevice
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.FunctionalAirAlarmPlacement;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService;
+import com.juicyslew.moonstation14.ms14.containment.DisposalContainedActionPolicy;
+import com.juicyslew.moonstation14.ms14.disposal.ui.DisposalBuildMenuService;
+import com.juicyslew.moonstation14.ms14.construction.tool.BodyDisposalTubeAnchorUse;
+import com.juicyslew.moonstation14.ms14.construction.tool.BodyDisposalTubeJunctionUse;
+import com.juicyslew.moonstation14.ms14.construction.tool.BodyDisposalTubeWelderUse;
+import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
+import com.juicyslew.moonstation14.ms14.disposal.unit.FunctionalDisposalUnitPlacement;
+import com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService;
+import com.juicyslew.moonstation14.ms14.hands.live.DisposalUnitHandAdapter;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -25,11 +34,39 @@ public final class BodyHandActionNetworking {
                 .playToServer(BodyBlockUseRequest.TYPE, BodyBlockUseRequest.STREAM_CODEC, (request, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
-                    var admission = BodyHandRequestService.admitBlockUse(actor, request);
+                      boolean contained = DisposalContainedActionPolicy.isContained(actor);
+                     boolean containedTarget = contained && DisposalContainedActionPolicy.permitsOwnerBlockTarget(actor, request);
+                     if (contained && !containedTarget) {
+                        PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), BodyBlockUseResult.Outcome.DENIED));
+                        return;
+                    }
+                     var admission = BodyHandRequestService.admitBlockUse(actor, request);
+                     if (contained && admission != null
+                             && !(admission.authority().body().level().getBlockEntity(admission.hit().pos())
+                                  instanceof DisposalUnitBlockEntity)) admission = null;
                     BodyBlockUseResult.Outcome outcome = BodyBlockUseResult.Outcome.DENIED;
-                    if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
-                        var held = admission.hands().stackCopy(request.handId()).orElse(null);
-                        if (held != null && (held.is(ModItems.GAS_VENT.get()) || held.is(ModItems.GAS_SCRUBBER.get()))) {
+                     if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
+                         var held = admission.hands().stackCopy(request.handId()).orElse(null);
+                         var body = admission.authority().body();
+                         var targetEntity = body.level().getBlockEntity(admission.hit().pos());
+                         if (held != null && targetEntity instanceof DisposalUnitBlockEntity unit) {
+                             boolean inserted = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.revalidate(actor, admission.authority())
+                                     && DisposalUnitHandAdapter.insert(body, request.handId(), request.expectedRevision(), unit);
+                             outcome = inserted ? BodyBlockUseResult.Outcome.PLACED : BodyBlockUseResult.Outcome.DENIED;
+                          } else if (held != null && held.is(ModItems.WRENCH.get())) {
+                              outcome = BodyDisposalTubeAnchorUse.begin(actor, request, admission)
+                                      ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+                          } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
+                              outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
+                                      ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+                          } else if (held != null && held.is(ModItems.WELDER.get())) {
+                              outcome = BodyDisposalTubeWelderUse.begin(actor, request, admission)
+                                      ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+                          } else if (held != null && held.is(ModItems.DISPOSAL_UNIT.get())) {
+                             var result = FunctionalDisposalUnitPlacement.place(actor, request, admission);
+                             outcome = result == FunctionalDisposalUnitPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                     : result == FunctionalDisposalUnitPlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                         } else if (held != null && (held.is(ModItems.GAS_VENT.get()) || held.is(ModItems.GAS_SCRUBBER.get()))) {
                             var result = FunctionalVentilationDevicePlacement.place(actor, request, admission);
                             outcome = result == FunctionalVentilationDevicePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
                                     : result == FunctionalVentilationDevicePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
@@ -43,14 +80,40 @@ public final class BodyHandActionNetworking {
                             var result = FunctionalExposedPipePlacement.place(actor, request, admission);
                             outcome = result == FunctionalExposedPipePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
                                     : result == FunctionalExposedPipePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                           } else if (held != null && DisposalBuildMenuService.matchesActiveMaterial(admission.authority(), held)) {
+                               long beforeRevision = request.expectedRevision();
+                               boolean handled = DisposalBuildMenuService.useSelected(actor, request, admission);
+                               var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                               outcome = handled
+                                       ? BodyConstructionOutcomePolicy.outcome(true, beforeRevision,
+                                               liveHands == null ? null : liveHands.revision())
+                                       : BodyWorldItemActions.use(actor, request, admission);
                         } else if (held == null) {
                             boolean opened = AirAlarmMenuService.open(actor, request, admission);
                             if (opened) outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
                         } else {
                             outcome = BodyWorldItemActions.use(actor, request, admission);
                         }
-                    } else if (admission != null) {
-                        outcome = BodyWorldItemActions.activate(actor, request, admission);
+                      } else if (admission != null) {
+                        var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
+                        var held = admission.hands().stackCopy(request.handId()).orElse(null);
+                          if (request.intent() == BodyBlockUseRequest.Intent.CLIMB_INSIDE
+                                 && targetEntity instanceof DisposalUnitBlockEntity unit
+                                 && DisposalUnitMenuService.beginDirect(actor, unit, admission.authority()))
+                             outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                         else if (request.intent() == BodyBlockUseRequest.Intent.CLIMB_INSIDE)
+                             outcome = BodyBlockUseResult.Outcome.DENIED;
+                         else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                && targetEntity instanceof DisposalUnitBlockEntity unit
+                                && DisposalUnitMenuService.open(actor, unit, admission.authority()))
+                            outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                        else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                && targetEntity instanceof DisposalUnitBlockEntity)
+                            outcome = BodyBlockUseResult.Outcome.DENIED;
+                        else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                && DisposalBuildMenuService.openEdit(actor, request, admission))
+                            outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                        else outcome = BodyWorldItemActions.activate(actor, request, admission);
                     }
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
                         PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), outcome));
@@ -62,6 +125,12 @@ public final class BodyHandActionNetworking {
                     // Never acknowledge a displaced connection or an actor not currently online.
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor)
                         return;
+                     if (DisposalContainedActionPolicy.isContained(actor)
+                             && !DisposalContainedActionPolicy.permitsBodyHandAction(request.action())) {
+                        PacketDistributor.sendToPlayer(actor, new BodyHandActionResult(request.epoch(), request.sequence(), false,
+                                BodyHandActionResult.Reason.DENIED, false, 0, null, null, null, 0));
+                        return;
+                    }
                     BodyHandActionResult result = BodyHandRequestService.apply(actor, request);
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
                         PacketDistributor.sendToPlayer(actor, result);
@@ -82,9 +151,10 @@ public final class BodyHandActionNetworking {
                         (snapshot, context) -> {
                             if (FMLEnvironment.dist == Dist.CLIENT) BodyHandStateSnapshot.deliverClient(snapshot);
                         })
-                .playToServer(BodyWorldGridQuery.TYPE, BodyWorldGridQuery.STREAM_CODEC, (query, context) -> {
+                 .playToServer(BodyWorldGridQuery.TYPE, BodyWorldGridQuery.STREAM_CODEC, (query, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
+                    if (DisposalContainedActionPolicy.isContained(actor)) return;
                     var snapshot = BodyWorldGridService.query(actor, query);
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor) PacketDistributor.sendToPlayer(actor, snapshot);
                 })
@@ -96,6 +166,7 @@ public final class BodyHandActionNetworking {
                 .playToServer(BodyWorldGridAction.TYPE, BodyWorldGridAction.STREAM_CODEC, (action, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
+                    if (DisposalContainedActionPolicy.deniesExternalMutation(actor)) return;
                     var result = BodyWorldGridService.action(actor, action);
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor) PacketDistributor.sendToPlayer(actor, result);
                 })
@@ -105,6 +176,7 @@ public final class BodyHandActionNetworking {
                 .playToServer(BodyWorldCrossAction.TYPE, BodyWorldCrossAction.STREAM_CODEC, (action, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
+                    if (DisposalContainedActionPolicy.deniesExternalMutation(actor)) return;
                     var result = BodyWorldGridService.cross(actor, action);
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor) PacketDistributor.sendToPlayer(actor, result);
                 })
@@ -114,6 +186,7 @@ public final class BodyHandActionNetworking {
                 .playToServer(BodyWorldWorldCrossAction.TYPE, BodyWorldWorldCrossAction.STREAM_CODEC, (action, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
+                    if (DisposalContainedActionPolicy.deniesExternalMutation(actor)) return;
                     var result = BodyWorldGridService.worldCross(actor, action);
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor) PacketDistributor.sendToPlayer(actor, result);
                 })

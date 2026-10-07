@@ -7,7 +7,6 @@ import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData;
 import com.juicyslew.moonstation14.ms14.chat.network.LocalCharacterIdentityPayload;
 import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
@@ -18,10 +17,11 @@ import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHa
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
+import com.juicyslew.moonstation14.ms14.player_body_control.network.CharacterMovementModeResolver;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
@@ -63,8 +63,6 @@ public final class LifecycleCharacterSessionControl {
     private LifecycleCharacterSessionControl() { }
 
     public enum StartResult {
-        GATE_OFF,
-        MOVEMENT_CONFLICT,
         INVALID_PLAYER,
         DEBUG_SESSION_CONFLICT,
         INVALID_ACTIVE_BODY,
@@ -87,8 +85,6 @@ public final class LifecycleCharacterSessionControl {
 
     private static StartResult preflight(ServerPlayer player, PlayerCharacterHarnessEntity body,
                                          PlayerLifecycleRegistry lifecycle, long epoch) {
-        if (!MindGhostStartupGate.enabledForServer()) return StartResult.GATE_OFF;
-        if (MovementStartupGate.enabledForServer()) return StartResult.MOVEMENT_CONFLICT;
         if (player == null || body == null || lifecycle == null || epoch <= 0
                 || !(player.level() instanceof ServerLevel level) || level.getServer() == null
                 || !level.getServer().isSameThread()
@@ -233,8 +229,7 @@ public final class LifecycleCharacterSessionControl {
         if (payload instanceof GhostControlPayloads.Ready ready) {
             if (!session.beginSent || !readyDecision(ready.epoch(), session.epoch, session.committed,
                     level.getGameTime() - session.startedTick, READY_TIMEOUT_TICKS)) return;
-            if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
-                    || preflight(player, session.body, session.lifecycle, session.epoch) != null
+            if (preflight(player, session.body, session.lifecycle, session.epoch) != null
                     || !authorized(session)) {
                 fail(server, session, FailureReason.PRECOMMIT_INELIGIBLE);
                 return;
@@ -360,7 +355,6 @@ public final class LifecycleCharacterSessionControl {
     @SubscribeEvent
     public static void serverTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()) return;
         Map<UUID, Session> sessions = SERVERS.get(server);
         if (sessions == null) return;
         for (Session session : sessions.values().toArray(Session[]::new)) {
@@ -399,8 +393,7 @@ public final class LifecycleCharacterSessionControl {
         if (!(event.getEntity() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) return;
         MinecraftServer server = level.getServer();
         Session session = server == null ? null : session(server, player.getUUID());
-        if (session != null && session.player == player && MindGhostStartupGate.enabledForServer()
-                && !MovementStartupGate.enabledForServer()) cleanLogout(server, session);
+        if (session != null && session.player == player) cleanLogout(server, session);
     }
 
     /** Drain while level entities and the startup context still exist, ahead of world saving. */
@@ -408,7 +401,7 @@ public final class LifecycleCharacterSessionControl {
     public static void serverStopping(ServerStoppingEvent event) {
         MinecraftServer server = event.getServer();
         Map<UUID, Session> sessions = SERVERS.get(server);
-        if (sessions != null && MindGhostStartupGate.enabledForServer() && !MovementStartupGate.enabledForServer())
+        if (sessions != null)
             for (Session session : sessions.values().toArray(Session[]::new)) cleanLogout(server, session);
     }
 
@@ -496,8 +489,7 @@ public final class LifecycleCharacterSessionControl {
     }
 
     private static boolean parkPreflight(MinecraftServer server, ServerPlayer player, Session session) {
-        return MindGhostStartupGate.enabledForServer() && !MovementStartupGate.enabledForServer()
-                && server != null && server.isSameThread() && connectedExact(server, player)
+        return server != null && server.isSameThread() && connectedExact(server, player)
                 && session.player == player && authorized(session)
                 && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR
                 && !player.isPassenger()
@@ -627,13 +619,20 @@ public final class LifecycleCharacterSessionControl {
         float yaw = (float) (body.getYRot() - 360.0 * Math.floor((body.getYRot() + 180.0) / 360.0));
         float pitch = Math.max(-90f, Math.min(90f, body.getXRot()));
         float surface = (float) SlidingFrictionSystem.frictionFactor(body);
-        float voluntary = (float) (CharacterControlSystem.isKnockedDown(body)
+        boolean down = com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(body);
+        float voluntary = (float) (down
+                ? com.juicyslew.moonstation14.ms14.standing.PostureSystem.crawlMultiplier(body)
+                : CharacterControlSystem.isKnockedDown(body)
                 ? com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d);
+        var owner = BodyContainmentService.forLevel((ServerLevel) body.level()).ownerOf(body).orElse(null);
+        var movementMode = CharacterMovementModeResolver.fromExactOwner(owner);
         try {
             var snapshot = new GhostControlPayloads.Snapshot(session.epoch, body.getId(), MobHarnessKind.CHARACTER,
                     tick, session.lastAppliedSequence, position.x, position.y, position.z, yaw, pitch,
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
-                    CharacterControlSystem.isStunned(body));
+                    !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
+                            ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
+                    movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view));
             if (!snapshotBoundToSession(snapshot, session.epoch, body.getId())) {
                 fail(server, session, FailureReason.SNAPSHOT_BINDING_MISMATCH);
                 return;
@@ -661,6 +660,12 @@ public final class LifecycleCharacterSessionControl {
     private static Session session(MinecraftServer server, UUID account) {
         Map<UUID, Session> sessions = SERVERS.get(server);
         return sessions == null ? null : sessions.get(account);
+    }
+
+    static boolean hasSession(ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level)) return false;
+        MinecraftServer server = level.getServer();
+        return server != null && session(server, player.getUUID()) != null;
     }
 
     /** Exact committed lifecycle possession; appearance self-service is unavailable during handshake. */
@@ -728,7 +733,8 @@ public final class LifecycleCharacterSessionControl {
         }
         if (claimed) {
             boolean stopSent = finishDeathClaim(server, session);
-            if (stopSent) handoffClaimedDeath(server, session);
+            if (stopSent) LifecycleMedicalObserverBridge.beginConnectedCorpse(server, session.player,
+                    body, session.epoch, session.accountId, session.profileId, session.mindId, session.bodyId);
             else disconnectAfterDeathClaim(server, session.player,
                     "Your character has died, but ghost entry could not be completed safely. Log out and reconnect to retry, or contact an administrator.");
         }
@@ -753,45 +759,6 @@ public final class LifecycleCharacterSessionControl {
             // The old epoch is revoked; do not start a new handshake if Stop could not be delivered.
         }
         return false;
-    }
-
-    /** Claim is durable and the old epoch is revoked before staging or authorizing a ghost. */
-    private static void handoffClaimedDeath(MinecraftServer server, Session oldSession) {
-        ServerPlayer player = oldSession.player;
-        if (!connectedExact(server, player)) return;
-        LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
-        if (context == null) {
-            disconnectAfterDeathClaim(server, player, "Your character has died, but ghost entry is temporarily unavailable. Log out and reconnect to retry, or contact an administrator.");
-            return;
-        }
-        LifecycleDeadClaimGhostStager.Result staged;
-        try {
-            staged = LifecycleDeadClaimGhostStager.stageConnectedDeath(player, server);
-        } catch (RuntimeException | Error failure) {
-            staged = null;
-        }
-        if (staged == null || staged.outcome() != LifecycleDeadClaimGhostStager.Outcome.PREPARED
-                || staged.prepared() == null) {
-            String detail = staged == null ? "unexpected staging failure" : staged.diagnostic();
-            com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
-                    "Saved character death could not be handed off to a ghost (account={}): {}",
-                    player.getUUID(), detail);
-            disconnectAfterDeathClaim(server, player, "Your character has died, but ghost entry could not be prepared safely. Log out and reconnect to retry, or contact an administrator.");
-            return;
-        }
-
-        var prepared = staged.prepared();
-        try {
-            LifecycleGhostSessionControl.StartResult started = LifecycleGhostSessionControl.beginPrepared(
-                    player, prepared.ghost(), context.lifecycle(), prepared.generation(),
-                    new MobHarnessId(prepared.corpseUUID()));
-            if (started == LifecycleGhostSessionControl.StartResult.PREPARED) return;
-        } catch (RuntimeException | Error failure) {
-            // The prepared ghost is returned below; the durable DEAD_CLAIM and corpse remain authoritative.
-        }
-        if (!LifecycleDeadClaimGhostStager.returnPreparedToDeadClaim(context, prepared))
-            LifecycleDeadClaimGhostStager.suspendAndDiscardPrepared(context, prepared);
-        disconnectAfterDeathClaim(server, player, "Your character has died, but ghost entry could not be started safely. Log out and reconnect to retry, or contact an administrator.");
     }
 
     private static void disconnectAfterDeathClaim(MinecraftServer server, ServerPlayer player, String message) {
@@ -871,12 +838,6 @@ public final class LifecycleCharacterSessionControl {
                                           boolean currentActiveEpoch, boolean exactConnectedOwner,
                                           boolean serverThread) {
         return exactBindingAndHuman && exactSession && currentActiveEpoch && exactConnectedOwner && serverThread;
-    }
-
-    static StartResult gateDecision(boolean masterEnabled, boolean movementConflict) {
-        if (!masterEnabled) return StartResult.GATE_OFF;
-        if (movementConflict) return StartResult.MOVEMENT_CONFLICT;
-        return StartResult.CONTROLLER_INTEGRATION_REQUIRED;
     }
 
     static boolean intentRateAllows(int intentCount) {

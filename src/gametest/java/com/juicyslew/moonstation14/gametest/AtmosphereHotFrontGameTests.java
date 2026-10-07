@@ -23,8 +23,6 @@ public final class AtmosphereHotFrontGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_hot_front_regression", timeoutTicks = 420, templateNamespace = "moonstation14")
     public static void sealedHotFrontMakesThermalProgressWithoutOngoingWrites(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        if (AtmosphereService.INSTANCE.isEnabled())
-            throw new GameTestAssertException("isolated hot-front test requires global atmosphere disabled");
 
         // 4x3x1 sealed finite room; its source is one corner and the far probe is diagonally opposite.
         for (int x = 1; x <= 6; x++) for (int z = 1; z <= 5; z++) {
@@ -91,8 +89,6 @@ public final class AtmosphereHotFrontGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_hot_front_regression", timeoutTicks = 420, templateNamespace = "moonstation14")
     public static void ongoingMoleChangesDoNotStarveThermalSharing(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        if (AtmosphereService.INSTANCE.isEnabled())
-            throw new GameTestAssertException("isolated hot-front test requires global atmosphere disabled");
         buildRoom(helper);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         BlockPos source = helper.absolutePos(new BlockPos(2, 1, 2));

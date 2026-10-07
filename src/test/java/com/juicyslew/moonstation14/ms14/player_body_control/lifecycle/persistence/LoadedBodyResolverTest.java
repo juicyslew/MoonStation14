@@ -1,7 +1,5 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence;
 
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -16,42 +14,15 @@ class LoadedBodyResolverTest {
     private static final UUID ACCOUNT = id(1);
     private static final UUID BODY = id(2);
 
-    @Test void disabledGateReturnsBeforeLookup() {
-        AtomicInteger calls = new AtomicInteger();
-        var result = resolve(false, ignored -> { calls.incrementAndGet(); return LookupResult.missing(); },
-                candidate -> true);
-        assertEquals(Outcome.DISABLED, result.outcome());
-        assertEquals(0, calls.get());
-    }
-
-    @Test void minecraftAdapterGatesMasterAndMovementBeforeLookupOrThreadAccess() {
-        AtomicInteger calls = new AtomicInteger();
-        var off = MinecraftLoadedBodyAdapter.observe(profile(SavedLifecycleProfile.State.OFFLINE), false, false,
-                false, ignored -> { calls.incrementAndGet(); return LookupResult.missing(); }, c -> true);
-        var conflict = MinecraftLoadedBodyAdapter.observe(profile(SavedLifecycleProfile.State.OFFLINE), true, true,
-                false, ignored -> { calls.incrementAndGet(); return LookupResult.missing(); }, c -> true);
-        assertEquals(Outcome.DISABLED, off.outcome());
-        assertEquals(Outcome.DISABLED, conflict.outcome());
-        assertEquals(0, calls.get());
-    }
-
-    @Test void publicMinecraftAdapterReturnsDisabledForNullInputsBeforeDereferenceWhenGateIsOff() {
-        MindGhostStartupGate.onServerStopped();
-        MovementStartupGate.onServerStopped();
-        assertEquals(Outcome.DISABLED, MinecraftLoadedBodyAdapter.observe(null, null).outcome());
-        assertEquals(Outcome.DISABLED,
-                MinecraftLoadedBodyAdapter.observe(null, profile(SavedLifecycleProfile.State.OFFLINE)).outcome());
-        assertEquals(Outcome.DISABLED, MinecraftLoadedBodyAdapter.observe(null, null).outcome());
-    }
-
     @Test void injectedMinecraftAdapterRejectsNullProfileAndOffThreadBeforeLookup() {
         AtomicInteger calls = new AtomicInteger();
         LoadedBodyResolver.ReadOnlyLookup lookup = ignored -> {
             calls.incrementAndGet();
             return LookupResult.missing();
         };
-        var nullProfile = MinecraftLoadedBodyAdapter.observe(null, true, false, true, lookup, c -> true);
-        var offThread = MinecraftLoadedBodyAdapter.observe(null, true, false, false, lookup, c -> true);
+        var nullProfile = MinecraftLoadedBodyAdapter.observe(null, true, lookup, c -> true);
+        var offThread = MinecraftLoadedBodyAdapter.observe(profile(SavedLifecycleProfile.State.OFFLINE), false,
+                lookup, c -> true);
         assertEquals(Outcome.RECOVERY_REQUIRED, nullProfile.outcome());
         assertEquals(Outcome.RECOVERY_REQUIRED, offThread.outcome());
         assertEquals(0, calls.get());
@@ -68,20 +39,20 @@ class LoadedBodyResolverTest {
 
     @Test void minecraftAdapterRejectsOffThreadBeforeLookup() {
         AtomicInteger calls = new AtomicInteger();
-        var result = MinecraftLoadedBodyAdapter.observe(profile(SavedLifecycleProfile.State.OFFLINE), true, false,
+        var result = MinecraftLoadedBodyAdapter.observe(profile(SavedLifecycleProfile.State.OFFLINE),
                 false, ignored -> { calls.incrementAndGet(); return LookupResult.missing(); }, c -> true);
         assertEquals(Outcome.RECOVERY_REQUIRED, result.outcome());
         assertEquals(0, calls.get());
     }
 
     @Test void unloadedKnownBodyIsDeferredAndNeverConvertedToMissing() {
-        var result = resolve(true, ignored -> LookupResult.unloaded(), candidate -> true);
+        var result = resolve(ignored -> LookupResult.unloaded(), candidate -> true);
         assertEquals(Outcome.DEFER_KNOWN_BODY, result.outcome());
     }
 
     @Test void exactLoadedLivingOwnedCustomBodyIsAvailable() {
         Candidate expected = candidate(BODY, id(3), "minecraft:overworld", ACCOUNT, "main", true, new Object());
-        var result = resolve(true, id -> {
+        var result = resolve(id -> {
             assertEquals(BODY, id);
             return LookupResult.loaded(expected);
         }, candidate -> candidate.entity() != null);
@@ -93,7 +64,7 @@ class LoadedBodyResolverTest {
         for (SavedLifecycleProfile.State state : SavedLifecycleProfile.State.values()) {
             if (state == SavedLifecycleProfile.State.OFFLINE) continue;
             AtomicInteger calls = new AtomicInteger();
-            var result = LoadedBodyResolver.resolve(profile(state), true,
+            var result = LoadedBodyResolver.resolve(profile(state),
                     ignored -> { calls.incrementAndGet(); return LookupResult.missing(); }, c -> true);
             assertEquals(Outcome.RECOVERY_REQUIRED, result.outcome(), state.name());
             assertEquals(0, calls.get(), state.name());
@@ -116,26 +87,26 @@ class LoadedBodyResolverTest {
 
     @Test void ambiguousResultsAndOrdinaryMobWithoutCustomValidatorFailClosed() {
         Candidate candidate = candidate(BODY, id(3), "minecraft:overworld", ACCOUNT, "main", true, new Object());
-        var ambiguous = resolve(true, ignored -> LookupResult.ambiguous(List.of(candidate, candidate)), c -> true);
+        var ambiguous = resolve(ignored -> LookupResult.ambiguous(List.of(candidate, candidate)), c -> true);
         assertEquals(Outcome.RECOVERY_REQUIRED, ambiguous.outcome());
         assertRecovery(candidate, c -> false); // Vanilla Mob is not custom-character evidence by default.
     }
 
     @Test void missingIsExplicitAndNullLookupEvidenceIsNotInterpretedAsMissing() {
         assertEquals(Outcome.RECOVERY_REQUIRED,
-                resolve(true, ignored -> LookupResult.missing(), c -> true).outcome());
+                resolve(ignored -> LookupResult.missing(), c -> true).outcome());
         assertEquals(Outcome.RECOVERY_REQUIRED,
-                resolve(true, ignored -> null, c -> true).outcome());
+                resolve(ignored -> null, c -> true).outcome());
     }
 
     private static void assertRecovery(Candidate candidate, java.util.function.Predicate<Candidate> eligible) {
         assertEquals(Outcome.RECOVERY_REQUIRED,
-                resolve(true, ignored -> LookupResult.loaded(candidate), eligible).outcome());
+                resolve(ignored -> LookupResult.loaded(candidate), eligible).outcome());
     }
 
-    private static Resolution resolve(boolean enabled, ReadOnlyLookup lookup,
+    private static Resolution resolve(ReadOnlyLookup lookup,
                                       java.util.function.Predicate<Candidate> eligible) {
-        return LoadedBodyResolver.resolve(profile(SavedLifecycleProfile.State.OFFLINE), enabled, lookup, eligible);
+        return LoadedBodyResolver.resolve(profile(SavedLifecycleProfile.State.OFFLINE), lookup, eligible);
     }
 
     private static Candidate candidate(UUID entityId, UUID mindId, String dimension, UUID owner, String profile,

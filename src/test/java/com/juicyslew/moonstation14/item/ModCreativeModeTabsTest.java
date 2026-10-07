@@ -45,6 +45,16 @@ class ModCreativeModeTabsTest {
         // The cosmetic pipe block has no default BlockItem; its three custom items represent it.
         registeredBlocks.removeIf(block -> block == ModBlocks.GAS_PIPE_VISUAL);
         assertFalse(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.GAS_PIPE_VISUAL));
+        // Disposal tubes are catalogued in Blocks, but not as standalone crafting materials.
+        assertEquals(1, ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.stream()
+                .filter(entry -> entry == ModBlocks.DISPOSAL_TUBE).count());
+        assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModBlocks.DISPOSAL_TUBE));
+        assertTrue(ModBlocks.DISPOSAL_TUBE.get().asItem() instanceof
+                com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem);
+        var disposalTubeItem = (com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem)
+                ModBlocks.DISPOSAL_TUBE.get().asItem();
+        assertEquals(net.minecraft.world.InteractionResult.FAIL, disposalTubeItem.place(null));
+        assertEquals(ModBlocks.DISPOSAL_TUBE.get(), disposalTubeItem.getBlock());
         // Functional ventilation blocks are not Blocks-tab entries; their items belong in Items.
          registeredBlocks.removeIf(block -> block == ModBlocks.GAS_VENT || block == ModBlocks.GAS_SCRUBBER
                  || block == ModBlocks.AIR_ALARM);
@@ -63,8 +73,8 @@ class ModCreativeModeTabsTest {
         }
         registeredItems.addAll(registeredBlocks);
 
-        assertEquals(registeredItems.size(), entries.size(), "every registered item/block needs a dedicated tab entry");
-        assertTrue(entries.containsAll(registeredItems), "dedicated tab entries must be the registered holders");
+        assertEquals(registeredItems.size(), entries.size(), "every exposed registered item/block needs a dedicated tab entry");
+        assertTrue(entries.containsAll(registeredItems), "dedicated tab entries must be the exposed registered holders");
     }
 
     private static List<Object> deferredFields(Class<?> owner, String registry) throws IllegalAccessException {

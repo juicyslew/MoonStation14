@@ -16,6 +16,7 @@ public class DamageHooks {
         if (event.getEntity().level().isClientSide()) {
             return;
         }
+        com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.ensureProjection(event.getEntity());
         DamageSystem.ensureBaseline(event.getEntity());
     }
 
@@ -33,6 +34,7 @@ public class DamageHooks {
         if (target.level().isClientSide()) {
             return;
         }
+        com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.ensureProjection(target);
         DamageSystem.ensureBaseline(target);
         float acceptedAmount = Math.min(event.getAmount(),
                 Math.max(0f, target.getMaxHealth() - target.getHealth()));

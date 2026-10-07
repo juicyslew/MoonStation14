@@ -3,12 +3,10 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterAppearance;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterAppearanceService;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -58,8 +56,6 @@ public final class LifecycleAppearanceCommands {
 
     private static int apply(ServerPlayer player, String field, String storedValue,
                              PlayerCharacterAppearance appearance, PlayerCharacterBodyShape shape) {
-        if (!MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer())
-            return reply(player, "Character appearance is unavailable under the current server gates.");
         if (player == null || !(player.level() instanceof ServerLevel level) || level.getServer() == null
                 || !level.getServer().isSameThread()) return 0;
         LifecycleServerContext context = LifecycleStartupRuntime.contextFor(level.getServer()).orElse(null);

@@ -46,7 +46,8 @@ public final class TimedInteractionDamageGameTests {
         require(BodyTimedIngestionService.startHeldOwned(body, liveHands.activeHand(), source, liveHands.revision(), 10, () -> true).name().equals("OK"), "held ingestion starts");
         float initial = body.getHealth();
         helper.runAfterDelay(10, () -> {
-            require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 1f), 1f, true) == DamageSystem.Result.APPLIED, "actual typed damage applied");
+            require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 1f), 1f, true,
+                    DamageSystem.Cause.COMBAT) == DamageSystem.Result.APPLIED, "actual physical typed damage applied");
             float afterDamage = body.getHealth();
             body.heal(initial - afterDamage);
             require(Math.abs(body.getHealth() - initial) < .001f, "immediate healing restores actual health");
@@ -77,7 +78,8 @@ public final class TimedInteractionDamageGameTests {
             body.hurt(helper.getLevel().damageSources().generic(), 0f);
             require(Math.abs(body.getHealth() - body.getMaxHealth()) < .001f, "zero native damage leaves health unchanged");
             require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream().anyMatch(o -> o.phase() == TimedOperation.Phase.ACTIVE), "zero native damage does not cancel operation");
-            require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, .5f), 1f, true) == DamageSystem.Result.APPLIED, "half typed damage applied");
+            require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, .5f), 1f, true,
+                    DamageSystem.Cause.COMBAT) == DamageSystem.Result.APPLIED, "half physical typed damage applied");
             require(Math.abs(body.getHealth() - (body.getMaxHealth() - .1f)) < .001f, "actual final health confirms .1 health / .5 typed damage");
             body.heal(1f);
             require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream().anyMatch(o -> o.phase() == TimedOperation.Phase.ACTIVE), "subthreshold damage, rejection, and healing leave timer active");

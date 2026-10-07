@@ -81,6 +81,7 @@ public final class ExplosionGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"merge-main-regression"})
     public static void blastKnocksLivingTargetsOutwardAndSkipsIneligibleTargets(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlastPlanner.Proposal nonlethalProposal = new BlastPlanner.Proposal(10, 3, 10);

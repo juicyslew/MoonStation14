@@ -14,6 +14,9 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
+import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
+import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
+import com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -94,6 +97,13 @@ public class ModBlocks {
     public static final DeferredBlock<PowerDeviceBlock> APC = registerPowerDevice(PowerDeviceKind.APC);
     public static final DeferredBlock<PowerDeviceBlock> POWER_LAMP = registerPowerDevice(PowerDeviceKind.LAMP);
     public static final DeferredBlock<PowerDeviceBlock> HIGH_LOAD_TEST_LAMP = registerPowerDevice(PowerDeviceKind.DEBUG_LOAD_LAMP);
+    public static final DeferredBlock<DisposalUnitBlock> DISPOSAL_UNIT = BLOCKS.register("disposal_unit", DisposalUnitBlock::new);
+    public static final DeferredBlock<DisposalTubeBlock> DISPOSAL_TUBE = BLOCKS.register("disposal_tube",
+            () -> new DisposalTubeBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion().noLootTable()));
+    static {
+        ModItems.ITEMS.register("disposal_tube", () -> new CatalogOnlyDisposalPipeBlockItem(
+                DISPOSAL_TUBE.get(), new Item.Properties()));
+    }
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);

@@ -8,7 +8,6 @@ import com.juicyslew.moonstation14.ms14.character.components.BlindablePrototypeC
 import com.juicyslew.moonstation14.ms14.eye.EyeDamageVision;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
@@ -25,8 +24,7 @@ public final class EyeDamageFogHandler {
 
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public static void onRenderFog(ViewportEvent.RenderFog event) {
-        Entity cameraEntity = event.getCamera().getEntity();
-        LivingEntity camera = cameraEntity instanceof LivingEntity living ? living : null;
+        LivingEntity camera = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.observedBody();
         if (camera == null) {
             return;
         }

@@ -12,6 +12,7 @@ public final class LoosePullGameTestEntry {
     private LoosePullGameTestEntry() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"loose-pull-admission"})
     public static void loosePullReservesAndReleasesWithoutMovingOwnership(GameTestHelper helper) {
         com.juicyslew.moonstation14.ms14.loose_objects.pulling.LoosePullGameTests
                 .loosePullReservesAndReleasesWithoutMovingOwnership(helper);

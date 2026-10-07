@@ -11,8 +11,6 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.level.Level;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 
 import java.util.UUID;
 
@@ -82,6 +80,15 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         return entityData.get(CONFIRMED_DEATH);
     }
 
+    /** Clear an accepted-death signal only after an authoritative medical revival completed. */
+    public boolean clearConfirmedDeathForRevival() {
+        if (level().isClientSide || dead || !isAlive()
+                || (!com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isAlive(this)
+                && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isCritical(this))) return false;
+        entityData.set(CONFIRMED_DEATH, false);
+        return true;
+    }
+
     /** Render only an accepted death, never a disconnected or merely zero-health body. */
     public boolean shouldRenderCorpsePose() {
         return hasConfirmedDeath() && !isAlive();
@@ -149,7 +156,6 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     }
 
     private void refreshOfflineBadge(long nowMillis) {
-        boolean enabled = MindGhostStartupGate.enabledForServer() && !MovementStartupGate.enabledForServer();
         if (!(level() instanceof ServerLevel serverLevel) || serverLevel.getServer() == null) return;
         UUID boundAccount = invalidUnbindable || playerCharacterBinding == null
                 ? null : playerCharacterBinding.accountId();
@@ -162,7 +168,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         boolean connected = serverLevel.getServer().getPlayerList().getPlayer(boundAccount) != null;
         disconnectedSinceMillis = connected ? null
                 : disconnectedSinceMillis == null ? nowMillis : disconnectedSinceMillis;
-        entityData.set(OFFLINE_BADGE, enabled && offlineBadgeVisible(boundAccount, offlineSinceMillis,
+        entityData.set(OFFLINE_BADGE, offlineBadgeVisible(boundAccount, offlineSinceMillis,
                 disconnectedSinceMillis, connected, nowMillis));
     }
 

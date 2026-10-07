@@ -30,9 +30,8 @@ public final class VentilationFixtureGameTests {
     public static void builtFixtureInitializesAndReportsResolvedRuntime(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService atmos = AtmosphereService.INSTANCE;
-        boolean oldEnabled = atmos.isEnabled();
         Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum = atmos.vacuumDimensionsForTest();
-        atmos.configureAtServerStart(true, Set.of(level.dimension()));
+        atmos.configureAtServerStart(Set.of(level.dimension()), atmos.spaceDimensionsForTest());
         BlockPos origin = new BlockPos(200, 20, 200);
         VentilationFixturePlan plan = VentilationFixturePlan.standard();
         BlockPos min = origin, max = origin.offset(VentilationFixturePlan.WIDTH - 1,
@@ -50,23 +49,23 @@ public final class VentilationFixtureGameTests {
         try {
             for (var cell : plan.blocks()) require(level.getBlockState(origin.offset(cell.pos())).isAir(), "remote footprint must start empty");
             require(VentilationFixtureService.build(level, origin).startsWith("Built finite ventilation fixture"), "service builds real fixture");
-            helper.runAtTickTime(5, () -> initializeWhenReady(helper, level, origin, plan, 5, oldEnabled, oldVacuum, newlyForced));
+            helper.runAtTickTime(5, () -> initializeWhenReady(helper, level, origin, plan, 5, oldVacuum, newlyForced));
         } catch (RuntimeException | Error failure) {
             unforce(level, newlyForced);
-            atmos.configureAtServerStart(oldEnabled, oldVacuum);
+            atmos.configureAtServerStart(oldVacuum, atmos.spaceDimensionsForTest());
             throw failure;
         }
     }
 
     private static void initializeWhenReady(GameTestHelper helper, ServerLevel level, BlockPos origin,
-                                            VentilationFixturePlan plan, int tick, boolean oldEnabled,
+                                             VentilationFixturePlan plan, int tick,
                                              Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum,
                                              Set<Long> newlyForced) {
         try {
             if (!AtmosphereService.INSTANCE.sample(level, origin.offset(plan.sourceCells().getFirst())).isPresent()
                     || !AtmosphereService.INSTANCE.sample(level, origin.offset(plan.recipientCells().getFirst())).isPresent()) {
                 if (tick >= 300) throw new GameTestAssertException("normal atmosphere loop did not claim both fixture rooms");
-                helper.runAtTickTime(tick + 10, () -> initializeWhenReady(helper, level, origin, plan, tick + 10, oldEnabled, oldVacuum, newlyForced));
+                helper.runAtTickTime(tick + 10, () -> initializeWhenReady(helper, level, origin, plan, tick + 10, oldVacuum, newlyForced));
                 return;
             }
             String initialized = VentilationFixtureService.initialize(level, origin);
@@ -89,9 +88,9 @@ public final class VentilationFixtureGameTests {
             require(com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility.hasOverlay(plan.testGas())
                     && com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility.alphaByte(plan.testGas(), plan.testGasMolesPerCell(), 1.0) > 0,
                     "initial source concentration has a visible gas overlay");
-            helper.runAtTickTime(10, () -> captureScrubbedGas(helper, level, origin, plan, oldEnabled, oldVacuum, newlyForced, initial, 10));
+            helper.runAtTickTime(10, () -> captureScrubbedGas(helper, level, origin, plan, oldVacuum, newlyForced, initial, 10));
         } catch (RuntimeException | Error failure) {
-            AtmosphereService.INSTANCE.configureAtServerStart(oldEnabled, oldVacuum);
+            AtmosphereService.INSTANCE.configureAtServerStart(oldVacuum, AtmosphereService.INSTANCE.spaceDimensionsForTest());
             unforce(level, newlyForced);
             throw failure;
         }
@@ -124,7 +123,7 @@ public final class VentilationFixtureGameTests {
     }
 
     private static void captureScrubbedGas(GameTestHelper helper, ServerLevel level, BlockPos origin, VentilationFixturePlan plan,
-                                           boolean oldEnabled, Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum,
+                                           Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum,
                                            Set<Long> newlyForced, GasTotals initial, int elapsed) {
         try {
             GasTotals now = totals(level, origin, plan);
@@ -138,16 +137,16 @@ public final class VentilationFixtureGameTests {
                         current.scrubberMode(), current.filteredGases(), current.selectedLayer());
                 require(scrubber.compareAndSetSettings(current.revision(), disabled), "disable scrubber through revision-checked device settings");
                 System.out.println("VENTILATION_FIXTURE_PASS finite-scrub-capture");
-                helper.runAtTickTime(elapsed + 10, () -> releaseCapturedGas(helper, level, origin, plan, oldEnabled, oldVacuum, newlyForced, initial, now, elapsed + 10));
+                helper.runAtTickTime(elapsed + 10, () -> releaseCapturedGas(helper, level, origin, plan, oldVacuum, newlyForced, initial, now, elapsed + 10));
                 return;
             }
             if (elapsed >= 200) throw new GameTestAssertException("normal paid scrubber did not capture source test gas; source=" + now.source() + " pipe=" + now.pipe());
-            helper.runAtTickTime(elapsed + 10, () -> captureScrubbedGas(helper, level, origin, plan, oldEnabled, oldVacuum, newlyForced, initial, elapsed + 10));
-        } catch (RuntimeException | Error failure) { cleanup(level, oldEnabled, oldVacuum, newlyForced); throw failure; }
+            helper.runAtTickTime(elapsed + 10, () -> captureScrubbedGas(helper, level, origin, plan, oldVacuum, newlyForced, initial, elapsed + 10));
+        } catch (RuntimeException | Error failure) { cleanup(level, oldVacuum, newlyForced); throw failure; }
     }
 
     private static void releaseCapturedGas(GameTestHelper helper, ServerLevel level, BlockPos origin, VentilationFixturePlan plan,
-                                          boolean oldEnabled, Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum,
+                                           Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum,
                                           Set<Long> newlyForced, GasTotals initial, GasTotals captured, int elapsed) {
         try {
             GasTotals now = totals(level, origin, plan);
@@ -162,16 +161,16 @@ public final class VentilationFixtureGameTests {
                 require(Math.abs(now.totalTestGas() - initial.totalTestGas()) < 1e-6, "release phase conserves all fixture test gas: " + now);
                 System.out.println("VENTILATION_FIXTURE_PASS finite-vent-release");
                 require(VentilationFixtureService.initialize(level, origin).contains("already initialized"), "gas initialization remains one-shot after transfer");
-                cleanup(level, oldEnabled, oldVacuum, newlyForced);
+                cleanup(level, oldVacuum, newlyForced);
                 helper.succeed(); return;
             }
             if (elapsed >= 200) throw new GameTestAssertException("normal vent did not release captured pipe test gas; pipe=" + now.pipe() + " recipient=" + now.recipient());
-            helper.runAtTickTime(elapsed + 10, () -> releaseCapturedGas(helper, level, origin, plan, oldEnabled, oldVacuum, newlyForced, initial, captured, elapsed + 10));
-        } catch (RuntimeException | Error failure) { cleanup(level, oldEnabled, oldVacuum, newlyForced); throw failure; }
+            helper.runAtTickTime(elapsed + 10, () -> releaseCapturedGas(helper, level, origin, plan, oldVacuum, newlyForced, initial, captured, elapsed + 10));
+        } catch (RuntimeException | Error failure) { cleanup(level, oldVacuum, newlyForced); throw failure; }
     }
 
-    private static void cleanup(ServerLevel level, boolean oldEnabled, Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum, Set<Long> chunks) {
-        AtmosphereService.INSTANCE.configureAtServerStart(oldEnabled, oldVacuum);
+    private static void cleanup(ServerLevel level, Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> oldVacuum, Set<Long> chunks) {
+        AtmosphereService.INSTANCE.configureAtServerStart(oldVacuum, AtmosphereService.INSTANCE.spaceDimensionsForTest());
         unforce(level, chunks);
     }
 
