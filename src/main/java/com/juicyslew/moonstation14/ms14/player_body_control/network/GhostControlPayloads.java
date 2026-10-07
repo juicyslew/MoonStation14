@@ -36,16 +36,19 @@ public final class GhostControlPayloads {
     }
 
     /** The entity id is a server-resolved binding hint, never a client-selected body identity. */
-    public record Begin(long mindEpoch, int harnessEntityId, MobHarnessKind harnessKind) implements CustomPacketPayload {
+    public record Begin(long mindEpoch, int harnessEntityId, MobHarnessKind harnessKind, double ghostWalkSpeed, double ghostSprintSpeed) implements CustomPacketPayload {
         public static final Type<Begin> TYPE = GhostControlPayloads.type("ghost_control_begin");
         public static final StreamCodec<RegistryFriendlyByteBuf, Begin> STREAM_CODEC = StreamCodec.of(
-                (buf, value) -> { buf.writeLong(value.mindEpoch); buf.writeInt(value.harnessEntityId); buf.writeByte(wireId(value.harnessKind)); },
-                buf -> new Begin(readEpoch(buf), readNonNegativeEntityId(buf), readHarnessKind(buf)));
+                (buf, value) -> { buf.writeLong(value.mindEpoch); buf.writeInt(value.harnessEntityId); buf.writeByte(wireId(value.harnessKind)); if (value.harnessKind == MobHarnessKind.GHOST) { buf.writeDouble(value.ghostWalkSpeed); buf.writeDouble(value.ghostSprintSpeed); } },
+                buf -> { long epoch = readEpoch(buf); int id = readNonNegativeEntityId(buf); MobHarnessKind kind = readHarnessKind(buf); return kind == MobHarnessKind.GHOST ? new Begin(epoch, id, kind, buf.readDouble(), buf.readDouble()) : new Begin(epoch, id, kind); });
         public Begin {
             requireEpoch(mindEpoch);
             if (harnessEntityId < 0) throw new IllegalArgumentException("harness entity id must be nonnegative");
             if (harnessKind == null) throw new IllegalArgumentException("harness kind must be specified");
+            if (harnessKind == MobHarnessKind.GHOST && (!Double.isFinite(ghostWalkSpeed) || ghostWalkSpeed <= 0 || !Double.isFinite(ghostSprintSpeed) || ghostSprintSpeed <= 0)) throw new IllegalArgumentException("ghost movement speeds must be finite and positive");
+            if (harnessKind == MobHarnessKind.CHARACTER && (ghostWalkSpeed != 0 || ghostSprintSpeed != 0)) throw new IllegalArgumentException("character begin cannot carry ghost movement");
         }
+        public Begin(long epoch, int id, MobHarnessKind kind) { this(epoch, id, kind, kind == MobHarnessKind.GHOST ? 8 : 0, kind == MobHarnessKind.GHOST ? 12 : 0); }
         /** Compatibility constructor for the existing ghost-only controller. */
         public Begin(long mindEpoch, int ghostEntityId) { this(mindEpoch, ghostEntityId, MobHarnessKind.GHOST); }
         /** Compatibility accessor for existing ghost-only code. */

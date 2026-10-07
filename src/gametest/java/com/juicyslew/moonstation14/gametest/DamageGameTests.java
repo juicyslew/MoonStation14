@@ -7,6 +7,10 @@ import com.juicyslew.moonstation14.component.codec.json.EffectCommonData;
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.effect.ConditionContext;
 import com.juicyslew.moonstation14.ms14.effect.EffectCause;
 import com.juicyslew.moonstation14.ms14.effect.EffectContext;
@@ -109,6 +113,41 @@ public final class DamageGameTests {
             require(stand.getHealth() == 19f, "healing must not double-apply to vanilla health");
             helper.succeed();
         });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void damageDoesNotApplyAutomaticKnockbackButExplicitImpulseDoes(GameTestHelper helper) {
+        Zombie victim = spawnZombie(helper, new BlockPos(2, 1, 2));
+        Zombie attacker = spawnZombie(helper, new BlockPos(1, 1, 2));
+        victim.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        require(victim.hurt(victim.level().damageSources().mobAttack(attacker), 1f),
+                "ordinary damage must be accepted");
+        require(victim.getDeltaMovement().horizontalDistanceSqr() == 0,
+                "damage reaction must not shove the body");
+
+        victim.knockback(1d, 1d, 0d);
+        require(victim.getDeltaMovement().horizontalDistanceSqr() > 0,
+                "explicit knockback must remain available");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void boundCharacterHarnessDamageDoesNotApplyAutomaticKnockback(GameTestHelper helper) {
+        PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
+                new BlockPos(2, 1, 2));
+        require(PlayerCharacterHarnessBinder.bind(body, java.util.UUID.randomUUID(), "main",
+                        java.util.UUID.randomUUID(), ModCharacters.HUMAN_ID),
+                "test human harness must bind to its resolved human prototype");
+        Zombie attacker = spawnZombie(helper, new BlockPos(1, 1, 2));
+        body.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        require(body.hurt(body.level().damageSources().mobAttack(attacker), 1f),
+                "bound character damage must be accepted");
+        require(body.getDeltaMovement().horizontalDistanceSqr() == 0,
+                "bound character damage must not cause automatic knockback");
+        body.knockback(1d, 1d, 0d);
+        require(body.getDeltaMovement().horizontalDistanceSqr() > 0,
+                "explicit impulse remains available to the bound character");
+        helper.succeed();
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)

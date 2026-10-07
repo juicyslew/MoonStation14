@@ -231,9 +231,7 @@ public final class AtmosphereReactionGameTests {
 
     private static Fixture fixture(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        // Do not alter global policy: if the singleton is ticking, it can race this isolated service.
-        require(!AtmosphereService.INSTANCE.isEnabled(),
-                "isolated reaction fixtures require the singleton atmosphere disabled");
+        // Tests operate on fixture cells; global atmospherics is always active.
         for (int x = 1; x <= 3; x++) for (int z = 1; z <= 3; z++) {
             helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
             helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);

@@ -32,10 +32,8 @@ public final class ExplosionAtmosphereGameTests {
     public static void blastBreachNotifiesEnabledGlobalAtmosphere(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService global = AtmosphereService.INSTANCE;
-        boolean startupEnabled = Config.ENABLE_ATMOSPHERICS.get();
         Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> startupVacuumDimensions =
                 Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get());
-        require(global.isEnabled() == startupEnabled, "global atmosphere must match startup configuration before fixture");
 
         // Match the proven covered-room fixture: a roofed single-cell room with one
         // sky-exposed side gap, sealed with steel before the global service classifies it.
@@ -62,8 +60,7 @@ public final class ExplosionAtmosphereGameTests {
         BlockPos source = helper.absolutePos(new BlockPos(4, 1, 1));
 
         try {
-            global.configureAtServerStart(true, Set.of(level.dimension()));
-            require(global.isEnabled(), "global service must be enabled for blast fixture");
+            global.configureAtServerStart(Set.of(level.dimension()));
             require(classifyUntilSample(global, level, room, 20), "sealed room must classify before blast");
             require(global.addBreathableAir(level, room, INJECTED_MOLES, 293.15),
                     "sealed finite room accepts gas injection; sampled room=" + global.sample(level, room));
@@ -84,9 +81,7 @@ public final class ExplosionAtmosphereGameTests {
                     "notified breach allows gas to drain/export on due passes; before=" + before + ", after=" + after);
             helper.succeed();
         } finally {
-            global.configureAtServerStart(startupEnabled, startupVacuumDimensions);
-            require(global.isEnabled() == startupEnabled,
-                    "global atmosphere enablement restored to startup setting");
+            global.configureAtServerStart(startupVacuumDimensions);
         }
     }
 

@@ -32,26 +32,6 @@ public class Config {
             .comment("What you want the introduction message to be for the magic number")
             .define("magicNumberIntroduction", "The magic number is... ");
 
-    public static final ModConfigSpec.BooleanValue EXPERIMENTAL_VERTICAL_SLICE_MOVEMENT = BUILDER
-            .comment("Allow the experimental vertical-slice movement on this server (sampled only at server startup)")
-            .define("experimentalVerticalSliceMovement", false);
-
-    public static final ModConfigSpec.BooleanValue EXPERIMENTAL_MIND_GHOST_CONTROL = BUILDER
-            .comment("Opt in to the experimental automatic player-character Mob Harness lifecycle on eligible joins and operator-only debug tools (sampled at server startup; default false)")
-            .define("experimentalMindGhostControl", false);
-
-    public static final ModConfigSpec.BooleanValue ENABLE_ATMOSPHERICS = BUILDER
-            .comment("Enable server-side atmospherics simulation (sampled only at server startup)")
-            .define("enableAtmospherics", false);
-
-    public static final ModConfigSpec.BooleanValue ENABLE_POWER_SIMULATION = BUILDER
-            .comment("Enable server-side power simulation (sampled only at server startup)")
-            .define("enablePowerSimulation", true);
-
-    public static final ModConfigSpec.BooleanValue MOON_SKY = BUILDER
-            .comment("Client-local visual option: render a black, starry sky in the Overworld")
-            .define("moonSky", false);
-
     public static final ModConfigSpec.ConfigValue<List<? extends String>> ATMOSPHERE_VACUUM_DIMENSIONS = BUILDER
             .comment("Dimension IDs whose ambient atmosphere is vacuum. Changes apply at server startup; restart the server to reclassify ambient atmosphere.")
             .defineListAllowEmpty("atmosphereVacuumDimensions", List.of(), () -> "", Config::isValidAtmosphereDimension);
@@ -80,7 +60,7 @@ public class Config {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    public static boolean shouldRenderMoonSky(boolean moonSkyEnabled, ResourceKey<Level> dimension) {
-        return moonSkyEnabled && Level.OVERWORLD.equals(dimension);
+    public static boolean shouldRenderMoonSky(ResourceKey<Level> dimension) {
+        return Level.OVERWORLD.equals(dimension);
     }
 }

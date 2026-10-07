@@ -314,6 +314,37 @@ class LocalSpeechReviewOverlayTest {
     }
 
     @Test
+    void wrappedRowsOfOneLongMessageAreReachableAcrossPagesInBothDirections() {
+        int capacity = 8;
+        int offset = 0;
+        boolean[] seen = new boolean[37];
+        while (true) {
+            var range = LocalSpeechReviewOverlay.visibleRows(37, offset, capacity);
+            for (int row = range.start(); row < range.end(); row++) seen[row] = true;
+            int older = LocalSpeechReviewOverlay.rowPageOffset(offset, 1, 37, capacity);
+            if (older == offset) break;
+            offset = older;
+        }
+        for (boolean row : seen) assertTrue(row);
+        assertEquals(29, offset); // Clamp at the oldest full viewport, not one arbitrary row.
+        while (offset > 0) offset = LocalSpeechReviewOverlay.rowPageOffset(offset, -1, 37, capacity);
+        assertEquals(new LocalSpeechReviewOverlay.RowRange(29, 37),
+                LocalSpeechReviewOverlay.visibleRows(37, offset, capacity));
+        assertEquals(29, LocalSpeechReviewOverlay.rowPageOffset(24, 1, 37, capacity));
+        assertEquals(new LocalSpeechReviewOverlay.RowRange(0, 8),
+                LocalSpeechReviewOverlay.visibleRows(37, 29, capacity));
+    }
+
+    @Test
+    void rowOffsetsAnchorToEntriesIncludingPartialTallEntry() {
+        List<Integer> rows = List.of(3, 37, 2);
+        assertEquals(1, LocalSpeechReviewOverlay.entriesBehindRows(rows, 1));
+        assertEquals(2, LocalSpeechReviewOverlay.entriesBehindRows(rows, 3));
+        assertEquals(3, LocalSpeechReviewOverlay.entriesBehindRows(rows, 42));
+        assertEquals(3, LocalSpeechReviewOverlay.entriesBehindRows(rows, 100));
+    }
+
+    @Test
     void evictionClampsToOldestRetainedAndNewerCountIsInformational() throws Exception {
         LocalSpeechReviewOverlay.clear();
         try {

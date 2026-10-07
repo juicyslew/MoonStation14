@@ -1,7 +1,6 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.network;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
-import com.juicyslew.moonstation14.ms14.movement.protocol.MovementPayloads;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -32,6 +31,7 @@ class GhostControlPayloadsTest {
         var snapshot = new GhostControlPayloads.Snapshot(7, 42, 8, 5,
                 30_000_000.0, -30_000_000.0, 12.5, 180.0f, -90.0f);
         var characterBegin = new GhostControlPayloads.Begin(9, 43, MobHarnessKind.CHARACTER);
+        var configuredGhostBegin = new GhostControlPayloads.Begin(11, 45, MobHarnessKind.GHOST, 3, 7);
         var characterSnapshot = new GhostControlPayloads.Snapshot(10, 44,
                 MobHarnessKind.CHARACTER, 11, 8, 1, 2, 3, 4, 5,
                 6.5, -7.5, 8.5, true, 1.5f, 1.5f, true);
@@ -39,13 +39,6 @@ class GhostControlPayloadsTest {
         Set<CustomPacketPayload.Type<?>> ghostTypes = Set.of(begin.type(), ready.type(), offer.type(), offerReady.type(), commit.type(),
                 intent.type(), stop.type(), snapshot.type());
         assertEquals(8, ghostTypes.size());
-        Set<CustomPacketPayload.Type<?>> movementTypes = Set.of(MovementPayloads.Begin.TYPE, MovementPayloads.Acknowledge.TYPE,
-                MovementPayloads.Commit.TYPE, MovementPayloads.Disable.TYPE,
-                MovementPayloads.DisableAcknowledge.TYPE, MovementPayloads.ResumeVanilla.TYPE,
-                MovementPayloads.ResumeAcknowledge.TYPE, MovementPayloads.Intent.TYPE,
-                MovementPayloads.Snapshot.TYPE);
-        assertEquals(0, ghostTypes.stream().filter(movementTypes::contains).count());
-
         assertEquals(begin, roundTrip(GhostControlPayloads.Begin.STREAM_CODEC, begin));
         assertEquals(ready, roundTrip(GhostControlPayloads.Ready.STREAM_CODEC, ready));
         assertEquals(offer, roundTrip(GhostControlPayloads.Offer.STREAM_CODEC, offer));
@@ -55,6 +48,7 @@ class GhostControlPayloadsTest {
         assertEquals(stop, roundTrip(GhostControlPayloads.Stop.STREAM_CODEC, stop));
         assertEquals(snapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, snapshot));
         assertEquals(characterBegin, roundTrip(GhostControlPayloads.Begin.STREAM_CODEC, characterBegin));
+        assertEquals(configuredGhostBegin, roundTrip(GhostControlPayloads.Begin.STREAM_CODEC, configuredGhostBegin));
         assertEquals(characterSnapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, characterSnapshot));
         assertEquals(MobHarnessKind.GHOST, begin.harnessKind());
         assertEquals(42, begin.harnessEntityId());

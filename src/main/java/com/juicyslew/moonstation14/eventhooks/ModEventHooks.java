@@ -65,14 +65,16 @@ public class ModEventHooks {
             com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.reconcile(livingEntity,
                     (ServerLevel) event.getLevel());
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(livingEntity);
+            com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.reconcile(livingEntity);
             EntityActivitySystem.reconcile(livingEntity);
         }
     }
 
     private static void onAppliedTypedDamage(
             com.juicyslew.moonstation14.ms14.damage.AppliedDamageEvent event) {
-        com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.damage(
-                event.entity(), event.typedDamage());
+        if (event.feedback().interruptActions())
+            com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.damage(
+                    event.entity(), event.typedDamage());
     }
 
     private static void replaceCreativeModDrop(ServerLevel level,
@@ -99,16 +101,12 @@ public class ModEventHooks {
 
     /** Clears custom status state only for a death-created player clone. */
     private static void onPlayerClone(PlayerEvent.Clone event) {
-        if (event.getOriginal() instanceof ServerPlayer original) {
-            com.juicyslew.moonstation14.ms14.movement.server.MovementServerController.onDisconnect(original);
-        }
         applyPlayerCloneIdentityPolicy(event);
     }
 
     private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.onLogout(player);
-            com.juicyslew.moonstation14.ms14.movement.server.MovementServerController.onDisconnect(player);
         }
     }
 

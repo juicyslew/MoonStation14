@@ -112,7 +112,7 @@ public final class ServerExplosionService {
         for (var entry : orderedHits) {
             try {
                 // APPLIED means the ledger accepted the request; vanilla hurt cancellation may still reject projected health damage.
-                DamageSystem.Result applied = DamageSystem.applyHealthChange(entry.getValue().entity, damageByEntity.get(entry.getKey()), 1f, false);
+                DamageSystem.Result applied = DamageSystem.applyHealthChange(entry.getValue().entity, damageByEntity.get(entry.getKey()), 1f, false, DamageSystem.Cause.EXPLOSION);
                 if (applied == DamageSystem.Result.APPLIED) damaged++; else failed = true;
             } catch (RuntimeException ignored) { failed = true; }
         }
@@ -136,7 +136,7 @@ public final class ServerExplosionService {
                 PowerGraphService.noteChanged(level, new ChunkPos(pos));
             } catch (RuntimeException ignored) { failed = true; }
             try {
-                if (AtmosphereService.INSTANCE.isEnabled()) AtmosphereService.INSTANCE.topologyChanged(level, pos);
+                AtmosphereService.INSTANCE.topologyChanged(level, pos);
             } catch (RuntimeException ignored) { failed = true; }
         }
         return new Result(failed ? Status.PARTIAL : Status.APPLIED, plan.visited(), plan.breached().size(), mutated, damaged);

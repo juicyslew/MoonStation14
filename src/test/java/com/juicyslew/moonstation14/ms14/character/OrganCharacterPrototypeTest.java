@@ -71,8 +71,8 @@ class OrganCharacterPrototypeTest {
         parent.addProperty("abstract", true);
         parent.add("components", JsonParser.parseString("[{\"type\":\"Body\"},{\"type\":\"InitialBody\",\"organs\":{\"Lungs\":\"moonstation14:organ_lungs_human\"}}]"));
         JsonObject child = human.deepCopy();
-        child.getAsJsonArray("components").remove(3);
-        child.getAsJsonArray("components").remove(2);
+        removeComponent(child, "InitialBody");
+        removeComponent(child, "Body");
         child.addProperty("parent", "parent");
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
@@ -104,7 +104,7 @@ class OrganCharacterPrototypeTest {
         var published = manager.snapshot();
         var valid = manager.encodePublishedCatalogs();
         JsonObject missing = resource("character", "human");
-        missing.getAsJsonArray("components").get(3).getAsJsonObject().getAsJsonObject("organs")
+        component(missing, "InitialBody").getAsJsonObject("organs")
                 .addProperty("Lungs", "moonstation14:not_found");
         var badReload = assertThrows(RuntimeException.class, () -> manager.stage(Map.of(ModCharacters.CHARACTER_TYPE,
                 Map.of(HUMAN, missing))));
@@ -127,6 +127,20 @@ class OrganCharacterPrototypeTest {
         wrongSync.put(ModOrgans.ORGAN_TYPE.typeId(), Map.of(HUMAN_LUNG, changed));
         assertThrows(RuntimeException.class, () -> manager.publishEncodedCatalogs(wrongSync));
         assertEquals(published, manager.snapshot());
+    }
+
+    private static JsonObject component(JsonObject character, String type) {
+        for (var element : character.getAsJsonArray("components")) {
+            JsonObject component = element.getAsJsonObject();
+            if (type.equals(component.get("type").getAsString())) return component;
+        }
+        throw new AssertionError("Missing component " + type);
+    }
+
+    private static void removeComponent(JsonObject character, String type) {
+        var components = character.getAsJsonArray("components");
+        for (int i = components.size() - 1; i >= 0; i--)
+            if (type.equals(components.get(i).getAsJsonObject().get("type").getAsString())) components.remove(i);
     }
 
     @Test void lungTuningReloadIsTypedAndInvalidCandidateRollsBack() {

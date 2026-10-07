@@ -28,7 +28,6 @@ public final class FiniteRoomGasEndpointGameTests {
 @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void trustedSetupReplacesOnlyLiveFiniteCellMixture(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");
         BlockPos room = buildClaimedVacuumRoom(helper, 1);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         GasMixture vacuum = service.sample(level, room).orElseThrow(() -> missing("claimed vacuum", room));
@@ -56,8 +55,6 @@ public final class FiniteRoomGasEndpointGameTests {
         require(same(service.sample(level, room).orElseThrow(), beforeRejected), "denials preserve stored mixture");
         helper.setBlock(new BlockPos(2, 5, 2), Blocks.STONE);
 
-        service.configureAtServerStart(false, Set.of());
-        require(!service.initializeFiniteMixtureForTrustedSetup(level, room, authored), "disabled service denied");
         require(!service.initializeFiniteMixtureForTrustedSetup(level, room.offset(16 * 128, 0, 16 * 128), authored),
                 "unloaded cell denied");
         helper.succeed();
@@ -66,7 +63,6 @@ public final class FiniteRoomGasEndpointGameTests {
 @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void sealed144CellEndpointAcceptsWithoutCreatingGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");
         BlockPos room = buildClaimedVacuumRoom(helper, 6);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         requireVacuumRoomCells(level, room, 6, "claims do not seed gas or AIR overrides");
@@ -101,7 +97,6 @@ public final class FiniteRoomGasEndpointGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void closed168CellRoomExceedsSynchronousEndpointBound(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");
         BlockPos room = buildClaimedVacuumRoom(helper, 7);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         requireVacuumRoomCells(level, room, 7, "claims do not seed gas or AIR overrides");
@@ -147,7 +142,6 @@ public final class FiniteRoomGasEndpointGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void finiteRoomEndpointPublishesAndRollsBackRawTransfer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "global atmosphere must be disabled for isolation");
         for (int x = 1; x <= 5; x++) for (int z = 1; z <= 5; z++) {
             helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
             helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
@@ -240,9 +234,7 @@ public final class FiniteRoomGasEndpointGameTests {
         pendingMoles.put(GasType.TRITIUM, ambient.moles(GasType.TRITIUM) + 1);
         GasMixture pendingNext = new GasMixture(pendingMoles, ambient.temperatureKelvin());
         require(pending.writeRaw(ambient, pendingNext), "prepare sparse pending endpoint");
-        service.configureAtServerStart(false, Set.of());
-        requireThrows(pending::publish, "disabled sparse pending endpoint cannot publish");
-        service.configureAtServerStart(true, Set.of(level.dimension()));
+        service.configureAtServerStart(Set.of(level.dimension()));
         require(pending.writeRaw(null, ambient), "compensate unpublished sparse pending endpoint");
         require(sparseData.get(lx, sparsePos.getY(), lz) == null && sparseData.isFiniteClaimed(lx, sparsePos.getY(), lz),
                 "pending compensation restores sparse absence and retains finite claim");

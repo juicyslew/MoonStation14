@@ -22,13 +22,9 @@ import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualSer
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualNetworking;
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualServerHooks;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import com.juicyslew.moonstation14.ms14.power.ui.ApcNetworking;
 import com.juicyslew.moonstation14.ms14.station.debug.StarterStationService;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
-import com.juicyslew.moonstation14.ms14.movement.protocol.MovementNetworking;
-import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
 import com.juicyslew.moonstation14.ms14.status_effect.prototype.StatusEffectReferenceValidator;
 import com.juicyslew.moonstation14.ms14.alert.prototype.AlertReferenceValidator;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyGrenadeHeldFuseService;
@@ -94,17 +90,18 @@ public class MoonStation14 {
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.damage.DamageFeedbackNetworking::registerPayloadHandlers);
         modEventBus.addListener(LocalSpeechNetworking::registerPayloadHandlers);
         modEventBus.addListener(GrenadeSoundNetworking::registerPayloadHandlers);
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(CableVisualNetworking::registerPayloadHandlers);
-        modEventBus.addListener(MovementNetworking::registerPayloadHandlers);
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.ingestion.IngestionNetworking::registerPayloadHandlers);
-        MovementServerController.install();
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical_observer.ObserverNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.standing.PostureNetworking::registerPayloadHandlers);
         //ModFluids.register(modEventBus);
 
         // Register the item to a creative tab
@@ -155,19 +152,8 @@ public class MoonStation14 {
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-        MovementStartupGate.onServerStarting(Config.EXPERIMENTAL_VERTICAL_SLICE_MOVEMENT.get());
-    }
-
-    @SubscribeEvent
     public void onServerAboutToStart(ServerAboutToStartEvent event) {
-        boolean powerEnabled = Config.ENABLE_POWER_SIMULATION.get();
-        PowerSimulationGate.configureAtServerStart(powerEnabled);
-        if (!powerEnabled) {
-            PowerGraphService.onSimulationDisabled();
-            PowerRuntime.onSimulationDisabled();
-        }
-        AtmosphereService.INSTANCE.configureAtServerStart(Config.ENABLE_ATMOSPHERICS.get(),
+        AtmosphereService.INSTANCE.configureAtServerStart(
                 Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get()));
     }
 
@@ -198,9 +184,6 @@ public class MoonStation14 {
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
         AtmosphereService.INSTANCE.onServerStopped();
-        PowerSimulationGate.onServerStopped();
-        MovementServerController.onServerStopped();
-        MovementStartupGate.onServerStopped();
         PrototypeRuntime.serverManager().clearPublishedCatalogs();
     }
 }

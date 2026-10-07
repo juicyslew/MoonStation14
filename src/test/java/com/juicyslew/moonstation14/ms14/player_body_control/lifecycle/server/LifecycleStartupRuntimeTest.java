@@ -24,24 +24,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class LifecycleStartupRuntimeTest {
     @TempDir Path directory;
 
-    @Test void disabledAndConflictGatesNeverReadStore() {
-        AtomicInteger reads = new AtomicInteger();
-        LifecycleStartupRuntime.StoreReader reader = () -> {
-            reads.incrementAndGet();
-            return Optional.of(List.of(SavedLifecycleProfile.State.DEAD_CLAIM));
-        };
-
-        var disabled = LifecycleStartupRuntime.inspect(false, false, reader);
-        var conflict = LifecycleStartupRuntime.inspect(true, true, reader);
-
-        assertEquals(LifecycleStartupRuntime.State.DISABLED, disabled.state());
-        assertEquals(LifecycleStartupRuntime.State.CONFLICT, conflict.state());
-        assertEquals(0, reads.get());
-    }
-
     @Test void absentStoreIsUninitializedWithoutCreatingAnything() throws Exception {
         Path root = Files.createDirectory(directory.resolve("world"));
-        var snapshot = LifecycleStartupRuntime.inspect(true, false, () -> {
+        var snapshot = LifecycleStartupRuntime.inspect(() -> {
             Path path = LifecycleStartupRuntime.safeStorePath(root);
             return new com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.LifecycleProfileStore(path)
                     .read().map(envelope -> envelope.profiles().stream().map(SavedLifecycleProfile::state).toList());
@@ -55,13 +40,13 @@ class LifecycleStartupRuntimeTest {
 
     @Test void corruptStoreEvidenceIsRecoveryRequiredAndOfflineOrDeadClaimsAreDeferred() {
         var offlineState = SavedLifecycleProfile.State.OFFLINE;
-        var corrupt = LifecycleStartupRuntime.inspect(true, false, () -> {
+        var corrupt = LifecycleStartupRuntime.inspect(() -> {
             throw new IOException("lifecycle store recovery required: invalid schema");
         });
-        var existing = LifecycleStartupRuntime.inspect(true, false, () -> Optional.of(List.of(
+        var existing = LifecycleStartupRuntime.inspect(() -> Optional.of(List.of(
                 offlineState, SavedLifecycleProfile.State.DEAD_CLAIM, offlineState)));
-        var empty = LifecycleStartupRuntime.inspect(true, false, () -> Optional.of(List.of()));
-        var missing = LifecycleStartupRuntime.inspect(true, false, Optional::empty);
+        var empty = LifecycleStartupRuntime.inspect(() -> Optional.of(List.of()));
+        var missing = LifecycleStartupRuntime.inspect(Optional::empty);
 
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, corrupt.state());
         assertTrue(corrupt.diagnostic().contains("recovery required"));
@@ -78,7 +63,7 @@ class LifecycleStartupRuntimeTest {
         Files.writeString(evidence, "do not overwrite");
 
         for (var state : states) {
-            var result = LifecycleStartupRuntime.inspect(true, false, () -> Optional.of(List.of(state)));
+            var result = LifecycleStartupRuntime.inspect(() -> Optional.of(List.of(state)));
             if (state == offline || state == SavedLifecycleProfile.State.DEAD_CLAIM) {
                 assertEquals(LifecycleStartupRuntime.State.DEFERRED, result.state(), state.name());
             } else {
@@ -88,13 +73,13 @@ class LifecycleStartupRuntimeTest {
             }
         }
 
-        var mixed = LifecycleStartupRuntime.inspect(true, false, () -> Optional.of(List.of(offline,
+        var mixed = LifecycleStartupRuntime.inspect(() -> Optional.of(List.of(offline,
                 SavedLifecycleProfile.State.PREPARING)));
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, mixed.state());
-        var activeMixed = LifecycleStartupRuntime.inspect(true, false, () -> Optional.of(List.of(offline,
+        var activeMixed = LifecycleStartupRuntime.inspect(() -> Optional.of(List.of(offline,
                 SavedLifecycleProfile.State.ACTIVE, SavedLifecycleProfile.State.DEAD_CLAIM)));
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, activeMixed.state());
-        var corrupt = LifecycleStartupRuntime.inspect(true, false, () -> {
+        var corrupt = LifecycleStartupRuntime.inspect(() -> {
             throw new IOException("corrupt primary");
         });
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, corrupt.state());
@@ -114,7 +99,7 @@ class LifecycleStartupRuntimeTest {
         var store = new LifecycleProfileStore(directory.resolve("mixed-death-claims.json"));
         store.compareAndSwap(-1, epoch, 1, List.of(offline, dead));
 
-        var result = LifecycleStartupRuntime.start(true, false, store, store::read);
+        var result = LifecycleStartupRuntime.start(store, store::read);
         Object server = new Object();
         LifecycleStartupRuntime.rememberContext(server, result.context());
         LifecycleStartupRuntime.rememberSnapshot(server, result.snapshot());
@@ -157,11 +142,11 @@ class LifecycleStartupRuntimeTest {
                 epoch, 0, SavedLifecycleProfile.State.PREPARING, 0, null);
         var envelope = new LifecycleStoreEnvelope(1, 0, epoch, 0, List.of(profile));
         var store = new LifecycleProfileStore(directory.resolve("profiles.json"));
-        var first = LifecycleStartupRuntime.start(true, false, store, () -> {
+        var first = LifecycleStartupRuntime.start(store, () -> {
             reads.incrementAndGet();
             return Optional.of(envelope);
         });
-        var second = LifecycleStartupRuntime.start(true, false, store, Optional::empty);
+        var second = LifecycleStartupRuntime.start(store, Optional::empty);
 
         assertNotNull(first.context());
         assertNotNull(second.context());
@@ -186,20 +171,16 @@ class LifecycleStartupRuntimeTest {
         assertSame(second.context(), LifecycleStartupRuntime.contextFor(serverTwo).orElseThrow());
     }
 
-    @Test void disabledAndCorruptStartupNeverPublishesContext() {
+    @Test void corruptStartupNeverPublishesContext() {
         AtomicInteger reads = new AtomicInteger();
         var store = new LifecycleProfileStore(directory.resolve("profiles.json"));
-        var disabled = LifecycleStartupRuntime.start(false, false, store, () -> {
+        var corrupt = LifecycleStartupRuntime.start(store, () -> {
             reads.incrementAndGet();
-            return Optional.empty();
-        });
-        var corrupt = LifecycleStartupRuntime.start(true, false, store, () -> {
             throw new IOException("backup-only evidence");
         });
 
-        assertNull(disabled.context());
-        assertEquals(0, reads.get());
         assertNull(corrupt.context());
+        assertEquals(1, reads.get());
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, corrupt.snapshot().state());
     }
 
@@ -207,7 +188,7 @@ class LifecycleStartupRuntimeTest {
         Path primary = directory.resolve("backup-only.json");
         Files.writeString(primary.resolveSibling(primary.getFileName() + ".bak"), "evidence");
         var store = new LifecycleProfileStore(primary);
-        var result = LifecycleStartupRuntime.start(true, false, store, store::read);
+        var result = LifecycleStartupRuntime.start(store, store::read);
 
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, result.snapshot().state());
         assertNull(result.context());
@@ -221,7 +202,7 @@ class LifecycleStartupRuntimeTest {
                 "minecraft:overworld", new SavedLifecycleProfile.Location(0, 64, 0), java.util.Map.of(),
                 UUID.randomUUID(), 0, SavedLifecycleProfile.State.OFFLINE, 0, 1L);
         var store = new LifecycleProfileStore(directory.resolve("reserved.json"));
-        var reserved = LifecycleStartupRuntime.start(true, false, store, () -> Optional.of(
+        var reserved = LifecycleStartupRuntime.start(store, () -> Optional.of(
                 new LifecycleStoreEnvelope(1, 0, offline.connectionEpoch(), 0, List.of(offline))));
         LifecycleStartupRuntime.rememberContext(reservedServer, reserved.context());
         LifecycleStartupRuntime.rememberSnapshot(reservedServer, reserved.snapshot());
@@ -237,7 +218,7 @@ class LifecycleStartupRuntimeTest {
         assertTrue(LifecycleStartupRuntime.blocksDebugMindFor(reservedServer, UUID.randomUUID()));
 
         LifecycleStartupRuntime.rememberSnapshot(reservedServer,
-                new LifecycleStartupRuntime.StartupSnapshot(LifecycleStartupRuntime.State.DISABLED, "disabled", 0));
+                new LifecycleStartupRuntime.StartupSnapshot(LifecycleStartupRuntime.State.EMPTY, "empty", 0));
         LifecycleStartupRuntime.forgetServer(reservedServer);
         assertFalse(LifecycleStartupRuntime.blocksDebugMindFor(reservedServer, account));
     }

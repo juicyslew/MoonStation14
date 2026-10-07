@@ -28,6 +28,8 @@ import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
 import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import com.juicyslew.moonstation14.ms14.ingestion.IngestionProfile;
 import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
+import com.juicyslew.moonstation14.ms14.damage.DamageFeedbackProfile;
+import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -127,6 +129,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<ItemFootprintProfile> clientItemFootprints() { return CLIENT_MANAGER.snapshot(ModItemFootprints.TYPE); }
     public static PrototypeCatalog<IngestionProfile> serverIngestionProfiles() { return SERVER_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
     public static PrototypeCatalog<IngestionProfile> clientIngestionProfiles() { return CLIENT_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
+    public static PrototypeCatalog<DamageFeedbackProfile> serverDamageFeedback() { return SERVER_MANAGER.snapshot(ModDamageFeedback.TYPE); }
+    public static PrototypeCatalog<DamageFeedbackProfile> clientDamageFeedback() { return CLIENT_MANAGER.snapshot(ModDamageFeedback.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -144,6 +148,7 @@ public final class PrototypeRuntime {
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
         manager.register(ModIngestionProfiles.TYPE);
+        manager.register(ModDamageFeedback.TYPE);
         return manager;
     }
 }

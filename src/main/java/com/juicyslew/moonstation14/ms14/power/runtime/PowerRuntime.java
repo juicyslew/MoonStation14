@@ -2,7 +2,6 @@ package com.juicyslew.moonstation14.ms14.power.runtime;
 
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceRules;
@@ -70,16 +69,14 @@ public final class PowerRuntime {
     public static void register(IEventBus bus) { bus.register(PowerRuntime.class); }
 
     public static void deviceChanged(ServerLevel level, BlockPos pos) {
-        if (!PowerSimulationGate.isEnabled()) return;
-        PowerGraphService.invalidateLampChoice(level, pos);
+                PowerGraphService.invalidateLampChoice(level, pos);
         Set<BlockPos> devices = DEVICES.computeIfAbsent(level, ignored -> new LinkedHashSet<>());
         devices.add(pos.immutable());
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
 
     public static void ventilationDeviceChanged(ServerLevel level, BlockPos pos) {
-        if (!PowerSimulationGate.isEnabled()) return;
-        PowerGraphService.invalidateLampChoice(level, pos);
+                PowerGraphService.invalidateLampChoice(level, pos);
         VENTILATION_DEVICES.computeIfAbsent(level, ignored -> new LinkedHashSet<>()).add(pos.immutable());
         VENT_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
         COMPLETED_VENT_BUDGETS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
@@ -87,8 +84,7 @@ public final class PowerRuntime {
     }
 
     public static void airAlarmChanged(ServerLevel level, BlockPos pos) {
-        if (!PowerSimulationGate.isEnabled()) return;
-        PowerGraphService.invalidateLampChoice(level, pos);
+                PowerGraphService.invalidateLampChoice(level, pos);
         AIR_ALARMS.computeIfAbsent(level, ignored -> new LinkedHashSet<>()).add(pos.immutable());
         ALARM_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
@@ -100,12 +96,12 @@ public final class PowerRuntime {
         if (alarms != null) alarms.remove(pos);
         Map<BlockPos, AlarmMeterSample> meters = ALARM_METERS.get(level);
         if (meters != null) meters.remove(pos);
-        if (PowerSimulationGate.isEnabled()) PowerGraphService.noteChanged(level, new ChunkPos(pos));
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
 
     /** Observation, not power authorization: only a fresh, fully delivered 100 W solve is powered. */
     public static VentMeterObservation airAlarmMeter(ServerLevel level, AirAlarmBlockEntity expectedBE) {
-        if (!PowerSimulationGate.isEnabled() || expectedBE == null || expectedBE.isRemoved())
+        if (expectedBE == null || expectedBE.isRemoved())
             return VentMeterObservation.UNKNOWN;
         BlockPos pos = expectedBE.getBlockPos();
         if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
@@ -142,13 +138,7 @@ public final class PowerRuntime {
         if (budgets != null) budgets.remove(pos);
         VentilationPaidInterval intervals = PAID_INTERVALS.get(level);
         if (intervals != null) intervals.forget(oldVent);
-        if (PowerSimulationGate.isEnabled()) PowerGraphService.noteChanged(level, new ChunkPos(pos));
-    }
-
-    /** Read-only budget inspection; grants exist only during the solve tick that created them. */
-    public static double peekCompletedVentilationSeconds(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
-        CompletedVentBudget completed = completedBudget(level, expectedBE);
-        return completed == null ? 0 : completed.budget().elapsedSeconds();
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
 
     /** Gas work that may run synchronously after a completed electrical interval is consumed. */
@@ -172,19 +162,9 @@ public final class PowerRuntime {
         return callback.perform(elapsedSeconds);
     }
 
-    /** Diagnostic-only consumption; callers must not use its result as gas-work authority. */
-    @Deprecated
-    public static Optional<VentilationPaidInterval.IntervalResult> consumeCompletedVentilationSeconds(
-            ServerLevel level, VentilationDeviceBlockEntity expectedBE, double requestedSeconds) {
-        CompletedVentBudget completed = completedBudget(level, expectedBE);
-        if (completed == null || !level.getServer().isSameThread()) return Optional.empty();
-        if (completedBudget(level, expectedBE) != completed) return Optional.empty();
-        return completed.budget().consume(requestedSeconds);
-    }
-
     private static CompletedVentBudget completedBudget(ServerLevel level, VentilationDeviceBlockEntity vent) {
         if (level == null || vent == null || !level.getServer().isSameThread()
-                || !PowerSimulationGate.isEnabled() || vent.isRemoved()) return null;
+                || vent.isRemoved()) return null;
         BlockPos pos = vent.getBlockPos();
         if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
                 || chunk.getBlockEntity(pos) != vent || !PowerGraphService.topologyReady(level)) return null;
@@ -207,7 +187,7 @@ public final class PowerRuntime {
 
     /** Observation of the most recent solve only; this is not a prepaid gas grant. */
     public static VentMeterObservation ventilationMeter(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
-        if (!PowerSimulationGate.isEnabled() || expectedBE == null || expectedBE.isRemoved()) return VentMeterObservation.UNKNOWN;
+        if (expectedBE == null || expectedBE.isRemoved()) return VentMeterObservation.UNKNOWN;
         BlockPos pos = expectedBE.getBlockPos();
         if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
                 || chunk.getBlockEntity(pos) != expectedBE
@@ -236,8 +216,7 @@ public final class PowerRuntime {
 
     /** Read-only index snapshot for an on-demand alarm menu query. An oversized index fails closed. */
     public static List<BlockPos> indexedVentilationCandidates(ServerLevel level, int visitLimit) {
-        if (level == null || !level.getServer().isSameThread() || !PowerSimulationGate.isEnabled()
-                || visitLimit < 1) return List.of();
+        if (level == null || !level.getServer().isSameThread() || visitLimit < 1) return List.of();
         Set<BlockPos> indexed = VENTILATION_DEVICES.get(level);
         if (indexed == null || indexed.size() > visitLimit) return List.of();
         return List.copyOf(indexed);
@@ -249,7 +228,7 @@ public final class PowerRuntime {
 
     /** Constant-time, read-only menu lookup. Never triggers a solve or loads a chunk. */
     public static ApcVisualState apcVisualState(ServerLevel level, PowerDeviceBlockEntity device) {
-        if (!PowerSimulationGate.isEnabled() || device == null) return ApcVisualState.UNKNOWN;
+        if (device == null) return ApcVisualState.UNKNOWN;
         BlockPos pos = device.getBlockPos();
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
         ApcOutputSample sample = samples == null ? null : samples.get(pos);
@@ -267,8 +246,7 @@ public final class PowerRuntime {
     }
 
     public static void deviceRemoved(ServerLevel level, BlockPos pos) {
-        if (!PowerSimulationGate.isEnabled()) return;
-        PowerGraphService.invalidateLampChoice(level, pos);
+                PowerGraphService.invalidateLampChoice(level, pos);
         Set<BlockPos> devices = DEVICES.get(level);
         if (devices != null) devices.remove(pos);
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
@@ -279,18 +257,6 @@ public final class PowerRuntime {
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkLoad(ChunkEvent.Load event) {
         if (!(event.getLevel() instanceof ServerLevel level) || !(event.getChunk() instanceof LevelChunk chunk)) return;
-        if (!PowerSimulationGate.isEnabled()) {
-            // Existing saved lit states are presentation, not simulation state. Fail dark once
-            // as each chunk enters the world without building the runtime device index.
-            for (BlockEntity be : chunk.getBlockEntities().values()) {
-                if (be instanceof PowerDeviceBlockEntity
-                        && be.getBlockState().getBlock() instanceof PowerDeviceBlock block
-                         && block.kind().isLamp()) {
-                    setLampDark(level, be.getBlockPos());
-                }
-            }
-            return;
-        }
         for (BlockEntity be : chunk.getBlockEntities().values()) {
             if (be instanceof PowerDeviceBlockEntity) deviceChanged(level, be.getBlockPos());
             if (be instanceof VentilationDeviceBlockEntity) ventilationDeviceChanged(level, be.getBlockPos());
@@ -305,8 +271,7 @@ public final class PowerRuntime {
             for (BlockEntity be : chunk.getBlockEntities().values())
                 if (be instanceof VentilationDeviceBlockEntity vent) VentilationGasRuntime.forgetDevice(level, vent);
         }
-        if (!PowerSimulationGate.isEnabled()) return;
-        Set<BlockPos> devices = DEVICES.get(level);
+                Set<BlockPos> devices = DEVICES.get(level);
         if (devices != null) devices.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Set<BlockPos> vents = VENTILATION_DEVICES.get(level);
         if (vents != null) vents.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
@@ -331,8 +296,7 @@ public final class PowerRuntime {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onTick(ServerTickEvent.Post event) {
-        if (!PowerSimulationGate.isEnabled()) return;
-        long now = ++serverTickSequence;
+                long now = ++serverTickSequence;
         for (ServerLevel level : event.getServer().getAllLevels()) {
             // Use this service's event sequence: GameTestServer/world time and the
             // server tick counter can be frozen while the event-driven server loop runs.
@@ -375,33 +339,6 @@ public final class PowerRuntime {
         PREVIOUS_VENT_SIGNATURES.clear(); COMPLETED_VENT_BUDGETS.clear();
         PAID_INTERVALS.values().forEach(VentilationPaidInterval::clear); PAID_INTERVALS.clear();
         LAST_DIAGNOSTIC.clear(); APC_OUTPUT_SAMPLES.clear(); serverTickSequence = 0;
-    }
-
-    public static void onSimulationDisabled() {
-        VentilationGasRuntime.clear();
-        // Be safe if a lifecycle/load callback registered devices before the startup sample.
-        // This is a one-time pass over the existing index, never a world scan.
-        for (Map.Entry<ServerLevel, Set<BlockPos>> entry : DEVICES.entrySet()) {
-            ServerLevel level = entry.getKey();
-            for (BlockPos pos : entry.getValue()) {
-                if (level.hasChunkAt(pos)) {
-                    BlockEntity be = level.getBlockEntity(pos);
-                    if (be instanceof PowerDeviceBlockEntity apc) apc.observeActualApcOutput(serverTickSequence,
-                            serverTickSequence, false, 0);
-                    setLampDark(level, pos);
-                }
-            }
-        }
-        DEVICES.clear();
-        LAST_SOLVE.clear();
-        RESOLVE_AFTER_TRIP.clear();
-        RESOLVE_AFTER_TOPOLOGY.clear();
-        LAST_DIAGNOSTIC.clear();
-        APC_OUTPUT_SAMPLES.clear();
-        VENT_METERS.clear(); VENTILATION_DEVICES.clear();
-        ALARM_METERS.clear(); AIR_ALARMS.clear();
-        PREVIOUS_VENT_SIGNATURES.clear(); COMPLETED_VENT_BUDGETS.clear();
-        PAID_INTERVALS.values().forEach(VentilationPaidInterval::clear); PAID_INTERVALS.clear();
     }
 
     private static void solve(ServerLevel level, long elapsedTicks, long sampleTick) {
@@ -665,12 +602,4 @@ public final class PowerRuntime {
             level.setBlock(pos, state.setValue(PowerDeviceBlock.LIT, lit), 3);
     }
 
-    private static void setLampDark(ServerLevel level, BlockPos pos) {
-        BlockState state = level.getBlockState(pos);
-        if (state.getBlock() instanceof PowerDeviceBlock block && block.kind().isLamp()
-                && state.getValue(PowerDeviceBlock.LIT)) {
-            // Update the light/client projection without notifying all neighboring blocks.
-            level.setBlock(pos, state.setValue(PowerDeviceBlock.LIT, false), 2);
-        }
-    }
 }

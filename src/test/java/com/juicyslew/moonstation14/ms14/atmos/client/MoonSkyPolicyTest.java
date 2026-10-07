@@ -10,14 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MoonSkyPolicyTest {
     @Test
-    void enablesOnlyForOptedInOverworld() {
-        assertTrue(Config.shouldRenderMoonSky(true, Level.OVERWORLD));
-        assertFalse(Config.shouldRenderMoonSky(false, Level.OVERWORLD));
-        assertFalse(Config.shouldRenderMoonSky(true, Level.NETHER));
-        assertFalse(Config.shouldRenderMoonSky(true, Level.END));
+    void rendersOnlyInOverworld() {
+        assertTrue(Config.shouldRenderMoonSky(Level.OVERWORLD));
+        assertFalse(Config.shouldRenderMoonSky(Level.NETHER));
+        assertFalse(Config.shouldRenderMoonSky(Level.END));
 
         ResourceKey<Level> other = ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,
                 net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("example", "other"));
-        assertFalse(Config.shouldRenderMoonSky(true, other));
+        assertFalse(Config.shouldRenderMoonSky(other));
     }
 }

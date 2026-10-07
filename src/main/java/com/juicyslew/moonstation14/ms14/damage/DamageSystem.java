@@ -41,6 +41,11 @@ public final class DamageSystem {
     /** Applies a HealthChange, scaling its typed values exactly once. */
     public static Result applyHealthChange(LivingEntity entity, Map<String, Float> rawDelta,
                                             float scale, boolean ignoreResistances) {
+        return applyHealthChange(entity, rawDelta, scale, ignoreResistances, Cause.CHEMICAL);
+    }
+
+    public static Result applyHealthChange(LivingEntity entity, Map<String, Float> rawDelta,
+                                            float scale, boolean ignoreResistances, Cause cause) {
         if (entity == null || entity.level().isClientSide()) {
             return Result.SKIPPED_UNSUPPORTED;
         }
@@ -67,7 +72,8 @@ public final class DamageSystem {
             DamageSource source = ignoreResistances
                     ? reagentBypassSource(entity.level())
                     : reagentSource(entity.level());
-            PendingTransaction transaction = new PendingTransaction(positives, negatives);
+            PendingTransaction transaction = new PendingTransaction(positives, negatives,
+                    ModDamageFeedback.server(cause.profile));
             DamageTransactionStack<DamageSource, PendingTransaction> stack = pendingFor(entity);
             stack.push(source, transaction);
             try {
@@ -117,6 +123,15 @@ public final class DamageSystem {
         return Result.APPLIED;
     }
 
+    /** Trusted operator recovery primitive; clears only the authoritative typed ledger. */
+    public static boolean clearTypedDamageForRecovery(LivingEntity entity) {
+        if (entity == null || entity.level().isClientSide() || entity.isRemoved()) return false;
+        DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        if (stored == null) return false;
+        commit(entity, Map.of());
+        return true;
+    }
+
     /** Mirrors generic vanilla healing as even healing over every damaged type. */
     public static Result applyVanillaHealing(LivingEntity entity, float healthAmount) {
         if (entity == null || entity.level().isClientSide()) {
@@ -145,6 +160,7 @@ public final class DamageSystem {
         if (entity == null || entity.level().isClientSide()) {
             return;
         }
+        com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.ensureProjection(entity);
         DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
         if (stored != null && !stored.isEmpty()) {
             project(entity, stored.getMap());
@@ -201,8 +217,10 @@ public final class DamageSystem {
         }
         float appliedDamage = Math.max(0f, finalDamage);
 
-        PendingTransaction pending = takePending(entity, source);
+        DamageTransactionStack<DamageSource, PendingTransaction> pendingStack = PENDING.get(entity);
+        PendingTransaction pending = pendingStack == null ? null : pendingStack.peekMatching(source);
         if (pending != null) {
+            if (!pending.claimCommit()) return;
             Map<String, Float> committedPositive = DamageReducer.mitigatedPositiveDelta(pending.positive, appliedDamage);
             commit(entity, DamageReducer.applyMitigated(existing(entity), pending.positive,
                     appliedDamage, pending.negative));
@@ -210,7 +228,7 @@ public final class DamageSystem {
             double committedTypedDamage = committedPositive.values().stream()
                     .mapToDouble(Float::doubleValue).sum();
             if (committedTypedDamage > 0d) {
-                NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, committedTypedDamage));
+                NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, committedTypedDamage, pending.feedback));
             }
             return;
         }
@@ -222,7 +240,7 @@ public final class DamageSystem {
         float typed = appliedDamage * TYPED_PER_HEALTH;
         commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
         com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
-        NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed));
+        NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed, ModDamageFeedback.server(causeFor(source).profile)));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */
@@ -256,18 +274,6 @@ public final class DamageSystem {
         }
     }
 
-    private static PendingTransaction takePending(LivingEntity entity, DamageSource source) {
-        DamageTransactionStack<DamageSource, PendingTransaction> stack = PENDING.get(entity);
-        if (stack == null) {
-            return null;
-        }
-        PendingTransaction transaction = stack.removeMatching(source);
-        if (stack.isEmpty()) {
-            PENDING.remove(entity);
-        }
-        return transaction;
-    }
-
     private static Map<String, Float> scaleDelta(Map<String, Float> raw, float scale) {
         Map<String, Float> input = DamageKeys.validateDelta(raw);
         Map<String, Float> result = new LinkedHashMap<>();
@@ -290,17 +296,39 @@ public final class DamageSystem {
         if (clean.isEmpty()) {
             if (before != null) entity.removeData(ModDataAttachments.DAMAGE.get());
             if (before != null) project(entity, clean);
+            com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.reconcile(entity);
             return;
         }
         entity.setData(ModDataAttachments.DAMAGE.get(), new DamageData(new DamageMap(clean)));
         project(entity, clean);
+        com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.reconcile(entity);
     }
 
     private static void project(LivingEntity entity, Map<String, Float> state) {
+        com.juicyslew.moonstation14.ms14.mobs.MobStatePolicy policy =
+                com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.policy(entity);
+        if (policy != null) {
+            double dead = policy.thresholds().thresholds().entrySet().stream()
+                    .filter(e -> e.getValue() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD)
+                    .mapToDouble(Map.Entry::getKey).min().orElse(Double.NaN);
+            var saved = entity.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
+            var result = com.juicyslew.moonstation14.ms14.mobs.MobNativeHealthProjection.project(dead,
+                    DamageReducer.total(state), policy.states().allowedStates().contains(
+                            com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD),
+                    saved != null && saved.data().state() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD,
+                    entity.getHealth() <= 0 || entity.isDeadOrDying(), true);
+            var attribute = entity.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH);
+            if (attribute != null) attribute.setBaseValue(result.maxHealth());
+            PROJECTING.add(entity);
+            try { entity.setHealth((float) result.health()); }
+            finally { PROJECTING.remove(entity); }
+            return;
+        }
         float maxHealth = entity.getMaxHealth();
         if (!Float.isFinite(maxHealth) || maxHealth < 0f) return;
         float projected = Math.max(0f, Math.min(maxHealth,
                 maxHealth - DamageReducer.total(state) / TYPED_PER_HEALTH));
+        if (com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(entity)) projected = 0f;
         PROJECTING.add(entity);
         try {
             entity.setHealth(projected);
@@ -323,8 +351,57 @@ public final class DamageSystem {
         return new DamageSource(holder);
     }
 
-    private record PendingTransaction(Map<String, Float> positive,
-                                      Map<String, Float> negative) {
+    public enum Cause {
+        CHEMICAL(ModDamageFeedback.id("chemical")),
+        RESPIRATION(ModDamageFeedback.id("respiration")),
+        TEMPERATURE(ModDamageFeedback.id("temperature")),
+        BLOOD_LOSS(ModDamageFeedback.id("blood_loss")),
+        FIRE(ModDamageFeedback.id("fire")),
+        ELECTRICAL(ModDamageFeedback.id("electrical")),
+        EXPLOSION(ModDamageFeedback.id("explosion")),
+        COMBAT(ModDamageFeedback.id("combat"));
+        private final net.minecraft.resources.ResourceLocation profile;
+        Cause(net.minecraft.resources.ResourceLocation profile) { this.profile = profile; }
+        public net.minecraft.resources.ResourceLocation profileId() { return profile; }
+    }
+
+    /** Feedback resolved before vanilla emits its damage-event packet. */
+    public static DamageFeedbackProfile feedbackBeforeNativePacket(LivingEntity entity, DamageSource source) {
+        DamageTransactionStack<DamageSource, PendingTransaction> stack = PENDING.get(entity);
+        PendingTransaction pending = stack == null ? null : stack.peekMatching(source);
+        return pending == null ? ModDamageFeedback.server(causeFor(source).profile) : pending.feedback;
+    }
+
+    /** Explicit vanilla source semantics; unrecognized native hits retain combat feedback. */
+    private static Cause causeFor(DamageSource source) {
+        if (source.is(DamageTypeTags.IS_FIRE)) return Cause.FIRE;
+        if (source.is(DamageTypeTags.IS_LIGHTNING)) return Cause.ELECTRICAL;
+        if (source.is(DamageTypeTags.IS_DROWNING) || source.is(DamageTypeTags.IS_FREEZING)) return Cause.RESPIRATION;
+        ResourceLocation id = source.typeHolder().unwrapKey().map(ResourceKey::location).orElse(null);
+        if (id != null && id.getNamespace().equals(MoonStation14.MOD_ID)
+                && (id.getPath().equals("reagent") || id.getPath().equals("reagent_bypass"))) return Cause.CHEMICAL;
+        if (id != null && id.getPath().equals("explosion")) return Cause.EXPLOSION;
+        if (id != null && (id.getPath().equals("poison") || id.getPath().equals("wither")
+                || id.getPath().equals("starve"))) return Cause.CHEMICAL;
+        return Cause.COMBAT;
+    }
+
+    private static final class PendingTransaction {
+        private final Map<String, Float> positive;
+        private final Map<String, Float> negative;
+        private final DamageFeedbackProfile feedback;
+        private boolean committed;
+        private PendingTransaction(Map<String, Float> positive, Map<String, Float> negative,
+                                   DamageFeedbackProfile feedback) {
+            this.positive = positive;
+            this.negative = negative;
+            this.feedback = feedback;
+        }
+        private boolean claimCommit() {
+            if (committed) return false;
+            committed = true;
+            return true;
+        }
     }
 
     public enum Result {

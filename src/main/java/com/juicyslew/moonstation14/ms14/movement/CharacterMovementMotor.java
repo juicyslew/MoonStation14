@@ -65,6 +65,8 @@ public final class CharacterMovementMotor {
         if (effective.jumpRequested() && state.onGround()) {
             velocity = new MovementVector(velocity.x(), environment.jumpVelocityPerSecond(), velocity.z());
         }
+        // Tether forces act after voluntary inputs and jump, so standing friction cannot erase them.
+        velocity = velocity.add(environment.constraintImpulse());
         // Entity.travel moves using the current velocity, then applies gravity and vertical drag
         // for the next tick. Jump velocity therefore contributes its full first-tick displacement.
         MovementVector movementRequested = velocity.scale(dt);

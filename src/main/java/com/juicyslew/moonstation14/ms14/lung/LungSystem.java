@@ -20,6 +20,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import java.util.*;
+import com.juicyslew.moonstation14.sounds.ModSounds;
+import net.minecraft.sounds.SoundSource;
 
 /** Server-authoritative prototype-enrolled respiration. No host/species rules are implicit. */
 public final class LungSystem {
@@ -157,14 +159,17 @@ public final class LungSystem {
       /** Isolated service seam for enabled world tests; production uses the global service. */
       public static boolean tickIfDue(LivingEntity entity,long gameTime,AtmosphereService atmosphere) {
            Optional<RespiratorPolicy> policy=policyAtCadence(entity,gameTime); if(policy.isEmpty()) return false;
-          if (!entity.isAlive() || !validPolicy(policy.get())) return false;
+           // Respirator lifecycle is governed by the resolved mob-state policy, not
+           // Minecraft's native health/death flag. Corpses do not consume scheduled updates.
+           if (com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(entity)
+                   || !validPolicy(policy.get())) return false;
           int interval = intervalTicks(policy.get().breathIntervalSeconds());
           boolean due = isDue(gameTime, entity.getId(), interval);
           // A known but unusable sample must not even trigger late BODY reconciliation.
           // An unknown sample remains unknown; the existing join-equivalent reconciliation
           // below may still run, but it must never turn the missing sample into vacuum.
           Optional<GasMixture> strictSample = Optional.empty();
-          if (due && atmosphere != null && atmosphere.isEnabled()) {
+           if (due && atmosphere != null) {
               try {
                   strictSample = atmosphere.sample((ServerLevel) entity.level(), BlockPos.containing(entity.getEyePosition()));
                   if (strictSample.isPresent() && safeRequestedMoles(strictSample.get(),
@@ -173,8 +178,9 @@ public final class LungSystem {
           }
           // A prototype can become available after the spawn/load join hook ran. Reconcile
           // only the attachment here; breathing still requires a due, strict world sample.
-          if(!reconcile(entity)) return false;
-          if(!due || !entity.isAlive() || atmosphere==null || !atmosphere.isEnabled()) return false;
+           if(!reconcile(entity)) return false;
+           if(!due || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(entity)
+                    || atmosphere==null) return false;
           BodyState body = BodySystem.current(entity).orElseThrow();
           RespirationState respiration = body.respiration();
             PrototypeCatalog<OrganData> organs = ModOrgans.catalog(entity.level());
@@ -193,7 +199,8 @@ public final class LungSystem {
          // advance phase, even while incapacitated.
          if(strictSample.isEmpty()) return false;
          GasMixture room = strictSample.get();
-         boolean incapacitated=entity.isSleeping();
+          boolean critical = com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isCritical(entity);
+          boolean incapacitated=critical || entity.isSleeping();
            GasMixture[] inhaled = new GasMixture[1];
            LungComponent[] validated = new LungComponent[1];
            BodyState[] validatedBody = new BodyState[1];
@@ -232,15 +239,31 @@ public final class LungSystem {
          if (old.phase() == LungComponent.Phase.INHALING && !incapacitated && inhaled[0] != null) {
               LungToxicity.perInhale(inhaled[0], lung.toxicGasDamagePerMole(), lung.toxicGasDamageCapPerInhale())
                      .filter(damage -> !damage.isEmpty())
-                     .ifPresent(damage -> DamageSystem.applyHealthChange(entity, damage, 1f, false));
+                     .ifPresent(damage -> DamageSystem.applyHealthChange(entity, damage, 1f, false, DamageSystem.Cause.RESPIRATION));
          }
-        if(candidate.get().saturation()<p.suffocationThreshold()) {
-            if(p.suffocationDamagePerUpdate()>0) DamageSystem.applyHealthChange(entity,Map.of(DamageKeys.ASPHYXIATION,(float)p.suffocationDamagePerUpdate()),1f,p.suffocationIgnoreResistances());
-        } else if(p.suffocationRecoveryPerUpdate()>0) {
-            DamageSystem.applyHealthChange(entity,Map.of(DamageKeys.ASPHYXIATION,(float)-p.suffocationRecoveryPerUpdate()),1f,p.suffocationIgnoreResistances());
-        }
-        return true;
-     }
+         if(candidate.get().saturation()<p.suffocationThreshold()) {
+             attemptGasp(entity, candidate.get().saturation(), p, gameTime);
+             if(p.suffocationDamagePerUpdate()>0) DamageSystem.applyHealthChange(entity,Map.of(DamageKeys.ASPHYXIATION,(float)p.suffocationDamagePerUpdate()),1f,p.suffocationIgnoreResistances(), DamageSystem.Cause.RESPIRATION);
+       } else if(p.suffocationRecoveryPerUpdate()>0) {
+             DamageSystem.applyHealthChange(entity,Map.of(DamageKeys.ASPHYXIATION,(float)-p.suffocationRecoveryPerUpdate()),1f,p.suffocationIgnoreResistances(), DamageSystem.Cause.RESPIRATION);
+       }
+       return true;
+      }
+
+      private static void attemptGasp(LivingEntity entity, double saturation, RespiratorPolicy policy, long gameTime) {
+          if (saturation >= policy.suffocationThreshold() || policy.gaspSound().isEmpty()
+                  || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(entity)) return;
+          int cooldown = intervalTicks(policy.gaspIntervalSeconds());
+          if (!entity.getData(ModDataAttachments.GASP_COOLDOWN).consume(gameTime, cooldown)) return;
+          if (policy.gaspSound().get().equals(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "gasp/female"))) {
+              // Female profile is available to an explicitly resolved human voice profile.
+              entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(), ModSounds.FEMALE_GASP.get(),
+                      SoundSource.PLAYERS, 1.0F, 0.875F + entity.getRandom().nextFloat() * 0.25F);
+          } else if (policy.gaspSound().get().equals(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "gasp/male"))) {
+              entity.level().playSound(null, entity.getX(), entity.getY(), entity.getZ(), ModSounds.MALE_GASP.get(),
+                      SoundSource.PLAYERS, 1.0F, 0.875F + entity.getRandom().nextFloat() * 0.25F);
+          }
+      }
 
      private static BodyState updatedBody(BodyState body, OrganInstance organ, LungComponent result, LivingEntity entity) {
          BodyState next = body.updateRespiration(RespirationState.from(result));
@@ -302,10 +325,11 @@ public final class LungSystem {
          catch (RuntimeException invalid) { return OptionalDouble.empty(); }
      }
       private static boolean validPolicy(RespiratorPolicy p) {
-         return Double.isFinite(p.breathVolumeLiters()) && p.breathVolumeLiters()>0
-                 && Double.isFinite(p.maxSaturation()) && p.maxSaturation()>0
-                 && Double.isFinite(p.minSaturation()) && p.minSaturation()>=-2 && p.minSaturation()<=0
-                && Double.isFinite(p.saturationLossPerUpdate()) && p.saturationLossPerUpdate()>=0;
+          return Double.isFinite(p.breathVolumeLiters()) && p.breathVolumeLiters()>0
+                  && Double.isFinite(p.maxSaturation()) && p.maxSaturation()>0
+                  && Double.isFinite(p.minSaturation()) && p.minSaturation()>=-2 && p.minSaturation()<=0
+                 && Double.isFinite(p.saturationLossPerUpdate()) && p.saturationLossPerUpdate()>=0
+                  && Double.isFinite(p.gaspIntervalSeconds()) && p.gaspIntervalSeconds()>0;
      }
      private static boolean validPolicy(LungRuntimePolicy p) {
          return validPolicy(p.respirator()) && p.lung() != null;

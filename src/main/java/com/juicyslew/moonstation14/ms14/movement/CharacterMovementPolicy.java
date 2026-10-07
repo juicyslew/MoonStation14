@@ -47,6 +47,18 @@ public record CharacterMovementPolicy(double accelerationPerSecondSquared,
         requireNonnegative(minimumFrictionSpeed, "minimum friction speed");
     }
 
+    /** StandingState down modifier affects acceleration and both ground-friction paths. */
+    public CharacterMovementPolicy withDownFriction() {
+        return withAccelerationAndFrictionFactor(.4d);
+    }
+
+    public CharacterMovementPolicy withAccelerationAndFrictionFactor(double factor) {
+        if (!Double.isFinite(factor) || factor < 0d) throw new IllegalArgumentException("factor must be nonnegative");
+        return new CharacterMovementPolicy(accelerationPerSecondSquared * factor, walkSpeedPerSecond,
+                sprintSpeedPerSecond, groundFrictionWithInputPerSecond * factor,
+                groundFrictionNoInputPerSecond * factor, minimumFrictionSpeed);
+    }
+
     private static void requireNonnegative(double value, String name) {
         if (!Double.isFinite(value) || value < 0d) {
             throw new IllegalArgumentException(name + " must be finite and nonnegative");

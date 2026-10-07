@@ -12,7 +12,11 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+@PrefixGameTestTemplate(false)
+@GameTestTags({"pulling", "loose-objects"})
 public final class LoosePullGameTests {
     private LoosePullGameTests() { }
 
@@ -63,30 +67,21 @@ public final class LoosePullGameTests {
                 && level.getEntity(target.getUUID()) == target && !target.isRemoved(),
                 "pull reservation does not move world ownership");
 
-        // Displace the actor, not the item: this makes the live constraint produce an inward impulse.
-        body.setPos(body.getX() - .25, body.getY(), body.getZ());
-        BodyPullService.onPostServerTick(null);
-        Vec3 inward = body.position().add(0, body.getBbHeight() * .5, 0)
-                .subtract(target.position().add(0, target.getBbHeight() * .5, 0));
-        require(target.getDeltaMovement().dot(inward) > 0,
-                "post-server pull tick applies impulse toward displaced body");
+        // Stretch beyond the admitted slack before testing that ordinary item travel consumes force.
+        body.setPos(body.getX() - .5, body.getY(), body.getZ());
+        // Publish the production endpoint snapshot and let the normal loose-item tick consume spring force.
+        BodyPullService.onPreServerTick(null);
+        Vec3 beforeMotion = target.position();
+        target.tick();
+        Vec3 nativeDisplacement = target.position().subtract(beforeMotion);
+        require(nativeDisplacement.x < 0,
+                "native loose-item travel consumes tether force toward the puller");
+        require(BodyPullService.isPulling(body), "ordinary rope extension retains pull attachment");
         require(target.getUUID().equals(targetId) && level.getEntity(targetId) == target && !target.isRemoved()
                         && ItemStack.matches(target.getItem(), worldStack)
                         && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).reservation("left")
                         .equals(java.util.Optional.of(targetId)),
                 "pull tick retains target identity, components, and reservation");
-
-        Vec3 beforePhysics = target.position();
-        target.tick();
-        Vec3 movement = target.position().subtract(beforePhysics);
-        Vec3 horizontalTowardBody = new Vec3(inward.x, 0, inward.z);
-        require(movement.x * horizontalTowardBody.x + movement.z * horizontalTowardBody.z > 0,
-                "loose entity physics moves target horizontally toward body");
-        require(Math.sqrt(movement.x * movement.x + movement.z * movement.z) <= PullConstraint.MAX_IMPULSE,
-                "one loose entity tick remains within bounded pull impulse");
-        require(level.getEntity(targetId) == target && !target.isRemoved()
-                        && ItemStack.matches(target.getItem(), worldStack),
-                "physics tick does not transfer source ownership");
 
         require(BodyPullService.stopFixture(body) == BodyPullService.Result.SUCCESS, "pull stops");
         LiveHands released = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());

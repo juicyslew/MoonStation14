@@ -1,14 +1,11 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character;
 
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -16,23 +13,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PlayerCharacterHarnessBindingTest {
-    @AfterEach
-    void closeStartupGates() {
-        MindGhostStartupGate.onServerStopped();
-        MovementStartupGate.onServerStopped();
-    }
-
-    @Test
-    void startupGatesDefaultOffAndMovementConflictIsIndependent() {
-        MindGhostStartupGate.onServerStopped();
-        MovementStartupGate.onServerStopped();
-        assertFalse(PlayerCharacterHarnessBinder.gatesPermitBinding());
-        MindGhostStartupGate.onServerStarting(true);
-        assertTrue(PlayerCharacterHarnessBinder.gatesPermitBinding());
-        MovementStartupGate.onServerStarting(true);
-        assertFalse(PlayerCharacterHarnessBinder.gatesPermitBinding());
-    }
-
     @Test
     void bindingIsImmutableAndNbtRoundTripsOwnerMindAndProfile() {
         PlayerCharacterBinding binding = new PlayerCharacterBinding(UUID.randomUUID(),
@@ -105,12 +85,12 @@ class PlayerCharacterHarnessBindingTest {
         PlayerLifecycleRegistry.Snapshot active = lifecycle(owner, "main", mind, body, generation,
                 PlayerLifecycleRegistry.LifecycleState.ACTIVE, true);
         assertTrue(canEdit(binding, owner, active, body, generation));
-        assertFalse(PlayerCharacterAppearanceService.canEdit(false, true, binding, owner,
-                active, body, generation),
-                "appearance edits are disabled when startup gates do not permit them");
-        assertFalse(PlayerCharacterAppearanceService.canEdit(true, false, binding, owner,
+        assertFalse(PlayerCharacterAppearanceService.canEdit(false, binding, owner,
                 active, body, generation),
                 "off-thread requests cannot change authoritative appearance");
+        assertTrue(PlayerCharacterAppearanceService.canEdit(true, binding, owner,
+                active, body, generation),
+                "the active exact lifecycle binding permits owner edits on the server thread");
         assertFalse(canEdit(binding, UUID.randomUUID(), active, body, generation),
                 "a different account cannot change the bound character's appearance");
         assertFalse(canEdit(null, owner, active, body, generation),
@@ -133,7 +113,7 @@ class PlayerCharacterHarnessBindingTest {
     private static boolean canEdit(PlayerCharacterBinding binding, UUID accountId,
                                    PlayerLifecycleRegistry.Snapshot profile, MobHarnessId bodyId,
                                    long generation) {
-        return PlayerCharacterAppearanceService.canEdit(true, true, binding, accountId,
+        return PlayerCharacterAppearanceService.canEdit(true, binding, accountId,
                 profile, bodyId, generation);
     }
 

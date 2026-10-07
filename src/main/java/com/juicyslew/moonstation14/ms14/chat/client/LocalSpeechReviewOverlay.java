@@ -25,6 +25,7 @@ public final class LocalSpeechReviewOverlay {
     private static int unseen;
     private static List<Integer> rowCounts = List.of();
     private static int pageCapacity = 9;
+    private static int fromNewestRow;
 
     private LocalSpeechReviewOverlay() { }
 
@@ -35,6 +36,7 @@ public final class LocalSpeechReviewOverlay {
         unseen = 0;
         rowCounts = List.of();
         pageCapacity = 9;
+        fromNewestRow = 0;
     }
 
     public static void toggle() {
@@ -71,9 +73,14 @@ public final class LocalSpeechReviewOverlay {
         if (!visible) return;
         // If the history changed before the next render, move one entry rather than
         // trusting stale wrapping data and potentially skipping unseen messages.
-        fromNewest = rowCounts.size() == historySize
-                ? pageOffset(rowCounts, fromNewest, direction, pageCapacity)
-                : pageOffset(fromNewest, direction, historySize, 1);
+        if (rowCounts.size() == historySize && !rowCounts.isEmpty()) {
+            int totalRows = rowCounts.stream().mapToInt(rows -> Math.max(1, rows)).sum();
+            fromNewestRow = rowPageOffset(fromNewestRow, direction, totalRows, pageCapacity);
+            fromNewest = entriesBehindRows(rowCounts, fromNewestRow);
+        } else {
+            fromNewest = pageOffset(fromNewest, direction, historySize, 1);
+            fromNewestRow = 0;
+        }
         if (fromNewest == 0) unseen = 0;
     }
 
@@ -81,6 +88,30 @@ public final class LocalSpeechReviewOverlay {
         int step = Math.max(1, visibleEntries);
         return (int) Math.max(0, Math.min(Math.max(0, size - 1), (long) offset + (long) direction * step));
     }
+
+    static int rowPageOffset(int offset, int direction, int totalRows, int capacity) {
+        return (int) Math.max(0, Math.min(Math.max(0, totalRows - Math.max(1, capacity)),
+                (long) offset + (long) direction * Math.max(1, capacity)));
+    }
+
+    /** Number of retained entries touched by the row offset from the newest end. */
+    static int entriesBehindRows(List<Integer> rowCounts, int rowOffset) {
+        int rows = Math.max(0, rowOffset);
+        int entries = 0;
+        for (int i = rowCounts.size() - 1; i >= 0 && rows > 0; i--) {
+            rows -= Math.max(1, rowCounts.get(i));
+            entries++;
+        }
+        return entries;
+    }
+
+    static RowRange visibleRows(int totalRows, int fromNewest, int capacity) {
+        int end = Math.max(0, totalRows - Math.max(0, fromNewest));
+        int start = Math.max(0, end - Math.max(1, capacity));
+        return new RowRange(start, end);
+    }
+
+    record RowRange(int start, int end) { }
 
     static int pageOffset(List<Integer> rowCounts, int offset, int direction, int capacity) {
         int size = rowCounts.size();
@@ -105,6 +136,8 @@ public final class LocalSpeechReviewOverlay {
 
     public static void onLineReceived() {
         // A capped history can keep the same size while its row heights change.
+        if (visible && fromNewest > 0 && !rowCounts.isEmpty())
+            fromNewestRow += Math.max(1, rowCounts.getLast());
         rowCounts = List.of();
         // Keep the viewed messages in place as new ones arrive (including at the 100-line cap).
         if (visible && fromNewest > 0) {
@@ -196,7 +229,19 @@ public final class LocalSpeechReviewOverlay {
             wrapped.add(lines);
             counts.add(lines.size());
         }
-        Window window = window(counts, fromNewest, capacity);
+        int totalRows = counts.stream().mapToInt(rows -> Math.max(1, rows)).sum();
+        fromNewestRow = Math.min(fromNewestRow, Math.max(0, totalRows - capacity));
+        RowRange visibleRows = visibleRows(totalRows, fromNewestRow, capacity);
+        int endRow = visibleRows.end();
+        int startRow = visibleRows.start();
+        int firstEntry = 0;
+        int beforeEntry = 0;
+        while (firstEntry < counts.size() && beforeEntry + counts.get(firstEntry) <= startRow)
+            beforeEntry += counts.get(firstEntry++);
+        int lastEntry = firstEntry;
+        while (lastEntry < counts.size() && beforeEntry < endRow)
+            beforeEntry += counts.get(lastEntry++);
+        Window window = new Window(firstEntry, lastEntry, endRow - startRow);
         rowCounts = List.copyOf(counts);
         pageCapacity = capacity;
 
@@ -208,21 +253,17 @@ public final class LocalSpeechReviewOverlay {
                         textX, contentBottom - ROW_HEIGHT, 0xffaaaaaa);
             }
             int rowY = contentBottom - window.rows() * ROW_HEIGHT;
+            int absoluteRow = counts.subList(0, window.start()).stream()
+                    .mapToInt(rows -> Math.max(1, rows)).sum();
             for (int i = window.start(); i < window.end(); i++) {
                 List<FormattedCharSequence> lines = wrapped.get(i);
-                int drawn = Math.min(lines.size(), capacity);
-                for (int j = 0; j < drawn; j++) {
-                    boolean truncated = j == drawn - 1 && lines.size() > drawn;
-                    if (truncated) graphics.enableScissor(left + 4, rowY, right - 14, rowY + ROW_HEIGHT);
-                    try {
-                        drawScaled(graphics, font, lines.get(j), textX, rowY, 0xffeeeeee);
-                    } finally {
-                        if (truncated) graphics.disableScissor();
+                for (FormattedCharSequence line : lines) {
+                    if (absoluteRow >= startRow && absoluteRow < endRow) {
+                        drawScaled(graphics, font, line, textX, rowY, 0xffeeeeee);
+                        rowY += ROW_HEIGHT;
                     }
-                    rowY += ROW_HEIGHT;
+                    absoluteRow++;
                 }
-                if (lines.size() > drawn) drawScaled(graphics, font, "…", right - 13,
-                        rowY - ROW_HEIGHT, 0xffffd080);
             }
             if (showNewer) drawScaled(graphics, font,
                     Component.translatable("gui.moonstation14.speech_review.newer", unseen),

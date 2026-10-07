@@ -9,6 +9,8 @@ import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionC
 import com.juicyslew.moonstation14.ms14.character.components.StandingStateComponent;
 import com.juicyslew.moonstation14.ms14.character.components.NoSlipComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StunnableComponent;
+import com.juicyslew.moonstation14.ms14.character.components.ObserverMovementComponent;
+import com.juicyslew.moonstation14.ms14.character.components.IncorporealComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent;
 import com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
@@ -31,6 +33,63 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CharacterPrototypeTest {
     private static final String RESOURCE = "data/moonstation14/moonstation14/character/human.json";
+
+    @Test
+    void observerMovementComesFromResolvedObserverCompositionNotHumanCorpse() throws IOException {
+        JsonObject human = readResource(RESOURCE);
+        JsonObject observerBase = readResource("data/moonstation14/moonstation14/character/observer_base.json");
+        JsonObject observer = readResource("data/moonstation14/moonstation14/character/observer.json");
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(
+                ModCharacters.HUMAN_ID, human,
+                ResourceLocation.parse("moonstation14:observer_base"), observerBase,
+                ResourceLocation.parse("moonstation14:observer"), observer));
+
+        CharacterData corpse = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(ModCharacters.HUMAN_ID);
+        CharacterData resolvedObserver = manager.snapshot(ModCharacters.CHARACTER_TYPE)
+                .get(ResourceLocation.parse("moonstation14:observer"));
+        assertTrue(corpse.component(ObserverMovementComponent.class).isEmpty(),
+                "corpse composition cannot supply observer movement policy");
+        assertEquals(new ObserverMovementComponent(8.0, 12.0),
+                resolvedObserver.component(ObserverMovementComponent.class).orElseThrow(),
+                "observer inherits movement policy from observer_base");
+        assertTrue(resolvedObserver.component(IncorporealComponent.class).isPresent());
+
+        JsonObject customizedObserver = observer.deepCopy();
+        customizedObserver.add("components", JsonParser.parseString(
+                "[{\"type\":\"ObserverMovement\",\"walk_speed\":3.0,\"sprint_speed\":7.0}]"));
+        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(
+                ModCharacters.HUMAN_ID, human,
+                ResourceLocation.parse("moonstation14:observer_base"), observerBase,
+                ResourceLocation.parse("moonstation14:observer"), customizedObserver));
+        ObserverMovementComponent customPolicy = manager.snapshot(ModCharacters.CHARACTER_TYPE)
+                .get(ResourceLocation.parse("moonstation14:observer"))
+                .component(ObserverMovementComponent.class).orElseThrow();
+        assertEquals(new ObserverMovementComponent(3.0, 7.0), customPolicy,
+                "resolved per-observer override is the policy passed to bound ghost start");
+    }
+
+    @Test
+    void humanRespiratorResolvesMaleGaspProfileAndEightSecondDefault() throws IOException {
+        JsonObject humanJson = readResource(RESOURCE);
+        JsonObject respirator = null;
+        for (var component : humanJson.getAsJsonArray("components")) {
+            JsonObject candidate = component.getAsJsonObject();
+            if ("Respirator".equals(candidate.get("type").getAsString())) respirator = candidate.deepCopy();
+        }
+        assertTrue(respirator != null);
+        assertEquals("moonstation14:gasp/male", respirator.get("gasp_sound").getAsString());
+        respirator.remove("gasp_interval_seconds");
+        var decoded = com.juicyslew.moonstation14.ms14.character.components.RespiratorComponent.CODEC
+                .parse(JsonOps.INSTANCE, respirator).getOrThrow().policy();
+        assertEquals(8.0, decoded.gaspIntervalSeconds());
+        assertEquals(Optional.of(ResourceLocation.parse("moonstation14:gasp/male")), decoded.gaspSound());
+        respirator.remove("gasp_sound");
+        decoded = com.juicyslew.moonstation14.ms14.character.components.RespiratorComponent.CODEC
+                .parse(JsonOps.INSTANCE, respirator).getOrThrow().policy();
+        assertTrue(decoded.gaspSound().isEmpty(), "unsupported compositions retain no invented sound profile");
+    }
 
     @Test
     void mouthMarkerRoundTripsAndRejectsUnknownFragmentFields() {
@@ -101,7 +160,7 @@ class CharacterPrototypeTest {
         Map<ResourceLocation, JsonObject> raw = Map.of(parentId, parent, ModCharacters.HUMAN_ID, child);
         var token = manager.stage(Map.of(ModCharacters.CHARACTER_TYPE, raw), encoded -> {
             JsonObject candidate = encoded.get(ModCharacters.CHARACTER_TYPE.typeId()).get(ModCharacters.HUMAN_ID);
-            assertEquals(200, candidate.getAsJsonArray("components").get(0).getAsJsonObject()
+            assertEquals(200, component(candidate, "Barotrauma")
                     .get("maxDamage").getAsInt());
             assertFalse(encoded.get(ModCharacters.CHARACTER_TYPE.typeId()).containsKey(parentId));
         });
@@ -613,12 +672,12 @@ class CharacterPrototypeTest {
                 bloodField(valid, "bloodloss_ignore_resistances", "\"false\""),
                 bloodField(valid, "bloodloss_ignore_resistances", "null"))) {
             var error = CharacterData.CODEC.parse(JsonOps.INSTANCE, invalid).error().orElseThrow();
-            assertTrue(error.message().contains("$.components[1].bloodloss_ignore_resistances"), error.message());
+            assertTrue(error.message().contains(componentPath(valid, "Bloodstream") + ".bloodloss_ignore_resistances"), error.message());
             assertFalse(error.message().contains("NullPointerException"), error.message());
         }
         JsonObject nullFlag = bloodField(valid, "bloodloss_ignore_resistances", "null");
         var auditError = assertThrows(IllegalArgumentException.class, () -> CharacterSchemaAudit.audit(nullFlag));
-        assertTrue(auditError.getMessage().contains("$.components[1].bloodloss_ignore_resistances"), auditError.getMessage());
+            assertTrue(auditError.getMessage().contains(componentPath(valid, "Bloodstream") + ".bloodloss_ignore_resistances"), auditError.getMessage());
 
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
@@ -630,7 +689,7 @@ class CharacterPrototypeTest {
             var failure = assertThrows(RuntimeException.class, () -> manager.stage(Map.of(
                     ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, invalid))));
             assertTrue(failure.getMessage().contains("moonstation14:human"), failure.getMessage());
-            assertTrue(failure.getMessage().contains("$.components[1].bloodloss_ignore_resistances"), failure.getMessage());
+            assertTrue(failure.getMessage().contains(componentPath(valid, "Bloodstream") + ".bloodloss_ignore_resistances"), failure.getMessage());
             assertEquals(published, manager.snapshot(ModCharacters.CHARACTER_TYPE));
         }
 
@@ -677,7 +736,7 @@ class CharacterPrototypeTest {
         for (String legacyField : List.of("initial_volume", "max_volume")) {
             var error = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                     bloodField(valid, legacyField, "1")).error().orElseThrow();
-            assertTrue(error.message().contains("$.components[1]." + legacyField), error.message());
+            assertTrue(error.message().contains(componentPath(valid, "Bloodstream") + "." + legacyField), error.message());
             assertTrue(error.message().contains("unknown field"), error.message());
         }
         assertEquals("blood", readResource("data/moonstation14/moonstation14/reagent/blood.json").get("id").getAsString());
@@ -688,7 +747,7 @@ class CharacterPrototypeTest {
     void lungPolicyIsSplitAndStrict() throws IOException {
         JsonObject valid = readResource(RESOURCE);
         JsonObject standalone = valid.deepCopy();
-        standalone.getAsJsonArray("components").remove(1);
+        removeComponent(standalone, "Bloodstream");
         removeComponent(standalone, "Stomach");
         standalone = withoutThermal(standalone);
         standalone = withoutMovement(standalone);
@@ -702,7 +761,7 @@ class CharacterPrototypeTest {
                 CharacterData.CODEC.encodeStart(JsonOps.INSTANCE, standaloneData).getOrThrow()).getOrThrow());
 
         JsonObject noLungs = valid.deepCopy();
-        noLungs.getAsJsonArray("components").remove(4);
+        removeComponent(noLungs, "Respirator");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, noLungs).getOrThrow()
                 .component(com.juicyslew.moonstation14.ms14.character.components.RespiratorComponent.class).isEmpty());
         for (JsonObject invalid : List.of(
@@ -735,7 +794,7 @@ class CharacterPrototypeTest {
         JsonObject parent = new JsonObject(); parent.addProperty("abstract", true);
         parent.add("components", JsonParser.parseString("[{\"type\":\"Respirator\",\"max_saturation\":5}]"));
         JsonObject child = valid.deepCopy(); child.addProperty("parent", "parent");
-        child.getAsJsonArray("components").get(4).getAsJsonObject().remove("max_saturation");
+        component(child, "Respirator").remove("max_saturation");
         manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ResourceLocation.parse("moonstation14:parent"), parent,
                 ModCharacters.HUMAN_ID, child));
         assertEquals(5, manager.snapshot(ModCharacters.CHARACTER_TYPE).get(ModCharacters.HUMAN_ID)
@@ -798,7 +857,7 @@ class CharacterPrototypeTest {
         without.remove("components");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, without).getOrThrow().barotrauma().isEmpty());
         JsonObject only = valid.deepCopy();
-        only.getAsJsonArray("components").remove(1); removeComponent(only, "Stomach"); only.remove("thermal");
+        removeComponent(only, "Bloodstream"); removeComponent(only, "Stomach"); only.remove("thermal");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, only).getOrThrow().barotrauma().isPresent());
         for (String malformed : List.of("null", "{}", "[null]", "[1]", "[{}]",
                 "[{\"type\":\"Unknown\"}]", "[{\"type\":null}]", "[{\"type\":1}]",
@@ -818,8 +877,8 @@ class CharacterPrototypeTest {
         JsonObject oldOnly = without.deepCopy(); oldOnly.add("pressure", new JsonObject());
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, oldOnly).error().isPresent());
         JsonObject noDamage = valid.deepCopy();
-        noDamage.getAsJsonArray("components").get(0).getAsJsonObject().getAsJsonObject("damage").remove("types");
-        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, noDamage).error().orElseThrow().message().contains("$.components[0].damage.types"));
+        component(noDamage, "Barotrauma").getAsJsonObject("damage").remove("types");
+         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, noDamage).error().orElseThrow().message().contains(componentPath(noDamage, "Barotrauma") + ".damage.types"));
         assertThrows(UnsupportedOperationException.class, () -> CharacterData.CODEC.parse(JsonOps.INSTANCE, valid)
                 .getOrThrow().components().clear());
     }
@@ -841,7 +900,7 @@ class CharacterPrototypeTest {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
         JsonObject bloodless = human.deepCopy();
-        bloodless.getAsJsonArray("components").remove(1);
+         removeComponent(bloodless, "Bloodstream");
         removeComponent(bloodless, "Stomach");
         manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, bloodless));
         var publishedCharacters = manager.snapshot(ModCharacters.CHARACTER_TYPE);
@@ -850,7 +909,7 @@ class CharacterPrototypeTest {
                 ModCharacters.CHARACTER_TYPE, Map.of(pigId, pig)),
                 ModCharacters::validateReagentReferences));
         assertTrue(missingBloodFailure.getMessage().contains("moonstation14:pig"), missingBloodFailure.getMessage());
-         assertTrue(missingBloodFailure.getMessage().contains("$.components[1].reference_solution.moonstation14:blood"),
+         assertTrue(missingBloodFailure.getMessage().contains(componentPath(pig, "Bloodstream") + ".reference_solution.moonstation14:blood"),
                 missingBloodFailure.getMessage());
         assertTrue(missingBloodFailure.getMessage().contains("data/moonstation14/moonstation14/character/pig.json"),
                 missingBloodFailure.getMessage());
@@ -862,7 +921,7 @@ class CharacterPrototypeTest {
                 Map.of(com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_TYPE.typeId(),
                                 Map.of(bloodId, new JsonObject(), sulfurId, new JsonObject()),
                         ModCharacters.CHARACTER_TYPE.typeId(), Map.of(pigId, extraExclusionPig))));
-        assertTrue(missingExclusionFailure.getMessage().contains("$.components[1].metabolism_exclusions[1]"),
+         assertTrue(missingExclusionFailure.getMessage().contains(componentPath(extraExclusionPig, "Bloodstream") + ".metabolism_exclusions[1]"),
                 missingExclusionFailure.getMessage());
         assertEquals(publishedCharacters, manager.snapshot(ModCharacters.CHARACTER_TYPE));
     }
@@ -890,17 +949,17 @@ class CharacterPrototypeTest {
 
     private static JsonObject bloodField(JsonObject source, String field, String json) {
         JsonObject result = source.deepCopy();
-        result.getAsJsonArray("components").get(1).getAsJsonObject().add(field, JsonParser.parseString(json));
+        component(result, "Bloodstream").add(field, JsonParser.parseString(json));
         return result;
     }
 
     private static JsonObject withoutBloodField(JsonObject source, String field) {
-        JsonObject result = source.deepCopy(); result.getAsJsonArray("components").get(1).getAsJsonObject().remove(field); return result;
+        JsonObject result = source.deepCopy(); component(result, "Bloodstream").remove(field); return result;
     }
 
     private static JsonObject lungField(JsonObject source, String field, String json) {
         JsonObject result = source.deepCopy();
-        result.getAsJsonArray("components").get(4).getAsJsonObject().add(field, JsonParser.parseString(json));
+        component(result, "Respirator").add(field, JsonParser.parseString(json));
         return result;
     }
 
@@ -911,7 +970,7 @@ class CharacterPrototypeTest {
     }
 
     private static JsonObject withoutLungField(JsonObject source, String field) {
-        JsonObject result = source.deepCopy(); result.getAsJsonArray("components").get(4).getAsJsonObject().remove(field); return result;
+        JsonObject result = source.deepCopy(); component(result, "Respirator").remove(field); return result;
     }
 
     private static JsonObject readResource(String path) throws IOException {
@@ -1107,6 +1166,15 @@ class CharacterPrototypeTest {
         for (var element : character.getAsJsonArray("components")) {
             JsonObject component = element.getAsJsonObject();
             if (type.equals(component.get("type").getAsString())) return component;
+        }
+        throw new AssertionError("Missing component " + type);
+    }
+
+    private static String componentPath(JsonObject character, String type) {
+        var components = character.getAsJsonArray("components");
+        for (int i = 0; i < components.size(); i++) {
+            if (type.equals(components.get(i).getAsJsonObject().get("type").getAsString()))
+                return "$.components[" + i + "]";
         }
         throw new AssertionError("Missing component " + type);
     }

@@ -72,6 +72,8 @@ public final class LocalSpeechServerHooks {
         Speaker speaker = speaker(player, level, character, ghost, debug);
         if (speaker == null) return;
         Entity body = speaker.body();
+        if (body instanceof net.minecraft.world.entity.LivingEntity living
+                && !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(living)) return;
         UUID speakerUuid = body.getUUID();
         if (body.getId() <= 0 || speakerUuid == null || LocalSpeechPayload.NO_UUID.equals(speakerUuid)) return;
         Vec3 position = body.position();

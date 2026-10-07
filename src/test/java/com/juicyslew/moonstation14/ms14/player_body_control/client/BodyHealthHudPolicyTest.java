@@ -11,6 +11,49 @@ class BodyHealthHudPolicyTest {
     private static final UUID BODY = new UUID(0, 2);
     private final Object level = new Object();
 
+    @Test
+    void clientHudConsumesResolvedMedicalThresholdsWithoutServerActorLookup() throws Exception {
+        String resource = "data/moonstation14/moonstation14/character/human.json";
+        var stream = getClass().getClassLoader().getResourceAsStream(resource);
+        assertNotNull(stream);
+        com.juicyslew.moonstation14.component.codec.json.CharacterData human;
+        try (stream) {
+            var json = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream,
+                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            human = com.juicyslew.moonstation14.component.codec.json.CharacterData.CODEC
+                    .parse(com.mojang.serialization.JsonOps.INSTANCE, json).getOrThrow();
+        }
+        var policy = com.juicyslew.moonstation14.ms14.mobs.MobStatePolicy.from(human).orElseThrow();
+        float critical = (float) policy.thresholds().thresholds().entrySet().stream()
+                .filter(entry -> entry.getValue() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL)
+                .mapToDouble(java.util.Map.Entry::getKey).min().orElseThrow();
+        float dead = (float) policy.thresholds().thresholds().entrySet().stream()
+                .filter(entry -> entry.getValue() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD)
+                .mapToDouble(java.util.Map.Entry::getKey).min().orElseThrow();
+        assertTrue(BodyHealthHudPolicy.medical(critical, critical, dead).debugLabel().contains("Critical 100.0/200.0 damage · 100.0 to death"));
+    }
+
+    @Test
+    void medicalHudNormalizesSpeciesThresholdsAndPreservesCriticalProgressUnits() {
+        assertEquals("BODY HEALTH 100.0/100", BodyHealthHudPolicy.medical(0, 100, 200).label());
+        assertTrue(BodyHealthHudPolicy.medical(100, 100, 200).debugLabel().contains("Critical 100.0/200.0 damage · 100.0 to death"));
+        assertTrue(BodyHealthHudPolicy.medical(150, 100, 200).debugLabel().contains("Critical 150.0/200.0 damage · 50.0 to death"));
+        assertEquals("BODY HEALTH DEAD", BodyHealthHudPolicy.medical(200, 100, 200).label());
+        assertEquals("BODY HEALTH 100.0/100", BodyHealthHudPolicy.medical(0, 10, 20).label());
+        assertEquals("BODY HEALTH 50.0/100", BodyHealthHudPolicy.medical(5, 10, 20).label());
+        assertEquals("BODY HEALTH 100.0/100", BodyHealthHudPolicy.medical(0, Float.NaN, 20).label());
+        assertEquals("BODY HEALTH DEAD", BodyHealthHudPolicy.medical(0, 10, 20,
+                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD).label());
+        assertTrue(BodyHealthHudPolicy.medical(0, 10, 20,
+                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL).debugLabel().contains("Critical 0.0/20.0 damage · 20.0 to death"));
+        assertTrue(BodyHealthHudPolicy.medical(200, 100, 200,
+                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL).debugLabel().contains("Critical 200.0/200.0 damage · 0.0 to death"));
+        assertEquals("BODY HEALTH 0.0/100", BodyHealthHudPolicy.medical(200, 100, 200,
+                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE).label());
+        assertEquals("BODY HEALTH 0.0/100", BodyHealthHudPolicy.medical(100, 100, 200,
+                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE).label());
+    }
+
     private BodyHealthHudPolicy.Key key(long epoch) {
         return new BodyHealthHudPolicy.Key(CARRIER, epoch, level, BODY, 42);
     }
