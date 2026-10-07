@@ -152,6 +152,11 @@ public final class LoadedPowerGraph {
     public int loadedNodeCount() { return chunks.values().stream().mapToInt(List::size).sum(); }
     public long revision() { return revision; }
 
+    /** Whether this chunk is represented in the loaded-space index. */
+    public boolean isChunkLoaded(net.minecraft.world.level.ChunkPos pos) {
+        return loadedChunks.contains(pos.toLong());
+    }
+
     /** Returns local indexed nodes, or null when any chunk intersecting the radius is unloaded. */
     public List<CableFaceNode> nodesNear(BlockPos center, int radius, com.juicyslew.moonstation14.ms14.power.cable.CableTier tier) {
         if (center == null || tier == null || radius < 0) throw new IllegalArgumentException();

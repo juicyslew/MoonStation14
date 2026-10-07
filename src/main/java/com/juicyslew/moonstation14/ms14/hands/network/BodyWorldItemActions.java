@@ -2,7 +2,7 @@ package com.juicyslew.moonstation14.ms14.hands.network;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.item.ModItems;
-import com.juicyslew.moonstation14.item.custom.CableCutterItem;
+import com.juicyslew.moonstation14.item.custom.WirecutterItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
 import com.juicyslew.moonstation14.item.custom.CrowbarItem;
 import com.juicyslew.moonstation14.item.custom.AtmosphereAnalyzerItem;
@@ -38,6 +38,12 @@ public final class BodyWorldItemActions {
                 || !level.mayInteract(actor, admission.hit().pos())) return BodyBlockUseResult.Outcome.DENIED;
         ItemStack stack = hands.stackCopy(request.handId()).orElse(null);
         if (stack == null || stack.isEmpty()) return BodyBlockUseResult.Outcome.DENIED;
+        if (com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireMenuService
+                .dispatchToolMenu(actor, request, admission, stack)) return BodyBlockUseResult.Outcome.NO_CHANGE;
+        if (com.juicyslew.moonstation14.ms14.doors.AirlockToolInteraction.use(actor, request, admission, stack))
+            return BodyBlockUseResult.Outcome.NO_CHANGE;
+        if (com.juicyslew.moonstation14.ms14.doors.AirlockPryService.start(actor, request, admission, stack))
+            return BodyBlockUseResult.Outcome.NO_CHANGE;
         if (stack.is(ModItems.GRENADE.get())) {
             BodyGrenadePrime.Result primed = BodyGrenadePrime.prime(actor, request.handId(),
                     request.expectedToken(), request.expectedRevision());
@@ -50,7 +56,7 @@ public final class BodyWorldItemActions {
         }
         // The specialized adapters are dispatched only after the authenticated body-hand admission.
         // Mutation is intentionally delegated to body-safe item cores, never a fabricated UseOnContext.
-        if (stack.getItem() instanceof CableSpoolItem || stack.getItem() instanceof CableCutterItem
+        if (stack.getItem() instanceof CableSpoolItem || stack.getItem() instanceof WirecutterItem
                 || stack.getItem() instanceof CrowbarItem || stack.getItem() instanceof SteelItem
                 || stack.getItem() instanceof StationFloorTileItem || stack.getItem() instanceof StationFloorTilePryItem)
             return BodyConstructionItemUse.use(new BodyUseItemContext(actor, authority, hands, request.handId(),
@@ -67,6 +73,8 @@ public final class BodyWorldItemActions {
                                                        BodyHandRequestService.BlockUseAdmission admission) {
         if (actor != null && request != null && admission != null
                 && request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD) {
+            if (com.juicyslew.moonstation14.ms14.doors.AirlockInteraction.activate(request, admission))
+                return BodyBlockUseResult.Outcome.NO_CHANGE;
             if (com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService
                     .open(actor, request, admission)) return BodyBlockUseResult.Outcome.NO_CHANGE;
             return com.juicyslew.moonstation14.ms14.power.ui.ApcMenuService.openForBody(actor, request, admission)

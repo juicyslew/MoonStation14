@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.List;
 import java.nio.file.Path;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.AfterBatch;
 import com.juicyslew.moonstation14.gametest.support.GameTestTagRegistrar;
 import org.objectweb.asm.*;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,14 @@ class GameTestTagSelectorTest {
 
     static class UntaggedFixture {
         @GameTest(templateNamespace = "moonstation14", template = "empty") void test() {}
+    }
+
+    static class BatchFixture {
+        @GameTest(batch = "selected", templateNamespace = "moonstation14", template = "empty") @GameTestTags("power") void first() {}
+        @GameTest(batch = "selected", templateNamespace = "moonstation14", template = "empty") @GameTestTags("power") void second() {}
+        @GameTest(batch = "other", templateNamespace = "moonstation14", template = "empty") @GameTestTags("chat") void other() {}
+        @AfterBatch(batch = "selected") static void selectedHook(net.minecraft.server.level.ServerLevel level) {}
+        @AfterBatch(batch = "other") static void otherHook(net.minecraft.server.level.ServerLevel level) {}
     }
 
     @Test void absentMeansFullRunAndPresentBlankFails() {
@@ -124,5 +133,19 @@ class GameTestTagSelectorTest {
         published.clear();
         assertThrows(IllegalStateException.class, () -> GameTestTagRegistrar.registerMethods(methods, Set.of("missing"), published::add));
         assertTrue(published.isEmpty());
+    }
+
+    @Test void afterBatchHooksFollowSelectedBatchesAndDeduplicateBatchMethods() throws Exception {
+        var first = BatchFixture.class.getDeclaredMethod("first");
+        var second = BatchFixture.class.getDeclaredMethod("second");
+        var other = BatchFixture.class.getDeclaredMethod("other");
+        var selectedHook = BatchFixture.class.getDeclaredMethod("selectedHook", net.minecraft.server.level.ServerLevel.class);
+        var otherHook = BatchFixture.class.getDeclaredMethod("otherHook", net.minecraft.server.level.ServerLevel.class);
+        var tests = List.of(first, second, other);
+        var hooks = List.of(selectedHook, otherHook);
+
+        assertEquals(Set.of(selectedHook), GameTestTagRegistrar.selectAfterBatchMethods(tests, hooks, Set.of("power")));
+        assertEquals(Set.of(), GameTestTagRegistrar.selectAfterBatchMethods(tests, hooks, Set.of("missing")));
+        assertEquals(Set.of(selectedHook, otherHook), GameTestTagRegistrar.selectAfterBatchMethods(tests, hooks, Set.of()));
     }
 }

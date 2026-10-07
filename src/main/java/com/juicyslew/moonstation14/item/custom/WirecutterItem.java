@@ -13,8 +13,8 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.network.chat.Component;
 
 /** Cuts only the exact clicked host face and returns the matching spool. */
-public final class CableCutterItem extends Item {
-    public CableCutterItem(Properties properties) { super(properties); }
+public final class WirecutterItem extends Item {
+    public WirecutterItem(Properties properties) { super(properties); }
 
     @Override public InteractionResult useOn(UseOnContext context) {
         if (context.getLevel().isClientSide) return InteractionResult.SUCCESS;
@@ -29,7 +29,7 @@ public final class CableCutterItem extends Item {
             if (CableStorage.has(level, pos, context.getClickedFace(), candidate)) existing.add(candidate);
         var choice = CableCutSelection.select(existing, selected);
         if (choice.refusal() == CableCutSelection.Refusal.AMBIGUOUS) {
-            player.displayClientMessage(Component.translatable("message.moonstation14.cable_cutter.ambiguous"), true);
+            player.displayClientMessage(Component.translatable("message.moonstation14.wirecutter.ambiguous"), true);
             return InteractionResult.FAIL;
         }
         if (!choice.allowed()) return InteractionResult.FAIL;

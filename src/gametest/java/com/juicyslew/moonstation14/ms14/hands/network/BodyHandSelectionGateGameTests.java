@@ -56,19 +56,27 @@ public final class BodyHandSelectionGateGameTests {
         });
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 140)
+    @GameTestTags({"stun_action_gate"})
     public static void stunDeniesSelectionWithoutRevisionChange(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         helper.runAfterDelay(1, () -> {
             LiveHands before = LiveHands.initialize(body).orElseThrow();
             LiveHands after = before.selectActive(before.revision(), "right").orElseThrow();
             require(BodyHandRequestService.selectionAllowed(body, before, after, 0), "unstunned selection allowed");
-            require(CharacterControlSystem.applyStun(body, 40), "bound body accepts stun");
+            require(CharacterControlSystem.applyParalyze(body, 5f), "bound body accepts paralyze");
+            require(!CharacterControlSystem.canAct(body), "action-blocking status is live on the body");
             require(!BodyHandRequestService.selectionAllowed(body, before, after, 0)
                             && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                             && before.revision() == 0 && before.activeHand().equals("left"),
                     "stun rejects final selection gate and retains the exact hand snapshot");
-            helper.succeed();
+            helper.runAfterDelay(101, () -> {
+                require(CharacterControlSystem.canAct(body), "expired paralyze restores action admission");
+                LiveHands recovered = before.selectActive(before.revision(), "right").orElseThrow();
+                require(BodyHandRequestService.selectionAllowed(body, before, recovered, 0),
+                        "same unchanged hand revision is usable after status expiry");
+                helper.succeed();
+            });
         });
     }
 

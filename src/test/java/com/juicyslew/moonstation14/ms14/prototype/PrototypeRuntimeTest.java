@@ -11,6 +11,8 @@ import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
 import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
+import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
+import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.chat.radio.ModRadioChannels;
 import com.juicyslew.moonstation14.ms14.chat.radio.RadioChannelData;
@@ -62,6 +64,8 @@ class PrototypeRuntimeTest {
                 ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE);
         expectedTypes = new java.util.HashSet<>(expectedTypes);
         expectedTypes.add(ModIngestionProfiles.TYPE);
+        expectedTypes.add(ModAirlocks.TYPE);
+        expectedTypes.add(ModToolProfiles.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -155,6 +159,16 @@ class PrototypeRuntimeTest {
                 ModAirAlarms.METALLIC, alarm("base_wallmount_metallic"),
                 ModAirAlarms.MACHINE, alarm("base_wallmount_machine"),
                 ModAirAlarms.AIR_ALARM, alarm("air_alarm")));
+        server.reload(ModAirlocks.TYPE, Map.of(ModAirlocks.STANDARD,
+                resourceJson("airlock", "standard_airlock"), id("base_airlock"),
+                resourceJson("airlock", "base_airlock")));
+        server.reload(ModToolProfiles.TYPE, Map.of(
+                id("crowbar"), resourceJson("tool_profile", "crowbar"),
+                id("wirecutter"), resourceJson("tool_profile", "wirecutter"),
+                id("screwdriver"), resourceJson("tool_profile", "screwdriver"),
+                id("multitool"), resourceJson("tool_profile", "multitool"),
+                id("base_item"), resourceJson("tool_profile", "base_item"),
+                id("base_crowbar"), resourceJson("tool_profile", "base_crowbar")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
@@ -168,7 +182,8 @@ class PrototypeRuntimeTest {
                  ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                  ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
                   ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
-                  ModIngestionProfiles.TYPE.typeId()),
+                  ModIngestionProfiles.TYPE.typeId(), ModAirlocks.TYPE.typeId(),
+                  ModToolProfiles.TYPE.typeId()),
                  exported.keySet());
         assertTrue(exported.get(ModOrgans.ORGAN_TYPE.typeId()).containsKey(id("lungs-test")));
         assertTrue(exported.get(ModGasReactions.GAS_REACTION_TYPE.typeId()).containsKey(id("reaction-test")));
@@ -240,6 +255,16 @@ class PrototypeRuntimeTest {
 
     private static JsonObject alarm(String name) {
         String path = "/data/moonstation14/moonstation14/air_alarm/" + name + ".json";
+        try (var stream = PrototypeRuntimeTest.class.getResourceAsStream(path)) {
+            if (stream == null) throw new IllegalStateException("Missing test resource " + path);
+            return JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (java.io.IOException exception) {
+            throw new java.io.UncheckedIOException(exception);
+        }
+    }
+
+    private static JsonObject resourceJson(String family, String name) {
+        String path = "/data/moonstation14/moonstation14/" + family + "/" + name + ".json";
         try (var stream = PrototypeRuntimeTest.class.getResourceAsStream(path)) {
             if (stream == null) throw new IllegalStateException("Missing test resource " + path);
             return JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();

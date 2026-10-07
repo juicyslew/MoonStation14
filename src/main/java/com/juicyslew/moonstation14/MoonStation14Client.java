@@ -54,6 +54,7 @@ import com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractio
 import com.juicyslew.moonstation14.ms14.atmos.piping.client.VisualPipeBlockEntityRenderer;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreen;
+import com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
@@ -143,6 +144,10 @@ public class MoonStation14Client {
         AirAlarmNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof AirAlarmScreen screen) screen.handleResponse(response);
         }));
+        AirlockWireNetworking.installClientBridge(
+                (open, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.open(open.windowId(), open.session())),
+                (response, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.accept(response)),
+                 (close, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.close(close.windowId(), close.session())));
         MovementClientController.install();
         BodyHandClient.install();
         TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
@@ -688,6 +693,7 @@ public class MoonStation14Client {
     }
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
