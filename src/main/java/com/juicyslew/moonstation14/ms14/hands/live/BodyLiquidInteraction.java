@@ -50,6 +50,28 @@ public final class BodyLiquidInteraction {
                 () -> HandActorAuthority.revalidate(actor, authority));
     }
 
+    /** Syringe route uses the same conditional stack transaction while limiting its admitted volume. */
+    public static Result fillDoseOwned(LivingEntity body, UUID targetId, String hand, String token, long revision,
+                                       boolean reverse, int doseCents, BooleanSupplier authorityValid) {
+        if (body == null || hand == null || token == null || doseCents <= 0 || authorityValid == null
+                || !(body.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || !authorityValid.getAsBoolean()
+                || !CharacterControlSystem.canAct(body) || body.isRemoved() || !body.isAlive()
+                || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body || targetId == null) return Result.DENIED;
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (before == null || !before.compatible(body) || before.revision() != revision
+                || !before.activeHand().equals(hand) || !before.token(hand).filter(token::equals).isPresent()) return Result.DENIED;
+        ItemToken itemToken;
+        try { itemToken = new ItemToken(token); } catch (RuntimeException ex) { return Result.DENIED; }
+        ItemStack held = before.stackCopy(hand).orElse(null);
+        if (!reagentStack(held) || BodyItemTargetProbe.probeSelected(level, body, targetId, 2.0) == null) return Result.DENIED;
+        Entity found = level.getEntity(targetId);
+        if (!(found instanceof ItemEntity world) || !(world instanceof LooseItemEntity) || world.getItem().getCount() != 1 || world.getTarget() != null
+                || world.hasPickUpDelay() || !reagentStack(world.getItem())) return Result.DENIED;
+        return LiveHandsCommitGateway.batch(() -> fillOwnedTransaction(body, level, world, held, before, hand, itemToken, token, revision,
+                reverse, authorityValid, doseCents, BodyItemTargetProbe.SYRINGE_CONTAINER_REACH));
+    }
+
     /** Trusted body-owned route, parallel to sipOwned. */
     static Result fillOwned(LivingEntity body, UUID targetId, String hand, String token, long revision,
                             boolean reverse, BooleanSupplier authorityValid) {
@@ -67,12 +89,12 @@ public final class BodyLiquidInteraction {
         Entity found = level.getEntity(targetId);
         if (!(found instanceof ItemEntity world) || !(world instanceof LooseItemEntity) || world.getTarget() != null
                 || world.hasPickUpDelay() || !reagentStack(world.getItem())) return Result.DENIED;
-        return fillOwnedTransaction(body, level, world, held, before, hand, itemToken, token, revision, reverse, authorityValid);
+        return LiveHandsCommitGateway.batch(() -> fillOwnedTransaction(body, level, world, held, before, hand, itemToken, token, revision, reverse, authorityValid, 0, BodyItemTargetProbe.MAX_REACH));
     }
 
     private static Result fillOwnedTransaction(LivingEntity body, ServerLevel level, ItemEntity world, ItemStack held,
                                                 LiveHands before, String hand, ItemToken itemToken, String token,
-                                                long revision, boolean reverse, BooleanSupplier valid) {
+                                                 long revision, boolean reverse, BooleanSupplier valid, int doseCents, double reach) {
         ItemStack originalWorld = world.getItem().copy();
         ItemStack source = reverse ? originalWorld : held, destination = reverse ? held : originalWorld;
         IReagentTrait sourceTrait = (IReagentTrait) source.getItem(), destinationTrait = (IReagentTrait) destination.getItem();
@@ -84,26 +106,33 @@ public final class BodyLiquidInteraction {
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(src.getMap(), level, "liquid source")
                 || !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dst.getMap(), level, "liquid destination")) return Result.DENIED;
         LiquidInteractionCapability.TransferPlan plan;
-        try { plan = LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(dst.getMap()),
-                ReagentUnits.fromFloat(destinationTrait.getCapacity())); } catch (RuntimeException ex) { return Result.DENIED; }
+        try { plan = doseCents > 0
+                ? LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(dst.getMap()),
+                    ReagentUnits.fromFloat(destinationTrait.getCapacity(destination, level)), doseCents)
+                : LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(dst.getMap()),
+                    ReagentUnits.fromFloat(destinationTrait.getCapacity(destination, level))); } catch (RuntimeException ex) { return Result.DENIED; }
         if (plan.transferredCents() <= 0) return Result.DENIED;
         ItemStack stagedHeld = held.copy(), stagedWorld = originalWorld.copy();
         ItemStack stagedSource = reverse ? stagedWorld : stagedHeld, stagedDestination = reverse ? stagedHeld : stagedWorld;
         try {
             if (!publishStackReagents(stagedSource, stagedSource, plan.sourceAfter())
-                    || !publishStackReagents(stagedDestination, stagedDestination, plan.destinationAfter())) return Result.DENIED;
+                    || !publishStackReagents(stagedDestination, stagedDestination, plan.destinationAfter())
+                    || !com.juicyslew.moonstation14.ms14.medical.syringe.SyringeTransferModeTransition.apply(stagedHeld, level))
+                return Result.DENIED;
         } catch (RuntimeException ex) { return Result.DENIED; }
         LiveHands next = before.replaceOwnedComponents(revision, hand, itemToken, stagedHeld).orElse(null);
         if (next == null || !valid.getAsBoolean() || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || before.revision() != revision || !before.token(hand).filter(token::equals).isPresent()
                 || before.stackCopy(hand).filter(s -> same(held,s)).isEmpty()
-                || BodyItemTargetProbe.probeSelected(level, body, world.getUUID(), BodyItemTargetProbe.MAX_REACH) == null
+                || (reach == BodyItemTargetProbe.MAX_REACH
+                    ? BodyItemTargetProbe.probeSelected(level, body, world.getUUID(), reach) == null
+                    : !BodyItemTargetProbe.loadedReachableItem(level, body, world.getUUID(), reach))
                 || level.getEntity(world.getUUID()) != world || !same(originalWorld, world.getItem())) return Result.RECOVERY_REQUIRED;
         boolean heldFirst = !reverse;
         if (!valid.getAsBoolean() || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || level.getEntity(world.getUUID()) != world || !same(originalWorld, world.getItem())) return Result.DENIED;
         if (heldFirst) {
-            try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next); } catch (RuntimeException ignored) { }
+            try { LiveHandsCommitGateway.commitOwned(body, next); } catch (RuntimeException ignored) { }
             LiveHands now = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             if (now != next) return now == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
             try { world.setItem(stagedWorld); } catch (RuntimeException ignored) { }
@@ -112,7 +141,7 @@ public final class BodyLiquidInteraction {
                 if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next) return Result.RECOVERY_REQUIRED;
                 LiveHands rollback = next.replaceOwnedComponents(next.revision(), hand, itemToken, held).orElse(null);
                 if (rollback == null) return Result.RECOVERY_REQUIRED;
-                try { body.setData(ModDataAttachments.LIVE_HANDS.get(), rollback); }
+                try { LiveHandsCommitGateway.commitOwned(body, rollback); }
                 catch (RuntimeException ex) { return Result.RECOVERY_REQUIRED; }
                 LiveHands restored = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                 return restored == rollback && restored.revision() == next.revision() + 1
@@ -123,7 +152,7 @@ public final class BodyLiquidInteraction {
         }
         try { world.setItem(stagedWorld); } catch (RuntimeException ignored) { }
         if (!same(stagedWorld, world.getItem())) return same(originalWorld, world.getItem()) ? Result.DENIED : Result.RECOVERY_REQUIRED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next); } catch (RuntimeException ignored) { }
+        try { LiveHandsCommitGateway.commitOwned(body, next); } catch (RuntimeException ignored) { }
         LiveHands now = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (now == next) return Result.SUCCESS;
         if (now == before) {
@@ -158,8 +187,15 @@ public final class BodyLiquidInteraction {
     }
 
     private static Result sipBody(LivingEntity body, @Nullable UUID worldTargetId, String hand,
-                                  @Nullable String token, long revision, BooleanSupplier authorityValid,
-                                  boolean timed, int doseCents) {
+                                   @Nullable String token, long revision, BooleanSupplier authorityValid,
+                                   boolean timed, int doseCents) {
+        return LiveHandsCommitGateway.batch(() -> sipTransaction(body, worldTargetId, hand, token, revision,
+                authorityValid, timed, doseCents));
+    }
+
+    private static Result sipTransaction(LivingEntity body, @Nullable UUID worldTargetId, String hand,
+                                   @Nullable String token, long revision, BooleanSupplier authorityValid,
+                                   boolean timed, int doseCents) {
         if (body == null || hand == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || level.getServer() == null || !level.getServer().isSameThread()
                 || !CharacterControlSystem.canAct(body) || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
@@ -217,7 +253,7 @@ public final class BodyLiquidInteraction {
             LiveHands next = before.replaceOwnedComponents(revision, hand, ownedToken, replacement).orElse(null);
             if (next == null || !sipStillValid(body, level, before, revision, hand, token, held, authorityValid, timed)
                     || !stomachUnchanged(body, stomachAttachment, stomachBefore)) return Result.DENIED;
-            try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next); } catch (RuntimeException ignored) { }
+            try { LiveHandsCommitGateway.commitOwned(body, next); } catch (RuntimeException ignored) { }
             if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next) {
                 if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before) return Result.RECOVERY_REQUIRED;
                 return Result.DENIED;
@@ -285,7 +321,7 @@ public final class BodyLiquidInteraction {
         if (current == null || !current.token(hand).filter(token::equals).isPresent() || !same(reduced, staged)) return Result.RECOVERY_REQUIRED;
         LiveHands rollback = current.replaceOwnedComponents(current.revision(), hand, ownedToken, held).orElse(null);
         if (rollback == null) return Result.RECOVERY_REQUIRED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), rollback); } catch (RuntimeException ignored) { }
+        try { LiveHandsCommitGateway.commitOwned(body, rollback); } catch (RuntimeException ignored) { }
         return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == rollback
                 && rollback.revision() == current.revision() + 1 && rollback.stackCopy(hand).filter(s -> same(held,s)).isPresent()
                 ? Result.DENIED : Result.RECOVERY_REQUIRED;

@@ -13,6 +13,17 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void syringeGesturesRouteModeDoseAndBodyUseSeparately() {
+        assertEquals(MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE,
+                MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, false, true));
+        assertEquals(MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE,
+                MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, true, true));
+        assertTrue(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, false, false));
+        assertFalse(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, true, false));
+        assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT,
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values()[
+                        com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values().length - 1]);
+    }
     @Test void deferredPlacementRequiresFreshSameIntentAndSource() {
         var body=java.util.UUID.randomUUID(); var pos=new net.minecraft.core.BlockPos(1,2,3);
         assertTrue(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
@@ -121,6 +132,38 @@ class BodyHandClientPolicyTest {
     private static BodyHandStateSnapshot snapshot(long requested, long sequence, UUID account, UUID body, long epoch) {
         return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
                 account, body, epoch, 3, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)));
+    }
+
+    @Test void pushedSnapshotsAdvanceWithoutStealingQueryOrActionCorrelations() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        long q = policy.query(1);
+        assertTrue(policy.accept(snapshot(0, q, ACCOUNT, BODY, 7)));
+        long action = policy.action(2);
+        var pushed = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 5,
+                "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)), List.of(), List.of(), true);
+        assertTrue(policy.accept(pushed));
+        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 3));
+        long refresh = policy.query(4);
+        assertFalse(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)), "older query cannot roll back push revision");
+        assertEquals(5, policy.presentationSnapshot().revision());
+    }
+
+    @Test void pushRejectsWrongAuthorityEpochAndOlderRevision() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        var newer = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 5,
+                "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)), List.of(), List.of(), true);
+        assertFalse(policy.accept(new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), BODY, 7, 6,
+                "left", newer.hands(), List.of(), List.of(), true)));
+        assertFalse(policy.accept(new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 8, 6,
+                "left", newer.hands(), List.of(), List.of(), true)));
+        assertTrue(policy.accept(newer));
+        var older = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 4,
+                "left", newer.hands(), List.of(), List.of(), true);
+        assertFalse(policy.accept(older));
+        assertEquals(5, policy.snapshot().revision());
     }
 
     private static BodyHandActionResult result(long epoch, long sequence, BodyHandActionResult.Reason reason) {

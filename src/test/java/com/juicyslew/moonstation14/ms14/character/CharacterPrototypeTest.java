@@ -13,6 +13,8 @@ import com.juicyslew.moonstation14.ms14.character.components.ObserverMovementCom
 import com.juicyslew.moonstation14.ms14.character.components.IncorporealComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent;
 import com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.DamageableComponent;
+import com.juicyslew.moonstation14.ms14.character.components.HumanoidProfileComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import com.mojang.serialization.JsonOps;
@@ -32,6 +34,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CharacterPrototypeTest {
+    @Test
+    void standingStateDownSoundDefaultsAndCustomizes() throws IOException {
+        var defaultComponent = StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"StandingState\",\"standing_eligible\":true,\"prone_eligible\":true}")).getOrThrow();
+        assertEquals(ResourceLocation.parse("moonstation14:body_fall"), defaultComponent.downSound());
+        var custom = StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"StandingState\",\"standing_eligible\":true,\"prone_eligible\":true,\"down_sound\":\"minecraft:entity.player.small_fall\"}")).getOrThrow();
+        assertEquals(ResourceLocation.parse("minecraft:entity.player.small_fall"), custom.downSound());
+        assertEquals(custom, StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
+                StandingStateComponent.CODEC.encodeStart(JsonOps.INSTANCE, custom).getOrThrow()).getOrThrow());
+        assertEquals(ResourceLocation.parse("moonstation14:body_fall"), dataFromResource(RESOURCE)
+                .component(StandingStateComponent.class).orElseThrow().downSound());
+        assertEquals(ResourceLocation.parse("moonstation14:body_fall"), dataFromResource("data/moonstation14/moonstation14/character/pig.json")
+                .component(StandingStateComponent.class).orElseThrow().downSound());
+        JsonObject invalid = JsonParser.parseString("{\"components\":[{\"type\":\"StandingState\",\"standing_eligible\":true,\"prone_eligible\":true,\"down_sound\":\"not a sound\"}]}").getAsJsonObject();
+        assertThrows(IllegalArgumentException.class, () -> CharacterSchemaAudit.audit(ResourceLocation.parse("moonstation14:bad_sound"), invalid));
+    }
     private static final String RESOURCE = "data/moonstation14/moonstation14/character/human.json";
 
     @Test
@@ -109,7 +128,7 @@ class CharacterPrototypeTest {
         ResourceLocation childId = ResourceLocation.parse("moonstation14:slip_child");
         JsonObject parent = JsonParser.parseString("""
                 {"abstract":true,"components":[{"type":"StandingState","standing_eligible":true,
-                 "prone_eligible":false},{"type":"NoSlip"},{"type":"Stunnable"},
+                 "prone_eligible":false,"down_sound":"minecraft:entity.player.small_fall"},{"type":"NoSlip"},{"type":"Stunnable"},
                  {"type":"Reactive","reactive_groups":["acidic"],"reactive_methods":["touch"]}]}
                 """).getAsJsonObject();
         JsonObject child = JsonParser.parseString("""
@@ -122,6 +141,8 @@ class CharacterPrototypeTest {
         CharacterData resolved = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(childId);
         assertTrue(resolved.component(NoSlipComponent.class).isPresent());
         assertTrue(resolved.component(StunnableComponent.class).isPresent());
+        assertEquals(ResourceLocation.parse("minecraft:entity.player.small_fall"),
+                resolved.component(StandingStateComponent.class).orElseThrow().downSound());
         assertTrue(resolved.component(StandingStateComponent.class).orElseThrow().standingEligible());
         assertTrue(resolved.component(StandingStateComponent.class).orElseThrow().proneEligible());
         assertEquals(List.of(ReactiveComponent.ReactiveGroup.FLAMMABLE),
@@ -256,6 +277,8 @@ class CharacterPrototypeTest {
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
         assertTrue(data.component(StunnableComponent.class).isPresent());
+        assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());
+        assertEquals("Human", data.component(HumanoidProfileComponent.class).orElseThrow().species());
         assertTrue(data.component(NoSlipComponent.class).isEmpty());
         assertTrue(data.component(StandingStateComponent.class).orElseThrow().standingEligible());
         assertTrue(data.component(StandingStateComponent.class).orElseThrow().proneEligible());
@@ -337,6 +360,8 @@ class CharacterPrototypeTest {
 
         JsonObject pigJson = readResource("data/moonstation14/moonstation14/character/pig.json");
         CharacterData pig = CharacterData.CODEC.parse(JsonOps.INSTANCE, pigJson).getOrThrow();
+        assertEquals(Optional.of("Biological"), pig.component(DamageableComponent.class).orElseThrow().damageContainer());
+        assertTrue(pig.component(HumanoidProfileComponent.class).isEmpty(), "Pig has no humanoid profile and scans as unknown species");
         assertEquals(4.0, pig.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).orElseThrow().walkSpeed());
         assertEquals(4.0, com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy
                 .fromCharacterData(pig).sprintSpeedPerSecond());

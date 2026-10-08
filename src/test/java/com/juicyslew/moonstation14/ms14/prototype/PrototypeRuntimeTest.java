@@ -67,6 +67,8 @@ class PrototypeRuntimeTest {
                 ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
         expectedTypes.add(ModDamageFeedback.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -127,7 +129,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllFifteenFamiliesIncludingDamageFeedbackWithoutSharingState() {
+    void runtimeExportImportsAllEighteenFamiliesIncludingMedicalAndDamageFeedbackWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -170,6 +172,11 @@ class PrototypeRuntimeTest {
         server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-test"), profile));
         DamageFeedbackProfile damageFeedback = DamageFeedbackProfile.PHYSICAL;
         server.publishDecoded(ModDamageFeedback.TYPE, Map.of(id("damage-feedback-test"), damageFeedback));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE,
+                Map.of(id("medical-test"), new com.juicyslew.moonstation14.ms14.medical.MedicalItemData(
+                        new com.juicyslew.moonstation14.ms14.medical.MedicalItemData.Item("Small"),
+                        java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
+                        java.util.Optional.empty(), java.util.Optional.empty())));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -179,7 +186,9 @@ class PrototypeRuntimeTest {
                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId()), exported.keySet());
+                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(ModTools.TOOL_TYPE.typeId()).keySet().containsAll(Set.of(
                 ModTools.WRENCH, ModTools.SCREWDRIVER, ModTools.WELDER)));
         assertTrue(exported.get(ModDisposals.DISPOSAL_TYPE.typeId()).keySet().containsAll(Set.of(

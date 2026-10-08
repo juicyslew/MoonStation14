@@ -13,12 +13,13 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.*;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.function.IntSupplier;
 
 /** Server-authoritative callback runtime; callbacks never enter entity attachment data. */
 public final class TimedInteractionSystem {
     public enum Completion { REPEAT, STOP, DENIED, RECOVERY_REQUIRED }
     private record Key(UUID body, long id) { }
-    private record Context(int duration, double damageThreshold, BooleanSupplier valid, Supplier<Completion> completion, ServerLevel level, net.minecraft.world.phys.Vec3 start) { }
+    private record Context(IntSupplier repeatDuration, double damageThreshold, double movementThreshold, BooleanSupplier valid, Supplier<Completion> completion, ServerLevel level, net.minecraft.world.phys.Vec3 start) { }
     private record Presentation(long origin, ServerPlayer owner) { }
     private static final Map<Key, Context> CALLBACKS = new HashMap<>();
     private static final Map<Key, Presentation> PRESENTATION = new HashMap<>();
@@ -39,8 +40,24 @@ public final class TimedInteractionSystem {
     public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             double damageThreshold, BooleanSupplier valid, Supplier<Completion> completion) {
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove,
+                damageThreshold, () -> durationTicks, valid, completion);
+    }
+    /** Start an operation whose committed repeat duration is recalculated from live state each cycle. */
+    public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
+            String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
+            double damageThreshold, IntSupplier repeatDuration, BooleanSupplier valid, Supplier<Completion> completion) {
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove,
+                damageThreshold, 0.3, repeatDuration, valid, completion);
+    }
+    /** Start an operation with explicit movement cancellation distance; existing callers retain the 0.3 default. */
+    public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
+            String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
+            double damageThreshold, double movementThreshold, IntSupplier repeatDuration,
+            BooleanSupplier valid, Supplier<Completion> completion) {
         Objects.requireNonNull(body); Objects.requireNonNull(kind); Objects.requireNonNull(sourceKey); Objects.requireNonNull(valid); Objects.requireNonNull(completion);
-        if (!Double.isFinite(damageThreshold) || damageThreshold <= 0) return TimedInteractionEngine.StartResult.DENIED;
+        Objects.requireNonNull(repeatDuration);
+        if (!Double.isFinite(damageThreshold) || damageThreshold <= 0 || !Double.isFinite(movementThreshold) || movementThreshold <= 0) return TimedInteractionEngine.StartResult.DENIED;
         if (!(body.level() instanceof ServerLevel level)) return TimedInteractionEngine.StartResult.DENIED;
         checkThread(level);
         if (body.isRemoved() || !body.isAlive() || durationTicks < 1) return TimedInteractionEngine.StartResult.DENIED;
@@ -52,7 +69,7 @@ public final class TimedInteractionSystem {
         UUID uuid = body.getUUID(); ACTORS.put(uuid, body);
         if (result.result() == TimedInteractionEngine.StartResult.STARTED) {
             Key key = new Key(uuid, result.operation().id());
-            CALLBACKS.put(key, new Context(durationTicks, damageThreshold, valid, completion, level, body.position()));
+            CALLBACKS.put(key, new Context(repeatDuration, damageThreshold, movementThreshold, valid, completion, level, body.position()));
             PRESENTATION.put(key, new Presentation(originSequence, owner));
         }
         publish(body);
@@ -87,7 +104,7 @@ public final class TimedInteractionSystem {
                 Key key=new Key(body.getUUID(),op.id()); Context c=CALLBACKS.get(key);
                 boolean invalid=c==null || c.level()!=level || body.isRemoved() || !body.isAlive();
                 try { if (!invalid) invalid=!c.valid().getAsBoolean(); } catch (RuntimeException ex) { invalid=true; }
-                if (!invalid && op.breakOnMove() && c.start().distanceTo(body.position()) > 0.3) invalid=true;
+                if (!invalid && op.breakOnMove() && c.start().distanceTo(body.position()) > c.movementThreshold()) invalid=true;
                 if(invalid) next=TimedInteractionEngine.cancel(next,op.id(),current);
             }
             var advanced=TimedInteractionEngine.advance(next,current); next=advanced.state();
@@ -95,7 +112,15 @@ public final class TimedInteractionSystem {
                 Key key=new Key(body.getUUID(),due.id()); Context c=CALLBACKS.get(key); if(c==null)continue;
                 Completion outcome=Completion.DENIED;
                 try { outcome=c.valid().getAsBoolean()?c.completion().get():Completion.STOP; } catch(RuntimeException ignored) { }
-                if(outcome==Completion.REPEAT) next=TimedInteractionEngine.repeat(next,due.id(),current,c.duration());
+                if(outcome==Completion.REPEAT) {
+                    int duration;
+                    try { duration = c.repeatDuration().getAsInt(); } catch (RuntimeException ex) { duration = 0; }
+                    if (duration < 1) { next = TimedInteractionEngine.cancel(next, due.id(), current); CALLBACKS.remove(key); }
+                    else {
+                        next=TimedInteractionEngine.repeat(next,due.id(),current,duration);
+                        CALLBACKS.put(key, new Context(c.repeatDuration(), c.damageThreshold(), c.movementThreshold(), c.valid(), c.completion(), c.level(), body.position()));
+                    }
+                }
                 else CALLBACKS.remove(key);
             }
             next=TimedInteractionEngine.prune(next,current);

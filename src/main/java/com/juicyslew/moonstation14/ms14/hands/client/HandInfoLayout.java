@@ -6,17 +6,22 @@ public final class HandInfoLayout {
 
     private HandInfoLayout() { }
 
+    /** Positions the text origin in GUI pixels, accounting for the pose scale applied by the renderer. */
+    static int textX(int panelX, int panelWidth, int fontWidth, float scale, boolean rightAligned) {
+        return rightAligned ? panelX + panelWidth - 3 - Math.round(fontWidth * scale) : panelX + 3;
+    }
+
     public static Layout calculate(int width, int height, HandBarLayout.Layout bar) {
         if (bar == null || width < 90 || height < 120) return null;
         var first = bar.leftHand();
         var second = bar.rightHand();
-        int panelWidth = Math.min(48, Math.min(width, Math.max(first.width() + 4, width / 6)));
+        int panelWidth = Math.min(96, Math.min(first.x() + first.width(), width - second.x()));
         if (panelWidth < 24) return null;
         int panelHeight = 12;
         int y = first.y() - panelHeight - 2;
         if (y < 0) return null;
-        // Keep each label attached to the inside edge of its hand. Centering
-        // both wide labels on the hand tiles makes them overlap at normal GUI sizes.
+        // Keep each panel on its existing inner-edge anchor; the hand gap
+        // separates the panels even at the expanded width.
         int leftX = first.x() + first.width() - panelWidth;
         int rightX = second.x();
         return new Layout(new HandBarLayout.Rect(leftX, y, panelWidth, panelHeight),

@@ -46,7 +46,7 @@ public final class WelderOwnerTickService {
         if (next == before || body.isRemoved() || body.level().isClientSide
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body)) return;
-        body.setData(ModDataAttachments.LIVE_HANDS.get(), next);
+        LiveHandsCommitGateway.commitOwned(body, next);
         LiveHands published = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (published != next || !published.compatible(body) || published.revision() != before.revision()) return;
     }

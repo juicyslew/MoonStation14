@@ -16,6 +16,13 @@ public class ModSounds {
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
+    public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
+    // Event registry IDs must exist independently of their sounds.json sample mappings.
+    public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
+    public static final Supplier<SoundEvent> MEDICAL_OINTMENT_END = registerSoundEvent("medical/ointment_end");
+    public static final Supplier<SoundEvent> MEDICAL_BRUTEPACK_BEGIN = registerSoundEvent("medical/brutepack_begin");
+    public static final Supplier<SoundEvent> MEDICAL_BRUTEPACK_END = registerSoundEvent("medical/brutepack_end");
+    public static final Supplier<SoundEvent> MEDICAL_HEALTHSCANNER = registerSoundEvent("medical/healthscanner");
     // Default human gasp profile is MaleHuman (HumanUnsexed); female collection is
     // registered for a later supported voice-profile consumer.
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");

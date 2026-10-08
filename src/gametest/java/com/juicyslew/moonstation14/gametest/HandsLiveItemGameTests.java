@@ -7,6 +7,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandComponent;
 import com.juicyslew.moonstation14.ms14.hands.HandState;
@@ -48,6 +49,14 @@ public final class HandsLiveItemGameTests {
                     "pig and unbound actor cannot inherit human hands");
             require(LiveHands.initialize(body).isPresent() && LiveHands.isEmptyHand(body, "left"),
                     "bound human can explicitly initialize an empty layout");
+            LiveHands initialized = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            LiveHands selected = initialized.selectActive(initialized.revision(), "right").orElseThrow();
+            require(!LiveHandsCommitGateway.commitTrusted(body, selected, selected)
+                            && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == initialized,
+                    "stale expected attachment cannot overwrite current body state");
+            require(LiveHandsCommitGateway.commitTrusted(body, initialized, selected)
+                            && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == selected,
+                    "trusted unowned server-body commit succeeds without an authenticated player publisher");
 
             CharacterIdentityAttachment wrongHost = new CharacterIdentityAttachment();
             wrongHost.bind(ModCharacters.HUMAN_ID);

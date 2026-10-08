@@ -98,7 +98,7 @@ public final class BodyEquippedStorageTransfer {
                         && candidate.stack().filter(stack -> ItemStack.matches(stack, host.orElseThrow()))
                         .isPresent())).orElse(false))
             return Result.DENIED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow()); }
+        try { LiveHandsCommitGateway.commitOwned(body, next.orElseThrow()); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
         }
@@ -184,7 +184,7 @@ public final class BodyEquippedStorageTransfer {
             GridGeometry.Cell newAnchor, GridGeometry.Rotation newRotation, BooleanSupplier authorityValid) {
         return moveGridBetweenHostsOwned(body, sourceSlot, sourceHostToken, destinationSlot, destinationHostToken,
                 childToken, revision, oldAnchor, oldRotation, newAnchor, newRotation, authorityValid,
-                (carrier, next) -> carrier.setData(ModDataAttachments.LIVE_HANDS.get(), next));
+                (carrier, next) -> LiveHandsCommitGateway.commitOwned(carrier, next));
     }
 
     // Fixture seam for a publication that throws before or after the single attachment write.
@@ -262,7 +262,7 @@ public final class BodyEquippedStorageTransfer {
                 && candidate.token().filter(containerToken::equals).isPresent()
                 && candidate.stack().filter(stack -> stack.has(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get())
                 && GridContents.read(stack).isPresent()).isPresent())).orElse(false)) return Result.DENIED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow()); }
+        try { LiveHandsCommitGateway.commitOwned(body, next.orElseThrow()); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
         }
@@ -296,7 +296,7 @@ public final class BodyEquippedStorageTransfer {
                     && candidate.token().filter(containerToken::equals).isPresent()
                     && candidate.stack().filter(stack -> GridContents.read(stack).isPresent()).isPresent())).orElse(false))
             return Result.DENIED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow()); }
+        try { LiveHandsCommitGateway.commitOwned(body, next.orElseThrow()); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
         }
@@ -329,7 +329,7 @@ public final class BodyEquippedStorageTransfer {
                         .map(LiveHands.EquipmentSlot::id).toList().equals(declared)).orElse(false))
             return Result.DENIED;
         try {
-            body.setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow());
+            LiveHandsCommitGateway.commitOwned(body, next.orElseThrow());
         } catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;
