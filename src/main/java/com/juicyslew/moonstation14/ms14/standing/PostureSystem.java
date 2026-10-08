@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 
 /** Server authority for prone posture; prototype policy is always read from the resolved body. */
 @EventBusSubscriber(modid = MoonStation14.MOD_ID)
@@ -72,7 +73,9 @@ public final class PostureSystem {
                 .filter(id -> resolved.stackCopy(id).isEmpty() && resolved.reservation(id).isEmpty()).count();
         return new HandAvailability(typedTotal, free, hasHands);
     }
-    private static void save(LivingEntity body, PostureData data) {
+    private static void save(LivingEntity body, PostureData data) { save(body, data, null); }
+    private static void save(LivingEntity body, PostureData data, BiConsumer<LivingEntity, net.minecraft.resources.ResourceLocation> soundSink) {
+        boolean wasDown = posture(body).down();
         if (!data.ownCrawling()) OWN_CRAWL_EXPIRY.remove(body.getUUID());
         body.setData(ModDataAttachments.POSTURE.get(), new PostureAttachment(data));
         PhysicalPosture.apply(body);
@@ -80,6 +83,14 @@ public final class PostureSystem {
         else DOWN_BODIES.remove(body.getUUID(), body);
         // refreshDimensions updates the server AABB; the attachment sync triggers the client bridge.
         body.refreshDimensions();
+        if (soundSink != null && !wasDown && data.down() && body.level() instanceof ServerLevel level
+                && body.isAddedToLevel() && level.getEntity(body.getUUID()) == body) {
+            var actor = ActiveCharacterPolicy.resolveActor(body).orElse(null);
+            var standing = actor == null ? null : actor.component(StandingStateComponent.class).orElse(null);
+            var soundId = standing == null ? null : standing.downSound();
+            if (soundId != null && net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(soundId).isPresent())
+                soundSink.accept(body, soundId);
+        }
     }
     public static boolean isDownPosture(LivingEntity body) { return isDown(body); }
     private static long now(ServerLevel level) { return level.getServer().overworld().getGameTime(); }
@@ -171,14 +182,27 @@ public final class PostureSystem {
     public static void forceDown(LivingEntity body, long until) {
         forceDown(body, until, PostureData.DownTransition.KNOCKDOWN);
     }
+    private static void dispatchDownSound(LivingEntity body, net.minecraft.resources.ResourceLocation sound) {
+        if (body.level() instanceof ServerLevel level)
+            com.juicyslew.moonstation14.ms14.explosion.grenade.network.ControlledSoundDispatch.emit(
+                    level, sound, body.getX(), body.getY(), body.getZ());
+    }
+    static void forceDownForTest(LivingEntity body, long until, BiConsumer<LivingEntity, net.minecraft.resources.ResourceLocation> sink) {
+        forceDown(body, until, PostureData.DownTransition.KNOCKDOWN, sink);
+    }
     private static void forceDown(LivingEntity body, long until, PostureData.DownTransition transition) {
-        if (!(body.level() instanceof ServerLevel level) || !policy(body).eligible()) return;
+        forceDown(body, until, transition, PostureSystem::dispatchDownSound);
+    }
+    private static void forceDown(LivingEntity body, long until, PostureData.DownTransition transition,
+                                  BiConsumer<LivingEntity, net.minecraft.resources.ResourceLocation> soundSink) {
+        if (!(body.level() instanceof ServerLevel level)
+                || ActiveCharacterPolicy.resolveActor(body).flatMap(c -> c.component(StandingStateComponent.class)).isEmpty()) return;
         PostureData current = posture(body);
         PostureData next = current.forceDown(Math.max(now(level), until), transition);
         OWN_CRAWL_EXPIRY.remove(body.getUUID());
         HandAvailability hands = handAvailability(body);
         if (!current.down()) next = next.facing(body.getYRot());
-        save(body, next.movement(hands.total(), hands.free(), next.pulling()));
+        save(body, next.movement(hands.total(), hands.free(), next.pulling()), soundSink);
         TimedInteractionSystem.cancelDuplicate(body, GET_UP, body.getUUID().toString());
     }
     /** Conscious self-directed roll; never used by an external puller. */
@@ -240,11 +264,15 @@ public final class PostureSystem {
         if (!next.equals(current)) save(body, next);
     }
     @SubscribeEvent public static void onMobStateChanged(MobStateChangedEvent event) {
-        if (event.current() == MobStateComponent.State.CRITICAL || event.current() == MobStateComponent.State.DEAD) {
-            CrawlerComponent crawler = policy(event.body()).crawler();
+        applyMobStateChange(event.body(), event.current(), PostureSystem::dispatchDownSound);
+    }
+    static void applyMobStateChange(LivingEntity body, MobStateComponent.State state,
+                                   BiConsumer<LivingEntity, net.minecraft.resources.ResourceLocation> soundSink) {
+        if (state == MobStateComponent.State.CRITICAL || state == MobStateComponent.State.DEAD) {
+            CrawlerComponent crawler = policy(body).crawler();
             long ticks = crawler == null ? 0 : Math.max(0, (long)Math.ceil(crawler.defaultKnockedDurationSeconds() * 20));
-            if (event.body().level() instanceof ServerLevel level) forceDown(event.body(), now(level) + ticks,
-                    PostureData.DownTransition.MEDICAL);
+            if (body.level() instanceof ServerLevel level) forceDown(body, now(level) + ticks,
+                    PostureData.DownTransition.MEDICAL, soundSink);
         }
     }
     @SubscribeEvent public static void onEntityJoinLevel(EntityJoinLevelEvent event) {

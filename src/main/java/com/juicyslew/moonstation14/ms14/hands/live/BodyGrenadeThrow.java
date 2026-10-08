@@ -33,7 +33,12 @@ public final class BodyGrenadeThrow {
     }
 
     static Result throwOwned(LivingEntity body, String hand, String expectedToken, long revision,
-                                     java.util.function.BooleanSupplier authorityValid) {
+                                      java.util.function.BooleanSupplier authorityValid) {
+        return LiveHandsCommitGateway.batch(() -> throwTransaction(body, hand, expectedToken, revision, authorityValid));
+    }
+
+    private static Result throwTransaction(LivingEntity body, String hand, String expectedToken, long revision,
+                                      java.util.function.BooleanSupplier authorityValid) {
         if (body == null || hand == null || expectedToken == null || authorityValid == null
                 || !(body.level() instanceof ServerLevel level) || level.getServer() == null
                 || !level.getServer().isSameThread() || !CharacterControlSystem.canAct(body) || !live(body, level)
@@ -68,7 +73,7 @@ public final class BodyGrenadeThrow {
         if (!same(stack, thrown.getItem()) || !fuse.equals(thrown.getItem().get(ModDataComponents.GRENADE_FUSE.get())))
             return Result.DENIED;
 
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), transition.state()); }
+        try { LiveHandsCommitGateway.commitOwned(body, transition.state()); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;
@@ -96,7 +101,7 @@ public final class BodyGrenadeThrow {
                 || !cleared.compatible(body)) return Result.RECOVERY_REQUIRED;
         LiveHands.WholeResult restored = cleared.putWhole(cleared.revision(), hand, token, stack);
         if (!restored.succeeded() || restored.state().revision() <= before.revision()) return Result.RECOVERY_REQUIRED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), restored.state()); }
+        try { LiveHandsCommitGateway.commitOwned(body, restored.state()); }
         catch (RuntimeException failure) { return Result.RECOVERY_REQUIRED; }
         return live(body, level) && level.getEntity(entity.getUUID()) == null && !entity.isAddedToLevel()
                 && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == restored.state()

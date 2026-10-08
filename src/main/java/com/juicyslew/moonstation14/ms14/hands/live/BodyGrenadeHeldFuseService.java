@@ -115,7 +115,9 @@ public final class BodyGrenadeHeldFuseService {
                                        ItemStack expected) {
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body))
             return false;
-        body.setData(ModDataAttachments.LIVE_HANDS.get(), next);
+        // The forty-tick beep flag is fuse bookkeeping, not a hand mutation. Publish its
+        // presentation without invalidating the accepted hand revision/token proof.
+        LiveHandsCommitGateway.commitOwned(body, next);
         LiveHands readback = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         return readback == next && readback.compatible(body) && readback.revision() == before.revision()
                 && readback.token(hand).equals(before.token(hand)) && readback.stackCopy(hand)
@@ -125,7 +127,7 @@ public final class BodyGrenadeHeldFuseService {
     private static boolean publish(LivingEntity body, LiveHands before, LiveHands next, String hand, ItemStack expected) {
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body)
                 || before.revision() == Long.MAX_VALUE) return false;
-        body.setData(ModDataAttachments.LIVE_HANDS.get(), next);
+        LiveHandsCommitGateway.commitOwned(body, next);
         LiveHands readback = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (readback != next || !readback.compatible(body) || readback.revision() != before.revision() + 1) return false;
         if (expected == null) return readback.token(hand).isEmpty() && readback.stackCopy(hand).isEmpty();

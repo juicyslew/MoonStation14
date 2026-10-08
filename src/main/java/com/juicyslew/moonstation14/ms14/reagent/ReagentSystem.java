@@ -29,7 +29,7 @@ public class ReagentSystem {
         // Living entities are not generic reagent holders. If prototype-owned bloodstream
         // eligibility is absent or legacy migration is conflicted, preserve both endpoints.
         if (sourceBridge == null || targetBridge == null) return;
-        float targetCapacity = target.trait().getCapacity();
+        float targetCapacity = IReagentTrait.resolveCapacity(target.trait(), target.holder(), level);
         Long policyCapacity = null;
         if (target.holder() instanceof net.minecraft.world.entity.LivingEntity living) {
             var policy = com.juicyslew.moonstation14.ms14.blood.BloodSystem.resolvePolicy(living);

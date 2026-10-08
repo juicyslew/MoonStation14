@@ -6,13 +6,31 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class HandInfoLayoutTest {
     @Test
+    void scaledTextKeepsSymmetricPanelInsetsAtEitherScale() {
+        for (float scale : new float[]{1f, 0.5f}) {
+            for (int glyphWidth : new int[]{0, 12, 80}) {
+                int leftOrigin = HandInfoLayout.textX(20, 96, glyphWidth, scale, false);
+                int rightOrigin = HandInfoLayout.textX(120, 96, glyphWidth, scale, true);
+                int renderedWidth = Math.round(glyphWidth * scale);
+                assertEquals(3, leftOrigin - 20);
+                assertEquals(3, 216 - (rightOrigin + renderedWidth));
+            }
+        }
+    }
+
+    @Test
     void standardGuiKeepsLabelsBesideBarAndBottomAnchored() {
         var bar = HandBarLayout.calculate(320, 240);
         var info = HandInfoLayout.calculate(320, 240, bar);
         assertNotNull(info);
-        assertEquals(48, info.left().width());
-        assertTrue(info.left().x() + info.left().width() <= bar.leftHand().x() + bar.leftHand().width());
-        assertTrue(info.right().x() >= bar.rightHand().x());
+        assertEquals(96, info.left().width());
+        assertEquals(info.left().width(), info.right().width());
+        assertEquals(12, info.left().height());
+        assertEquals(bar.leftHand().y() - 14, info.left().y());
+        assertEquals(info.left().y(), info.right().y());
+        assertEquals(90, info.textBudget());
+        assertEquals(bar.leftHand().x() + bar.leftHand().width() - info.left().width(), info.left().x());
+        assertEquals(bar.rightHand().x(), info.right().x());
         assertTrue(info.left().x() + info.left().width() <= info.right().x());
         assertTrue(info.left().y() + info.left().height() <= 240);
         assertTrue(info.left().y() + info.left().height() < bar.leftHand().y());
@@ -52,7 +70,10 @@ class HandInfoLayoutTest {
     @Test
     void narrowGuiHidesLabelsAndLargeScaleRetainsTextBudget() {
         var narrowBar = HandBarLayout.calculate(120, 240);
-        assertNull(HandInfoLayout.calculate(120, 240, narrowBar));
+        var narrowInfo = HandInfoLayout.calculate(120, 240, narrowBar);
+        assertNotNull(narrowInfo);
+        assertTrue(narrowInfo.left().x() >= 0);
+        assertTrue(narrowInfo.right().x() + narrowInfo.right().width() <= 120);
         assertNull(HandInfoLayout.calculate(320, 240, null));
 
         var largeBar = HandBarLayout.calculate(640, 480);

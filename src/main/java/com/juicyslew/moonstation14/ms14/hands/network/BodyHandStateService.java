@@ -36,12 +36,53 @@ public final class BodyHandStateService {
     /** No action before a successful full snapshot was sent for this exact connection and epoch. */
     static boolean hasIssued(ServerPlayer actor, HandActorAuthority.Snapshot authority) {
         QueryGate gate = GATES.get(actor);
-        return gate != null && gate.issuedEpoch == authority.epoch() && gate.issuedBody == authority.body();
+        return gate != null && gate.hasIssued(authority.body(), authority.epoch());
     }
 
+    /** Legacy name: publish a fresh authoritative snapshot now; an ordinary revision does not revoke authority. */
     public static void requireFreshQuery(ServerPlayer actor) {
-        QueryGate gate = GATES.get(actor);
-        if (gate != null) gate.clearIssued();
+        if (actor == null) return;
+        var authority = HandActorAuthority.resolve(actor).orElse(null);
+        if (authority == null) {
+            QueryGate gate = GATES.get(actor);
+            if (gate != null) gate.clearIssued();
+            return;
+        }
+        publishCommitted(actor, authority);
+    }
+
+    /** Publishes a committed full body snapshot on the authenticated owner's connection. */
+    public static void publishCommitted(ServerPlayer actor, HandActorAuthority.Snapshot authority) {
+        if (actor == null || authority == null) return;
+        if (!HandActorAuthority.revalidate(actor, authority)) {
+            var current = HandActorAuthority.resolve(actor).orElse(null);
+            QueryGate gate = GATES.get(actor);
+            if (gate != null) {
+                if (current == null) gate.clearIssued();
+                else gate.invalidateUnless(current.body(), current.epoch());
+            }
+            return;
+        }
+        LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || !hands.handIds().equals(authority.handIds()) || !representable(hands, authority.body())) {
+            QueryGate gate = GATES.get(actor);
+            if (gate != null) gate.invalidateUnless(null, authority.epoch());
+            return;
+        }
+        try {
+            var slots = slots(hands, authority.handIds());
+            var equipment = equipment(hands, authority.body(), slots);
+            var snapshot = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK,
+                    actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(),
+                    slots, equipment, grids(hands, authority.body()), true);
+            if (HandActorAuthority.revalidate(actor, authority)
+                    && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(actor, snapshot);
+                if (HandActorAuthority.revalidate(actor, authority)
+                        && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands)
+                    GATES.computeIfAbsent(actor, ignored -> new QueryGate()).issue(authority.body(), authority.epoch());
+            }
+        } catch (RuntimeException invalid) { /* A later normal query remains authoritative. */ }
     }
 
     public static void ingestionCommitted(ServerPlayer actor, java.util.UUID bodyId, long controlEpoch) {
@@ -55,12 +96,15 @@ public final class BodyHandStateService {
     }
 
     public static BodyHandStateSnapshot query(ServerPlayer actor, BodyHandStateQuery query) {
-        QueryGate gate = GATES.get(actor);
-        if (gate != null) gate.clearIssued();
         var resolved = HandActorAuthority.resolve(actor);
-        if (resolved.isEmpty()) return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NO_AUTHORITY);
+        if (resolved.isEmpty()) {
+            QueryGate old = GATES.get(actor);
+            if (old != null) old.clearIssued();
+            return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NO_AUTHORITY);
+        }
         var authority = resolved.orElseThrow();
-        gate = GATES.computeIfAbsent(actor, ignored -> new QueryGate());
+        QueryGate gate = GATES.computeIfAbsent(actor, ignored -> new QueryGate());
+        gate.invalidateUnless(authority.body(), authority.epoch());
         var admission = gate.admit(query.epoch(), query.sequence(), actor.level().getGameTime());
         if (admission != null) return BodyHandStateSnapshot.rejected(query, admission);
         if (!HandActorAuthority.revalidate(actor, authority))
@@ -87,8 +131,7 @@ public final class BodyHandStateService {
         if (!HandActorAuthority.revalidate(actor, authority)
                 || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands)
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NO_AUTHORITY);
-        gate.issuedEpoch = authority.epoch();
-        gate.issuedBody = authority.body();
+        gate.issue(authority.body(), authority.epoch());
         return summary;
     }
 
@@ -105,7 +148,7 @@ public final class BodyHandStateService {
             for (String id : hands.handIds()) {
                 if (hands.stackCopy(id).filter(stack -> !visibleStack(stack)).isPresent()) return false;
             }
-            var worn = LiveHands.equipmentSnapshot(body);
+            var worn = LiveHands.equipmentSnapshot(body, hands);
             if (worn.isPresent()) for (var slot : worn.orElseThrow().slots()) {
                 if (slot.stack().filter(stack -> !visibleStack(stack)).isPresent()) return false;
             }
@@ -180,7 +223,7 @@ public final class BodyHandStateService {
     /** Null means saved equipment is incompatible or any ownership token is ambiguous. */
     static List<BodyHandStateSnapshot.EquipmentSlot> equipment(LiveHands hands, LivingEntity body,
                                                                  List<BodyHandStateSnapshot.Hand> handsSlots) {
-        var snapshot = LiveHands.equipmentSnapshot(body);
+        var snapshot = LiveHands.equipmentSnapshot(body, hands);
         Set<String> tokens = new HashSet<>();
         for (var hand : handsSlots) {
             if (hand.token() != null && !tokens.add(hand.token())) return null;
@@ -246,7 +289,7 @@ public final class BodyHandStateService {
                 addGrid(result, seen, hands.token(id).orElse(null), host);
             }
         }
-        var equipment = LiveHands.equipmentSnapshot(body);
+        var equipment = LiveHands.equipmentSnapshot(body, hands);
         if (equipment.isPresent()) for (var slot : equipment.orElseThrow().slots()) {
             if (slot.stack().isPresent() && (slot.stack().orElseThrow().is(ModItems.BAG)
                     || slot.stack().orElseThrow().is(ModItems.BELT)))
@@ -282,6 +325,14 @@ public final class BodyHandStateService {
         void clearIssued() {
             issuedEpoch = 0;
             issuedBody = null;
+        }
+
+        void issue(LivingEntity body, long epoch) { issuedBody = body; issuedEpoch = epoch; }
+
+        boolean hasIssued(LivingEntity body, long epoch) { return issuedBody == body && issuedEpoch == epoch; }
+
+        void invalidateUnless(LivingEntity body, long epoch) {
+            if (issuedBody != body || issuedEpoch != epoch) clearIssued();
         }
 
         BodyHandStateSnapshot.Reason admit(long epoch, long sequence, long currentTick) {

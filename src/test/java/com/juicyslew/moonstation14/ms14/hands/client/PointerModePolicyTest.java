@@ -4,6 +4,19 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PointerModePolicyTest {
+    @Test void lastAnalyzerCloseExitsManualOrAutomaticPointerOnlyWhenScreenIsOwnedAndNoWindowsRemain() {
+        for (var origin : PointerModePolicy.Origin.values()) {
+            var policy=new PointerModePolicy();
+            if(origin==PointerModePolicy.Origin.MANUAL) policy.manualOpen();
+            if(origin==PointerModePolicy.Origin.POPUP_AUTOMATIC) policy.popupOpen();
+            assertFalse(policy.lastAnalyzerClosed(true,true));
+            assertEquals(origin,policy.origin());
+            assertFalse(policy.lastAnalyzerClosed(false,false));
+            assertEquals(origin,policy.origin());
+            assertEquals(origin!=PointerModePolicy.Origin.CLOSED,policy.lastAnalyzerClosed(false,true));
+            assertEquals(PointerModePolicy.Origin.CLOSED,policy.origin());
+        }
+    }
     @Test void manualCursorPersistsAcrossEmptyWindowsAndPeriodicRefreshes() {
         var policy = new PointerModePolicy();
         policy.manualOpen();

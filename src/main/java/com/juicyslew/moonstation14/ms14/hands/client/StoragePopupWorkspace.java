@@ -74,7 +74,8 @@ public final class StoragePopupWorkspace {
 
     public static final class Window {
         private HostKey key;
-        private int x, y, preferredX, preferredY, preferredWidth, preferredHeight, width, height, scroll, z;
+        private int x, y, preferredX, preferredY, preferredWidth, preferredHeight, width, height, scroll;
+        private int z;
         private String selectedChild;
         private Drag drag;
         private boolean visible = true, provisional;
@@ -99,7 +100,7 @@ public final class StoragePopupWorkspace {
     private final Map<HostKey, Window> windows = new LinkedHashMap<>();
     private UUID body;
     private long epoch;
-    private int screenWidth, screenHeight, nextZ;
+    private int screenWidth, screenHeight;
     private boolean pointerMode;
 
     public StoragePopupWorkspace(int screenWidth, int screenHeight) { resize(screenWidth, screenHeight); }
@@ -108,7 +109,7 @@ public final class StoragePopupWorkspace {
         if (bodyId == null || authorityEpoch <= 0) { clear(); body = null; epoch = 0; return; }
         if (!bodyId.equals(body) || epoch != authorityEpoch) { clear(); body = bodyId; epoch = authorityEpoch; }
     }
-    public void clear() { windows.clear(); nextZ = 0; pointerMode = false; }
+    public void clear() { windows.clear(); pointerMode = false; }
     public boolean pointerMode() { return pointerMode; }
     public void pointerMode(boolean enabled) { pointerMode = enabled; }
     public List<Window> windows() { return List.copyOf(windows.values()); }
@@ -148,6 +149,7 @@ public final class StoragePopupWorkspace {
                 && x < w.x + w.width && y < w.y + w.height)
                 .max(Comparator.comparingInt(Window::z)).orElse(null);
     }
+    public void raise(Window window) { if (window != null && windows.get(window.key)==window && window.visible) focus(window); }
 
     public OpenResult open(HostKey key, boolean trustedSnapshot, int x, int y, int width, int height) {
         Objects.requireNonNull(key);
@@ -156,7 +158,8 @@ public final class StoragePopupWorkspace {
         if (visibleWindowCount() >= MAX_WINDOWS || (key.kind() == HostKind.WORLD && !trustedSnapshot))
             return OpenResult.DENIED;
         if (existing != null) { existing.visible = true; focus(existing); return OpenResult.FOCUSED; }
-        Window created = new Window(key, x, y, width, height, ++nextZ, !trustedSnapshot);
+        Window created = new Window(key, x, y, width, height, 0, !trustedSnapshot);
+        created.z=PopupSiblingOrder.front();
         clamp(created); windows.put(key, created); return OpenResult.OPENED;
     }
     private int visibleWindowCount() {
@@ -177,7 +180,7 @@ public final class StoragePopupWorkspace {
         } else windows.remove(key);
     }
     public void focus(HostKey key) { Window window = windows.get(key); if (window != null && window.visible) focus(window); }
-    private void focus(Window window) { window.z = ++nextZ; }
+    private void focus(Window window) { window.z = PopupSiblingOrder.front(); }
     public void place(HostKey key, int x, int y) { Window w = windows.get(key); if (w != null) { w.preferredX=x; w.preferredY=y; clamp(w); } }
     public void scroll(HostKey key, int amount) { Window w=windows.get(key); if (w != null) w.scroll=Math.max(0, amount); }
     public void select(HostKey key, String childToken) { Window w=windows.get(key); if (w != null) w.selectedChild=childToken; }

@@ -11,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
 import net.minecraft.server.level.ServerLevel;
 import java.util.UUID;
@@ -40,6 +41,7 @@ public final class BodyDropPlacementGameTests {
         helper.succeed();
     }
 
+    @GameTestTags({"medical-corrections-regression"})
     public static void containedRefusalDropsAtOwnerPosition(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 2, 2));
         require(LiveHands.initialize(body).isPresent(), "body hands initialized");
@@ -64,11 +66,15 @@ public final class BodyDropPlacementGameTests {
         var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
                 item -> item.getItem().is(Items.DIAMOND));
         require(items.size() == 1 && items.getFirst().getItem().getCount() == 3,
-                "fallback creates one whole-stack world owner");
+                "fallback creates one whole-stack world owner: items=" + items.size() + (items.isEmpty() ? "" :
+                        " itemUUID=" + items.getFirst().getUUID() + " stack=" + items.getFirst().getItem()
+                                + " count=" + items.getFirst().getItem().getCount() + " owner=" + ownerId));
         require(items.getFirst().position().distanceToSqr(ownerPosition) < .001,
                 "fallback uses owner transform, not camera/aim ray");
         require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").isEmpty(),
-                "body hand is cleared after successful fallback");
+                "body hand is cleared after successful fallback: hand="
+                        + body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left")
+                        + " originalCount=" + held.getCount() + " owner=" + ownerId);
         helper.succeed();
     }
 

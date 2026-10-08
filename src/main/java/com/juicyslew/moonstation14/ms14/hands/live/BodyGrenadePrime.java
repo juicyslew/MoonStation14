@@ -57,7 +57,7 @@ public final class BodyGrenadePrime {
                 || !before.token(hand).filter(expectedToken::equals).isPresent()
                 || before.stackCopy(hand).filter(current -> ItemStack.isSameItemSameComponents(source, current)
                 && current.getCount() == source.getCount()).isEmpty()) return Result.DENIED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow()); }
+        try { LiveHandsCommitGateway.commitOwned(body, next.orElseThrow()); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;

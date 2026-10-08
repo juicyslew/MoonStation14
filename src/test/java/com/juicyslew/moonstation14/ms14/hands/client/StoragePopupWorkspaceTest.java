@@ -9,6 +9,18 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StoragePopupWorkspaceTest {
+    @Test void storageAndAnalyzerShareMoveToFrontOrder() {
+        var storage=new StoragePopupWorkspace(500,400);
+        var key=StoragePopupWorkspace.HostKey.world(UUID.randomUUID());
+        storage.open(key,true,10,10,100,100);
+        var analyzer=new com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace();
+        var id=UUID.randomUUID(); var actor=UUID.randomUUID();
+        analyzer.accept(new com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerWindowState(id,1,actor,1,true,java.util.Optional.empty()),500,400);
+        var aw=analyzer.get(id); var sw=storage.window(key);
+        assertTrue(aw.z()>sw.z());
+        storage.raise(sw); assertTrue(sw.z()>aw.z());
+        assertSame(sw,storage.topmost(20,20));
+    }
     @Test void authoritativeResizeKeepsPositionAndZWhileClampingBounds() {
         var workspace = new StoragePopupWorkspace(400, 300);
         var key = StoragePopupWorkspace.HostKey.world(UUID.randomUUID());

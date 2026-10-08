@@ -12,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -53,18 +54,20 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         var mc = net.minecraft.client.Minecraft.getInstance();
         workspace.resize(Math.max(1, width), Math.max(1, height));
         var view = BodyHandClient.inventoryPresentation();
-        for (var window : workspace.windows().stream().filter(StoragePopupWorkspace.Window::visible)
-                .sorted(Comparator.comparingInt(StoragePopupWorkspace.Window::z)).toList()) {
-            var layout = layout(window);
-            var bounds = new StoragePopupLayout.Rect(window.x(), window.y(), window.width(), window.height());
-            var visiblePieces = workspace.uncovered(bounds, window);
-            if (visiblePieces.isEmpty()) continue;
-            // Draw the complete window once per uncovered piece. Nested grid scissors intersect
-            // this outer clip, including item sprites whose depth could otherwise leak through.
-            for (var piece : visiblePieces) {
-                g.enableScissor(piece.x(), piece.y(), piece.x() + piece.width(), piece.y() + piece.height());
-                drawWindowContents(g, mc, workspace, window, view, layout);
-                g.disableScissor();
+        record Entry(long z, StoragePopupWorkspace.Window storage, com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window analyzer) { }
+        var entries=new ArrayList<Entry>();
+        workspace.windows().stream().filter(StoragePopupWorkspace.Window::visible).forEach(w->entries.add(new Entry(w.z(),w,null)));
+        var analyzers=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        analyzers.resize(width,height);
+        analyzers.windows().stream().filter(com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window::visible).forEach(w->entries.add(new Entry(w.z(),null,w)));
+        entries.sort(Comparator.comparingLong(Entry::z));
+        for(var entry:entries) {
+            if(entry.analyzer()!=null) { com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerRenderer.drawWindow(g,entry.analyzer()); continue; }
+            var window=entry.storage(); var layout=layout(window);
+            var bounds=new StoragePopupLayout.Rect(window.x(),window.y(),window.width(),window.height());
+            for(var piece:workspace.uncovered(bounds,window)) {
+                g.enableScissor(piece.x(),piece.y(),piece.x()+piece.width(),piece.y()+piece.height());
+                drawWindowContents(g,mc,workspace,window,view,layout); g.disableScissor();
             }
         }
     }
@@ -487,7 +490,9 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     private StoragePopupWorkspace.Window hit(double x, double y) {
-        return workspace.topmost(x, y);
+        var s=workspace.topmost(x,y); var m=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.topmost(x,y);
+        if(m!=null && (s==null || m.z()>s.z())) return null;
+        return s;
     }
 
     private StoragePopupLayout.Cell visibleCell(StoragePopupWorkspace.Window w, double x, double y) {
@@ -495,6 +500,10 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        var medical=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        var sw=workspace.topmost(mouseX,mouseY); var mw=medical.topmost(mouseX,mouseY);
+        if(mw!=null && (sw==null || mw.z()>sw.z())) { boolean handled=medical.click(mouseX,mouseY,button,width,height); BodyHandClient.analyzerWindowClosed(); return handled; }
+        if(sw!=null) workspace.raise(sw);
         if (button == 1 && rotateCurrent(mouseX, mouseY)) return true;
         if (button == 0 && moving == null && dragging == null && handGridDrag == null
                 && equipmentDrag == null && hit(mouseX, mouseY) == null
@@ -646,6 +655,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        if (com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.drag(x, y, width, height)) return true;
         if (dragging != null) updateItemPointer(x, y, leftButtonDown());
         if (button != 0) return true;
         if (moving != null) workspace.place(moving, (int) x - grabX, (int) y - grabY);
@@ -679,6 +689,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseReleased(double x, double y, int button) {
+        com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.endDrag();
         if (button != 0) return true;
         if (inactiveClickHand != null) {
             var selected = inactiveClickHand;
@@ -823,6 +834,13 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         return true;
     }
 
+    @Override public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        var medical = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        var mw=medical.topmost(mouseX,mouseY); var sw=workspace.topmost(mouseX,mouseY);
+        if (mw != null && (sw==null || mw.z()>sw.z())) { medical.scroll(mouseX, mouseY, verticalAmount); return true; }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
     private void beginItemPointer(double x, double y, int offsetX, int offsetY) {
         dragStartX = x; dragStartY = y;
         cellOffsetX = offsetX; cellOffsetY = offsetY;
@@ -835,7 +853,12 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public boolean keyPressed(int key, int scan, int modifiers) {
         if (!BodyHandClient.hasCommittedBody()) { clearMovement(); return true; }
-        if (BodyHandClient.popupAction(key, scan, modifiers, actionKeys.add(scan != 0 ? -scan : key))) return true;
+        boolean firstPress = actionKeys.add(scan != 0 ? -scan : key);
+        if (key == GLFW.GLFW_KEY_Z && (modifiers & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SUPER)) == 0) {
+            if (!firstPress) return true;
+            if (BodyHandClient.popupUseInHand(key,scan,modifiers)) return true;
+        }
+        if (BodyHandClient.popupAction(key, scan, modifiers, firstPress)) return true;
         if (key == GLFW.GLFW_KEY_R) {
             var mc = net.minecraft.client.Minecraft.getInstance();
             var window = mc.getWindow();
@@ -940,6 +963,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     @Override public void removed() {
         clearMovement();
         cancelPointer();
+        com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.endDrag();
         super.removed();
     }
 

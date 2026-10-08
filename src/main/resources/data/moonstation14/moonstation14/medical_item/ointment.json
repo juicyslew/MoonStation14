@@ -1,0 +1,1 @@
+{"parent":"moonstation14:base_healing_item","healing":{"damage":{"heat":-5,"cold":-5,"shock":-5,"caustic":-1.5},"begin_sound":"moonstation14:medical/ointment_begin","end_sound":"moonstation14:medical/ointment_end"},"stack":{"count":10}}

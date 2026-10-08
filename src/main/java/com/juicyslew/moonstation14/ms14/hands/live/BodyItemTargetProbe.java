@@ -29,6 +29,7 @@ import java.util.UUID;
  * load chunks outside this getter (the same limitation as ApcBodyTargetProbe).
  */
 public final class BodyItemTargetProbe {
+    public static final double SYRINGE_CONTAINER_REACH = 2.0;
     /** Minecraft blocks, a defensive ray ceiling, not a conversion from SS14 interaction units. */
     public static final double MAX_REACH = 5.0;
     /** Loose throws may aim up to eight blocks; this does not widen pickup/drop reach. */

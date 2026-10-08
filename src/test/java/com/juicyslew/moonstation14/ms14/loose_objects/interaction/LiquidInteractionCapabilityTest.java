@@ -30,6 +30,30 @@ class LiquidInteractionCapabilityTest {
     }
 
     @Test
+    void selectedSyringeDoseDoesNotOverdrawSource() {
+        var plan = LiquidInteractionCapability.plan(Map.of(WATER, 1_500L), Map.of(), 1_500L, 500L);
+        assertEquals(500L, plan.transferredCents());
+        assertEquals(Map.of(WATER, 1_000L), plan.sourceAfter());
+        assertEquals(Map.of(WATER, 500L), plan.destinationAfter());
+    }
+
+    @Test
+    void selectedSyringeDoseCanExceedDefaultFiveUnits() {
+        var plan = LiquidInteractionCapability.plan(Map.of(WATER, 2_000L), Map.of(), 1_500L, 1_500L);
+        assertEquals(1_500L, plan.transferredCents());
+        assertEquals(500L, plan.sourceAfter().get(WATER));
+        assertEquals(1_500L, plan.destinationAfter().get(WATER));
+    }
+
+    @Test
+    void nonDoseTransferUsesResolvedDestinationCapacity() {
+        // Models a server-resolved syringe capacity smaller than its compatibility/client capacity.
+        var plan = LiquidInteractionCapability.plan(Map.of(WATER, 500L), Map.of(SUGAR, 1_000L), 1_500L);
+        assertEquals(500L, plan.transferredCents());
+        assertEquals(Map.of(WATER, 500L, SUGAR, 1_000L), plan.destinationAfter());
+    }
+
+    @Test
     void fullDestinationAdmitsNothing() {
         var source = Map.of(WATER, 1_000L);
         var destination = Map.of(SUGAR, 10_000L);
