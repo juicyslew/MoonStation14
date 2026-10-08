@@ -39,9 +39,25 @@ public final class TimedInteractionRenderer {
             if(actor==null || actor.isRemoved() || actor.isInvisible() || !actor.getUUID().equals(s.bodyUuid())) continue;
             if(!s.dimension().equals(mc.level.dimension().location())) continue;
             double tick=TimedInteractionClient.estimatedServerTick(entry.getKey(),event.getPartialTick().getGameTimeDeltaPartialTick(false));
+            var worldMarkers=TimedWorldTargetMarkers.select(s,mc.level.dimension().location(),actor.getUUID());
+            boolean localFirstPerson=actor==GhostControlClient.ownedCharacterForHud()&&firstPerson;
+            var localWorldBars=localFirstPerson
+                    ?TimedWorldTargetMarkers.selectLocalFirstPersonBars(s,mc.level.dimension().location(),actor.getUUID())
+                    :java.util.List.<TimedInteractionSnapshot.View>of();
             int index=0;
             for(TimedInteractionSnapshot.View v:s.views()) {
                 float progress=TimedInteractionClient.predictedProgress(v,tick);
+                var marker=worldMarkers.stream().filter(m->m.view().operationID()==v.operationID()).findFirst().orElse(null);
+                if(marker!=null) {
+                    drawWorldTarget(event,marker.target(),cameraPos,buffers,progress);
+                    if(localWorldBars.stream().anyMatch(bar->bar.operationID()==v.operationID())) {
+                        float fillAlpha=v.phase()==TimedOperation.Phase.CANCELLED
+                                ?TimedInteractionMath.cancellationFillAlpha(v.terminalTick(),tick):1f;
+                        drawBar(event,actor,cameraPos,buffers,progress,v.phase(),fillAlpha,index);
+                    }
+                    index++;
+                    continue;
+                }
                 float fillAlpha=v.phase()==TimedOperation.Phase.CANCELLED
                         ?TimedInteractionMath.cancellationFillAlpha(v.terminalTick(),tick):1f;
                 int color=TimedInteractionMath.color(progress,v.phase());
@@ -88,6 +104,25 @@ public final class TimedInteractionRenderer {
         buffers.endBatch(RenderType.entityTranslucentEmissive(FRAME));
         buffers.endBatch(RenderType.entityTranslucent(WHITE));
         buffers.endBatch(RenderType.entityTranslucentEmissive(WHITE));
+        buffers.endBatch(RenderType.lines());
+    }
+    private static void drawWorldTarget(RenderLevelStageEvent event,net.minecraft.core.BlockPos target,
+                                        net.minecraft.world.phys.Vec3 cameraPos,MultiBufferSource.BufferSource buffers,float progress) {
+        PoseStack pose=event.getPoseStack();pose.pushPose();
+        try {
+            var cell=new net.minecraft.world.phys.AABB(target.getX()-cameraPos.x,target.getY()-cameraPos.y,target.getZ()-cameraPos.z,
+                    target.getX()+1-cameraPos.x,target.getY()+1-cameraPos.y,target.getZ()+1-cameraPos.z);
+            LevelRenderer.renderLineBox(pose,buffers.getBuffer(RenderType.lines()),cell,.15f,1f,.3f,.35f);
+            var camera=event.getCamera();
+            pose.translate(target.getX()+.5-cameraPos.x,target.getY()+1.16-cameraPos.y,target.getZ()+.5-cameraPos.z);
+            pose.mulPose(camera.rotation());pose.scale(.022f,-.022f,.022f);
+            Matrix4f matrix=pose.last().pose();
+            draw(buffers.getBuffer(RenderType.entityTranslucentEmissive(FRAME)),matrix,-12,-3,12,4,.85f,0xF000F0,OverlayTexture.NO_OVERLAY);
+            int fill=TimedInteractionMath.fillPixels(progress);
+            if(fill>0)drawFill(buffers,true,matrix,TimedInteractionMath.FILL_LEFT,TimedInteractionMath.FILL_TOP,
+                    TimedInteractionMath.FILL_LEFT+fill,TimedInteractionMath.FILL_TOP+TimedInteractionMath.FILL_HEIGHT,
+                    TimedInteractionMath.color(progress,TimedOperation.Phase.ACTIVE),.95f,0xF000F0);
+        } finally { pose.popPose(); }
     }
     private static void drawBar(RenderLevelStageEvent event,LivingEntity actor,net.minecraft.world.phys.Vec3 cameraPos,
                                 MultiBufferSource.BufferSource buffers,float progress,TimedOperation.Phase phase,float alpha,int index) {

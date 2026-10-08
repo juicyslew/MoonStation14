@@ -32,7 +32,8 @@
     "MobMindHarnessOwnerMixin",
     "MobDisposalContainmentAiMixin",
     "LivingEntityMindHarnessTravelMixin",
-    "LevelChunkSealedWallHostMixin"
+    "LevelChunkSealedWallHostMixin",
+    "LevelChunkConstructionHostMixin"
   ],
   "client": [
     "client.MinecraftStunInputMixin",

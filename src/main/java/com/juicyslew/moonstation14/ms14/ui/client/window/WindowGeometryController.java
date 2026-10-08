@@ -61,14 +61,19 @@ public final class WindowGeometryController {
 
     /** Returns true only when the primary button captured the title or resize grip. */
     public boolean beginPointer(double mouseX, double mouseY, int button) {
+        return beginPointer(mouseX, mouseY, button, TITLE_HEIGHT, TITLE_BUTTON_SPACE);
+    }
+
+    /** Additive title-bar hit policy for compact chrome; existing windows retain standard metrics. */
+    public boolean beginPointer(double mouseX, double mouseY, int button, int titleHeight, int buttonExclusionWidth) {
         if (button != 0 || capturedButton != -1 || !Double.isFinite(mouseX) || !Double.isFinite(mouseY))
             return false;
         if (mouseX < x || mouseY < y || mouseX >= (long) x + width || mouseY >= (long) y + height)
             return false;
         boolean onGrip = resizable && mouseX >= (long) x + width - RESIZE_GRIP
                 && mouseY >= (long) y + height - RESIZE_GRIP;
-        boolean onTitle = mouseY < (long) y + Math.min(TITLE_HEIGHT, height)
-                && mouseX < (long) x + Math.max(0, width - TITLE_BUTTON_SPACE);
+        boolean onTitle = mouseY < (long) y + Math.min(Math.max(0,titleHeight), height)
+                && mouseX < (long) x + Math.max(0, width - Math.max(0,buttonExclusionWidth));
         if (!onGrip && !onTitle) return false;
         capturedButton = button;
         resizing = onGrip;

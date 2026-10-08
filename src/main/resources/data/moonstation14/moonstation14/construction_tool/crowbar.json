@@ -1,0 +1,6 @@
+{
+  "parent": "base_tool",
+  "qualities": ["Prying"],
+  "speedModifier": 1.0,
+  "useSound": "Crowbar"
+}

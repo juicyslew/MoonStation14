@@ -14,6 +14,12 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Main-thread client correlation gate. Only a matching full query reply can enable an action. */
 public final class BodyHandClientPolicy {
     private static final long REQUEST_TIMEOUT_TICKS = 80;
+    /** Production admission predicate for routing transparent pointer-canvas clicks into body actions. */
+    public static boolean allowPointerWorldAction(boolean pointerCanvas, boolean insideAnyUi, boolean textFocused) {
+        return pointerCanvas && !insideAnyUi && !textFocused;
+    }
+    /** Global body mouse actions are only routed with no pointer Screen installed. */
+    public static boolean routeGlobalMouseActions(boolean pointerCanvas) { return !pointerCanvas; }
     /** A pull reservation occupies a hand but is not item metadata. */
     public static boolean handAvailableForItemAction(BodyHandStateSnapshot.Hand hand) {
         return hand != null && hand.pullTarget() == null;
@@ -390,7 +396,8 @@ public final class BodyHandClientPolicy {
         if (incoming.outcome() == BodyBlockUseResult.Outcome.PLACED
                 || incoming.outcome() == BodyBlockUseResult.Outcome.RECOVERY_REQUIRED
                 || incoming.outcome() == BodyBlockUseResult.Outcome.DENIED
-                || incoming.outcome() == BodyBlockUseResult.Outcome.HAND_CHANGED) {
+                || incoming.outcome() == BodyBlockUseResult.Outcome.HAND_CHANGED
+                || incoming.outcome() == BodyBlockUseResult.Outcome.WORK_STARTED) {
             snapshot = null;
             presentationSnapshot = null;
             pendingQuery = 0;
@@ -409,6 +416,12 @@ public final class BodyHandClientPolicy {
             String sourceItemId) {
         return barrier && planActive && prototype != null && prototype.startsWith("moonstation14:disposal_")
                 && step != null && sourceItemId != null && step.material().equals(sourceItemId);
+    }
+
+    public static boolean mayDeferConstructionUse(boolean barrier, boolean planMatchesProof, String sourceItem,
+                                                   int requiredCount, String heldItem, int heldCount) {
+        return barrier && planMatchesProof && sourceItem != null && sourceItem.equals(heldItem)
+                && requiredCount > 0 && heldCount >= requiredCount;
     }
 
     public static boolean deferredPlacementStillValid(UUID body, long epoch, UUID currentBody, long currentEpoch,

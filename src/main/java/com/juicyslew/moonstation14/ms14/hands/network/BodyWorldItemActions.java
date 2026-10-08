@@ -52,7 +52,9 @@ public final class BodyWorldItemActions {
         // Mutation is intentionally delegated to body-safe item cores, never a fabricated UseOnContext.
         if (stack.getItem() instanceof CableSpoolItem || stack.getItem() instanceof CableCutterItem
                 || stack.getItem() instanceof CrowbarItem || stack.getItem() instanceof SteelItem
-                || stack.getItem() instanceof StationFloorTileItem || stack.getItem() instanceof StationFloorTilePryItem)
+                || stack.getItem() instanceof StationFloorTileItem || stack.getItem() instanceof StationFloorTilePryItem
+                || stack.is(ModItems.PLASTIC) || stack.is(ModItems.SCREWDRIVER) || stack.is(ModItems.WELDER)
+                || stack.is(ModItems.WRENCH))
             return BodyConstructionItemUse.use(new BodyUseItemContext(actor, authority, hands, request.handId(),
                     request.expectedToken(), request.expectedRevision(), stack, admission.hit().pos(), admission.hit().face()));
         if (BodyBlockItemPlacement.supports(stack)) return BodyBlockItemPlacement.place(actor, request, admission);

@@ -658,6 +658,63 @@ public class MoonStation14Client {
     }
 
     @SubscribeEvent
+    public static void renderPointerWorkspaceAfterScreen(ScreenEvent.Render.Post event) {
+        var mc=net.minecraft.client.Minecraft.getInstance();
+        boolean current=mc.screen==event.getScreen();
+        boolean allowed=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen());
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
+                mc.screen==null,true,current,allowed)) return;
+        BodyHandClient.renderPointerWorkspace(event.getGuiGraphics(),
+                event.getPartialTick());
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenMouse(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        var browser = com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance();
+        if (browser.mouseClicked(event.getMouseX(),event.getMouseY(),event.getButton())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenKey(ScreenEvent.KeyPressed.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
+                .keyPressed(event.getKeyCode(),event.getScanCode(),event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenKeyReleased(ScreenEvent.KeyReleased.Pre event) {
+        com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalConstructionClient.releaseBrowserClosePress(
+                event.getKeyCode(),event.getScanCode());
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenCharacter(ScreenEvent.CharacterTyped.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
+                .charTyped(event.getCodePoint(),event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenDrag(ScreenEvent.MouseDragged.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.drag(event.getMouseX(),event.getMouseY()))
+            event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenRelease(ScreenEvent.MouseButtonReleased.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(event.getButton()))
+            event.setCanceled(true);
+    }
+
+    @SubscribeEvent
     public static void renderSelectedLooseOutline(RenderLevelStageEvent event) {
         com.juicyslew.moonstation14.ms14.hands.client.SelectedLooseOutlineRenderer.render(event);
     }

@@ -13,6 +13,8 @@ public final class BodyConstructionItemUse {
     private BodyConstructionItemUse() { }
 
     public static BodyBlockUseResult.Outcome use(BodyUseItemContext context) {
+        var construction = com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService.interact(context);
+        if (construction.isPresent()) return construction.orElseThrow();
         if (BodyFloorToolUse.supports(context.stack())) return BodyFloorToolUse.use(context);
         if (context.stack().getItem() instanceof CableSpoolItem spool)
             return placeCable(context, spool);

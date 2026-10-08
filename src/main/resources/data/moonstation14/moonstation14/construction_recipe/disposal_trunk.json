@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal Trunk","description":"Build a disposal trunk","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_trunk","graph":"disposal_pipes","startingNode":"start","targetNode":"trunk"}

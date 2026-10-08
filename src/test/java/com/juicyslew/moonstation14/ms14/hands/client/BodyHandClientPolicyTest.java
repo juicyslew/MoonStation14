@@ -11,6 +11,16 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void configuredKeyMatcherHonorsRemappedKeyAndModifier() {
+        var mapping=new net.minecraft.client.KeyMapping("test.binding",
+                net.neoforged.neoforge.client.settings.KeyConflictContext.UNIVERSAL,
+                net.neoforged.neoforge.client.settings.KeyModifier.CONTROL,
+                com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_J,"test");
+        assertTrue(BodyHandClient.matches(mapping,org.lwjgl.glfw.GLFW.GLFW_KEY_J,0,org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL));
+        assertFalse(BodyHandClient.matches(mapping,org.lwjgl.glfw.GLFW.GLFW_KEY_J,0,0));
+        assertFalse(BodyHandClient.matches(mapping,org.lwjgl.glfw.GLFW.GLFW_KEY_G,0,org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL));
+    }
     @Test void deferredPlacementRequiresFreshSameIntentAndSource() {
         var body=java.util.UUID.randomUUID(); var pos=new net.minecraft.core.BlockPos(1,2,3);
         assertTrue(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
@@ -557,6 +567,42 @@ class BodyHandClientPolicyTest {
         assertTrue(policy.accept(new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
                 ACCOUNT, BODY, 7, 4, "left", armed)));
         assertTrue(policy.action(4) > use);
+    }
+    @Test void sharedConstructionDeferralAdmitsGirderAndPipeThenRequiresRemainingMaterial() {
+        assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(true, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 3));
+        assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(true, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 2));
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(true, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 1));
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(true, false,
+                "moonstation14:steel", 2, "moonstation14:steel", 3));
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(false, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 3));
+    }
+
+    @Test void acceptedTimedWorkInvalidatesReservedMaterialProofUntilFreshSnapshot() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var before = List.of(new BodyHandStateSnapshot.Hand("left", "steel-stack", "moonstation14:steel", 3),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, policy.query(1), BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 10, "left", before)));
+        long use = policy.blockUseSequence(2);
+        assertFalse(policy.blockUseResult(new BodyBlockUseResult(7, use + 1, BodyBlockUseResult.Outcome.WORK_STARTED)));
+        assertTrue(policy.blockUseResult(new BodyBlockUseResult(7, use, BodyBlockUseResult.Outcome.WORK_STARTED)));
+        assertTrue(policy.blockUseBarrier());
+        assertNull(policy.snapshot());
+        assertEquals(0, policy.blockUseSequence(3));
+        long refresh = policy.query(3);
+        var reserved = List.of(new BodyHandStateSnapshot.Hand("left", "steel-stack", "moonstation14:steel", 2),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0));
+        assertFalse(policy.accept(new BodyHandStateSnapshot(0, refresh + 1, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 11, "left", reserved)));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 11, "left", reserved)));
+        assertFalse(policy.blockUseBarrier());
+        assertTrue(policy.blockUseSequence(4) > use);
     }
 
     @Test void timedOutActionRetriesQueryWithoutTransientStatus() {

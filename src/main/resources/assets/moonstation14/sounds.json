@@ -5,6 +5,10 @@
     ],
     "subtitle": "sounds.moonstation14.crowbar_use"
   },
+  "ss14/tools/ratchet": { "sounds": ["moonstation14:ss14/tools/ratchet"] },
+  "ss14/tools/crowbar": { "sounds": ["moonstation14:ss14/tools/crowbar"] },
+  "ss14/tools/screwdriver": { "sounds": ["moonstation14:ss14/tools/screwdriver", "moonstation14:ss14/tools/screwdriver2"] },
+  "ss14/tools/welder": { "sounds": ["moonstation14:ss14/tools/welder", "moonstation14:ss14/tools/welder2"] },
   "apc/switch": { "sounds": ["moonstation14:apc/machine_switch"], "subtitle": "sounds.moonstation14.apc.switch" },
   "ss14/items/drink": { "sounds": ["moonstation14:ss14/items/drink"] },
   "grenade/beep": { "sounds": [{ "name": "moonstation14:grenade/beep1", "attenuation_distance": 32 }], "subtitle": "sounds.moonstation14.grenade.beep" },

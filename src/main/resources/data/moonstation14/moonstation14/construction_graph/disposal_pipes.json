@@ -1,0 +1,25 @@
+{
+  "start": "start",
+  "nodes": {
+    "start": {"edges": [
+      {"to":"straight","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"bend","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"trunk","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"junction","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"junction_flipped","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"y_junction","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"x_junction","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"router","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]},
+      {"to":"router_flipped","steps":[{"type":"material","requirement":"Steel","amount":2,"seconds":1}]}
+    ]},
+    "straight":{"entity":"moonstation14:disposal_pipe","edges":[]},
+    "bend":{"entity":"moonstation14:disposal_bend","edges":[]},
+    "trunk":{"entity":"moonstation14:disposal_trunk","edges":[]},
+    "junction":{"entity":"moonstation14:disposal_junction","edges":[]},
+    "junction_flipped":{"entity":"moonstation14:disposal_junction_flipped","edges":[]},
+    "y_junction":{"entity":"moonstation14:disposal_y_junction","edges":[]},
+    "x_junction":{"entity":"moonstation14:disposal_x_junction","edges":[]},
+    "router":{"entity":"moonstation14:disposal_router","edges":[]},
+    "router_flipped":{"entity":"moonstation14:disposal_router_flipped","edges":[]}
+  }
+}

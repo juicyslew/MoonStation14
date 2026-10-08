@@ -18,6 +18,7 @@ class ToolPrototypeTest {
     @Test
     void resolvedToolsInheritSupportedCapabilityDefaultsAndExposeOnlyTheirCapabilities() {
         JsonObject toolBase = load("base_tool");
+        assertFalse(toolBase.has("useSound"));
         assertFalse(toolBase.has("smallItem"));
         assertFalse(toolBase.has("dynamicPhysics"));
         assertFalse(toolBase.has("anchored"));
@@ -28,13 +29,30 @@ class ToolPrototypeTest {
         raw.put(ModTools.WRENCH, load("wrench"));
         raw.put(ModTools.SCREWDRIVER, load("screwdriver"));
         raw.put(ModTools.WELDER, load("welder"));
+        raw.put(ModTools.CROWBAR, load("crowbar"));
         manager.reload(ModTools.TOOL_TYPE, raw);
 
         var catalog = manager.snapshot(ModTools.TOOL_TYPE);
         ToolPrototypeData wrench = catalog.get(ModTools.WRENCH);
         ToolPrototypeData screwdriver = catalog.get(ModTools.SCREWDRIVER);
-         assertEquals(new ToolPrototypeData(Set.of(ToolPrototypeData.Quality.Anchoring), 1.0, java.util.Optional.empty()), wrench);
-         assertEquals(new ToolPrototypeData(Set.of(ToolPrototypeData.Quality.Screwing), 1.0, java.util.Optional.empty()), screwdriver);
+        ToolPrototypeData crowbar = catalog.get(ModTools.CROWBAR);
+        assertEquals(ToolPrototypeData.UseSound.Wrench, wrench.useSound().orElseThrow());
+        assertEquals(ToolPrototypeData.UseSound.Screwdriver, screwdriver.useSound().orElseThrow());
+        assertEquals(ToolPrototypeData.UseSound.Crowbar, crowbar.useSound().orElseThrow());
+        assertEquals(ToolPrototypeData.UseSound.Welder, catalog.get(ModTools.WELDER).useSound().orElseThrow());
+        assertEquals(new ToolPrototypeData(Set.of(ToolPrototypeData.Quality.Prying), 1.0, java.util.Optional.empty(), java.util.Optional.of(ToolPrototypeData.UseSound.Crowbar)), crowbar);
+        assertTrue(ModTools.canPryConstructionStep(catalog, ModTools.CROWBAR));
+        assertFalse(ModTools.canPryConstructionStep(catalog, ModTools.WRENCH));
+        assertFalse(ModTools.canPryConstructionStep(catalog, ModTools.id("unsupported_item")));
+        assertFalse(ModTools.canPryConstructionStep(catalog, net.minecraft.world.item.ItemStack.EMPTY));
+        assertFalse(ModTools.canPryConstructionStep(catalog,
+                new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK)));
+        assertTrue(ModTools.itemPrototype(java.util.Optional.empty()).isEmpty());
+        assertTrue(ModTools.itemPrototype(null).isEmpty());
+        assertTrue(ModTools.canPryConstructionStep(catalog,
+                new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.CROWBAR.get())));
+         assertEquals(new ToolPrototypeData(Set.of(ToolPrototypeData.Quality.Anchoring), 1.0, java.util.Optional.empty(), java.util.Optional.of(ToolPrototypeData.UseSound.Wrench)), wrench);
+         assertEquals(new ToolPrototypeData(Set.of(ToolPrototypeData.Quality.Screwing), 1.0, java.util.Optional.empty(), java.util.Optional.of(ToolPrototypeData.UseSound.Screwdriver)), screwdriver);
         assertTrue(ModTools.hasQuality(catalog, ModTools.WRENCH, ToolPrototypeData.Quality.Anchoring));
         assertFalse(ModTools.hasQuality(catalog, ModTools.WRENCH, ToolPrototypeData.Quality.Screwing));
         assertTrue(ModTools.hasQuality(catalog, ModTools.SCREWDRIVER, ToolPrototypeData.Quality.Screwing));

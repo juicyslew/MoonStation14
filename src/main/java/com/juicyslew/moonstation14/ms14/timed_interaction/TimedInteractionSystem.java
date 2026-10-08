@@ -18,8 +18,8 @@ import java.util.function.Supplier;
 public final class TimedInteractionSystem {
     public enum Completion { REPEAT, STOP, DENIED, RECOVERY_REQUIRED }
     private record Key(UUID body, long id) { }
-    private record Context(int duration, BooleanSupplier valid, Supplier<Completion> completion, ServerLevel level, net.minecraft.world.phys.Vec3 start) { }
-    private record Presentation(long origin, ServerPlayer owner) { }
+    private record Context(int duration, BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled, ServerLevel level, net.minecraft.world.phys.Vec3 start) { }
+    private record Presentation(long origin, ServerPlayer owner, Optional<net.minecraft.core.BlockPos> worldTarget) { }
     private static final Map<Key, Context> CALLBACKS = new HashMap<>();
     private static final Map<Key, Presentation> PRESENTATION = new HashMap<>();
     private static final Map<UUID, LivingEntity> ACTORS = new HashMap<>();
@@ -34,7 +34,18 @@ public final class TimedInteractionSystem {
     public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             BooleanSupplier valid, Supplier<Completion> completion) {
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove, valid, completion, Optional.empty(), () -> { });
+    }
+    public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
+            String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
+            BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled) {
+        return start(body,owner,originSequence,kind,sourceKey,durationTicks,breakDamage,breakMove,valid,completion,Optional.empty(),cancelled);
+    }
+    public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
+            String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
+            BooleanSupplier valid, Supplier<Completion> completion, Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled) {
         Objects.requireNonNull(body); Objects.requireNonNull(kind); Objects.requireNonNull(sourceKey); Objects.requireNonNull(valid); Objects.requireNonNull(completion);
+        Objects.requireNonNull(cancelled);
         if (!(body.level() instanceof ServerLevel level)) return TimedInteractionEngine.StartResult.DENIED;
         checkThread(level);
         if (body.isRemoved() || !body.isAlive() || durationTicks < 1) return TimedInteractionEngine.StartResult.DENIED;
@@ -46,9 +57,10 @@ public final class TimedInteractionSystem {
         UUID uuid = body.getUUID(); ACTORS.put(uuid, body);
         if (result.result() == TimedInteractionEngine.StartResult.STARTED) {
             Key key = new Key(uuid, result.operation().id());
-            CALLBACKS.put(key, new Context(durationTicks, valid, completion, level, body.position()));
-            PRESENTATION.put(key, new Presentation(originSequence, owner));
+            CALLBACKS.put(key, new Context(durationTicks, valid, completion, cancelled, level, body.position()));
+            PRESENTATION.put(key, new Presentation(originSequence, owner, worldTarget == null ? Optional.empty() : worldTarget));
         }
+        cleanupCallbacks(body, result.state());
         publish(body);
         return result.result();
     }
@@ -83,9 +95,12 @@ public final class TimedInteractionSystem {
             for(TimedOperation due:advanced.completed()) {
                 Key key=new Key(body.getUUID(),due.id()); Context c=CALLBACKS.get(key); if(c==null)continue;
                 Completion outcome=Completion.DENIED;
-                try { outcome=c.valid().getAsBoolean()?c.completion().get():Completion.STOP; } catch(RuntimeException ignored) { }
+                try { outcome=c.valid().getAsBoolean()?c.completion().get():Completion.DENIED; } catch(RuntimeException ignored) { }
                 if(outcome==Completion.REPEAT) next=TimedInteractionEngine.repeat(next,due.id(),current,c.duration());
-                else CALLBACKS.remove(key);
+                else {
+                    CALLBACKS.remove(key);
+                    if (outcome == Completion.DENIED) try { c.cancelled().run(); } catch (RuntimeException ignored) { }
+                }
             }
             next=TimedInteractionEngine.prune(next,current);
              if(next!=state){body.setData(ModDataAttachments.TIMED_OPERATIONS.get(),next);publish(body);cleanupCallbacks(body,next);cleanupActor(body,next);}
@@ -93,14 +108,18 @@ public final class TimedInteractionSystem {
     }
     private static void cleanupCallbacks(LivingEntity body, TimedOperationState state) {
         Set<Long> ids=new HashSet<>(); for(TimedOperation op:state.operations()) if(op.phase()==TimedOperation.Phase.ACTIVE) ids.add(op.id());
-        CALLBACKS.keySet().removeIf(k->k.body().equals(body.getUUID())&&!ids.contains(k.id()));
+        for (var entry : List.copyOf(CALLBACKS.entrySet())) if (entry.getKey().body().equals(body.getUUID()) && !ids.contains(entry.getKey().id())) {
+            boolean cancelled = state.operations().stream().anyMatch(o -> o.id() == entry.getKey().id() && o.phase() == TimedOperation.Phase.CANCELLED);
+            CALLBACKS.remove(entry.getKey());
+            if (cancelled) try { entry.getValue().cancelled().run(); } catch (RuntimeException ignored) { }
+        }
         PRESENTATION.keySet().removeIf(k->k.body().equals(body.getUUID())&&state.operations().stream().noneMatch(o->o.id()==k.id()));
     }
     private static void cleanupActor(LivingEntity body, TimedOperationState state) { if(state.operations().isEmpty()) ACTORS.remove(body.getUUID()); }
     private static void publish(LivingEntity body) {
         if (!(body.level() instanceof ServerLevel level)) return;
         TimedOperationState state=body.getData(ModDataAttachments.TIMED_OPERATIONS.get());
-        List<TimedInteractionSnapshot.View> views=state.operations().stream().map(o->new TimedInteractionSnapshot.View(o.id(),o.startTick(),o.durationTicks(),o.phase(),o.terminalTick(),Optional.ofNullable(PRESENTATION.get(new Key(body.getUUID(),o.id()))).map(Presentation::origin).orElse(0L))).toList();
+        List<TimedInteractionSnapshot.View> views=views(body,state);
         var packet=new TimedInteractionSnapshot(level.dimension().location(),body.getId(),body.getUUID(),state.revision(),now(level),views);
         PacketDistributor.sendToPlayersTrackingEntity(body,packet);
         Set<ServerPlayer> owners=new HashSet<>(); PRESENTATION.forEach((key,value)->{if(key.body().equals(body.getUUID())&&value.owner()!=null&&!value.owner().isRemoved())owners.add(value.owner());});
@@ -114,7 +133,13 @@ public final class TimedInteractionSystem {
     }
     public static void onLogout(LivingEntity body) {
         if (!(body.level() instanceof ServerLevel level)) return; checkThread(level);
-        UUID id=body.getUUID(); CALLBACKS.keySet().removeIf(k->k.body().equals(id)); PRESENTATION.keySet().removeIf(k->k.body().equals(id));
+        UUID id=body.getUUID(); TimedOperationState state=body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get());
+        if (state != null) {
+            TimedOperationState next=state;
+            for (TimedOperation op : state.operations()) if (op.phase()==TimedOperation.Phase.ACTIVE) next=TimedInteractionEngine.cancel(next,op.id(),now(level));
+            body.setData(ModDataAttachments.TIMED_OPERATIONS.get(),next); publish(body); cleanupCallbacks(body,next);
+        }
+        CALLBACKS.keySet().removeIf(k->k.body().equals(id)); PRESENTATION.keySet().removeIf(k->k.body().equals(id));
         PRESENTATION.entrySet().removeIf(e->e.getValue().owner()==body);
         if(body.hasData(ModDataAttachments.TIMED_OPERATIONS.get())) publish(body);
         ACTORS.remove(id);
@@ -122,6 +147,22 @@ public final class TimedInteractionSystem {
     public static void onStartTracking(PlayerEvent.StartTracking event) {
         if(event.getEntity() instanceof ServerPlayer observer && event.getTarget() instanceof LivingEntity body && body.level() instanceof ServerLevel level){checkThread(level);if(body.hasData(ModDataAttachments.TIMED_OPERATIONS.get()))sendSnapshot(body,observer);}
     }
-    private static void sendSnapshot(LivingEntity body,ServerPlayer observer){ServerLevel level=(ServerLevel)body.level();TimedOperationState state=body.getData(ModDataAttachments.TIMED_OPERATIONS.get());List<TimedInteractionSnapshot.View> views=state.operations().stream().map(o->new TimedInteractionSnapshot.View(o.id(),o.startTick(),o.durationTicks(),o.phase(),o.terminalTick(),Optional.ofNullable(PRESENTATION.get(new Key(body.getUUID(),o.id()))).map(Presentation::origin).orElse(0L))).toList();PacketDistributor.sendToPlayer(observer,new TimedInteractionSnapshot(level.dimension().location(),body.getId(),body.getUUID(),state.revision(),now(level),views));}
-    public static void onServerStopped(ServerStoppedEvent event) { CALLBACKS.clear(); PRESENTATION.clear(); ACTORS.clear(); serverThread=null; }
+    private static List<TimedInteractionSnapshot.View> views(LivingEntity body, TimedOperationState state) {
+        return state.operations().stream().map(o -> {
+            Presentation p=PRESENTATION.get(new Key(body.getUUID(),o.id()));
+            return new TimedInteractionSnapshot.View(o.id(),o.startTick(),o.durationTicks(),o.phase(),o.terminalTick(),
+                    p == null ? 0L : p.origin(), p == null ? Optional.empty() : p.worldTarget());
+        }).toList();
+    }
+    private static void sendSnapshot(LivingEntity body,ServerPlayer observer){ServerLevel level=(ServerLevel)body.level();TimedOperationState state=body.getData(ModDataAttachments.TIMED_OPERATIONS.get());PacketDistributor.sendToPlayer(observer,new TimedInteractionSnapshot(level.dimension().location(),body.getId(),body.getUUID(),state.revision(),now(level),views(body,state)));}
+    public static void onServerStopped(ServerStoppedEvent event) {
+        for (LivingEntity body : List.copyOf(ACTORS.values())) {
+            TimedOperationState state=body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get());
+            if (state == null || !(body.level() instanceof ServerLevel level)) continue;
+            TimedOperationState next=state;
+            for (TimedOperation op : state.operations()) if (op.phase()==TimedOperation.Phase.ACTIVE) next=TimedInteractionEngine.cancel(next,op.id(),now(level));
+            cleanupCallbacks(body,next);
+        }
+        CALLBACKS.clear(); PRESENTATION.clear(); ACTORS.clear(); serverThread=null;
+    }
 }
