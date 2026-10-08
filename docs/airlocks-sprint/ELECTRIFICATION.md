@@ -112,3 +112,26 @@ from-crush reopen deadline. If power is unknown or unavailable at that release
 deadline, the door stays sealed, the victim exemption persists, and a bounded
 20-tick retry is scheduled. This avoids a past-due transition tick loop and
 never invents power or drops the victim into a newly solid door.
+
+At the partial-close passable-to-solid edge, the root reuses that exact captured
+victim set for one `BUMP` contact after crush effects and collision solidification.
+This adapts SS14 `SharedDoorSystem.OnPartialClose` enabling collision followed by
+`Crush`: Minecraft may not emit a later start-contact event for a stationary
+overlap. Safe obstruction aborts do not solidify and therefore do not shock.
+There is no nearby-radius scan; only living occupants captured for the crush
+workflow or exact face-tangent door contacts are eligible. Each actual
+solidification cycle is a distinct contact. Existing valid loaded medical-DEAD
+bodies participate in safety obstruction and unsafe crush capture/reopen
+exemption; crush damage/paralysis remain delegated to existing shared systems,
+without a dead-specific forced-health or status path.
+
+Static close transitions additionally query only the exact root doorway AABB
+(with a 1e-5 broad-phase allowance and exact face-contact geometry) for loaded,
+resolved living or medical-DEAD bodies. A normal CLOSED transition quietly
+retries the ordinary bump-opening path for resolved `DoorBumpOpener` bodies;
+this emits no second electrical contact and is skipped during the retained
+crush/reopen delay. This is the bounded local adaptation of upstream
+`SharedDoorSystem.CheckDoorBump` at scheduled state updates. Upstream safety
+checks obstructed close attempts, not door opening; the local opening path now
+matches that distinction. Exact tangent bodies are contacts but not crush
+occupants; strict interior overlap remains the crush-obstruction criterion.

@@ -31,4 +31,15 @@ class AirlockBumpGeometryTest {
         double doorTime = AirlockBumpSystem.timeOfImpact(BODY, new Vec3(1.5, 0, 0), fartherDoor);
         assertTrue(wallTime >= 0 && wallTime < doorTime);
     }
+
+    @Test void staticContactIncludesEachFaceButNotCornerVerticalSupportOrRealGap(){
+        AABB doorway=new AABB(0,0,0,1,2,1);
+        assertTrue(AirlockGeometry.touchesDoorway(new AABB(-.6,0,.2,0,1.8,.8),doorway));
+        assertTrue(AirlockGeometry.touchesDoorway(new AABB(1,0,.2,1.6,1.8,.8),doorway));
+        assertTrue(AirlockGeometry.touchesDoorway(new AABB(.2,0,-.6,.8,1.8,0),doorway));
+        assertTrue(AirlockGeometry.touchesDoorway(new AABB(.2,0,1,.8,1.8,1.6),doorway));
+        assertFalse(AirlockGeometry.touchesDoorway(new AABB(-.6,0,-.6,0,1.8,0),doorway));
+        assertFalse(AirlockGeometry.touchesDoorway(new AABB(.2,2,.2,.8,3,.8),doorway));
+        assertFalse(AirlockGeometry.touchesDoorway(new AABB(-.6,0,.2,-.01,1.8,.8),doorway));
+    }
 }

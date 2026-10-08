@@ -185,7 +185,7 @@ class PrototypeRuntimeTest {
                 fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
         server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
                 id("wirecutter"), fixture("tool_profile", "wirecutter"), id("screwdriver"), fixture("tool_profile", "screwdriver"),
-                id("multitool"), fixture("tool_profile", "multitool"), id("airlock_screwdriver"), fixture("tool_profile", "airlock_screwdriver"), id("base_item"), fixture("tool_profile", "base_item"),
+                id("multitool"), fixture("tool_profile", "multitool"), id("base_item"), fixture("tool_profile", "base_item"),
                 id("base_crowbar"), fixture("tool_profile", "base_crowbar")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));

@@ -1,1 +1,1 @@
-{ "parent": "minecraft:item/generated", "textures": { "layer0": "moonstation14:block/airlock/closed" } }
+{ "parent": "moonstation14:block/airlock/default/closed" }

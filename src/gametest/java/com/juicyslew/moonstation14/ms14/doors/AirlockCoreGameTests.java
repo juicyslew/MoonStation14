@@ -210,7 +210,7 @@ public final class AirlockCoreGameTests {
         });
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
-    @GameTestTags({"airlock_electrified_open"})
+    @GameTestTags({"airlock_electrified_open", "airlock_shock_posture"})
     public static void electrifiedBumpAppliesShockAndStillStartsDoorOpening(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         require(door.applyWire(door.identity(),door.state().revision(),AirlockState.Wire.POWER_ONE,AirlockState.WireAction.CUT),
@@ -231,6 +231,10 @@ public final class AirlockCoreGameTests {
             require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isStunned(actor)
                     &&com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isKnockedDown(actor),
                     "fresh contact applies the configured five-second paralyze and knockdown");
+            require(com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(actor)
+                            && actor.getPose()==net.minecraft.world.entity.Pose.SWIMMING
+                            && Math.abs(actor.getBoundingBox().getYsize()-.6)<.001,
+                    "actual electrified contact commits shared prone posture and physical dimensions");
             require(door.state().phase()==AirlockState.DoorPhase.OPENING,
                     "the same shock contact still begins the normal door opening transition");
             actor.discard();helper.succeed();

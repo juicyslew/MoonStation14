@@ -32,7 +32,6 @@ class ToolProfileTest {
         raw.put(ModToolProfiles.CROWBAR, resource("crowbar"));
         raw.put(ModToolProfiles.WIRECUTTER, resource("wirecutter"));
         raw.put(ModToolProfiles.SCREWDRIVER, resource("screwdriver"));
-        raw.put(ModToolProfiles.AIRLOCK_SCREWDRIVER, resource("airlock_screwdriver"));
         raw.put(ModToolProfiles.MULTITOOL, resource("multitool"));
         return raw;
     }
@@ -47,7 +46,7 @@ class ToolProfileTest {
         PrototypeManager manager = manager();
         manager.reload(ModToolProfiles.TYPE, bundled());
         var catalog = manager.snapshot(ModToolProfiles.TYPE);
-        assertEquals(5, catalog.asMap().size());
+        assertEquals(4, catalog.asMap().size());
         assertNull(catalog.get(ModToolProfiles.BASE_ITEM));
         assertNull(catalog.get(ModToolProfiles.BASE_CROWBAR));
         assertEquals(java.util.List.of(ToolProfile.Quality.PRYING), catalog.get(ModToolProfiles.CROWBAR).tool().qualities());
@@ -55,8 +54,7 @@ class ToolProfileTest {
         assertEquals(java.util.List.of(ToolProfile.Quality.CUTTING), catalog.get(ModToolProfiles.WIRECUTTER).tool().qualities());
         assertEquals("moonstation14:tools/wirecutter", catalog.get(ModToolProfiles.WIRECUTTER).useSound());
         assertEquals(java.util.List.of(ToolProfile.Quality.SCREWING), catalog.get(ModToolProfiles.SCREWDRIVER).tool().qualities());
-        assertEquals(catalog.get(ModToolProfiles.SCREWDRIVER), catalog.get(ModToolProfiles.AIRLOCK_SCREWDRIVER));
-        assertTrue(ToolQualities.has(ModToolProfiles.AIRLOCK_SCREWDRIVER, ToolProfile.Quality.SCREWING, catalog));
+        assertTrue(ToolQualities.has(ModToolProfiles.SCREWDRIVER, ToolProfile.Quality.SCREWING, catalog));
         assertNull(catalog.get(ModToolProfiles.SCREWDRIVER).useSound());
         assertEquals(java.util.List.of(ToolProfile.Quality.PULSING), catalog.get(ModToolProfiles.MULTITOOL).tool().qualities());
 

@@ -94,6 +94,19 @@ public final class PostureSystem {
     }
     public static boolean isDownPosture(LivingEntity body) { return isDown(body); }
     private static long now(ServerLevel level) { return level.getServer().overworld().getGameTime(); }
+    /** Projects an active typed knockdown status using the canonical posture clock. */
+    public static void projectKnockdown(LivingEntity body, int remainingTicks) {
+        if (body == null || remainingTicks < 0 || !(body.level() instanceof ServerLevel level)
+                || ActiveCharacterPolicy.resolveActor(body).flatMap(c -> c.component(StandingStateComponent.class)).isEmpty()) return;
+        long until = Math.addExact(now(level), remainingTicks);
+        PostureData current = posture(body);
+        if (!current.down()) {
+            forceDown(body, until);
+            return;
+        }
+        PostureData next = current.refreshKnockdown(until);
+        if (!next.equals(current)) save(body, next);
+    }
     private static boolean conscious(LivingEntity body) {
         return body.isAlive() && !body.isDeadOrDying()
                 && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isAlive(body);
@@ -171,7 +184,8 @@ public final class PostureSystem {
         if (body == null || !(body.level() instanceof ServerLevel level) || !policy(body).eligible()) return false;
         PostureData data = posture(body);
         return data.mayStand(level.getServer().overworld().getGameTime(),
-                !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isStunned(body), conscious(body));
+                !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isStunned(body)
+                        && !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isKnockedDown(body), conscious(body));
     }
     private static boolean standingFits(LivingEntity body) {
         // Uses the entity's standing pose dimensions, independent of its current prone dimensions.
