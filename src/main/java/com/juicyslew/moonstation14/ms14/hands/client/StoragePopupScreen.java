@@ -491,13 +491,30 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         return workspace.topmost(x, y);
     }
 
+    public static boolean pointerOverInteractiveWindow() {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (!(mc.screen instanceof StoragePopupScreen screen) || mc.getWindow() == null) return false;
+        double x = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
+        double y = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
+        if (screen.hit(x, y) != null) return true;
+        var bar = HandBarLayout.calculate(screen.width, screen.height);
+        return bar != null && bar.tileAt((int) x, (int) y) != null;
+    }
+
     private StoragePopupLayout.Cell visibleCell(StoragePopupWorkspace.Window w, double x, double y) {
         return layout(w).visibleCellAt((int) x, (int) y, w.width(), w.height());
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseClick(mouseX, mouseY, button)) return true;
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
         if (wire != null && wire.contains(mouseX, mouseY)) return wire.workspaceMouseClicked(mouseX, mouseY, button);
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        var barAtPointer = HandBarLayout.calculate(width, height);
+        if (button == 0 && hasShiftDown() && !hasControlDown() && !hasAltDown() && moving == null && dragging == null
+                && handGridDrag == null && equipmentDrag == null && menuTile == null && hit(mouseX, mouseY) == null
+                && (barAtPointer == null || barAtPointer.tileAt((int) mouseX, (int) mouseY) == null)
+                && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineWorldClick()) return true;
         if (button == 1 && rotateCurrent(mouseX, mouseY)) return true;
         if (button == 0 && moving == null && dragging == null && handGridDrag == null
                 && equipmentDrag == null && hit(mouseX, mouseY) == null
@@ -887,6 +904,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         if (key == GLFW.GLFW_KEY_ESCAPE) {
             if (dragging != null) { workspace.clearDrag(dragging); dragging = null; crossSource = null; worldCrossSource = null; itemMoved = false; return true; }
             if (selectedWorld != null && selectedWorld.drag() != null) { workspace.clearDrag(selectedWorld.key()); return true; }
+            if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.escape()) return true;
             BodyHandClient.dismissPopupPointerMode(); return true;
         }
         return true;

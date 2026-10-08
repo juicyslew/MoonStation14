@@ -364,6 +364,19 @@ public final class LifecycleGhostSessionControl {
                 : unavailable;
     }
 
+    /** Exact committed ghost entity and control epoch for read-only authenticated queries. */
+    public static Optional<CommittedGhostActor> committedActorSnapshot(ServerPlayer player) {
+        var ownership = committedControlSnapshot(player);
+        if (!ownership.committed() || ownership.owned() == null
+                || !(player.level() instanceof ServerLevel level)) return Optional.empty();
+        Session pinned = session(level.getServer(), player.getUUID());
+        if (pinned == null || pinned.player != player || !pinned.committed || pinned.ghost != ownership.owned()
+                || session(level.getServer(), player.getUUID()) != pinned) return Optional.empty();
+        return Optional.of(new CommittedGhostActor(pinned.ghost, pinned.epoch));
+    }
+
+    public record CommittedGhostActor(Entity ghost, long epoch) { }
+
     private static boolean authorizedReadOnly(Session session) {
         var profile = session.lifecycle.profile(session.accountId).orElse(null);
         return profile != null && profile.active() && profile.deadClaim()

@@ -10,6 +10,9 @@ import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentCatalogValidation;
+import com.juicyslew.moonstation14.ms14.puddle.PuddleData;
+import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
+import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -43,6 +46,8 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
     private boolean removingEmptyBlock;
     private int deferredEmptyCleanup;
     private boolean deferredFailureBlocksCleanup;
+    /** Optional instance-bound resolved profile; absent in normal placed puddles. */
+    private PuddleData boundPuddleData;
     // Gonna probably want a generic ContainerBlockEntity.
     static Map<Integer, Direction> puddleOffsets = Map.of(
             0, Direction.NORTH,//List.of(0,1),
@@ -52,7 +57,7 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
     );
 
     static final float overflowThreshold = 50f;
-    static final float MAX_CAPACITY = 1000f;
+    static final float MAX_CAPACITY = PuddleData.DEFAULT_CAPACITY;
 
     public PuddleBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PUDDLE.get(), pos, state);
@@ -65,7 +70,22 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
             lastCommittedUnits = getReagentContainer().totalUnits();
     }
 
-    @Override public float getCapacity() { return MAX_CAPACITY; }
+    @Override public float getCapacity() {
+        PuddleData data = getResolvedPuddleData();
+        return data == null ? MAX_CAPACITY : data.solutionContainer().maxVolume();
+    }
+
+    /** Current resolved puddle prototype (including inherited metadata and component defaults). */
+    public PuddleData getResolvedPuddleData() {
+        if (boundPuddleData != null) return boundPuddleData;
+        if (level == null) return null;
+        return ModPuddles.catalog(level).get(ModPuddles.PUDDLE);
+    }
+
+    /** Bind an already-resolved profile to this puddle instance without changing global catalogs. */
+    public void bindResolvedPuddleData(PuddleData data) {
+        boundPuddleData = Objects.requireNonNull(data, "resolved puddle profile");
+    }
 
     @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {

@@ -1,6 +1,8 @@
 {
   "abstract": true,
+  "metadata": { "name": "observer", "description": "Boo!" },
   "components": [
+    {"type": "Examiner", "skip_checks": true},
     {"type": "ObserverMovement", "walk_speed": 8.0, "sprint_speed": 12.0},
     {"type": "Incorporeal"}
   ]

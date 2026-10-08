@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReagentResourceSmokeTest {
@@ -84,6 +85,57 @@ class ReagentResourceSmokeTest {
         assertTrue(manager.snapshot(ModReagents.REAGENT_TYPE).get(id("water")) instanceof ReagentData);
         ReagentData beer = manager.snapshot(ModReagents.REAGENT_TYPE).get(id("beer"));
         assertEquals(0.4f, beer.friction().orElseThrow());
+        ReagentData water = manager.snapshot(ModReagents.REAGENT_TYPE).get(id("water"));
+        assertEquals("reagent-physical-desc-translucent", water.physicalDesc());
+        assertEquals(true, water.recognizable().orElse(false), "water inherits its source-recognizable declaration");
+        ReagentData blood = manager.snapshot(ModReagents.REAGENT_TYPE).get(id("blood"));
+        assertEquals("reagent-physical-desc-ferrous", blood.physicalDesc());
+        assertEquals(true, blood.recognizable().orElse(false));
+        assertEquals(false, manager.snapshot(ModReagents.REAGENT_TYPE).get(id("foamingagent"))
+                .recognizable().orElse(false), "absent source flag resolves to the false consumer default");
+    }
+
+    @Test
+    void everyAuthoredPhysicalDescriptionHasLocalizedDescriptionAndArticle() throws IOException {
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModReagents.REAGENT_TYPE);
+        manager.reload(ModReagents.REAGENT_TYPE, loadResources());
+        JsonObject language;
+        try (var stream = ReagentResourceSmokeTest.class.getClassLoader()
+                .getResourceAsStream("assets/moonstation14/lang/en_us.json")) {
+            assertNotNull(stream, "English language catalog exists");
+            language = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+        }
+        Set<String> physicalDescriptions = manager.snapshot(ModReagents.REAGENT_TYPE).values().stream()
+                .map(ReagentData.class::cast).map(ReagentData::physicalDesc)
+                .filter(key -> !key.equals("reagent-physical-desc-default"))
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> reagentNames = manager.snapshot(ModReagents.REAGENT_TYPE).values().stream()
+                .map(ReagentData.class::cast).map(ReagentData::name)
+                .collect(java.util.stream.Collectors.toSet());
+        assertEquals(406, reagentNames.size(), "coverage tracks all resolved reagent names, including inherited names");
+        for (String token : reagentNames) {
+            assertTrue(language.has(token), "Missing English translation: " + token);
+            String translation = language.get(token).getAsString();
+            assertFalse(translation.isBlank(), "Blank English translation: " + token);
+            assertFalse(translation.equals(token), "Raw localization key displayed as translation: " + token);
+            assertFalse(translation.contains("%"), "Unprocessed Fluent positional syntax: " + token);
+            assertFalse(translation.contains("{") || translation.contains("}"), "Unprocessed Fluent markup: " + token);
+        }
+        ReagentData spaceLube = manager.snapshot(ModReagents.REAGENT_TYPE).get(id("spacelube"));
+        assertEquals("reagent-name-space-lube", spaceLube.name());
+        assertEquals("space lube", language.get(spaceLube.name()).getAsString());
+        assertTrue(spaceLube.recognizable().orElse(false));
+        assertEquals(98, physicalDescriptions.size(), "coverage tracks all currently authored physical-description tokens");
+        for (String key : physicalDescriptions) {
+            for (String token : Set.of(key, key + ".article")) {
+                assertTrue(language.has(token), "Missing English translation: " + token);
+                String translation = language.get(token).getAsString();
+                assertFalse(translation.isBlank(), "Blank English translation: " + token);
+                assertFalse(translation.contains("%"), "Unprocessed Fluent positional syntax: " + token);
+                assertFalse(translation.contains("{" ) || translation.contains("}"), "Unprocessed Fluent markup: " + token);
+            }
+        }
     }
 
     @Test

@@ -37,6 +37,7 @@ public final class BodyBlockOutlineRenderer {
     public static void render(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         Minecraft mc = Minecraft.getInstance();
+        if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.activeIntent()) return;
         if (mc.player == null || !mc.player.isSpectator() || mc.level == null || mc.getConnection() == null
                 || mc.screen != null && (!(mc.screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow window)
                 || window.capturesKeyboard()) || mc.options.hideGui || GhostControlClient.committedCharacterEpoch() <= 0) return;

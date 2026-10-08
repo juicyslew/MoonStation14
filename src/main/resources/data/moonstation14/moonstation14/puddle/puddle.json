@@ -1,0 +1,6 @@
+{
+  "id": "puddle",
+  "metadata": { "name": "Puddle", "description": "A puddle of liquid." },
+  "solutionContainer": { "maxVolume": 1000.0 },
+  "examinableSolution": { "solutionName": "puddle", "exactVolume": false }
+}
