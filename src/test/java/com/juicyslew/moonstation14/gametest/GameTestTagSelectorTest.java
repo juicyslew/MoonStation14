@@ -128,6 +128,7 @@ class GameTestTagSelectorTest {
         }
         assertTrue(tests[0] > 0, "compiled fixture metadata must be present");
         assertFalse(catalogue.isEmpty());
+        assertTrue(catalogue.contains("examine_policy"), "examine policy GameTests must be discoverable by the registrar catalogue");
         assertEquals(tests[0], GameTestTagPreflight.validate(classes, null).tests());
         assertThrows(IllegalStateException.class, () -> GameTestTagPreflight.validate(classes, "not-a-real-tag"));
     }

@@ -27,6 +27,7 @@ public final class CreativeDropGameTests {
     private CreativeDropGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
+    @GameTestTags({"medical-creative-drop"})
     public static void creativeDropReplacesModItemsAndLeavesVanillaDropsAlone(GameTestHelper helper) {
         FakePlayer creative = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "loosecreative"));
         creative.gameMode.changeGameModeForPlayer(GameType.CREATIVE);

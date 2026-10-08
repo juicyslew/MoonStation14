@@ -26,6 +26,18 @@ class BodyHandStatePolicyTest {
         assertEquals(BodyHandStateSnapshot.Reason.REPLAY, gate.admit(7, 1, 22));
     }
 
+    @Test void rateLimitAndReplayDoNotRevokeIssuedAuthorityButIdentityChangesDo() {
+        var gate = new BodyHandStateService.QueryGate();
+        gate.issue(null, 7);
+        for (int sequence = 1; sequence <= 4; sequence++) assertNull(gate.admit(7, sequence, 20));
+        assertEquals(BodyHandStateSnapshot.Reason.RATE_LIMITED, gate.admit(7, 5, 20));
+        assertEquals(BodyHandStateSnapshot.Reason.REPLAY, gate.admit(7, 4, 21));
+        gate.invalidateUnless(null, 7);
+        assertTrue(gate.hasIssued(null, 7));
+        gate.invalidateUnless(null, 8);
+        assertFalse(gate.hasIssued(null, 7));
+    }
+
     @Test void rejectsMalformedAndUnboundedPackets() {
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateQuery(-1, 1));
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateQuery(0, 0));
@@ -249,6 +261,7 @@ class BodyHandStatePolicyTest {
 
     private static RegistryFriendlyByteBuf header(int size) {
         var buf = buffer();
+        buf.writeBoolean(false);
         buf.writeVarLong(0);
         buf.writeVarLong(1);
         buf.writeEnum(BodyHandStateSnapshot.Reason.OK);

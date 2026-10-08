@@ -11,6 +11,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
+import java.util.List;
 
 /** Focused registration surface for regression cases exercising legacy/grid admission. */
 public final class GridLegacyAdmissionGameTests {
@@ -33,6 +34,13 @@ public final class GridLegacyAdmissionGameTests {
                     == BodyEquipmentTransfer.Result.SUCCESS, "equip filled legacy belt");
             LiveHands worn = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             require(BodyHandStateService.representable(worn, body), "worn legacy belt remains representable");
+            List<String> equipmentIds = LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
+                    .map(LiveHands.EquipmentSlot::id).toList();
+            LiveHands candidateTake = worn.extractEquippedStorage(worn.revision(), equipmentIds,
+                    "belt", "belt", "left", "old-pickaxe").orElseThrow();
+            require(BodyHandStateService.representable(candidateTake, body)
+                            && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == worn,
+                    "candidate legacy take validates from candidate equipment without installing it");
             require(BodyEquippedStorageTransfer.transferOwned(body, "belt", "belt", "left", "old-pickaxe",
                     worn.revision(), false, () -> true) == BodyEquippedStorageTransfer.Result.SUCCESS,
                     "legacy one-cell take succeeds");

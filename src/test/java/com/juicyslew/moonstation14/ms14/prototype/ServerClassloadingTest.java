@@ -43,6 +43,10 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/ContainedOwnerPickMixin.java",
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java",
             "com/juicyslew/moonstation14/ms14/medical_observer/client/MedicalCameraAnchorEntity.java",
+             "com/juicyslew/moonstation14/ms14/medical/client/HealthAnalyzerRenderer.java",
+             "com/juicyslew/moonstation14/ms14/medical/client/HealthAnalyzerWorkspace.java",
+             "com/juicyslew/moonstation14/ms14/medical/client/HealthAnalyzerLayout.java",
+             "com/juicyslew/moonstation14/ms14/medical/client/NeutralPortrait.java",
             "com/juicyslew/moonstation14/mixin/client/GhostOwnedEntityTrackerMixin.java",
             "com/juicyslew/moonstation14/mixin/client/LivingEntityDisposalContainmentRenderMixin.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
@@ -107,9 +111,11 @@ class ServerClassloadingTest {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")
                         || relativePath.startsWith(CLIENT_CONSTRUCTION_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")) {
+                        ) {
                     continue;
                 }
 

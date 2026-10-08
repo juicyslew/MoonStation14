@@ -9,9 +9,11 @@ import com.juicyslew.moonstation14.ms14.character.components.BloodstreamPolicy;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import org.junit.jupiter.api.Test;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
+@GameTestTags({"health-analyzer", "prototype", "physiology", "medical-state"})
 class BloodReducerTest {
     @Test void bothPrototypeBloodlossBranchesUseUpstreamFractionScalingWithoutFabricatedCap() throws Exception {
         for (String species : new String[]{"human", "pig"}) {

@@ -78,7 +78,7 @@ public final class BodyHeldGridTransfer {
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body) || !hostStillMatches(before, hostHand, hostToken, newAnchor != null)
                 || !com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.representable(next.orElseThrow(), body)) return Result.DENIED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow()); }
+        try { LiveHandsCommitGateway.commitOwned(body, next.orElseThrow()); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;

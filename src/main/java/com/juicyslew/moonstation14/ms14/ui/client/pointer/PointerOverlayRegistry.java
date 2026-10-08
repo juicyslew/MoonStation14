@@ -49,12 +49,15 @@ public final class PointerOverlayRegistry {
     /** Visible windows in back-to-front paint order; input reverses this exact order. */
     public static List<PointerOverlayWindow> paintOrder() { return WINDOWS.stream().filter(PointerOverlayWindow::visible).toList(); }
     public static void render(GuiGraphics g,int mx,int my,float partial,int width,int height) {
+        render(g,mx,my,partial,width,height,3);
+    }
+    public static void render(GuiGraphics g,int mx,int my,float partial,int width,int height,int storageSiblingCount) {
         var visible=paintOrder();
         for(int i=0;i<visible.size();i++) {
             var window=visible.get(i);
             g.flush(); g.pose().pushPose();
             try {
-                int layer=PointerWorkspaceLayers.browserLayer(i,overlayFront);
+                int layer=PointerWorkspaceLayers.browserLayer(i,overlayFront,storageSiblingCount);
                 g.pose().translate(0,0,layer);
                 window.renderIntoGui(g,mx,my,partial,width,height);
             } finally { g.pose().popPose(); g.flush(); }

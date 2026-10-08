@@ -81,7 +81,7 @@ public final class ExplosionGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
-    @GameTestTags({"merge-main-regression"})
+    @GameTestTags({"merge-main-regression", "medical-corrections-regression"})
     public static void blastKnocksLivingTargetsOutwardAndSkipsIneligibleTargets(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlastPlanner.Proposal nonlethalProposal = new BlastPlanner.Proposal(10, 3, 10);
@@ -100,7 +100,11 @@ public final class ExplosionGameTests {
         // knockback from obscuring whether the custom blast impulse respects noPhysics.
         immovable.setInvulnerable(true);
         helper.runAfterDelay(2, () -> {
-            require(east.isAlive() && west.isAlive() && immovable.isAlive(), "all blast targets alive before execution");
+            require(east.isAlive() && west.isAlive() && immovable.isAlive(), "all blast targets alive before execution: "
+                    + "east health=" + east.getHealth() + " alive=" + east.isAlive() + " removed=" + east.isRemoved()
+                    + ", west health=" + west.getHealth() + " alive=" + west.isAlive() + " removed=" + west.isRemoved()
+                    + ", immovable health=" + immovable.getHealth() + " alive=" + immovable.isAlive()
+                    + " removed=" + immovable.isRemoved());
             require(!east.noPhysics && !west.noPhysics && immovable.noPhysics, "blast target eligibility setup");
             require(east.blockPosition().equals(new BlockPos(source.getX(), source.getY(), source.getZ()))
                             && west.blockPosition().equals(new BlockPos(source.getX() - 1, source.getY(), source.getZ())),

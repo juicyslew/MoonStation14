@@ -68,23 +68,23 @@ public final class BodyWorldGridTransfer {
     static Result storeOwned(LivingEntity body, ItemEntity host, String hand, String token, long revision,
                              ItemStack expectedReference, ItemStack expectedCopy, GridGeometry.Cell anchor,
                              GridGeometry.Rotation rotation, BooleanSupplier authorityValid) {
-        return transfer(body, host, hand, token, revision, expectedReference, expectedCopy,
-                anchor, rotation, null, null, Mode.STORE, authorityValid);
+        return LiveHandsCommitGateway.batch(() -> transfer(body, host, hand, token, revision, expectedReference, expectedCopy,
+                anchor, rotation, null, null, Mode.STORE, authorityValid));
     }
 
     static Result takeOwned(LivingEntity body, ItemEntity host, String hand, String token, long revision,
                             ItemStack expectedReference, ItemStack expectedCopy, GridGeometry.Cell anchor,
                             GridGeometry.Rotation rotation, BooleanSupplier authorityValid) {
-        return transfer(body, host, hand, token, revision, expectedReference, expectedCopy,
-                anchor, rotation, null, null, Mode.TAKE, authorityValid);
+        return LiveHandsCommitGateway.batch(() -> transfer(body, host, hand, token, revision, expectedReference, expectedCopy,
+                anchor, rotation, null, null, Mode.TAKE, authorityValid));
     }
 
     static Result moveOwned(LivingEntity body, ItemEntity host, String token, long revision,
                             ItemStack expectedReference, ItemStack expectedCopy, GridGeometry.Cell oldAnchor,
                             GridGeometry.Rotation oldRotation, GridGeometry.Cell newAnchor,
                             GridGeometry.Rotation newRotation, BooleanSupplier authorityValid) {
-        return transfer(body, host, null, token, revision, expectedReference, expectedCopy,
-                oldAnchor, oldRotation, newAnchor, newRotation, Mode.MOVE, authorityValid);
+        return LiveHandsCommitGateway.batch(() -> transfer(body, host, null, token, revision, expectedReference, expectedCopy,
+                oldAnchor, oldRotation, newAnchor, newRotation, Mode.MOVE, authorityValid));
     }
 
     private enum Mode { STORE, TAKE, MOVE }
@@ -153,7 +153,7 @@ public final class BodyWorldGridTransfer {
                 || !ready(body, host, level, before, reference, copy, position, valid)) return Result.DENIED;
 
         if (mode == Mode.STORE) {
-            try { body.setData(ModDataAttachments.LIVE_HANDS.get(), stagedBody); }
+            try { LiveHandsCommitGateway.commitOwned(body, stagedBody); }
             catch (RuntimeException failure) {
                 return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
             }
@@ -187,7 +187,7 @@ public final class BodyWorldGridTransfer {
                 if (!sameOwners(body, host, level) || !position.equals(host.position()) || host.getTarget() != null
                         || host.hasPickUpDelay() || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                         || host.getItem() != published || !same(finalWorld, published)) return Result.RECOVERY_REQUIRED;
-                try { body.setData(ModDataAttachments.LIVE_HANDS.get(), finalBody); }
+                try { LiveHandsCommitGateway.commitOwned(body, finalBody); }
                 catch (RuntimeException failure) { return compensateWorld(body, host, level, before, published, finalWorld, copy, position); }
                 if (!sameOwners(body, host, level) || !position.equals(host.position()) || host.getTarget() != null
                         || host.hasPickUpDelay() || host.getItem() != published || !same(finalWorld, published)
@@ -207,7 +207,7 @@ public final class BodyWorldGridTransfer {
                 || !unchangedWorld(host, level, reference, copy, position)) return Result.RECOVERY_REQUIRED;
         LiveHands.WholeResult restored = staged.putWhole(staged.revision(), hand, new ItemToken(token), savedSourceStack);
         if (!restored.succeeded() || restored.state().revision() <= before.revision()) return Result.RECOVERY_REQUIRED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), restored.state()); }
+        try { LiveHandsCommitGateway.commitOwned(body, restored.state()); }
         catch (RuntimeException failure) { return Result.RECOVERY_REQUIRED; }
         LiveHands current = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         return current == restored.state() && current.revision() > before.revision() && current.compatible(body)

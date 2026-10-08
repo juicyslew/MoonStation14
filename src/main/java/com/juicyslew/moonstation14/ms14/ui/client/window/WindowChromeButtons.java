@@ -26,6 +26,14 @@ public final class WindowChromeButtons {
         return button(windowX + windowWidth - EDGE - SIZE, windowY + EDGE, CLOSE_ICON, CLOSE_LABEL, onClose);
     }
 
+    /** Pixel bounds of the standard close widget after a uniform GUI pose scale. */
+    public static net.minecraft.client.gui.navigation.ScreenRectangle closeBounds(
+            int windowX, int windowY, int windowWidth, float scale) {
+        return new net.minecraft.client.gui.navigation.ScreenRectangle(
+                Math.round(windowX + (windowWidth - EDGE - SIZE) * scale),
+                Math.round(windowY + EDGE * scale), Math.round(SIZE * scale), Math.round(SIZE * scale));
+    }
+
     /** Returns null when help is not supplied; callers should only register a non-null widget. */
     public static Button help(int windowX, int windowY, int windowWidth, Runnable onHelp) {
         if (onHelp == null) return null;

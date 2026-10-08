@@ -140,7 +140,31 @@ public final class BodyHandActionNetworking {
                                 BodyHandActionResult.Reason.DENIED, false, 0, null, null, null, 0));
                         return;
                     }
-                    BodyHandActionResult result = BodyHandRequestService.apply(actor, request);
+                     java.util.UUID scannerBefore = null;
+                     if (request.action() == BodyHandActionRequest.Action.DROP
+                             || request.action() == BodyHandActionRequest.Action.PICKUP
+                             || request.action() == BodyHandActionRequest.Action.PICKUP_SELECTED) {
+                         var authority = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(actor).orElse(null);
+                         var live = authority == null ? null : authority.body().getExistingDataOrNull(
+                                 com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                         var held = live == null ? null : live.stackCopy(request.handId()).orElse(null);
+                         var state = held == null ? null : held.get(com.juicyslew.moonstation14.component.ModDataComponents.HEALTH_ANALYZER.get());
+                         if (state != null) scannerBefore = state.scannerId();
+                     }
+                     BodyHandActionResult result = BodyHandRequestService.apply(actor, request);
+                     if (scannerBefore == null && result.accepted() && result.hostTransition() != null
+                             && result.hostTransition().direction() == BodyHandActionResult.HostTransition.Direction.PICKUP) {
+                         var authority = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(actor).orElse(null);
+                         var live = authority == null ? null : authority.body().getExistingDataOrNull(
+                                 com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                         var held = live == null ? null : live.stackCopy(request.handId()).orElse(null);
+                         var state = held == null ? null : held.get(com.juicyslew.moonstation14.component.ModDataComponents.HEALTH_ANALYZER.get());
+                         if (state != null) scannerBefore = state.scannerId();
+                     }
+                      if (scannerBefore != null && result.accepted() && result.hostTransition() != null)
+                          com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerServer.onWorldTransfer(actor,
+                                  scannerBefore, result.hostTransition().direction() == BodyHandActionResult.HostTransition.Direction.DROP
+                                          ? result.hostTransition().worldEntity() : null);
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
                         PacketDistributor.sendToPlayer(actor, result);
                 })

@@ -33,6 +33,7 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
+import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -66,11 +67,19 @@ class PrototypeRuntimeTest {
                 ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
                 ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE,
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
-                ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE,
-                ModIngestionProfiles.TYPE, ModDamageFeedback.TYPE, ModAirlocks.TYPE, ModToolProfiles.TYPE,
-                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE,
-                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE,
-                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE));
+                ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
+        expectedTypes.add(ModIngestionProfiles.TYPE);
+        expectedTypes.add(ModDamageFeedback.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
+        expectedTypes.add(ModAirlocks.TYPE);
+        expectedTypes.add(ModToolProfiles.TYPE);
+        expectedTypes.add(ModPuddles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -186,6 +195,11 @@ class PrototypeRuntimeTest {
         server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-test"), profile));
         DamageFeedbackProfile damageFeedback = DamageFeedbackProfile.PHYSICAL;
         server.publishDecoded(ModDamageFeedback.TYPE, Map.of(id("damage-feedback-test"), damageFeedback));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE,
+                Map.of(id("medical-test"), new com.juicyslew.moonstation14.ms14.medical.MedicalItemData(
+                        new com.juicyslew.moonstation14.ms14.medical.MedicalItemData.Item("Small"),
+                        java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
+                        java.util.Optional.empty(), java.util.Optional.empty())));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -195,7 +209,12 @@ class PrototypeRuntimeTest {
                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(), ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(),
+                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
+                ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()), exported.keySet());

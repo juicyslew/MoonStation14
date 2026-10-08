@@ -48,10 +48,14 @@ public record ReactiveComponent(List<ReactiveGroup> reactiveGroups,
     }
 
     public enum ReactiveMethod {
-        TOUCH;
+        TOUCH("touch"), INJECTION("injection");
         public static final Codec<ReactiveMethod> CODEC = Codec.STRING.comapFlatMap(value ->
-                "touch".equals(value) ? DataResult.success(TOUCH)
-                        : DataResult.error(() -> "unknown canonical reactive method '" + value + "'"),
-                ignored -> "touch");
+                java.util.Arrays.stream(values()).filter(method -> method.serialized.equals(value)).findFirst()
+                        .<DataResult<ReactiveMethod>>map(DataResult::success)
+                        .orElseGet(() -> DataResult.error(() -> "unknown canonical reactive method '" + value + "'")),
+                method -> method.serialized);
+        private final String serialized;
+        ReactiveMethod(String serialized) { this.serialized = serialized; }
+        public String serialized() { return serialized; }
     }
 }

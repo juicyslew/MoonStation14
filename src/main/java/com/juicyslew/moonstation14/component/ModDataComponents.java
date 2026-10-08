@@ -15,6 +15,8 @@ import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
 import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelData;
+import com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData;
+import com.juicyslew.moonstation14.ms14.medical.SyringeStackData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -85,6 +87,14 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ResourceLocation>> LOOSE_OBJECT_PROFILE =
             register_component("loose_object_profile", builder -> builder.persistent(ResourceLocation.CODEC)
                     .networkSynchronized(ResourceLocation.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<HealthAnalyzerStackData>> HEALTH_ANALYZER =
+            register_component("health_analyzer", builder -> builder.persistent(HealthAnalyzerStackData.CODEC)
+                    .networkSynchronized(HealthAnalyzerStackData.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<SyringeStackData>> SYRINGE =
+            register_component("syringe", builder -> builder.persistent(SyringeStackData.CODEC)
+                    .networkSynchronized(SyringeStackData.STREAM_CODEC));
 
     private static <T>DeferredHolder<DataComponentType<?>, DataComponentType<T>> register_component(
             String name,

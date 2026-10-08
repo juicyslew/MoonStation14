@@ -1,11 +1,17 @@
 package com.juicyslew.moonstation14.ms14.disposal.prototype;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.Decoder;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.JsonOps;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.juicyslew.moonstation14.ms14.disposal.domain.DisposalDirection;
 import java.util.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.core.Direction;
+import com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata;
 
 /** Supported disposal-tube composition. This intentionally excludes upstream components without local consumers. */
 public final class DisposalEntityData {
@@ -163,7 +169,7 @@ public final class DisposalEntityData {
                 throw new IllegalArgumentException("tube kind/topology mismatch");
         }
     }
-    public static final Codec<DisposalEntityData> CODEC = RecordCodecBuilder.create(i -> i.group(
+    private static final Codec<DisposalEntityData> STRUCTURAL_CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.BOOL.optionalFieldOf("anchored", false).forGetter(d -> d.anchored),
             Codec.DOUBLE.optionalFieldOf("tubeDiameter", TubeGeometry.DEFAULT_DIAMETER).forGetter(d -> d.geometry.diameter()),
             Codec.STRING.xmap(Kind::valueOf, Kind::name).optionalFieldOf("kind").forGetter(d -> Optional.ofNullable(d.tube).map(Tube::kind)),
@@ -176,11 +182,36 @@ public final class DisposalEntityData {
             Unit.CODEC.optionalFieldOf("unit").forGetter(d -> Optional.ofNullable(d.unit)),
             Holder.CODEC.optionalFieldOf("holder").forGetter(d -> Optional.ofNullable(d.holder)),
              ConstructionStep.CODEC.optionalFieldOf("construction").forGetter(d -> Optional.ofNullable(d.construction)),
-             ContainedViewData.CODEC.optionalFieldOf("containedView", ContainedViewData.DEFAULT).forGetter(d -> d.containedView)
-    ).apply(i, (anchored, diameter, kind, topology, rotation, seconds, damage, tag, tags, unit, holder, construction, containedView) -> {
+             ContainedViewData.CODEC.optionalFieldOf("containedView", ContainedViewData.DEFAULT).forGetter(d -> d.containedView),
+             ExamineMetadata.CODEC.optionalFieldOf("metadata", ExamineMetadata.EMPTY).forGetter(d -> d.metadata)
+     ).apply(i, (anchored, diameter, kind, topology, rotation, seconds, damage, tag, tags, unit, holder, construction, containedView, metadata) -> {
         Tube tube = kind.isPresent() && topology.isPresent() ? new Tube(kind.get(), topology.get(), rotation, seconds, damage, tag, tags) : null;
-        return new DisposalEntityData(anchored, tube, unit.orElse(null), holder.orElse(null), new TubeGeometry(diameter), construction.orElse(null), containedView);
+         return new DisposalEntityData(anchored, tube, unit.orElse(null), holder.orElse(null), new TubeGeometry(diameter), construction.orElse(null), containedView, metadata);
     }));
+    public static final Codec<DisposalEntityData> CODEC = Codec.of(STRUCTURAL_CODEC, new Decoder<>() {
+        @Override public <T> DataResult<Pair<DisposalEntityData, T>> decode(DynamicOps<T> ops, T input) {
+            try {
+                var json = input instanceof com.google.gson.JsonElement element ? element : ops.convertTo(JsonOps.INSTANCE, input);
+                if (!json.isJsonObject()) throw new IllegalArgumentException("disposal prototype must be an object");
+                var fields = Set.of("id", "parent", "abstract", "metadata", "anchored", "tubeDiameter", "kind", "topology", "powerWatts",
+                        "rotationQuarters", "segmentSeconds", "turnDamage", "tag", "routerTags", "unit", "holder", "construction", "containedView");
+                var object = json.getAsJsonObject();
+                for (String field : object.keySet()) {
+                    if (!fields.contains(field) || object.get(field).isJsonNull())
+                        throw new IllegalArgumentException("unknown or null disposal field: " + field);
+                }
+                if (object.has("metadata")) {
+                    var metadata = object.get("metadata");
+                    if (!metadata.isJsonObject()) throw new IllegalArgumentException("metadata must be an object");
+                    for (String field : metadata.getAsJsonObject().keySet())
+                        if (!Set.of("name", "description").contains(field) || !metadata.getAsJsonObject().get(field).isJsonPrimitive()
+                                || !metadata.getAsJsonObject().get(field).getAsJsonPrimitive().isString())
+                            throw new IllegalArgumentException("invalid disposal metadata field: " + field);
+                }
+                return STRUCTURAL_CODEC.decode(ops, input);
+            } catch (RuntimeException e) { return DataResult.error(() -> e.getMessage() == null ? "invalid disposal prototype" : e.getMessage()); }
+        }
+    });
     private final boolean anchored;
     private final Tube tube;
     private final Unit unit;
@@ -188,13 +219,15 @@ public final class DisposalEntityData {
     private final TubeGeometry geometry;
     private final ConstructionStep construction;
     private final ContainedViewData containedView;
+    private final ExamineMetadata metadata;
     public DisposalEntityData(Tube tube) { this(true, tube, null); }
     public DisposalEntityData(boolean anchored, Tube tube) { this(anchored, tube, null); }
     public DisposalEntityData(boolean anchored, Tube tube, Unit unit) { this(anchored, tube, unit, null); }
     public DisposalEntityData(boolean anchored, Tube tube, Unit unit, Holder holder) { this(anchored,tube,unit,holder,new TubeGeometry(TubeGeometry.DEFAULT_DIAMETER)); }
     public DisposalEntityData(boolean anchored, Tube tube, Unit unit, Holder holder, TubeGeometry geometry) { this(anchored,tube,unit,holder,geometry,null); }
     public DisposalEntityData(boolean anchored, Tube tube, Unit unit, Holder holder, TubeGeometry geometry, ConstructionStep construction) { this(anchored, tube, unit, holder, geometry, construction, ContainedViewData.DEFAULT); }
-    public DisposalEntityData(boolean anchored, Tube tube, Unit unit, Holder holder, TubeGeometry geometry, ConstructionStep construction, ContainedViewData containedView) { this.anchored = anchored; this.tube = tube; this.unit = unit; this.holder = holder; this.geometry=Objects.requireNonNull(geometry); this.construction=construction; this.containedView=Objects.requireNonNull(containedView); }
+    public DisposalEntityData(boolean anchored, Tube tube, Unit unit, Holder holder, TubeGeometry geometry, ConstructionStep construction, ContainedViewData containedView) { this(anchored,tube,unit,holder,geometry,construction,containedView,ExamineMetadata.EMPTY); }
+    public DisposalEntityData(boolean anchored, Tube tube, Unit unit, Holder holder, TubeGeometry geometry, ConstructionStep construction, ContainedViewData containedView, ExamineMetadata metadata) { this.anchored = anchored; this.tube = tube; this.unit = unit; this.holder = holder; this.geometry=Objects.requireNonNull(geometry); this.construction=construction; this.containedView=Objects.requireNonNull(containedView); this.metadata=Objects.requireNonNull(metadata); }
     public boolean anchored() { return anchored; }
     public Tube tube() { if (tube == null) throw new IllegalStateException("prototype has no tube component"); return tube; }
     public Unit unit() { return unit; }
@@ -202,4 +235,5 @@ public final class DisposalEntityData {
     public TubeGeometry geometry() { return geometry; }
     public ConstructionStep construction() { return construction; }
     public ContainedViewData containedView() { return containedView; }
+    public ExamineMetadata metadata() { return metadata; }
 }

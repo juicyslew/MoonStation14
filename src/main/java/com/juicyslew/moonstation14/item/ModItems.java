@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
 import com.juicyslew.moonstation14.item.custom.WirecutterItem;
 import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
+import com.juicyslew.moonstation14.item.custom.SyringeItem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
@@ -92,6 +93,9 @@ public class ModItems {
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",
             () -> new BottleItem(new Item.Properties().stacksTo(1))
     );
+    public static final DeferredItem<SyringeItem> SYRINGE = ITEMS.register("syringe",
+            () -> new SyringeItem(new Item.Properties().stacksTo(1)
+                    .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent())));
     public static final DeferredItem<JugItem> JUG = ITEMS.register("jug",
             () -> new JugItem(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), LooseObjectProfile.JUG_ID)));
     public static final DeferredItem<CreativeGasPipeVisualItem> GAS_PIPE_VISUAL = ITEMS.register("gas_pipe_visual",
@@ -120,6 +124,10 @@ public class ModItems {
                     .component(ModDataComponents.GRENADE_FUSE.get(), com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData.SAFE)));
     public static final DeferredItem<AtmosphereAnalyzerItem> ATMOSPHERE_ANALYZER = ITEMS.register("atmosphere_analyzer",
             () -> new AtmosphereAnalyzerItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> OINTMENT = ITEMS.register("ointment", () -> new Item(new Item.Properties().stacksTo(10)));
+    public static final DeferredItem<Item> BRUTEPACK = ITEMS.register("brutepack", () -> new Item(new Item.Properties().stacksTo(10)));
+    public static final DeferredItem<Item> GAUZE = ITEMS.register("gauze", () -> new Item(new Item.Properties().stacksTo(10)));
+    public static final DeferredItem<Item> HANDHELD_HEALTH_ANALYZER = ITEMS.register("handheld_health_analyzer", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<BlockItem> DISPOSAL_UNIT = ITEMS.register("disposal_unit",
             () -> new BlockItem(ModBlocks.DISPOSAL_UNIT.get(), new Item.Properties().stacksTo(1)));
 

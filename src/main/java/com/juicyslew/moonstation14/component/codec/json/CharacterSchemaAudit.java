@@ -14,7 +14,7 @@ import java.util.Set;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
-    private static final Set<String> ROOT_FIELDS = Set.of("host_entity_types", "components");
+    private static final Set<String> ROOT_FIELDS = Set.of("host_entity_types", "components", "metadata");
     private static final Set<String> MOVEMENT_FIELDS = Set.of("mode", "acceleration", "walk_speed", "sprint_speed",
             "ground_friction_with_input", "ground_friction_without_input", "minimum_friction_speed");
     private static final java.util.Map<String, Set<String>> THERMAL_COMPONENT_FIELDS = java.util.Map.of(
@@ -50,6 +50,19 @@ public final class CharacterSchemaAudit {
         rejectLegacyHands(character);
         rejectLegacyMovement(character);
         checkFields(character, ROOT_FIELDS, "$");
+        if (character.has("metadata")) {
+            JsonElement metadata = character.get("metadata");
+            if (metadata == null || !metadata.isJsonObject()) fail("$.metadata", "expected object");
+            JsonObject fields = metadata.getAsJsonObject();
+            checkFields(fields, Set.of("name", "description"), "$.metadata");
+            for (String field : fields.keySet()) {
+                JsonElement value = fields.get(field);
+                if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString())
+                    fail("$.metadata." + field, "expected string");
+                if (value.getAsString().length() > (field.equals("name") ? 128 : 512))
+                    fail("$.metadata." + field, "exceeds length limit");
+            }
+        }
         rejectLegacyMetabolizerTypes(character);
         auditComponentsIfPresent(character);
         if (character.has("host_entity_types")) {
@@ -247,7 +260,8 @@ public final class CharacterSchemaAudit {
         if (!character.has("components")) return;
         JsonElement elements = character.get("components");
         if (!elements.isJsonArray()) fail("$.components", "expected array");
-        if (elements.getAsJsonArray().size() > 32) fail("$.components", "at most 32 components are allowed");
+        if (elements.getAsJsonArray().size() > CharacterData.MAX_COMPONENTS)
+            fail("$.components", "at most " + CharacterData.MAX_COMPONENTS + " components are allowed");
         Set<String> seen = new java.util.HashSet<>();
         for (int i = 0; i < elements.getAsJsonArray().size(); i++) {
             String path = "$.components[" + i + "]";
@@ -276,6 +290,10 @@ public final class CharacterSchemaAudit {
         if (!CharacterComponentRegistry.registered(type)) fail(path + ".type", "unknown component type");
         if (com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent.TYPE.equals(type)) {
             checkFields(object, COMPLEX_INTERACTION_FIELDS, path);
+            return;
+        }
+        if (com.juicyslew.moonstation14.ms14.character.components.ExaminerComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "skip_checks", "check_in_range_un_occluded"), path);
             return;
         }
         if ("Bloodstream".equals(type)) {
@@ -327,10 +345,29 @@ public final class CharacterSchemaAudit {
             return;
         }
         if ("StandingState".equals(type)) {
-            checkFields(object, Set.of("type", "standing_eligible", "prone_eligible"), path);
+            checkFields(object, Set.of("type", "standing_eligible", "prone_eligible", "down_sound"), path);
             for (String field : Set.of("standing_eligible", "prone_eligible")) {
                 if (complete || object.has(field)) auditBoolean(object.get(field), path + "." + field);
             }
+            if (object.has("down_sound")) auditResourceLocation(object.get("down_sound"), path + ".down_sound");
+            return;
+        }
+        if ("Damageable".equals(type)) {
+            checkFields(object, Set.of("type", "damage_container"), path);
+            if (object.has("damage_container")) {
+                JsonElement container = object.get("damage_container");
+                if (!container.isJsonPrimitive() || !container.getAsJsonPrimitive().isString()
+                        || container.getAsString().isBlank() || container.getAsString().length() > 64)
+                    fail(path + ".damage_container", "expected nonblank damage-container ID of at most 64 characters");
+            }
+            return;
+        }
+        if ("HumanoidProfile".equals(type)) {
+            checkFields(object, Set.of("type", "species"), path);
+            JsonElement species = object.get("species");
+            if (species == null || !species.isJsonPrimitive() || !species.getAsJsonPrimitive().isString()
+                    || species.getAsString().isBlank() || species.getAsString().length() > 64)
+                fail(path + ".species", "expected nonblank species ID of at most 64 characters");
             return;
         }
         if ("Puller".equals(type)) {
@@ -400,7 +437,7 @@ public final class CharacterSchemaAudit {
             if (complete || object.has("reactive_groups"))
                 auditStringArray(object, "reactive_groups", Set.of("flammable", "extinguish", "acidic"), path);
             if (complete || object.has("reactive_methods"))
-                auditStringArray(object, "reactive_methods", Set.of("touch"), path);
+                auditStringArray(object, "reactive_methods", Set.of("touch", "injection"), path);
             if (object.has("reactive_groups") && object.has("reactive_methods")) {
                 boolean groups = !object.getAsJsonArray("reactive_groups").isEmpty();
                 boolean methods = !object.getAsJsonArray("reactive_methods").isEmpty();
@@ -720,6 +757,15 @@ public final class CharacterSchemaAudit {
         for (String field : object.keySet()) {
             if (!allowed.contains(field)) fail(path + "." + field, "unknown field");
         }
+    }
+
+    private static void auditResourceLocation(JsonElement value, String path) {
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString())
+            fail(path, "expected canonical namespaced resource location");
+        String id = value.getAsString();
+        ResourceLocation parsed = ResourceLocation.tryParse(id);
+        if (parsed == null || !id.equals(parsed.toString()) || !id.contains(":"))
+            fail(path, "expected canonical namespaced resource location");
     }
 
     private static void fail(String path, String message) {

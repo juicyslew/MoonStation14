@@ -84,6 +84,10 @@ neoForge {
         client {
             client()
 
+            // Optional connected-smoke isolation. Defaults retain the normal ModDev run directory.
+            if (project.hasProperty('ms14ClientRunDir')) {
+                gameDirectory = project.file(project.property('ms14ClientRunDir'))
+            }
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
@@ -95,6 +99,10 @@ neoForge {
 
         server {
             server()
+            // Optional connected-smoke isolation. Defaults retain the normal ModDev run directory.
+            if (project.hasProperty('ms14ServerRunDir')) {
+                gameDirectory = project.file(project.property('ms14ServerRunDir'))
+            }
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
@@ -331,9 +339,10 @@ tasks.register('preflightServerPort', DevServerPortCheckTask) {
 }
 
 tasks.named('runServer') {
-    def serverPropertiesFile = project.file('run/server.properties')
+    def runDir = providers.gradleProperty('ms14ServerRunDir').orElse('run').get()
+    def serverPropertiesFile = project.file("${runDir}/server.properties")
     doFirst {
-        // Always inspect the actual run directory, regardless of the standalone test override.
+        // Inspect the same configured directory the dev server will use.
         DevServerPortPreflight.check(serverPropertiesFile)
     }
 }

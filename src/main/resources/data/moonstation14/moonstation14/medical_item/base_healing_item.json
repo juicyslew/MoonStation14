@@ -1,0 +1,1 @@
+{"abstract":true,"parent":"moonstation14:base_item","healing":{"damage":{},"allowed_damage_containers":["biological"],"bleed_modifier":0,"delay":3,"self_penalty":3},"stack":{"max_count":10}}

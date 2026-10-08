@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.loose_objects.pulling;
 
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
@@ -101,6 +102,13 @@ public final class BodyPullService {
     private static Result toggle(LivingEntity body, UUID targetId, String hand, long expectedRevision,
                                  BooleanSupplier authorityValid, ServerPlayer actor,
                                  HandActorAuthority.Snapshot authority) {
+        return LiveHandsCommitGateway.batch(() -> toggleCommitted(body, targetId, hand, expectedRevision,
+                authorityValid, actor, authority));
+    }
+
+    private static Result toggleCommitted(LivingEntity body, UUID targetId, String hand, long expectedRevision,
+                                 BooleanSupplier authorityValid, ServerPlayer actor,
+                                 HandActorAuthority.Snapshot authority) {
         if (body == null || targetId == null || hand == null || authorityValid == null
                 || ActiveCharacterPolicy.resolveActor(body).filter(data -> data.component(PullerComponent.class).isPresent()).isEmpty()) return Result.DENIED;
         Pull existing = PULLS.get(body);
@@ -119,7 +127,7 @@ public final class BodyPullService {
         if (next == null || PULLS.values().stream().anyMatch(p -> p.targetId.equals(targetId))) return Result.DENIED;
         if (!authorityValid.getAsBoolean() || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before)
             return Result.DENIED;
-        body.setData(ModDataAttachments.LIVE_HANDS.get(), next);
+        LiveHandsCommitGateway.commitOwned(body, next);
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next || !next.compatible(body)
                 || !next.reservation(hand).equals(java.util.Optional.of(targetId))) return Result.RECOVERY_REQUIRED;
         Entity target = level.getEntity(targetId);
@@ -279,11 +287,10 @@ public final class BodyPullService {
             PostureSystem.refreshMovementAvailability(body, false);
             return true;
         }
-        LiveHands next = before.releaseHand(hand, target).orElse(null);
-        if (next == null) return false;
-        body.setData(ModDataAttachments.LIVE_HANDS.get(), next);
-        boolean released = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next
-                && next.reservation(hand).isEmpty();
+        if (!LiveHandsCommitGateway.clearPullReservationTrusted(body, before, hand, target)) return false;
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        boolean released = after != null && after.revision() == before.revision() + 1
+                && after.reservation(hand).isEmpty();
         if (released) PostureSystem.refreshMovementAvailability(body, false);
         return released;
     }

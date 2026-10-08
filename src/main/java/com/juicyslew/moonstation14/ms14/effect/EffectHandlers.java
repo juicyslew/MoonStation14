@@ -189,7 +189,7 @@ final class EffectHandlers {
     }
 
     private static EffectResult adjustReagent(EffectData.AdjustReagent effect, EffectContext context) {
-        return adjustReagent(effect, context.scale(), context.reagentContext());
+        return adjustReagent(effect, context.scale(), context.reagentContext(), context.level());
     }
 
     /**
@@ -199,6 +199,11 @@ final class EffectHandlers {
      */
     static EffectResult adjustReagent(EffectData.AdjustReagent effect, float scale,
                                       Optional<ReagentEffectContext> reagentContext) {
+        return adjustReagent(effect, scale, reagentContext, null);
+    }
+
+    private static EffectResult adjustReagent(EffectData.AdjustReagent effect, float scale,
+                                       Optional<ReagentEffectContext> reagentContext, net.minecraft.world.level.Level level) {
         java.util.Objects.requireNonNull(effect, "effect");
         java.util.Objects.requireNonNull(reagentContext, "reagentContext");
         if (reagentContext.isEmpty()) {
@@ -220,7 +225,8 @@ final class EffectHandlers {
             return EffectResult.FAILED;
         }
         if (delta > 0f) {
-            float capacity = routed.source().trait().getCapacity();
+            float capacity = com.juicyslew.moonstation14.ms14.reagent.IReagentTrait.resolveCapacity(
+                    routed.source().trait(), routed.source().holder(), level);
             ReagentEffectTransactionState.PositiveAdjustmentPlan plan;
             try {
                 plan = transactionState.previewPositiveAdjustment(effect.reagent(), solution, capacity, delta);

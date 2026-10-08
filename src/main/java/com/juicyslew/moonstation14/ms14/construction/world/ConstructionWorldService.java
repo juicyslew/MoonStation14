@@ -24,6 +24,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 
 import java.util.UUID;
@@ -462,18 +463,21 @@ public final class ConstructionWorldService {
     }
 
     private static boolean refundFoundation(BodyUseItemContext c, ItemStack reserved) {
+        return LiveHandsCommitGateway.batch(() -> refundFoundationCommitted(c, reserved));
+    }
+
+    private static boolean refundFoundationCommitted(BodyUseItemContext c, ItemStack reserved) {
         LivingEntity body = c.authority().body();
         if (!(body.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) return false;
         LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (hands != null && hands.compatible(body)) {
             var placed = hands.placeCraftOutput(hands.revision(), reserved.copy(), UUID.randomUUID().toString());
-             if (placed.isPresent() && BodyHandStateService.representable(placed.orElseThrow(), body)) {
-                 try { body.setData(ModDataAttachments.LIVE_HANDS.get(), placed.orElseThrow()); }
-                 catch (RuntimeException ignored) { }
-                 if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == placed.orElseThrow()) {
-                     try { BodyHandStateService.requireFreshQuery(c.actor()); } catch (RuntimeException ignored) { }
-                     return true;
-                 }
+            if (placed.isPresent()) {
+                if (!BodyHandStateService.representable(placed.orElseThrow(), body)
+                        || !LiveHandsCommitGateway.commitTrusted(body, hands, placed.orElseThrow())
+                        || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != placed.orElseThrow()) return false;
+                try { BodyHandStateService.requireFreshQuery(c.actor()); } catch (RuntimeException ignored) { }
+                return true;
             }
         }
         // Cancellation returns the reserved sheets at the body's location if current inventory is full.

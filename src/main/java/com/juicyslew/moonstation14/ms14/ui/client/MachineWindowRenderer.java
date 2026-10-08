@@ -13,7 +13,7 @@ public final class MachineWindowRenderer {
     private static final int HEADER = 0xff26363d;
     private static final int INSET = 0xff141f24;
     private static final int TRACK = 0xff090f12;
-    private static final int HIGHLIGHT = 0xff82959b;
+    public static final int HIGHLIGHT = 0xff82959b;
     private static final String[] PERCENT_LABELS = new String[101];
 
     static {

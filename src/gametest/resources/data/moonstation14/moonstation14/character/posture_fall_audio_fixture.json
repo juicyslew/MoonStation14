@@ -1,0 +1,7 @@
+{
+  "parent": "human",
+  "host_entity_types": ["minecraft:sheep"],
+  "components": [
+    {"type": "StandingState", "down_sound": "moonstation14:ss14/items/drink"}
+  ]
+}

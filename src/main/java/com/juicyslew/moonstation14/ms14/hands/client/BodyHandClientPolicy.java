@@ -34,6 +34,7 @@ public final class BodyHandClientPolicy {
     private long sentBlockUseTick, sentQueryTick;
     private BodyHandStateSnapshot snapshot;
     private BodyHandStateSnapshot presentationSnapshot;
+    private long pushedRevision = -1;
     private String feedback;
     private long localFeedbackUntil;
     private boolean inputEnabled;
@@ -59,6 +60,7 @@ public final class BodyHandClientPolicy {
         lastQueryTick = Long.MIN_VALUE;
         snapshot = null;
         presentationSnapshot = null;
+        pushedRevision = -1;
         feedback = null;
         localFeedbackUntil = 0;
         inputEnabled = false;
@@ -108,6 +110,16 @@ public final class BodyHandClientPolicy {
     public long queryEpoch() { return snapshot == null ? 0 : epoch; }
 
     public boolean accept(BodyHandStateSnapshot incoming) {
+        if (incoming.push()) {
+            if (!inputEnabled || incoming.reason() != BodyHandStateSnapshot.Reason.OK
+                    || !account.equals(incoming.accountId()) || !body.equals(incoming.bodyId())
+                    || epoch != incoming.epoch() || snapshot != null && incoming.revision() < snapshot.revision()) return false;
+            snapshot = incoming;
+            presentationSnapshot = incoming;
+            pushedRevision = incoming.revision();
+            refreshRequired = false;
+            return true;
+        }
         if (!inputEnabled || epoch == 0 || incoming.sequence() != pendingQuery || pendingQuery == 0
                 || incoming.requestedEpoch() != pendingQueryEpoch) return false;
         pendingQuery = 0;
@@ -117,6 +129,10 @@ public final class BodyHandClientPolicy {
             snapshot = null;
             refreshRequired = true;
             lastQueryTick = Long.MIN_VALUE;
+            return false;
+        }
+        if (incoming.revision() < pushedRevision) {
+            refreshRequired = true;
             return false;
         }
         snapshot = incoming;

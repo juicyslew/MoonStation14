@@ -128,6 +128,20 @@ public class MoonStation14Client {
             new PrototypeCatalogSyncAssembler(PrototypeRuntime.clientManager()::publishEncodedCatalogs);
 
     public MoonStation14Client(IEventBus modEventBus, ModContainer container) {
+        var analyzerWorkspace = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        analyzerWorkspace.closeSender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
+        com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerClientReceiver.install(state -> {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            mc.execute(() -> {
+                if (mc.player == null || !com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient
+                        .isCurrentMedicalBody(state.actorId())) return;
+                var workspace = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+                boolean newWindow = state.open() && workspace.get(state.scannerId()) == null;
+                workspace.accept(state, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+                if (newWindow && workspace.get(state.scannerId()) != null && mc.screen == null)
+                    com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.medicalPointerMode();
+            });
+        });
         modEventBus.addListener(MoonStation14Client::onClientSetup);
         modEventBus.addListener(MoonStation14Client::registerMoonSky);
         modEventBus.addListener(MoonStation14Client::registerItemColors);
@@ -153,6 +167,15 @@ public class MoonStation14Client {
         DisposalTubeVisualNetworking.installClientHandler(MoonStation14Client::handleDisposalTubePayload);
         LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
         GrenadeSoundNetworking.installClientHandler(GrenadeSoundClient::receive);
+        GrenadeSoundNetworking.installControlledClientHandler(payload -> {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.level == null || minecraft.player == null || !minecraft.level.dimension().location().equals(payload.dimension())) return;
+            var camera = minecraft.getCameraEntity();
+            if (camera == null || camera.isRemoved() || camera.level() != minecraft.level) return;
+            var sound = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(payload.sound()).orElse(null);
+            if (sound != null) minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), sound,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 1f, 1f, false);
+        });
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
@@ -170,6 +193,8 @@ public class MoonStation14Client {
     }
 
     static void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems::bootstrapClientBundled);
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
         ModSpecialProperties.addCustomItemProperties(event);
         DisposalTubeBlock.setRecordProvider((level,pos) -> DISPOSAL_TUBES.get(level.dimension().location(),pos));
         DisposalConstructionClient.register();
@@ -215,7 +240,13 @@ public class MoonStation14Client {
 
     @SubscribeEvent
     public static void renderBodyBlockOutline(RenderLevelStageEvent event) {
+        com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.renderWorld(event);
         BodyBlockOutlineRenderer.render(event);
+    }
+
+    @SubscribeEvent
+    public static void renderExaminePopup(RenderGuiEvent.Post event) {
+        com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.renderGui(event);
     }
 
     @SubscribeEvent
@@ -489,20 +520,33 @@ public class MoonStation14Client {
             BufferUploader.drawWithShader(stars.buildOrThrow());
 
             // Match vanilla's celestial rotation: the sun is at +Y and the opposite moon position is Earth.
-            Matrix4f celestialMatrix = new Matrix4f(matrix)
-                    .rotateY((float) Math.toRadians(-90.0))
-                    .rotateX((float) (level.getTimeOfDay(partialTick) * Math.PI * 2.0));
+            var scenes = com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.catalog(level);
+            var sun = scenes.get(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.SUN);
+            var earth = scenes.get(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.EARTH);
+            boolean criticalView = isCriticalSkyView();
+            boolean drawSun = com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneGeometry.available(level, sun, criticalView);
+            boolean drawEarth = com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneGeometry.available(level, earth, criticalView);
+            if (!drawSun && !drawEarth) {
+                RenderSystem.depthMask(true); RenderSystem.enableCull(); RenderSystem.disableBlend();
+                RenderSystem.setShaderColor(1, 1, 1, 1); return true;
+            }
+            double timeOfDay = level.getTimeOfDay(partialTick);
+            Matrix4f celestialMatrix = new Matrix4f(matrix).mul(
+                    com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneGeometry.transform(timeOfDay));
             BufferBuilder bodies = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
                     DefaultVertexFormat.POSITION_COLOR);
-            addDisc(bodies, celestialMatrix, 0, 80, 0, 9, 255, 255, 245);
-            addDisc(bodies, celestialMatrix, 0, -80, 0, 7, 63, 139, 226);
+            float sunY = drawSun ? com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneGeometry.localPlaneY(sun) : 0;
+            if (drawSun) addDisc(bodies, celestialMatrix, 0, sunY, 0, (float)sun.radius(), sun.red(), sun.green(), sun.blue());
+            float earthY = drawEarth ? com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneGeometry.localPlaneY(earth) : 0;
+            if (drawEarth) addDisc(bodies, celestialMatrix, 0, earthY, 0, (float)earth.radius(), earth.red(), earth.green(), earth.blue());
             // Small low-poly continent and polar ice highlights on the texture-free blue Earth disc.
-            addTriangle(bodies, celestialMatrix, -3.8F, -80.1F, -1.0F, -1.0F, -80.1F, -3.6F,
-                    2.1F, -80.1F, -1.7F, 78, 171, 105);
-            addTriangle(bodies, celestialMatrix, 0.2F, -80.1F, 1.2F, 3.7F, -80.1F, 0.8F,
-                    2.2F, -80.1F, 3.5F, 78, 171, 105);
-            addTriangle(bodies, celestialMatrix, -1.8F, -80.1F, 4.0F, 0.5F, -80.1F, 3.4F,
-                    1.1F, -80.1F, 4.8F, 202, 230, 243);
+            float detailY = drawEarth ? com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneGeometry.cameraFacingArtPlaneY(earth) : 0;
+            if (drawEarth) addTriangle(bodies, celestialMatrix, -3.8F, detailY, -1.0F, -1.0F, detailY, -3.6F,
+                    2.1F, detailY, -1.7F, 78, 171, 105);
+            if (drawEarth) addTriangle(bodies, celestialMatrix, 0.2F, detailY, 1.2F, 3.7F, detailY, 0.8F,
+                    2.2F, detailY, 3.5F, 78, 171, 105);
+            if (drawEarth) addTriangle(bodies, celestialMatrix, -1.8F, detailY, 4.0F, 0.5F, detailY, 3.4F,
+                    1.1F, detailY, 4.8F, 202, 230, 243);
             BufferUploader.drawWithShader(bodies.buildOrThrow());
 
             RenderSystem.depthMask(true);
@@ -523,10 +567,8 @@ public class MoonStation14Client {
 
         private static boolean isCriticalSkyView() {
             var body = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.observedBody();
-            if (body == null) return false;
-            var state = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
-            return state != null && state.data().state()
-                    == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL;
+            return body instanceof net.minecraft.world.entity.LivingEntity living
+                    && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isCritical(living);
         }
 
         private static void addFace(BufferBuilder builder, Matrix4f matrix,
@@ -561,7 +603,7 @@ public class MoonStation14Client {
 
         private static void addDisc(BufferBuilder builder, Matrix4f matrix, float x, float y, float z,
                                     float radius, int red, int green, int blue) {
-            int segments = 32;
+            int segments = com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneGeometry.SEGMENTS;
             for (int i = 0; i < segments; i++) {
                 double first = Math.PI * 2.0 * i / segments;
                 double second = Math.PI * 2.0 * (i + 1) / segments;
@@ -786,6 +828,14 @@ public class MoonStation14Client {
             }
             return -1; // Default (no tint)
         }, ModItems.BOTTLE.get());
+
+        event.register((stack, tintIndex) -> {
+            if (tintIndex == 1) {
+                ReagentComponent data = stack.get(ModDataComponents.REAGENT.get());
+                if (data != null) return ReagentComponent.getBlendedColor(data.contents(), Minecraft.getInstance().level);
+            }
+            return -1;
+        }, ModItems.SYRINGE.get());
 
         event.register((stack, tintIndex) -> {
             if (tintIndex == 1) {
