@@ -10,6 +10,7 @@ import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.organ.BodySystem;
+import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
@@ -199,6 +200,255 @@ public final class AirlockConnectedGameTests {
                 traceCrushCycle(helper,f,victim,before,postCrushPhases,reopened,openingStartedAt,120);
             });
         });
+    }
+
+    @GameTestTags({"airlock_stationary_contact", "airlock_crush", "status"})
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=260)
+    public static void stationaryCriticalCrushContactShocksOncePerSolidification(GameTestHelper helper) {
+        Fixture f=poweredAirlock(helper);
+        waitForPoweredAdmission(helper,f,0,()->{
+            require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.POWER_ONE,AirlockState.WireAction.CUT),"one power-wire cut enables electrification while retaining door power");
+            waitForPoweredAdmission(helper,f,0,()->{
+            require(f.door.activate(),"paid airlock opens");
+            helper.runAfterDelay(14,()->{
+                Villager victim=enrolledBody(f.level,f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
+                Villager nearby=enrolledBody(f.level,f.root.getX()+1.5,f.root.getY()+.1,f.root.getZ()+.5);
+                Villager boundary=enrolledBody(f.level,f.root.getX()-.5,f.root.getY()+.1,f.root.getZ()+.5);
+                victim.setNoGravity(true);
+                boundary.setNoGravity(true);
+                boundary.setPos(f.root.getX()-.30001,boundary.getY(),boundary.getZ());
+                var boundaryPos=boundary.position();
+                require(AirlockGeometry.touchesDoorway(boundary.getBoundingBox(),new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1)),"boundary fixture begins within static-contact tolerance body="+boundary.getBoundingBox()+" root="+f.root+" width="+boundary.getBbWidth());
+                float boundaryBlunt=DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.BLUNT,0f);
+                float boundaryShock=DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.SHOCK,0f);
+                float nearbyShockBefore=DamageSystem.existingOrVanillaBaseline(nearby).getOrDefault(DamageKeys.SHOCK,0f);
+                DamageSystem.applyHealthChange(victim,java.util.Map.of(DamageKeys.BLUNT,100f),1f,false);
+                require(MobStateSystem.isCritical(victim)&&victim.isAlive(),"fixture is an actual living Critical body");
+                float shockBefore=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f);
+                float bluntBefore=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f);
+                var pos=victim.position();
+                require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.SAFETY,AirlockState.WireAction.CUT),"safety wire enables crush");
+                require(f.door.activate(),"unsafe close begins");
+                helper.runAfterDelay(9,()->{
+                    require(DamageSystem.existingOrVanillaBaseline(nearby).getOrDefault(DamageKeys.SHOCK,0f)==nearbyShockBefore,
+                            "powered closing contact does not shock an actor outside the exact doorway");
+                    require(Math.abs(DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.SHOCK,0f)-boundaryShock-7f)<.001f,
+                            "face-tangent living body receives the solidification contact despite its center being outside");
+                    require(DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.BLUNT,0f)==boundaryBlunt,
+                            "boundary contact does not enter crush damage; blunt="+DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.BLUNT,0f)+" before="+boundaryBlunt+" bbox="+boundary.getBoundingBox()+" root="+f.root);
+                    assertStationaryCrushContact(helper,f,victim,pos,shockBefore,bluntBefore,()->
+                        helper.runAfterDelay(5,()->{
+                            require(f.door.state().phase()==AirlockState.DoorPhase.CLOSED,"normal close reaches sealed phase");
+                            waitForDoorPhase(helper,f,AirlockState.DoorPhase.OPEN,80,()->{
+                                require(MobStateSystem.isCritical(victim)&&victim.isAlive(),"victim remains living and Critical for another cycle");
+                                float secondShock=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f);
+                                require(f.door.activate(),"reopened door begins second close");
+                                helper.runAfterDelay(9,()->{
+                                    float total=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)-shockBefore;
+                                    require(Math.abs(total-14f)<.001f,"new solidification cycle produces exactly one additional 7 shock; total="+total+" secondStart="+secondShock);
+                                    require(Math.abs(DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f)-bluntBefore-30f)<.001f,"both solidification cycles apply one 15-point crush each");
+                                    require(MobStateSystem.isCritical(victim),"second contact remains eligible while Critical");
+                                    victim.discard();nearby.discard();boundary.discard();helper.succeed();
+                                });
+                            });
+                        }));
+                });
+                helper.runAfterDelay(55,()->require(CharacterControlSystem.isStunned(victim)
+                                &&CharacterControlSystem.isKnockedDown(victim),
+                        "shock's five-second paralysis replaces the shorter 2.4-second crush projection"));
+            });
+        });
+        });
+    }
+
+    @GameTestTags({"airlock_stationary_contact", "airlock_bump", "status"})
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=160)
+    public static void retainedDeadTangentBodyQuietlyReopensEachNormalClose(GameTestHelper helper){
+        Fixture f=poweredAirlock(helper);
+        waitForPoweredAdmission(helper,f,0,()->{
+            require(f.door.activate(),"ordinary paid opening starts");
+            waitForDoorPhase(helper,f,AirlockState.DoorPhase.OPEN,30,()->{
+                Villager corpse=enrolledBody(f.level,f.root.getX()-.5,f.root.getY()+.1,f.root.getZ()+.5);
+                corpse.setNoGravity(true);
+                require(DamageSystem.applyHealthChange(corpse,java.util.Map.of(DamageKeys.BLUNT,200f),1f,true)==DamageSystem.Result.APPLIED
+                                &&MobStateSystem.isDead(corpse)&&!corpse.isAlive(),"fixture is a loaded resolved medical DEAD body");
+                corpse.setPos(f.root.getX()-.30001,corpse.getY(),corpse.getZ());
+                require(AirlockGeometry.touchesDoorway(corpse.getBoundingBox(),new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1)),"corpse bounding box touches root face: "+corpse.getBoundingBox()+" root="+f.root+" width="+corpse.getBbWidth());
+                require(corpse.getX()<f.root.getX()&&corpse.getBoundingBox().maxX<=f.root.getX()+1.0E-5,"corpse center is outside left side and only its actual bbox face touches the door");
+                Villager gap=enrolledBody(f.level,f.root.getX()+1.31,f.root.getY()+.1,f.root.getZ()+.5);
+                gap.setNoGravity(true);
+                require(!AirlockGeometry.touchesDoorway(gap.getBoundingBox(),new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1)),"nearby body has a genuine horizontal gap");
+                require(f.door.activate(),"normal powered closing begins with stationary bodies at its boundary; corpse="+corpse.getBoundingBox()+" root="+f.root+" gap="+gap.getBoundingBox());
+                 waitForCloseRecovery(helper,f,40,()->{
+                    require(MobStateSystem.isDead(corpse)&&!corpse.isRemoved(),"dead corpse remains loaded and persistent after closed-edge reopen");
+                    require(f.door.state().phase()==AirlockState.DoorPhase.OPENING,"quiet normal opening is selected at closed transition");
+                    waitForDoorPhase(helper,f,AirlockState.DoorPhase.OPEN,20,()->{
+                        require(f.door.activate(),"second normal close begins with corpse still at the static face");
+                        waitForCloseRecovery(helper,f,40,()->{
+                            require(MobStateSystem.isDead(corpse)&&!corpse.isRemoved(),"same static corpse reopens a later close episode");
+                            require(f.door.state().phase()==AirlockState.DoorPhase.OPENING,"second close also starts ordinary non-denying opening");
+                            corpse.discard();gap.discard();helper.succeed();
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    @GameTestTags({"airlock_stationary_contact", "airlock_bump", "critical", "status"})
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=160)
+    public static void criticalTangentContactReopensWithoutAnotherShock(GameTestHelper helper){
+        Fixture f=poweredAirlock(helper);
+        waitForPoweredAdmission(helper,f,0,()->{
+            require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.POWER_ONE,AirlockState.WireAction.CUT),"one power cut enables electrification");
+            waitForPoweredAdmission(helper,f,0,()->{require(f.door.activate(),"paid opening starts");waitForDoorPhase(helper,f,AirlockState.DoorPhase.OPEN,30,()->{
+                Villager body=enrolledBody(f.level,f.root.getX()-.3,f.root.getY()+.1,f.root.getZ()+.5);
+                body.setNoGravity(true);
+                body.setPos(f.root.getX()-.30001,body.getY(),body.getZ());
+                require(DamageSystem.applyHealthChange(body,java.util.Map.of(DamageKeys.BLUNT,100f),1f,false)==DamageSystem.Result.APPLIED
+                                &&MobStateSystem.isCritical(body)&&body.isAlive(),"boundary actor is an actual living Critical body");
+                var doorway=new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1);
+                require(body.getX()<f.root.getX()&&AirlockGeometry.touchesDoorway(body.getBoundingBox(),doorway),"body center is outside but its bbox is face-tangent");
+                float blunt=DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.BLUNT,0f);
+                float shock=DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f);
+                require(f.door.activate(),"normal closing begins with a safe tangent boundary contact");
+                helper.runAfterDelay(9,()->{
+                    require(Math.abs(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f)-shock-7f)<.001f,"passive partial-close contact shocks once");
+                    require(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.BLUNT,0f)==blunt,"tangent actor is not a crush victim");
+                    require(CharacterControlSystem.isStunned(body),"contact left Critical actor paralyzed before the normal close transition");
+                    waitForCloseRecovery(helper,f,30,()->{
+                        require(f.door.state().phase()==AirlockState.DoorPhase.OPENING||f.door.state().phase()==AirlockState.DoorPhase.OPEN,
+                                "closed edge uses quiet normal opening despite Critical/stunned body");
+                        require(Math.abs(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f)-shock-7f)<.001f,
+                                "closed-edge bump recovery does not dispatch a duplicate electrical contact");
+                        body.discard();helper.succeed();
+                    });
+                });
+            });});
+        });
+    }
+
+    @GameTestTags({"airlock_stationary_contact", "airlock_crush", "death"})
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=100)
+    public static void safeCloseTreatsLoadedMedicalDeadBodyAsObstruction(GameTestHelper helper){
+        Fixture f=poweredAirlock(helper);
+        waitForPoweredAdmission(helper,f,0,()->{require(f.door.activate(),"paid opening starts");waitForDoorPhase(helper,f,AirlockState.DoorPhase.OPEN,30,()->{
+            Villager corpse=enrolledBody(f.level,f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
+            corpse.setNoGravity(true);
+            require(DamageSystem.applyHealthChange(corpse,java.util.Map.of(DamageKeys.BLUNT,200f),1f,true)==DamageSystem.Result.APPLIED
+                            &&MobStateSystem.isDead(corpse)&&!corpse.isAlive(),"loaded body reaches resolved medical DEAD state");
+            float blunt=DamageSystem.existingOrVanillaBaseline(corpse).getOrDefault(DamageKeys.BLUNT,0f);
+            require(!f.door.activate()&&f.door.state().phase()==AirlockState.DoorPhase.OPEN,
+                    "default safety sees the physical dead body and keeps the opening door open");
+            require(DamageSystem.existingOrVanillaBaseline(corpse).getOrDefault(DamageKeys.BLUNT,0f)==blunt,
+                    "safe obstruction does not apply unsafe crush damage");
+            corpse.discard();helper.succeed();
+        });});
+    }
+
+    @GameTestTags({"airlock_stationary_contact", "airlock_crush", "death"})
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=150)
+    public static void unsafeCrushRetainsLoadedMedicalDeadBodyUntilPaidReopen(GameTestHelper helper){
+        Fixture f=poweredAirlock(helper);
+        waitForPoweredAdmission(helper,f,0,()->{require(f.door.activate(),"paid opening starts");waitForDoorPhase(helper,f,AirlockState.DoorPhase.OPEN,30,()->{
+            Villager corpse=enrolledBody(f.level,f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
+            corpse.setNoGravity(true);
+            require(DamageSystem.applyHealthChange(corpse,java.util.Map.of(DamageKeys.BLUNT,200f),1f,true)==DamageSystem.Result.APPLIED
+                            &&MobStateSystem.isDead(corpse)&&!corpse.isAlive(),"loaded body is typed medical DEAD before unsafe closing");
+            require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.SAFETY,AirlockState.WireAction.CUT),"safety wire permits unsafe crush");
+            require(f.door.activate(),"unsafe close begins around the dead physical body");
+            helper.runAfterDelay(9,()->{
+                require(f.door.state().phase()==AirlockState.DoorPhase.CLOSING_PASSABLE,"dead collider participates in unsafe partial-close capture");
+                require(f.door.getUpdateTag(f.level.registryAccess()).getList("CrushVictims",net.minecraft.nbt.Tag.TAG_COMPOUND).stream()
+                                .anyMatch(tag->tag instanceof net.minecraft.nbt.CompoundTag compound&&compound.hasUUID("Id")&&compound.getUUID("Id").equals(corpse.getUUID())),
+                        "retained medical corpse is root-owned by the existing crush collision exemption");
+                require(f.door.crushReopenRetryAt()>f.level.getGameTime(),"corpse capture retains the normal separate paid-reopen deadline");
+                helper.runAfterDelay(8,()->{
+                    require(f.door.state().phase()==AirlockState.DoorPhase.CLOSED&&MobStateSystem.isDead(corpse),"dead body remains loaded through the ordinary sealed interval");
+                    waitForCloseRecovery(helper,f,60,()->{
+                        require(f.door.state().phase()==AirlockState.DoorPhase.OPENING||f.door.state().phase()==AirlockState.DoorPhase.OPEN,
+                                "existing fresh-paid crush reopen releases the loaded medical corpse");
+                        corpse.discard();helper.succeed();
+                    });
+                });
+            });
+        });});
+    }
+
+    @GameTestTags({"airlock_stationary_contact", "airlock_crush"})
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=180)
+    public static void safeLateObstructionAbortsWithoutCrushOrContactShock(GameTestHelper helper){
+        Fixture f=poweredAirlock(helper);
+        waitForPoweredAdmission(helper,f,0,()->{
+            require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.POWER_ONE,AirlockState.WireAction.CUT),"electrification enabled with one cut wire");
+            waitForPoweredAdmission(helper,f,0,()->{
+                require(f.door.activate(),"door begins open");helper.runAfterDelay(14,()->{
+                    Villager entrant=enrolledBody(f.level,f.root.getX()+1.5,f.root.getY(),f.root.getZ()+.5);
+                    float blunt=DamageSystem.existingOrVanillaBaseline(entrant).getOrDefault(DamageKeys.BLUNT,0f);
+                    float shock=DamageSystem.existingOrVanillaBaseline(entrant).getOrDefault(DamageKeys.SHOCK,0f);
+                    require(f.door.activate(),"empty safe close starts");helper.runAfterDelay(4,()->{
+                        entrant.setPos(f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
+                        helper.runAfterDelay(5,()->{
+                            require(f.door.state().phase()==AirlockState.DoorPhase.OPEN,"late entrant aborts safe close before solidification");
+                            require(DamageSystem.existingOrVanillaBaseline(entrant).getOrDefault(DamageKeys.BLUNT,0f)==blunt
+                                            &&DamageSystem.existingOrVanillaBaseline(entrant).getOrDefault(DamageKeys.SHOCK,0f)==shock,
+                                    "safe abort neither crushes nor dispatches stationary closing contact");
+                            entrant.discard();helper.succeed();
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    @GameTestTags({"airlock_stationary_contact", "airlock_crush"})
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=180)
+    public static void powerLossDuringUnsafeCloseAndAdjacentActorDoNotShock(GameTestHelper helper){
+        Fixture f=poweredAirlock(helper);
+        waitForPoweredAdmission(helper,f,0,()->{require(f.door.activate(),"airlock begins opening");helper.runAfterDelay(14,()->{
+            Villager inside=enrolledBody(f.level,f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
+            Villager adjacent=enrolledBody(f.level,f.root.getX()+1.2,f.root.getY()+.1,f.root.getZ()+.5);
+            float shock=DamageSystem.existingOrVanillaBaseline(inside).getOrDefault(DamageKeys.SHOCK,0f);
+            float adjacentShock=DamageSystem.existingOrVanillaBaseline(adjacent).getOrDefault(DamageKeys.SHOCK,0f);
+            float blunt=DamageSystem.existingOrVanillaBaseline(inside).getOrDefault(DamageKeys.BLUNT,0f);
+            require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.SAFETY,AirlockState.WireAction.CUT),"unsafe crush enabled");
+            require(f.door.activate(),"unsafe close starts");
+            require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.POWER_ONE,AirlockState.WireAction.CUT),"first power wire is cut during closing");
+            require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.POWER_TWO,AirlockState.WireAction.CUT),"second power wire removes power and disables electrification during closing");
+            helper.runAfterDelay(9,()->{
+                require(Math.abs(DamageSystem.existingOrVanillaBaseline(inside).getOrDefault(DamageKeys.BLUNT,0f)-blunt-15f)<.001f,"inactive-electrification door retains ordinary crush");
+                require(DamageSystem.existingOrVanillaBaseline(inside).getOrDefault(DamageKeys.SHOCK,0f)==shock,"inactive electrification emits no shock");
+                require(DamageSystem.existingOrVanillaBaseline(adjacent).getOrDefault(DamageKeys.SHOCK,0f)==adjacentShock,"actor outside exact doorway is not scanned as a contact");
+                inside.discard();adjacent.discard();helper.succeed();
+            });
+        });});
+    }
+
+    private static void assertStationaryCrushContact(GameTestHelper helper,Fixture f,Villager victim,
+                                                       net.minecraft.world.phys.Vec3 pos,float shockBefore,
+                                                       float bluntBefore,Runnable done) {
+        float shock=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)-shockBefore;
+        float blunt=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f)-bluntBefore;
+        require(Math.abs(shock-7f)<.001f,"captured stationary Critical actor receives exactly one root BUMP shock; delta="+shock);
+        require(Math.abs(blunt-15f)<.001f,"existing crush damage remains exactly 15");
+        require(victim.position().distanceToSqr(pos)<1e-8,"stationary overlap is not moved during solidification");
+        require(f.door.state().phase()==AirlockState.DoorPhase.CLOSING_PASSABLE,"contact runs on the actual partial-close edge");
+        helper.runAfterDelay(2,()->{
+            float repeated=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)-shockBefore;
+            require(Math.abs(repeated-7f)<.001f,"scheduled callbacks do not repeat the same solidification contact");done.run();
+        });
+    }
+
+    private static void waitForDoorPhase(GameTestHelper helper,Fixture f,AirlockState.DoorPhase phase,int remaining,Runnable done){
+        if(f.door.state().phase()==phase){done.run();return;}
+        if(remaining<=0)throw new GameTestAssertException("door did not reach expected phase="+phase+" actual="+f.door.state().phase());
+        helper.runAfterDelay(1,()->waitForDoorPhase(helper,f,phase,remaining-1,done));
+    }
+    private static void waitForCloseRecovery(GameTestHelper helper,Fixture f,int remaining,Runnable done){
+        var phase=f.door.state().phase();
+        if(phase==AirlockState.DoorPhase.OPENING||phase==AirlockState.DoorPhase.OPEN){done.run();return;}
+        if(remaining<=0)throw new GameTestAssertException("close did not recover to OPENING/OPEN; phase="+phase);
+        helper.runAfterDelay(1,()->waitForCloseRecovery(helper,f,remaining-1,done));
     }
 
     private static void traceCrushCycle(GameTestHelper helper,Fixture f,Villager victim,float bluntBefore,
@@ -467,6 +717,7 @@ public final class AirlockConnectedGameTests {
         require(BodySystem.reconcile(body), "enrolled body physiology reconciles");
         return body;
     }
+
 
     private static void classify(AtmosphereService service, ServerLevel level, BlockPos pos, int[] clock) {
         service.activateCellAndNeighbors(level, pos);

@@ -70,7 +70,7 @@ class StatusEffectPrototypeTest {
         assertEquals(0.5f, movement.movementSpeedMultiplier().orElseThrow());
         StatusEffectData knockdown = manager.snapshot(ModStatusEffects.STATUS_EFFECT_TYPE)
                 .get(id("knockdown"));
-        assertEquals(List.of(StatusEffectBehavior.MARKER), knockdown.behaviors());
+        assertEquals(List.of(StatusEffectBehavior.MARKER, StatusEffectBehavior.KNOCKDOWN_POSTURE), knockdown.behaviors());
         assertEquals(List.of(com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility.LIVING_ENTITY),
                 knockdown.eligibility());
         assertTrue(!knockdown.isBeneficial());

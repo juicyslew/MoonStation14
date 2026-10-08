@@ -867,6 +867,8 @@ public class MoonStation14Client {
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
                             MoonStation14.MOD_ID, "block/jug_" + fill)));
         }
+        com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer.additionalModels()
+                .forEach(event::register);
     }
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {

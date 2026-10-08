@@ -2,82 +2,68 @@ package com.juicyslew.moonstation14.ms14.doors.client;
 
 import com.juicyslew.moonstation14.ms14.doors.AirlockState;
 import com.juicyslew.moonstation14.ms14.doors.AirlockGeometry;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.core.Direction;
-import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
-import javax.imageio.ImageIO;
-import java.io.InputStream;
+import net.minecraft.core.BlockPos;
 
 class AirlockFramePlannerTest {
-    @Test void sourceFrameSelectionIsBoundedAndOrdered() {
-        assertEquals(0, AirlockFramePlanner.frame(0));
-        assertEquals(3, AirlockFramePlanner.frame(.5));
-        assertEquals(5, AirlockFramePlanner.frame(1));
-        assertEquals(0, AirlockFramePlanner.frame(-1));
-        assertEquals(5, AirlockFramePlanner.frame(2));
+
+    @Test void exportedAtlasAndPanelSelectionUsesOnlyExistingViewTruth() {
+        assertEquals(new AirlockFramePlanner.Plan("unpowered", false), plan(AirlockState.DoorPhase.CLOSED, false, false, false, false, false));
+        assertEquals(new AirlockFramePlanner.Plan("unpowered", true), plan(AirlockState.DoorPhase.DENYING, false, false, false, true, true));
+        assertEquals(new AirlockFramePlanner.Plan("denied", false), plan(AirlockState.DoorPhase.DENYING, true, false, true, false, false));
+        assertEquals(new AirlockFramePlanner.Plan("bolted", false), plan(AirlockState.DoorPhase.CLOSED, true, true, true, false, false));
+        assertEquals(new AirlockFramePlanner.Plan("bolted", false), plan(AirlockState.DoorPhase.DENYING, true, true, true, false, false));
+        assertEquals(new AirlockFramePlanner.Plan("open", false), plan(AirlockState.DoorPhase.OPEN, true, false, true, false, false));
+        assertEquals(new AirlockFramePlanner.Plan("open", false), plan(AirlockState.DoorPhase.CLOSING, true, false, true, false, false));
+        assertEquals(new AirlockFramePlanner.Plan("closed", false), plan(AirlockState.DoorPhase.CLOSED, true, false, true, false, false));
+        assertEquals(new AirlockFramePlanner.Plan("open_panel", true), plan(AirlockState.DoorPhase.OPENING, true, false, true, true, true));
+        assertEquals(new AirlockFramePlanner.Plan("bolted_panel", true), plan(AirlockState.DoorPhase.CLOSED, true, true, true, true, true));
+        assertEquals(new AirlockFramePlanner.Plan("panel_open", true), plan(AirlockState.DoorPhase.CLOSED, true, false, true, true, true));
+        assertEquals(new AirlockFramePlanner.Plan("denied", true), plan(AirlockState.DoorPhase.DENYING, true, false, true, true, true));
+        assertEquals(new AirlockFramePlanner.Plan("open", false), plan(AirlockState.DoorPhase.OPEN, true, false, true, true, true));
+        assertEquals(new AirlockFramePlanner.Plan("closed", false), plan(AirlockState.DoorPhase.CLOSED, true, false, true, true, false));
     }
 
-    @Test void stageTwoAccountsForResolvedFirstStageDurationAndIndependentStarts() {
-        var atSecondStageStart = AirlockFramePlanner.plan(AirlockState.DoorPhase.OPENING_PASSABLE,
-                0, .8, .4, .6, .3, true, false, false);
-        var laterIndependentDoor = AirlockFramePlanner.plan(AirlockState.DoorPhase.OPENING_PASSABLE,
-                .1, .8, .4, .6, .3, true, false, false);
-        assertEquals("frames/opening_4", atSecondStageStart.base());
-        assertEquals("frames/opening_5", laterIndependentDoor.base());
-        assertNotEquals(atSecondStageStart.base(), laterIndependentDoor.base());
+    @Test void normalizedAtlasUvsRebaseAtSpriteBoundsAndMidpoint() {
+        float low = .125f, high = .375f;
+        assertEquals(low, AirlockBlockEntityRenderer.remapAtlasCoordinate(0, low, high), 1e-6);
+        assertEquals((low + high) / 2, AirlockBlockEntityRenderer.remapAtlasCoordinate(.5f, low, high), 1e-6);
+        assertEquals(high, AirlockBlockEntityRenderer.remapAtlasCoordinate(1, low, high), 1e-6);
     }
 
-    @Test void fullBaseRemainsVisibleAndPoweredGlowIsAnIndependentOverlay() {
-        var visual = AirlockFramePlanner.plan(AirlockState.DoorPhase.CLOSING_PASSABLE,
-                .05, .4, .2, .3, .1, true, false, true);
-        assertTrue(visual.base().startsWith("frames/closing_"));
-        assertTrue(visual.glow().startsWith("frames/closing_unlit_"));
-        assertTrue(visual.glowVisible());
-        assertFalse(visual.base().contains("unlit"));
-        var bolted = AirlockFramePlanner.plan(AirlockState.DoorPhase.CLOSED,
-                0, .4, .2, .3, .1, true, true, false);
-        assertEquals("closed", bolted.base());
-        assertFalse(bolted.glowVisible());
-        assertTrue(bolted.boltOverlay());
-        var off = AirlockFramePlanner.plan(AirlockState.DoorPhase.CLOSED,
-                0, .4, .2, .3, .1, false, false, false);
-        assertEquals("closed", off.base());
-        assertEquals("closed_unlit", off.glow());
-        assertFalse(off.glowVisible());
-        var open = AirlockFramePlanner.plan(AirlockState.DoorPhase.OPEN,
-                0, .4, .2, .3, .1, true, false, false);
-        assertEquals("open", open.base());
-        assertFalse(open.glowVisible());
+    @Test void onlyPoweredAuthoredUnshadedLampQuadsAreFullBright() {
+        int darkness = 0;
+        assertEquals(0x00F000F0, AirlockBlockEntityRenderer.quadLight(false, true, darkness));
+        assertEquals(darkness, AirlockBlockEntityRenderer.quadLight(false, false, darkness));
+        assertEquals(darkness, AirlockBlockEntityRenderer.quadLight(true, true, darkness));
     }
 
-    @Test void overlaysRemainIndependent() {
-        var visual = AirlockFramePlanner.plan(AirlockState.DoorPhase.CLOSING_PASSABLE,
-                .05, .4, .2, .3, .1, false, true, true);
-        assertTrue(visual.boltOverlay());
-        assertTrue(visual.panelOverlay());
+    @Test void allRuntimeComponentModelsAreRegisteredAsAdditionalModels() {
+        var ids = AirlockBlockEntityRenderer.additionalModels().stream().map(Object::toString).toList();
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/frame")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/leaf_left")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/leaf_right")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/maintenance_cover")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/maintenance_wires")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("/denied")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("/unpowered")));
     }
 
-    @Test void frontNormalFollowsAllFacingPosesUsedForTheDoorQuad() {
-        for (Direction facing : Direction.Plane.HORIZONTAL) {
-            PoseStack pose = new PoseStack();
-            pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-facing.toYRot()));
-            var normal = AirlockFramePlanner.frontNormal(pose.last());
-            assertEquals(facing.getStepX(), Math.round(normal.x), facing.toString());
-            assertEquals(0, Math.round(normal.y), facing.toString());
-            assertEquals(facing.getStepZ(), Math.round(normal.z), facing.toString());
-        }
+    private static AirlockFramePlanner.Plan plan(AirlockState.DoorPhase phase, boolean powered,
+                                                  boolean boltsDown, boolean boltLightsVisible,
+                                                  boolean panelVisible, boolean panelOpen) {
+        return AirlockFramePlanner.plan(phase, powered, boltsDown, boltLightsVisible, panelVisible, panelOpen);
     }
-
     @Test void rendererBoundsCoverTheRootAndEntireUpperHalf() {
-        var bounds = AirlockBlockEntityRenderer.renderBounds(new BlockPos(7, 12, -3));
-        assertEquals(7-AirlockGeometry.HALF_TRAVEL, bounds.minX);
+        var bounds = AirlockGeometry.renderBounds(new BlockPos(7, 12, -3));
+        assertEquals(7, bounds.minX);
         assertEquals(12, bounds.minY);
-        assertEquals(-3-AirlockGeometry.HALF_TRAVEL, bounds.minZ);
-        assertEquals(8+AirlockGeometry.HALF_TRAVEL, bounds.maxX);
+        assertEquals(-3, bounds.minZ);
+        assertEquals(8, bounds.maxX);
         assertEquals(14, bounds.maxY);
-        assertEquals(-2+AirlockGeometry.HALF_TRAVEL, bounds.maxZ);
+        assertEquals(-2, bounds.maxZ);
     }
 
     @Test void cuboidHasSixNondegenerateFacesWithUnitOrthogonalNormals() {
@@ -96,19 +82,52 @@ class AirlockFramePlannerTest {
         }
     }
 
-    @Test void leavesMeetWhenClosedClearDoorwayWhenOpenAndStayInsideFacingBounds() {
+    @Test void authoredLeavesTranslateOutwardAndRemainClippedToTheRootVolume() {
         var closed=AirlockGeometry.leaves(0);
-        assertEquals(closed.get(0).x1(),closed.get(1).x0(),1e-9);
         var open=AirlockGeometry.leaves(1);
-        assertTrue(open.get(0).x1()<=.13);
-        assertTrue(open.get(1).x0()>=.87);
-        for(Direction facing:Direction.Plane.HORIZONTAL) for(var leaf:open) for(double x:new double[]{leaf.x0(),leaf.x1()}) for(double z:new double[]{leaf.z0(),leaf.z1()}) {
-            double dx=x-.5,dz=z-.5;
-            double wx=facing==Direction.NORTH?dx:facing==Direction.SOUTH?-dx:facing==Direction.EAST?dz:-dz;
-            double wz=facing==Direction.NORTH?dz:facing==Direction.SOUTH?-dz:facing==Direction.EAST?-dx:dx;
-            assertTrue(wx>=-.5-AirlockGeometry.HALF_TRAVEL-1e-9 && wx<=.5+AirlockGeometry.HALF_TRAVEL+1e-9);
-            assertTrue(wz>=-.5-AirlockGeometry.HALF_TRAVEL-1e-9 && wz<=.5+AirlockGeometry.HALF_TRAVEL+1e-9);
+        assertEquals(11,closed.size());
+        assertEquals(-.125,open.get(0).x0()-closed.get(0).x0(),1e-9);
+        assertEquals(AirlockGeometry.HALF_TRAVEL,open.get(5).x0()-closed.get(5).x0(),1e-9);
+        for(var box:open) assertTrue(box.x0()>=0&&box.x1()<=1&&box.y0()>=0&&box.y1()<=2&&box.z0()>=0&&box.z1()<=1);
+        for(Direction facing:Direction.Plane.HORIZONTAL) {
+            var bounds=AirlockGeometry.worldBounds(new BlockPos(0,0,0),facing,.5,true);
+            for(var box:bounds) assertTrue(box.minY>=0&&box.maxY<=2);
+            var leaf=AirlockGeometry.model(AirlockGeometry.Part.LEAF_RIGHT).get(0);
+            assertTrue(bounds.contains(worldBox(new BlockPos(0,0,0),facing,
+                    new AirlockGeometry.Box(leaf.x0()+AirlockGeometry.HALF_TRAVEL*.5,leaf.y0(),leaf.z0(),
+                            Math.min(1,leaf.x1()+AirlockGeometry.HALF_TRAVEL*.5),leaf.y1(),leaf.z1()))));
         }
+        assertEquals(6,AirlockGeometry.model(AirlockGeometry.Part.FRAME).size());
+        assertEquals(5,AirlockGeometry.model(AirlockGeometry.Part.LEAF_LEFT).size());
+        assertEquals(6,AirlockGeometry.model(AirlockGeometry.Part.LEAF_RIGHT).size());
+        assertEquals(1,AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_COVER).size());
+        assertEquals(1,AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_WIRES).size());
+        assertEquals(AirlockGeometry.model(AirlockGeometry.Part.FRAME).size()+closed.size()+1,
+                AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,0,false).size());
+        assertEquals(AirlockGeometry.model(AirlockGeometry.Part.FRAME).size()+closed.size()+1,
+                AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,0,true).size());
+        double halfTravel=AirlockGeometry.HALF_TRAVEL*.5;
+        var cover=AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_COVER).get(0);
+        var wires=AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_WIRES).get(0);
+        var coverExpected=worldBox(new BlockPos(0,0,0),Direction.NORTH,new AirlockGeometry.Box(
+                cover.x0()+halfTravel,cover.y0(),cover.z0(),cover.x1()+halfTravel,cover.y1(),cover.z1()));
+        var wiresExpected=worldBox(new BlockPos(0,0,0),Direction.NORTH,new AirlockGeometry.Box(
+                wires.x0()+halfTravel,wires.y0(),wires.z0(),wires.x1()+halfTravel,wires.y1(),wires.z1()));
+        assertTrue(AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,.5,false).contains(coverExpected));
+        assertTrue(AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,.5,true).contains(wiresExpected));
+        assertNotEquals(coverExpected.minX,worldBox(new BlockPos(0,0,0),Direction.NORTH,new AirlockGeometry.Box(
+                cover.x0()-halfTravel,cover.y0(),cover.z0(),cover.x1()-halfTravel,cover.y1(),cover.z1())).minX);
+    }
+
+    private static net.minecraft.world.phys.AABB worldBox(BlockPos root,Direction facing,AirlockGeometry.Box b) {
+        double rx=facing.getCounterClockWise().getStepX(),rz=facing.getCounterClockWise().getStepZ();
+        double fx=facing.getStepX(),fz=facing.getStepZ();
+        double minX=Double.POSITIVE_INFINITY,minZ=Double.POSITIVE_INFINITY,maxX=Double.NEGATIVE_INFINITY,maxZ=Double.NEGATIVE_INFINITY;
+        for(double x:new double[]{b.x0(),b.x1()}) for(double z:new double[]{b.z0(),b.z1()}) {
+            double wx=root.getX()+.5+rx*(x-.5)+fx*(z-.5),wz=root.getZ()+.5+rz*(x-.5)+fz*(z-.5);
+            minX=Math.min(minX,wx);maxX=Math.max(maxX,wx);minZ=Math.min(minZ,wz);maxZ=Math.max(maxZ,wz);
+        }
+        return new net.minecraft.world.phys.AABB(minX,root.getY()+b.y0(),minZ,maxX,root.getY()+b.y1(),maxZ);
     }
 
     @Test void actualMotionUsesPhaseDurationsAndIndependentElapsedTime() {
@@ -122,57 +141,10 @@ class AirlockFramePlannerTest {
                 AirlockGeometry.openness(AirlockState.DoorPhase.OPENING,.2,.4,.2,.3,.1));
     }
 
-    @Test void staticCanvasUvRegionsCoverLeafAndFrameWithoutRepeatingWholeArt() {
-        assertArrayEquals(new double[]{.13,.5,.13,.87},AirlockGeometry.leafUv(0));
-        assertArrayEquals(new double[]{.5,.87,.13,.87},AirlockGeometry.leafUv(1));
-        for(var leaf:AirlockGeometry.leaves(1)) assertEquals(.84,leaf.z1()-leaf.z0(),1e-9);
-        assertEquals(.84,AirlockGeometry.FRONT-AirlockGeometry.BACK,1e-9);
-        // Split domains tile the center-door band exactly once; motion changes positions, not assigned UVs.
-        assertEquals(AirlockGeometry.leafUv(0)[1],AirlockGeometry.leafUv(1)[0]);
+    @Test void apertureHasNoCenteredLeafAtFullOpenAndGeometryHasAuthoredDepth() {
+        for(var leaf:AirlockGeometry.leaves(1)) assertTrue(leaf.x1()<=.5||leaf.x0()>=.5);
+        assertTrue(AirlockGeometry.model(AirlockGeometry.Part.LEAF_LEFT).stream().anyMatch(b->b.z1()-b.z0()<.5));
+        assertEquals(6.5/16,AirlockGeometry.HALF_TRAVEL,1e-12);
     }
 
-    @Test void productionRenderPlanIncludesOpaqueBaseFrameAndBothLeafArtworkRegions() {
-        assertEquals(java.util.List.of(AirlockBlockEntityRenderer.DrawLayer.NEUTRAL_GEOMETRY,
-                        AirlockBlockEntityRenderer.DrawLayer.CLOSED_FRAME,
-                        AirlockBlockEntityRenderer.DrawLayer.CLOSED_LEAVES),
-                AirlockBlockEntityRenderer.drawPlan());
-        assertArrayEquals(new double[]{.13,.5,.13,.87},AirlockGeometry.leafUv(0));
-        assertArrayEquals(new double[]{.5,.87,.13,.87},AirlockGeometry.leafUv(1));
-    }
-
-    @Test void neutralBackingIsUniformSampledClosedMetalGrayAndHatchFacesAreOutside() throws Exception {
-        try (InputStream in=getClass().getResourceAsStream("/assets/moonstation14/textures/block/airlock/neutral_metal.png")) {
-            assertNotNull(in);
-            var image=ImageIO.read(in);
-            assertEquals(1,image.getWidth()); assertEquals(1,image.getHeight());
-            assertEquals(0xff545454,image.getRGB(0,0));
-        }
-        var hatch=AirlockGeometry.hatch(true);
-        double[] planes=AirlockGeometry.hatchPlanes();
-        assertTrue(planes[0]>AirlockGeometry.FRONT+.002);
-        assertTrue(planes[0]>.921+.002); // beyond frame, glow, and bolt artwork
-        assertTrue(planes[1]<AirlockGeometry.BACK-.002);
-        assertTrue(planes[1]<.078-.002); // beyond rear opaque leaf artwork
-        assertEquals(.28,hatch.y1()-hatch.y0(),1e-9);
-    }
-
-    @Test void panelCropContainsExactNontransparentSourceBoundsAndIsUsedForBothFaces() throws Exception {
-        try (InputStream in=getClass().getResourceAsStream("/assets/moonstation14/textures/block/airlock/panel_open.png")) {
-            assertNotNull(in); var image=ImageIO.read(in);
-            int minX=99,minY=99,maxX=-1,maxY=-1;
-            for(int y=0;y<image.getHeight();y++) for(int x=0;x<image.getWidth();x++)
-                if((image.getRGB(x,y)>>>24)!=0) { minX=Math.min(minX,x); minY=Math.min(minY,y); maxX=Math.max(maxX,x); maxY=Math.max(maxY,y); }
-            assertEquals(23,minX); assertEquals(14,minY); assertEquals(27,maxX); assertEquals(25,maxY);
-        }
-        var crop=AirlockBlockEntityRenderer.panelUv();
-        assertEquals(23f/32,crop.u0()); assertEquals(14f/32,crop.vAtTop());
-        assertEquals(28f/32,crop.u1()); assertEquals(26f/32,crop.vAtBottom());
-        // Renderer quad order maps first UV pair to y0 (bottom) and second to y1 (top).
-        assertEquals(26, crop.vAtBottom()*32, 1e-6);
-        assertEquals(14, crop.vAtTop()*32, 1e-6);
-        for(int y=14;y<=25;y++) {
-            boolean sampled = y >= crop.vAtTop()*32 && y < crop.vAtBottom()*32;
-            assertTrue(sampled, "source row " + y + " must be included by the production crop");
-        }
-    }
 }

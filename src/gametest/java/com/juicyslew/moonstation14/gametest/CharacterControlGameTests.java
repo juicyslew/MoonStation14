@@ -27,7 +27,8 @@ import java.util.UUID;
 public final class CharacterControlGameTests {
     private CharacterControlGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 140)
+    @GameTestTags({"posture_knockdown"})
     public static void authoritativeKnockdownDrivesRendererProjectionUntilExpiry(GameTestHelper helper) {
         FakePlayer player = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "knockdown-projection"));
         player.setPos(2.5, 1, 2.5);
@@ -35,13 +36,21 @@ public final class CharacterControlGameTests {
         helper.runAfterDelay(1, () -> {
             require(CharacterControlSystem.applyParalyze(player, 3), "bound player accepts paralyze");
             require(CharacterControlSystem.isKnockedDown(player), "authoritative knockdown status is active");
+            require(com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(player)
+                            && player.getPose() == net.minecraft.world.entity.Pose.SWIMMING
+                            && Math.abs(player.getBoundingBox().getYsize() - .6) < .001,
+                    "actual PlayerCharacterHarness player is physically prone with lowered dimensions");
             require(KnockdownRenderPolicy.shouldRenderProne(player),
                     "production renderer adapter projects active synchronized knockdown");
-            helper.runAfterDelay(4, () -> {
+            helper.runAfterDelay(102, () -> {
                 require(!CharacterControlSystem.isKnockedDown(player), "knockdown status expires");
                 require(!KnockdownRenderPolicy.shouldRenderProne(player),
                         "renderer adapter restores standing rotation after status expiry");
-                helper.succeed();
+                helper.runAfterDelay(25, () -> {
+                    require(!com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(player),
+                            "posture auto-stands after finite hold and existing get-up timer");
+                    helper.succeed();
+                });
             });
         });
     }

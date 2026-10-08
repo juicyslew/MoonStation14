@@ -32,6 +32,30 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class PostureGameTests {
     private PostureGameTests() { }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 35)
+    @GameTestTags({"posture_knockdown"})
+    public static void statusProjectionRefreshesWithoutOverwritingVoluntaryPosture(GameTestHelper helper) {
+        Villager body = human(helper);
+        require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.applyStun(body, 20),
+                "stun-only status applies");
+        require(!PostureSystem.isDown(body), "stun-only status does not force posture");
+        require(PostureSystem.voluntaryToggle(body), "body chooses manual prone posture");
+        require(PostureSystem.voluntaryRoll(body), "body rolls face-up before knockdown refresh");
+        PostureData before = body.getData(ModDataAttachments.POSTURE.get()).data();
+        require(!before.voluntaryAutoStand() && before.faceUp(), "fixture is manual-prone and face-up");
+        require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.applyParalyze(body, 20),
+                "paralyze applies configured knockdown status");
+        PostureData after = body.getData(ModDataAttachments.POSTURE.get()).data();
+        require(after.down() && after.faceUp() && !after.voluntaryAutoStand(),
+                "refresh preserves manual-prone policy and facing");
+        require(!PostureSystem.requestStand(body, null), "active knockdown status gates get-up");
+        helper.runAfterDelay(22, () -> {
+            require(PostureSystem.isDown(body) && body.getData(ModDataAttachments.POSTURE.get()).data().faceUp(),
+                    "status expiry does not force an already-manual body upright or change facing");
+            helper.succeed();
+        });
+    }
+
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 12)
     @GameTestTags({"standing", "audio", "medical-state", "posture-fall-audio"})
     public static void forcedDownEmitsResolvedSoundOnceAndMedicalRepeatIsQuiet(GameTestHelper helper) {

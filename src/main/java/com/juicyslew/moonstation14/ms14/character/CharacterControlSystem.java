@@ -112,7 +112,7 @@ public final class CharacterControlSystem {
                                     com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog<StatusEffectData> catalog) {
         return statuses.entrySet().stream().anyMatch(entry -> entry.getValue().isActive()
                 && catalog.get(entry.getKey().location()) != null
-                && entry.getKey().location().equals(KNOCKDOWN.location()));
+                && catalog.get(entry.getKey().location()).behaviors().contains(StatusEffectBehavior.KNOCKDOWN_POSTURE));
     }
 
     /**

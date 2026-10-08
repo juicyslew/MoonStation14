@@ -172,14 +172,9 @@ public final class AirlockBlockEntity extends BlockEntity {
         if(!state.canOpenOrClose()){if(AirlockFeedbackPolicy.deny(supply.known(),state.powerAvailable(),quiet))play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;}
         if(state.phase()==AirlockState.DoorPhase.OPEN) return beginClose(server,data);
         if(state.phase()!=AirlockState.DoorPhase.CLOSED){if(!quiet)play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;}
-        boolean blocked=obstructed(server);
-        if(blocked&&state.safetyActive(server.getGameTime())){
-            if(quiet)return false;
-            AirlockState denied=state.deny(server.getGameTime(),data.door().denyDurationSeconds());
-            if(denied!=state){state=denied;play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());sync();schedule(server,data.door().denyDurationSeconds());}
-            return false;
-        }
-        AirlockState next=state.open(server.getGameTime(),blocked,data.door().openTimeOneSeconds());
+        // SS14 safety evaluates obstruction while closing only; a body already
+        // touching a closed leaf may be reopened by the scheduled bump check.
+        AirlockState next=state.open(server.getGameTime(),false,data.door().openTimeOneSeconds());
         if(next==state){if(!quiet)play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;} transitionStartedAt=server.getGameTime();state=next;play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_OPEN.get());sync(); schedule(server,data.door().openTimeOneSeconds()); return true;
     }
     public boolean pry() {
@@ -194,14 +189,16 @@ public final class AirlockBlockEntity extends BlockEntity {
     }
     private boolean obstructed(ServerLevel level) {
         AABB box=doorwayBounds();
-        for(LivingEntity entity:level.getEntitiesOfClass(LivingEntity.class,box,e->e.isAlive()&&!e.isSpectator()))
+        for(LivingEntity entity:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
+                &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level)))
             if(entity.getBoundingBox().intersects(box))return true;
         return false;
     }
     private java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> crushOccupants(ServerLevel level,AirlockData data) {
         AABB box=doorwayBounds();
         java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> positions=new java.util.LinkedHashMap<>();
-        for(LivingEntity actor:level.getEntitiesOfClass(LivingEntity.class,box,e->e.isAlive()&&!e.isSpectator())) {
+        for(LivingEntity actor:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
+                &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level))) {
             if(!actor.getBoundingBox().intersects(box))continue;
             positions.put(actor,actor.position());
             crushVictims.add(actor.getUUID());
@@ -217,6 +214,12 @@ public final class AirlockBlockEntity extends BlockEntity {
         return positions;
     }
     private AABB doorwayBounds(){return new AABB(worldPosition.getX(),worldPosition.getY(),worldPosition.getZ(),worldPosition.getX()+1,worldPosition.getY()+2,worldPosition.getZ()+1);}
+    private java.util.List<LivingEntity> doorwayContactActors(ServerLevel server){
+        AABB doorway=doorwayBounds();
+        return server.getEntitiesOfClass(LivingEntity.class,doorway.inflate(1.0E-5),actor->!actor.isSpectator()&&!actor.noPhysics
+                &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(actor,server)
+                &&AirlockGeometry.touchesDoorway(actor.getBoundingBox(),doorway));
+    }
     void onScheduledTick(ServerLevel server) {
         scheduledDeadline=0;
         AirlockData data=prototype(); if(data==null)return;
@@ -257,8 +260,16 @@ public final class AirlockBlockEntity extends BlockEntity {
                     LivingEntity actor=entry.getKey();var p=entry.getValue();
                     if(actor.getY()>p.y())actor.setPos(p.x(),p.y(),p.z());
                 }
+                // Enabling collision does not necessarily generate a fresh start-contact
+                // for stationary overlap or face-tangent bodies.
+                for(LivingEntity actor:doorwayContactActors(server))
+                    electrifiedContact(actor,AirlockElectrificationSystem.Contact.BUMP);
             }
         }
+        boolean normalClosedContact=state.phase()==AirlockState.DoorPhase.CLOSED&&before.phase()!=AirlockState.DoorPhase.CLOSED
+                &&!(crushReopenRetryAt>0&&!crushVictims.isEmpty());
+        if(normalClosedContact)for(LivingEntity actor:doorwayContactActors(server))
+            if(AirlockBumpSystem.isBumpOpener(actor))bumpActivate();
         if(state!=before){if(state.phase()!=before.phase())transitionStartedAt=now;
             if(passableBefore!=state.doorPassable())setOpenBlocks(state.doorPassable());sync();}
         if(!electricalBefore.equals(electrification))setChanged();

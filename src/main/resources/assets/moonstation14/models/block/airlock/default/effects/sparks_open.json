@@ -1,0 +1,44 @@
+{
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "atlas": "moonstation14:block/airlock/default/effects/sparks_open",
+    "particle": "moonstation14:block/airlock/default/effects/sparks_open"
+  },
+  "elements": [
+    {
+      "name": "sparks_open_surface",
+      "from": [
+        0,
+        0,
+        4.85
+      ],
+      "to": [
+        16,
+        32,
+        4.85
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    }
+  ]
+}

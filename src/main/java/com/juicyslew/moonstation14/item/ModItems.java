@@ -52,7 +52,8 @@ public class ModItems {
             () -> new Item(new Item.Properties().durability(250))
     );
     public static final DeferredItem<Item> WRENCH = ITEMS.register("wrench", () -> new Item(new Item.Properties().stacksTo(1)));
-    public static final DeferredItem<Item> SCREWDRIVER = ITEMS.register("screwdriver", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> SCREWDRIVER = ITEMS.register("screwdriver", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "screwdriver"))));
     public static final DeferredItem<Item> WELDER = ITEMS.register("welder", () -> new Item(new Item.Properties().stacksTo(1)));
 
     // Food
@@ -86,8 +87,6 @@ public class ModItems {
             () -> new CableSpoolItem(new Item.Properties().stacksTo(16), CableTier.APC));
     public static final DeferredItem<WirecutterItem> WIRECUTTER = ITEMS.register("wirecutter",
             () -> new WirecutterItem(new Item.Properties().durability(128)));
-    public static final DeferredItem<Item> AIRLOCK_SCREWDRIVER = ITEMS.register("airlock_screwdriver",
-            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_screwdriver"))));
     public static final DeferredItem<Item> AIRLOCK_MULTITOOL = ITEMS.register("multitool",
             () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_multitool"))));
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",

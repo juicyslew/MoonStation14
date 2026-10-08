@@ -45,11 +45,11 @@ class AirlockStateTest {
         assertFalse(bolted.canOpenOrClose());
         assertTrue(bolted.revision() > open.revision());
     }
-    @Test void safetyRejectsObstructedTransitionAndClosingBecomesAirtightAtFirstPhase() {
+    @Test void safetyDoesNotBlockOpeningAndClosingBecomesAirtightAtFirstPhase() {
         var state=AirlockState.initial(UUID.randomUUID(),true,false).withPower(true)
                 .applyWire(AirlockState.Wire.BOLT,AirlockState.WireAction.PULSE,0)
                 .applyWire(AirlockState.Wire.BOLT,AirlockState.WireAction.PULSE,1);
-        assertSame(state,state.open(10,true,.4));
+        assertEquals(AirlockState.DoorPhase.OPENING,state.open(10,true,.4).phase(),"safety does not deny opening around an obstruction");
         var opening=state.open(10,false,.4).tick(18,.2,.2).tick(22,.2,.2);
         var closing=opening.close(30,false,.4);
         assertTrue(closing.doorPassable());

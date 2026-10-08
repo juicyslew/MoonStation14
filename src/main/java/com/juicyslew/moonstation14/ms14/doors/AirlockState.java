@@ -61,7 +61,8 @@ public record AirlockState(UUID identity,long revision,DoorPhase phase,boolean p
         return !actualPower&&result.logPulseUntil>0?result.withLogCircuit(true,0):result;
     }
     public AirlockState open(long tick,boolean obstructed,double firstHalfSeconds){
-        if(!canOpenOrClose()||phase!=DoorPhase.CLOSED||(obstructed&&safetyActive(tick)))return this;
+        // Upstream safety controls closing obstruction handling, never opening.
+        if(!canOpenOrClose()||phase!=DoorPhase.CLOSED)return this;
         return copy(DoorPhase.OPENING,boltsDown,tick+ticks(firstHalfSeconds),0,powered,receiverPowerDisabled,powerWireOneCut,powerWireTwoCut,powerPulseUntil,powerPulseLatched,boltWireCut,boltLightWireCut,timingWireCut,safetyWireCut,boltLightsEnabled,autoCloseModifier,safetyModifier,safetyModifierUntil,timingModifierUntil);
     }
     /** SS14 PriedEvent toggles a closed/open door and ignores intermediate transitions. */
