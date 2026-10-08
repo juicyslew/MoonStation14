@@ -1,0 +1,7 @@
+Plastic wall texture (unmodified `full.png` sprite) from Space Station 14, pinned source revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`:
+`Resources/Textures/Structures/Walls/plastic.rsi/full.png`.
+
+Upstream RSI metadata: CC-BY-SA-3.0; copyright/source attribution: `https://github.com/vgstation-coders/vgstation13/raw/99cc2ab62d65a3a7b554dc7b21ff5f57c835f973/icons/turf/walls.dmi`.
+License: https://creativecommons.org/licenses/by-sa/3.0/legalcode
+
+This file is copied unmodified. Share-alike obligations apply to redistribution.

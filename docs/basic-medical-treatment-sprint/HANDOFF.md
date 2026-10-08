@@ -12,6 +12,9 @@ No commit or push was requested; preserve the existing mixed staged/unstaged
 worktree. Surgery, defibrillation, new medicines, and unrelated power/ventilation
 repairs were not added.
 
+Subsequent owner-initiated main integration is indexed in `MERGE-MAIN.md`;
+the sprint-closure validation below predates that combined tree.
+
 ## ARCHITECTURE
 
 - `medical_item` and `injector_mode` are typed, inherited prototype families.

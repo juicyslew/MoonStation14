@@ -47,6 +47,7 @@ import com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalConstructionC
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
 import com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualNetworking;
 import com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualPayload;
+import com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireNetworking;
 import com.juicyslew.moonstation14.ms14.ui.client.gallery.MachineUiGalleryCommands;
 import com.juicyslew.moonstation14.ms14.power.ui.ApcNetworking;
 import com.juicyslew.moonstation14.block.ModMenus;
@@ -181,6 +182,10 @@ public class MoonStation14Client {
         AirAlarmNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof AirAlarmScreen screen) screen.handleResponse(response);
         }));
+        AirlockWireNetworking.installClientBridge(
+                (open, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.open(open.windowId(), open.session())),
+                (response, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.accept(response)),
+                (close, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.close(close.windowId(), close.session())));
         BodyHandClient.install();
         TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
@@ -722,6 +727,63 @@ public class MoonStation14Client {
     }
 
     @SubscribeEvent
+    public static void renderPointerWorkspaceAfterScreen(ScreenEvent.Render.Post event) {
+        var mc=net.minecraft.client.Minecraft.getInstance();
+        boolean current=mc.screen==event.getScreen();
+        boolean allowed=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen());
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
+                mc.screen==null,true,current,allowed)) return;
+        BodyHandClient.renderPointerWorkspace(event.getGuiGraphics(),
+                event.getPartialTick());
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenMouse(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        var browser = com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance();
+        if (browser.mouseClicked(event.getMouseX(),event.getMouseY(),event.getButton())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenKey(ScreenEvent.KeyPressed.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
+                .keyPressed(event.getKeyCode(),event.getScanCode(),event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenKeyReleased(ScreenEvent.KeyReleased.Pre event) {
+        com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalConstructionClient.releaseBrowserClosePress(
+                event.getKeyCode(),event.getScanCode());
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenCharacter(ScreenEvent.CharacterTyped.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
+                .charTyped(event.getCodePoint(),event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenDrag(ScreenEvent.MouseDragged.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.drag(event.getMouseX(),event.getMouseY()))
+            event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenRelease(ScreenEvent.MouseButtonReleased.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(event.getButton()))
+            event.setCanceled(true);
+    }
+
+    @SubscribeEvent
     public static void renderSelectedLooseOutline(RenderLevelStageEvent event) {
         com.juicyslew.moonstation14.ms14.hands.client.SelectedLooseOutlineRenderer.render(event);
     }
@@ -791,6 +853,7 @@ public class MoonStation14Client {
     }
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);

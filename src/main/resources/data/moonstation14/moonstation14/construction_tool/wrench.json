@@ -1,4 +1,5 @@
 {
   "parent": "base_tool",
-  "qualities": ["Anchoring"]
+  "qualities": ["Anchoring"],
+  "useSound": "Wrench"
 }

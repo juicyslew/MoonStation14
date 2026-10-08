@@ -28,6 +28,7 @@
     "MobMindHarnessOwnerMixin",
     "MobDisposalContainmentAiMixin",
     "LivingEntityMindHarnessTravelMixin",
+    "EntityAirlockBumpMixin",
     "LivingEntityDeathStateAccessor",
     "LivingEntityMedicalCorpseMixin",
     "LivingEntityPostureMovementMixin",
@@ -37,6 +38,7 @@
     "LivingEntityProneDimensionsMixin",
     "PlayerPronePoseMixin",
     "LevelChunkSealedWallHostMixin",
+    "LevelChunkConstructionHostMixin",
     "TrackedEntityObserverViewMixin",
     "ChunkMapObserverAccess",
     "ChunkMapObserverCenterMixin"

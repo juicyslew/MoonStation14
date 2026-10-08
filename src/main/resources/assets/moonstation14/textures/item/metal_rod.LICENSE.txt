@@ -1,0 +1,4 @@
+metal_rod.png is redistributed from Space Station 14, Resources/Textures/Objects/Materials/parts.rsi/rods.png.
+Upstream commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Source PNG SHA-256: 8ED75B303D57C904CF233393AF0543B5BEF4E0ECDD82B8BDB977EF539DA525E3
+SS14 project assets are licensed under CC-BY-SA-3.0; see TEMPLATE_LICENSE.txt.

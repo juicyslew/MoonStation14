@@ -1,5 +1,8 @@
 # Medical sprint validation
 
+Post-closure integration with main is recorded separately in `MERGE-MAIN.md`.
+The sprint results below describe the pre-integration medical tree.
+
 ## Sprint closure
 
 Owner accepted and closed the sprint on 2026-10-07. `HANDOFF.md` indexes current

@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal Straight","description":"Build a disposal straight","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_pipe","graph":"disposal_pipes","startingNode":"start","targetNode":"straight"}

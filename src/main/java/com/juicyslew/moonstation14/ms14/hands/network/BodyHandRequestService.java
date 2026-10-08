@@ -55,6 +55,7 @@ public final class BodyHandRequestService {
         if (resolved.isEmpty()) return null;
         var authority = resolved.orElseThrow();
         if (!BodyHandStateService.hasIssued(actor, authority)) return null;
+        if (!CharacterControlSystem.canAct(authority.body())) return null;
         var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
         if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null) return null;
         LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
@@ -91,6 +92,8 @@ public final class BodyHandRequestService {
         var authority = resolved.orElseThrow();
         if (!BodyHandStateService.hasIssued(actor, authority))
             return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+        if (!CharacterControlSystem.canAct(authority.body()))
+            return result(request, BodyHandActionResult.Reason.DENIED, authority);
         SequenceGate gate = GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
         BodyHandActionResult.Reason admission = gate.admit(authority.epoch(), request.epoch(), request.sequence(),
                 actor.level().getGameTime());

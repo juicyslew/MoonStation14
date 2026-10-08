@@ -26,6 +26,10 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.construction.tool.ToolPrototypeData;
+import com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction;
+import com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionGraphData;
+import com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionRecipeData;
+import com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionCatalog;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles;
 import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
@@ -38,6 +42,9 @@ import com.juicyslew.moonstation14.ms14.medical.ModMedicalItems;
 import com.juicyslew.moonstation14.ms14.medical.MedicalItemData;
 import com.juicyslew.moonstation14.ms14.medical.InjectorModeData;
 import com.juicyslew.moonstation14.ms14.medical.ModInjectorModes;
+import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
+import com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData;
+import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -135,6 +142,14 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<DisposalEntityData> clientDisposals() { return CLIENT_MANAGER.snapshot(ModDisposals.DISPOSAL_TYPE); }
     public static PrototypeCatalog<ToolPrototypeData> serverTools() { return SERVER_MANAGER.snapshot(ModTools.TOOL_TYPE); }
     public static PrototypeCatalog<ToolPrototypeData> clientTools() { return CLIENT_MANAGER.snapshot(ModTools.TOOL_TYPE); }
+    public static PrototypeCatalog<ConstructionGraphData> serverConstructionGraphs() { return SERVER_MANAGER.snapshot(ModConstruction.GRAPH_TYPE); }
+    public static PrototypeCatalog<ConstructionRecipeData> serverConstructionRecipes() { return SERVER_MANAGER.snapshot(ModConstruction.RECIPE_TYPE); }
+    public static PrototypeCatalog<ConstructionGraphData> clientConstructionGraphs() { return CLIENT_MANAGER.snapshot(ModConstruction.GRAPH_TYPE); }
+    public static PrototypeCatalog<ConstructionRecipeData> clientConstructionRecipes() { return CLIENT_MANAGER.snapshot(ModConstruction.RECIPE_TYPE); }
+    public static ConstructionCatalog serverConstructionCatalog() { return ModConstruction.catalog(serverConstructionGraphs(),serverConstructionRecipes()); }
+    public static ConstructionCatalog clientConstructionCatalog() { return ModConstruction.catalog(clientConstructionGraphs(),clientConstructionRecipes()); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionEntityData> serverConstructionEntities() { return SERVER_MANAGER.snapshot(ModConstruction.ENTITY_TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionEntityData> clientConstructionEntities() { return CLIENT_MANAGER.snapshot(ModConstruction.ENTITY_TYPE); }
     public static PrototypeCatalog<LooseObjectProfile> serverLooseObjectProfiles() { return SERVER_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
     public static PrototypeCatalog<LooseObjectProfile> clientLooseObjectProfiles() { return CLIENT_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
     public static PrototypeCatalog<ItemFootprintProfile> serverItemFootprints() { return SERVER_MANAGER.snapshot(ModItemFootprints.TYPE); }
@@ -147,6 +162,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<MedicalItemData> clientMedicalItems() { return CLIENT_MANAGER.snapshot(ModMedicalItems.TYPE); }
     public static PrototypeCatalog<InjectorModeData> serverInjectorModes() { return SERVER_MANAGER.snapshot(ModInjectorModes.TYPE); }
     public static PrototypeCatalog<InjectorModeData> clientInjectorModes() { return CLIENT_MANAGER.snapshot(ModInjectorModes.TYPE); }
+    public static PrototypeCatalog<AirlockData> serverAirlocks() { return SERVER_MANAGER.snapshot(ModAirlocks.TYPE); }
+    public static PrototypeCatalog<AirlockData> clientAirlocks() { return CLIENT_MANAGER.snapshot(ModAirlocks.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -163,12 +180,17 @@ public final class PrototypeRuntime {
         manager.register(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
         manager.register(ModDisposals.DISPOSAL_TYPE);
         manager.register(ModTools.TOOL_TYPE);
+        manager.register(ModConstruction.GRAPH_TYPE);
+        manager.register(ModConstruction.RECIPE_TYPE);
+        manager.register(ModConstruction.ENTITY_TYPE);
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
         manager.register(ModIngestionProfiles.TYPE);
         manager.register(ModDamageFeedback.TYPE);
         manager.register(ModMedicalItems.TYPE);
         manager.register(ModInjectorModes.TYPE);
+        manager.register(ModAirlocks.TYPE);
+        manager.register(ModToolProfiles.TYPE);
         return manager;
     }
 }

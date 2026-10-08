@@ -14,7 +14,22 @@ public class ModSounds {
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, MoonStation14.MOD_ID);
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
+    public static final Supplier<SoundEvent> TOOL_WRENCH = registerSoundEvent("ss14/tools/ratchet");
+    public static final Supplier<SoundEvent> TOOL_CROWBAR = registerSoundEvent("ss14/tools/crowbar");
+    public static final Supplier<SoundEvent> TOOL_SCREWDRIVER = registerSoundEvent("ss14/tools/screwdriver");
+    public static final Supplier<SoundEvent> TOOL_WELDER = registerSoundEvent("ss14/tools/welder");
+    public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
+    public static final Supplier<SoundEvent> AIRLOCK_OPEN = registerSoundEvent("airlock/airlock_open");
+    public static final Supplier<SoundEvent> AIRLOCK_CLOSE = registerSoundEvent("airlock/airlock_close");
+    public static final Supplier<SoundEvent> AIRLOCK_DENY = registerSoundEvent("airlock/airlock_deny");
+    public static final Supplier<SoundEvent> AIRLOCK_BOLTS_UP = registerSoundEvent("airlock/boltsup");
+    public static final Supplier<SoundEvent> AIRLOCK_BOLTS_DOWN = registerSoundEvent("airlock/boltsdown");
+    public static final Supplier<SoundEvent> AIRLOCK_PANEL_OPEN = registerSoundEvent("airlock/panel_open");
+    public static final Supplier<SoundEvent> AIRLOCK_PANEL_CLOSE = registerSoundEvent("airlock/panel_close");
+    public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_ON = registerSoundEvent("airlock/airlock_electrify_on");
+    public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
+    public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
     // Event registry IDs must exist independently of their sounds.json sample mappings.

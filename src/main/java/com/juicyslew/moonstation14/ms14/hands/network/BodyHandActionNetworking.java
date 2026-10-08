@@ -53,15 +53,15 @@ public final class BodyHandActionNetworking {
                              boolean inserted = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.revalidate(actor, admission.authority())
                                      && DisposalUnitHandAdapter.insert(body, request.handId(), request.expectedRevision(), unit);
                              outcome = inserted ? BodyBlockUseResult.Outcome.PLACED : BodyBlockUseResult.Outcome.DENIED;
-                          } else if (held != null && held.is(ModItems.WRENCH.get())) {
-                              outcome = BodyDisposalTubeAnchorUse.begin(actor, request, admission)
-                                      ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
-                          } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
-                              outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
-                                      ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
-                          } else if (held != null && held.is(ModItems.WELDER.get())) {
-                              outcome = BodyDisposalTubeWelderUse.begin(actor, request, admission)
-                                      ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+                           } else if (held != null && held.is(ModItems.WRENCH.get())) {
+                               outcome = BodyDisposalTubeAnchorUse.begin(actor, request, admission)
+                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                           } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
+                               outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
+                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                           } else if (held != null && held.is(ModItems.WELDER.get())) {
+                               outcome = BodyDisposalTubeWelderUse.begin(actor, request, admission)
+                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
                           } else if (held != null && held.is(ModItems.DISPOSAL_UNIT.get())) {
                              var result = FunctionalDisposalUnitPlacement.place(actor, request, admission);
                              outcome = result == FunctionalDisposalUnitPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
@@ -80,14 +80,23 @@ public final class BodyHandActionNetworking {
                             var result = FunctionalExposedPipePlacement.place(actor, request, admission);
                             outcome = result == FunctionalExposedPipePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
                                     : result == FunctionalExposedPipePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
-                           } else if (held != null && DisposalBuildMenuService.matchesActiveMaterial(admission.authority(), held)) {
-                               long beforeRevision = request.expectedRevision();
-                               boolean handled = DisposalBuildMenuService.useSelected(actor, request, admission);
-                               var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-                               outcome = handled
-                                       ? BodyConstructionOutcomePolicy.outcome(true, beforeRevision,
-                                               liveHands == null ? null : liveHands.revision())
-                                       : BodyWorldItemActions.use(actor, request, admission);
+                          } else if (held != null && DisposalBuildMenuService.matchesActiveMaterial(admission.authority(), held)) {
+                                 String sharedRecipe=com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService
+                                         .selectedRecipe(actor,body);
+                                 if(sharedRecipe!=null) {
+                                     outcome=BodyWorldItemActions.use(actor,request,admission);
+                                 } else if (com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService
+                                         .hasConstructionHost((net.minecraft.server.level.ServerLevel) body.level(), admission.hit().pos())) {
+                                    outcome = BodyWorldItemActions.use(actor, request, admission);
+                                } else {
+                                    long beforeRevision = request.expectedRevision();
+                                    boolean handled = DisposalBuildMenuService.useSelected(actor, request, admission);
+                                    var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                                    outcome = handled
+                                            ? BodyConstructionOutcomePolicy.outcome(true, beforeRevision,
+                                                    liveHands == null ? null : liveHands.revision())
+                                            : BodyWorldItemActions.use(actor, request, admission);
+                                }
                         } else if (held == null) {
                             boolean opened = AirAlarmMenuService.open(actor, request, admission);
                             if (opened) outcome = BodyBlockUseResult.Outcome.NO_CHANGE;

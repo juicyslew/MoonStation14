@@ -94,11 +94,11 @@ public final class CableStorageGameTests {
         require(spool.getCount() == 1 && CableStorage.get(level, host, Direction.NORTH) == CableTier.HV,
                 "one spool is consumed and tier stored");
         require(player.getInventory().add(spool), "store the remaining spool before switching tools");
-        ItemStack cutter = new ItemStack(ModItems.CABLE_CUTTER.get());
+        ItemStack cutter = new ItemStack(ModItems.WIRECUTTER.get());
         player.setItemInHand(InteractionHand.MAIN_HAND, cutter);
-        require(use(ModItems.CABLE_CUTTER.get(), level, player, cutter, host, Direction.SOUTH) == InteractionResult.FAIL,
+        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.SOUTH) == InteractionResult.FAIL,
                 "cutting a different face fails");
-        require(use(ModItems.CABLE_CUTTER.get(), level, player, cutter, host, Direction.NORTH).consumesAction(), "cut exact face");
+        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH).consumesAction(), "cut exact face");
         require(CableStorage.get(level, host, Direction.NORTH) == null, "record removed");
         int spoolsAfterCut = matchingSpools(player, level, host);
         require(spoolsAfterCut == 1,
@@ -114,19 +114,19 @@ public final class CableStorageGameTests {
         require(CableStorage.place(level, host, Direction.NORTH, CableTier.HV), "place HV");
         require(CableStorage.place(level, host, Direction.NORTH, CableTier.MV), "place MV alongside HV");
         Player player = player(level, helper.absolutePos(new BlockPos(2, 2, 2)));
-        ItemStack cutter = new ItemStack(ModItems.CABLE_CUTTER.get());
+        ItemStack cutter = new ItemStack(ModItems.WIRECUTTER.get());
         player.setItemInHand(InteractionHand.MAIN_HAND, cutter);
-        require(use(ModItems.CABLE_CUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
+        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
                 "ambiguous cut fails closed");
         require(CableStorage.has(level, host, Direction.NORTH, CableTier.HV)
                 && CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "ambiguous cut preserves both cables");
         player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(ModItems.APC_CABLE_SPOOL.get()));
-        require(use(ModItems.CABLE_CUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
+        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
                 "wrong offhand tier cannot cut a sibling");
         require(CableStorage.has(level, host, Direction.NORTH, CableTier.HV)
                 && CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "wrong selector preserves both cables");
         player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(ModItems.MV_CABLE_SPOOL.get()));
-        require(use(ModItems.CABLE_CUTTER.get(), level, player, cutter, host, Direction.NORTH).consumesAction(),
+        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH).consumesAction(),
                 "matching offhand spool selects tier");
         require(CableStorage.has(level, host, Direction.NORTH, CableTier.HV)
                 && !CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "only selected cable removed");
@@ -156,9 +156,9 @@ public final class CableStorageGameTests {
         player.setItemInHand(InteractionHand.MAIN_HAND, spool);
         require(use(ModItems.HV_CABLE_SPOOL.get(), level, player, spool, host, Direction.NORTH).consumesAction(), "place cable");
         level.setBlock(host, Blocks.DIRT.defaultBlockState(), 3);
-        ItemStack cutter = new ItemStack(ModItems.CABLE_CUTTER.get());
+        ItemStack cutter = new ItemStack(ModItems.WIRECUTTER.get());
         player.setItemInHand(InteractionHand.MAIN_HAND, cutter);
-        require(use(ModItems.CABLE_CUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
+        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
                 "changed host record cannot be removed or refunded");
         require(CableStorage.get(level, host, Direction.NORTH) == null, "stale record is pruned on access");
         require(level.getEntitiesOfClass(ItemEntity.class, new AABB(host).inflate(2), entity ->

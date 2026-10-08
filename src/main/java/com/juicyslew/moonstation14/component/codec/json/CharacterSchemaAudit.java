@@ -317,7 +317,8 @@ public final class CharacterSchemaAudit {
             auditMovement(object, path, complete);
             return;
         }
-        if ("NoSlip".equals(type) || "Stunnable".equals(type) || "Pullable".equals(type)) {
+        if ("NoSlip".equals(type) || "Stunnable".equals(type) || "Pullable".equals(type)
+                || com.juicyslew.moonstation14.ms14.character.components.DoorBumpOpenerComponent.TYPE.equals(type)) {
             checkFields(object, Set.of("type"), path);
             return;
         }

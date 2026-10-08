@@ -1231,7 +1231,9 @@ public final class AtmosphereService {
     private boolean observeOpenableAt(ServerLevel level, BlockPos pos) {
         if (!inBounds(level, pos) || loadedChunk(level, pos) == null) return false;
         var state = level.getBlockState(pos);
-        Boolean open = state.getBlock() instanceof DoorBlock ? state.getValue(DoorBlock.OPEN)
+        Boolean open = state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock
+                ? state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.OPEN)
+                : state.getBlock() instanceof DoorBlock ? state.getValue(DoorBlock.OPEN)
                 : state.getBlock() instanceof TrapDoorBlock ? state.getValue(TrapDoorBlock.OPEN)
                 : state.getBlock() instanceof FenceGateBlock ? state.getValue(FenceGateBlock.OPEN)
                 : null;

@@ -1,6 +1,7 @@
 {
   "parent": "base_tool",
   "qualities": ["Welding"],
+  "useSound": "Welder",
   "welder": {
     "initialFuel": 100.0,
     "ignitionCost": 0.5,

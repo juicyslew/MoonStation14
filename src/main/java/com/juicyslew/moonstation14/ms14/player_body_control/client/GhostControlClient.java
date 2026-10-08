@@ -156,7 +156,8 @@ public final class GhostControlClient {
         }
 
         // A vanilla Screen suppresses LocalPlayer.input; sample only the committed CHARACTER popup.
-        var popup = harnessKind == MobHarnessKind.CHARACTER && minecraft.screen instanceof BodyMovementIntentScreen screen
+        var popup = harnessKind == MobHarnessKind.CHARACTER && minecraft.screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow screen
+                && screen instanceof BodyMovementIntentScreen
                 ? screen.movementIntent() : null;
         double strafe = popup == null ? player.input.leftImpulse : popup.left();
         double forward = popup == null ? player.input.forwardImpulse : popup.forward();

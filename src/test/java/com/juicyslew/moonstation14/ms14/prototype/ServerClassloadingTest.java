@@ -20,6 +20,10 @@ class ServerClassloadingTest {
     private static final String CLIENT_UI_PACKAGE = "com.juicyslew.moonstation14.ms14.ui.client";
     private static final String CLIENT_LOOSE_OBJECT_SOURCE_PREFIX =
             "com/juicyslew/moonstation14/ms14/loose_objects/client/";
+    private static final String CLIENT_CONSTRUCTION_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/construction/client/";
+    private static final String CLIENT_HANDS_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/hands/client/";
     private static final Set<String> CLIENT_ONLY_SOURCES = Set.of(
             "com/juicyslew/moonstation14/MoonStation14Client.java",
             "com/juicyslew/moonstation14/CameraJitterHandler.java",
@@ -77,7 +81,13 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/damage/client/DamageFeedbackClientState.java",
             "com/juicyslew/moonstation14/ms14/eye/client/CriticalFogClient.java",
             "com/juicyslew/moonstation14/ms14/mobs/client/MedicalPerspectiveClient.java",
-            "com/juicyslew/moonstation14/ms14/standing/client/PostureClient.java"
+             "com/juicyslew/moonstation14/ms14/standing/client/PostureClient.java",
+             "com/juicyslew/moonstation14/ms14/doors/client/AirlockBlockEntityRenderer.java",
+             "com/juicyslew/moonstation14/ms14/doors/client/AirlockFramePlanner.java",
+             "com/juicyslew/moonstation14/ms14/doors/ui/client/AirlockWireScreen.java",
+             "com/juicyslew/moonstation14/ms14/doors/ui/client/AirlockWireClient.java",
+             "com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java",
+             "com/juicyslew/moonstation14/ms14/hands/client/StoragePopupScreen.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
@@ -101,6 +111,8 @@ class ServerClassloadingTest {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
+                        || relativePath.startsWith(CLIENT_CONSTRUCTION_SOURCE_PREFIX)
+                        || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")) {
                     continue;
                 }

@@ -31,6 +31,7 @@ public final class CharacterComponentRegistry {
             Map.entry(HumanoidProfileComponent.TYPE, new Entry<>(HumanoidProfileComponent.class, HumanoidProfileComponent.CODEC)),
             Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),
             Map.entry(ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC)),
+            Map.entry(DoorBumpOpenerComponent.TYPE, new Entry<>(DoorBumpOpenerComponent.class, DoorBumpOpenerComponent.CODEC)),
             Map.entry(BlindablePrototypeComponent.TYPE, new Entry<>(BlindablePrototypeComponent.class, BlindablePrototypeComponent.CODEC)),
             Map.entry(BloodstreamComponent.TYPE, new Entry<>(BloodstreamComponent.class, BloodstreamComponent.CODEC)),
             Map.entry(BodyComponent.TYPE, new Entry<>(BodyComponent.class, BodyComponent.CODEC)),

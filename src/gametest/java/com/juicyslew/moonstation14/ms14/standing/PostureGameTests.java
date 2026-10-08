@@ -10,6 +10,8 @@ import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import com.juicyslew.moonstation14.ms14.organ.BodySystem;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperation;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -23,6 +25,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @PrefixGameTestTemplate(false)
 @GameTestTags({"posture", "collision", "status", "timed-interaction"})
@@ -292,6 +295,37 @@ public final class PostureGameTests {
         require(voluntary.getData(ModDataAttachments.POSTURE.get()).data().faceUp() != voluntaryFaceBeforeTurn,
                 "voluntary target facing toggled");
         helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"merge-main-regression", "timed-interaction"})
+    public static void repeatedTimedCompletionRunsOnceAndKeepsWorldTarget(GameTestHelper helper) {
+        Villager body = human(helper);
+        BlockPos target = helper.absolutePos(new BlockPos(2, 0, 2));
+        AtomicInteger completions = new AtomicInteger();
+        require(TimedInteractionSystem.start(body, null, 71, "timed-regression", "repeat-once", 2,
+                        false, false, 1.0, 0.3, () -> 4, () -> true,
+                        () -> completions.incrementAndGet() == 1
+                                ? TimedInteractionSystem.Completion.REPEAT : TimedInteractionSystem.Completion.STOP,
+                        java.util.Optional.of(target), () -> { }) == TimedInteractionEngine.StartResult.STARTED,
+                "timed operation starts with dynamic repeat schedule and world target");
+        require(TimedInteractionSystem.snapshot(body).views().getFirst().worldTarget().orElseThrow().equals(target),
+                "authoritative snapshot retains operation world target");
+        helper.runAfterDelay(3, () -> {
+            var views = TimedInteractionSystem.snapshot(body).views();
+            require(completions.get() == 1, "first completion callback runs once");
+            require(views.size() == 1 && views.getFirst().phase() == TimedOperation.Phase.ACTIVE
+                            && views.getFirst().durationTicks() == 4
+                            && views.getFirst().worldTarget().orElseThrow().equals(target),
+                    "repeat uses dynamic duration and retains world target in updated active snapshot");
+            helper.runAfterDelay(5, () -> {
+                var finished = TimedInteractionSystem.snapshot(body).views();
+                require(completions.get() == 2, "second completion callback runs once, not twice");
+                require(finished.size() == 1 && finished.getFirst().phase() == TimedOperation.Phase.COMPLETED,
+                        "STOP outcome completes operation rather than being reprocessed as cancellation");
+                helper.succeed();
+            });
+        });
     }
 
     private static boolean activeGetUp(Villager body) {

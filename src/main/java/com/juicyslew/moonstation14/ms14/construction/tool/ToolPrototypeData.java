@@ -7,8 +7,9 @@ import java.util.Set;
 import java.util.Optional;
 
 /** Locally supported tool capabilities and Minecraft-adapted welder fuel composition. */
-public record ToolPrototypeData(Set<Quality> qualities, double speedModifier, Optional<Welder> welder) {
-    public enum Quality { Anchoring, Screwing, Welding }
+public record ToolPrototypeData(Set<Quality> qualities, double speedModifier, Optional<Welder> welder, Optional<UseSound> useSound) {
+    public enum Quality { Anchoring, Screwing, Welding, Prying }
+    public enum UseSound { Wrench, Screwdriver, Crowbar, Welder }
     public record Welder(double initialFuel, double ignitionCost, double fuelPerSecond) {
         public Welder {
             if (!Double.isFinite(initialFuel) || initialFuel < 0 || !Double.isFinite(ignitionCost)
@@ -28,13 +29,19 @@ public record ToolPrototypeData(Set<Quality> qualities, double speedModifier, Op
             Codec.STRING.listOf().xmap(values -> values.stream().map(Quality::valueOf).collect(java.util.stream.Collectors.toUnmodifiableSet()),
                     values -> values.stream().map(Enum::name).sorted().toList()).fieldOf("qualities").forGetter(ToolPrototypeData::qualities),
             Codec.DOUBLE.fieldOf("speedModifier").forGetter(ToolPrototypeData::speedModifier),
-            WELDER_CODEC.optionalFieldOf("welder").forGetter(ToolPrototypeData::welder)
+            WELDER_CODEC.optionalFieldOf("welder").forGetter(ToolPrototypeData::welder),
+            Codec.STRING.xmap(UseSound::valueOf, Enum::name).optionalFieldOf("useSound").forGetter(ToolPrototypeData::useSound)
     ).apply(i, ToolPrototypeData::new));
 
     public ToolPrototypeData {
         qualities = Set.copyOf(qualities);
         welder = welder == null ? Optional.empty() : welder;
+        useSound = useSound == null ? Optional.empty() : useSound;
         if (!Double.isFinite(speedModifier) || speedModifier <= 0)
             throw new IllegalArgumentException("tool speed modifier must be finite and positive");
+    }
+
+    public ToolPrototypeData(Set<Quality> qualities, double speedModifier, Optional<Welder> welder) {
+        this(qualities, speedModifier, welder, Optional.empty());
     }
 }
