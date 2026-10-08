@@ -4,11 +4,9 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -25,28 +23,17 @@ public final class MinecraftLoadedBodyAdapter {
     private MinecraftLoadedBodyAdapter() { }
 
     public static LoadedBodyResolver.Resolution observe(MinecraftServer server, SavedLifecycleProfile profile) {
-        // Both startup-latched decisions must be checked before even consulting thread/world state.
-        boolean enabled = MindGhostStartupGate.enabledForServer();
-        boolean movementConflict = MovementStartupGate.enabledForServer();
-        if (!enabled || movementConflict) return disabled();
         if (server == null || profile == null) return recovery();
-        return observe(profile, enabled, movementConflict, server.isSameThread(),
+        return observe(profile, server.isSameThread(),
                 id -> find(server, profile, id), MinecraftLoadedBodyAdapter::eligible);
     }
 
-    static LoadedBodyResolver.Resolution observe(SavedLifecycleProfile profile, boolean masterEnabled,
-                                                boolean movementConflict, boolean mainThread,
+    static LoadedBodyResolver.Resolution observe(SavedLifecycleProfile profile, boolean mainThread,
                                                 LoadedBodyResolver.ReadOnlyLookup lookup,
                                                 java.util.function.Predicate<LoadedBodyResolver.Candidate> eligible) {
-        if (!masterEnabled || movementConflict)
-            return disabled();
         if (profile == null) return recovery();
         if (!mainThread) return recovery();
-        return LoadedBodyResolver.resolve(profile, true, lookup, eligible);
-    }
-
-    private static LoadedBodyResolver.Resolution disabled() {
-        return new LoadedBodyResolver.Resolution(LoadedBodyResolver.Outcome.DISABLED, null);
+        return LoadedBodyResolver.resolve(profile, lookup, eligible);
     }
 
     private static LoadedBodyResolver.Resolution recovery() {

@@ -7,8 +7,10 @@ crafting browser, nine disposal shapes, Girder → steel/plastic wall branches a
 Metal Rod crafting. Final polish centers sprites/meshes without moving text;
 the configured G binding now closes an open browser. Owner previously reported
 construction/search working and accepted the other UI/family changes.
-No commit or push made. Aggregate native certification remains non-green;
-closure does not certify unobserved connected-client or authenticated paths.
+Construction is committed as `5e366dc`; subsequent main integration is indexed in
+`MERGE-MAIN.md`. No assistant merge commit or push made. Aggregate native
+certification remains non-green; closure does not certify unobserved connected-client
+or authenticated paths.
 
 ## ARCHITECTURE
 
@@ -45,7 +47,8 @@ closure does not certify unobserved connected-client or authenticated paths.
 
 ## IMPORTANT FILES
 
-- `architecture.md`, `parity-audit.md`, `validation.md`, `client-checks.md` here.
+- `architecture.md`, `parity-audit.md`, `validation.md`, `client-checks.md` here;
+  `MERGE-MAIN.md` records integration with medical/posture/pulling and airlocks.
 - `ms14/construction/{prototype,domain,world,inventory,plan,network}/` and
   `data/moonstation14/moonstation14/construction_{graph,recipe,entity}/`.
 - `construction/client/ConstructionBrowserWindow`, `ConstructionBrowserLayout`,
@@ -104,7 +107,9 @@ Six tool clips retain unresolved rights notices in `docs/audio-unknown-provenanc
 
 ## KNOWN GAPS
 
-Latest full native run: 586/595 passes, nine unresolved power/ventilation/despawn
+Combined main integration completed 666/666 native tests: 652 passed, 14 failed;
+causality remains unresolved. See `MERGE-MAIN.md` for failures and retained artifacts.
+Sprint-closure full native run: 586/595 passes, nine unresolved power/ventilation/despawn
 failures. Focused intake also fails “sealed finite source claimed”; parent
 reproduction has not established inherited status. Trusted-body/domain fixtures
 do not exercise authenticated successful construction/crafting admission; a
@@ -122,8 +127,10 @@ Icon polish passed 17/17 filtered checks. Final G-toggle repair passed independe
 source review and 56/56 filtered checks, build and GameTest compilation, all with
 zero failures/errors/skips. Latest jar: `build/libs/moonstation14-0.0.1.jar`,
 6,018,033 bytes, UTC `2026-10-08T05:15:46.4474640Z`.
-Logs/failure worlds are indexed in `validation.md`; owner configuration was not
-overwritten. No final client pixel/input observation is claimed.
+These are sprint-closure results/artifacts. Logs/failure worlds are indexed in
+`validation.md`; subsequent combined-build evidence is in `MERGE-MAIN.md`.
+Owner configuration was not overwritten. No final client pixel/input observation
+is claimed.
 
 ## NEXT WORK
 

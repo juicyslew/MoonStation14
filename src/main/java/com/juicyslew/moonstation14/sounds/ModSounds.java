@@ -18,11 +18,27 @@ public class ModSounds {
     public static final Supplier<SoundEvent> TOOL_CROWBAR = registerSoundEvent("ss14/tools/crowbar");
     public static final Supplier<SoundEvent> TOOL_SCREWDRIVER = registerSoundEvent("ss14/tools/screwdriver");
     public static final Supplier<SoundEvent> TOOL_WELDER = registerSoundEvent("ss14/tools/welder");
+    public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
+    public static final Supplier<SoundEvent> AIRLOCK_OPEN = registerSoundEvent("airlock/airlock_open");
+    public static final Supplier<SoundEvent> AIRLOCK_CLOSE = registerSoundEvent("airlock/airlock_close");
+    public static final Supplier<SoundEvent> AIRLOCK_DENY = registerSoundEvent("airlock/airlock_deny");
+    public static final Supplier<SoundEvent> AIRLOCK_BOLTS_UP = registerSoundEvent("airlock/boltsup");
+    public static final Supplier<SoundEvent> AIRLOCK_BOLTS_DOWN = registerSoundEvent("airlock/boltsdown");
+    public static final Supplier<SoundEvent> AIRLOCK_PANEL_OPEN = registerSoundEvent("airlock/panel_open");
+    public static final Supplier<SoundEvent> AIRLOCK_PANEL_CLOSE = registerSoundEvent("airlock/panel_close");
+    public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_ON = registerSoundEvent("airlock/airlock_electrify_on");
+    public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
+    public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
+    public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
+    // Default human gasp profile is MaleHuman (HumanUnsexed); female collection is
+    // registered for a later supported voice-profile consumer.
+    public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
+    public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
+    // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     public static final Supplier<SoundEvent> DISPOSAL_FLUSH = registerSoundEvent("disposal/flush");
     public static final Supplier<SoundEvent> DISPOSAL_PIPE_CLANG = registerSoundEvent("disposal/pipe_clang");
     public static final Supplier<SoundEvent> DISPOSAL_INSERT = registerSoundEvent("disposal/insert");
-    public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");    // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     // both end at 32 blocks, independently of the quieter playback gain at each call site.
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE = registerFixedRangeSoundEvent("grenade/explode", 32.0F);

@@ -300,6 +300,20 @@ final class LifecycleServerContext {
         }).map(java.util.Optional::ofNullable).orElse(java.util.Optional.empty());
     }
 
+    /** Manual authenticated revived-corpse return; caller supplies exact live/alive world eligibility. */
+    synchronized java.util.Optional<PlayerLifecycleRegistry.Snapshot> returnRevivedCorpse(
+            SavedLifecycleProfile saved, long expectedGeneration,
+            com.juicyslew.moonstation14.ms14.player_body_control.TargetEligibility eligibleLivingCharacter)
+            throws IOException {
+        if (saved == null || eligibleLivingCharacter == null || !reservedAccounts.contains(saved.accountId()))
+            return java.util.Optional.empty();
+        return primaryStore.withCurrentPrimary(lease -> {
+            if (lease.envelope().profiles().stream().filter(saved::equals).count() != 1) return null;
+            return lifecycle.returnRevivedCorpseDurably(lease, saved, expectedGeneration,
+                    eligibleLivingCharacter).orElse(null);
+        }).map(java.util.Optional::ofNullable).orElse(java.util.Optional.empty());
+    }
+
     /** Read one unique account row from the current primary, regardless of lifecycle state. */
     synchronized java.util.Optional<SavedLifecycleProfile> currentAccountProfile(UUID accountId) throws IOException {
         if (accountId == null || !reservedAccounts.contains(accountId)) return java.util.Optional.empty();

@@ -109,6 +109,30 @@ public class LooseItemEntity extends ItemEntity {
         launch(clamp(getDeltaMovement().add(impulse.scale(1.0 / Math.max(.01, mass))), 2.5), angularVelocity);
     }
 
+    /** Applies the shared normalized-mass tether delta in native blocks/tick and wakes a settled item. */
+    public void applyPullVelocityChange(Vec3 deltaPerTick) {
+        if (level().isClientSide || deltaPerTick == null || !finite(deltaPerTick)) return;
+        Vec3 next = getDeltaMovement().add(deltaPerTick);
+        if (!finite(next)) return;
+        setDeltaMovement(next);
+        setSettled(false);
+    }
+
+    /** Collision-resolved rope correction consumed immediately rather than queued as a weak impulse. */
+    public void moveByPull(Vec3 correction) {
+        if (level().isClientSide || correction == null || !finite(correction)) return;
+        var sweep = getBoundingBox().expandTowards(correction);
+        if (!chunksLoaded(sweep)) return;
+        Vec3 before = position();
+        move(MoverType.SELF, correction);
+        Vec3 actual = position().subtract(before);
+        if (actual.horizontalDistanceSqr() > 1.0e-10) {
+            Vec3 velocity = getDeltaMovement();
+            setDeltaMovement(0, velocity.y, 0);
+            setSettled(false);
+        }
+    }
+
     public boolean settled() { return entityData.get(SETTLED); }
     public float getRotationAngle() { return entityData.get(ROTATION); }
     public float getRotationAngle(float partialTick) {
@@ -153,6 +177,9 @@ public class LooseItemEntity extends ItemEntity {
         }
         evaluateGrenadeFuse();
         if (isRemoved()) return;
+        Vec3 tether = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
+                .deltaVelocityPerSecond(this).scale(.05);
+        if (tether.lengthSqr() > 0) applyPullVelocityChange(tether);
         if (settled()) {
             if (tickCount < nextSupportCheck) return;
             nextSupportCheck = tickCount + 10;

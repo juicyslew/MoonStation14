@@ -88,5 +88,15 @@ public final class GameTestTagRegistrar {
         return new RegistrationSummary(Set.copyOf(available), selection.size(), untagged);
     }
 
+    public static Set<Method> selectAfterBatchMethods(Collection<Method> methods, Collection<Method> hooks,
+                                                       Set<String> requested) {
+        Set<String> batches = GameTestTagSelector.select(methods, requested).stream()
+                .map(method -> method.getAnnotation(GameTest.class).batch())
+                .collect(java.util.stream.Collectors.toSet());
+        return hooks.stream().filter(method -> method.isAnnotationPresent(AfterBatch.class)
+                && batches.contains(method.getAnnotation(AfterBatch.class).batch()))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
     public record RegistrationSummary(Set<String> availableTags, int selected, int untagged) {}
 }

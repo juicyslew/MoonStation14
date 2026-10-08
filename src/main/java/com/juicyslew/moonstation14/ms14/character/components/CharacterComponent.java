@@ -7,6 +7,7 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         MetabolizerPrototypeComponent, MovementSpeedModifierComponent, NoSlipComponent, ReactiveComponent,
         RespiratorComponent, SpeechComponent, StandingStateComponent, StomachPrototypeComponent, StunnableComponent,
         TemperatureComponent, TemperatureDamageComponent, ThermalRegulatorComponent, ThirstPrototypeComponent,
-        MouthComponent {
+        MouthComponent, MobStateComponent, MobThresholdsComponent, CrawlerComponent, PullableComponent,
+        ObserverMovementComponent, IncorporealComponent, GhostOnMoveComponent, PullerComponent, DoorBumpOpenerComponent {
     String type();
 }

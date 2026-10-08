@@ -10,7 +10,6 @@ import com.juicyslew.moonstation14.ms14.disposal.transport.LoadedWorldDisposalRo
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -45,8 +44,7 @@ public final class DisposalFixtureGameTests {
         AtmosphereService atmos=AtmosphereService.INSTANCE;
         RestoreState restore=new RestoreState();
         restore.guard(()->{
-        PowerSimulationGate.configureAtServerStart(true);
-        atmos.configureAtServerStart(true,Set.of(level.dimension()));
+        atmos.configureAtServerStart(Set.of(level.dimension()), atmos.spaceDimensionsForTest());
         BlockPos entry=helper.absolutePos(ORIGIN);
         BlockPos origin=entry.offset(-6,0,-8);
          String built=DisposalFixtureCommands.build(level,entry);

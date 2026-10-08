@@ -26,10 +26,9 @@ public final class DisposalFixtureAirProofGameTests {
     public static void boundedTrustedSeedRejectsConnectedCellOutsideInputWithoutMutation(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         AtmosphereService atmos = AtmosphereService.INSTANCE;
-        boolean oldEnabled = atmos.isEnabled();
         Set<net.minecraft.resources.ResourceKey<Level>> oldVacuum = atmos.vacuumDimensionsForTest();
         try {
-            atmos.configureAtServerStart(true, Set.of(level.dimension()));
+            atmos.configureAtServerStart(Set.of(level.dimension()), atmos.spaceDimensionsForTest());
             BlockPos first = helper.absolutePos(new BlockPos(3, 2, 3));
             BlockPos second = first.east();
             for (BlockPos cell : List.of(first, second)) {
@@ -57,7 +56,7 @@ public final class DisposalFixtureAirProofGameTests {
                     "failed bounded proof writes no gas mixture");
             helper.succeed();
         } finally {
-            atmos.configureAtServerStart(oldEnabled, oldVacuum);
+            atmos.configureAtServerStart(oldVacuum, atmos.spaceDimensionsForTest());
         }
     }
 

@@ -14,6 +14,11 @@ public final class PointerWorkspaceLayers {
         return (storageFront ? BROWSER_BASE + WINDOW_STRIDE : STORAGE_BASE) + paintIndex * WINDOW_STRIDE;
     }
 
+    /** Wire input is routed before storage input, so its window must paint above every storage window. */
+    public static int wireLayer(boolean storageFront) {
+        return STORAGE_BASE + (storageFront ? 8 : 3) * WINDOW_STRIDE;
+    }
+
     public static int browserLayer(int paintIndex, boolean browserFront) {
         if (paintIndex < 0) throw new IllegalArgumentException("window index");
         return (browserFront ? BROWSER_BASE : STORAGE_BASE) + paintIndex * WINDOW_STRIDE;

@@ -169,6 +169,8 @@ public final class PressureGameTests {
 
         require(DamageSystem.applyHealthChange(pig, Map.of("blunt", -3f), 1f, true)
                         == DamageSystem.Result.APPLIED, "heal matching damage below ceiling");
+        require(com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.explicitRevive(pig),
+                "healing below the pressure ceiling must permit explicit revival from pressure-caused death");
         require(BarotraumaSystem.tickIfDue(pig, -pig.getId(), vacuum),
                 "healing must reopen pressure damage headroom");
         var resumed = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap();

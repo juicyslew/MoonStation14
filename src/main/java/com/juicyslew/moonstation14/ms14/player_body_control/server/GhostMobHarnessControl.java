@@ -1,9 +1,6 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.server;
 
 import com.juicyslew.moonstation14.MoonStation14;
-import com.juicyslew.moonstation14.Config;
-import com.juicyslew.moonstation14.ms14.movement.server.MovementServerController;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.BodyControlRegistry;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
@@ -35,6 +32,9 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem;
 import com.juicyslew.moonstation14.ms14.hunger.HungerSystem;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstSystem;
+import com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem;
+import com.juicyslew.moonstation14.ms14.medical_observer.ObserverSession;
+import com.juicyslew.moonstation14.ms14.medical_observer.BoundObserverAuthority;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -95,11 +95,6 @@ public final class GhostMobHarnessControl {
     }
 
     private static int possess(ServerPlayer player, Entity entity) {
-        if (!MindGhostStartupGate.enabledForServer()) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                    "Mind ghost control is disabled; possession was not started."));
-            return 0;
-        }
         RuntimeState state = player.level().getServer() == null ? null : SERVERS.get(player.level().getServer());
         Session session = state == null ? null : state.sessions.get(player.getUUID());
         if (session == null || session.player != player || !connected(player) || player instanceof FakePlayer
@@ -149,11 +144,6 @@ public final class GhostMobHarnessControl {
     }
 
     private static int returnToGhost(ServerPlayer player) {
-        if (!MindGhostStartupGate.enabledForServer()) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                    "Mind ghost control is disabled; return was not started."));
-            return 0;
-        }
         MinecraftServer server = player.level().getServer();
         RuntimeState state = server == null ? null : SERVERS.get(server);
         Session session = state == null ? null : state.sessions.get(player.getUUID());
@@ -206,11 +196,6 @@ public final class GhostMobHarnessControl {
 
     /** Explicitly opts an enrolled, grounded mob into the temporary harness-lease system. */
     private static int configure(ServerPlayer operator, Entity entity) {
-        if (!MindGhostStartupGate.enabledForServer()) {
-            operator.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                    "Mind ghost control is disabled; configuration was not changed."));
-            return 0;
-        }
         if (!(entity instanceof Mob body) || body.level() != operator.level() || body.isRemoved() || !body.isAlive()) {
             operator.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                     "Mind ghost configure requires a live Mob in your current dimension."));
@@ -293,13 +278,7 @@ public final class GhostMobHarnessControl {
     }
 
     private static int start(ServerPlayer player) {
-        if (!MindGhostStartupGate.enabledForServer()) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                    "Mind ghost control is disabled; set experimentalMindGhostControl = true in config/moonstation14-common.toml and restart."));
-            return 0;
-        }
-        if (!connected(player) || player instanceof FakePlayer || MovementServerController.owns(player)
-                || MovementStartupGate.enabledForServer()) {
+        if (!connected(player) || player instanceof FakePlayer) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Mind ghost unavailable for this player."));
             return 0;
         }
@@ -420,7 +399,7 @@ public final class GhostMobHarnessControl {
         if (player == null || player.level().getServer() == null) return false;
         RuntimeState state = SERVERS.get(player.level().getServer());
         Session session = state == null ? null : state.sessions.get(player.getUUID());
-        return session != null && session.player == player && session.committed
+        return session != null && !session.medicalPaused && session.player == player && session.committed
                 && session.kind == MobHarnessKind.CHARACTER && player.getCamera() == session.body
                 && !player.isPassenger() && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR
                 && eligible(state, session, player);
@@ -627,17 +606,33 @@ public final class GhostMobHarnessControl {
         GhostControlPayloads.Intent intent = session.gate.take();
         if (!session.committed) return;
         if (session.kind == MobHarnessKind.CHARACTER) {
-            if (intent != null) {
-                var result = CHARACTER_WORLD_STEP.step(session.body, intent.wishX(), intent.wishZ(),
-                        (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
-                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw());
-                // The world step can partially move before returning empty; acknowledge it and never retry.
-                if (result.isEmpty() && !eligibleCharacter(session, session.body, player)) {
-                    MoonStation14.LOGGER.warn("[mind ghost] Character world step rejected an invalid body; ending possession player={} body={} sequence={} epoch={}",
-                            player.getGameProfile().getName(), session.bodyId, intent.sequence(), session.epoch);
-                    if (!recoverLostCharacterBody(state, session)) end(state, session, true);
-                    return;
+            boolean incapacitated = com.juicyslew.moonstation14.ms14.mobs.MobStateSystem
+                    .isIncapacitated(session.body);
+            if (incapacitated) {
+                if (intent != null) {
+                    session.lastAppliedSequence = intent.sequence();
+                    session.appliedIntentTick = player.level().getGameTime();
                 }
+                // Common native-tick passive physics owns gravity/tether for incapacitated bodies.
+                sendCharacterSnapshot(state, session);
+                return;
+            }
+            // Travel is cancelled for every movement-owned character, so integrate the world
+            // every server player tick. Missing fresh input means zero voluntary wish, not freeze.
+            var result = CHARACTER_WORLD_STEP.step(session.body,
+                    intent == null ? 0 : intent.wishX(), intent == null ? 0 : intent.wishZ(),
+                    intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
+                    intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
+                    intent == null ? session.body.getYRot() : intent.yaw());
+            if (result.isEmpty() && !eligibleCharacter(session, session.body, player)) {
+                MoonStation14.LOGGER.warn("[mind ghost] Character world step rejected an invalid body; ending possession player={} body={} sequence={} epoch={}",
+                        player.getGameProfile().getName(), session.bodyId,
+                        intent == null ? session.lastAppliedSequence : intent.sequence(), session.epoch);
+                if (!recoverLostCharacterBody(state, session)) end(state, session, true);
+                return;
+            }
+            if (intent != null) {
+                // The world step can partially move before returning empty; acknowledge it and never retry.
                 if (result.isPresent()) {
                     session.lastAppliedSequence = intent.sequence();
                     session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
@@ -727,13 +722,7 @@ public final class GhostMobHarnessControl {
     }
 
     @SubscribeEvent
-    public static void serverStarting(ServerStartingEvent event) {
-        MindGhostStartupGate.onServerStarting(Config.EXPERIMENTAL_MIND_GHOST_CONTROL.get());
-    }
-
-    @SubscribeEvent
     public static void serverStopped(ServerStoppedEvent event) {
-        MindGhostStartupGate.onServerStopped();
         GhostControlNetworking.clearDebugServerHandler();
         RuntimeState state = SERVERS.get(event.getServer());
         if (state == null) return;
@@ -801,12 +790,29 @@ public final class GhostMobHarnessControl {
     private static boolean recoverLostCharacterBody(RuntimeState state, Session session) {
         ServerPlayer player = session.player;
         Mob body = session.body;
+        if (session.medicalPaused && ObserverSystem.query(player) != null) return true;
         if (!session.committed || session.kind != MobHarnessKind.CHARACTER || body == null
                 || !connected(player) || !player.isAlive()
                 || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR
                 || player.level() != body.level() || eligibleCharacter(session, body, player)) return false;
 
         var mind = state.registry.mind(player.getUUID());
+        if (ObserverSystem.query(player) == null && mind.isPresent() && session.committed && session.kind == MobHarnessKind.CHARACTER
+                && body != null && body.level() instanceof ServerLevel level && level.getEntity(body.getUUID()) == body
+                && medicalDead(body) && mind.get().harnessId() != null && mind.get().harnessId().equals(session.bodyId)) {
+            long revision = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get()) == null ? 0
+                    : body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get()).data().revision();
+            long corpseEpoch = Math.max(mind.get().epoch() + 1, revision + 1);
+            BoundObserverAuthority authority = new NestedBoundObserverAuthority(state, session, body, corpseEpoch);
+            GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Stop(session.epoch));
+            session.medicalPaused = true;
+            if (ObserverSystem.beginBoundCorpse(player, body, corpseEpoch, authority)) {
+                player.setCamera(player);
+                ObserverSystem.sendSnapshot(player, true);
+                return true;
+            }
+            session.medicalPaused = false;
+        }
         if (mind.isEmpty() || (mind.get().harnessId() != null
                 && !mind.get().harnessId().equals(session.bodyId))) {
             MoonStation14.LOGGER.error("[mind ghost] Lost character body recovery found absent mind or unexpected owned harness; ending fail closed player={} body={} binding={}",
@@ -870,6 +876,93 @@ public final class GhostMobHarnessControl {
             if (registered) state.registry.unregisterHarness(replacementId);
             if (replacement != null && !replacement.isRemoved()) replacement.discard();
             end(state, session, true);
+            return true;
+        }
+    }
+
+    private static boolean medicalDead(LivingEntity body) {
+        var state = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
+        return state != null && state.data().state() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD;
+    }
+
+    private static final class NestedBoundObserverAuthority implements BoundObserverAuthority {
+        private final RuntimeState state;
+        private final Session session;
+        private final Mob body;
+        private final long corpseEpoch;
+        private MobHarnessId observerGhostId;
+        NestedBoundObserverAuthority(RuntimeState state, Session session, Mob body, long corpseEpoch) {
+            this.state = state; this.session = session; this.body = body; this.corpseEpoch = corpseEpoch;
+        }
+        public boolean valid(ServerPlayer owner, LivingEntity corpse, ObserverSession observer) {
+            if (owner != session.player || corpse != body || !session.medicalPaused || !connected(owner)
+                    || observer.corpseBodyId().equals(body.getUUID()) == false
+                    || state.sessions.get(owner.getUUID()) != session) return false;
+            var mind = state.registry.mind(owner.getUUID());
+            if (mind.isEmpty() || !session.mindId.equals(mind.get().id())) return false;
+            if (observer.mode() == ObserverSession.Mode.CORPSE)
+                return observer.epoch() == corpseEpoch && mind.get().epoch() == session.epoch
+                        && session.bodyId.equals(mind.get().harnessId())
+                        && session.kind == MobHarnessKind.CHARACTER;
+            return observerGhostId != null && observer.ghostId() != null
+                    && observerGhostId.value().equals(observer.ghostId())
+                    && mind.get().epoch() == observer.authorityGeneration()
+                    && observerGhostId.equals(mind.get().harnessId());
+        }
+        public GhostStartResult startGhost(ServerPlayer owner, LivingEntity corpse, long epoch,
+                com.juicyslew.moonstation14.ms14.character.components.ObserverMovementComponent observerMovement) {
+            if (epoch != corpseEpoch || !valid(owner, corpse, ObserverSystem.query(owner))) return null;
+            GhostMobHarnessEntity ghost = GhostMobHarnessRegistration.getEntityType().create(owner.level());
+            if (ghost == null) return null;
+            ghost.moveTo(body.position());
+            if (!ObserverSystem.beforeBoundGhostAdmission(owner, ghost)) { ghost.discard(); return null; }
+            MobHarnessId id = new MobHarnessId(ghost.getUUID());
+            if (!owner.level().addFreshEntity(ghost)) { ObserverSystem.finishBoundGhostAdmission(owner.getUUID(), ghost.getUUID()); ghost.discard(); return null; }
+            if (!state.registry.registerHarness(new MobHarness(id, MobHarnessKind.GHOST))) { ghost.discard(); return null; }
+            var transferred = state.registry.transfer(owner.getUUID(), id, session.epoch,
+                    h -> h.id().equals(id) && h.kind() == MobHarnessKind.GHOST && live(ghost, owner.level()));
+            if (transferred != BodyControlRegistry.OperationResult.CHANGED) {
+                state.registry.unregisterHarness(id); ghost.discard(); return null;
+            }
+            var now = state.registry.mind(owner.getUUID()).orElse(null);
+            if (now == null || !id.equals(now.harnessId())) { state.registry.unregisterHarness(id); ghost.discard(); return null; }
+            observerGhostId = id;
+            session.medicalGhostId = id;
+            session.epoch = now.epoch();
+            return new GhostStartResult(ghost, now.epoch());
+        }
+        public boolean returnToBody(ServerPlayer owner, LivingEntity corpse, ObserverSession observer) {
+            if (!valid(owner, corpse, observer) || !session.medicalPaused
+                    || body.level() != owner.level() || body.isRemoved() || !body.isAddedToLevel()
+                    || !body.isAlive() || medicalDead(body)) return false;
+            var mind = state.registry.mind(owner.getUUID()).orElse(null);
+            if (mind == null || !session.mindId.equals(mind.id())) return false;
+            if (observer.mode() == ObserverSession.Mode.CORPSE) {
+                var renewed = state.registry.renewBinding(owner.getUUID(), session.bodyId, session.epoch,
+                        h -> h.id().equals(session.bodyId) && h.kind() == MobHarnessKind.CHARACTER
+                                && eligibleCharacter(session, body, owner)).orElse(null);
+                if (renewed == null) return false;
+                session.epoch = renewed.epoch();
+            } else {
+                if (observer.mode() != ObserverSession.Mode.GHOST || session.kind != MobHarnessKind.GHOST
+                        || session.epoch != observer.authorityGeneration() || observerGhostId == null
+                        || !observerGhostId.equals(mind.harnessId())) return false;
+                var transferred = state.registry.transfer(owner.getUUID(), session.bodyId, session.epoch,
+                        h -> h.id().equals(session.bodyId) && h.kind() == MobHarnessKind.CHARACTER
+                                && eligibleCharacter(session, body, owner));
+                if (transferred != BodyControlRegistry.OperationResult.CHANGED) return false;
+                if (observerGhostId != null) state.registry.unregisterHarness(observerGhostId);
+                if (session.ghost != null && !session.ghost.isRemoved()) session.ghost.discard();
+                session.ghost = null;
+            }
+            session.id = null;
+            session.medicalGhostId = null;
+            session.medicalPaused = false;
+            session.kind = MobHarnessKind.CHARACTER;
+            session.epoch = state.registry.mind(owner.getUUID()).orElseThrow().epoch();
+            resetHandoff(session, owner);
+            GhostControlNetworking.sendToPlayer(owner,
+                    new GhostControlPayloads.Begin(session.epoch, body.getId(), MobHarnessKind.CHARACTER));
             return true;
         }
     }
@@ -1042,7 +1135,7 @@ public final class GhostMobHarnessControl {
         if (player == null || player instanceof FakePlayer || !connected(player)) return Optional.empty();
         RuntimeState state = SERVERS.get(player.level().getServer());
         Session session = state == null ? null : state.sessions.get(player.getUUID());
-        if (session == null || session.player != player || !session.committed || !player.isAlive()
+        if (session == null || session.medicalPaused || session.player != player || !session.committed || !player.isAlive()
                 || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR || player.isPassenger())
             return Optional.empty();
 
@@ -1116,7 +1209,7 @@ public final class GhostMobHarnessControl {
             return CommittedSpectatorGuard.Ownership.absent();
         RuntimeState state = SERVERS.get(server);
         Session pinned = state == null ? null : state.sessions.get(player.getUUID());
-        if (pinned == null || pinned.player != player || !pinned.committed)
+        if (pinned == null || pinned.medicalPaused || pinned.player != player || !pinned.committed)
             return CommittedSpectatorGuard.Ownership.absent();
         if (!connected(player) || !player.isAlive()
                 || player.isPassenger() || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR)
@@ -1173,6 +1266,7 @@ public final class GhostMobHarnessControl {
         state.registry.logout(session.player.getUUID());
         if (session.id != null) state.registry.unregisterHarness(session.id);
         if (session.bodyId != null) state.registry.unregisterHarness(session.bodyId);
+        if (session.medicalGhostId != null) state.registry.unregisterHarness(session.medicalGhostId);
         if (session.offerId != null) state.registry.unregisterHarness(session.offerId);
         if (session.returnId != null) state.registry.unregisterHarness(session.returnId);
         closeLease(state, session, session.offerLease, "pending possession offer");
@@ -1352,7 +1446,10 @@ public final class GhostMobHarnessControl {
         float yaw = wrapYaw(body.getYRot());
         float pitch = Math.max(-90f, Math.min(90f, body.getXRot()));
         float surface = (float) SlidingFrictionSystem.frictionFactor(body);
-        float voluntary = (float) (CharacterControlSystem.isKnockedDown(body)
+        boolean down = com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(body);
+        float voluntary = (float) (down
+                ? com.juicyslew.moonstation14.ms14.standing.PostureSystem.crawlMultiplier(body)
+                : CharacterControlSystem.isKnockedDown(body)
                 ? com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d);
         var owner = BodyContainmentService.forLevel((net.minecraft.server.level.ServerLevel) body.level())
                 .ownerOf(body).orElse(null);
@@ -1427,6 +1524,8 @@ public final class GhostMobHarnessControl {
         GhostMobHarnessEntity returnGhost;
         MobHarnessId returnId;
         long returnStartedTick;
+        boolean medicalPaused;
+        MobHarnessId medicalGhostId;
         Session(ServerPlayer player, GhostMobHarnessEntity ghost, MobHarnessId id, MindId mindId, GameType previousGameType,
                 long epoch, long startedTick, boolean modeChanged) {
             this.player = player; this.ghost = ghost; this.id = id; this.previousGameType = previousGameType;

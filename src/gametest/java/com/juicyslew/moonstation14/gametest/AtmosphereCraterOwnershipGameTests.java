@@ -1,6 +1,5 @@
 package com.juicyslew.moonstation14.gametest;
 
-import com.juicyslew.moonstation14.Config;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -31,10 +30,8 @@ public final class AtmosphereCraterOwnershipGameTests {
     public static void craterFloorChangesWakeUnclaimedFiniteCavity(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService global = AtmosphereService.INSTANCE;
-        boolean enabled = Config.ENABLE_ATMOSPHERICS.get();
-        Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> vacuum =
-                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get());
-        if (global.isEnabled() != enabled) throw new GameTestAssertException("global atmosphere config mismatch");
+        Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> vacuum = global.vacuumDimensionsForTest();
+        Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> spaces = global.spaceDimensionsForTest();
         buildChamber(helper, 1);
         buildChamber(helper, 10);
         BlockPos aInterior = helper.absolutePos(new BlockPos(3, 2, 3));
@@ -44,7 +41,7 @@ public final class AtmosphereCraterOwnershipGameTests {
         for (int x = 2; x <= 6; x++) for (int z = 2; z <= 6; z++)
             intactFloorMask.add(helper.absolutePos(new BlockPos(x, 0, z)));
         try {
-            global.configureAtServerStart(true, Set.of(level.dimension()));
+            global.configureAtServerStart(Set.of(level.dimension()), spaces);
             int due = classify(global, level, aInterior, 0, 600);
             require(due >= 0, "blast fixture chamber classification timed out");
             due = classify(global, level, bInterior, due, 600);
@@ -89,7 +86,7 @@ public final class AtmosphereCraterOwnershipGameTests {
             }
             helper.succeed();
         } finally {
-            global.configureAtServerStart(enabled, vacuum);
+            global.configureAtServerStart(vacuum, spaces);
         }
     }
 

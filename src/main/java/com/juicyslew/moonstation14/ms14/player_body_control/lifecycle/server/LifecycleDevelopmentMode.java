@@ -15,8 +15,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransition;
@@ -312,12 +310,10 @@ public final class LifecycleDevelopmentMode {
                 || !player.hasPermissions(2)) return 0;
         MinecraftServer server = level.getServer();
         if (parkedGhost(server, player) != null) return returnToGhost(player, server);
-        boolean gates = com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate.enabledForServer()
-                && !com.juicyslew.moonstation14.ms14.movement.MovementStartupGate.enabledForServer();
         boolean exactTrackedCarrier = isTracked(server, player)
                 && server.getPlayerList().getPlayer(player.getUUID()) == player
                 && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE;
-        if (deadClaimReturnMessageEligible(gates, exactTrackedCarrier, player.hasPermissions(2),
+        if (deadClaimReturnMessageEligible(exactTrackedCarrier, player.hasPermissions(2),
                 player.gameMode.getGameModeForPlayer(), currentPrimaryProfileState(server, player), true)) {
             ParkedBody parked = parkedBody(server, player);
             parked = refreshParkedBody(server, player, parked);
@@ -331,7 +327,7 @@ public final class LifecycleDevelopmentMode {
             }
             return returnToGhost(player, server, saved, true);
         }
-        if (!returnEligibilityDecision(gates, isTracked(server, player), player.hasPermissions(2),
+        if (!returnEligibilityDecision(isTracked(server, player), player.hasPermissions(2),
                 player.gameMode.getGameModeForPlayer(), true)) {
             player.sendSystemMessage(Component.literal("No eligible parked lifecycle character is attached to this Creative carrier."));
             return 0;
@@ -689,7 +685,6 @@ public final class LifecycleDevelopmentMode {
                 || player.connection == null || !player.connection.isAcceptingMessages()
                 || player.isRemoved() || server.getPlayerList().getPlayer(player.getUUID()) != player
                 || player.gameMode.getGameModeForPlayer() != GameType.CREATIVE
-                || !MindGhostStartupGate.enabledForServer() || MovementStartupGate.enabledForServer()
                 || LifecycleGhostSessionControl.ownsAny(player) || LifecycleCharacterSessionControl.ownsAny(player))
             return 0;
         var context = LifecycleStartupRuntime.contextFor(server).orElse(null);
@@ -1025,17 +1020,17 @@ public final class LifecycleDevelopmentMode {
                 || offlineClaimOwner(claim == null ? null : claim.player(), player);
     }
 
-    static boolean returnEligibilityDecision(boolean gatesEnabled, boolean exactTrackedCarrier, boolean operator,
+    static boolean returnEligibilityDecision(boolean exactTrackedCarrier, boolean operator,
                                              GameType mode, boolean uniqueOfflineProfileMatchesBody) {
-        return gatesEnabled && exactTrackedCarrier && operator && mode == GameType.CREATIVE
+        return exactTrackedCarrier && operator && mode == GameType.CREATIVE
                 && uniqueOfflineProfileMatchesBody;
     }
 
-    static boolean deadClaimReturnMessageEligible(boolean gatesEnabled, boolean exactTrackedCarrier, boolean operator,
+    static boolean deadClaimReturnMessageEligible(boolean exactTrackedCarrier, boolean operator,
                                                   GameType mode,
                                                   com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State profileState,
                                                   boolean uniqueCurrentPrimaryProfile) {
-        return gatesEnabled && exactTrackedCarrier && operator && mode == GameType.CREATIVE
+        return exactTrackedCarrier && operator && mode == GameType.CREATIVE
                 && uniqueCurrentPrimaryProfile && profileState ==
                 com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM;
     }

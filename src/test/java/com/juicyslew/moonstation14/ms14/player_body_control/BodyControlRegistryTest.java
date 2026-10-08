@@ -158,6 +158,30 @@ class BodyControlRegistryTest {
     }
 
     @Test
+    void renewBindingAdvancesEpochWithoutChangingMindOrBodyAndRejectsStaleOrInvalidClaims() {
+        BodyControlRegistry registry = new BodyControlRegistry();
+        UUID session = uuid(1300), otherSession = uuid(1301);
+        MobHarnessId ghost = harness(registry, 1302, MobHarnessKind.GHOST);
+        MobHarnessId body = harness(registry, 1303, MobHarnessKind.CHARACTER);
+        MobHarnessId otherBody = harness(registry, 1304, MobHarnessKind.CHARACTER);
+        var initial = registry.createMind(session, ghost, ELIGIBLE).orElseThrow();
+        assertEquals(BodyControlRegistry.OperationResult.CHANGED,
+                registry.transfer(session, body, initial.epoch(), ELIGIBLE));
+        var before = registry.mind(session).orElseThrow();
+
+        var renewed = registry.renewBinding(session, body, before.epoch(), ELIGIBLE).orElseThrow();
+        assertEquals(before.id(), renewed.id());
+        assertEquals(body, renewed.harnessId());
+        assertTrue(renewed.epoch() > before.epoch());
+        assertTrue(registry.renewBinding(session, body, before.epoch(), ELIGIBLE).isEmpty());
+        assertTrue(registry.renewBinding(session, otherBody, renewed.epoch(), ELIGIBLE).isEmpty());
+        assertTrue(registry.renewBinding(session, ghost, renewed.epoch(), ELIGIBLE).isEmpty());
+        assertTrue(registry.renewBinding(session, body, renewed.epoch(), target -> false).isEmpty());
+        assertTrue(registry.renewBinding(otherSession, body, renewed.epoch(), ELIGIBLE).isEmpty());
+        assertEquals(renewed, registry.mind(session).orElseThrow());
+    }
+
+    @Test
     void readOnlyAuthorizationDoesNotRevokeAnIneligibleNonLifecycleBinding() {
         BodyControlRegistry registry = new BodyControlRegistry();
         UUID session = uuid(501);

@@ -90,16 +90,19 @@ class GameTestTagSelectorTest {
                             fixture = true;
                             gameTest = true;
                             tests[0]++;
-                            boolean[] templateNamespacePresent = {false};
                             return new AnnotationVisitor(Opcodes.ASM9) {
+                                boolean namespaceSeen;
+                                boolean supportedNamespace;
                                 @Override public void visit(String key, Object value) {
                                     if (key.equals("templateNamespace")) {
-                                        templateNamespacePresent[0] = true;
-                                        assertTrue(supportedTemplateNamespaces.contains(value), "unsupported template namespace " + value + " at " + reader.getClassName() + "." + name);
+                                        namespaceSeen = true;
+                                        supportedNamespace = supportedTemplateNamespaces.contains(value);
+                                        assertTrue(supportedNamespace, "unsupported template namespace " + value + " at " + reader.getClassName() + "." + name);
                                     }
                                 }
                                 @Override public void visitEnd() {
-                                    assertTrue(templateNamespacePresent[0], "missing explicit templateNamespace: " + reader.getClassName() + "." + name);
+                                    assertTrue(namespaceSeen, "GameTest must explicitly declare templateNamespace=moonstation14: " + reader.getClassName() + "." + name);
+                                    assertTrue(supportedNamespace, "unsupported template namespace at " + reader.getClassName() + "." + name);
                                 }
                             };
                         }

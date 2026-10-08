@@ -1,0 +1,4 @@
+{
+  "parent": "base_item",
+  "tool": { "qualities": ["PULSING"] }
+}

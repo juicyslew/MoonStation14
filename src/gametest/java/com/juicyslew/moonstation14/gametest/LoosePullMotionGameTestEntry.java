@@ -7,7 +7,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 @PrefixGameTestTemplate(false)
-@GameTestTags({"loose-objects", "movement"})
+@GameTestTags({"loose-objects", "movement", "merge-main-regression"})
 public final class LoosePullMotionGameTestEntry {
     private LoosePullMotionGameTestEntry() { }
 

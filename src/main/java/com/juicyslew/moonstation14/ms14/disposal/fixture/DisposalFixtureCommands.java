@@ -12,7 +12,6 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.*;
 import com.juicyslew.moonstation14.ms14.disposal.transport.LoadedWorldDisposalRouting;
 import com.juicyslew.moonstation14.ms14.disposal.unit.*;
 import com.juicyslew.moonstation14.ms14.disposal.world.*;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.cable.*;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
@@ -85,8 +84,6 @@ public final class DisposalFixtureCommands {
      static BlockPos cornerForEntry(BlockPos reference){return cornerFromFloorReference(reference);}
     public static String build(ServerLevel l,BlockPos entry){
         BlockPos o=cornerFromFloorReference(entry);
-         if(!PowerSimulationGate.isEnabled())return "Refused without changes: power simulation disabled. Set enablePowerSimulation=true in the MoonStation14 server config and restart.";
-         if(!AtmosphereService.INSTANCE.isEnabled())return "Refused without changes: atmospherics disabled. Set enableAtmospherics=true in the MoonStation14 server config and restart.";
          if(!prototypesValid())return "Refused without changes: resolved fixture prototypes unavailable.";
          Set<BlockPos> required=new HashSet<>(tour().obstacleFootprint()); for(var n:route())required.add(n.position());
          for(int x=0;x<W;x++)for(int y=0;y<H;y++)for(int z=0;z<D;z++)required.add(new BlockPos(x,y,z));
@@ -125,7 +122,6 @@ public final class DisposalFixtureCommands {
     }
     public static String initialize(ServerLevel l,BlockPos entry){
         BlockPos o=cornerFromFloorReference(entry);
-        if(!AtmosphereService.INSTANCE.isEnabled())return "Not initialized: set enableAtmospherics=true in the MoonStation14 server config and restart.";
         String invalid=fixtureRoomFailure(l,o);if(invalid!=null)return "Not initialized: "+invalid+"; bounds "+bounds(o);
          // Claim every gas-passable cell in the bounded enclosure, not just AIR: partial
          // collision blocks (unit, tubes and powered devices) are part of the same gas component.

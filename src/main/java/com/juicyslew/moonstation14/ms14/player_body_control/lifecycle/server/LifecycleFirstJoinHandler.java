@@ -9,9 +9,7 @@ import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeCarrierTransiti
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -37,8 +35,6 @@ public final class LifecycleFirstJoinHandler {
 
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (routeDecision(MindGhostStartupGate.enabledForServer(),
-                MovementStartupGate.enabledForServer(), false, false) == JoinRoute.VANILLA) return;
         if (!(event.getEntity() instanceof ServerPlayer player) || player instanceof FakePlayer) return;
         MinecraftServer server = player.getServer();
         if (server == null || !server.isSameThread()) { disconnect(player, FAILED); return; }
@@ -128,7 +124,7 @@ public final class LifecycleFirstJoinHandler {
             disconnect(player, RECONNECT);
             return;
         }
-        JoinRoute route = routeDecision(true, false, true, false);
+        JoinRoute route = routeDecision(true, false);
         if (snapshot.state() != LifecycleStartupRuntime.State.EMPTY
                 && snapshot.state() != LifecycleStartupRuntime.State.UNINITIALIZED) {
             disconnect(player, FAILED);
@@ -236,9 +232,7 @@ public final class LifecycleFirstJoinHandler {
         return mode == GameType.SURVIVAL || mode == GameType.ADVENTURE;
     }
 
-    static JoinRoute routeDecision(boolean masterEnabled, boolean movementConflict,
-                                   boolean exactListedRealPlayer, boolean hasDurableAccount) {
-        if (!masterEnabled || movementConflict) return JoinRoute.VANILLA;
+    static JoinRoute routeDecision(boolean exactListedRealPlayer, boolean hasDurableAccount) {
         if (!exactListedRealPlayer) return JoinRoute.INVALID_PLAYER;
         return hasDurableAccount ? JoinRoute.EXISTING_ACCOUNT : JoinRoute.FIRST_ACCOUNT;
     }

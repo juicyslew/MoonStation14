@@ -50,14 +50,16 @@ public final class LoosePullMotionGameTests {
         Vec3 start = target.position();
         require(BodyPullService.toggleFixture(body, target.getUUID(), "left", hands.revision(), () -> true)
                 == BodyPullService.Result.SUCCESS, "pull starts");
-        for (int i = 0; i < 3; i++) {
+        // The resolved tether adds slack to the initial endpoint distance. Walk the
+        // real puller beyond that allowance before expecting spring motion.
+        for (int i = 0; i < 12; i++) {
             body.setPos(body.getX() - .2, body.getY(), body.getZ());
             BodyPullService.onPostServerTick(null);
             target.tick();
         }
         Vec3 delta = target.position().subtract(start);
         Vec3 toward = body.position().subtract(start);
-        require(delta.x * toward.x + delta.z * toward.z > 0, "three motion steps move toward body horizontally");
+        require(delta.x * toward.x + delta.z * toward.z > 0, "puller travel beyond tether slack moves item toward body horizontally");
         require(Math.abs(delta.y) < 1.0, "pull does not lift item by targeting body center");
         require(level.getEntity(target.getUUID()) == target && !target.isRemoved()
                         && ItemStack.matches(source, target.getItem()), "source UUID and stack remain unchanged");

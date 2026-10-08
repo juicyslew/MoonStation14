@@ -32,7 +32,7 @@ public final class AtmosphereTransportDiagnosticCommand {
                 || level.getServer() == null || !level.getServer().isSameThread()) return 0;
         AtmosphereService service = AtmosphereService.INSTANCE;
         AtmosphereService.CellDiagnostic center = service.diagnosticCell(level, pos);
-        send(source, "Atmosphere enabled=" + service.isEnabled() + " cell=" + pos.toShortString());
+        send(source, "Atmosphere active; cell=" + pos.toShortString());
         send(source, cell("center", center));
         var owner = service.diagnosticOwnership(level, pos);
         send(source, "Ownership target: status=" + owner.status() + " reason=" + owner.reason()

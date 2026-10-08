@@ -33,21 +33,16 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/LocalPlayerStunDropMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ChatComponentUnifiedViewMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ChatListenerSystemNoticeMixin.java",
-            "com/juicyslew/moonstation14/ms14/movement/client/MovementClientController.java",
             "com/juicyslew/moonstation14/ms14/chat/client/LocalSpeechClient.java",
             "com/juicyslew/moonstation14/ms14/chat/client/LocalSpeechReviewKey.java",
             "com/juicyslew/moonstation14/ms14/chat/client/LocalSpeechReviewOverlay.java",
             "com/juicyslew/moonstation14/ms14/chat/client/DirectionalCueOverlay.java",
             "com/juicyslew/moonstation14/ms14/chat/client/DirectionalCueTintMesh.java",
-            "com/juicyslew/moonstation14/mixin/client/LocalPlayerMovementTickMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ContainedBodyCameraMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ContainedPerspectiveLockMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ContainedOwnerPickMixin.java",
-            "com/juicyslew/moonstation14/mixin/client/LocalPlayerMovementTravelMixin.java",
-            "com/juicyslew/moonstation14/mixin/client/LivingEntityMovementAnimationInvoker.java",
-            "com/juicyslew/moonstation14/mixin/client/LivingEntityWishFacingMixin.java",
-            "com/juicyslew/moonstation14/mixin/client/MouseHandlerSlidingLookMixin.java",
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java",
+            "com/juicyslew/moonstation14/ms14/medical_observer/client/MedicalCameraAnchorEntity.java",
             "com/juicyslew/moonstation14/mixin/client/GhostOwnedEntityTrackerMixin.java",
             "com/juicyslew/moonstation14/mixin/client/LivingEntityDisposalContainmentRenderMixin.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
@@ -70,7 +65,26 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalBuildScreen.java",
             "com/juicyslew/moonstation14/ms14/disposal/unit/ui/client/DisposalUnitScreen.java",
             "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionClient.java",
-            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java");
+            "com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java",
+            "com/juicyslew/moonstation14/mixin/client/LivingEntityProneRenderMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/ChatScreenReviewPagingMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/HumanoidProneArmsMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/PlayerProneSleevesMixin.java",
+            "com/juicyslew/moonstation14/ms14/standing/PronePoseMath.java",
+            "com/juicyslew/moonstation14/mixin/client/GameRendererDamageFeedbackMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/LivingEntityRendererDamageFeedbackMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/LevelRendererCriticalCloudsMixin.java",
+            "com/juicyslew/moonstation14/ms14/damage/client/DamageFeedbackClientState.java",
+            "com/juicyslew/moonstation14/ms14/eye/client/CriticalFogClient.java",
+            "com/juicyslew/moonstation14/ms14/mobs/client/MedicalPerspectiveClient.java",
+             "com/juicyslew/moonstation14/ms14/standing/client/PostureClient.java",
+             "com/juicyslew/moonstation14/ms14/doors/client/AirlockBlockEntityRenderer.java",
+             "com/juicyslew/moonstation14/ms14/doors/client/AirlockFramePlanner.java",
+             "com/juicyslew/moonstation14/ms14/doors/ui/client/AirlockWireScreen.java",
+             "com/juicyslew/moonstation14/ms14/doors/ui/client/AirlockWireClient.java",
+             "com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java",
+             "com/juicyslew/moonstation14/ms14/hands/client/StoragePopupScreen.java"
+    );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
                     + "net\\.neoforged\\.neoforge\\.client|com\\.mojang\\.blaze3d)\\.[^;]+;");
@@ -94,7 +108,8 @@ class ServerClassloadingTest {
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_CONSTRUCTION_SOURCE_PREFIX)
-                        || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)) {
+                        || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")) {
                     continue;
                 }
 

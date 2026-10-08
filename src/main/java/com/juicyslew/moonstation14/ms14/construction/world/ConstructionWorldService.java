@@ -351,7 +351,7 @@ public final class ConstructionWorldService {
         }
         if (step instanceof ConstructionGraph.ToolStep)
             com.juicyslew.moonstation14.ms14.construction.tool.ConstructionToolAudio.playSuccessful(level, c.authority().body(), consumeAfter);
-        if (AtmosphereService.INSTANCE.isEnabled()) AtmosphereService.INSTANCE.topologyChanged(level, record.pos());
+        AtmosphereService.INSTANCE.topologyChanged(level, record.pos());
         return TimedInteractionSystem.Completion.STOP;
     }
     private static java.util.List<ItemEntity> stageReturns(ServerLevel level, LivingEntity body, java.util.List<ConstructionGraph.MaterialReturn> returns) {
@@ -497,7 +497,7 @@ public final class ConstructionWorldService {
             if (l.getBlockState(p) == placed && !l.setBlock(p, prior, Block.UPDATE_ALL)) return TimedInteractionSystem.Completion.RECOVERY_REQUIRED;
             return TimedInteractionSystem.Completion.DENIED;
         }
-        if (AtmosphereService.INSTANCE.isEnabled()) AtmosphereService.INSTANCE.topologyChanged(l, p);
+        AtmosphereService.INSTANCE.topologyChanged(l, p);
         return TimedInteractionSystem.Completion.STOP;
     }
 

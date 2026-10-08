@@ -1,7 +1,5 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character;
 
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry;
@@ -39,8 +37,6 @@ public final class PlayerCharacterAppearanceService {
 
     private static boolean authorizedToEdit(PlayerCharacterHarnessEntity body, ServerPlayer player,
                                             PlayerLifecycleRegistry lifecycle, long expectedGeneration) {
-        boolean gatesPermit = MindGhostStartupGate.enabledForServer() && !MovementStartupGate.enabledForServer();
-        if (!gatesPermit) return false;
         if (body == null || !(body.level() instanceof ServerLevel level)
                 || level.getServer() == null || !level.getServer().isSameThread()) return false;
         if (player == null || lifecycle == null
@@ -50,7 +46,7 @@ public final class PlayerCharacterAppearanceService {
         PlayerCharacterBinding binding = body.playerCharacterBinding();
         var profile = lifecycle.profile(player.getUUID()).orElse(null);
         MobHarnessId bodyId = new MobHarnessId(body.getUUID());
-        if (!canEdit(gatesPermit, level.getServer().isSameThread(), binding, player.getUUID(),
+        if (!canEdit(level.getServer().isSameThread(), binding, player.getUUID(),
                 profile, bodyId, expectedGeneration)
                 || !lifecycle.authorizes(player.getUUID(), expectedGeneration, bodyId,
                 target -> target.kind() == MobHarnessKind.CHARACTER))
@@ -73,10 +69,10 @@ public final class PlayerCharacterAppearanceService {
                 && exactPlayerListInstance;
     }
 
-    static boolean canEdit(boolean gatesPermit, boolean serverThread, PlayerCharacterBinding binding,
+    static boolean canEdit(boolean serverThread, PlayerCharacterBinding binding,
                            UUID accountId, PlayerLifecycleRegistry.Snapshot profile,
                            MobHarnessId bodyId, long expectedGeneration) {
-        return gatesPermit && serverThread && binding != null && accountId != null
+        return serverThread && binding != null && accountId != null
                 && profile != null && bodyId != null && binding.accountId().equals(accountId)
                 && profile.accountId().equals(accountId)
                 && profile.state() == PlayerLifecycleRegistry.LifecycleState.ACTIVE && profile.active()

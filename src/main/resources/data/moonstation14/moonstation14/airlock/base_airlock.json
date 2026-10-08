@@ -1,0 +1,29 @@
+{
+  "id": "base_airlock",
+  "abstract": true,
+  "door": {
+    "openTimeOneSeconds": 0.4,
+    "openTimeTwoSeconds": 0.2,
+    "closeTimeOneSeconds": 0.4,
+    "closeTimeTwoSeconds": 0.2,
+    "denyDurationSeconds": 0.45,
+    "crushDamageBlunt": 15.0,
+    "crushStunSeconds": 2.0,
+    "bumpOpen": true
+  },
+  "airlock": {
+    "safety": true,
+    "autoClose": true,
+    "autoCloseSeconds": 5.0,
+    "unboltedPryModifier": 9.0,
+    "boltedPryMultiplier": 3.0,
+    "openPanelVisible": false
+  },
+  "doorBolt": { "boltLightsEnabled": true },
+  "apcPowerReceiver": { "requestedWatts": 20.0 },
+  "extensionCableReceiver": { "localReachBlocks": 3 },
+  "wiresPanel": { "openingToolQuality": "SCREWING", "toggleDelaySeconds": 1.0 },
+  "wiresPanelSecurity": { "wiresAccessible": true },
+  "electrified": { "enabled": false, "usesApcPower": true, "requirePower": true, "shockDamage": 7.5, "shockSeconds": 5.0, "electrificationCancelSeconds": 30.0, "probability": 1.0, "siemensCoefficient": 1.0, "onTouch": true, "onBump": true, "onUsing": true, "onAttacked": true },
+  "wires": { "layoutId": "standard_airlock", "supportedActions": ["power_one", "power_two", "log", "bolt", "bolt_light", "timing", "safety", "ai_interact"], "powerOnePulseSeconds": 30.0, "powerTwoPulseSeconds": 15.0, "timingCutModifier": 0.01, "timingPulseModifier": 0.5, "timingPulseSeconds": 30.0, "safetyPulseSeconds": 30.0, "logPulseSeconds": 30.0 }
+}

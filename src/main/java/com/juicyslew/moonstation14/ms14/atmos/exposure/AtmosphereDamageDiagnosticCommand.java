@@ -31,11 +31,11 @@ public final class AtmosphereDamageDiagnosticCommand {
 
     private AtmosphereDamageDiagnosticCommand() { }
 
-    static List<String> format(BlockPos eye, boolean enabled, GasMixture gas, Double bodyKelvin,
+    static List<String> format(BlockPos eye, GasMixture gas, Double bodyKelvin,
                                RespirationState respiration, Map<String, Float> damage, float health, float maxHealth) {
         List<String> lines = new ArrayList<>();
         lines.add("Eye block: " + eye.getX() + ", " + eye.getY() + ", " + eye.getZ());
-        lines.add("Atmosphere enabled: " + enabled);
+        lines.add("Atmosphere: active");
         if (gas == null) {
             lines.add("Eye-cell gas: unavailable");
         } else {
@@ -78,7 +78,7 @@ public final class AtmosphereDamageDiagnosticCommand {
         var temperature = body.getExistingDataOrNull(ModDataAttachments.BODY_TEMPERATURE.get());
         var damage = body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
         RespirationState respiration = BodySystem.current(body).map(state -> state.respiration()).orElse(null);
-        for (String line : format(eye, AtmosphereService.INSTANCE.isEnabled(), gas,
+        for (String line : format(eye, gas,
                 temperature == null ? null : temperature.kelvin(), respiration, damage == null ? null : damage.getMap(),
                 body.getHealth(), body.getMaxHealth())) {
             source.sendSuccess(() -> Component.literal(line), false);

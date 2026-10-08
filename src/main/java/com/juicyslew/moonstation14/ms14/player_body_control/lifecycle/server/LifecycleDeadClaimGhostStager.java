@@ -1,6 +1,5 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
-import com.juicyslew.moonstation14.ms14.movement.MovementStartupGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
@@ -12,7 +11,6 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
-import com.juicyslew.moonstation14.ms14.player_body_control.server.MindGhostStartupGate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -28,42 +26,43 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /** Explicit DEAD_CLAIM to durable GHOST staging boundary for trusted login and confirmed-death callers. */
 public final class LifecycleDeadClaimGhostStager {
     private LifecycleDeadClaimGhostStager() { }
 
     public static Result stage(ServerPlayer player, MinecraftServer server) {
-        return resolveAndStage(player, server, null, false);
+        return resolveAndStage(player, server, null, false, ignored -> true);
     }
 
     /** Connected-death handoff requires the retained, exact corpse to still be loaded. */
     static Result stageConnectedDeath(ServerPlayer player, MinecraftServer server) {
-        return resolveAndStage(player, server, null, true);
+        return resolveAndStage(player, server, null, true, ignored -> true);
+    }
+
+    static Result stageConnectedDeath(ServerPlayer player, MinecraftServer server,
+                                      Predicate<GhostMobHarnessEntity> beforeAdmission) {
+        return resolveAndStage(player, server, null, true, Objects.requireNonNull(beforeAdmission));
     }
 
     private static Result resolveAndStage(ServerPlayer player, MinecraftServer server, SavedLifecycleProfile supplied,
-                                          boolean requireLoadedCorpse) {
-        if (!MindGhostStartupGate.enabledForServer()) return Result.failed("lifecycle master gate is off");
-        if (MovementStartupGate.enabledForServer()) return Result.failed("movement conflict is active");
+                                          boolean requireLoadedCorpse, Predicate<GhostMobHarnessEntity> beforeAdmission) {
         if (player == null || server == null) return Result.failed("server thread or player is unavailable");
         LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
         if (context == null) return Result.failed("initialized lifecycle context is unavailable");
         final SavedLifecycleProfile saved;
         try { saved = supplied == null ? context.currentDeadClaim(player.getUUID()).orElse(null) : supplied; }
         catch (Exception failure) { return Result.failed("current-primary DEAD_CLAIM could not be validated; inspect lifecycle state"); }
-        return prepare(player, server, saved, requireLoadedCorpse);
+        return prepare(player, server, saved, requireLoadedCorpse, beforeAdmission);
     }
 
     static Result stage(ServerPlayer player, MinecraftServer server, SavedLifecycleProfile saved) {
-        return prepare(player, server, saved, false);
+        return prepare(player, server, saved, false, ignored -> true);
     }
 
     private static Result prepare(ServerPlayer player, MinecraftServer server, SavedLifecycleProfile saved,
-                                  boolean requireLoadedCorpse) {
-        // These global gates precede player, context, storage, and world access.
-        if (!MindGhostStartupGate.enabledForServer()) return Result.failed("lifecycle master gate is off");
-        if (MovementStartupGate.enabledForServer()) return Result.failed("movement conflict is active");
+                                  boolean requireLoadedCorpse, Predicate<GhostMobHarnessEntity> beforeAdmission) {
         if (player == null || server == null || !server.isSameThread())
             return Result.failed("server thread or player is unavailable");
         if (player instanceof FakePlayer || player.isRemoved() || !player.isAlive()
@@ -134,6 +133,7 @@ public final class LifecycleDeadClaimGhostStager {
             ghost.setNoGravity(true);
             ghost.noPhysics = true;
             ghost.moveTo(x, y, z, 0, 0);
+            if (!beforeAdmission.test(ghost)) return Result.failed("trusted ghost admission authorization failed");
             if (!targetLevel.addFreshEntity(ghost)) return Result.failed("new ghost was rejected by the world");
             if (!exactFreshGhost(targetLevel, ghost)) return Result.failed("new ghost failed exact world verification");
 
@@ -171,7 +171,10 @@ public final class LifecycleDeadClaimGhostStager {
             }
             return Result.failed("ghost preparation failed before staging; DEAD_CLAIM retained");
         } finally {
-            if (!keepGhost) cleanup(context, accountId, ghost, registered);
+            if (!keepGhost) {
+                if (ghost != null) com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.finishBoundGhostAdmission(player.getUUID(), ghost.getUUID());
+                cleanup(context, accountId, ghost, registered);
+            }
         }
     }
 

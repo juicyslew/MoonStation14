@@ -42,7 +42,7 @@ public final class AtmosphereVisualServerHooks {
     public static void register(IEventBus bus) { bus.register(AtmosphereVisualServerHooks.class); }
 
     public static void noteChanged(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || !AtmosphereService.INSTANCE.isEnabled()) return;
+        if (level == null || pos == null) return;
         LevelState state = STATES.get(level);
         ChunkPos chunk = new ChunkPos(pos);
         if (state != null && state.watchers.containsKey(chunk)) state.changes.offer(chunk, pos);
@@ -50,7 +50,7 @@ public final class AtmosphereVisualServerHooks {
 
     /** Accepts only a bounded, rate-limited request for a chunk this exact player currently watches. */
     public static void requestResync(ServerPlayer player, AtmosphereVisualResyncRequest request) {
-        if (player == null || request == null || !AtmosphereService.INSTANCE.isEnabled()) return;
+        if (player == null || request == null) return;
         ServerLevel level = player.serverLevel();
         LevelState state = STATES.get(level);
         if (state == null) return;
@@ -76,7 +76,7 @@ public final class AtmosphereVisualServerHooks {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkSent(ChunkWatchEvent.Sent event) {
-        if (!(event.getLevel() instanceof ServerLevel level) || !AtmosphereService.INSTANCE.isEnabled()) return;
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
         ServerPlayer player = event.getPlayer();
         if (player == null) return;
         LevelState state = state(level);
@@ -109,7 +109,6 @@ public final class AtmosphereVisualServerHooks {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onPostServerTick(ServerTickEvent.Post event) {
-        if (!AtmosphereService.INSTANCE.isEnabled()) { STATES.clear(); return; }
         for (ServerLevel level : event.getServer().getAllLevels()) {
             if (level.getGameTime() % SEND_CADENCE_TICKS != 0) continue;
             LevelState state = STATES.get(level);

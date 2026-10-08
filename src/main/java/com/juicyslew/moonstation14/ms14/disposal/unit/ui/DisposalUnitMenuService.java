@@ -206,4 +206,3 @@ public final class DisposalUnitMenuService {
     private static DisposalUnitBlockEntity unit(DisposalUnitMenu menu){return menu.authority()==null||menu.authority().actor().level()!=menu.authority().body().level()?null:menu.authority().actor().level().getBlockEntity(menu.pos()) instanceof DisposalUnitBlockEntity u&&u.identity().equals(menu.unitId())?u:null;}
     private static void refresh(DisposalUnitMenu menu){var u=unit(menu);if(u!=null)menu.update(u.getBlockState().getValue(com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock.POWERED)?1:0,menu.result(),u.bodyIds().size());}
 }
-

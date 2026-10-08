@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.piping.ExposedPipeVisualBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
+import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
@@ -68,6 +69,9 @@ public class ModBlocks {
     public static final DeferredBlock<AirAlarmBlock> AIR_ALARM = BLOCKS.register("air_alarm",
             () -> new AirAlarmBlock(BlockBehaviour.Properties.of().strength(2f).sound(SoundType.COPPER)
                     .noOcclusion().noCollission()));
+    public static final DeferredBlock<AirlockBlock> AIRLOCK = BLOCKS.register("airlock",
+            () -> new AirlockBlock(BlockBehaviour.Properties.of().strength(5f).sound(SoundType.METAL).noOcclusion()));
+    static { registerBlockItem("airlock", AIRLOCK); }
 
 
     public static final DeferredBlock<PuddleBlock> PUDDLE = BLOCKS.register("puddle",

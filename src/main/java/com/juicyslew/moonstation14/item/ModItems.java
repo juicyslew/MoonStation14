@@ -11,7 +11,7 @@ import com.juicyslew.moonstation14.item.custom.SteelItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTileItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTilePryItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
-import com.juicyslew.moonstation14.item.custom.CableCutterItem;
+import com.juicyslew.moonstation14.item.custom.WirecutterItem;
 import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
@@ -83,8 +83,12 @@ public class ModItems {
             () -> new CableSpoolItem(new Item.Properties().stacksTo(16), CableTier.MV));
     public static final DeferredItem<CableSpoolItem> APC_CABLE_SPOOL = ITEMS.register("apc_cable_spool",
             () -> new CableSpoolItem(new Item.Properties().stacksTo(16), CableTier.APC));
-    public static final DeferredItem<CableCutterItem> CABLE_CUTTER = ITEMS.register("cable_cutter",
-            () -> new CableCutterItem(new Item.Properties().durability(128)));
+    public static final DeferredItem<WirecutterItem> WIRECUTTER = ITEMS.register("wirecutter",
+            () -> new WirecutterItem(new Item.Properties().durability(128)));
+    public static final DeferredItem<Item> AIRLOCK_SCREWDRIVER = ITEMS.register("airlock_screwdriver",
+            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_screwdriver"))));
+    public static final DeferredItem<Item> AIRLOCK_MULTITOOL = ITEMS.register("multitool",
+            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_multitool"))));
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",
             () -> new BottleItem(new Item.Properties().stacksTo(1))
     );

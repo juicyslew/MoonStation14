@@ -110,7 +110,6 @@ public final class AtmosphereService {
     private final Map<ServerLevel, IgnitionDiagnosticHistory> ignitionDiagnostics = new WeakHashMap<>();
     private volatile Set<ResourceKey<Level>> vacuumDimensions;
     private volatile Set<ResourceKey<Level>> spaceDimensions;
-    private volatile boolean enabled;
     private final Map<ServerLevel, DiagnosticTiming> diagnosticTimings = new WeakHashMap<>();
     private final Map<ServerLevel, AtmosphereRuntimeTelemetry> runtimeTelemetry = new WeakHashMap<>();
     /** Read-only cumulative scheduler snapshot; does not advance or admit work. */
@@ -191,7 +190,7 @@ public final class AtmosphereService {
 
     /** Loaded-only diagnostic read: unlike sample(), never advances ownership or queues work. */
     public CellDiagnostic diagnosticCell(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || !inBounds(level, pos)) return new CellDiagnostic("unknown", null, null, false);
+        if (level == null || pos == null || !inBounds(level, pos)) return new CellDiagnostic("unknown", null, null, false);
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null) return new CellDiagnostic("unknown-unloaded", null, ambient(level), vacuumDimensions.contains(level.dimension()));
         if (!AtmosphereTopology.isPassable(level, pos)) return new CellDiagnostic("blocked", null, ambient(level), vacuumDimensions.contains(level.dimension()));
@@ -213,16 +212,15 @@ public final class AtmosphereService {
     }
     public DiagnosticTiming diagnosticTiming(ServerLevel level) { return diagnosticTimings.get(level); }
 
-    private AtmosphereService() { this(Set.of(), false); }
-    private AtmosphereService(Set<ResourceKey<Level>> vacuumDimensions, boolean enabled) {
+    private AtmosphereService() { this(Set.of()); }
+    private AtmosphereService(Set<ResourceKey<Level>> vacuumDimensions) {
         this.vacuumDimensions = Set.copyOf(vacuumDimensions);
         this.spaceDimensions = Set.of(ResourceKey.create(Registries.DIMENSION, ResourceLocation.withDefaultNamespace("the_end")));
-        this.enabled = enabled;
     }
 
     /** Creates an isolated policy instance; no process-global dimension configuration is mutated. */
     public static AtmosphereService withVacuumDimensions(Set<ResourceKey<Level>> vacuumDimensions) {
-        AtmosphereService service = new AtmosphereService(vacuumDimensions, true);
+        AtmosphereService service = new AtmosphereService(vacuumDimensions);
         java.util.HashSet<ResourceKey<Level>> spaces = new java.util.HashSet<>(service.spaceDimensions);
         spaces.addAll(vacuumDimensions);
         service.spaceDimensions = Set.copyOf(spaces);
@@ -231,33 +229,28 @@ public final class AtmosphereService {
 
     public static AtmosphereService withDimensions(Set<ResourceKey<Level>> vacuumDimensions,
                                                    Set<ResourceKey<Level>> spaceDimensions) {
-        AtmosphereService service = new AtmosphereService(vacuumDimensions, true);
+        AtmosphereService service = new AtmosphereService(vacuumDimensions);
         service.spaceDimensions = Set.copyOf(spaceDimensions);
         return service;
     }
 
     /** Installs the common-config policy at server startup without rewriting saved cells. */
-    public void configureAtServerStart(boolean enabled, Set<ResourceKey<Level>> vacuumDimensions) {
-        configureAtServerStart(enabled, vacuumDimensions,
-                Set.of(ResourceKey.create(Registries.DIMENSION, ResourceLocation.withDefaultNamespace("the_end"))));
+    public void configureAtServerStart(Set<ResourceKey<Level>> vacuumDimensions) {
+        clearAll();
+        this.vacuumDimensions = Set.copyOf(vacuumDimensions);
     }
 
-    public void configureAtServerStart(boolean enabled, Set<ResourceKey<Level>> vacuumDimensions,
+    /** Installs independent ambient-vacuum and space-behavior dimension profiles. */
+    public void configureAtServerStart(Set<ResourceKey<Level>> vacuumDimensions,
                                        Set<ResourceKey<Level>> spaceDimensions) {
         clearAll();
         this.vacuumDimensions = Set.copyOf(vacuumDimensions);
         this.spaceDimensions = Set.copyOf(spaceDimensions);
-        this.enabled = enabled;
     }
 
-    /** Compatibility overload for policy-focused callers predating the startup switch. */
-    public void configureAtServerStart(Set<ResourceKey<Level>> vacuumDimensions) {
-        configureAtServerStart(true, vacuumDimensions);
-    }
-
-    public boolean isEnabled() { return enabled; }
     public boolean isSpaceDimension(ResourceKey<Level> dimension) { return isSpace(dimension); }
     public Set<ResourceKey<Level>> vacuumDimensionsForTest() { return vacuumDimensions; }
+    public Set<ResourceKey<Level>> spaceDimensionsForTest() { return spaceDimensions; }
 
     /**
      * Creates a transaction endpoint only for an already-persisted finite room cell. Must be
@@ -265,7 +258,7 @@ public final class AtmosphereService {
      */
     // Package-private until claims have a durable generation token. This seam is not production API.
     Optional<PipeGasTransaction.Endpoint> finiteRoomEndpoint(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || level.getServer() == null
+        if (level == null || pos == null || level.getServer() == null
                 || !level.getServer().isSameThread() || !inBounds(level, pos)) return Optional.empty();
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null || !AtmosphereTopology.isPassable(level, pos) || !isFiniteClaimed(chunk, pos)
@@ -281,7 +274,7 @@ public final class AtmosphereService {
     /** Immediate server-thread transaction endpoint for one already-owned finite cell. Unlike the
      * trusted room endpoint, it does not require proving the entire connected component. */
     public Optional<PipeGasTransaction.Endpoint> finiteCellEndpointForImmediateTransfer(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || level.getServer() == null
+        if (level == null || pos == null || level.getServer() == null
                 || !level.getServer().isSameThread() || !inBounds(level, pos)) return Optional.empty();
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null || !AtmosphereTopology.isPassable(level, pos)
@@ -353,7 +346,7 @@ public final class AtmosphereService {
      */
     public boolean initializeEnclosedFiniteMixtureForTrustedSetup(ServerLevel level, List<BlockPos> cells,
                                                                    GasMixture mixture) {
-        if (!enabled || level == null || cells == null || cells.isEmpty() || cells.size() > 128
+        if (level == null || cells == null || cells.isEmpty() || cells.size() > 128
                 || mixture == null || level.getServer() == null || !level.getServer().isSameThread()) return false;
         Set<BlockPos> supplied = new HashSet<>();
         for (BlockPos cell : cells) {
@@ -439,7 +432,7 @@ public final class AtmosphereService {
         }
 
         private boolean valid() {
-            return service.enabled && level.getServer() != null && level.getServer().isSameThread()
+            return level.getServer() != null && level.getServer().isSameThread()
                     && level.getGameTime() == createdTick
                     && inBounds(level, pos) && loadedChunk(level, pos) == capturedChunk
                     && AtmosphereTopology.isPassable(level, pos)
@@ -527,12 +520,12 @@ public final class AtmosphereService {
     /** Read-only server-authoritative intensity; zero denotes no live committed burn. */
     public int fireIntensity(ServerLevel level, BlockPos pos) {
         ReactionWorkQueue work = level == null ? null : reactionQueues.get(level);
-        return !enabled || work == null || pos == null ? 0 : work.fireIntensity(pos);
+        return work == null || pos == null ? 0 : work.fireIntensity(pos);
     }
 
     /** Queues a bounded, one-shot blast heat exposure for the next due atmosphere pass. */
     public boolean exposeExplosionHotspot(ServerLevel level, BlockPos pos, double temperatureKelvin, double intensity) {
-        if (!enabled || level == null || pos == null || level.getServer() == null || !level.getServer().isSameThread()
+        if (level == null || pos == null || level.getServer() == null || !level.getServer().isSameThread()
                 || !Double.isFinite(temperatureKelvin) || !Double.isFinite(intensity) || intensity <= 0) return false;
         GasMixture gas = reactionFiniteMixture(level, pos);
         if (gas == null) return false;
@@ -565,7 +558,7 @@ public final class AtmosphereService {
     /** Returns the next active fire position in this chunk without scanning map cells. */
     public Optional<AtmosphereChunkData.CellPosition> nextBurningAfter(ServerLevel level, ChunkPos chunk, AtmosphereChunkData.CellPosition cursor) {
         ReactionWorkQueue work = level == null ? null : reactionQueues.get(level);
-        return !enabled || work == null || chunk == null ? Optional.empty() : work.nextBurningAfter(chunk, cursor);
+        return work == null || chunk == null ? Optional.empty() : work.nextBurningAfter(chunk, cursor);
     }
 
     /** Clears transient work and policy so integrated/server restarts cannot inherit state. */
@@ -573,12 +566,11 @@ public final class AtmosphereService {
         clearAll();
         vacuumDimensions = Set.of();
         spaceDimensions = Set.of();
-        enabled = false;
     }
 
     /** Empty means outside world bounds, inaccessible, solid, or in an unloaded chunk. */
     public Optional<GasMixture> sample(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) return Optional.empty();
+        if (level == null || pos == null || pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) return Optional.empty();
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null || !AtmosphereTopology.isPassable(level, pos)) return Optional.empty();
         Ownership owner = ownership(level, chunk, pos);
@@ -598,7 +590,7 @@ public final class AtmosphereService {
      * mutation, or device rules. Those paths must continue to use strict {@link #sample}.
      */
     public Optional<AtmosphereReading> readAtmosphere(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || !inBounds(level, pos)) return Optional.empty();
+        if (level == null || pos == null || !inBounds(level, pos)) return Optional.empty();
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null || !AtmosphereTopology.isPassable(level, pos)) return Optional.empty();
         OwnershipKind owner = ownershipKind(level, chunk, pos);
@@ -619,7 +611,7 @@ public final class AtmosphereService {
     }
 
     public boolean addGas(ServerLevel level, BlockPos pos, GasType type, double moles, double injectionTemperature) {
-        if (!enabled || type == null || !Double.isFinite(moles) || moles <= 0.0 || !Double.isFinite(injectionTemperature) || injectionTemperature < 0.0) return false;
+        if (type == null || !Double.isFinite(moles) || moles <= 0.0 || !Double.isFinite(injectionTemperature) || injectionTemperature < 0.0) return false;
         if (isLoadedPassableExterior(level, pos)) return false;
         Optional<GasMixture> current = sample(level, pos);
         if (current.isEmpty()) return false;
@@ -631,7 +623,7 @@ public final class AtmosphereService {
 
     /** Injects breathable air as one composition and one cell write. */
     public boolean addBreathableAir(ServerLevel level, BlockPos pos, double totalMoles, double temperatureKelvin) {
-        if (!enabled || !Double.isFinite(totalMoles) || totalMoles <= 0.0
+        if (!Double.isFinite(totalMoles) || totalMoles <= 0.0
                 || !Double.isFinite(temperatureKelvin) || temperatureKelvin <= 0.0) return false;
         if (isLoadedPassableExterior(level, pos)) return false;
         Optional<GasMixture> current = sample(level, pos);
@@ -652,14 +644,14 @@ public final class AtmosphereService {
      * species/energy/events are chemistry only; mixture is the final source AFTER face heat transfer.
      */
     public Optional<GasReactionEvaluator.Result> reactFiniteCell(ServerLevel level, BlockPos pos) {
-        if (level == null || !isTickDue(enabled, level.getGameTime()) || pos == null || level.getServer() == null
+        if (level == null || !isTickDue(level.getGameTime()) || pos == null || level.getServer() == null
                 || !level.getServer().isSameThread()) return Optional.empty();
         return reactFiniteCellAtTime(level, pos, level.getGameTime(), true);
     }
 
     private Optional<GasReactionEvaluator.Result> reactFiniteCellAtTime(ServerLevel level, BlockPos pos, long gameTime,
                                                                         boolean allowWholeAirFallback) {
-        if (!enabled || level == null || pos == null) return Optional.empty();
+        if (level == null || pos == null) return Optional.empty();
         ReactionWorkQueue work = reactionQueues.computeIfAbsent(level, ignored -> new ReactionWorkQueue());
         long dueStep = reactionDueStep(gameTime);
         if (work.reacted(dueStep, pos)) return Optional.empty();
@@ -716,7 +708,7 @@ public final class AtmosphereService {
                         current -> hotspotStepResult(before, priorWhole, GasReactionStep.processHotspot(
                                 PrototypeRuntime.serverGasReactions(), passGas, finalProcessState, priorFireExtent)),
                         neighbors, () -> {
-                            if (!enabled || !sameReactionSnapshot(before, reactionFiniteMixture(level, pos))) return false;
+                            if (!sameReactionSnapshot(before, reactionFiniteMixture(level, pos))) return false;
                             for (var neighbor : neighbors)
                                 if (work.reacted(dueStep, neighbor.position())
                                         || work.hotspot(neighbor.position()) != null
@@ -840,7 +832,7 @@ public final class AtmosphereService {
 
     /** Validated sparse write only: no dirty, visual, queue, or transient publication. */
     private boolean writeHotspotRaw(ServerLevel level, BlockPos pos, GasMixture state) {
-        if (!enabled || level == null || pos == null || state == null || !inBounds(level, pos)) return false;
+        if (level == null || pos == null || state == null || !inBounds(level, pos)) return false;
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null || !AtmosphereTopology.isPassable(level, pos) || !isFiniteClaimed(chunk, pos)) return false;
         AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
@@ -1091,7 +1083,7 @@ public final class AtmosphereService {
     public Optional<BreathExchange> exchangeBreath(ServerLevel level, BlockPos pos,
                                                     double requestedMoles, GasMixture exhaled,
                                                     java.util.function.Predicate<GasMixture> validateInhaled) {
-        if (!enabled || level == null || pos == null || exhaled == null
+        if (level == null || pos == null || exhaled == null
                   || validateInhaled == null || !Double.isFinite(requestedMoles)
                   || requestedMoles < 0.0 || !inBounds(level, pos))
             return Optional.empty();
@@ -1135,7 +1127,7 @@ public final class AtmosphereService {
 
     /** Removes up to the requested amount proportionally across all species. */
     public double removeGasUpTo(ServerLevel level, BlockPos pos, double maxMoles) {
-        if (!enabled || !Double.isFinite(maxMoles) || maxMoles <= 0.0) return 0.0;
+        if (!Double.isFinite(maxMoles) || maxMoles <= 0.0) return 0.0;
         if (isLoadedPassableExterior(level, pos)) return 0.0;
         Optional<GasMixture> current = sample(level, pos);
         if (current.isEmpty()) return 0.0;
@@ -1148,7 +1140,7 @@ public final class AtmosphereService {
     }
 
     public boolean addEnergy(ServerLevel level, BlockPos pos, double joules) {
-        if (!enabled || !Double.isFinite(joules) || joules == 0.0) return false;
+        if (!Double.isFinite(joules) || joules == 0.0) return false;
         if (isLoadedPassableExterior(level, pos)) return false;
         Optional<GasMixture> current = sample(level, pos);
         if (current.isEmpty()) return false;
@@ -1158,7 +1150,7 @@ public final class AtmosphereService {
 
     /** Cheap gas/topology activation. This path never enumerates persisted chunk overrides. */
     public void activateCellAndNeighbors(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || !inBounds(level, pos) || loadedChunk(level, pos) == null) return;
+        if (level == null || pos == null || !inBounds(level, pos) || loadedChunk(level, pos) == null) return;
         quenchSolidHotspot(level, pos);
         enqueueLocalStencil(queue(level), pos);
         enqueueReactionStencil(level, pos);
@@ -1166,14 +1158,14 @@ public final class AtmosphereService {
 
     /** A loaded solid is proof that a live finite hotspot is no longer physically visible. */
     private void quenchSolidHotspot(ServerLevel level, BlockPos pos) {
-        if (!enabled || loadedChunk(level, pos) == null || AtmosphereTopology.isPassable(level, pos)) return;
+        if (loadedChunk(level, pos) == null || AtmosphereTopology.isPassable(level, pos)) return;
         ReactionWorkQueue work = reactionQueues.get(level);
         if (work != null && work.quenchIfPresent(pos)) AtmosphereVisualServerHooks.noteChanged(level, pos);
     }
 
     /** Re-samples immediately before committing heater-only positive energy. */
     public boolean addHeaterEnergy(ServerLevel level, BlockPos pos, double requestedJoules) {
-        if (!enabled || !Double.isFinite(requestedJoules) || requestedJoules <= 0.0) return false;
+        if (!Double.isFinite(requestedJoules) || requestedJoules <= 0.0) return false;
         if (isLoadedPassableExterior(level, pos)) return false;
         Optional<GasMixture> current = sample(level, pos);
         if (current.isEmpty()) return false;
@@ -1194,7 +1186,7 @@ public final class AtmosphereService {
 
     /** Block topology changes also reactivate saved overrides in the affected vertical column. */
     public void topologyChanged(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || !inBounds(level, pos)) return;
+        if (level == null || pos == null || !inBounds(level, pos)) return;
         AtmosphereCycle cycle = cycles.get(level);
         if (cycle != null) cycle.invalidateTopology(pos);
         excitedGroups.remove(level);
@@ -1223,7 +1215,7 @@ public final class AtmosphereService {
 
     /** Neighbor notifications are broad; only a known proof cell becoming sealed is topology. */
     public void neighborNotified(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || !inBounds(level, pos)) return;
+        if (level == null || pos == null || !inBounds(level, pos)) return;
         // The event is broad and may be reported on a neighbor of the changed block. Inspect
         // only the event cell and its six loaded neighbors for openable state transitions.
         boolean openableChanged = observeOpenableAt(level, pos);
@@ -1239,7 +1231,9 @@ public final class AtmosphereService {
     private boolean observeOpenableAt(ServerLevel level, BlockPos pos) {
         if (!inBounds(level, pos) || loadedChunk(level, pos) == null) return false;
         var state = level.getBlockState(pos);
-        Boolean open = state.getBlock() instanceof DoorBlock ? state.getValue(DoorBlock.OPEN)
+        Boolean open = state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock
+                ? state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.OPEN)
+                : state.getBlock() instanceof DoorBlock ? state.getValue(DoorBlock.OPEN)
                 : state.getBlock() instanceof TrapDoorBlock ? state.getValue(TrapDoorBlock.OPEN)
                 : state.getBlock() instanceof FenceGateBlock ? state.getValue(FenceGateBlock.OPEN)
                 : null;
@@ -1263,7 +1257,7 @@ public final class AtmosphereService {
     public void invalidate(ServerLevel level, BlockPos pos) { activateCellAndNeighbors(level, pos); }
 
     public void tick(ServerLevel level, long gameTime) {
-        if (!enabled || level == null) return;
+        if (level == null) return;
         AtmosphereRuntimeTelemetry telemetry = runtimeTelemetry.computeIfAbsent(level,
                 ignored -> new AtmosphereRuntimeTelemetry(gameTime, System.nanoTime()));
         telemetry.callback();
@@ -1466,19 +1460,19 @@ public final class AtmosphereService {
         return false;
     }
 
-    static boolean isTickDue(boolean enabled, long gameTime) {
-        return enabled && gameTime % TICK_CADENCE == 0;
+    static boolean isTickDue(long gameTime) {
+        return gameTime % TICK_CADENCE == 0;
     }
 
     /** Records only coordinates because ChunkEvent.Load can precede promotion to FULL. */
     void deferChunkLoad(ServerLevel level, ChunkPos chunk) {
-        if (!enabled || level == null || chunk == null) return;
+        if (level == null || chunk == null) return;
         deferredChunkLoads.computeIfAbsent(level, ignored -> new DeferredChunkQueue()).offer(chunk);
     }
 
     /** Resolves a bounded number of recorded chunks without forcing any chunk loads. */
     void processDeferredChunkLoads(ServerLevel level) {
-        if (!enabled || level == null) return;
+        if (level == null) return;
         DeferredChunkQueue deferred = deferredChunkLoads.get(level);
         if (deferred == null) return;
         deferred.drain(MAX_DEFERRED_CHUNK_LOADS_PER_TICK, pos -> {
@@ -1491,7 +1485,7 @@ public final class AtmosphereService {
     }
 
     void onChunkLoad(ServerLevel level, LevelChunk chunk) {
-        if (!enabled || level == null || chunk == null) return;
+        if (level == null || chunk == null) return;
         AtmosphereCycle cycle = cycles.get(level);
         if (cycle != null) cycle.invalidateChunk(chunk.getPos());
         loadedReactionChunks.computeIfAbsent(level, ignored -> new LoadedReactionChunks()).add(chunk.getPos());
@@ -1541,7 +1535,7 @@ public final class AtmosphereService {
     }
 
     void onChunkUnload(ServerLevel level, ChunkPos chunk) {
-        if (!enabled || level == null || chunk == null) return;
+        if (level == null || chunk == null) return;
         AtmosphereCycle cycle = cycles.get(level);
         if (cycle != null) cycle.invalidateChunk(chunk);
         LoadedReactionChunks tracked = loadedReactionChunks.get(level);
@@ -1597,7 +1591,6 @@ public final class AtmosphereService {
 
     /** Called only after a successful server catalog commit; discovery starts on subsequent due ticks. */
     public void onReactionCatalogReload(Iterable<ServerLevel> levels) {
-        if (!enabled) return;
         for (ServerLevel level : levels) {
             LoadedReactionChunks tracked = loadedReactionChunks.get(level);
             if (tracked != null) tracked.restart();
@@ -2447,7 +2440,7 @@ public final class AtmosphereService {
     }
 
     private boolean write(ServerLevel level, BlockPos pos, GasMixture state, boolean invalidateAfterWrite) {
-        if (!enabled || level == null || pos == null) return false;
+        if (level == null || pos == null) return false;
         if (!inBounds(level, pos)) return false;
         LevelChunk chunk = loadedChunk(level, pos);
         if (chunk == null || !AtmosphereTopology.isPassable(level, pos)) return false;
@@ -2508,7 +2501,7 @@ public final class AtmosphereService {
     }
 
     private boolean isLoadedPassableExterior(ServerLevel level, BlockPos pos) {
-        if (!enabled || level == null || pos == null || !inBounds(level, pos)) return false;
+        if (level == null || pos == null || !inBounds(level, pos)) return false;
         LevelChunk chunk = loadedChunk(level, pos);
         boolean loaded = chunk != null;
         boolean passable = loaded && AtmosphereTopology.isPassable(level, pos);

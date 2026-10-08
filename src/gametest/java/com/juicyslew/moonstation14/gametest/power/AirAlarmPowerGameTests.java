@@ -31,6 +31,41 @@ import java.util.UUID;
 public final class AirAlarmPowerGameTests {
     private AirAlarmPowerGameTests() { }
 
+    @GameTestTags({"airlock", "power", "power_loaded_index_reconcile"})
+    @GameTest(template = "empty", timeoutTicks = 320, templateNamespace = "moonstation14")
+    public static void receiverReconcilesAlreadyLoadedMissingFootprint(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        int y = 12;
+        BlockPos source = helper.absolutePos(new BlockPos(3, y, 2));
+        BlockPos sub = helper.absolutePos(new BlockPos(3, y, 4));
+        BlockPos apc = helper.absolutePos(new BlockPos(3, y, 6));
+        BlockPos alarmPos = helper.absolutePos(new BlockPos(4, y, 10));
+        for (int z = 2; z <= 7; z++) level.setBlock(helper.absolutePos(new BlockPos(4, y, z)), Blocks.STONE.defaultBlockState(), 3);
+        for (int z = 4; z <= 6; z++) level.setBlock(helper.absolutePos(new BlockPos(2, y, z)), Blocks.STONE.defaultBlockState(), 3);
+        level.setBlock(alarmPos.south(), Blocks.STONE.defaultBlockState(), 3);
+        place(level, source, ModBlocks.HV_SOURCE.get(), Direction.EAST);
+        place(level, sub, ModBlocks.HV_MV_SUBSTATION.get(), Direction.EAST);
+        place(level, apc, ModBlocks.APC.get(), Direction.WEST);
+        for (int z = 2; z <= 4; z++) require(CableStorage.place(level, helper.absolutePos(new BlockPos(4, y, z)), Direction.WEST, CableTier.HV), "HV cable");
+        for (int z = 4; z <= 6; z++) require(CableStorage.place(level, helper.absolutePos(new BlockPos(2, y, z)), Direction.EAST, CableTier.MV), "MV cable");
+        for (int z = 6; z <= 7; z++) require(CableStorage.place(level, helper.absolutePos(new BlockPos(4, y, z)), Direction.WEST, CableTier.APC), "APC cable");
+        level.setBlock(alarmPos, ModBlocks.AIR_ALARM.get().defaultBlockState().setValue(AirAlarmBlock.FACING, Direction.NORTH), 3);
+        AirAlarmBlockEntity alarm = (AirAlarmBlockEntity) level.getBlockEntity(alarmPos);
+        require(alarm != null, "live alarm fixture");
+        var physical = level.getChunkSource().getChunkNow(alarmPos.getX() >> 4, alarmPos.getZ() >> 4);
+        require(physical != null, "receiver chunk physically loaded");
+        PowerGraphService.onChunkUnload(new net.neoforged.neoforge.event.level.ChunkEvent.Unload(physical));
+        require(PowerGraphService.nodesNear(level, alarmPos, 3, CableTier.APC) == null, "missed index is unknown and catch-up queued");
+        require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "catch-up cannot fabricate a meter sample");
+        require(PowerGraphService.nodesNear(level, alarmPos, 3, CableTier.APC) == null, "repeated query stays unknown while queued");
+        helper.runAfterDelay(80, () -> {
+            require(PowerRuntime.airAlarmMeter(level, alarm).known()
+                    && PowerRuntime.airAlarmMeter(level, alarm).deliveredWatts() == 100,
+                    "normal bounded refresh and allocation prove live delivery");
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")
     public static void unconnectedAlarmIsNotPowered(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();

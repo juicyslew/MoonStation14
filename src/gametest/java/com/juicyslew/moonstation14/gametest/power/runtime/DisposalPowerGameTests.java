@@ -6,7 +6,6 @@ import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
@@ -32,7 +31,6 @@ public final class DisposalPowerGameTests {
     @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_power_clear", timeoutTicks = 360)
     public static void liveApcSupplyMetersDisposalUnitAndLossRevokesPower(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        PowerSimulationGate.configureAtServerStart(true);
         BlockPos source = helper.absolutePos(new BlockPos(19, 1, 18));
         BlockPos substation = helper.absolutePos(new BlockPos(19, 1, 20));
         BlockPos apc = helper.absolutePos(new BlockPos(19, 1, 22));

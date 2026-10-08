@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.gametest;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.character.KnockdownRenderPolicy;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
@@ -25,6 +26,25 @@ import java.util.UUID;
 @GameTestTags({"lifecycle", "character"})
 public final class CharacterControlGameTests {
     private CharacterControlGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    public static void authoritativeKnockdownDrivesRendererProjectionUntilExpiry(GameTestHelper helper) {
+        FakePlayer player = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "knockdown-projection"));
+        player.setPos(2.5, 1, 2.5);
+        require(helper.getLevel().addFreshEntity(player), "fake player must join");
+        helper.runAfterDelay(1, () -> {
+            require(CharacterControlSystem.applyParalyze(player, 3), "bound player accepts paralyze");
+            require(CharacterControlSystem.isKnockedDown(player), "authoritative knockdown status is active");
+            require(KnockdownRenderPolicy.shouldRenderProne(player),
+                    "production renderer adapter projects active synchronized knockdown");
+            helper.runAfterDelay(4, () -> {
+                require(!CharacterControlSystem.isKnockedDown(player), "knockdown status expires");
+                require(!KnockdownRenderPolicy.shouldRenderProne(player),
+                        "renderer adapter restores standing rotation after status expiry");
+                helper.succeed();
+            });
+        });
+    }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void boundHumanPlayerAndVillagerShareTimedStunPolicy(GameTestHelper helper) {
