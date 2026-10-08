@@ -25,6 +25,7 @@ public final class BodyGridFreshSnapshotGameTests {
     private BodyGridFreshSnapshotGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags("equipment-regression")
     public static void freshlyEquippedHostsReadAsEmptyWithoutMutatingStacks(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         helper.runAfterDelay(1, () -> {
@@ -50,12 +51,13 @@ public final class BodyGridFreshSnapshotGameTests {
             require(BodyEquipmentTransfer.transferOwned(body, "right", "belt", "belt", afterBag.revision(), true, () -> true)
                     == BodyEquipmentTransfer.Result.SUCCESS, "equip fresh belt");
             var equipment = LiveHands.equipmentSnapshot(body).orElseThrow();
-            for (var slot : equipment.slots()) {
+            for (var slot : equipment.slots().stream()
+                    .filter(value -> value.id().equals("back") || value.id().equals("belt")).toList()) {
                 var stack = slot.stack().orElseThrow();
                 var before = stack.copy();
                 var grid = GridContents.read(stack).orElseThrow();
                 require(grid.entries().isEmpty(), slot.id() + " starts with empty grid contents");
-                require(stack.is(ModItems.BAG) == slot.id().equals("back"), slot.id() + " host item matches slot");
+                require(stack.is(slot.id().equals("back") ? ModItems.BAG : ModItems.BELT), slot.id() + " host item matches slot");
                 require(ItemStack.matches(stack, before)
                         && stack.getCount() == before.getCount()
                         && stack.getComponents().equals(before.getComponents()),

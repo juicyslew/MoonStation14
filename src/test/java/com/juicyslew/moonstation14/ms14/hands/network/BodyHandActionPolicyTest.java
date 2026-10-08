@@ -85,7 +85,9 @@ class BodyHandActionPolicyTest {
                     || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
                     || action == BodyHandActionRequest.Action.TOGGLE_PULL || action == BodyHandActionRequest.Action.STOP_PULL
                      || action == BodyHandActionRequest.Action.SIP_PUDDLE
-                     || action == BodyHandActionRequest.Action.USE_BODY) continue;
+                     || action == BodyHandActionRequest.Action.USE_BODY
+                     || action == BodyHandActionRequest.Action.MOVE_EQUIPMENT) continue;
+            if (action == BodyHandActionRequest.Action.EQUIP_SLOT || action == BodyHandActionRequest.Action.UNEQUIP_SLOT) continue;
             var request = new BodyHandActionRequest(action, "left", 7, 1, 9,
                     action == BodyHandActionRequest.Action.PICKUP ? UUID.randomUUID() : null,
                     action == BodyHandActionRequest.Action.PICKUP || action == BodyHandActionRequest.Action.SELECT_HAND

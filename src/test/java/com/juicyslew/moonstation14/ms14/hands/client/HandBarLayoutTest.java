@@ -7,15 +7,21 @@ class HandBarLayoutTest {
     @Test void placesBarBottomCenterAndExposesTilesForHitTesting() {
         var layout = HandBarLayout.calculate(320, 240);
         assertNotNull(layout);
-        assertEquals(layout.leftHand().x() + layout.leftHand().width() + 3, layout.rightHand().x());
+        int handGap = layout.rightHand().x() - layout.leftHand().x() - layout.leftHand().width();
+        assertEquals(3, handGap);
         assertEquals(18, layout.leftHand().width());
         assertEquals(15, layout.back().width());
         assertEquals(2, 240 - bottom(layout));
         assertTrue(layout.leftHand().y() >= 0);
-        assertTrue(Math.abs(layout.leftHand().x() * 2 + layout.leftHand().width() * 2 + 3 - 320) <= 1);
-        assertTrue(layout.belt().x() + layout.belt().width() + 8 <= layout.leftHand().x());
+        assertTrue(Math.abs(layout.leftHand().x() + layout.rightHand().x()
+                + layout.rightHand().width() - 320) <= 1);
+        assertEquals(3, layout.leftHand().x() - layout.belt().x() - layout.belt().width());
         assertFalse(overlaps(layout.leftHand(), layout.rightHand()));
         assertFalse(overlaps(layout.rightHand(), layout.back()));
+        assertEquals(3, layout.rightHand().x() - layout.leftHand().x() - layout.leftHand().width());
+        assertEquals(3, layout.pocket1().x() - layout.rightHand().x() - layout.rightHand().width());
+        assertEquals(3, layout.pocket2().x() - layout.pocket1().x() - layout.pocket1().width());
+        assertEquals(3, layout.suitstorage().x() - layout.pocket2().x() - layout.pocket2().width());
         assertFalse(overlaps(layout.back(), layout.belt()));
         assertSame(layout.back(), layout.hitTest(layout.back().x(), layout.back().y()));
         assertEquals(HandBarLayout.Layout.Tile.FIRST,

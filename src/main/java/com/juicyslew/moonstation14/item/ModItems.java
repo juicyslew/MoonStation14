@@ -27,6 +27,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MoonStation14.MOD_ID);
+    // Force the equipment item declarations to register on the same native item registry.
+    private static final Object EQUIPMENT_ITEMS = ModEquipmentItems.GREY_CAP;
 
     // SIMPLE ITEMS
     public static final DeferredItem<Item> PLASTIC = ITEMS.register("plastic",

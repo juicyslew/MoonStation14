@@ -1,0 +1,5 @@
+Source: SS14 pinned c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Path: Interface/Default/Slots/suit_storage.png
+License: CC-BY-NC-SA-3.0
+Copyright: Taken from https://github.com/goonstation/goonstation at commit e77d85d9c1d93aa32da7702737ceeac2b56738ac, slightly modified by PixelTK, ID slots made by YoungThugSS14
+

@@ -107,7 +107,7 @@
     {"type": "Pullable"},
     {"type": "Puller", "walk_modifier": 0.95, "sprint_modifier": 0.95,
       "tether": {"stiffness": 60.0, "progressive_stiffness": 40.0, "damping": 6.0, "maximum_acceleration": 160.0, "slackAllowance": 1.5}},
-    {"type": "EquipmentSlots", "slots": ["belt", "back"]},
+    {"type": "EquipmentSlots", "template": "moonstation14:human"},
     {"type": "StandingState", "standing_eligible": true, "prone_eligible": true},
     {"type": "Stunnable"},
     {"type": "Reactive", "reactive_groups": ["flammable", "extinguish", "acidic"], "reactive_methods": ["touch"]},

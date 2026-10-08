@@ -144,9 +144,7 @@ public final class LiveHands {
     }
 
     private static Optional<List<String>> hostEquipmentIds(Entity body) {
-        return HandCapability.resolveCharacter(body)
-                .flatMap(character -> character.component(EquipmentSlotsPrototypeComponent.class))
-                .map(EquipmentSlotsPrototypeComponent::slots);
+        return HandCapability.resolveEquipmentSlots(body);
     }
 
     private List<String> equipmentIds() {
@@ -188,6 +186,18 @@ public final class LiveHands {
     public LiveHands advanceRevision() {
         if (revision == Long.MAX_VALUE) throw new IllegalStateException("Live hand revision exhausted");
         return new LiveHands(hands, active, revision + 1, equipment);
+    }
+
+    /**
+     * Pure compensating restore for a conditional world publisher. The caller must first verify
+     * that this is still the staged body state and that the world remains in its original state.
+     */
+    public Optional<LiveHands> restoreContents(long expectedRevision, LiveHands original) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || original == null
+                || !handIds().equals(original.handIds())
+                || equipment.isPresent() != original.equipment.isPresent()
+                || !equipmentIds().equals(original.equipmentIds())) return Optional.empty();
+        return Optional.of(new LiveHands(original.hands, original.active, revision + 1, original.equipment));
     }
 
     /** Transient pull lock; the UUID is the exact target and is not an item/stack token. */
@@ -971,6 +981,95 @@ public final class LiveHands {
     /** Identity includes ownership kind, declared location and occupant token. */
     public record GridHost(boolean worn, String id, String token) { }
 
+    /** Atomically move a grid child into a declared empty equipment slot without borrowing a hand. */
+    Optional<LiveHands> gridToEquipment(long expectedRevision, List<String> declared, GridHost source,
+            String childToken, GridGeometry.Cell oldCell, GridGeometry.Rotation oldRotation, String destinationSlot) {
+        if (!validEquipmentTransition(expectedRevision, declared) || source == null
+                || childToken == null || oldCell == null || oldRotation == null || destinationSlot == null
+                || !declared.contains(destinationSlot)) return Optional.empty();
+        int destination = declared.indexOf(destinationSlot);
+        List<Slot> layout = materializedEquipment(declared);
+        if (layout.get(destination).occupant().isPresent()) return Optional.empty();
+        Occupant owner = gridHostOccupant(source, declared);
+        if (owner == null) return Optional.empty();
+        var contents = GridContents.read(owner.stack());
+        if (contents.isEmpty()) return Optional.empty();
+        Set<String> tokens = new HashSet<>();
+        for (Occupant occupant : allOccupants()) if (!tokens.add(occupant.token())) return Optional.empty();
+        for (Slot slot : hands) if (slot.occupant().isPresent()) {
+            Occupant occupant = slot.occupant().orElseThrow();
+            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+                var nested = GridContents.read(occupant.stack()); if (nested.isEmpty()) return Optional.empty();
+                if (!( !source.worn() && source.id().equals(slot.id()) && source.token().equals(occupant.token())))
+                for (var entry : nested.orElseThrow().entries()) if (!tokens.add(entry.token())) return Optional.empty();
+            }
+        }
+        for (Slot slot : layout) if (slot.occupant().isPresent()) {
+            Occupant occupant = slot.occupant().orElseThrow();
+            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+                var nested = GridContents.read(occupant.stack()); if (nested.isEmpty()) return Optional.empty();
+                if (!(source.worn() && source.id().equals(slot.id()) && source.token().equals(occupant.token())))
+                    for (var entry : nested.orElseThrow().entries()) if (!tokens.add(entry.token())) return Optional.empty();
+            }
+        }
+        GridContents.Entry child = null;
+        for (var entry : contents.orElseThrow().entries()) {
+            if (!tokens.add(entry.token())) return Optional.empty();
+            if (entry.token().equals(childToken) && entry.x() == oldCell.x() && entry.y() == oldCell.y()
+                    && entry.rotation() == oldRotation) child = entry;
+        }
+        if (child == null) return Optional.empty();
+        try {
+            var remaining = contents.orElseThrow().entries().stream().filter(e -> !e.token().equals(childToken)).toList();
+            var updated = GridContents.applyCopyWithGrid(owner.stack(), GridContents.of(remaining));
+            if (updated.isEmpty()) return Optional.empty();
+            ArrayList<Slot> nextHands = new ArrayList<>(hands);
+            ArrayList<Slot> nextEquipment = new ArrayList<>(layout);
+            setGridHost(nextHands, nextEquipment, source, updated.orElseThrow());
+            nextEquipment.set(destination, new Slot(destinationSlot, Optional.of(new Occupant(child.token(), child.stack()))));
+            return Optional.of(new LiveHands(nextHands, active, revision + 1, Optional.of(nextEquipment)));
+        } catch (IllegalArgumentException failure) { return Optional.empty(); }
+    }
+
+    /** Atomically remove a garment/dependents and place the garment in an existing body grid. */
+    Optional<EquipmentRemoval> equipmentToGrid(long expectedRevision, List<String> declared,
+            com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData template, String sourceSlot,
+            String sourceToken, GridHost destination, GridGeometry.Cell cell, GridGeometry.Rotation rotation) {
+        if (template == null || destination == null || !validEquipmentTransition(expectedRevision, declared)
+                || equipment.isEmpty() || sourceSlot == null || sourceToken == null || cell == null || rotation == null
+                || sourceSlot.equals(destination.id())) return Optional.empty();
+        int sourceIndex = declared.indexOf(sourceSlot);
+        if (sourceIndex < 0) return Optional.empty();
+        Occupant target = equipmentSlot(sourceIndex).occupant().orElse(null);
+        Occupant host = gridHostOccupant(destination, declared);
+        if (target == null || !target.token().equals(sourceToken) || host == null) return Optional.empty();
+        Set<String> removed = dependentEquipmentSlots(template, sourceSlot);
+        if (removed.contains(destination.id())) return Optional.empty();
+        var grid = GridContents.read(host.stack()); if (grid.isEmpty()) return Optional.empty();
+        Set<String> tokens = new HashSet<>();
+        for (Occupant occupant : allOccupants()) {
+            if (occupant.token().equals(sourceToken)) continue;
+            if (!tokens.add(occupant.token())) return Optional.empty();
+        }
+        for (var entry : grid.orElseThrow().entries()) if (!tokens.add(entry.token())) return Optional.empty();
+        if (tokens.contains(target.token())) return Optional.empty();
+        try {
+            var entries = new ArrayList<>(grid.orElseThrow().entries());
+            entries.add(new GridContents.Entry(target.token(), target.stack(), cell.x(), cell.y(), rotation));
+            var updated = GridContents.applyCopyWithGrid(host.stack(), GridContents.of(entries));
+            if (updated.isEmpty()) return Optional.empty();
+            ArrayList<Slot> nextHands = new ArrayList<>(hands), nextEquipment = new ArrayList<>(equipment.orElseThrow());
+            setGridHost(nextHands, nextEquipment, destination, updated.orElseThrow());
+            List<EquipmentRemovalItem> drops = clearDependentEquipment(nextEquipment, declared, removed, sourceIndex);
+            for (int i = 0; i < declared.size(); i++) {
+                String id = declared.get(i); if (id.equals(destination.id())) continue;
+                Slot slot = nextEquipment.get(i);
+                if (id.equals(sourceSlot)) nextEquipment.set(i, new Slot(id, Optional.empty()));
+            }
+            return Optional.of(new EquipmentRemoval(new LiveHands(nextHands, active, revision + 1, Optional.of(nextEquipment)), drops));
+        } catch (IllegalArgumentException failure) { return Optional.empty(); }
+    }
+
     /** Detached removal from a body-owned grid; the caller must publish both owners. */
     public Optional<LiveHands> removeGridChild(long expectedRevision, List<String> declared, GridHost host,
             String childToken, GridGeometry.Cell anchor, GridGeometry.Rotation rotation) {
@@ -1244,6 +1343,183 @@ public final class LiveHands {
         ArrayList<Slot> nextHands = new ArrayList<>(hands);
         nextHands.set(to, new Slot(hand, occupant));
         return Optional.of(new LiveHands(nextHands, active, revision + 1, Optional.of(nextEquipment)));
+    }
+
+    /** Pure replacement: incoming garment occupies the chosen slot and the displaced occupant
+     * returns to the exact source hand in the same immutable revision. */
+    Optional<LiveHands> replaceEquipment(long expectedRevision, List<String> declared, String hand,
+                                          String slot, String token) {
+        if (!validEquipmentTransition(expectedRevision, declared) || equipment.isEmpty()) return Optional.empty();
+        int from = handIds().indexOf(hand), to = declared.indexOf(slot);
+        if (from < 0 || to < 0 || hands.get(from).reservation().isPresent()) return Optional.empty();
+        Occupant incoming = hands.get(from).occupant().orElse(null);
+        Occupant old = equipmentSlot(to).occupant().orElse(null);
+        if (incoming == null || old == null || token == null || !incoming.token().equals(token)) return Optional.empty();
+        ArrayList<Slot> nextHands = new ArrayList<>(hands);
+        nextHands.set(from, new Slot(hand, Optional.of(old)));
+        ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElseThrow());
+        nextEquipment.set(to, new Slot(slot, Optional.of(incoming)));
+        return Optional.of(new LiveHands(nextHands, active, revision + 1, Optional.of(nextEquipment)));
+    }
+
+    Optional<EquipmentRemoval> quickReplaceEquipment(long expectedRevision, List<String> declared,
+            com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData template,
+            String hand, String slot, String token) {
+        if (template == null || !validEquipmentTransition(expectedRevision, declared) || equipment.isEmpty()) return Optional.empty();
+        int from=handIds().indexOf(hand), target=declared.indexOf(slot);
+        if(from<0||target<0||hands.get(from).reservation().isPresent()) return Optional.empty();
+        Occupant incoming=hands.get(from).occupant().orElse(null), old=equipmentSlot(target).occupant().orElse(null);
+        if(incoming==null||old==null||!incoming.token().equals(token)) return Optional.empty();
+        ArrayList<Slot> gear=new ArrayList<>(equipment.orElseThrow());
+        List<EquipmentRemovalItem> drops=clearDependentEquipment(gear, declared, dependentEquipmentSlots(template, slot), target);
+        gear.set(target,new Slot(slot,Optional.of(incoming)));
+        ArrayList<Slot> nextHands=new ArrayList<>(hands); nextHands.set(from,new Slot(hand,Optional.of(old)));
+        return Optional.of(new EquipmentRemoval(new LiveHands(nextHands,active,revision+1,Optional.of(gear)),drops));
+    }
+
+    /** Pure removal of a garment and all occupied descendants from the resolved dependency graph. */
+    Optional<EquipmentRemoval> unequipWithDependents(long expectedRevision, List<String> declared,
+            com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData template,
+            String slot, String preferredHand, String token) {
+        if (template == null || !validEquipmentTransition(expectedRevision, declared) || equipment.isEmpty()
+                || slot == null || token == null || preferredHand == null) return Optional.empty();
+        int sourceIndex = declared.indexOf(slot);
+        int requestedHand = handIds().indexOf(preferredHand);
+        if (sourceIndex < 0 || requestedHand < 0) return Optional.empty();
+        Occupant target = equipmentSlot(sourceIndex).occupant().orElse(null);
+        if (target == null || !target.token().equals(token)) return Optional.empty();
+
+        Set<String> removedSlots = dependentEquipmentSlots(template, slot);
+
+        ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElseThrow());
+        ArrayList<EquipmentRemovalItem> drops = new ArrayList<>(clearDependentEquipment(
+                nextEquipment, declared, removedSlots, sourceIndex));
+        nextEquipment.set(sourceIndex, new Slot(slot, Optional.empty()));
+
+        int destination = -1;
+        if (hands.get(requestedHand).occupant().isEmpty() && hands.get(requestedHand).reservation().isEmpty()) {
+            destination = requestedHand;
+        } else {
+            int activeIndex = handIds().indexOf(active);
+            if (hands.get(activeIndex).occupant().isEmpty() && hands.get(activeIndex).reservation().isEmpty()) destination = activeIndex;
+            else for (int i = 0; i < hands.size(); i++) if (hands.get(i).occupant().isEmpty()
+                    && hands.get(i).reservation().isEmpty()) { destination = i; break; }
+        }
+        ArrayList<Slot> nextHands = new ArrayList<>(hands);
+        if (destination >= 0) nextHands.set(destination, new Slot(nextHands.get(destination).id(), Optional.of(target)));
+        else drops.add(new EquipmentRemovalItem(slot, target.token(), target.stack()));
+        LiveHands candidate = new LiveHands(nextHands, active, revision + 1, Optional.of(nextEquipment));
+        return Optional.of(new EquipmentRemoval(candidate, drops));
+    }
+
+    /** Insert a world-owned garment directly into an empty declared slot; hands never own it transiently. */
+    public Optional<LiveHands> insertEquipment(long expectedRevision, List<String> declared, String slot,
+                                        String token, ItemStack stack) {
+        if (!validEquipmentTransition(expectedRevision, declared) || slot == null || token == null
+                || stack == null || stack.isEmpty() || stack.getCount() > stack.getMaxStackSize()
+                || bodyContainsToken(token)) return Optional.empty();
+        int index = declared.indexOf(slot);
+        if (index < 0) return Optional.empty();
+        List<Slot> layout = materializedEquipment(declared);
+        if (layout.get(index).occupant().isPresent()) return Optional.empty();
+        ArrayList<Slot> nextEquipment = new ArrayList<>(layout);
+        nextEquipment.set(index, new Slot(slot, Optional.of(new Occupant(token, stack))));
+        return Optional.of(new LiveHands(hands, active, revision + 1, Optional.of(nextEquipment)));
+    }
+
+    /** Remove a garment from body ownership and return it separately from dependent-gear drops. */
+    public Optional<ExternalEquipmentRemoval> removeEquipmentToExternal(long expectedRevision, List<String> declared,
+            com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData template, String slot, String token) {
+        if (template == null || !validEquipmentTransition(expectedRevision, declared) || equipment.isEmpty()
+                || slot == null || token == null) return Optional.empty();
+        int index = declared.indexOf(slot);
+        if (index < 0) return Optional.empty();
+        Occupant source = equipmentSlot(index).occupant().orElse(null);
+        if (source == null || !source.token().equals(token)) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(equipment.orElseThrow());
+        List<EquipmentRemovalItem> drops = clearDependentEquipment(next, declared,
+                dependentEquipmentSlots(template, slot), index);
+        next.set(index, new Slot(slot, Optional.empty()));
+        return Optional.of(new ExternalEquipmentRemoval(new LiveHands(hands, active, revision + 1,
+                Optional.of(next)), new EquipmentRemovalItem(slot, source.token(), source.stack()), drops));
+    }
+
+    /** Pure garment move between equipment slots, composed without publishing an intermediate revision. */
+    Optional<EquipmentRemoval> moveEquipment(long expectedRevision, List<String> declared,
+            com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData template,
+            String sourceSlot, String sourceToken, String destinationSlot) {
+        if (template == null || !validEquipmentTransition(expectedRevision, declared) || equipment.isEmpty()
+                || sourceSlot == null || destinationSlot == null || sourceToken == null
+                || sourceSlot.equals(destinationSlot)) return Optional.empty();
+        int destination = declared.indexOf(destinationSlot);
+        if (destination < 0 || declared.indexOf(sourceSlot) < 0
+                || equipmentSlot(destination).occupant().isPresent()
+                || dependentEquipmentSlots(template, sourceSlot).contains(destinationSlot)) return Optional.empty();
+        Optional<ExternalEquipmentRemoval> removed = removeEquipmentToExternal(
+                expectedRevision, declared, template, sourceSlot, sourceToken);
+        if (removed.isEmpty()) return Optional.empty();
+        ExternalEquipmentRemoval removal = removed.orElseThrow();
+        Optional<LiveHands> inserted = removal.state().insertEquipment(expectedRevision + 1, declared,
+                destinationSlot, removal.moved().token(), removal.moved().stack());
+        if (inserted.isEmpty()) return Optional.empty();
+        LiveHands result = inserted.orElseThrow();
+        return Optional.of(new EquipmentRemoval(new LiveHands(result.hands, result.active,
+                expectedRevision + 1, result.equipment), removal.drops()));
+    }
+
+    private boolean bodyContainsToken(String token) {
+        for (Occupant occupant : allOccupants()) {
+            if (occupant.token().equals(token)) return true;
+            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+                var grid = GridContents.read(occupant.stack());
+                if (grid.isEmpty() || grid.orElseThrow().entries().stream().anyMatch(entry -> entry.token().equals(token)))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<EquipmentRemovalItem> clearDependentEquipment(ArrayList<Slot> slots, List<String> declared,
+                                                                       Set<String> dependents, int sourceIndex) {
+        ArrayList<EquipmentRemovalItem> drops = new ArrayList<>();
+        for (int i = 0; i < declared.size(); i++) {
+            if (i == sourceIndex || !dependents.contains(declared.get(i))) continue;
+            Slot dependent = slots.get(i);
+            if (dependent.occupant().isPresent()) {
+                Occupant occupant = dependent.occupant().orElseThrow();
+                drops.add(new EquipmentRemovalItem(dependent.id(), occupant.token(), occupant.stack()));
+                slots.set(i, new Slot(dependent.id(), Optional.empty()));
+            }
+        }
+        return drops;
+    }
+
+    private static Set<String> dependentEquipmentSlots(
+            com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData template, String source) {
+        Set<String> descendants = new HashSet<>();
+        ArrayList<String> frontier = new ArrayList<>();
+        frontier.add(source);
+        while (!frontier.isEmpty()) {
+            String parent = frontier.removeFirst();
+            for (var definition : template.slots()) {
+                if (!descendants.contains(definition.id()) && definition.dependsOn().contains(parent)) {
+                    descendants.add(definition.id());
+                    frontier.add(definition.id());
+                }
+            }
+        }
+        return descendants;
+    }
+
+    public record EquipmentRemovalItem(String slot, String token, ItemStack stack) {
+        public EquipmentRemovalItem { stack = stack.copy(); }
+        @Override public ItemStack stack() { return stack.copy(); }
+    }
+    record EquipmentRemoval(LiveHands state, List<EquipmentRemovalItem> drops) {
+        EquipmentRemoval { drops = List.copyOf(drops); }
+    }
+    public record ExternalEquipmentRemoval(LiveHands state, EquipmentRemovalItem moved, List<EquipmentRemovalItem> drops) {
+        public ExternalEquipmentRemoval { drops = List.copyOf(drops); }
     }
 
     private Slot equipmentSlot(int index) { return equipment.orElseThrow().get(index); }

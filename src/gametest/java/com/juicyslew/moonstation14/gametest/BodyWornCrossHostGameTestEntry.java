@@ -8,7 +8,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 @PrefixGameTestTemplate(false)
-@GameTestTags({"hands", "storage"})
+@GameTestTags({"hands", "storage", "equipment-regression"})
 public final class BodyWornCrossHostGameTestEntry {
     private BodyWornCrossHostGameTestEntry() { }
 

@@ -1,0 +1,8 @@
+Asset: red_tie
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/Neck/Ties/redtie.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/5a73e8f825ff279e82949b9329783a9e3070e2da, edited by Flareguy for Space Station 14 | In hand sprites sprited by PuroSlavKing (Github) for Space Station 14. Storage by TiniestShark (Github)
+Imported PNG SHA-256: fa560a3f531abfea8406d2aa2b908ef15fefa2d8d7d59ba9ac214070bac93543
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

@@ -24,6 +24,96 @@ public final class BodyEquippedStorageTransfer {
 
     public enum Result { SUCCESS, DENIED, RECOVERY_REQUIRED }
 
+    /** Removes an equipped item and places it in a body-owned held or worn grid host. */
+    public static Result equipmentToGrid(ServerPlayer actor, String sourceSlot, String sourceToken,
+            LiveHands.GridHost destination, GridGeometry.Cell cell, GridGeometry.Rotation rotation, long revision) {
+        var authority = HandActorAuthority.resolve(actor);
+        if (authority.isEmpty()) return Result.DENIED;
+        LivingEntity body = authority.orElseThrow().body();
+        if (!(body.level() instanceof ServerLevel level) || destination == null || cell == null || rotation == null)
+            return Result.DENIED;
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var equipment = LiveHands.equipmentSnapshot(body).orElse(null);
+        if (before == null || equipment == null || !equipment.persisted() || before.revision() != revision
+                || !before.compatible(body)) return Result.DENIED;
+        List<String> declared = equipment.slots().stream().map(LiveHands.EquipmentSlot::id).toList();
+        var source = equipment.slots().stream().filter(s -> s.id().equals(sourceSlot)
+                && s.token().filter(sourceToken::equals).isPresent()).findFirst().orElse(null);
+        ItemStack garment = source == null ? null : source.stack().orElse(null);
+        if (garment == null) return Result.DENIED;
+        ItemStack grid = destination.worn()
+                ? equipment.slots().stream().filter(s -> s.id().equals(destination.id())
+                    && s.token().filter(destination.token()::equals).isPresent()).findFirst().flatMap(LiveHands.EquipmentSlot::stack).orElse(null)
+                : before.token(destination.id()).filter(destination.token()::equals).flatMap(before::stackCopy).orElse(null);
+        if (grid == null) return Result.DENIED;
+        var contents = GridContents.read(grid).orElse(null);
+        if (contents == null) return Result.DENIED;
+        var snapshot = gridSnapshot(grid, contents).orElse(null);
+        if (snapshot == null || !snapshot.place(sourceToken, ItemFootprints.forStack(garment), cell, rotation).accepted())
+            return Result.DENIED;
+        var template = BodyEquipmentTransfer.templateForTransfer(body);
+        var occupied = equipment.slots().stream().filter(s -> s.stack().isPresent()).map(LiveHands.EquipmentSlot::id).collect(java.util.stream.Collectors.toSet());
+        if (template == null || !BodyEquipmentTransfer.fitsForTransfer(level, template, equipment,
+                sourceSlot, garment, occupied)) return Result.DENIED;
+        var removal = before.equipmentToGrid(revision, declared, template, sourceSlot, sourceToken,
+                destination, cell, rotation).orElse(null);
+        if (removal == null || !authorityValid(actor, authority.orElseThrow()) || !live(body, level)
+                || !CharacterControlSystem.canAct(body) || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || !before.compatible(body) || !LiveHands.equipmentSnapshot(body)
+                    .map(now -> now.persisted() && now.slots().equals(equipment.slots())).orElse(false)) return Result.DENIED;
+        return switch (BodyEquipmentTransfer.commitCandidate(body, before, removal.state(), removal.drops(),
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()))) {
+            case SUCCESS -> Result.SUCCESS;
+            case DENIED -> Result.DENIED;
+            case RECOVERY_REQUIRED -> Result.RECOVERY_REQUIRED;
+        };
+    }
+
+    private static boolean authorityValid(ServerPlayer actor, HandActorAuthority.Snapshot authority) {
+        return HandActorAuthority.revalidate(actor, authority);
+    }
+
+    /** Moves a real child from a held or worn grid host directly into an empty equipment slot. */
+    public static Result gridToEquipment(ServerPlayer actor, LiveHands.GridHost source, String childToken,
+            GridGeometry.Cell oldCell, GridGeometry.Rotation oldRotation, String destinationSlot, long revision) {
+        var authority = HandActorAuthority.resolve(actor);
+        if (authority.isEmpty()) return Result.DENIED;
+        return gridToEquipmentOwned(authority.orElseThrow().body(), source, childToken, oldCell, oldRotation,
+                destinationSlot, revision, () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()));
+    }
+
+    private static Result gridToEquipmentOwned(LivingEntity body, LiveHands.GridHost source, String childToken,
+            GridGeometry.Cell oldCell, GridGeometry.Rotation oldRotation, String destinationSlot, long revision,
+            BooleanSupplier authorityValid) {
+        if (body == null || source == null || childToken == null || oldCell == null || oldRotation == null
+                || destinationSlot == null || !(body.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || !live(body, level) || !CharacterControlSystem.canAct(body)) return Result.DENIED;
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (before == null || before.revision() != revision || !before.compatible(body)) return Result.DENIED;
+        var equipment = LiveHands.equipmentSnapshot(body).orElse(null);
+        if (equipment == null || !equipment.persisted()) return Result.DENIED;
+        List<String> declared = equipment.slots().stream().map(LiveHands.EquipmentSlot::id).toList();
+        var sourceStack = source.worn()
+                ? equipment.slots().stream().filter(s -> s.id().equals(source.id()) && s.token().filter(source.token()::equals).isPresent()).findFirst().flatMap(LiveHands.EquipmentSlot::stack).orElse(null)
+                : before.token(source.id()).filter(source.token()::equals).flatMap(before::stackCopy).orElse(null);
+        var contents = sourceStack == null ? null : GridContents.read(sourceStack).orElse(null);
+        var child = contents == null ? null : contents.entries().stream().filter(e -> e.token().equals(childToken)
+                && e.x() == oldCell.x() && e.y() == oldCell.y() && e.rotation() == oldRotation).findFirst().orElse(null);
+        var target = equipment.slots().stream().filter(s -> s.id().equals(destinationSlot)).findFirst().orElse(null);
+        if (child == null || target == null || target.token().isPresent() || target.stack().isPresent()) return Result.DENIED;
+        var template = BodyEquipmentTransfer.templateForTransfer(body);
+        var occupied = equipment.slots().stream().filter(s -> s.stack().isPresent()).map(LiveHands.EquipmentSlot::id).collect(java.util.stream.Collectors.toSet());
+        if (template == null || !BodyEquipmentTransfer.fitsForTransfer(level, template, equipment, destinationSlot, child.stack(), occupied)) return Result.DENIED;
+        var candidate = before.gridToEquipment(revision, declared, source, childToken, oldCell, oldRotation, destinationSlot).orElse(null);
+        if (candidate == null || !BodyHandStateService.representable(candidate, body) || !authorityValid.getAsBoolean()
+                || !live(body, level) || !CharacterControlSystem.canAct(body)
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body)
+                || !LiveHands.equipmentSnapshot(body).map(now -> now.persisted() && now.slots().equals(equipment.slots())).orElse(false)) return Result.DENIED;
+        try { LiveHandsCommitGateway.batch(() -> LiveHandsCommitGateway.commitOwned(body, candidate)); }
+        catch (RuntimeException failure) { return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before ? Result.DENIED : Result.RECOVERY_REQUIRED; }
+        return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == candidate && candidate.compatible(body) ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+    }
+
     /** Server chooses the first fitting placement; the caller supplies no geometry. */
     public static Result smartStore(ServerPlayer actor, String slot, String hostToken,
                                     String hand, String sourceToken, long expectedRevision) {

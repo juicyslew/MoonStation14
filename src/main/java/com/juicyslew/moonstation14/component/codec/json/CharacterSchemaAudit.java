@@ -433,8 +433,12 @@ public final class CharacterSchemaAudit {
             return;
         }
         if (EquipmentSlotsPrototypeComponent.TYPE.equals(type)) {
-            checkFields(object, Set.of("type", "slots"), path);
-            if (complete || object.has("slots")) auditEquipmentSlots(object.get("slots"), path + ".slots");
+            checkFields(object, Set.of("type", "slots", "template"), path);
+            if (object.has("slots")) auditEquipmentSlots(object.get("slots"), path + ".slots");
+            if (object.has("template") && (!object.get("template").isJsonPrimitive()
+                    || !object.getAsJsonPrimitive("template").isString())) fail(path + ".template", "expected prototype ID string");
+            if (complete && !object.has("slots") && !object.has("template")) fail(path, "equipment layout requires slots or template");
+            if (object.has("slots") && object.has("template")) fail(path, "slots and template are mutually exclusive");
             return;
         }
         if ("Metabolizer".equals(type)) {
