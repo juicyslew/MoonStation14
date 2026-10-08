@@ -37,6 +37,12 @@ import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
+import com.juicyslew.moonstation14.ms14.puddle.PuddleData;
+import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
+import com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneData;
+import com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes;
+import com.juicyslew.moonstation14.ms14.jug.JugData;
+import com.juicyslew.moonstation14.ms14.jug.ModJugs;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -144,6 +150,12 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<DamageFeedbackProfile> clientDamageFeedback() { return CLIENT_MANAGER.snapshot(ModDamageFeedback.TYPE); }
     public static PrototypeCatalog<AirlockData> serverAirlocks() { return SERVER_MANAGER.snapshot(ModAirlocks.TYPE); }
     public static PrototypeCatalog<AirlockData> clientAirlocks() { return CLIENT_MANAGER.snapshot(ModAirlocks.TYPE); }
+    public static PrototypeCatalog<PuddleData> serverPuddles() { return SERVER_MANAGER.snapshot(ModPuddles.TYPE); }
+    public static PrototypeCatalog<PuddleData> clientPuddles() { return CLIENT_MANAGER.snapshot(ModPuddles.TYPE); }
+    public static PrototypeCatalog<CelestialSceneData> serverCelestialScenes() { return SERVER_MANAGER.snapshot(ModCelestialScenes.TYPE); }
+    public static PrototypeCatalog<CelestialSceneData> clientCelestialScenes() { return CLIENT_MANAGER.snapshot(ModCelestialScenes.TYPE); }
+    public static PrototypeCatalog<JugData> serverJugs() { return SERVER_MANAGER.snapshot(ModJugs.TYPE); }
+    public static PrototypeCatalog<JugData> clientJugs() { return CLIENT_MANAGER.snapshot(ModJugs.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -166,6 +178,9 @@ public final class PrototypeRuntime {
         manager.register(ModDamageFeedback.TYPE);
         manager.register(ModAirlocks.TYPE);
         manager.register(ModToolProfiles.TYPE);
+        manager.register(ModPuddles.TYPE);
+        manager.register(ModCelestialScenes.TYPE);
+        manager.register(ModJugs.TYPE);
         return manager;
     }
 }

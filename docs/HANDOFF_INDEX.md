@@ -4,6 +4,7 @@ Missing standard handoffs were reconstructed on 2026-10-03 from project records 
 
 ## Existing owner handoffs
 
+- [Examination, solution readouts and celestial inspection](examination-sprint/HANDOFF.md)
 - [Hands/inventory program](hands-inventory-program/HANDOFF.md)
 - [Powered ventilation](powered-ventilation-sprint/HANDOFF.md)
 - [Loose world objects — foundation and jug](loose-world-objects-foundation-sprint/HANDOFF.md)

@@ -1,0 +1,5 @@
+{
+  "id": "sun",
+  "parent": "base",
+  "metadata": { "name": "Sun", "description": "A great big ball of flame." }
+}

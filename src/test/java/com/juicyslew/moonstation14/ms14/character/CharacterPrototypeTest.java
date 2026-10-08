@@ -1130,7 +1130,7 @@ class CharacterPrototypeTest {
     @Test
     void componentsAreStrictOptionalAndDoNotInferComplexInteraction() throws IOException {
         JsonObject human = readResource(RESOURCE);
-        assertEquals(java.util.Set.of("host_entity_types", "components"), human.keySet());
+        assertEquals(java.util.Set.of("host_entity_types", "metadata", "components"), human.keySet());
         assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
                 CharacterData.CODEC.parse(JsonOps.INSTANCE, human).getOrThrow().hostEntityTypes());
         JsonObject absent = human.deepCopy();

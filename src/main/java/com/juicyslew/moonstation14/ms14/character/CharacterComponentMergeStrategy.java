@@ -26,7 +26,7 @@ public final class CharacterComponentMergeStrategy implements PrototypeMergeStra
 
     @Override
     public boolean handles(String fieldName) {
-        return COMPONENTS.equals(fieldName) || "hands".equals(fieldName);
+        return COMPONENTS.equals(fieldName) || "hands".equals(fieldName) || "metadata".equals(fieldName);
     }
 
     @Override
@@ -36,6 +36,22 @@ public final class CharacterComponentMergeStrategy implements PrototypeMergeStra
             if (child.has("hands")) throw new PrototypeResolutionException("Character '" + childId
                     + "': legacy top-level $.hands is unsupported; use components:[{type:'Hands',hands:[...]}]");
             return null;
+        }
+        if ("metadata".equals(fieldName)) {
+            JsonObject result = new JsonObject();
+            for (JsonObject parent : resolvedParents) {
+                JsonElement inherited = parent.get("metadata");
+                if (inherited != null && inherited.isJsonObject())
+                    for (Map.Entry<String, JsonElement> entry : inherited.getAsJsonObject().entrySet())
+                        if (!result.has(entry.getKey())) result.add(entry.getKey(), entry.getValue().deepCopy());
+            }
+            JsonElement own = child.get("metadata");
+            if (own != null) {
+                if (!own.isJsonObject()) throw new PrototypeResolutionException("Character '" + childId + "': metadata must be an object");
+                for (Map.Entry<String, JsonElement> entry : own.getAsJsonObject().entrySet())
+                    result.add(entry.getKey(), entry.getValue().deepCopy());
+            }
+            return result.size() == 0 ? null : result;
         }
         if (!handles(fieldName)) return null;
         Map<String, JsonObject> inherited = new LinkedHashMap<>();

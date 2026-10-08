@@ -41,13 +41,13 @@ public final class LooseItemRenderer extends EntityRenderer<LooseItemEntity> {
         }
         if ("jug".equals(profile.renderKind()) && stack.is(ModItems.JUG.get())) {
             var reagent = stack.get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
+            var minecraft = net.minecraft.client.Minecraft.getInstance();
             int fill = com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.fillTier(reagent,
-                    com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents());
+                    com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents(minecraft.level));
             pose.pushPose();
             try {
                 pose.mulPose(com.mojang.math.Axis.YP.rotation(entity.getRotationAngle(partialTick)));
                 pose.translate(-.5, 0, -.5);
-                var minecraft = net.minecraft.client.Minecraft.getInstance();
                 BakedModel model = minecraft.getModelManager().getModel(
                         net.minecraft.client.resources.model.ModelResourceLocation.standalone(
                                 ResourceLocation.fromNamespaceAndPath(

@@ -18,6 +18,7 @@ import com.juicyslew.moonstation14.ms14.character.components.ThermalRegulatorCom
 import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StomachPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.character.components.SpeechComponent;
+import com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
@@ -26,12 +27,13 @@ import java.util.Optional;
 
 /** Immutable, data-only character policy. The catalog key supplies identity. */
 public record CharacterData(List<ResourceLocation> hostEntityTypes,
-                            List<CharacterComponent> components) {
+                            List<CharacterComponent> components, ExamineMetadata metadata) {
     private static final Codec<CharacterData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     Codec.list(ResourceLocation.CODEC).optionalFieldOf("host_entity_types", List.of())
                             .forGetter(CharacterData::hostEntityTypes),
-                    Codec.list(CharacterComponentRegistry.CODEC).optionalFieldOf("components", List.of()).forGetter(CharacterData::components))
+                    Codec.list(CharacterComponentRegistry.CODEC).optionalFieldOf("components", List.of()).forGetter(CharacterData::components),
+                    ExamineMetadata.CODEC.optionalFieldOf("metadata", ExamineMetadata.EMPTY).forGetter(CharacterData::metadata))
                     .apply(instance, CharacterData::new));
 
     private static final Decoder<CharacterData> STRICT_DECODER = new Decoder<>() {
@@ -67,6 +69,7 @@ public record CharacterData(List<ResourceLocation> hostEntityTypes,
     public static final Codec<CharacterData> CODEC = Codec.of(STRUCTURAL_CODEC, STRICT_DECODER);
 
     public CharacterData {
+        Objects.requireNonNull(metadata, "metadata");
         Objects.requireNonNull(hostEntityTypes, "hostEntityTypes");
         hostEntityTypes = List.copyOf(hostEntityTypes);
         components = List.copyOf(Objects.requireNonNull(components, "components"));
@@ -97,12 +100,19 @@ public record CharacterData(List<ResourceLocation> hostEntityTypes,
     }
 
     public CharacterData(List<ResourceLocation> hostEntityTypes) {
-        this(hostEntityTypes, List.of());
+        this(hostEntityTypes, List.of(), ExamineMetadata.EMPTY);
+    }
+
+    public CharacterData(List<ResourceLocation> hostEntityTypes, List<CharacterComponent> components) {
+        this(hostEntityTypes, components, ExamineMetadata.EMPTY);
     }
 
     public CharacterData() {
-        this(List.of());
+        this(List.of(), List.of(), ExamineMetadata.EMPTY);
     }
+
+    public CharacterData withComponents(List<CharacterComponent> value) { return new CharacterData(hostEntityTypes, value, metadata); }
+    public CharacterData withMetadata(ExamineMetadata value) { return new CharacterData(hostEntityTypes, components, value); }
 
     public <T extends CharacterComponent> Optional<T> component(Class<T> type) {
         Objects.requireNonNull(type, "type");

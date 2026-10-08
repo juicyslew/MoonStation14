@@ -346,6 +346,10 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Contai
         DisposalEntityData data = resolvedData();
         return data == null ? null : data.unit();
     }
+    public com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata examineMetadata() {
+        DisposalEntityData data = resolvedData();
+        return data == null ? com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata.EMPTY : data.metadata();
+    }
     private DisposalEntityData resolvedData() {
         if (level == null || !(getBlockState().getBlock() instanceof DisposalUnitBlock)) return null;
         DisposalEntityData data = (level.isClientSide ? PrototypeRuntime.clientDisposals() : PrototypeRuntime.serverDisposals()).get(ModDisposals.UNIT);

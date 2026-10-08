@@ -30,15 +30,42 @@ import static com.juicyslew.moonstation14.util.Constants.SIP_INTERVAL_TICKS;
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
 
 public class JugItem extends Item implements IReagentTrait {
-    private final float capacity;
+    private final com.juicyslew.moonstation14.ms14.jug.JugData boundData;
 
     public JugItem(Properties properties) {
+        this(properties, null);
+    }
+
+    /** Instance-bound composition is useful for isolated fixtures; normal items resolve the active server catalog. */
+    public JugItem(Properties properties, com.juicyslew.moonstation14.ms14.jug.JugData boundData) {
         super(properties);
-        this.capacity = 150f;
+        this.boundData = boundData;
     }
 
     @Override
-    public float getCapacity() { return this.capacity; }
+    public float getCapacity() {
+        var data = boundData != null ? boundData : com.juicyslew.moonstation14.ms14.jug.ModJugs.serverResolved();
+        return capacityFromResolved(data);
+    }
+
+    public float getCapacity(Level level) {
+        var data = boundData != null ? boundData : com.juicyslew.moonstation14.ms14.jug.ModJugs.resolved(level);
+        return capacityFromResolved(data);
+    }
+
+    /** Capacity projection shared by runtime getters and resolved-profile tests. */
+    public static float capacityFromResolved(com.juicyslew.moonstation14.ms14.jug.JugData data) {
+        return data == null ? com.juicyslew.moonstation14.ms14.jug.JugData.DEFAULT_CAPACITY
+                : data.solutionContainer().maxVolume();
+    }
+
+    public com.juicyslew.moonstation14.ms14.jug.JugData resolvedJugData(Level level) {
+        return boundData != null ? boundData : com.juicyslew.moonstation14.ms14.jug.ModJugs.resolved(level);
+    }
+
+    public com.juicyslew.moonstation14.ms14.jug.JugData getResolvedComposition(Level level) {
+        return resolvedJugData(level);
+    }
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) { return UseAnim.DRINK; }

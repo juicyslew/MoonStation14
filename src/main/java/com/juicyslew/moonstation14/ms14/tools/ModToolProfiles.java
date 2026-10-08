@@ -53,6 +53,11 @@ public final class ModToolProfiles {
                     : id.equals(AIRLOCK_SCREWDRIVER) ? SCREWDRIVER.getPath() : BASE_ITEM.getPath();
             if (!child.has("parent") || !expected.equals(child.get("parent").getAsString()))
                 throw new IllegalArgumentException(id + " has an invalid profile parent");
+            if (child.has("metadata")) {
+                if (!child.get("metadata").isJsonObject()) throw new IllegalArgumentException("invalid tool metadata");
+                for (String field : child.getAsJsonObject("metadata").keySet())
+                    if (!Set.of("name", "description").contains(field)) throw new IllegalArgumentException("unknown tool metadata field: " + field);
+            }
         }
         if (resolved.asMap().containsKey(BASE_ITEM) || resolved.asMap().containsKey(BASE_CROWBAR))
             throw new IllegalArgumentException("abstract tool profiles must not be published");

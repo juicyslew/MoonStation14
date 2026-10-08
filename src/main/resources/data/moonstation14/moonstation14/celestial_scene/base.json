@@ -1,0 +1,12 @@
+{
+  "id": "base",
+  "abstract": true,
+  "dimension": "minecraft:overworld",
+  "side": "SUN",
+  "radius": 9.0,
+  "skyDistance": 80.0,
+  "red": 255,
+  "green": 255,
+  "blue": 245,
+  "metadata": { "name": "Sun", "description": "" }
+}

@@ -7,6 +7,8 @@ public final class TopRightHudLayout {
     public static final float STATUS_FONT_SCALE = 0.78f;
     private static final int MARGIN = 6;
     private static final int STATUS_GAP = 5;
+    public static final int EXAMINE_RESERVED_STATUS_ROWS = 7;
+    private static final int EXAMINE_GAP = 5;
 
     private TopRightHudLayout() { }
 
@@ -38,6 +40,19 @@ public final class TopRightHudLayout {
         Rect panel = chat(width, height);
         int top = statusTop(width, height) + index * ROW_HEIGHT;
         return new Rect(panel.left(), top, panel.right(), top + ROW_HEIGHT);
+    }
+
+    /** Top edge after the fixed status reservation, regardless of active row count. */
+    public static int examineTop(int width, int height) {
+        return statusRow(width, height, EXAMINE_RESERVED_STATUS_ROWS - 1).bottom() + EXAMINE_GAP;
+    }
+
+    public static int examineAvailableHeight(int width, int height) {
+        return Math.max(0, height - BOTTOM_RESERVE - examineTop(width, height));
+    }
+
+    public static int examineLeft(int width, int panelWidth) {
+        return Math.max(0, chat(width, 0).right() - panelWidth);
     }
 
     public record Rect(int left, int top, int right, int bottom) {

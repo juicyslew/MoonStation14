@@ -31,6 +31,7 @@ import java.util.UUID;
 
 /** Client presentation and intent only; all hand occupancy and transfer remain server-owned. */
 public final class BodyHandClient {
+    private static int suppressExaminePauseTicks;
     private static final net.minecraft.client.KeyMapping DROP = new net.minecraft.client.KeyMapping("key.moonstation14.body_drop",
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Q, "key.categories.moonstation14");
     private static final net.minecraft.client.KeyMapping SELECT_HAND = new net.minecraft.client.KeyMapping("key.moonstation14.select_hand",
@@ -122,7 +123,9 @@ public final class BodyHandClient {
     }
 
     public static void install() {
+        com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.install();
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::contextualKey);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::mouseScroll);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ScreenEvent.Opening e) -> {
             if (e.getNewScreen() != null) deferredPlacement = null;
         });
@@ -155,6 +158,7 @@ public final class BodyHandClient {
     }
 
     public static void reset() {
+        com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.clear();
         var mc = net.minecraft.client.Minecraft.getInstance();
         com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
         closeWorldWindows();
@@ -257,8 +261,10 @@ public final class BodyHandClient {
     }
 
     public static void tick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        if (suppressExaminePauseTicks > 0) suppressExaminePauseTicks--;
         clock++;
         reconcile();
+        com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.tick();
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (PointerModePolicy.shouldRestoreHost(POPUPS.pointerMode(), mc.screen == null, currentBody() != null))
             mc.setScreen(new StoragePopupScreen(POPUPS));
@@ -490,6 +496,12 @@ public final class BodyHandClient {
 
     private static void contextualKey(net.neoforged.neoforge.client.event.InputEvent.Key event) {
         var screen = net.minecraft.client.Minecraft.getInstance().screen;
+        if (screen == null && event.getAction() == GLFW.GLFW_PRESS && event.getKey() == GLFW.GLFW_KEY_ESCAPE
+                && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.hasPopup()) {
+            suppressExaminePauseTicks = screen == null ? 1 : 0;
+            com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.escape();
+            return;
+        }
         boolean altBinding = inventoryUsesAlt() && INVENTORY.matches(event.getKey(), event.getScanCode());
         if (event.getAction() == GLFW.GLFW_PRESS && !altBinding
                 && screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow
@@ -517,6 +529,12 @@ public final class BodyHandClient {
     }
 
     private static void suppressNativeInventoryScreen(net.neoforged.neoforge.client.event.ScreenEvent.Opening event) {
+        if (suppressExaminePauseTicks > 0 && event.getNewScreen() instanceof net.minecraft.client.gui.screens.PauseScreen) {
+            suppressExaminePauseTicks = 0;
+            event.setCanceled(true);
+            return;
+        }
+        suppressExaminePauseTicks = 0;
         boolean nativeInventory = event.getNewScreen() instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen
                 || event.getNewScreen() instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
         if (BodyInputGesturePolicy.suppressNativeInventory(nativeInventory, hasCommittedBody())) {
@@ -592,6 +610,18 @@ public final class BodyHandClient {
         if (event.getAction() == GLFW.GLFW_PRESS) ALT_TAP.otherPress();
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS
+                && shiftDown() && !controlDown() && !altDown() && mc.screen == null && mc.mouseHandler.isMouseGrabbed()
+                && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineWorldClick()) {
+            event.setCanceled(true);
+            return;
+        }
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS
+                && !mc.mouseHandler.isMouseGrabbed() && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseClick(
+                mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth(),
+                mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight(), 0)) {
+            event.setCanceled(true); return;
+        }
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS
                 && controlDown() && !shiftDown() && !altDown() && mc.screen == null && mc.mouseHandler.isMouseGrabbed()
                 && mc.player != null && (currentBody() != null || !mc.player.isSpectator())) {
             var ownedBody = currentBody();
@@ -645,6 +675,23 @@ public final class BodyHandClient {
             if (action != null) request(action);
         }
         event.setCanceled(true);
+    }
+
+    public static void mouseScroll(net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent event) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (!shiftDown() && !controlDown() && !altDown()
+                && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseScroll(
+                mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth(),
+                mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight(),
+                event.getScrollDeltaY())) {
+            event.setCanceled(true);
+            return;
+        }
+        if (!shiftDown() || controlDown() || altDown()) return;
+        if (com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_G)) return;
+        double delta = event.getScrollDeltaY();
+        if (delta != 0 && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.cycle(delta > 0 ? 1 : -1))
+            event.setCanceled(true);
     }
 
     /** Route an outside-window left click through the committed body's existing typed use actions. */

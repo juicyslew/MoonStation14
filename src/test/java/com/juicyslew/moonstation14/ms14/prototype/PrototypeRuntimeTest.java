@@ -33,6 +33,7 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
+import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,9 @@ class PrototypeRuntimeTest {
         expectedTypes.add(ModDamageFeedback.TYPE);
         expectedTypes.add(ModAirlocks.TYPE);
         expectedTypes.add(ModToolProfiles.TYPE);
+        expectedTypes.add(ModPuddles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -131,7 +135,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllFifteenFamiliesIncludingDamageFeedbackWithoutSharingState() {
+    void runtimeExportImportsPrototypeFamiliesIncludingPuddlesWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -190,7 +194,9 @@ class PrototypeRuntimeTest {
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
                 ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
-                ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId()), exported.keySet());
+                ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(ModTools.TOOL_TYPE.typeId()).keySet().containsAll(Set.of(
                 ModTools.WRENCH, ModTools.SCREWDRIVER, ModTools.WELDER)));
         assertTrue(exported.get(ModDisposals.DISPOSAL_TYPE.typeId()).keySet().containsAll(Set.of(

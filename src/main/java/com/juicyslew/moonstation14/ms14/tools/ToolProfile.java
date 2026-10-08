@@ -3,9 +3,11 @@ package com.juicyslew.moonstation14.ms14.tools;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
+import com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata;
 
 /** Resolved, supported tool-related item components. */
-public record ToolProfile(Tool tool, Prying prying, String useSound) {
+public record ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata) {
+    public ToolProfile(Tool tool, Prying prying, String useSound) { this(tool, prying, useSound, ExamineMetadata.EMPTY); }
     public enum Quality { SCREWING, CUTTING, PULSING, PRYING }
 
     public record Tool(List<Quality> qualities) {
@@ -24,8 +26,9 @@ public record ToolProfile(Tool tool, Prying prying, String useSound) {
     public static final Codec<ToolProfile> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Tool.CODEC.optionalFieldOf("tool").forGetter(p -> java.util.Optional.ofNullable(p.tool())),
             Prying.CODEC.optionalFieldOf("prying").forGetter(p -> java.util.Optional.ofNullable(p.prying())),
-            Codec.STRING.optionalFieldOf("useSound").forGetter(p -> java.util.Optional.ofNullable(p.useSound()))
-    ).apply(i, (tool, prying, useSound) -> new ToolProfile(tool.orElse(null), prying.orElse(null), useSound.orElse(null))));
+            Codec.STRING.optionalFieldOf("useSound").forGetter(p -> java.util.Optional.ofNullable(p.useSound())),
+            ExamineMetadata.CODEC.optionalFieldOf("metadata", ExamineMetadata.EMPTY).forGetter(ToolProfile::metadata)
+    ).apply(i, (tool, prying, useSound, metadata) -> new ToolProfile(tool.orElse(null), prying.orElse(null), useSound.orElse(null), metadata)));
 
     public void validate() {
         if (tool != null && (tool.qualities() == null || tool.qualities().isEmpty()
