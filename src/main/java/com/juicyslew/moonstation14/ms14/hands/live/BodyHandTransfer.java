@@ -37,7 +37,7 @@ public final class BodyHandTransfer {
         if (!transition.succeeded() || !authorized.getAsBoolean() || !before.compatible(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || before.revision() != revision || !CharacterControlSystem.canAct(body)) return Result.DENIED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), next); }
+        try { LiveHandsCommitGateway.commitOwned(body, next); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;

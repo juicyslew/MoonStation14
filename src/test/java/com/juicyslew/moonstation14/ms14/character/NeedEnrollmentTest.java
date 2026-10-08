@@ -129,15 +129,15 @@ class NeedEnrollmentTest {
         }
     }
 
-    @Test void componentBoundIsThirtyTwoWhileHostsRemainLimitedToSixteen() {
+    @Test void componentBoundIsSixtyFourWhileHostsRemainLimitedToSixteen() {
         String marker = "{\"type\":\"Hunger\"}";
-        String repeated = String.join(",", java.util.Collections.nCopies(33, marker));
+        String repeated = String.join(",", java.util.Collections.nCopies(65, marker));
         var tooMany = CharacterData.CODEC.parse(JsonOps.INSTANCE,
                 JsonParser.parseString("{\"components\":[" + repeated + "]}"));
         assertTrue(tooMany.error().isPresent());
-        assertTrue(tooMany.error().orElseThrow().message().contains("at most 32"));
+        assertTrue(tooMany.error().orElseThrow().message().contains("at most 64"));
         assertThrows(IllegalArgumentException.class, () -> new CharacterData(List.of(),
-                java.util.Collections.<CharacterComponent>nCopies(33, new HungerPrototypeComponent())));
+                java.util.Collections.<CharacterComponent>nCopies(65, new HungerPrototypeComponent())));
         assertThrows(IllegalArgumentException.class, () -> new CharacterData(List.of(),
                 List.of(new HungerPrototypeComponent(), new HungerPrototypeComponent())));
         String hosts = String.join(",", java.util.Collections.nCopies(17, "\"minecraft:player\""));

@@ -14,6 +14,10 @@ public class ModSounds {
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, MoonStation14.MOD_ID);
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
+    public static final Supplier<SoundEvent> TOOL_WRENCH = registerSoundEvent("ss14/tools/ratchet");
+    public static final Supplier<SoundEvent> TOOL_CROWBAR = registerSoundEvent("ss14/tools/crowbar");
+    public static final Supplier<SoundEvent> TOOL_SCREWDRIVER = registerSoundEvent("ss14/tools/screwdriver");
+    public static final Supplier<SoundEvent> TOOL_WELDER = registerSoundEvent("ss14/tools/welder");
     public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
     public static final Supplier<SoundEvent> AIRLOCK_OPEN = registerSoundEvent("airlock/airlock_open");
@@ -27,6 +31,13 @@ public class ModSounds {
     public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
     public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
+    public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
+    // Event registry IDs must exist independently of their sounds.json sample mappings.
+    public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
+    public static final Supplier<SoundEvent> MEDICAL_OINTMENT_END = registerSoundEvent("medical/ointment_end");
+    public static final Supplier<SoundEvent> MEDICAL_BRUTEPACK_BEGIN = registerSoundEvent("medical/brutepack_begin");
+    public static final Supplier<SoundEvent> MEDICAL_BRUTEPACK_END = registerSoundEvent("medical/brutepack_end");
+    public static final Supplier<SoundEvent> MEDICAL_HEALTHSCANNER = registerSoundEvent("medical/healthscanner");
     // Default human gasp profile is MaleHuman (HumanUnsexed); female collection is
     // registered for a later supported voice-profile consumer.
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");

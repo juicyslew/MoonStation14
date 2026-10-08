@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal Y Junction","description":"Build a disposal Y junction","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_y_junction","graph":"disposal_pipes","startingNode":"start","targetNode":"y_junction"}

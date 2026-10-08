@@ -128,6 +128,20 @@ public class MoonStation14Client {
             new PrototypeCatalogSyncAssembler(PrototypeRuntime.clientManager()::publishEncodedCatalogs);
 
     public MoonStation14Client(IEventBus modEventBus, ModContainer container) {
+        var analyzerWorkspace = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        analyzerWorkspace.closeSender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
+        com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerClientReceiver.install(state -> {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            mc.execute(() -> {
+                if (mc.player == null || !com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient
+                        .isCurrentMedicalBody(state.actorId())) return;
+                var workspace = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+                boolean newWindow = state.open() && workspace.get(state.scannerId()) == null;
+                workspace.accept(state, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+                if (newWindow && workspace.get(state.scannerId()) != null && mc.screen == null)
+                    com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.medicalPointerMode();
+            });
+        });
         modEventBus.addListener(MoonStation14Client::onClientSetup);
         modEventBus.addListener(MoonStation14Client::registerMoonSky);
         modEventBus.addListener(MoonStation14Client::registerItemColors);
@@ -153,6 +167,15 @@ public class MoonStation14Client {
         DisposalTubeVisualNetworking.installClientHandler(MoonStation14Client::handleDisposalTubePayload);
         LocalSpeechNetworking.installClientHandler(LocalSpeechClient::receive);
         GrenadeSoundNetworking.installClientHandler(GrenadeSoundClient::receive);
+        GrenadeSoundNetworking.installControlledClientHandler(payload -> {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.level == null || minecraft.player == null || !minecraft.level.dimension().location().equals(payload.dimension())) return;
+            var camera = minecraft.getCameraEntity();
+            if (camera == null || camera.isRemoved() || camera.level() != minecraft.level) return;
+            var sound = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(payload.sound()).orElse(null);
+            if (sound != null) minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), sound,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 1f, 1f, false);
+        });
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
@@ -170,6 +193,8 @@ public class MoonStation14Client {
     }
 
     static void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems::bootstrapClientBundled);
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
         ModSpecialProperties.addCustomItemProperties(event);
         DisposalTubeBlock.setRecordProvider((level,pos) -> DISPOSAL_TUBES.get(level.dimension().location(),pos));
         DisposalConstructionClient.register();
@@ -719,6 +744,63 @@ public class MoonStation14Client {
     }
 
     @SubscribeEvent
+    public static void renderPointerWorkspaceAfterScreen(ScreenEvent.Render.Post event) {
+        var mc=net.minecraft.client.Minecraft.getInstance();
+        boolean current=mc.screen==event.getScreen();
+        boolean allowed=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen());
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
+                mc.screen==null,true,current,allowed)) return;
+        BodyHandClient.renderPointerWorkspace(event.getGuiGraphics(),
+                event.getPartialTick());
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenMouse(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        var browser = com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance();
+        if (browser.mouseClicked(event.getMouseX(),event.getMouseY(),event.getButton())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenKey(ScreenEvent.KeyPressed.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
+                .keyPressed(event.getKeyCode(),event.getScanCode(),event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenKeyReleased(ScreenEvent.KeyReleased.Pre event) {
+        com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalConstructionClient.releaseBrowserClosePress(
+                event.getKeyCode(),event.getScanCode());
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenCharacter(ScreenEvent.CharacterTyped.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
+                .charTyped(event.getCodePoint(),event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenDrag(ScreenEvent.MouseDragged.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.drag(event.getMouseX(),event.getMouseY()))
+            event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void constructionBrowserScreenRelease(ScreenEvent.MouseButtonReleased.Pre event) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(event.getButton()))
+            event.setCanceled(true);
+    }
+
+    @SubscribeEvent
     public static void renderSelectedLooseOutline(RenderLevelStageEvent event) {
         com.juicyslew.moonstation14.ms14.hands.client.SelectedLooseOutlineRenderer.render(event);
     }
@@ -746,6 +828,14 @@ public class MoonStation14Client {
             }
             return -1; // Default (no tint)
         }, ModItems.BOTTLE.get());
+
+        event.register((stack, tintIndex) -> {
+            if (tintIndex == 1) {
+                ReagentComponent data = stack.get(ModDataComponents.REAGENT.get());
+                if (data != null) return ReagentComponent.getBlendedColor(data.contents(), Minecraft.getInstance().level);
+            }
+            return -1;
+        }, ModItems.SYRINGE.get());
 
         event.register((stack, tintIndex) -> {
             if (tintIndex == 1) {

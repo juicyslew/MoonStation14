@@ -47,6 +47,7 @@ public final class AtmosphereTopology {
         if (state.getBlock() instanceof AirlockBlock) return state.getValue(AirlockBlock.OPEN);
         if (state.getBlock() instanceof TrapDoorBlock) return state.getValue(TrapDoorBlock.OPEN);
         if (state.getBlock() instanceof FenceGateBlock) return state.getValue(FenceGateBlock.OPEN);
+        if (state.getBlock() instanceof AtmosphereBlockPolicy policy) return policy.atmospherePassable();
 
         return !fullCollisionCheck.isFull(state, level, pos);
     }

@@ -27,7 +27,8 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
         GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
         TRANSFER_HAND, PRIME_GRENADE, THROW_GRENADE, PICKUP_SELECTED, THROW_ITEM,
-        USE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE }
+        USE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE, USE_BODY,
+        CYCLE_SYRINGE_AMOUNT }
 
     /** Compatibility constructor preserving the prior canonical signature. */
     public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
@@ -150,7 +151,8 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
     public BodyHandActionRequest {
         if (action == null || handId == null || handId.isBlank() || handId.length() > HandState.MAX_ID_LENGTH
                 || epoch <= 0 || sequence <= 0 || expectedRevision < 0
-                  || (isWorldAction(action) && pickupTarget == null)
+                   || (isWorldAction(action) && pickupTarget == null)
+                  || (action == Action.USE_BODY && (expectedToken == null || expectedToken.isBlank()))
                   || (action == Action.PICKUP && expectedToken != null)
                   || (action == Action.USE_TARGET && (expectedToken == null || expectedToken.isBlank()
                             || expectedToken.length() > ItemToken.MAX_LENGTH))
@@ -192,7 +194,7 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                 null, -1, -1, -1, -1, -1, -1, null, null, null, pos.immutable());
     }
 
-     private static boolean isWorldAction(Action action) { return action == Action.PICKUP || action == Action.PICKUP_SELECTED || action == Action.USE_TARGET || action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL; }
+     private static boolean isWorldAction(Action action) { return action == Action.PICKUP || action == Action.PICKUP_SELECTED || action == Action.USE_TARGET || action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL || action == Action.USE_BODY; }
       private static boolean requiresToken(Action action) { return action != Action.SELECT_HAND && action != Action.PICKUP && action != Action.PICKUP_SELECTED && action != Action.STOP_PULL && action != Action.ALTERNATE_TARGET && action != Action.SIP_PUDDLE; }
      private static boolean isBodyCross(Action action) { return action == Action.GRID_BODY_WORN_TO_HELD || action == Action.GRID_BODY_HELD_TO_WORN || action == Action.GRID_BODY_HELD_TO_HELD; }
      private static boolean wornId(String id) { return "back".equals(id) || "belt".equals(id); }

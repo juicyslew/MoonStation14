@@ -27,6 +27,8 @@ public final class CharacterComponentRegistry {
     }
 
     private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
+            Map.entry(DamageableComponent.TYPE, new Entry<>(DamageableComponent.class, DamageableComponent.CODEC)),
+            Map.entry(HumanoidProfileComponent.TYPE, new Entry<>(HumanoidProfileComponent.class, HumanoidProfileComponent.CODEC)),
             Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),
             Map.entry(ExaminerComponent.TYPE, new Entry<>(ExaminerComponent.class, ExaminerComponent.CODEC)),
             Map.entry(ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC)),

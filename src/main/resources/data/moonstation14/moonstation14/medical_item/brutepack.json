@@ -1,0 +1,1 @@
+{"parent":"moonstation14:base_healing_item","healing":{"damage":{"blunt":-5,"piercing":-5,"slash":-5},"begin_sound":"moonstation14:medical/brutepack_begin","end_sound":"moonstation14:medical/brutepack_end"},"stack":{"count":10}}

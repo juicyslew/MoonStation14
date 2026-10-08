@@ -32,7 +32,8 @@ public final class AtmosphereDamageDiagnosticCommand {
     private AtmosphereDamageDiagnosticCommand() { }
 
     static List<String> format(BlockPos eye, GasMixture gas, Double bodyKelvin,
-                               RespirationState respiration, Map<String, Float> damage, float health, float maxHealth) {
+                               RespirationState respiration, Map<String, Float> damage,
+                               com.juicyslew.moonstation14.ms14.blood.BloodComponent blood, float health, float maxHealth) {
         List<String> lines = new ArrayList<>();
         lines.add("Eye block: " + eye.getX() + ", " + eye.getY() + ", " + eye.getZ());
         lines.add("Atmosphere: active");
@@ -48,6 +49,10 @@ public final class AtmosphereDamageDiagnosticCommand {
                 "Respiration: initialized=%s, saturation=%.4f, phase=%s", respiration.initialized(),
                 respiration.saturation(), respiration.phase()));
         lines.add("Typed damage: " + (damage == null ? "unavailable" : damage.toString()));
+        lines.add(blood == null ? "Bleeding: blood state unavailable" : String.format(Locale.ROOT,
+                "Bleeding: initialized=%s, bleed rate=%.2f", blood.initialized(), blood.bleedRate()));
+        lines.add(String.format(Locale.ROOT, "Blood-loss damage ledger: %.2f",
+                damage == null ? 0 : damage.getOrDefault(com.juicyslew.moonstation14.ms14.damage.DamageKeys.BLOODLOSS, 0f)));
         lines.add(String.format(Locale.ROOT, "Health: %.2f / %.2f", health, maxHealth));
         lines.add("Snapshot only; repeated snapshots distinguish rising type; typed key is not provenance.");
         return List.copyOf(lines);
@@ -78,9 +83,10 @@ public final class AtmosphereDamageDiagnosticCommand {
         var temperature = body.getExistingDataOrNull(ModDataAttachments.BODY_TEMPERATURE.get());
         var damage = body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
         RespirationState respiration = BodySystem.current(body).map(state -> state.respiration()).orElse(null);
+        var blood = com.juicyslew.moonstation14.ms14.blood.BloodSystem.state(body).orElse(null);
         for (String line : format(eye, gas,
                 temperature == null ? null : temperature.kelvin(), respiration, damage == null ? null : damage.getMap(),
-                body.getHealth(), body.getMaxHealth())) {
+                blood, body.getHealth(), body.getMaxHealth())) {
             source.sendSuccess(() -> Component.literal(line), false);
         }
         return 1;

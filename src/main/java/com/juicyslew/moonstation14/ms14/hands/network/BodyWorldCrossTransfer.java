@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
@@ -26,8 +27,8 @@ final class BodyWorldCrossTransfer {
 
     static Outcome apply(ServerPlayer actor, HandActorAuthority.Snapshot authority, ItemEntity world,
             ItemStack reference, ItemStack copy, BodyWorldCrossAction action) {
-        return apply(actor, authority, world, reference, copy, action,
-                (body, next) -> body.setData(ModDataAttachments.LIVE_HANDS.get(), next), ItemEntity::setItem);
+        return LiveHandsCommitGateway.batch(() -> apply(actor, authority, world, reference, copy, action,
+                (body, next) -> LiveHandsCommitGateway.commitOwned(body, next), ItemEntity::setItem));
     }
 
     static Outcome apply(ServerPlayer actor, HandActorAuthority.Snapshot authority, ItemEntity world,

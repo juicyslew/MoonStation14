@@ -10,6 +10,8 @@ import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import com.juicyslew.moonstation14.ms14.organ.BodySystem;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperation;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -22,11 +24,100 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @PrefixGameTestTemplate(false)
 @GameTestTags({"posture", "collision", "status", "timed-interaction"})
 public final class PostureGameTests {
     private PostureGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 12)
+    @GameTestTags({"standing", "audio", "medical-state", "posture-fall-audio"})
+    public static void forcedDownEmitsResolvedSoundOnceAndMedicalRepeatIsQuiet(GameTestHelper helper) {
+        Villager body = human(helper);
+        helper.runAfterDelay(2, () -> {
+            require(body.isAddedToLevel() && helper.getLevel().getEntity(body.getUUID()) == body
+                            && !PostureSystem.isDown(body),
+                    "Human is a registered live entity in initial standing posture before forced down");
+            var emitted = new ArrayList<net.minecraft.resources.ResourceLocation>();
+            PostureSystem.forceDownForTest(body, 0, (entity, sound) -> emitted.add(sound));
+            require(emitted.equals(java.util.List.of(net.minecraft.resources.ResourceLocation.parse("moonstation14:body_fall"))),
+                    "actual forced-down commit emits the resolved body-fall sound once");
+            PostureSystem.forceDownForTest(body, 0, (entity, sound) -> emitted.add(sound));
+            PostureSystem.applyMobStateChange(body, com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD,
+                    (entity, sound) -> emitted.add(sound));
+            require(emitted.size() == 1, "repeated knockdown and Critical-to-Dead while already down are silent");
+            require(PostureSystem.isDown(body) && body.getPose() == Pose.SWIMMING,
+                    "sound capture seam retains actual shared posture and physical commit");
+            require(net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(
+                    net.minecraft.resources.ResourceLocation.parse("moonstation14:body_fall")).isPresent(),
+                    "mapped body-fall sound event is registered");
+            var pig = net.minecraft.world.entity.EntityType.PIG.create(helper.getLevel());
+            require(pig != null, "pig entity created");
+            pig.setNoAi(true); pig.setNoGravity(true); pig.setPos(body.getX() + 3, body.getY(), body.getZ());
+            require(helper.getLevel().addFreshEntity(pig)
+                            && CharacterIdentitySystem.enroll(pig, helper.getLevel(),
+                            net.minecraft.resources.ResourceLocation.parse("moonstation14:pig")),
+                    "pig enrolled through typed pig prototype");
+            var pigSounds = new ArrayList<net.minecraft.resources.ResourceLocation>();
+            require(pig.isAddedToLevel() && helper.getLevel().getEntity(pig.getUUID()) == pig
+                            && !PostureSystem.isDown(pig), "Pig has joined the active level while still standing");
+            var pigActor = com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy.resolveActor(pig).orElse(null);
+            var pigStanding = pigActor == null ? null : pigActor.component(com.juicyslew.moonstation14.ms14.character.components.StandingStateComponent.class).orElse(null);
+            PostureSystem.applyMobStateChange(pig, com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL,
+                    (entity, sound) -> pigSounds.add(sound));
+            require(pigStanding != null && !pigStanding.standingEligible()
+                            && PostureSystem.isDown(pig) && pigSounds.equals(java.util.List.of(
+                    net.minecraft.resources.ResourceLocation.parse("moonstation14:body_fall"))),
+                    "ready Pig with resolved ineligible StandingState still emits medical down sound");
+            Villager startup = EntityType.VILLAGER.create(helper.getLevel());
+            require(startup != null, "startup entity created outside the live level");
+            startup.setNoAi(true); startup.setNoGravity(true); startup.setPos(body.getX() + 2, body.getY(), body.getZ());
+            require(CharacterIdentitySystem.enroll(startup, helper.getLevel(), ModCharacters.HUMAN_ID),
+                    "unadded startup entity enrolled against resolved Human prototype");
+            var startupSounds = new ArrayList<net.minecraft.resources.ResourceLocation>();
+            require(!startup.isAddedToLevel(), "startup fixture remains unadded before initialization transition");
+            PostureSystem.forceDownForTest(startup, 0, (entity, sound) -> startupSounds.add(sound));
+            require(PostureSystem.isDown(startup) && startupSounds.isEmpty(),
+                    "initial down transition before live-level registration is physically applied without startup audio");
+            require(helper.getLevel().addFreshEntity(startup), "initialized down body joins level");
+            require(startup.isAddedToLevel() && helper.getLevel().getEntity(startup.getUUID()) == startup
+                            && PostureSystem.isDown(startup) && startupSounds.isEmpty(),
+                    "join registration does not replay startup down audio");
+            Villager restored = EntityType.VILLAGER.create(helper.getLevel());
+            require(restored != null, "restored entity created");
+            restored.setData(ModDataAttachments.POSTURE.get(), new PostureAttachment(
+                    new PostureData(true, false, 0, 0)));
+            restored.setNoAi(true); restored.setNoGravity(true); restored.setPos(body.getX() + 4, body.getY(), body.getZ());
+            require(helper.getLevel().addFreshEntity(restored)
+                            && CharacterIdentitySystem.enroll(restored, helper.getLevel(), ModCharacters.HUMAN_ID),
+                    "already-down persisted body joined and enrolled");
+            var restoredSounds = new ArrayList<net.minecraft.resources.ResourceLocation>();
+            PostureSystem.applyMobStateChange(restored,
+                    com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD,
+                    (entity, sound) -> restoredSounds.add(sound));
+            require(PostureSystem.isDown(restored) && restoredSounds.isEmpty(),
+                    "restored down posture remains quiet through join and later medical state update");
+            net.minecraft.world.entity.animal.Sheep custom = EntityType.SHEEP.create(helper.getLevel());
+            require(custom != null, "custom-prototype entity created");
+            require(net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(
+                    net.minecraft.resources.ResourceLocation.parse("moonstation14:ss14/items/drink")).isPresent(),
+                    "custom override sound event registered");
+            custom.setNoAi(true); custom.setNoGravity(true); custom.setPos(body.getX() + 6, body.getY(), body.getZ());
+            require(CharacterIdentitySystem.enroll(custom, helper.getLevel(),
+                            net.minecraft.resources.ResourceLocation.parse("moonstation14:posture_fall_audio_fixture"))
+                            && helper.getLevel().addFreshEntity(custom),
+                    "entity enrolled through audited GameTest-only inherited sound override");
+            helper.runAfterDelay(2, () -> {
+            var customSounds = new ArrayList<net.minecraft.resources.ResourceLocation>();
+            PostureSystem.forceDownForTest(custom, 0, (entity, sound) -> customSounds.add(sound));
+            require(customSounds.equals(java.util.List.of(net.minecraft.resources.ResourceLocation.parse("moonstation14:ss14/items/drink"))),
+                    "live resolved inherited prototype override, not hardcoded default, selects emitted sound ID");
+            helper.succeed();
+        });
+        });
+    }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void onlyAcceptedOwnCrawlMovementUpdatesProneFacing(GameTestHelper helper) {
@@ -206,6 +297,37 @@ public final class PostureGameTests {
         helper.succeed();
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"merge-main-regression", "timed-interaction"})
+    public static void repeatedTimedCompletionRunsOnceAndKeepsWorldTarget(GameTestHelper helper) {
+        Villager body = human(helper);
+        BlockPos target = helper.absolutePos(new BlockPos(2, 0, 2));
+        AtomicInteger completions = new AtomicInteger();
+        require(TimedInteractionSystem.start(body, null, 71, "timed-regression", "repeat-once", 2,
+                        false, false, 1.0, 0.3, () -> 4, () -> true,
+                        () -> completions.incrementAndGet() == 1
+                                ? TimedInteractionSystem.Completion.REPEAT : TimedInteractionSystem.Completion.STOP,
+                        java.util.Optional.of(target), () -> { }) == TimedInteractionEngine.StartResult.STARTED,
+                "timed operation starts with dynamic repeat schedule and world target");
+        require(TimedInteractionSystem.snapshot(body).views().getFirst().worldTarget().orElseThrow().equals(target),
+                "authoritative snapshot retains operation world target");
+        helper.runAfterDelay(3, () -> {
+            var views = TimedInteractionSystem.snapshot(body).views();
+            require(completions.get() == 1, "first completion callback runs once");
+            require(views.size() == 1 && views.getFirst().phase() == TimedOperation.Phase.ACTIVE
+                            && views.getFirst().durationTicks() == 4
+                            && views.getFirst().worldTarget().orElseThrow().equals(target),
+                    "repeat uses dynamic duration and retains world target in updated active snapshot");
+            helper.runAfterDelay(5, () -> {
+                var finished = TimedInteractionSystem.snapshot(body).views();
+                require(completions.get() == 2, "second completion callback runs once, not twice");
+                require(finished.size() == 1 && finished.getFirst().phase() == TimedOperation.Phase.COMPLETED,
+                        "STOP outcome completes operation rather than being reprocessed as cancellation");
+                helper.succeed();
+            });
+        });
+    }
+
     private static boolean activeGetUp(Villager body) {
         return body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
                 .anyMatch(op -> op.kind().equals("standing") && op.phase() == TimedOperation.Phase.ACTIVE);
@@ -222,6 +344,17 @@ public final class PostureGameTests {
                         && CharacterIdentitySystem.enroll(body, helper.getLevel(), ModCharacters.HUMAN_ID),
                 "entity enrolled through supported human character profile");
         require(LiveHands.initialize(body).isPresent() && BodySystem.reconcile(body), "enrolled body and hands initialize");
+        return body;
+    }
+
+    private static Villager villagerAt(GameTestHelper helper, double x) {
+        BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = EntityType.VILLAGER.create(helper.getLevel());
+        require(body != null, "villager created");
+        body.setNoAi(true); body.setNoGravity(true); body.setPos(x, pos.getY(), pos.getZ() + .5);
+        require(helper.getLevel().addFreshEntity(body)
+                        && CharacterIdentitySystem.enroll(body, helper.getLevel(), ModCharacters.HUMAN_ID),
+                "villager enrolled as Human");
         return body;
     }
 

@@ -1,0 +1,6 @@
+Asset: screwdriver2.ogg
+
+Source: Space Station 14, Resources/Audio/Items/screwdriver2.ogg, pinned revision c9df5ef5d675b0d1d226828bddf6b78c28502d91.
+SHA-256: 07e8f9c55556ae90ed756e57ddacbf44ab7ba435adb0bc850941ba0f4fc04c2c (source and imported destination verified identical).
+
+File-specific author, license, and original source URL are unresolved. No license is inferred or claimed; do not assume MIT or a blanket license. See docs/audio-unknown-provenance.md. Resolve rights before distribution, or remove this asset and its registration if terms cannot be established.

@@ -50,6 +50,22 @@ public final class BloodSystem {
                 .flatMap(data -> data.component(BloodstreamComponent.class).map(BloodstreamComponent::policy));
     }
 
+    /** Applies a bounded topical bleed-rate delta to an already initialized blood state. */
+    public static double modifyBleedAmount(LivingEntity entity, double modifier) {
+        if (entity == null || entity.level().isClientSide() || !Double.isFinite(modifier) || modifier == 0
+                || !(entity.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread()) return 0;
+        BloodComponent current = state(entity).orElse(null);
+        if (current == null || !current.initialized()) return 0;
+        BloodstreamPolicy policy = resolvePolicy(entity).orElse(null);
+        if (policy == null) return 0;
+        double next = Math.max(0, Math.min(policy.maxBleedRate(), current.bleedRate() + modifier));
+        double applied = next - current.bleedRate();
+        if (applied == 0) return 0;
+        entity.setData(ModDataAttachments.BLOOD.get(), new BloodAttachment(new BloodComponent(next, true)));
+        return applied;
+    }
+
     /** Legacy pure host/identity fixture seam; runtime authority is resolveForActor, not this method. */
     public static Optional<BloodstreamPolicy> resolvePolicy(CharacterData data, ResourceLocation identity,
             ResourceLocation host, Optional<ResourceLocation> hostOwner) {

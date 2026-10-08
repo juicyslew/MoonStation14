@@ -5,6 +5,8 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
+import com.juicyslew.moonstation14.ms14.ui.client.MachineActionButtonRenderer;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** Factory for focusable vanilla title-bar controls; screens add and reposition the returned widgets. */
 public final class WindowChromeButtons {
@@ -24,6 +26,14 @@ public final class WindowChromeButtons {
         return button(windowX + windowWidth - EDGE - SIZE, windowY + EDGE, CLOSE_ICON, CLOSE_LABEL, onClose);
     }
 
+    /** Pixel bounds of the standard close widget after a uniform GUI pose scale. */
+    public static net.minecraft.client.gui.navigation.ScreenRectangle closeBounds(
+            int windowX, int windowY, int windowWidth, float scale) {
+        return new net.minecraft.client.gui.navigation.ScreenRectangle(
+                Math.round(windowX + (windowWidth - EDGE - SIZE) * scale),
+                Math.round(windowY + EDGE * scale), Math.round(SIZE * scale), Math.round(SIZE * scale));
+    }
+
     /** Returns null when help is not supplied; callers should only register a non-null widget. */
     public static Button help(int windowX, int windowY, int windowWidth, Runnable onHelp) {
         if (onHelp == null) return null;
@@ -35,10 +45,18 @@ public final class WindowChromeButtons {
         Objects.requireNonNull(title, "title");
         Objects.requireNonNull(tooltip, "tooltip");
         Objects.requireNonNull(action, "action");
-        return Button.builder(title, ignored -> action.run())
-                .bounds(x, y, SIZE, SIZE)
-                .tooltip(Tooltip.create(tooltip))
-                .createNarration(ignored -> AbstractWidget.wrapDefaultNarrationMessage(tooltip))
-                .build();
+        return new ChromeButton(x,y,title,tooltip,action);
+    }
+
+    private static final class ChromeButton extends Button {
+        private final String label;
+        private ChromeButton(int x,int y,Component title,Component tooltip,Runnable action) {
+            super(x,y,SIZE,SIZE,title,ignored->action.run(),ignored->AbstractWidget.wrapDefaultNarrationMessage(tooltip));
+            this.label=title.getString();
+            setTooltip(Tooltip.create(tooltip));
+        }
+        @Override public void renderWidget(GuiGraphics graphics,int mouseX,int mouseY,float partialTick) {
+            MachineActionButtonRenderer.render(graphics,label,getX(),getY(),getWidth(),getHeight(),isHoveredOrFocused());
+        }
     }
 }

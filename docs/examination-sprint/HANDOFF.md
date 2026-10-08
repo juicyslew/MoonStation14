@@ -11,6 +11,9 @@ Artifact: `build/libs/moonstation14-0.0.1.jar`, SHA-256
 `F17A2DF0F3B697EC877FF78678B801B2193EEE1F8C9DDDE23B7106141BCF854C`.
 Client and server must use the same rebuilt jar.
 
+Subsequent main integration is indexed in `MERGE-MAIN.md`; the sprint-closure
+artifact and validation below predate that combined tree.
+
 ## ARCHITECTURE
 
 - Separate rendered-view selection, server eligibility, and contributor-provided

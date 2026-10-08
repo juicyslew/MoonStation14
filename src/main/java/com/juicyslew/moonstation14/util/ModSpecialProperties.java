@@ -14,6 +14,14 @@ public class ModSpecialProperties {
     public static void addCustomItemProperties(FMLClientSetupEvent event) {
         // Now you can pass any item that implements IReagentItem
         registerFillProperty(ModItems.BOTTLE.get());
+        registerFillProperty(ModItems.SYRINGE.get());
+        ItemProperties.register(ModItems.SYRINGE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "syringe_mode"),
+                (stack, level, entity, seed) -> {
+                    if (level == null) return 0f;
+                    var data = stack.get(ModDataComponents.SYRINGE.get());
+                    if (data == null) data = com.juicyslew.moonstation14.item.custom.SyringeItem.initialData(level);
+                    return com.juicyslew.moonstation14.item.custom.SyringeItem.isInjectMode(data.mode(), level) ? 1f : 0f;
+                });
         ItemProperties.register(ModItems.JUG.get(),
                 ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "fill"),
                 (stack, level, entity, seed) -> {
@@ -32,9 +40,17 @@ public class ModSpecialProperties {
                             stack.getOrDefault(ModDataComponents.REAGENT.get(), new ReagentComponent()).contents()
                     );
                     // Use the capacity defined in your interface!
-                    float capacity = item instanceof com.juicyslew.moonstation14.item.custom.JugItem jug && level != null
-                            ? jug.getCapacity(level) : item.getCapacity();
-                    return currentVolume / capacity;
+                    float capacity;
+                    if (level != null) capacity = item instanceof com.juicyslew.moonstation14.item.custom.JugItem jug
+                            ? jug.getCapacity(level) : item.getCapacity(stack, level);
+                    else {
+                        // Null-level queries are client UI callbacks; ensure bundled resolved defaults
+                        // are available before authoritative prototype sync.
+                        com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.bootstrapClientBundled();
+                        com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.bootstrapClientBundled();
+                        capacity = item.getCapacity();
+                    }
+                    return capacity > 0f ? Math.min(1f, currentVolume / capacity) : 0f;
                 }
         );
     }

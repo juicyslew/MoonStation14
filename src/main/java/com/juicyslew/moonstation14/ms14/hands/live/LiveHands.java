@@ -156,6 +156,11 @@ public final class LiveHands {
     /** Absent result means no compatible equipment capability; persisted distinguishes legacy absence. */
     public static Optional<EquipmentSnapshot> equipmentSnapshot(Entity body) {
         LiveHands state = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        return equipmentSnapshot(body, state);
+    }
+
+    /** Resolve the host layout from the body, but contents from the supplied detached candidate state. */
+    public static Optional<EquipmentSnapshot> equipmentSnapshot(Entity body, LiveHands state) {
         if (state == null || !state.compatible(body)) return Optional.empty();
         return hostEquipmentIds(body).map(ids -> new EquipmentSnapshot(state.equipment.isPresent(),
                 ids.stream().map(id -> new EquipmentSlot(id, state.equipment.orElse(List.of()).stream()
@@ -178,6 +183,12 @@ public final class LiveHands {
     public List<String> handIds() { return hands.stream().map(Slot::id).toList(); }
     public String activeHand() { return active; }
     public long revision() { return revision; }
+
+    /** Advances the observable body-inventory revision after a presentation-only owned-stack change. */
+    public LiveHands advanceRevision() {
+        if (revision == Long.MAX_VALUE) throw new IllegalStateException("Live hand revision exhausted");
+        return new LiveHands(hands, active, revision + 1, equipment);
+    }
 
     /** Transient pull lock; the UUID is the exact target and is not an item/stack token. */
     public Optional<java.util.UUID> reservation(String hand) {
@@ -233,6 +244,248 @@ public final class LiveHands {
                 .occupant().map(Occupant::token);
     }
 
+    /** Scanner lifecycle component mutation, guarded by the current revision and scanner UUID. */
+    public Optional<LiveHands> deactivateHealthAnalyzer(long expectedRevision, java.util.UUID scannerId) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || scannerId == null) return Optional.empty();
+        ArrayList<Slot> nextHands = new ArrayList<>(hands);
+        ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElse(List.of()));
+        boolean[] changed = {false};
+        java.util.function.UnaryOperator<ItemStack> deactivate = source -> {
+            var data = source.get(ModDataComponents.HEALTH_ANALYZER.get());
+            if (data == null || !data.active() || !data.scannerId().equals(scannerId)) return source;
+            ItemStack result = source.copy();
+            result.set(ModDataComponents.HEALTH_ANALYZER.get(), new com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData(scannerId, false));
+            changed[0] = true;
+            return result;
+        };
+        tickStacks(nextHands, deactivate);
+        tickStacks(nextEquipment, deactivate);
+        for (int i = 0; i < nextHands.size(); i++) {
+            Slot slot = nextHands.get(i);
+            if (slot.occupant().isEmpty()) continue;
+            Occupant owner = slot.occupant().orElseThrow();
+            var updated = updateDirectGridChildren(owner.stack(), scannerId);
+            if (updated != owner.stack() && !ItemStack.matches(updated, owner.stack())) {
+                nextHands.set(i, new Slot(slot.id(), Optional.of(new Occupant(owner.token(), updated)))); changed[0] = true;
+            }
+        }
+        for (int i = 0; i < nextEquipment.size(); i++) {
+            Slot slot = nextEquipment.get(i);
+            if (slot.occupant().isEmpty()) continue;
+            Occupant owner = slot.occupant().orElseThrow();
+            var updated = updateDirectGridChildren(owner.stack(), scannerId);
+            if (!ItemStack.matches(updated, owner.stack())) {
+                nextEquipment.set(i, new Slot(slot.id(), Optional.of(new Occupant(owner.token(), updated)))); changed[0] = true;
+            }
+        }
+        return changed[0] ? Optional.of(new LiveHands(nextHands, active, revision + 1,
+                equipment.isPresent() ? Optional.of(nextEquipment) : Optional.empty())) : Optional.empty();
+    }
+
+    private static ItemStack updateDirectGridChildren(ItemStack host, java.util.UUID id) {
+        var grid = GridContents.read(host);
+        if (grid.isEmpty()) return host;
+        List<GridContents.Entry> entries = new ArrayList<>(); boolean changed = false;
+        for (var entry : grid.orElseThrow().entries()) {
+            ItemStack child = entry.stack();
+            var data = child.get(ModDataComponents.HEALTH_ANALYZER.get());
+            if (data != null && data.active() && data.scannerId().equals(id)) {
+                child.set(ModDataComponents.HEALTH_ANALYZER.get(), new com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData(id, false)); changed = true;
+            }
+            entries.add(new GridContents.Entry(entry.token(), child, entry.x(), entry.y(), entry.rotation()));
+        }
+        return changed ? GridContents.applyCopyWithGrid(host, GridContents.of(entries)).orElse(host) : host;
+    }
+
+    public Optional<ItemStack> equipmentStack(String slot) {
+        return equipment.orElse(List.of()).stream().filter(value -> value.id().equals(slot)).findFirst()
+                .flatMap(Slot::occupant).map(value -> value.stack().copy());
+    }
+
+    /** Pure atomic consume-and-place for body-owned crafting. The output is merged first, then
+     * placed in a free hand (including the source hand if its last unit was consumed). */
+    public Optional<LiveHands> consumeAndPlace(long expectedRevision, String sourceHand, String sourceToken,
+            ItemStack expectedSource, int consumeCount, ItemStack output, String outputToken) {
+        if (expectedRevision != revision || revision == Long.MAX_VALUE || sourceHand == null
+                || sourceToken == null || expectedSource == null || expectedSource.isEmpty()
+                || consumeCount <= 0 || output == null || output.isEmpty() || outputToken == null
+                || output.getCount() > output.getMaxStackSize()) return Optional.empty();
+        int sourceIndex = handIds().indexOf(sourceHand);
+        if (sourceIndex < 0 || hands.get(sourceIndex).reservation().isPresent()) return Optional.empty();
+        Occupant source = hands.get(sourceIndex).occupant().orElse(null);
+        if (source == null || !source.token().equals(sourceToken)
+                || !ItemStack.isSameItemSameComponents(source.stack(), expectedSource)
+                || source.stack().getCount() != expectedSource.getCount()
+                || source.stack().getCount() < consumeCount || allOccupants().stream()
+                .anyMatch(value -> value.token().equals(outputToken))) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElse(List.of()));
+        for (int i = 0; i < next.size(); i++) {
+            Slot slot = next.get(i);
+            if (i == sourceIndex) continue;
+            Occupant occupant = slot.occupant().orElse(null);
+            if (occupant != null && ItemStack.isSameItemSameComponents(occupant.stack(), output)
+                    && occupant.stack().getCount() + output.getCount() <= occupant.stack().getMaxStackSize()) {
+                ItemStack merged = occupant.stack(); merged.grow(output.getCount());
+                next.set(i, new Slot(slot.id(), Optional.of(new Occupant(occupant.token(), merged))));
+                output = ItemStack.EMPTY;
+                break;
+            }
+        }
+        if (!output.isEmpty()) {
+            for (int i = 0; i < nextEquipment.size() && !output.isEmpty(); i++) {
+                Slot slot = nextEquipment.get(i); Occupant occupant = slot.occupant().orElse(null);
+                if (occupant != null) {
+                    var grid = GridContents.read(occupant.stack());
+                    if (grid.isPresent()) {
+                        var geometry = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(
+                                occupant.stack().is(ModItems.BAG) ? 7 : 8, occupant.stack().is(ModItems.BAG) ? 4 : 2));
+                        for (var entry : grid.orElseThrow().entries()) geometry = geometry.place(entry.token(),
+                                com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(entry.stack()),
+                                new GridGeometry.Cell(entry.x(), entry.y()), entry.rotation()).snapshot();
+                        var shape = com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(output);
+                        int width = occupant.stack().is(ModItems.BAG) ? 7 : 8;
+                        int height = occupant.stack().is(ModItems.BAG) ? 4 : 2;
+                        for (int y=0; y<height && !output.isEmpty(); y++) for (int x=0; x<width && !output.isEmpty(); x++) {
+                            var cell = new GridGeometry.Cell(x,y);
+                            var placed = geometry.place(outputToken, shape, cell, GridGeometry.Rotation.DEG_0);
+                            if (placed.accepted()) {
+                                var entries = new ArrayList<>(grid.orElseThrow().entries());
+                                entries.add(new GridContents.Entry(outputToken, output, x, y, GridGeometry.Rotation.DEG_0));
+                                var updated = GridContents.applyCopyWithGrid(occupant.stack(), GridContents.of(entries));
+                                if (updated.isPresent()) { nextEquipment.set(i,new Slot(slot.id(),Optional.of(new Occupant(occupant.token(),updated.orElseThrow())))); output=ItemStack.EMPTY; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ItemStack remaining = source.stack(); remaining.shrink(consumeCount);
+        next.set(sourceIndex, remaining.isEmpty() ? new Slot(sourceHand, Optional.empty())
+                : new Slot(sourceHand, Optional.of(new Occupant(sourceToken, remaining))));
+        if (!output.isEmpty()) {
+            int free = -1;
+            for (int i=0;i<next.size();i++) if (next.get(i).occupant().isEmpty() && next.get(i).reservation().isEmpty()) { free=i; break; }
+            if (free < 0) return Optional.empty();
+            next.set(free,new Slot(next.get(free).id(),Optional.of(new Occupant(outputToken,output))));
+        }
+        return Optional.of(new LiveHands(next, active, revision+1, equipment.isPresent()?Optional.of(nextEquipment):Optional.empty()));
+    }
+
+    /** Selects one matching grid child (hands are deliberately searched first) and stages exact
+     * consumption. The existing child token is retained for an unconsumed remainder. */
+    public Optional<CraftSelection> consumeBodyMaterial(long expectedRevision, java.util.function.Predicate<ItemStack> matches,
+            int units, ItemStack output, String outputToken) {
+        if (expectedRevision != revision || revision == Long.MAX_VALUE || matches == null || units < 1
+                || output == null || output.isEmpty() || output.getCount()>output.getMaxStackSize() || outputToken == null) return Optional.empty();
+        if (allOccupants().stream().anyMatch(o -> o.token().equals(outputToken))) return Optional.empty();
+        for(Slot slot:equipment.orElse(List.of())) { Occupant host=slot.occupant().orElse(null);
+            if(host!=null) { var contents=GridContents.read(host.stack()); if(contents.isPresent()
+                    && contents.orElseThrow().entries().stream().anyMatch(e->e.token().equals(outputToken))) return Optional.empty(); }
+        }
+        for (Slot hand : hands) {
+            Occupant o = hand.occupant().orElse(null);
+            if (o != null && matches.test(o.stack()) && o.stack().getCount() >= units) {
+                var candidate = consumeAndPlace(expectedRevision, hand.id(), o.token(), o.stack(), units, output, outputToken);
+                return candidate.map(state -> new CraftSelection(state, new CraftSource(false, hand.id(), o.token(), null)));
+            }
+        }
+        // The capability-bound live consumer revalidates declared slots before publication.
+        ArrayList<Slot> equipmentNext = new ArrayList<>(equipment.orElse(List.of()));
+        ArrayList<Slot> handsNext = new ArrayList<>(hands);
+        for (int i=0;i<equipmentNext.size();i++) {
+            Slot hostSlot=equipmentNext.get(i); Occupant host=hostSlot.occupant().orElse(null);
+            if (host==null || !(host.stack().is(ModItems.BAG)||host.stack().is(ModItems.BELT))) continue;
+            GridContents grid=GridContents.read(host.stack()).orElse(null); if(grid==null) continue;
+            for (GridContents.Entry child:grid.entries()) {
+                ItemStack stack=child.stack();
+                if (!matches.test(stack) || stack.getCount()<units) continue;
+                ItemStack rem=stack.copy(); rem.shrink(units);
+                ArrayList<GridContents.Entry> entries=new ArrayList<>(grid.entries());
+                entries.removeIf(e->e.token().equals(child.token()));
+                if(!rem.isEmpty()) entries.add(new GridContents.Entry(child.token(),rem,child.x(),child.y(),child.rotation()));
+                Optional<ItemStack> changed=GridContents.applyCopyWithGrid(host.stack(),GridContents.of(entries));
+                if(changed.isEmpty()) continue;
+                equipmentNext.set(i,new Slot(hostSlot.id(),Optional.of(new Occupant(host.token(),changed.orElseThrow()))));
+                ItemStack product=output.copy(); boolean placed=false;
+                // Output goes into a free hand first. Grid insertion is subsequently attempted in the vacated source grid.
+                for(int h=0;h<handsNext.size();h++) if(handsNext.get(h).occupant().isEmpty() && handsNext.get(h).reservation().isEmpty()) {
+                    handsNext.set(h,new Slot(handsNext.get(h).id(),Optional.of(new Occupant(outputToken,product)))); placed=true; break;
+                }
+                if(!placed) {
+                    Optional<GridContents> reduced=GridContents.read(changed.orElseThrow());
+                    if(reduced.isPresent()) {
+                        int w=host.stack().is(ModItems.BAG)?7:8, h=host.stack().is(ModItems.BAG)?4:2;
+                        var geo=GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(w,h));
+                        for(var e:reduced.orElseThrow().entries()) geo=geo.place(e.token(),com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(e.stack()),new GridGeometry.Cell(e.x(),e.y()),e.rotation()).snapshot();
+                        var shape=com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(product);
+                        outer: for(int y=0;y<h;y++) for(int x=0;x<w;x++) { var p=geo.place(outputToken,shape,new GridGeometry.Cell(x,y),GridGeometry.Rotation.DEG_0); if(!p.accepted()) continue;
+                            var add=new ArrayList<>(reduced.orElseThrow().entries()); add.add(new GridContents.Entry(outputToken,product,x,y,GridGeometry.Rotation.DEG_0));
+                            var finalHost=GridContents.applyCopyWithGrid(changed.orElseThrow(),GridContents.of(add));
+                            if(finalHost.isPresent()){equipmentNext.set(i,new Slot(hostSlot.id(),Optional.of(new Occupant(host.token(),finalHost.orElseThrow())))); placed=true; break outer;}
+                        }
+                    }
+                }
+                if (!placed) return Optional.empty();
+                return Optional.of(new CraftSelection(new LiveHands(handsNext,active,revision+1,
+                        equipment.isPresent()?Optional.of(equipmentNext):Optional.empty()),
+                        new CraftSource(true,hostSlot.id(),host.token(),child.token())));
+            }
+        }
+        return Optional.empty();
+    }
+    public boolean hasAdequateBodyMaterial(java.util.function.Predicate<ItemStack> matches, int units) {
+        if(matches==null||units<1) return false;
+        for(Slot hand:hands) { Occupant o=hand.occupant().orElse(null); if(o!=null&&o.stack().getCount()>=units&&matches.test(o.stack())) return true; }
+        for(Slot slot:equipment.orElse(List.of())) { Occupant host=slot.occupant().orElse(null); if(host==null) continue;
+            var contents=GridContents.read(host.stack()); if(contents.isEmpty()) continue;
+            for(var child:contents.orElseThrow().entries()) if(child.stack().getCount()>=units&&matches.test(child.stack())) return true;
+        }
+        return false;
+    }
+
+    /** Pure output-only preflight for a recipe whose source is outside body ownership. */
+    public Optional<LiveHands> placeCraftOutput(long expectedRevision, ItemStack output, String outputToken) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || output == null || output.isEmpty()
+                || output.getCount() > output.getMaxStackSize() || outputToken == null
+                || allOccupants().stream().anyMatch(o -> o.token().equals(outputToken))) return Optional.empty();
+        for (Slot slot : hands) {
+            Occupant o = slot.occupant().orElse(null);
+            if (o != null && ItemStack.isSameItemSameComponents(o.stack(), output)
+                    && o.stack().getCount() + output.getCount() <= o.stack().getMaxStackSize()) {
+                ArrayList<Slot> next = new ArrayList<>(hands);
+                ItemStack merged = o.stack(); merged.grow(output.getCount());
+                next.set(handIds().indexOf(slot.id()), new Slot(slot.id(), Optional.of(new Occupant(o.token(), merged))));
+                return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+            }
+        }
+        for (int i=0;i<hands.size();i++) if (hands.get(i).occupant().isEmpty() && hands.get(i).reservation().isEmpty()) {
+            ArrayList<Slot> next = new ArrayList<>(hands);
+            next.set(i,new Slot(next.get(i).id(),Optional.of(new Occupant(outputToken,output))));
+            return Optional.of(new LiveHands(next,active,revision+1,equipment));
+        }
+        ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElse(List.of()));
+        for(int i=0;i<nextEquipment.size();i++) {
+            Slot slot=nextEquipment.get(i); Occupant host=slot.occupant().orElse(null);
+            if(host==null||!(host.stack().is(ModItems.BAG)||host.stack().is(ModItems.BELT))) continue;
+            var grid=GridContents.read(host.stack()); if(grid.isEmpty()) continue;
+            int w=host.stack().is(ModItems.BAG)?7:8,h=host.stack().is(ModItems.BAG)?4:2;
+            var geo=GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(w,h));
+            for(var entry:grid.orElseThrow().entries()) geo=geo.place(entry.token(),com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(entry.stack()),new GridGeometry.Cell(entry.x(),entry.y()),entry.rotation()).snapshot();
+            var shape=com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(output);
+            for(int y=0;y<h;y++) for(int x=0;x<w;x++) {
+                var pos=new GridGeometry.Cell(x,y); if(!geo.place(outputToken,shape,pos,GridGeometry.Rotation.DEG_0).accepted()) continue;
+                var entries=new ArrayList<>(grid.orElseThrow().entries()); entries.add(new GridContents.Entry(outputToken,output,x,y,GridGeometry.Rotation.DEG_0));
+                var updated=GridContents.applyCopyWithGrid(host.stack(),GridContents.of(entries));
+                if(updated.isPresent()) { nextEquipment.set(i,new Slot(slot.id(),Optional.of(new Occupant(host.token(),updated.orElseThrow()))));
+                    return Optional.of(new LiveHands(hands,active,revision+1,equipment.isPresent()?Optional.of(nextEquipment):Optional.empty())); }
+            }
+        }
+        return Optional.empty();
+    }
+    public record CraftSource(boolean wornGrid,String hostId,String hostToken,String childToken) { }
+    public record CraftSelection(LiveHands state,CraftSource source) { }
+
     /** Pure active-hand change; occupants and tokens stay in their original slots. */
     public Optional<LiveHands> selectActive(long expectedRevision, String chosen) {
         if (revision != expectedRevision || revision == Long.MAX_VALUE || hands.size() != 2
@@ -277,6 +530,47 @@ public final class LiveHands {
         ArrayList<Slot> next = new ArrayList<>(hands);
         next.set(index, new Slot(hand, Optional.of(new Occupant(token.value(), stack))));
         return new WholeResult(new LiveHands(next, active, revision + 1, equipment), Optional.empty(), Optional.empty());
+    }
+
+    /** Pure give-admission step: merge matching available stacks up to each native stack cap, then fill an empty hand. */
+    public GrantResult grant(long expectedRevision, ItemStack supplied) {
+        if (expectedRevision != revision || revision == Long.MAX_VALUE || supplied == null || supplied.isEmpty())
+            return new GrantResult(this, supplied == null ? ItemStack.EMPTY : supplied.copy(), false);
+        ItemStack remaining = supplied.copy();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        int activeIndex = handIds().indexOf(active);
+        if (activeIndex < 0) return new GrantResult(this, remaining, false);
+        // Keep active-first ordering; reservations are intentionally unavailable.
+        ArrayList<Integer> order = new ArrayList<>(); order.add(activeIndex);
+        for (int i = 0; i < hands.size(); i++) if (i != activeIndex) order.add(i);
+        boolean changed = false;
+        for (int i : order) {
+            Slot slot = next.get(i);
+            if (slot.reservation().isPresent() || slot.occupant().isEmpty()) continue;
+            ItemStack held = slot.occupant().orElseThrow().stack();
+            if (!ItemStack.isSameItemSameComponents(held, remaining)) continue;
+            int moved = Math.min(remaining.getCount(), Math.max(0, held.getMaxStackSize() - held.getCount()));
+            if (moved == 0) continue;
+            held.grow(moved); remaining.shrink(moved);
+            next.set(i, new Slot(slot.id(), Optional.of(new Occupant(slot.occupant().orElseThrow().token(), held))));
+            changed = true;
+            if (remaining.isEmpty()) break;
+        }
+        for (int i : order) {
+            if (remaining.isEmpty()) break;
+            Slot slot = next.get(i);
+            if (slot.reservation().isPresent() || slot.occupant().isPresent()) continue;
+            int moved = Math.min(remaining.getCount(), remaining.getMaxStackSize());
+            ItemStack placed = remaining.copyWithCount(moved);
+            next.set(i, new Slot(slot.id(), Optional.of(new Occupant(new ItemToken(java.util.UUID.randomUUID().toString()).value(), placed))));
+            remaining.shrink(moved); changed = true;
+        }
+        return new GrantResult(changed ? new LiveHands(next, active, revision + 1, equipment) : this, remaining, changed);
+    }
+
+    public record GrantResult(LiveHands state, ItemStack remainder, boolean changed) {
+        public GrantResult { remainder = remainder.copy(); }
+        @Override public ItemStack remainder() { return remainder.copy(); }
     }
 
     /** Pure whole-stack calculation; caller must publish atomically with the owning carrier. */

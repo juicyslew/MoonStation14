@@ -21,4 +21,10 @@ final class PointerModePolicy {
         origin = Origin.CLOSED;
         return true;
     }
+    /** Last analyzer close exits the shared pointer UI, even after manual unlock. */
+    boolean lastAnalyzerClosed(boolean managedWindowsRemain, boolean ownsPointerScreen) {
+        if (origin == Origin.CLOSED || managedWindowsRemain || !ownsPointerScreen) return false;
+        dismiss();
+        return true;
+    }
 }

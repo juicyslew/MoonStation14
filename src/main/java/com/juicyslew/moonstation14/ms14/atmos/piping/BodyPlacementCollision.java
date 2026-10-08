@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.block.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -23,7 +24,7 @@ public final class BodyPlacementCollision {
     }
 
     /** Collision preflight for a complete newly placed block shape. */
-    public static boolean blockIntersects(ServerLevel level, LivingEntity body, BlockPos pos, BlockState placement) {
+    public static boolean blockIntersects(Level level, LivingEntity body, BlockPos pos, BlockState placement) {
         return intersects(placement.getCollisionShape(level, pos, CollisionContext.of(body)), pos, body.getBoundingBox());
     }
 

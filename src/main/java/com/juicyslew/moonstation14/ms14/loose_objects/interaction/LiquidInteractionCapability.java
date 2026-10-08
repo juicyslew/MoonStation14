@@ -23,11 +23,11 @@ public final class LiquidInteractionCapability {
             sourceAfter = Map.copyOf(sourceAfter);
             destinationBefore = Map.copyOf(destinationBefore);
             destinationAfter = Map.copyOf(destinationAfter);
-            if (transferredCents < 0 || transferredCents > DOSE_CENTS) throw new IllegalArgumentException("invalid dose");
+            if (transferredCents < 0) throw new IllegalArgumentException("invalid transfer amount");
         }
     }
 
-    /** Stage up to five units from source into destination without mutating either holder. */
+    /** Stage the default five-unit dose from source into destination without mutating either holder. */
     public static TransferPlan plan(Map<ResourceKey<ReagentData>, Long> source,
                                     Map<ResourceKey<ReagentData>, Long> destination, long capacityCents) {
         return plan(source, destination, capacityCents, DOSE_CENTS);

@@ -40,7 +40,9 @@ public final class BodyHeldItemMutation {
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != admittedHands
                 || !matches(admittedHands, handId, token, expectedRevision, expectedBefore)) return Result.DENIED;
         try {
-            body.setData(ModDataAttachments.LIVE_HANDS.get(), candidate.orElseThrow());
+            if (!LiveHandsCommitGateway.commit(actor, authority, candidate.orElseThrow()))
+                return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == admittedHands
+                        ? Result.DENIED : Result.RECOVERY_REQUIRED;
         } catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == admittedHands
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;
@@ -48,7 +50,6 @@ public final class BodyHeldItemMutation {
         LiveHands published = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (!live(body, level) || published != candidate.orElseThrow()
                 || !BodyHandStateService.representable(published, body)) return Result.RECOVERY_REQUIRED;
-        BodyHandStateService.requireFreshQuery(actor);
         return Result.SUCCESS;
     }
 

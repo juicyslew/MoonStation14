@@ -13,6 +13,9 @@ import com.juicyslew.moonstation14.ms14.character.components.ObserverMovementCom
 import com.juicyslew.moonstation14.ms14.character.components.IncorporealComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent;
 import com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.DamageableComponent;
+import com.juicyslew.moonstation14.ms14.character.components.HumanoidProfileComponent;
+import com.juicyslew.moonstation14.ms14.character.components.ExaminerComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import com.mojang.serialization.JsonOps;
@@ -32,6 +35,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CharacterPrototypeTest {
+    @Test
+    void standingStateDownSoundDefaultsAndCustomizes() throws IOException {
+        var defaultComponent = StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"StandingState\",\"standing_eligible\":true,\"prone_eligible\":true}")).getOrThrow();
+        assertEquals(ResourceLocation.parse("moonstation14:body_fall"), defaultComponent.downSound());
+        var custom = StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"StandingState\",\"standing_eligible\":true,\"prone_eligible\":true,\"down_sound\":\"minecraft:entity.player.small_fall\"}")).getOrThrow();
+        assertEquals(ResourceLocation.parse("minecraft:entity.player.small_fall"), custom.downSound());
+        assertEquals(custom, StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
+                StandingStateComponent.CODEC.encodeStart(JsonOps.INSTANCE, custom).getOrThrow()).getOrThrow());
+        assertEquals(ResourceLocation.parse("moonstation14:body_fall"), dataFromResource(RESOURCE)
+                .component(StandingStateComponent.class).orElseThrow().downSound());
+        assertEquals(ResourceLocation.parse("moonstation14:body_fall"), dataFromResource("data/moonstation14/moonstation14/character/pig.json")
+                .component(StandingStateComponent.class).orElseThrow().downSound());
+        JsonObject invalid = JsonParser.parseString("{\"components\":[{\"type\":\"StandingState\",\"standing_eligible\":true,\"prone_eligible\":true,\"down_sound\":\"not a sound\"}]}").getAsJsonObject();
+        assertThrows(IllegalArgumentException.class, () -> CharacterSchemaAudit.audit(ResourceLocation.parse("moonstation14:bad_sound"), invalid));
+    }
     private static final String RESOURCE = "data/moonstation14/moonstation14/character/human.json";
 
     @Test
@@ -109,7 +129,7 @@ class CharacterPrototypeTest {
         ResourceLocation childId = ResourceLocation.parse("moonstation14:slip_child");
         JsonObject parent = JsonParser.parseString("""
                 {"abstract":true,"components":[{"type":"StandingState","standing_eligible":true,
-                 "prone_eligible":false},{"type":"NoSlip"},{"type":"Stunnable"},
+                 "prone_eligible":false,"down_sound":"minecraft:entity.player.small_fall"},{"type":"NoSlip"},{"type":"Stunnable"},
                  {"type":"Reactive","reactive_groups":["acidic"],"reactive_methods":["touch"]}]}
                 """).getAsJsonObject();
         JsonObject child = JsonParser.parseString("""
@@ -122,6 +142,8 @@ class CharacterPrototypeTest {
         CharacterData resolved = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(childId);
         assertTrue(resolved.component(NoSlipComponent.class).isPresent());
         assertTrue(resolved.component(StunnableComponent.class).isPresent());
+        assertEquals(ResourceLocation.parse("minecraft:entity.player.small_fall"),
+                resolved.component(StandingStateComponent.class).orElseThrow().downSound());
         assertTrue(resolved.component(StandingStateComponent.class).orElseThrow().standingEligible());
         assertTrue(resolved.component(StandingStateComponent.class).orElseThrow().proneEligible());
         assertEquals(List.of(ReactiveComponent.ReactiveGroup.FLAMMABLE),
@@ -255,7 +277,11 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
+        assertEquals(33, data.components().size(), "merged Human composition retains both sprint component families");
+        assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
+        assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());
+        assertEquals("Human", data.component(HumanoidProfileComponent.class).orElseThrow().species());
         assertTrue(data.component(NoSlipComponent.class).isEmpty());
         assertTrue(data.component(StandingStateComponent.class).orElseThrow().standingEligible());
         assertTrue(data.component(StandingStateComponent.class).orElseThrow().proneEligible());
@@ -324,6 +350,23 @@ class CharacterPrototypeTest {
     }
 
     @Test
+    void componentCountLimitIsSharedBySchemaAuditAndTypedData() {
+        assertEquals(64, CharacterData.MAX_COMPONENTS);
+        String components = java.util.stream.IntStream.range(0, CharacterData.MAX_COMPONENTS + 1)
+                .mapToObj(i -> "{\"type\":\"Examiner\"}")
+                .collect(java.util.stream.Collectors.joining(","));
+        JsonObject oversized = JsonParser.parseString("{\"components\":[" + components + "]}").getAsJsonObject();
+        var codecFailure = CharacterData.CODEC.parse(JsonOps.INSTANCE, oversized).error().orElseThrow();
+        assertTrue(codecFailure.message().contains("at most 64 components"), codecFailure.message());
+        var auditFailure = assertThrows(IllegalArgumentException.class,
+                () -> CharacterSchemaAudit.auditComponentsIfPresent(oversized));
+        assertTrue(auditFailure.getMessage().contains("at most 64 components"), auditFailure.getMessage());
+        var constructorFailure = assertThrows(IllegalArgumentException.class, () -> new CharacterData(List.of(),
+                java.util.Collections.nCopies(CharacterData.MAX_COMPONENTS + 1, ExaminerComponent.DEFAULT)));
+        assertTrue(constructorFailure.getMessage().contains("at most 64 distinct types"), constructorFailure.getMessage());
+    }
+
+    @Test
     void emptyAndPigPrototypeRemainTypedAndRoundTrip() throws IOException {
         JsonObject empty = new JsonObject();
         CharacterData emptyData = CharacterData.CODEC.parse(JsonOps.INSTANCE, empty).getOrThrow();
@@ -337,6 +380,8 @@ class CharacterPrototypeTest {
 
         JsonObject pigJson = readResource("data/moonstation14/moonstation14/character/pig.json");
         CharacterData pig = CharacterData.CODEC.parse(JsonOps.INSTANCE, pigJson).getOrThrow();
+        assertEquals(Optional.of("Biological"), pig.component(DamageableComponent.class).orElseThrow().damageContainer());
+        assertTrue(pig.component(HumanoidProfileComponent.class).isEmpty(), "Pig has no humanoid profile and scans as unknown species");
         assertEquals(4.0, pig.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).orElseThrow().walkSpeed());
         assertEquals(4.0, com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy
                 .fromCharacterData(pig).sprintSpeedPerSecond());
@@ -639,7 +684,7 @@ class CharacterPrototypeTest {
         withoutBlood.remove("components");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, withoutBlood).getOrThrow().component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).isEmpty());
         JsonObject legacy = valid.deepCopy();
-        legacy.add("blood", legacy.getAsJsonArray("components").get(1).getAsJsonObject().deepCopy());
+        legacy.add("blood", component(legacy, "Bloodstream").deepCopy());
         for (JsonObject rejected : List.of(legacy, bloodField(valid, "unknown", "1"))) {
             assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, rejected).error().isPresent());
         }
@@ -653,9 +698,12 @@ class CharacterPrototypeTest {
                 ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, abstractLegacy)))).getMessage()
                 .contains("$.blood"));
         JsonObject duplicateBloodstream = valid.deepCopy();
-        duplicateBloodstream.getAsJsonArray("components").add(valid.getAsJsonArray("components").get(1).deepCopy());
-        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, duplicateBloodstream).error().orElseThrow().message()
-                  .contains("$.components[" + (valid.getAsJsonArray("components").size()) + "].type"));
+        var duplicateComponents = duplicateBloodstream.getAsJsonArray("components");
+        duplicateComponents.remove(duplicateComponents.size() - 1); // Keep under the schema's 32-component limit.
+        int duplicateIndex = duplicateComponents.size();
+        duplicateComponents.add(component(valid, "Bloodstream").deepCopy());
+        String duplicateError = CharacterData.CODEC.parse(JsonOps.INSTANCE, duplicateBloodstream).error().orElseThrow().message();
+        assertTrue(duplicateError.contains("$.components[" + duplicateIndex + "].type"), duplicateError);
         var blood = CharacterData.CODEC.parse(JsonOps.INSTANCE, valid).getOrThrow().component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).orElseThrow();
         assertEquals(Map.of("moonstation14:blood", 300.0), blood.referenceSolution());
         assertEquals(List.of(ResourceLocation.parse("moonstation14:blood")), blood.metabolismExclusions());

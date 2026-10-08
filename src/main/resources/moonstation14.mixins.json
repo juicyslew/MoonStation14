@@ -38,6 +38,7 @@
     "LivingEntityProneDimensionsMixin",
     "PlayerPronePoseMixin",
     "LevelChunkSealedWallHostMixin",
+    "LevelChunkConstructionHostMixin",
     "TrackedEntityObserverViewMixin",
     "ChunkMapObserverAccess",
     "ChunkMapObserverCenterMixin"

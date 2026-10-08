@@ -8,6 +8,20 @@
 
 Hands and wearable slots belong to the controlled body through immutable `LiveHands`; storage grids belong to items through `GridContents`. Requests are intents, not client stacks. `HandActorAuthority` binds authenticated actor, controlled body and epoch. Body-only transfers publish one attachment revision. Body↔world and world↔world transfers stage separate owners and conditionally publish/compensate; these are not crash-durable atomic transactions.
 
+**Active medical-correction follow-up (not covered by the acceptance above):**
+`hands/live/LiveHandsCommitGateway` is now the gameplay attachment-write seam.
+Use its actor-authorized or trusted server-body commit API, and scoped batches
+for staged/compensated transfers. Trusted unowned bodies remain mutable;
+publication is limited to the current authenticated owner. Do not write
+`LIVE_HANDS` directly outside explicit initialization. A source-architecture test
+enforces this boundary. Prospective validation must use the supplied `LiveHands`
+for **all** hand, worn and grid contents; only equipment layout comes from the
+body. Mixing candidate hands with currently attached equipment creates false
+duplicate ownership and rejects valid transfers. Existing `BodyHandStateSnapshot` networking now carries
+unsolicited authoritative updates without consuming pending query/action
+correlations; stale replies cannot replace a newer revision. Current validation
+and limitations are in `../basic-medical-treatment-sprint/VALIDATION.md`.
+
 Windows are observations, separate from action permission. `StoragePopupLifecycle` resolves body-host windows by preserved storage token across worn/held locations. Correlated successful `BodyHandActionResult.HostTransition` metadata maps world UUIDs across pickup/drop; there are no guessed identities or persistent alias components. Rekeying preserves geometry, visibility, z-order and the three-visible-window quota. A short exact post-drop grant admits a replacement world session after fresh authority/reach checks.
 
 World observations retain their nonce until explicit close, material unavailability or authority reset. Their 100-tick action lease can expire without closing the window; refresh revalidates the entity, current evidence and reach before renewal. `UNAVAILABLE` identifies material loss; transient query failures retain non-actionable presentation and retry. Existing-window refresh does not reactivate a dismissed cursor.
@@ -57,5 +71,14 @@ Trusted Villager fixtures do not prove every authenticated player route or actua
 - Passing disposable server fixtures were removed. Earlier full runs each encountered different non-storage fixture failures (timed stun expiry and atmosphere isolation); logs remain in `build/inventory-lifecycle-gametest*.log`. No unrelated subsystem repair was applied.
 
 ## NEXT WORK
+
+### Authority snapshot follow-up
+
+Issued full-state proof binds the exact actor/body/epoch, not a hand revision.
+Successful gateway publications send and issue a fresh full snapshot;
+`requireFreshQuery` retains its legacy name but now pushes that snapshot. Replay
+and rate-limit rejection do not revoke still-current proof. Lost authority or a
+changed body/epoch invalidates it. Query-gate unit coverage is not connected
+player/transport validation.
 
 See [future-extensions.md](future-extensions.md) for the owner's four proposed extensions and recommended sequencing. They are recorded opportunities, not started work or finalized designs. `connected-follow-up-test.md` remains a regression checklist. Keep Gradle/server runs sequential to avoid shared-output locks.
