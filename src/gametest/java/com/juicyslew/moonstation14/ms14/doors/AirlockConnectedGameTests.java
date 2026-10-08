@@ -30,7 +30,6 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
-import java.util.Set;
 
 /** Connected end-to-end airlock acceptance coverage; no fake player authority is used. */
 @GameTestTags({"airlock", "atmosphere", "airlock_connected"})
@@ -179,16 +178,23 @@ public final class AirlockConnectedGameTests {
         });
     }
 
-    @GameTestTags({"airlock_crush_cycle", "airlock_crush", "status"})
+    @GameTestTags({"airlock_crush_cycle", "airlock_crush", "status", "suite-stabilization"})
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=400)
     public static void crushReleaseCompletesNormalOpenBeforeFastAutoClose(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper);
         waitForPoweredAdmission(helper,f,0,()->{
+            DoorPhaseTickObserver phaseObserver = new DoorPhaseTickObserver(f.level, f.door);
+            long observerLifetime=Math.max(1,399-helper.getTick());
+            phaseObserver.register(observerLifetime);
+            helper.runAfterDelay(observerLifetime, phaseObserver::close);
+            try {
             require(f.door.activate(),"freshly paid controller begins normal opening");
             helper.runAfterDelay(9,()->{
+                try {
                 require(f.door.state().phase()==AirlockState.DoorPhase.OPENING_PASSABLE,"door is passable during the first opening animation");
                 Villager victim=enrolledBody(f.level,f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
                 float before=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f);
+                phaseObserver.setVictim(victim,before);
                 long revision=f.door.state().revision();
                 require(f.door.applyWire(f.door.identity(),revision,AirlockState.Wire.SAFETY,AirlockState.WireAction.CUT),"unsafe crush admission uses safety wire");
                 revision=f.door.state().revision();
@@ -196,14 +202,32 @@ public final class AirlockConnectedGameTests {
                 java.util.EnumSet<AirlockState.DoorPhase> postCrushPhases=java.util.EnumSet.noneOf(AirlockState.DoorPhase.class);
                 boolean[] reopened={false};
                 long[] openingStartedAt={0};
-                traceCrushCycle(helper,f,victim,before,postCrushPhases,reopened,openingStartedAt,120);
+                long[] reopenedOpenDue={0};
+                long[] traceStartedAt={-1};
+                int[] helperCallbacks={0};
+                traceCrushCycle(helper,f,victim,before,postCrushPhases,reopened,openingStartedAt,
+                        reopenedOpenDue,phaseObserver,traceStartedAt,helperCallbacks,helper.getTick(),victim.tickCount);
+                } catch (RuntimeException | Error failure) {
+                    phaseObserver.close();
+                    throw failure;
+                }
             });
+            } catch (RuntimeException | Error failure) {
+                phaseObserver.close();
+                throw failure;
+            }
         });
     }
 
     private static void traceCrushCycle(GameTestHelper helper,Fixture f,Villager victim,float bluntBefore,
                                          java.util.EnumSet<AirlockState.DoorPhase> postCrushPhases,boolean[] reopened,
-                                         long[] openingStartedAt,int remaining) {
+                                         long[] openingStartedAt,long[] reopenedOpenDue,
+                                         DoorPhaseTickObserver phaseObserver,long[] traceStartedAt,
+                                         int[] helperCallbacks,long traceStartHelperTick,int traceStartVictimTick) {
+        try {
+        helperCallbacks[0]++;
+        long now=f.level.getGameTime();
+        if(traceStartedAt[0]<0)traceStartedAt[0]=now;
         AirlockState state=f.door.state();
         if(!reopened[0]&&state.phase()==AirlockState.DoorPhase.OPENING
                 &&postCrushPhases.contains(AirlockState.DoorPhase.CLOSING_PASSABLE)) {
@@ -211,26 +235,147 @@ public final class AirlockConnectedGameTests {
             openingStartedAt[0]=f.door.clientView().transitionStartedAt();
             require(openingStartedAt[0]==f.level.getGameTime(),"crush release resets the client animation start on entry to fresh opening");
             postCrushPhases.clear();
+            phaseObserver.arm();
         }
         if(reopened[0]&&state.phase()==AirlockState.DoorPhase.OPENING) {
             require(f.door.clientView().transitionStartedAt()==openingStartedAt[0],"opening animation timestamp remains stable during the first reopening phase");
             require(f.level.getGameTime()-openingStartedAt[0]<8,"first reopening phase lasts the normal .4 seconds");
+        }
+        if(reopened[0]&&state.phase()==AirlockState.DoorPhase.OPENING_PASSABLE&&reopenedOpenDue[0]==0) {
+            reopenedOpenDue[0]=state.transitionAt();
+            long remainingToOpen=reopenedOpenDue[0]-f.level.getGameTime();
+            require(remainingToOpen>=0&&remainingToOpen<=20,
+                    "reopened OPENING_PASSABLE carries its resolved OPEN transition deadline; now="
+                            +f.level.getGameTime()+" transitionAt="+state.transitionAt()+" state="+state);
+            long openDue=reopenedOpenDue[0];
         }
         if(reopened[0])postCrushPhases.add(state.phase());
         else if(state.phase()==AirlockState.DoorPhase.CLOSING_PASSABLE)postCrushPhases.add(state.phase());
         if(state.phase()==AirlockState.DoorPhase.CLOSING_PASSABLE
                 &&DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f)-bluntBefore>=30f) {
             require(reopened[0]&&postCrushPhases.contains(AirlockState.DoorPhase.OPENING)
-                            &&postCrushPhases.contains(AirlockState.DoorPhase.OPENING_PASSABLE)
-                            &&postCrushPhases.contains(AirlockState.DoorPhase.OPEN),"crush release traversed both opening phases and fully OPEN before next close");
+                    &&postCrushPhases.contains(AirlockState.DoorPhase.OPENING_PASSABLE)
+                    &&phaseObserver.observedResolvedOpen(reopenedOpenDue[0], f.door.prototype().airlock().autoCloseSeconds(),
+                            f.door.prototype().wires().timingCutModifier()),
+                    "crush release traversed normal OPENING and OPENING_PASSABLE, the actual full OPEN server-tick "
+                            + "sample and its resolved fast auto-close before the next damaging close; phases="
+                            +postCrushPhases+" openDue="+reopenedOpenDue[0]+" observations="+phaseObserver.diagnostic()
+                            +" current="+state);
             require(openingStartedAt[0]>0,"client animation start timestamp is published for fresh crush opening");
             require(f.door.isCrushExempt(net.minecraft.world.phys.shapes.CollisionContext.of(victim)),"crushed victim remains collision-exempt through close cycle");
             require(CharacterControlSystem.isStunned(victim),"victim remains stunned at the next crush transition");
-            victim.discard();helper.succeed();return;
+            try { victim.discard(); helper.succeed(); }
+            finally { phaseObserver.close(); }
         }
-        if(remaining<=0)throw new GameTestAssertException("crush cycle did not reach next damaging partial close; phases="+postCrushPhases+" current="+state);
-        helper.runAfterDelay(1,()->traceCrushCycle(helper,f,victim,bluntBefore,postCrushPhases,reopened,openingStartedAt,remaining-1));
+        long elapsedGameTicks=now-traceStartedAt[0];
+        if(elapsedGameTicks>=120)throw new GameTestAssertException("crush cycle did not reach next damaging partial close within 120 real level ticks; "
+                +"elapsedGameTicks="+elapsedGameTicks+" traceStartGameTime="+traceStartedAt[0]+" now="+now
+                +" helperTick="+helper.getTick()+" traceCallbacks="+helperCallbacks[0]+" helperElapsed="
+                +(helper.getTick()-traceStartHelperTick)+" victimEntityTickElapsed="+(victim.tickCount-traceStartVictimTick)
+                +" phase="+state.phase()+" transitionAt="+state.transitionAt()+" autoCloseAt="+state.autoCloseAt()
+                +" revision="+state.revision()+" doorPowered="+state.powered()+" victimAlive="+victim.isAlive()
+                +" victimPos="+victim.position()+" victimBounds="+victim.getBoundingBox()+" doorway="+doorwayBounds(f.root)
+                +" victimIntersectsDoorway="+victim.getBoundingBox().intersects(doorwayBounds(f.root))
+                +" victimBluntDelta="+(DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f)-bluntBefore)
+                +" stun="+CharacterControlSystem.isStunned(victim)+" knockdown="+CharacterControlSystem.isKnockedDown(victim)
+                +" phases="+postCrushPhases+" observedTicks="+phaseObserver.diagnostic());
+        helper.runAfterDelay(1,()->traceCrushCycle(helper,f,victim,bluntBefore,postCrushPhases,reopened,
+                openingStartedAt,reopenedOpenDue,phaseObserver,traceStartedAt,helperCallbacks,
+                traceStartHelperTick,traceStartVictimTick));
+        } catch (RuntimeException | Error failure) {
+            phaseObserver.close();
+            throw failure;
+        }
     }
+
+    private static net.minecraft.world.phys.AABB doorwayBounds(BlockPos root) {
+        return new net.minecraft.world.phys.AABB(root.getX(),root.getY(),root.getZ(),
+                root.getX()+1,root.getY()+2,root.getZ()+1);
+    }
+
+    /** Read-only per-level-tick capture so a single real OPEN tick is not sampled on GameTest's clock. */
+    private static final class DoorPhaseTickObserver {
+        private final ServerLevel level;
+        private final AirlockBlockEntity door;
+        private final java.util.function.Consumer<net.neoforged.neoforge.event.tick.LevelTickEvent.Post> listener;
+        private boolean registered;
+        private boolean armed;
+        private Villager victim;
+        private float victimBluntBefore;
+        private TickSample latest;
+        private PhaseSample open;
+        private PhaseSample closing;
+        private long expiresAt;
+
+        DoorPhaseTickObserver(ServerLevel level, AirlockBlockEntity door) {
+            this.level = level;
+            this.door = door;
+            this.listener = event -> {
+                if (!registered || event.getLevel() != this.level) return;
+                long now = this.level.getGameTime();
+                if(now>=expiresAt){close();return;}
+                if(this.level.getBlockEntity(this.door.getBlockPos()) != this.door) return;
+                AirlockState state = this.door.state();
+                var meter = PowerRuntime.airlockPower(this.level,this.door);
+                var view = this.door.clientView();
+                latest = new TickSample(now,state.phase(),state.revision(),state.transitionAt(),state.autoCloseAt(),
+                        view.transitionStartedAt(),state.powered(),meter.known(),meter.deliveredWatts(),
+                        victim!=null&&victim.isAlive(),victim==null?-1:victim.tickCount,
+                        victim==null?null:victim.position(),victim==null?null:victim.getBoundingBox(),
+                        victim!=null&&victim.getBoundingBox().intersects(doorwayBounds(this.door.getBlockPos())),
+                        victim==null?Double.NaN:DamageSystem.existingOrVanillaBaseline(victim)
+                                .getOrDefault(DamageKeys.BLUNT,0f),victim==null?Double.NaN:
+                                DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f)
+                                        -victimBluntBefore);
+                if (!armed) return;
+                if (open == null && state.phase() == AirlockState.DoorPhase.OPEN)
+                    open = sample(now, state, view.transitionStartedAt());
+                else if (open != null && closing == null && state.phase() == AirlockState.DoorPhase.CLOSING)
+                    closing = sample(now, state, view.transitionStartedAt());
+            };
+        }
+
+        void register(long lifetimeTicks) {
+            expiresAt=level.getGameTime()+lifetimeTicks;
+            registered = true;
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(listener);
+        }
+
+        void arm() { armed = true; }
+        void setVictim(Villager victim,float bluntBefore) { this.victim = victim; this.victimBluntBefore=bluntBefore; }
+
+        boolean observedResolvedOpen(long expectedOpenAt, double autoCloseSeconds, double timingCutModifier) {
+            long expectedDuration = Math.max(1, (long) Math.ceil(autoCloseSeconds * timingCutModifier * 20.0));
+            return open != null && closing != null && open.gameTime() == expectedOpenAt
+                    && open.phase() == AirlockState.DoorPhase.OPEN && open.transitionStartedAt() == expectedOpenAt
+                    && open.autoCloseAt() == expectedOpenAt + expectedDuration
+                    && closing.gameTime() >= open.autoCloseAt() && closing.gameTime() == open.autoCloseAt()
+                    && closing.phase() == AirlockState.DoorPhase.CLOSING
+                    && closing.transitionStartedAt() == open.autoCloseAt();
+        }
+
+        String diagnostic() { return "latest=" + latest + ", open=" + open + ", closing=" + closing + ", armed=" + armed; }
+
+        void close() {
+            if (!registered) return;
+            registered = false;
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(listener);
+        }
+
+        private static PhaseSample sample(long now, AirlockState state, long transitionStartedAt) {
+            return new PhaseSample(now, state.phase(), state.revision(), state.transitionAt(), state.autoCloseAt(),
+                    transitionStartedAt);
+        }
+    }
+
+    private record PhaseSample(long gameTime, AirlockState.DoorPhase phase, long revision,
+                               long transitionAt, long autoCloseAt, long transitionStartedAt) { }
+
+    private record TickSample(long gameTime,AirlockState.DoorPhase phase,long revision,long transitionAt,
+                              long autoCloseAt,long transitionStartedAt,boolean doorPowered,
+                              boolean meterKnown,double deliveredWatts,boolean victimAlive,int victimEntityTick,
+                              net.minecraft.world.phys.Vec3 victimPosition,net.minecraft.world.phys.AABB victimBounds,
+                              boolean victimIntersectsDoorway,double victimBlunt,double victimBluntDelta) { }
 
     private static void assertVictimStable(GameTestHelper helper,Villager victim,double y,float health,float bluntBefore,int remaining,Runnable done) {
         if(remaining<=0){done.run();return;}
@@ -295,6 +440,7 @@ public final class AirlockConnectedGameTests {
         helper.runAfterDelay(1,()->waitForPoweredPhase(helper,f,expected,waited+1,admitted));
     }
 
+    @GameTestTags({"airlock_pressure_stabilization", "suite-stabilization"})
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "airlock_connected", timeoutTicks = 500)
     public static void scheduledDoorOpeningTransportsAndConservesFiniteGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -302,9 +448,8 @@ public final class AirlockConnectedGameTests {
         clearFixtureVolume(level, root, 2, 8);
         // Two sealed one-cell chambers communicate only through the two-cell airlock.
         BlockPos left = root.north(), right = root.south();
-        require(level.getBlockState(left).isAir() && level.getBlockState(right).isAir(),
-                "intended chamber cells start as air: root=" + root + " left=" + left + " "
-                        + level.getBlockState(left) + " right=" + right + " " + level.getBlockState(right));
+        for (BlockPos cell : List.of(left, right, root, root.above()))
+            level.setBlock(cell, Blocks.AIR.defaultBlockState(), 3);
         for (BlockPos chamber : List.of(left, right)) {
             level.setBlock(chamber.below(), Blocks.STONE.defaultBlockState(), 3);
             level.setBlock(chamber.above(2), Blocks.STONE.defaultBlockState(), 3);
@@ -325,23 +470,26 @@ public final class AirlockConnectedGameTests {
         level.setBlock(root.above().west(), Blocks.STONE.defaultBlockState(), 3);
         level.setBlock(root.above().east(), Blocks.STONE.defaultBlockState(), 3);
         level.setBlock(root.above(2), Blocks.STONE.defaultBlockState(), 3);
-        require(level.getBlockState(left).isAir() && level.getBlockState(right).isAir(),
-                "chamber construction leaves target cells open: root=" + root + " left=" + left + " "
-                        + level.getBlockState(left) + " right=" + right + " " + level.getBlockState(right));
+        // The power fixture contributes the east wall of the lower portal. Build it before
+        // authoring the component so the trusted setup proves the complete four-cell passage.
+        connectPower(helper, root, null);
+        List<BlockPos> finiteCells = List.of(left, root, root.above(), right);
+        var atmosphere = AtmosphereService.INSTANCE;
+        for (BlockPos cell : finiteCells)
+            require(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level, cell),
+                    "authored passage cell is passable before ownership setup: " + cell);
+        require(atmosphere.initializeEnclosedFiniteMixtureForTrustedSetup(level, finiteCells,
+                        new com.juicyslew.moonstation14.ms14.atmos.core.GasMixture(java.util.Map.of(), 293.15)),
+                "trusted setup proves and initializes the complete sealed four-cell finite passage");
+        require(atmosphere.addGas(level, left, GasType.NITROGEN, 40, 300), "seed high-pressure chamber");
+        require(atmosphere.addGas(level, right, GasType.NITROGEN, 2, 300), "seed low-pressure chamber");
         var lower = ModBlocks.AIRLOCK.get().defaultBlockState();
         level.setBlock(root, lower, 3);
         level.setBlock(root.above(), lower.setValue(AirlockBlock.HALF, DoubleBlockHalf.UPPER), 3);
         AirlockBlockEntity door = (AirlockBlockEntity) level.getBlockEntity(root);
         require(door != null, "root controller exists");
 
-        AtmosphereService atmosphere = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         int[] atmosphereClock = {0};
-        classify(atmosphere, level, left, atmosphereClock);
-        classify(atmosphere, level, right, atmosphereClock);
-        require(atmosphere.addGas(level, left, GasType.NITROGEN, 40, 300), "seed high-pressure chamber");
-        require(atmosphere.addGas(level, right, GasType.NITROGEN, 2, 300), "seed low-pressure chamber");
-
-        connectPower(helper, root, door);
         forcePowerFixtureChunks(level,root,door.prototype().extensionCableReceiver().localReachBlocks());
         Fixture fixture = new Fixture(level, root, door);
         waitForPoweredAdmission(helper, fixture, 0, () -> {
@@ -376,9 +524,15 @@ public final class AirlockConnectedGameTests {
                 double nitrogenBudget = nitrogenUlpBudget(before, after, operations);
                 double energyBudget = energyUlpBudget(before, after, operations);
                 require(Math.abs(after.nitrogen - before.nitrogen) <= nitrogenBudget,
-                        "finite chamber and portal nitrogen is conserved within operation-derived float rounding");
+                        "finite chamber and portal nitrogen conservation: beforeTotal="+beforeTotal+" afterTotal="+after.nitrogen
+                                +" signedN2Delta="+(after.nitrogen-beforeTotal)+" nitrogenBudget="+nitrogenBudget
+                                +" energyDelta="+(after.energy-before.energy)+" energyBudget="+energyBudget
+                                +" portal="+portalDiagnostics(level,root,before,after,atmosphere));
                 require(Math.abs(after.energy - before.energy) <= energyBudget,
-                        "finite chamber and portal thermal energy is conserved within operation-derived float rounding");
+                        "finite chamber and portal energy conservation: beforeTotal="+before.energy+" afterTotal="+after.energy
+                                +" energyDelta="+(after.energy-before.energy)+" energyBudget="+energyBudget
+                                +" beforeN2="+beforeTotal+" afterN2="+after.nitrogen+" nitrogenBudget="+nitrogenBudget
+                                +" portal="+portalDiagnostics(level,root,before,after,atmosphere));
                 waitForPoweredPhase(helper,fixture,AirlockState.DoorPhase.OPEN,0,()->{
                 require(door.activate(), "actual controller starts scheduled closing");
                 helper.runAfterDelay(14, () -> {
@@ -501,6 +655,22 @@ public final class AirlockConnectedGameTests {
             nitrogenUlp += Math.ulp((float) cellNitrogen); energyUlp += Math.ulp((float) cellEnergy);
         }
         return new Inventory(nitrogen, energy, nitrogenUlp, energyUlp);
+    }
+
+    private static String portalDiagnostics(ServerLevel level, BlockPos root, Inventory before, Inventory after, AtmosphereService local) {
+        return "beforeTotal="+before.nitrogen+" afterTotal="+after.nitrogen+" beforeEnergy="+before.energy+" afterEnergy="+after.energy
+                +" lower="+cellDiagnostic(level,root)+" upper="+cellDiagnostic(level,root.above())
+                +" INSTANCE.vacuumDimensions="+AtmosphereService.INSTANCE.vacuumDimensionsForTest()
+                +" local.vacuumDimensions="+local.vacuumDimensionsForTest();
+    }
+
+    private static String cellDiagnostic(ServerLevel level, BlockPos pos) {
+        LevelChunk chunk=(LevelChunk)level.getChunk(pos);
+        var data=chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        boolean claimed=data!=null&&data.isFiniteClaimed(pos.getX()&15,pos.getY(),pos.getZ()&15);
+        var gas=data==null?null:data.get(pos.getX()&15,pos.getY(),pos.getZ()&15);
+        return pos+"{block="+level.getBlockState(pos).getBlock()+",claimed="+claimed+",gas="
+                +(gas==null?"null":"N2:"+gas.moles(GasType.NITROGEN)+" total:"+gas.totalMoles()+" E:"+gas.thermalEnergy())+"}";
     }
 
     private static double nitrogenUlpBudget(Inventory before, Inventory after, double operations) {

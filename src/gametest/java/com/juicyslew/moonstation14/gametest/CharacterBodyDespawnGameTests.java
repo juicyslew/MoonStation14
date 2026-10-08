@@ -94,6 +94,7 @@ public final class CharacterBodyDespawnGameTests {
         helper.succeed();
     }
 
+    @GameTestTags("suite-stabilization")
     @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "character_body_despawn", timeoutTicks = 100)
     public static void farPlayerCannotDespawnBoundUnboundOrCorpse(GameTestHelper helper) {
         PlayerCharacterHarnessEntity bound = spawnUnforced(helper, 1);

@@ -112,17 +112,20 @@ public final class PipeScanCandidatesGameTests {
     @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
     public static void missingFullNeighborChunkFailsClosedWhenFixtureLeavesItUnloaded(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        BlockPos boundary = helper.absolutePos(new BlockPos(15, 1, 3));
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        int ownerX = (origin.getX() >> 4) + 128, chunkZ = origin.getZ() >> 4;
+        level.getChunk(ownerX, chunkZ);
+        BlockPos boundary = new BlockPos((ownerX << 4) + 15, origin.getY() + 1, (chunkZ << 4) + 3);
         int neighborX = (boundary.getX() >> 4) + 1;
-        int chunkZ = boundary.getZ() >> 4;
-        if (level.getChunkSource().getChunk(neighborX, chunkZ, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false)
-                != null) {
-            helper.succeed();
-            return;
-        }
+        require(level.getChunkSource().getChunk(neighborX, chunkZ,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false) == null,
+                "fixture-owned remote boundary neighbor starts absent");
         var result = PipeScanCandidates.readLoaded(level,
                 new Vec3(boundary.getX() + .5, boundary.getY() + .5, boundary.getZ() + .5), 2, 32);
         require(result.isEmpty(), "missing full chunk fails closed");
+        require(level.getChunkSource().getChunk(neighborX, chunkZ,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false) == null,
+                "loaded scan must not request absent remote neighbor");
         helper.succeed();
     }
 

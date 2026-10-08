@@ -73,9 +73,19 @@ public final class OwnedCorpsePhysicsGameTests {
         });
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
+    @GameTestTags("suite-stabilization")
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 50)
     public static void ownedCriticalBodyFallsOnNativeTicks(GameTestHelper helper) {
-        BlockPos spawn = helper.absolutePos(new BlockPos(3, 9, 3));
+        BlockPos floor = helper.absolutePos(new BlockPos(1, 0, 1));
+        for (int x = 0; x < 5; x++) for (int z = 0; z < 5; z++)
+            helper.getLevel().setBlock(new BlockPos(floor.getX() + x, floor.getY(), floor.getZ() + z),
+                    Blocks.STONE.defaultBlockState(), 3);
+        for (int x = 2; x <= 4; x++) for (int z = 2; z <= 4; z++) for (int y = 1; y <= 4; y++) {
+            BlockPos pos = helper.absolutePos(new BlockPos(x, y, z));
+            require(helper.getLevel().getBlockState(pos).isAir(), "Critical fall corridor must be declared air: "
+                    + pos + " state=" + helper.getLevel().getBlockState(pos));
+        }
+        BlockPos spawn = helper.absolutePos(new BlockPos(3, 3, 3));
         PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
         require(body != null, "registered harness is created");
         body.setPos(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5);
@@ -87,11 +97,30 @@ public final class OwnedCorpsePhysicsGameTests {
         ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
         require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 100f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isCritical(body), "body enters typed Critical");
+        require(OwnedCorpsePhysics.eligible(body),
+                "owned Critical harness meets passive native-physics eligibility: confirmedDeath="
+                        + body.hasConfirmedDeath() + ", eligible=" + OwnedCorpsePhysics.eligible(body)
+                        + ", noGravity=" + body.isNoGravity() + ", noPhysics=" + body.noPhysics
+                        + ", added=" + body.isAddedToLevel() + ", removed=" + body.isRemoved()
+                        + ", passenger=" + body.isPassenger() + ", medical="
+                        + body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments
+                        .MOB_STATE.get()));
         double initialY = body.getY();
+        int initialTickCount = body.tickCount;
         UUID id = body.getUUID();
         helper.runAfterDelay(12, () -> {
+            require(OwnedCorpsePhysics.eligible(body), "Critical remains eligible during fall: y=" + body.getY()
+                    + ", vy=" + body.getDeltaMovement().y + ", onGround=" + body.onGround()
+                    + ", feet=" + body.blockPosition() + ", bounds=" + body.getBoundingBox()
+                    + ", intersecting=" + helper.getLevel().getBlockCollisions(body, body.getBoundingBox()).iterator().hasNext()
+                    + ", tickCount=" + body.tickCount + "/" + initialTickCount + ", entityTicking="
+                    + helper.getLevel().isPositionEntityTicking(body.blockPosition()));
             require(helper.getLevel().getEntity(id) == body && body.getY() < initialY - .5,
-                    "native ticks passively move the owned Critical body");
+                    "native ticks passively move the owned Critical body: initialY=" + initialY + ", currentY="
+                            + body.getY() + ", tickCount=" + body.tickCount + "/" + initialTickCount
+                            + ", vy=" + body.getDeltaMovement().y + ", onGround=" + body.onGround()
+                            + ", feet=" + body.blockPosition() + ", entityTicking="
+                            + helper.getLevel().isPositionEntityTicking(body.blockPosition()));
             require(body.isNoAi() && ((MindControlledMob) (Object) body).moonstation14$isMovementOwned(),
                     "passive motion retains disabled AI and ownership");
             helper.succeed();

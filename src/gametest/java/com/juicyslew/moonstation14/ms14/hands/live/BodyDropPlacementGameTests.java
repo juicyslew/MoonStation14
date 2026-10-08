@@ -59,14 +59,24 @@ public final class BodyDropPlacementGameTests {
         };
         require(com.juicyslew.moonstation14.ms14.containment.BodyContainmentService
                 .forLevel(helper.getLevel()).bind(body, refusingOwner), "fixture owner binds");
-        require(BodyHandItemTransfer.dropOwned(body, "left", "contained-refusal", stored.revision(), () -> true)
-                == BodyHandItemTransfer.Result.SUCCESS, "semantic refusal uses contained-owner fallback");
-        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
-                item -> item.getItem().is(Items.DIAMOND));
-        require(items.size() == 1 && items.getFirst().getItem().getCount() == 3,
-                "fallback creates one whole-stack world owner");
-        require(items.getFirst().position().distanceToSqr(ownerPosition) < .001,
-                "fallback uses owner transform, not camera/aim ray");
+        var level = helper.getLevel();
+        var query = body.getBoundingBox().inflate(5);
+        var before = level.getEntitiesOfClass(ItemEntity.class, query, item -> item.getItem().is(Items.DIAMOND))
+                .stream().map(ItemEntity::getUUID).collect(java.util.stream.Collectors.toSet());
+        var result = BodyHandItemTransfer.dropOwned(body, "left", "contained-refusal", stored.revision(), () -> true);
+        var created = level.getEntitiesOfClass(ItemEntity.class, query, item -> item.getItem().is(Items.DIAMOND)
+                && !before.contains(item.getUUID()));
+        require(result == BodyHandItemTransfer.Result.SUCCESS,
+                "semantic refusal uses contained-owner fallback: result=" + result + ", actor="
+                        + body.position() + ", owner=" + ownerPosition + ", hand="
+                        + body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).stackCopy("left"));
+        require(created.size() == 1 && created.getFirst().getItem().getCount() == 3,
+                "operation creates exactly one whole-stack world owner: created=" + created.size()
+                        + ", entities=" + created.stream().map(item -> item.getUUID() + ":"
+                        + item.getItem().getCount() + "@" + item.position()).toList());
+        require(created.getFirst().position().distanceToSqr(ownerPosition) < .001,
+                "new fallback entity uses owner transform, not camera/aim ray: actor=" + body.position()
+                        + ", owner=" + ownerPosition + ", created=" + created.getFirst().position());
         require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").isEmpty(),
                 "body hand is cleared after successful fallback");
         helper.succeed();

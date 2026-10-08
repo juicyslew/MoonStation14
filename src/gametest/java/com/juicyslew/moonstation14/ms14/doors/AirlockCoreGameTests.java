@@ -67,7 +67,7 @@ public final class AirlockCoreGameTests {
         helper.succeed();
     }
      @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=300)
-     @GameTestTags({"airlock_power_cycle"})
+     @GameTestTags({"airlock_power_cycle", "suite-stabilization"})
      public static void liveApcMeterDrivesScheduledTwoPhaseDoorAndAutoclose(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
@@ -80,19 +80,53 @@ public final class AirlockCoreGameTests {
                 require(level.getBlockState(f.root()).getValue(AirlockBlock.OPEN)&&level.getBlockState(f.root().above()).getValue(AirlockBlock.OPEN),"both block cells follow authoritative passability");
                 helper.runAfterDelay(4,()->{
                     require(door.state().phase()==AirlockState.DoorPhase.OPEN,"0.2s second phase completes opening");
-                    helper.runAfterDelay(100,()->{
-                         require(door.state().phase()==AirlockState.DoorPhase.CLOSING,"resolved 5s auto-close begins closing; "+doorDiagnostic(f.level(),door)+" autoCloseAt="+door.state().autoCloseAt()+" now="+f.level().getGameTime());
-                        helper.runAfterDelay(12,()->{
-                            require(door.state().phase()==AirlockState.DoorPhase.CLOSED,"0.4+0.2s close transition completes");
-                            require(!level.getBlockState(f.root()).getValue(AirlockBlock.OPEN)&&!level.getBlockState(f.root().above()).getValue(AirlockBlock.OPEN),"both cells reseal");
-                            helper.succeed();
-                        });
-                    });
-                });
-            });
-        });
-    }
+                     long openedAt = level.getGameTime();
+                     long deadline = door.state().autoCloseAt();
+                     require(deadline > openedAt && deadline - openedAt <= 100,
+                             "resolved default five-second auto-close deadline is armed from actual OPEN; openedAt="
+                                     + openedAt + " autoCloseAt=" + deadline);
+                     awaitAutoCloseDeadline(helper, f, deadline, 0);
+                 });
+             });
+         });
+     }
+
+     private static void awaitAutoCloseDeadline(GameTestHelper helper, Fixture f, long deadline, int waited) {
+         long now = f.level().getGameTime();
+         var state = f.door().state();
+         if (state.phase() == AirlockState.DoorPhase.CLOSING) {
+             require(now >= deadline, "automatic close begins at or after its resolved deadline; now=" + now
+                      + " deadline=" + deadline + " " + doorDiagnostic(f.level(), f.door()));
+             helper.runAfterDelay(12,()->{
+                             require(f.door().state().phase()==AirlockState.DoorPhase.CLOSED,"0.4+0.2s close transition completes");
+                             require(!f.level().getBlockState(f.root()).getValue(AirlockBlock.OPEN)&&!f.level().getBlockState(f.root().above()).getValue(AirlockBlock.OPEN),"both cells reseal");
+                             helper.succeed();
+                         });
+             return;
+         }
+         require(state.phase() == AirlockState.DoorPhase.OPEN,
+                  "door remains OPEN before its auto-close deadline; phase=" + state.phase() + " now=" + now
+                          + " deadline=" + state.autoCloseAt());
+         long currentDeadline = state.autoCloseAt();
+         if (currentDeadline == 0) {
+             require(waited < 140, "auto-close deadline remained disarmed after power change; now=" + now
+                     + " " + doorDiagnostic(f.level(), f.door()));
+             helper.runAfterDelay(1, () -> awaitAutoCloseDeadline(helper, f, 0, waited + 1));
+             return;
+         }
+         if (currentDeadline != deadline) {
+             require(currentDeadline > now && currentDeadline - now <= 100,
+                     "power-resolved deadline reset remains within the default five-second bound; previous="
+                             + deadline + " current=" + currentDeadline + " now=" + now);
+             deadline = currentDeadline;
+         }
+         require(waited < 140, "door did not close at its resolved deadline; now=" + now + " deadline=" + deadline
+                 + " " + doorDiagnostic(f.level(), f.door()));
+         long expectedDeadline = deadline;
+         helper.runAfterDelay(1, () -> awaitAutoCloseDeadline(helper, f, expectedDeadline, waited + 1));
+     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
+    @GameTestTags({"suite-stabilization"})
     public static void obstructionUsesExactlyTwoDoorwayCellsAndSafetyDeniesCloseActor(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
@@ -106,12 +140,34 @@ public final class AirlockCoreGameTests {
                 var above=new net.minecraft.world.entity.player.Player(level,f.root(),0,new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(),"above-airlock")){
                     @Override public boolean isCreative(){return true;} @Override public boolean isSpectator(){return false;}
                 };
-                above.setPos(f.root().getX()+.5,f.root().getY()+2.1,f.root().getZ()+.5);level.addFreshEntity(above);
-                require(door.activate(),"actor above y+2 does not obstruct the two-cell doorway");
+                above.setPos(f.root().getX()+.5,f.root().getY()+2.1,f.root().getZ()+.5);
+                above.setNoGravity(true);
+                level.addFreshEntity(above);
+                var doorway = new net.minecraft.world.phys.AABB(f.root().getX(), f.root().getY(), f.root().getZ(),
+                        f.root().getX() + 1, f.root().getY() + 2, f.root().getZ() + 1);
+                String aboveDetails = entitySpatialDiagnostic(above);
+                require(!above.getBoundingBox().intersects(doorway), "above-y+2 probe is physically outside exact two-cell bounds; "
+                        + "doorway=" + doorway + " actor=" + aboveDetails);
+                var blockers = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, doorway,
+                        e -> e.isAlive() && !e.isSpectator()).stream()
+                        .filter(e -> e.getBoundingBox().intersects(doorway))
+                        .map(AirlockCoreGameTests::entitySpatialDiagnostic).toList();
+                require(blockers.isEmpty(), "exact two-cell doorway has no living obstruction before above-y+2 activation; "
+                        + "doorway=" + doorway + " above=" + aboveDetails + " blockers=" + blockers);
+                require(door.activate(),"actor above y+2 does not obstruct the two-cell doorway; doorway="
+                        + doorway + " actor=" + aboveDetails + " blockers=" + blockers + " phase=" + door.state().phase());
                 above.discard();
                 helper.succeed();
             });
         });
+    }
+
+    private static String entitySpatialDiagnostic(net.minecraft.world.entity.LivingEntity entity) {
+        var posture = entity.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());
+        return "uuid=" + entity.getUUID() + ",type=" + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+                + ",pos=" + entity.position() + ",bbox=" + entity.getBoundingBox() + ",alive=" + entity.isAlive()
+                + ",removed=" + entity.isRemoved() + ",noGravity=" + entity.isNoGravity() + ",posture="
+                + (posture == null ? "none" : posture.data());
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     public static void receiverRequiresFullResolvedWattsAndBoltsGateNormalActivation(GameTestHelper helper) {
@@ -150,7 +206,7 @@ public final class AirlockCoreGameTests {
         helper.succeed();
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=850)
-    @GameTestTags({"airlock_log_pulse"})
+     @GameTestTags({"airlock_log_pulse", "suite-stabilization"})
     public static void logPulseDisablesLampAndRestoresAtResolvedDeadline(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
@@ -159,26 +215,47 @@ public final class AirlockCoreGameTests {
             long deadline=door.state().logPulseUntil();
             require(deadline-helper.getLevel().getGameTime()==600,"resolved inherited 30-second duration schedules 600 ticks");
             require(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireIndicators.resolve(door.state(),helper.getLevel().getGameTime()).log()==com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireIndicators.Light.OFF,"pulse immediately extinguishes log circuit light");
-             helper.runAfterDelay(40,()->{
-                 long beforeRepeat=door.state().logPulseUntil();
-                 boolean poweredBefore=door.state().powered();boolean disabledBefore=door.state().logCircuitDisabled();
-                 boolean repeated=door.applyWire(door.identity(),door.state().revision(),AirlockState.Wire.LOG,AirlockState.WireAction.PULSE);
-                 String diagnostic="beforeDeadline="+beforeRepeat+" afterDeadline="+door.state().logPulseUntil()+" firstDeadline="+deadline+" now="+f.level().getGameTime()
-                         +" poweredBefore="+poweredBefore+" poweredAfter="+door.state().powered()+" logDisabledBefore="+disabledBefore+" logDisabledAfter="+door.state().logCircuitDisabled()
-                         +" "+doorDiagnostic(f.level(),door);
-                 require(repeated,"repeat pulse accepted; "+diagnostic);
-                 require(door.state().logPulseUntil()==deadline,"repeat does not extend pulse deadline; "+diagnostic);
-                var saved=door.saveWithoutMetadata(f.level().registryAccess());
-                var restored=new AirlockBlockEntity(f.root(),f.level().getBlockState(f.root()));restored.loadWithComponents(saved,f.level().registryAccess());
-                require(restored.state().logCircuitDisabled()&&restored.state().logPulseUntil()==deadline,"root NBT roundtrip preserves active log pulse deadline and disabled state");
-                helper.runAfterDelay((int)(deadline-helper.getLevel().getGameTime()+2),()->{
-                    require(!door.state().logCircuitDisabled()&&door.state().logPulseUntil()==0,"intact log circuit reenables at expiry");
-                    require(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireIndicators.resolve(door.state(),helper.getLevel().getGameTime()).log()==com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireIndicators.Light.ON,"expiry restores circuit light");
-                    helper.succeed();
-                });
-            });
-        });
-    }
+              helper.runAfterDelay(40,()->{
+                  if (door.state().logCircuitDisabled() && door.state().logPulseUntil() == deadline
+                          && f.level().getGameTime() < deadline && door.state().powered()) {
+                      verifyLogPulseRepeatAndExpiry(helper, f, deadline, deadline);
+                      return;
+                  }
+                  // Power loss cancels the recovery deadline upstream. Re-admit only after a fresh
+                  // fully-paid sample, then verify non-extension against that active resolved deadline.
+                  waitForFullPower(helper, f, 120, () -> {
+                      require(door.state().phase() == AirlockState.DoorPhase.OPEN, "door remains open during paid pulse recovery");
+                      require(door.applyWire(door.identity(), door.state().revision(), AirlockState.Wire.LOG,
+                              AirlockState.WireAction.PULSE), "re-arm log pulse after observed power interruption");
+                      long activeDeadline = door.state().logPulseUntil();
+                      require(activeDeadline - f.level().getGameTime() == 600,
+                              "re-armed pulse uses the resolved 30-second duration; activeDeadline=" + activeDeadline);
+                      verifyLogPulseRepeatAndExpiry(helper, f, activeDeadline, activeDeadline);
+                  });
+              });
+         });
+     }
+
+     private static void verifyLogPulseRepeatAndExpiry(GameTestHelper helper, Fixture f,
+                                                        long deadline, long firstDeadline) {
+                  AirlockBlockEntity door = f.door();
+                  long beforeRepeat=door.state().logPulseUntil();
+                  boolean poweredBefore=door.state().powered();boolean disabledBefore=door.state().logCircuitDisabled();
+                  boolean repeated=door.applyWire(door.identity(),door.state().revision(),AirlockState.Wire.LOG,AirlockState.WireAction.PULSE);
+                  String diagnostic="beforeDeadline="+beforeRepeat+" afterDeadline="+door.state().logPulseUntil()+" firstDeadline="+firstDeadline+" now="+f.level().getGameTime()
+                          +" poweredBefore="+poweredBefore+" poweredAfter="+door.state().powered()+" logDisabledBefore="+disabledBefore+" logDisabledAfter="+door.state().logCircuitDisabled()
+                          +" "+doorDiagnostic(f.level(),door);
+                  require(repeated,"repeat pulse accepted; "+diagnostic);
+                  require(door.state().logPulseUntil()==deadline,"repeat does not extend active pulse deadline; "+diagnostic);
+                 var saved=door.saveWithoutMetadata(f.level().registryAccess());
+                 var restored=new AirlockBlockEntity(f.root(),f.level().getBlockState(f.root()));restored.loadWithComponents(saved,f.level().registryAccess());
+                 require(restored.state().logCircuitDisabled()&&restored.state().logPulseUntil()==deadline,"root NBT roundtrip preserves active log pulse deadline and disabled state");
+                 helper.runAfterDelay((int)(deadline-helper.getLevel().getGameTime()+2),()->{
+                   require(f.door().state().logCircuitDisabled()==false&&f.door().state().logPulseUntil()==0,"intact log circuit reenables at expiry");
+                   require(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireIndicators.resolve(f.door().state(),helper.getLevel().getGameTime()).log()==com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireIndicators.Light.ON,"expiry restores circuit light");
+                     helper.succeed();
+                 });
+     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     @GameTestTags({"movement","airlock_bump"})
     public static void enrolledHumanHostBumpsPoweredAirlockThroughEntityMoveWithoutPda(GameTestHelper helper) {

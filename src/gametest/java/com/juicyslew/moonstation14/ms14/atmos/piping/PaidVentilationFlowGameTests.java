@@ -10,6 +10,7 @@ import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
@@ -22,52 +23,60 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.chunk.LevelChunk;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.AtmospherePrecisionBudget;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @GameTestTags({"ventilation", "atmosphere", "power"})
 @PrefixGameTestTemplate(false)
 public final class PaidVentilationFlowGameTests {
-    private static long syntheticGameTime;
     private PaidVentilationFlowGameTests() { }
 
-    @GameTestTags("simulation-defaults")
+    @GameTestTags({"simulation-defaults", "suite-stabilization"})
     @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void onlyCompletedPaidSolveMovesConservedGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Fixture f = fixture(helper);
+        var countersBefore = f.atmosphere.diagnosticRuntime(level);
+        var totalBefore = totalInventory(f);
         GasMixture pipeBefore = pipe(f);
-        GasMixture roomBefore = f.atmosphere.sample(level, f.room).orElseThrow();
+        var roomBefore = roomInventory(f);
         awaitPaidInterval(helper, level, f.vent, () -> {
             require(PowerRuntime.ventilationMeter(level, f.vent).known(), "real power chain provides paid interval");
             GasMixture pipeAfter = pipe(f);
-            GasMixture roomAfter = f.atmosphere.sample(level, f.room).orElseThrow();
-            require(roomAfter.totalMoles() > roomBefore.totalMoles(), "paid vent increases room gas");
-            require(pipeAfter.totalMoles() < pipeBefore.totalMoles(), "paid vent decreases pipe gas; pipe before=" + pipeBefore
-                    + ", pipe after=" + pipeAfter + "; room before=" + roomBefore + ", room after=" + roomAfter
+            var roomAfter = roomInventory(f);
+            require(roomAfter.totalMoles() > roomBefore.totalMoles(), "paid vent increases finite room+device-cell gas: before="
+                    + roomBefore + ", after=" + roomAfter);
+            require(pipeAfter.totalMoles() < pipeBefore.totalMoles(), "paid vent decreases pipe gas; pipe before=" + gasState(pipeBefore)
+                    + ", pipe after=" + gasState(pipeAfter) + "; room before=" + gasState(roomBefore) + ", room after=" + gasState(roomAfter)
                     + diagnostic(level, f));
-            conserve(pipeBefore, roomBefore, pipeAfter, roomAfter);
+            var totalAfter = totalInventory(f);
+            double operations = operationCount(countersBefore, f.atmosphere.diagnosticRuntime(level), localFacePairs(f), 1);
+            conserve(totalBefore, totalAfter, operations);
+            double moved = pipeBefore.totalMoles() - pipeAfter.totalMoles();
+            for (GasType gas : GasType.values()) require(totalBefore.moleBudget(gas, totalAfter, operations) < moved,
+                    "rounding budget cannot hide loss of the measured paid packet " + gas + "; moved=" + moved
+                            + " budget=" + totalBefore.moleBudget(gas, totalAfter, operations) + " operations=" + operations);
 
             PowerDeviceBlockEntity apc = (PowerDeviceBlockEntity) level.getBlockEntity(f.apc);
             require(apc != null && apc.toggleBreaker(player(level, f.apc), 0), "open APC breaker");
             GasMixture stoppedPipe = pipe(f);
-            GasMixture stoppedRoom = f.atmosphere.sample(level, f.room).orElseThrow();
+            var stoppedTotal = totalInventory(f);
+            var stoppedCounters = f.atmosphere.diagnosticRuntime(level);
             helper.runAfterDelay(40, () -> {
                 require(same(stoppedPipe, pipe(f)), "breaker prevents additional pipe transfer");
-                require(same(stoppedRoom, f.atmosphere.sample(level, f.room).orElseThrow()),
-                        "breaker prevents additional room transfer");
+                conserve(stoppedTotal, totalInventory(f), operationCount(stoppedCounters,
+                        f.atmosphere.diagnosticRuntime(level), 1, 0));
                 helper.succeed();
             });
         });
     }
 
-    @GameTestTags("simulation-defaults")
+    @GameTestTags({"simulation-defaults", "suite-stabilization"})
     @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void disabledDeviceDoesNotMoveGas(GameTestHelper helper) {
         Fixture f = fixture(helper);
@@ -76,46 +85,64 @@ public final class PaidVentilationFlowGameTests {
                 settings.revision(), false, settings.externalPressureBoundKPa(), settings.targetPressureKPa(),
                 settings.targetPressureKPa(), settings.volumeRateM3PerSecond(), settings.scrubberMode(),
                 settings.gasesToScrub(), settings.selectedLayer())), "disable vent config");
-        GasMixture pipeBefore = pipe(f), roomBefore = f.atmosphere.sample(f.level, f.room).orElseThrow();
+        var before = totalInventory(f);
+        var roomBefore = roomInventory(f);
+        GasMixture pipeBefore = pipe(f);
+        require(roomBefore.totalMoles() == 0.0 && roomBefore.energy() == 0.0,
+                "disabled finite room's two trusted cells start in identical vacuum; local equalization has no work");
         awaitPaidInterval(helper, f.level, f.vent, () -> {
             require(PowerRuntime.ventilationMeter(f.level, f.vent).known(), "paid solve exists");
+            double operations = 1.0; // Both trusted-initialized finite cells are identical vacuum; no local pressure work is possible.
             require(same(pipeBefore, pipe(f)), "disabled configuration leaves pipe unchanged");
-            require(same(roomBefore, f.atmosphere.sample(f.level, f.room).orElseThrow()), "disabled configuration leaves room unchanged");
+            requireInventoryStable(roomBefore, roomInventory(f), operations, "disabled configuration finite room");
+            conserve(before, totalInventory(f), operations);
             helper.succeed();
         });
     }
 
-    @GameTestTags("simulation-defaults")
+    @GameTestTags({"simulation-defaults", "suite-stabilization"})
     @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void poweredScrubberCapturesOnlySelectedGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Fixture f = fixture(helper, true);
+        var countersBefore = f.atmosphere.diagnosticRuntime(level);
+        var totalBefore = totalInventory(f);
         GasMixture pipeBefore = pipe(f);
-        GasMixture roomBefore = f.atmosphere.sample(level, f.room).orElseThrow();
+        var roomBefore = roomInventory(f);
         awaitPaidInterval(helper, level, f.vent, () -> {
             require(PowerRuntime.ventilationMeter(level, f.vent).known(), "real power chain provides scrubber paid interval");
             GasMixture pipeAfter = pipe(f);
-            GasMixture roomAfter = f.atmosphere.sample(level, f.room).orElseThrow();
+            var roomAfter = roomInventory(f);
+            double operations = operationCount(countersBefore, f.atmosphere.diagnosticRuntime(level), localFacePairs(f), 1);
             require(pipeAfter.moles(GasType.CARBON_DIOXIDE) > pipeBefore.moles(GasType.CARBON_DIOXIDE),
-                    "scrubber captures room CO2 into vacuum waste pipe; pipe before=" + pipeBefore + ", pipe after=" + pipeAfter
-                            + "; room before=" + roomBefore + ", room after=" + roomAfter + diagnostic(level, f));
-            require(close(pipeAfter.moles(GasType.OXYGEN), 0) && close(pipeAfter.moles(GasType.NITROGEN), 0),
-                    "scrubber does not transfer unselected gases");
-            require(close(roomAfter.moles(GasType.OXYGEN), roomBefore.moles(GasType.OXYGEN))
-                            && close(roomAfter.moles(GasType.NITROGEN), roomBefore.moles(GasType.NITROGEN)),
-                    "scrubber leaves room oxygen and nitrogen unchanged");
+                    "scrubber captures room CO2 into vacuum waste pipe; pipe before=" + gasState(pipeBefore) + ", pipe after=" + gasState(pipeAfter)
+                            + "; room before=" + gasState(roomBefore) + ", room after=" + gasState(roomAfter) + diagnostic(level, f));
+            require(pipeAfter.moles(GasType.OXYGEN) == 0 && pipeAfter.moles(GasType.NITROGEN) == 0,
+                    "scrubber does not transfer unselected gases: O2=" + pipeAfter.moles(GasType.OXYGEN)
+                            + " N2=" + pipeAfter.moles(GasType.NITROGEN));
+            requireWithinBudget(roomBefore.moles(GasType.OXYGEN), roomAfter.moles(GasType.OXYGEN),
+                    roomBefore.moleBudget(GasType.OXYGEN, roomAfter, operations), "scrubber preserves room oxygen", operations);
+            requireWithinBudget(roomBefore.moles(GasType.NITROGEN), roomAfter.moles(GasType.NITROGEN),
+                    roomBefore.moleBudget(GasType.NITROGEN, roomAfter, operations), "scrubber preserves room nitrogen", operations);
             require(roomAfter.moles(GasType.CARBON_DIOXIDE) < roomBefore.moles(GasType.CARBON_DIOXIDE),
                     "scrubber reduces room CO2");
-            conserve(pipeBefore, roomBefore, pipeAfter, roomAfter);
+            var totalAfter = totalInventory(f);
+            conserve(totalBefore, totalAfter, operations);
+            double moved = pipeAfter.moles(GasType.CARBON_DIOXIDE) - pipeBefore.moles(GasType.CARBON_DIOXIDE);
+            require(totalBefore.moleBudget(GasType.CARBON_DIOXIDE, totalAfter, operations) < moved,
+                    "rounding budget cannot hide measured scrubber capture; moved=" + moved + " budget="
+                            + totalBefore.moleBudget(GasType.CARBON_DIOXIDE, totalAfter, operations)
+                            + " operations=" + operations);
 
             PowerDeviceBlockEntity apc = (PowerDeviceBlockEntity) level.getBlockEntity(f.apc);
             require(apc != null && apc.toggleBreaker(player(level, f.apc), 0), "open APC breaker");
             GasMixture stoppedPipe = pipe(f);
-            GasMixture stoppedRoom = f.atmosphere.sample(level, f.room).orElseThrow();
+            var stoppedTotal = totalInventory(f);
+            var stoppedCounters = f.atmosphere.diagnosticRuntime(level);
             helper.runAfterDelay(40, () -> {
                 require(same(stoppedPipe, pipe(f)), "breaker prevents further scrubber transfer");
-                require(same(stoppedRoom, f.atmosphere.sample(level, f.room).orElseThrow()),
-                        "breaker prevents further room transfer");
+                conserve(stoppedTotal, totalInventory(f), operationCount(stoppedCounters,
+                        f.atmosphere.diagnosticRuntime(level), 1, 0));
                 helper.succeed();
             });
         });
@@ -123,26 +150,39 @@ public final class PaidVentilationFlowGameTests {
 
     private static void awaitPaidInterval(GameTestHelper helper, ServerLevel level,
                                           VentilationDeviceBlockEntity vent, Runnable onPaidInterval) {
-        AtomicBoolean done = new AtomicBoolean();
-        for (int tick = 1; tick <= 260; tick++) {
-            int checkTick = tick;
-            helper.runAtTickTime(checkTick, () -> {
-                if (done.get()) return;
-                var meter = PowerRuntime.ventilationMeter(level, vent);
-                boolean available = meter.known() && meter.deliveredWatts() >= 5;
-                if (available) {
-                    done.set(true);
-                    onPaidInterval.run();
-                    return;
-                }
-                if (checkTick == 260) {
-                    done.set(true);
-                    throw new GameTestAssertException("paid ventilation meter did not become known at >=5W before deadline; meter="
-                            + meter
-                            + ", solve=" + PowerRuntime.lastSolveDiagnostic(level));
-                }
-            });
+        awaitPaidInterval(helper, level, vent, onPaidInterval, 1, -1, -1);
+    }
+
+    private static void awaitPaidInterval(GameTestHelper helper, ServerLevel level,
+            VentilationDeviceBlockEntity vent, Runnable onPaidInterval, int elapsed,
+            int stableSince, long stableGeneration) {
+        var meter = PowerRuntime.ventilationMeter(level, vent);
+        long generation = PowerGraphService.topologyGeneration(level);
+        double requested = vent.prototype().apcPowerReceiver().requestedWatts();
+        boolean knownFullyPaid = meter.known() && meter.deliveredWatts() == requested;
+        if (!knownFullyPaid || generation != stableGeneration && stableSince >= 0) {
+            stableSince = -1;
+            stableGeneration = -1;
         }
+        if (knownFullyPaid) {
+            if (stableSince < 0) {
+                stableSince = elapsed;
+                stableGeneration = generation;
+            } else if (elapsed - stableSince >= PowerRuntime.TICKS_PER_SOLVE + 1) {
+                onPaidInterval.run();
+                return;
+            }
+        }
+        if (elapsed >= 260)
+            throw new GameTestAssertException("no stable fully paid interval before deadline; elapsed=" + elapsed
+                    + " stableSince=" + stableSince + " stableTicks=" + (stableSince < 0 ? 0 : elapsed - stableSince)
+                    + " topologyGeneration=" + generation + " stableGeneration=" + stableGeneration
+                    + " meter=" + meter + " solve=" + PowerRuntime.lastSolveDiagnostic(level));
+        int next = elapsed + 1;
+        int nextStableSince = stableSince;
+        long nextStableGeneration = stableGeneration;
+        helper.runAtTickTime(next, () -> awaitPaidInterval(helper, level, vent, onPaidInterval,
+                next, nextStableSince, nextStableGeneration));
     }
 
     private static Fixture fixture(GameTestHelper helper) {
@@ -202,20 +242,13 @@ public final class PaidVentilationFlowGameTests {
                     Direction.UP, CableTier.APC), "floor APC cable at x=" + x);
         }
         BlockPos room = helper.absolutePos(new BlockPos(6, 1, 4));
-        for (int i = 0; i < 12 && atmosphere.sample(level, room).isEmpty(); i++)
-            atmosphere.tick(level, syntheticGameTime += AtmosphereService.TICK_CADENCE);
-        require(atmosphere.sample(level, room).isPresent(), "room classified finite" + diagnostic(level,
-                new Fixture(level, atmosphere, (VentilationDeviceBlockEntity) level.getBlockEntity(ventPos), room, pipePos, BlockPos.ZERO)));
-        double ambientMoles = atmosphere.sample(level, room).orElseThrow().totalMoles();
-        require(atmosphere.removeGasUpTo(level, room, ambientMoles) > 0, "purge authored ambient for controlled fixture gas");
-        if (scrubber) {
-            require(atmosphere.addGas(level, room, GasType.OXYGEN, 100, 300), "seed finite room oxygen");
-            require(atmosphere.addGas(level, room, GasType.NITROGEN, 300, 300), "seed finite room nitrogen");
-            require(atmosphere.addGas(level, room, GasType.CARBON_DIOXIDE, 20, 300), "seed finite room CO2");
-        }
-        LevelChunk chunk = (LevelChunk) level.getChunk(room);
-        require(chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get())
-                .isFiniteClaimed(room.getX() & 15, room.getY(), room.getZ() & 15), "finite room ownership");
+        java.util.List<BlockPos> finiteRoom = java.util.List.of(room, ventPos);
+        GasMixture authoredRoom = scrubber
+                ? new GasMixture(Map.of(GasType.OXYGEN, 100.0, GasType.NITROGEN, 300.0,
+                        GasType.CARBON_DIOXIDE, 20.0), 300.0)
+                : GasMixture.vacuum();
+        require(atmosphere.initializeEnclosedFiniteMixtureForTrustedSetup(level, finiteRoom, authoredRoom),
+                "trusted setup proves complete sealed room+passable device cell before assigning controlled gas");
         var owner = LoadedSealedWallGasOwner.activeSnapshot(level, pipePos, PipeTopology.Layer.PRIMARY)
                 .orElseThrow(() -> new GameTestAssertException("sealed wall gas owner"));
         PipeTopology.NodeKey key = new PipeTopology.NodeKey(pipePos, PipeTopology.Layer.PRIMARY);
@@ -227,7 +260,7 @@ public final class PaidVentilationFlowGameTests {
         require(saved.replace(before.revision(), before, after), "seed pipe gas");
         VentilationDeviceBlockEntity vent = (VentilationDeviceBlockEntity) level.getBlockEntity(ventPos);
         require(vent != null, "vent block entity");
-        return new Fixture(level, atmosphere, vent, room, pipePos, apc);
+        return new Fixture(level, atmosphere, vent, room, ventPos, pipePos, apc);
     }
 
     private static void place(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {
@@ -242,6 +275,24 @@ public final class PaidVentilationFlowGameTests {
     private static GasMixture pipe(Fixture f) {
         return LoadedSealedWallGasOwner.activeSnapshot(f.level, f.pipe, PipeTopology.Layer.PRIMARY).orElseThrow().mixture();
     }
+    private static AtmospherePrecisionBudget.Inventory roomInventory(Fixture f) {
+        java.util.List<GasMixture> mixtures = new java.util.ArrayList<>();
+        for (BlockPos cell : java.util.List.of(f.room, f.deviceCell)) {
+            var reading = f.atmosphere.readAtmosphere(f.level, cell).orElseThrow(
+                    () -> new GameTestAssertException("finite room/device-cell inventory unavailable at " + cell));
+            require(reading.status() == com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereReading.Status.FINITE,
+                    "room inventory is finite at " + cell);
+            mixtures.add(reading.mixture());
+        }
+        return AtmospherePrecisionBudget.Inventory.capture(mixtures);
+    }
+    private static AtmospherePrecisionBudget.Inventory totalInventory(Fixture f) {
+        java.util.List<GasMixture> mixtures = new java.util.ArrayList<>();
+        for (BlockPos cell : java.util.List.of(f.room, f.deviceCell))
+            mixtures.add(f.atmosphere.readAtmosphere(f.level, cell).orElseThrow().mixture());
+        mixtures.add(pipe(f));
+        return AtmospherePrecisionBudget.Inventory.capture(mixtures);
+    }
     private static String diagnostic(ServerLevel level, Fixture f) {
         StringBuilder result = new StringBuilder("; fixture topology:");
         for (Direction direction : Direction.values()) {
@@ -250,15 +301,29 @@ public final class PaidVentilationFlowGameTests {
             result.append(" [").append(direction).append('=').append(pos).append(',').append(state)
                     .append(",passable=").append(AtmosphereTopology.isPassable(level, pos));
             var gas = f.atmosphere.sample(level, pos);
-            result.append(",finiteSample=").append(gas.map(Object::toString).orElse("none")).append(']');
+            result.append(",finiteSample=").append(gas.map(PaidVentilationFlowGameTests::gasState).orElse("none")).append(']');
         }
         var roomChunk = level.getChunk(f.room);
         var data = roomChunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
         result.append("; room=").append(f.room).append(",claim=")
                 .append(data != null && data.isFiniteClaimed(f.room.getX() & 15, f.room.getY(), f.room.getZ() & 15));
         result.append("; ventFacing=").append(level.getBlockState(f.vent.getBlockPos()).getValue(VentilationDeviceBlock.FACING));
-        result.append("; pipeOwner=").append(LoadedSealedWallGasOwner.activeSnapshot(level, f.pipe, PipeTopology.Layer.PRIMARY));
+        result.append("; pipeOwner=").append(LoadedSealedWallGasOwner.activeSnapshot(level, f.pipe, PipeTopology.Layer.PRIMARY)
+                .map(owner -> "active=" + owner.active() + ",version=" + owner.version() + ",gas=" + gasState(owner.mixture()))
+                .orElse("none"));
         return result.toString();
+    }
+    private static String gasState(GasMixture mixture) {
+        StringBuilder result = new StringBuilder("moles={");
+        for (GasType gas : GasType.values()) {
+            if (result.length() > 8) result.append(',');
+            result.append(gas).append('=').append(mixture.moles(gas));
+        }
+        return result.append("},energy=").append(mixture.thermalEnergy()).append(",total=")
+                .append(mixture.totalMoles()).toString();
+    }
+    private static String gasState(AtmospherePrecisionBudget.Inventory inventory) {
+        return "moles=" + inventory.moles() + ",energy=" + inventory.energy() + ",total=" + inventory.totalMoles();
     }
     private static Player player(ServerLevel level, BlockPos pos) {
         Player result = new Player(level, pos, 0, new GameProfile(UUID.randomUUID(), "paid-vent-test")) {
@@ -268,17 +333,42 @@ public final class PaidVentilationFlowGameTests {
         result.getAbilities().instabuild = true;
         return result;
     }
-    private static void conserve(GasMixture p0, GasMixture r0, GasMixture p1, GasMixture r1) {
-        for (GasType gas : GasType.values()) require(close(p0.moles(gas) + r0.moles(gas), p1.moles(gas) + r1.moles(gas)), "conserve " + gas);
-        require(close(p0.thermalEnergy() + r0.thermalEnergy(), p1.thermalEnergy() + r1.thermalEnergy()), "conserve thermal energy");
-    }
     private static boolean same(GasMixture a, GasMixture b) {
-        if (!close(a.thermalEnergy(), b.thermalEnergy())) return false;
-        for (GasType gas : GasType.values()) if (!close(a.moles(gas), b.moles(gas))) return false;
+        if (Double.compare(a.thermalEnergy(), b.thermalEnergy()) != 0) return false;
+        for (GasType gas : GasType.values()) if (Double.compare(a.moles(gas), b.moles(gas)) != 0) return false;
         return true;
     }
-    private static boolean close(double a, double b) { return Math.abs(a - b) < 1e-8 * Math.max(1, Math.max(Math.abs(a), Math.abs(b))); }
+    private static double operationCount(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereRuntimeTelemetry.Snapshot before,
+            com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereRuntimeTelemetry.Snapshot after,
+            int localFacePairs, int paidIntervals) {
+        return AtmospherePrecisionBudget.operations(after.completedCycles() - before.completedCycles(),
+                localFacePairs, paidIntervals);
+    }
+    private static void conserve(AtmospherePrecisionBudget.Inventory before,
+            AtmospherePrecisionBudget.Inventory after, double operations) {
+        for (GasType gas : GasType.values()) requireWithinBudget(before.moles(gas), after.moles(gas),
+                before.moleBudget(gas, after, operations), "conserve " + gas, operations);
+        requireWithinBudget(before.energy(), after.energy(), before.energyBudget(after, operations),
+                "conserve thermal energy", operations);
+    }
+    private static void requireWithinBudget(double before, double after, double budget, String label, double operations) {
+        double delta = after - before;
+        require(Math.abs(delta) <= budget, label + ": before=" + before + " after=" + after + " delta=" + delta
+                + " budget=" + budget + " operations=" + operations);
+    }
+    private static void requireInventoryStable(AtmospherePrecisionBudget.Inventory before,
+            AtmospherePrecisionBudget.Inventory after, double operations, String label) {
+        for (GasType gas : GasType.values()) requireWithinBudget(before.moles(gas), after.moles(gas),
+                before.moleBudget(gas, after, operations), label + " " + gas, operations);
+        requireWithinBudget(before.energy(), after.energy(), before.energyBudget(after, operations),
+                label + " energy", operations);
+    }
+    private static int localFacePairs(Fixture fixture) {
+        BlockPos a = fixture.room, b = fixture.deviceCell;
+        return Math.abs(a.getX() - b.getX()) + Math.abs(a.getY() - b.getY())
+                + Math.abs(a.getZ() - b.getZ()) == 1 ? 1 : 0;
+    }
     private static void require(boolean condition, String message) { if (!condition) throw new GameTestAssertException(message); }
     private record Fixture(ServerLevel level, AtmosphereService atmosphere, VentilationDeviceBlockEntity vent,
-                           BlockPos room, BlockPos pipe, BlockPos apc) { }
+                           BlockPos room, BlockPos deviceCell, BlockPos pipe, BlockPos apc) { }
 }
