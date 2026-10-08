@@ -1,0 +1,4 @@
+newmtl red_tie
+Kd 1 1 1
+d 1
+map_Kd ../../../../textures/entity/equipment/red_tie.png

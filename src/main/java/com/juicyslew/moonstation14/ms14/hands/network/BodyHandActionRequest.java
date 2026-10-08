@@ -25,10 +25,10 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         HELD_GRID_STORE, HELD_GRID_TAKE, HELD_GRID_MOVE,
         SMART_STORE_BELT, SMART_STORE_BACK, SMART_TAKE_BELT, SMART_TAKE_BACK,
         GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
-        GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
-        TRANSFER_HAND, PRIME_GRENADE, THROW_GRENADE, PICKUP_SELECTED, THROW_ITEM,
+         GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD, GRID_BODY_TO_EQUIPMENT,
+         GRID_EQUIPMENT_TO_BODY, TRANSFER_HAND, PRIME_GRENADE, THROW_GRENADE, PICKUP_SELECTED, THROW_ITEM,
         USE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE, USE_BODY,
-        CYCLE_SYRINGE_AMOUNT }
+         CYCLE_SYRINGE_AMOUNT, EQUIP_SLOT, UNEQUIP_SLOT, QUICK_EQUIP, MOVE_EQUIPMENT }
 
     /** Compatibility constructor preserving the prior canonical signature. */
     public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
@@ -86,12 +86,18 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                         buf.writeVarInt(request.oldCellX); buf.writeVarInt(request.oldCellY); buf.writeVarInt(request.oldRotation);
                     }
                      if (isCross(request.action)) buf.writeUtf(request.destinationHostToken, ItemToken.MAX_LENGTH);
-                     if (isBodyCross(request.action)) {
-                         buf.writeUtf(request.sourceHostId, HandState.MAX_ID_LENGTH);
-                         buf.writeUtf(request.destinationHostId, HandState.MAX_ID_LENGTH);
+                      if (isBodyGridHostAction(request.action)) {
+                       buf.writeUtf(request.sourceHostId, HandState.MAX_ID_LENGTH);
+                          buf.writeUtf(request.destinationHostId, HandState.MAX_ID_LENGTH);
+                          if (request.action == Action.GRID_EQUIPMENT_TO_BODY) buf.writeUtf(request.destinationHostToken, ItemToken.MAX_LENGTH);
                      }
                 } else if (request.action() == Action.TRANSFER_HAND) buf.writeUtf(request.destinationHostId, HandState.MAX_ID_LENGTH);
                 else if (isSmart(request.action())) buf.writeUtf(request.expectedChildOrSourceToken, ItemToken.MAX_LENGTH);
+                else if (request.action() == Action.MOVE_EQUIPMENT) {
+                    buf.writeUtf(request.sourceHostId, HandState.MAX_ID_LENGTH);
+                    buf.writeUtf(request.destinationHostId, HandState.MAX_ID_LENGTH);
+                }
+                else if (isGenericEquipment(request.action())) buf.writeUtf(request.sourceHostId, HandState.MAX_ID_LENGTH);
             }, buf -> {
                 Action action = buf.readEnum(Action.class);
                 String hand = buf.readUtf(HandState.MAX_ID_LENGTH);
@@ -134,15 +140,29 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                     int oldY = isGridMove(action) ? buf.readVarInt() : -1;
                     int oldRotation = isGridMove(action) ? buf.readVarInt() : -1;
                      String destination = isCross(action) ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
-                     String sourceId = isBodyCross(action) ? buf.readUtf(HandState.MAX_ID_LENGTH) : null;
-                     String destinationId = isBodyCross(action) ? buf.readUtf(HandState.MAX_ID_LENGTH) : null;
+                      String sourceId = isBodyCross(action) || action == Action.GRID_BODY_TO_EQUIPMENT || action == Action.GRID_EQUIPMENT_TO_BODY ? buf.readUtf(HandState.MAX_ID_LENGTH) : null;
+                       String destinationId = isBodyCross(action) || action == Action.GRID_BODY_TO_EQUIPMENT || action == Action.GRID_EQUIPMENT_TO_BODY ? buf.readUtf(HandState.MAX_ID_LENGTH) : null;
+                       if (action == Action.GRID_EQUIPMENT_TO_BODY) destination = buf.readUtf(ItemToken.MAX_LENGTH);
                     if (buf.isReadable()) throw new IllegalArgumentException("Unexpected grid action payload");
-                     return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, token, child, x, y, rotation, oldX, oldY, oldRotation, destination, sourceId, destinationId);
+                      return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, token, child, x, y, rotation, oldX, oldY, oldRotation, destination, sourceId, destinationId);
                 }
                 if (isSmart(action)) {
                     String child = buf.readUtf(ItemToken.MAX_LENGTH);
                     if (buf.isReadable()) throw new IllegalArgumentException("Unexpected smart storage payload");
                     return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, token, child, -1, -1, -1);
+                }
+                if (action == Action.MOVE_EQUIPMENT) {
+                    String source = buf.readUtf(HandState.MAX_ID_LENGTH);
+                    String destination = buf.readUtf(HandState.MAX_ID_LENGTH);
+                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected equipment move payload");
+                    return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, token,
+                            null, 0, 0, 0, 0, 0, 0, null, source, destination);
+                }
+                if (isGenericEquipment(action)) {
+                    String slot = buf.readUtf(HandState.MAX_ID_LENGTH);
+                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected equipment action payload");
+                    return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, token,
+                            null, -1, -1, -1, -1, -1, -1, null, slot, null);
                 }
                 if (buf.isReadable()) throw new IllegalArgumentException("Unexpected hand action payload");
                 return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, token);
@@ -169,7 +189,18 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                           : isCross(action) ? destinationHostToken == null || destinationHostToken.isBlank()
                          || destinationHostToken.length() > ItemToken.MAX_LENGTH || destinationHostToken.equals(expectedToken)
                          : destinationHostToken != null)
-          || (isBodyCross(action) ? !validHostId(sourceHostId) || !validHostId(destinationHostId)
+              || (action == Action.MOVE_EQUIPMENT ? !validEquipmentSlot(sourceHostId) || !validEquipmentSlot(destinationHostId)
+                            || sourceHostId.equals(destinationHostId) || destinationHostToken != null || expectedChildOrSourceToken != null
+                            || cellX != 0 || cellY != 0 || rotation != 0 || oldCellX != 0 || oldCellY != 0 || oldRotation != 0
+                    : isGenericEquipment(action) ? !validHostId(sourceHostId) || destinationHostId != null || destinationHostToken != null
+                   : action == Action.GRID_BODY_TO_EQUIPMENT ? !validHostId(sourceHostId) || !validHostId(destinationHostId)
+                           || !com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent.ALLOWED_SLOTS.contains(destinationHostId)
+                           || destinationHostToken != null
+                    : action == Action.GRID_EQUIPMENT_TO_BODY ? !validHostId(sourceHostId) || !validHostId(destinationHostId)
+                           || !com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent.ALLOWED_SLOTS.contains(sourceHostId)
+                           || destinationHostToken == null || destinationHostToken.isBlank() || destinationHostToken.length() > ItemToken.MAX_LENGTH
+                           || oldCellX != 0 || oldCellY != 0 || oldRotation != 0
+                    : isBodyCross(action) ? !validHostId(sourceHostId) || !validHostId(destinationHostId)
                           || action == Action.GRID_BODY_WORN_TO_HELD && !wornId(sourceHostId)
                           || action == Action.GRID_BODY_HELD_TO_WORN && !wornId(destinationHostId)
                           || action == Action.GRID_BODY_HELD_TO_HELD && sourceHostId.equals(destinationHostId)
@@ -195,15 +226,18 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
     }
 
      private static boolean isWorldAction(Action action) { return action == Action.PICKUP || action == Action.PICKUP_SELECTED || action == Action.USE_TARGET || action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL || action == Action.USE_BODY; }
-      private static boolean requiresToken(Action action) { return action != Action.SELECT_HAND && action != Action.PICKUP && action != Action.PICKUP_SELECTED && action != Action.STOP_PULL && action != Action.ALTERNATE_TARGET && action != Action.SIP_PUDDLE; }
-     private static boolean isBodyCross(Action action) { return action == Action.GRID_BODY_WORN_TO_HELD || action == Action.GRID_BODY_HELD_TO_WORN || action == Action.GRID_BODY_HELD_TO_HELD; }
-     private static boolean wornId(String id) { return "back".equals(id) || "belt".equals(id); }
+       private static boolean requiresToken(Action action) { return action != Action.SELECT_HAND && action != Action.PICKUP && action != Action.PICKUP_SELECTED && action != Action.STOP_PULL && action != Action.ALTERNATE_TARGET && action != Action.SIP_PUDDLE; }
+       private static boolean isBodyCross(Action action) { return action == Action.GRID_BODY_WORN_TO_HELD || action == Action.GRID_BODY_HELD_TO_WORN || action == Action.GRID_BODY_HELD_TO_HELD; }
+        private static boolean isBodyGridHostAction(Action action) { return isBodyCross(action) || action == Action.GRID_BODY_TO_EQUIPMENT || action == Action.GRID_EQUIPMENT_TO_BODY; }
+       private static boolean isGenericEquipment(Action action) { return action == Action.EQUIP_SLOT || action == Action.UNEQUIP_SLOT; }
+      private static boolean wornId(String id) { return "back".equals(id) || "belt".equals(id); }
+      private static boolean validEquipmentSlot(String id) { return id != null && com.juicyslew.moonstation14.ms14.equipment.EquipmentSlots.SLOT_ORDER.contains(id); }
      private static boolean validHostId(String id) { return id != null && !id.isBlank() && id.length() <= HandState.MAX_ID_LENGTH; }
      private static boolean isCross(Action action) { return action == Action.GRID_CROSS_BELT_TO_BACK || action == Action.GRID_CROSS_BACK_TO_BELT || isBodyCross(action); }
-    private static boolean isGrid(Action action) { return action.ordinal() >= Action.GRID_STORE_BELT.ordinal() && action.ordinal() <= Action.HELD_GRID_MOVE.ordinal() || isCross(action); }
+      private static boolean isGrid(Action action) { return action.ordinal() >= Action.GRID_STORE_BELT.ordinal() && action.ordinal() <= Action.HELD_GRID_MOVE.ordinal() || isCross(action) || action == Action.GRID_BODY_TO_EQUIPMENT || action == Action.GRID_EQUIPMENT_TO_BODY; }
     private static boolean isSmart(Action action) { return action == Action.SMART_STORE_BELT || action == Action.SMART_STORE_BACK || action == Action.SMART_TAKE_BELT || action == Action.SMART_TAKE_BACK; }
     private static boolean isGridStore(Action action) { return action == Action.GRID_STORE_BELT || action == Action.GRID_STORE_BACK || action == Action.HELD_GRID_STORE; }
-    private static boolean isGridMove(Action action) { return action == Action.GRID_MOVE_BELT || action == Action.GRID_MOVE_BACK || action == Action.HELD_GRID_MOVE || isCross(action); }
+      private static boolean isGridMove(Action action) { return action == Action.GRID_MOVE_BELT || action == Action.GRID_MOVE_BACK || action == Action.HELD_GRID_MOVE || isCross(action) || action == Action.GRID_BODY_TO_EQUIPMENT || action == Action.GRID_EQUIPMENT_TO_BODY; }
     private static boolean validCell(int x, int y) { return x >= 0 && y >= 0 && x < GridGeometry.MAX_WIDTH && y < GridGeometry.MAX_HEIGHT; }
     private static boolean validRotation(int rotation) { return rotation == 0 || rotation == 90 || rotation == 180 || rotation == 270; }
 

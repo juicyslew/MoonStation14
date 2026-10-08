@@ -15,20 +15,25 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 
-@GameTestTags({"hands"})
+@GameTestTags({"hands", "equipment"})
 @PrefixGameTestTemplate(false)
 public final class LiveEquipmentStateGameTests {
     private LiveEquipmentStateGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "equipment_state", timeoutTicks = 20)
+    @GameTestTags("equipment-regression")
     public static void boundHumanOwnsOrderedEquipmentInSameAttachment(GameTestHelper helper) {
         var human = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         var pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));
         helper.runAfterDelay(1, () -> {
-            LiveHands empty = LiveHands.initialize(human).orElseThrow();
-            var slots = LiveHands.equipmentSnapshot(human).orElseThrow();
+            var initialized = LiveHands.initialize(human);
+            var slotsResult = LiveHands.equipmentSnapshot(human);
+            if (initialized.isEmpty() || slotsResult.isEmpty())
+                throw new GameTestAssertException("equipment fixture resolution: " + equipmentResolution(human, initialized, slotsResult));
+            LiveHands empty = initialized.orElseThrow();
+            var slots = slotsResult.orElseThrow();
             require(slots.persisted() && slots.slots().stream().map(LiveHands.EquipmentSlot::id)
-                    .toList().equals(List.of("belt", "back"))
+                    .toList().equals(com.juicyslew.moonstation14.ms14.equipment.EquipmentSlots.SLOT_ORDER)
                     && slots.slots().stream().allMatch(slot -> slot.token().isEmpty() && slot.stack().isEmpty()),
                     "human has saved, empty ordered slots");
             require(LiveHands.equipmentSnapshot(pig).isEmpty() && LiveHands.initialize(pig).isEmpty(),
@@ -41,9 +46,9 @@ public final class LiveEquipmentStateGameTests {
                     && equipped.revision() == 2 && equipped.stackCopy("left").isEmpty(),
                     "pure transition does not publish partial ownership");
             human.setData(ModDataAttachments.LIVE_HANDS.get(), equipped);
-            ItemStack copy = LiveHands.equipmentSnapshot(human).orElseThrow().slots().get(0).stack().orElseThrow();
+            ItemStack copy = slot(LiveHands.equipmentSnapshot(human).orElseThrow(), "belt").stack().orElseThrow();
             copy.setCount(1);
-            require(LiveHands.equipmentSnapshot(human).orElseThrow().slots().get(0).stack().orElseThrow()
+            require(slot(LiveHands.equipmentSnapshot(human).orElseThrow(), "belt").stack().orElseThrow()
                     .getCount() == 4 && equipped.equip(2, human, "right", "belt", "owned").isEmpty(),
                     "defensive read and occupied denial");
             LiveHands removed = equipped.unequip(2, human, "belt", "right", "owned").orElseThrow();
@@ -51,6 +56,35 @@ public final class LiveEquipmentStateGameTests {
                     && equipped.stackCopy("right").isEmpty(), "one revision preserves exact occupant");
             helper.succeed();
         });
+    }
+
+    private static LiveHands.EquipmentSlot slot(LiveHands.EquipmentSnapshot snapshot, String id) {
+        return snapshot.slots().stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    private static String equipmentResolution(net.minecraft.world.entity.LivingEntity body,
+            java.util.Optional<LiveHands> initialized,
+            java.util.Optional<LiveHands.EquipmentSnapshot> snapshot) {
+        var identity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        var characterId = identity == null || !identity.isBound() ? null : identity.characterId();
+        var characters = com.juicyslew.moonstation14.ms14.character.ModCharacters.catalog(body.level());
+        var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(body);
+        var equipment = character.flatMap(value -> value.component(
+                com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent.class));
+        var templateId = equipment.flatMap(com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent::template);
+        var templates = com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.catalog(body.level());
+        var resolvedSlots = com.juicyslew.moonstation14.ms14.hands.HandCapability.resolveEquipmentSlots(body);
+        return "host=" + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(body.getType())
+                + ", identityAttachment=" + (identity == null ? "absent" : "present")
+                + ", boundCharacterId=" + characterId
+                + ", characterCatalogContainsId=" + (characterId != null && characters.get(characterId) != null)
+                + ", resolvedCharacter=" + character.map(value -> "present(components=" + value.components() + ")").orElse("empty")
+                + ", equipmentSlotsComponent=" + equipment.map(value -> "present(template=" + value.template() + ", slots=" + value.slots() + ")").orElse("empty")
+                + ", inventoryTemplateId=" + templateId
+                + ", inventoryTemplateCatalogContainsId=" + templateId.map(id -> templates.get(id) != null).orElse(false)
+                + ", HandCapability.resolveEquipmentSlots=" + resolvedSlots
+                + ", LiveHands.initialize=" + initialized.map(value -> "present(revision=" + value.revision() + ")").orElse("empty")
+                + ", equipmentSnapshot=" + snapshot.map(value -> "present(persisted=" + value.persisted() + ", slots=" + value.slots().size() + ")").orElse("empty");
     }
 
     private static void require(boolean condition, String message) {

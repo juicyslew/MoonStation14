@@ -45,6 +45,7 @@ import com.juicyslew.moonstation14.ms14.medical.ModInjectorModes;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
+import com.juicyslew.moonstation14.ms14.equipment.*;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -164,6 +165,10 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<InjectorModeData> clientInjectorModes() { return CLIENT_MANAGER.snapshot(ModInjectorModes.TYPE); }
     public static PrototypeCatalog<AirlockData> serverAirlocks() { return SERVER_MANAGER.snapshot(ModAirlocks.TYPE); }
     public static PrototypeCatalog<AirlockData> clientAirlocks() { return CLIENT_MANAGER.snapshot(ModAirlocks.TYPE); }
+    public static PrototypeCatalog<InventoryTemplateData> serverInventoryTemplates() { return SERVER_MANAGER.snapshot(ModInventoryTemplates.TYPE); }
+    public static PrototypeCatalog<InventoryTemplateData> clientInventoryTemplates() { return CLIENT_MANAGER.snapshot(ModInventoryTemplates.TYPE); }
+    public static PrototypeCatalog<EquipmentItemData> serverEquipmentItems() { return SERVER_MANAGER.snapshot(ModEquipmentItems.TYPE); }
+    public static PrototypeCatalog<EquipmentItemData> clientEquipmentItems() { return CLIENT_MANAGER.snapshot(ModEquipmentItems.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -191,6 +196,8 @@ public final class PrototypeRuntime {
         manager.register(ModInjectorModes.TYPE);
         manager.register(ModAirlocks.TYPE);
         manager.register(ModToolProfiles.TYPE);
+        manager.register(ModInventoryTemplates.TYPE);
+        manager.register(ModEquipmentItems.TYPE);
         return manager;
     }
 }

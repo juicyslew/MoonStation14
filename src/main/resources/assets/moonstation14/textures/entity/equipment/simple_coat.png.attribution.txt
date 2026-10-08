@@ -1,0 +1,8 @@
+Asset: simple_coat
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/OuterClothing/Coats/labcoat.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Made by Flareguy for Space Station 14, original base sprite from tgstation at commit https://github.com/tgstation/tgstation/commit/4f6190e2895e09116663ef282d3ce1d8b35c032e
+Imported PNG SHA-256: d79acb173b70e45f76de23a02e1c3ddfc9b5ab3c1266692543a4ff90f91182ef
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

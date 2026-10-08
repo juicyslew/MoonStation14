@@ -22,6 +22,7 @@ class ModCreativeModeTabsTest {
         assertEquals(entries.size(), entries.stream().distinct().count(), "duplicate dedicated-tab entries");
 
         List<Object> registeredItems = deferredFields(ModItems.class, "ITEMS");
+        registeredItems.addAll(deferredFields(ModEquipmentItems.class, "ITEMS"));
         for (var segment : List.of(ModItems.GAS_PIPE_SEGMENT, ModItems.GAS_PIPE_SEGMENT_SECONDARY,
                 ModItems.GAS_PIPE_SEGMENT_TERTIARY)) {
             assertEquals(1, ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.stream()
@@ -73,7 +74,8 @@ class ModCreativeModeTabsTest {
         }
         registeredItems.addAll(registeredBlocks);
 
-        assertEquals(registeredItems.size(), entries.size(), "every exposed registered item/block needs a dedicated tab entry");
+        assertEquals(registeredItems.size(), entries.size(), "every exposed registered item/block needs a dedicated tab entry; missing="
+                + registeredItems.stream().filter(item -> !entries.contains(item)).map(item -> String.valueOf(((Supplier<?>) item).get())).toList());
         assertTrue(entries.containsAll(registeredItems), "dedicated tab entries must be the exposed registered holders");
     }
 

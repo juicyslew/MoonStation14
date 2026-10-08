@@ -73,6 +73,8 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
         expectedTypes.add(ModAirlocks.TYPE);
         expectedTypes.add(ModToolProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
@@ -211,7 +213,9 @@ class PrototypeRuntimeTest {
                 ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()), exported.keySet());
+                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);

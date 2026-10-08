@@ -1,0 +1,6 @@
+Source: SS14 pinned c9df5ef5d675b0d1d226828bddf6b78c28502d91
+RSI: Clothing/Ears/Headsets/base.rsi
+State: icon
+License: CC-BY-SA-3.0
+Copyright: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/f8f4aeda930fcd0805ca4cc76d9bc9412a5b3428
+

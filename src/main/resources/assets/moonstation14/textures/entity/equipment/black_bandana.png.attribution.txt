@@ -1,0 +1,8 @@
+Asset: black_bandana
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/Head/Bandanas/black.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/4f6190e2895e09116663ef282d3ce1d8b35c032e. equipped-MASK-vox & equipped-HELMET-vox states taken from Paradise at https://github.com/ParadiseSS13/Paradise/blob/bc095ad398790a2b718b2bab4f2157cdd80a51da/icons/mob/clothing/species/vox/mask.dmi
+Imported PNG SHA-256: c7c8758b1da9010da40ea52b298336a01e2bce8c6a1a4345d4c558dcfd952823
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

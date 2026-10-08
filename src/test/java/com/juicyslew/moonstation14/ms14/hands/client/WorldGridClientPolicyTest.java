@@ -271,7 +271,10 @@ class WorldGridClientPolicyTest {
     }
 
     @Test void crossTransfersShareActionGateAndRequireCorrelatedFreshSettlements() {
-        for (var direction : BodyWorldCrossAction.Direction.values()) {
+        // These fixtures exercise the original body-grid directions. Equipment routes have
+        // different host-token and grid-origin contracts and are covered with valid inputs below.
+        for (var direction : new BodyWorldCrossAction.Direction[]{BodyWorldCrossAction.Direction.WORLD_TO_BODY,
+                BodyWorldCrossAction.Direction.BODY_TO_WORLD}) {
             var p = new WorldGridClientPolicy(); var a=UUID.randomUUID(); var b=UUID.randomUUID();
             var target=UUID.randomUUID(); var session=UUID.randomUUID(); p.bind(a,b,1);
             var open=p.query(target,1).orElseThrow(); assertTrue(p.accept(ok(open.sequence(),a,b,1,target,session),1));
@@ -294,6 +297,21 @@ class WorldGridClientPolicyTest {
             assertTrue(p.canAct(target));
             assertFalse(p.crossResult(new BodyWorldCrossActionResult(1,cross.sequence(),target,session,2,
                     BodyWorldCrossActionResult.Reason.OK)));
+        }
+    }
+
+    @Test void equipmentCrossTransfersUseTypedEndpointFields() {
+        for (var direction : new BodyWorldCrossAction.Direction[]{BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT,
+                BodyWorldCrossAction.Direction.EQUIPMENT_TO_WORLD}) {
+            var p = new WorldGridClientPolicy(); var a=UUID.randomUUID(); var b=UUID.randomUUID();
+            var target=UUID.randomUUID(); var session=UUID.randomUUID(); p.bind(a,b,1);
+            var open=p.query(target,1).orElseThrow(); assertTrue(p.accept(ok(open.sequence(),a,b,1,target,session),1));
+            var proof=hand(a,b,1); p.settledHand(proof);
+            boolean toEquipment = direction == BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT;
+            var request=p.crossAction(target,proof,direction,true,"armor",toEquipment ? null : "host-token",
+                    "child",toEquipment ? 1 : 0,toEquipment ? 1 : 0,toEquipment ? 90 : 0,
+                    toEquipment ? 0 : 1,toEquipment ? 0 : 1,toEquipment ? 0 : 90,2).orElseThrow();
+            assertEquals(direction, request.direction());
         }
     }
 

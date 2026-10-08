@@ -1,0 +1,171 @@
+{
+  "target": "Minecraft Java 1.21.1 / NeoForge 21.1.224 / agent02",
+  "status": "asset-only integration candidates; not copied/installed; no direct wearable loader exists",
+  "items": [
+    {
+      "asset_id": "grey_cap",
+      "master": "authoring/grey_cap.bbmodel",
+      "texture": {
+        "source": "textures/grey_cap.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/grey_cap.png"
+      },
+      "bone_meshes": {
+        "head": "export/obj/grey_cap/head.obj"
+      },
+      "mesh_data": "export/meshes/grey_cap.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "grey_jumpsuit",
+      "master": "authoring/grey_jumpsuit.bbmodel",
+      "texture": {
+        "source": "textures/grey_jumpsuit.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/grey_jumpsuit.png"
+      },
+      "bone_meshes": {
+        "body": "export/obj/grey_jumpsuit/body.obj",
+        "left_arm": "export/obj/grey_jumpsuit/left_arm.obj",
+        "right_arm": "export/obj/grey_jumpsuit/right_arm.obj",
+        "left_leg": "export/obj/grey_jumpsuit/left_leg.obj",
+        "right_leg": "export/obj/grey_jumpsuit/right_leg.obj"
+      },
+      "mesh_data": "export/meshes/grey_jumpsuit.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "simple_coat",
+      "master": "authoring/simple_coat.bbmodel",
+      "texture": {
+        "source": "textures/simple_coat.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/simple_coat.png"
+      },
+      "bone_meshes": {
+        "body": "export/obj/simple_coat/body.obj",
+        "left_arm": "export/obj/simple_coat/left_arm.obj",
+        "right_arm": "export/obj/simple_coat/right_arm.obj",
+        "left_leg": "export/obj/simple_coat/left_leg.obj",
+        "right_leg": "export/obj/simple_coat/right_leg.obj"
+      },
+      "mesh_data": "export/meshes/simple_coat.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "black_gloves",
+      "master": "authoring/black_gloves.bbmodel",
+      "texture": {
+        "source": "textures/black_gloves.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/black_gloves.png"
+      },
+      "bone_meshes": {
+        "left_arm": "export/obj/black_gloves/left_arm.obj",
+        "right_arm": "export/obj/black_gloves/right_arm.obj"
+      },
+      "mesh_data": "export/meshes/black_gloves.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "black_shoes",
+      "master": "authoring/black_shoes.bbmodel",
+      "texture": {
+        "source": "textures/black_shoes.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/black_shoes.png"
+      },
+      "bone_meshes": {
+        "left_leg": "export/obj/black_shoes/left_leg.obj",
+        "right_leg": "export/obj/black_shoes/right_leg.obj"
+      },
+      "mesh_data": "export/meshes/black_shoes.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "glasses",
+      "master": "authoring/glasses.bbmodel",
+      "texture": {
+        "source": "textures/glasses.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/glasses.png"
+      },
+      "bone_meshes": {
+        "head": "export/obj/glasses/head.obj"
+      },
+      "mesh_data": "export/meshes/glasses.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "red_tie",
+      "master": "authoring/red_tie.bbmodel",
+      "texture": {
+        "source": "textures/red_tie.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/red_tie.png"
+      },
+      "bone_meshes": {
+        "body": "export/obj/red_tie/body.obj"
+      },
+      "mesh_data": "export/meshes/red_tie.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "black_bandana",
+      "master": "authoring/black_bandana.bbmodel",
+      "texture": {
+        "source": "textures/black_bandana.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/black_bandana.png"
+      },
+      "bone_meshes": {
+        "head": "export/obj/black_bandana/head.obj"
+      },
+      "mesh_data": "export/meshes/black_bandana.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "earpieces",
+      "master": "authoring/earpieces.bbmodel",
+      "texture": {
+        "source": "textures/earpieces.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/earpieces.png"
+      },
+      "bone_meshes": {
+        "head": "export/obj/earpieces/head.obj"
+      },
+      "mesh_data": "export/meshes/earpieces.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "bag",
+      "master": "authoring/bag.bbmodel",
+      "texture": {
+        "source": "textures/bag.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/bag.png"
+      },
+      "bone_meshes": {
+        "body": "export/obj/bag/body.obj"
+      },
+      "mesh_data": "export/meshes/bag.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    },
+    {
+      "asset_id": "belt",
+      "master": "authoring/belt.bbmodel",
+      "texture": {
+        "source": "textures/belt.png",
+        "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/belt.png"
+      },
+      "bone_meshes": {
+        "body": "export/obj/belt/body.obj"
+      },
+      "mesh_data": "export/meshes/belt.json",
+      "geometry_destination": null,
+      "requires": "agent02 authored-mesh renderer adapter; current placeholder renderer does not load these files"
+    }
+  ],
+  "transfer": "Include OBJ, MTL, PNG and mesh JSON dependencies; adapt resource MTL paths after relocation."
+}

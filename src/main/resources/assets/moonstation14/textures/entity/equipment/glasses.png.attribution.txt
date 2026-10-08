@@ -1,0 +1,8 @@
+Asset: glasses
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/Eyes/Glasses/glasses.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/5a73e8f825ff279e82949b9329783a9e3070e2da. Equipped-EYES-arachnid and equipped-EYES-moth modified from equipped-EYES by HTMLSystem
+Imported PNG SHA-256: 5b8a7f37f90be1031e3102dc7f0f4f95099140706aa746d16c72a6b94294bf06
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

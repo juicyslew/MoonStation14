@@ -71,7 +71,7 @@ class LiveEquipmentStateTest {
         String occupant = ",\"occupant\":{\"token\":\"dup\",\"stack\":{\"id\":\"minecraft:diamond\",\"count\":1}}";
         for (String equipment : new String[]{
                 "[{\"id\":\"belt\"},{\"id\":\"belt\"}]",
-                "[{\"id\":\"head\"}]",
+                "[{\"id\":\"invalid\"}]",
                 "[{\"id\":\"belt\"},{\"id\":\"back\"},{\"id\":\"belt\"}]",
                 "[{\"id\":\"belt\"" + occupant + "},{\"id\":\"back\"" + occupant + "}]"})
             assertTrue(LiveHands.CODEC.parse(JsonOps.INSTANCE,

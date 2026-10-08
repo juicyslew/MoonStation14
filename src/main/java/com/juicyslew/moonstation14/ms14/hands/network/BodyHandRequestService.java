@@ -280,7 +280,59 @@ public final class BodyHandRequestService {
              return response;
          }
 
-         if (request.action() == BodyHandActionRequest.Action.GRID_CROSS_BELT_TO_BACK
+           if (request.action() == BodyHandActionRequest.Action.GRID_BODY_TO_EQUIPMENT) {
+              if (!hands.handIds().equals(authority.handIds())) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+              var slots = BodyHandStateService.slots(hands, authority.handIds());
+              var equipment = slots == null ? null : BodyHandStateService.equipment(hands, authority.body(), slots);
+              boolean worn = equipment != null && equipment.stream().anyMatch(s -> s.id().equals(request.sourceHostId()));
+              boolean held = hands.handIds().contains(request.sourceHostId());
+              if (worn == held) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+              var source = new LiveHands.GridHost(worn, request.sourceHostId(), request.expectedToken());
+              var host = worn ? LiveHands.equipmentSnapshot(authority.body()).stream().flatMap(s -> s.slots().stream())
+                      .filter(s -> s.id().equals(source.id()) && s.token().filter(source.token()::equals).isPresent()).findFirst().flatMap(LiveHands.EquipmentSlot::stack).orElse(null)
+                      : hands.token(source.id()).filter(source.token()::equals).flatMap(hands::stackCopy).orElse(null);
+              var contents = host == null ? null : GridContents.read(host).orElse(null);
+              if (equipment == null || contents == null || contents.entries().stream().noneMatch(e -> e.token().equals(request.expectedChildOrSourceToken())
+                      && e.x() == request.oldCellX() && e.y() == request.oldCellY() && e.rotation().degrees() == request.oldRotation()))
+                  return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+              if (!HandActorAuthority.revalidate(actor, authority) || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands)
+                  return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+              var outcome = BodyEquippedStorageTransfer.gridToEquipment(actor, source, request.expectedChildOrSourceToken(),
+                      new GridGeometry.Cell(request.oldCellX(), request.oldCellY()), java.util.Arrays.stream(GridGeometry.Rotation.values())
+                              .filter(r -> r.degrees() == request.oldRotation()).findFirst().orElse(null), request.destinationHostId(), request.expectedRevision());
+              var response = result(request, reason(outcome), authority);
+              if (outcome != BodyEquippedStorageTransfer.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+               return response;
+           }
+
+           if (request.action() == BodyHandActionRequest.Action.GRID_EQUIPMENT_TO_BODY) {
+               if (!hands.handIds().equals(authority.handIds()))
+                   return result(request, BodyHandActionResult.Reason.DENIED, authority);
+               var slots = BodyHandStateService.slots(hands, authority.handIds());
+               var equipment = slots == null ? null : BodyHandStateService.equipment(hands, authority.body(), slots);
+               if (equipment == null || equipment.stream().noneMatch(s -> s.id().equals(request.sourceHostId())))
+                   return result(request, BodyHandActionResult.Reason.DENIED, authority);
+               if (!request.expectedToken().equals(request.expectedChildOrSourceToken()))
+                   return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+               var liveEquipment = LiveHands.equipmentSnapshot(authority.body()).orElse(null);
+               if (liveEquipment == null || !liveEquipment.persisted())
+                   return result(request, BodyHandActionResult.Reason.DENIED, authority);
+               var destination = new LiveHands.GridHost(hands.handIds().contains(request.destinationHostId()),
+                       request.destinationHostId(), request.destinationHostToken());
+               if (!HandActorAuthority.revalidate(actor, authority)
+                       || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                       || hands.revision() != request.expectedRevision())
+                   return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+               var outcome = BodyEquippedStorageTransfer.equipmentToGrid(actor, request.sourceHostId(),
+                       request.expectedToken(), destination, new GridGeometry.Cell(request.cellX(), request.cellY()),
+                       java.util.Arrays.stream(GridGeometry.Rotation.values()).filter(r -> r.degrees() == request.rotation()).findFirst().orElse(null),
+                       request.expectedRevision());
+               var response = result(request, reason(outcome), authority);
+               if (outcome != BodyEquippedStorageTransfer.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+               return response;
+           }
+
+           if (request.action() == BodyHandActionRequest.Action.GRID_CROSS_BELT_TO_BACK
                 || request.action() == BodyHandActionRequest.Action.GRID_CROSS_BACK_TO_BELT) {
             if (!hands.handIds().equals(authority.handIds()))
                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
@@ -330,11 +382,34 @@ public final class BodyHandRequestService {
             return response;
         }
 
+        if (request.action() == BodyHandActionRequest.Action.MOVE_EQUIPMENT) {
+            String from = request.sourceHostId(), to = request.destinationHostId();
+            var snapshot = LiveHands.equipmentSnapshot(authority.body()).orElse(null);
+            if (from == null || to == null || request.expectedToken() == null || snapshot == null
+                    || !snapshot.persisted() || snapshot.slots().stream().noneMatch(slot -> slot.id().equals(from)
+                        && slot.token().filter(request.expectedToken()::equals).isPresent())
+                    || snapshot.slots().stream().noneMatch(slot -> slot.id().equals(to)))
+                return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var outcome = reason(BodyEquipmentTransfer.moveEquipment(actor, from, to, request.expectedToken(),
+                    request.expectedRevision()));
+            BodyHandActionResult response = result(request, outcome, authority);
+            if (outcome == BodyHandActionResult.Reason.OK || outcome == BodyHandActionResult.Reason.RECOVERY_REQUIRED)
+                BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
+
         String equipmentSlot = switch (request.action()) {
+            case EQUIP_SLOT, UNEQUIP_SLOT -> request.sourceHostId();
             case EQUIP_BELT, UNEQUIP_BELT, STORE_BELT, TAKE_BELT, GRID_STORE_BELT, GRID_TAKE_BELT, GRID_MOVE_BELT, SMART_STORE_BELT, SMART_TAKE_BELT -> "belt";
             case EQUIP_BACK, UNEQUIP_BACK, STORE_BACK, TAKE_BACK, GRID_STORE_BACK, GRID_TAKE_BACK, GRID_MOVE_BACK, SMART_STORE_BACK, SMART_TAKE_BACK -> "back";
             default -> null;
         };
+        if (request.action() == BodyHandActionRequest.Action.QUICK_EQUIP) {
+            var outcome = reason(BodyEquipmentTransfer.quickEquip(actor, request.handId(), request.expectedToken(), request.expectedRevision()));
+            BodyHandActionResult response = result(request, outcome, authority);
+            if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
+            return response;
+        }
         if (equipmentSlot != null) {
             if (!hands.handIds().equals(authority.handIds()))
                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
@@ -346,9 +421,11 @@ public final class BodyHandRequestService {
             if (target.isEmpty()) return result(request, BodyHandActionResult.Reason.DENIED, authority);
             var slot = target.orElseThrow();
             boolean equipping = request.action() == BodyHandActionRequest.Action.EQUIP_BELT
-                    || request.action() == BodyHandActionRequest.Action.EQUIP_BACK;
+                    || request.action() == BodyHandActionRequest.Action.EQUIP_BACK
+                    || request.action() == BodyHandActionRequest.Action.EQUIP_SLOT;
             boolean unequipping = request.action() == BodyHandActionRequest.Action.UNEQUIP_BELT
-                    || request.action() == BodyHandActionRequest.Action.UNEQUIP_BACK;
+                    || request.action() == BodyHandActionRequest.Action.UNEQUIP_BACK
+                    || request.action() == BodyHandActionRequest.Action.UNEQUIP_SLOT;
             boolean storingAction = request.action() == BodyHandActionRequest.Action.STORE_BELT
                     || request.action() == BodyHandActionRequest.Action.STORE_BACK;
             boolean smartAction = request.action() == BodyHandActionRequest.Action.SMART_STORE_BELT
@@ -655,9 +732,9 @@ public final class BodyHandRequestService {
     static boolean equipmentPrecheck(BodyHandActionRequest.Action action, String expectedToken,
                                      String handToken, String slotToken, String childToken) {
         boolean equipping = action == BodyHandActionRequest.Action.EQUIP_BELT
-                || action == BodyHandActionRequest.Action.EQUIP_BACK;
+                || action == BodyHandActionRequest.Action.EQUIP_BACK || action == BodyHandActionRequest.Action.EQUIP_SLOT;
         boolean unequipping = action == BodyHandActionRequest.Action.UNEQUIP_BELT
-                || action == BodyHandActionRequest.Action.UNEQUIP_BACK;
+                || action == BodyHandActionRequest.Action.UNEQUIP_BACK || action == BodyHandActionRequest.Action.UNEQUIP_SLOT;
         boolean gridAction = action == BodyHandActionRequest.Action.GRID_STORE_BELT
                 || action == BodyHandActionRequest.Action.GRID_STORE_BACK
                 || action == BodyHandActionRequest.Action.GRID_TAKE_BELT
