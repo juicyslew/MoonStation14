@@ -2,7 +2,10 @@
 
 Inputs: construction `5e366dcb72197b16e446408fbce94bd59272d052`
 and main `fd918c3f7d3874aec514590ab2cb5701267111bb`.
-All eleven conflicts are resolved and staged; no assistant merge commit or push.
+All eleven conflicts were resolved; the owner committed the merge as `82ff81f`.
+No assistant merge commit or push. Follow-up native stabilization evidence is in
+`../native-suite-stabilization/validation.md`; results below describe merge-time
+validation, not the subsequent stabilization result.
 
 ## Retained behavior
 

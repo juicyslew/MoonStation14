@@ -292,14 +292,14 @@ public final class BodyPullService {
         return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z));
     }
 
-    private static boolean eligibleTarget(Entity target) {
+    static boolean eligibleTarget(Entity target) {
         if (target instanceof LooseItemEntity loose) return !loose.isRemoved() && loose.getTarget() == null;
         return target instanceof LivingEntity living && !living.isRemoved()
                 && ActiveCharacterPolicy.resolveActor(living)
                 .filter(data -> data.component(PullableComponent.class).isPresent()).isPresent();
     }
 
-    private static Entity probeSelected(ServerLevel level, LivingEntity body, UUID targetId) {
+    static Entity probeSelected(ServerLevel level, LivingEntity body, UUID targetId) {
         Entity target = level.getEntity(targetId);
         if (!eligibleTarget(target) || target.level() != level || target.isRemoved() || target == body
                 || target instanceof LooseItemEntity && horizontalDistance(body.position(), target.position()) > PICKUP_REACH

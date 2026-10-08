@@ -13,6 +13,7 @@ public final class BodyPickupRouteGameTestEntry {
     private BodyPickupRouteGameTestEntry() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"hands", "suite-stabilization"})
     public static void firstHitDenialsAndWorldToHandConservation(GameTestHelper helper) {
         BodyPickupRouteGameTests.firstHitDenialsAndWorldToHandConservation(helper);
     }

@@ -112,19 +112,17 @@ public final class PipeGasInventory {
             changed.put(update.getKey(), new Entry(old.node(), old.incarnation(), old.volume(), next, increment(old.version()), true));
         }
         if (!anyChange) throw new IllegalArgumentException("batch contains no changes");
-        for (GasType type : GasType.values()) if (!conserved(beforeGas.getOrDefault(type, 0.0), afterGas.getOrDefault(type, 0.0)))
+        for (GasType type : GasType.values()) if (!PipeGasLedger.conservedSpecies(
+                beforeGas.getOrDefault(type, 0.0), afterGas.getOrDefault(type, 0.0)))
             throw new IllegalArgumentException("batch does not conserve " + type);
-        if (!conserved(beforeEnergy, afterEnergy)) throw new IllegalArgumentException("batch does not conserve thermal energy");
+        if (!PipeGasLedger.conservedEnergy(beforeEnergy, afterEnergy))
+            throw new IllegalArgumentException("batch does not conserve thermal energy");
         Map<PipeTopology.NodeKey, Entry> result = new LinkedHashMap<>(entries); result.putAll(changed);
         return new PipeGasInventory(result, retired, increment(revision), null);
     }
     private static boolean sameMixture(GasMixture a, GasMixture b) { return a.gasMoles().equals(b.gasMoles()) && Double.compare(a.temperatureKelvin(), b.temperatureKelvin()) == 0; }
     private static void add(Map<GasType, Double> total, GasMixture mixture) {
         for (var gas : mixture.gasMoles().entrySet()) total.merge(gas.getKey(), gas.getValue(), Double::sum);
-    }
-    private static boolean conserved(double a, double b) {
-        if (!Double.isFinite(a) || !Double.isFinite(b)) return false;
-        return Math.abs(a - b) <= Math.max(Math.ulp(a) * 8, Math.max(Math.ulp(b) * 8, Math.max(Math.abs(a), Math.abs(b)) * 1e-14));
     }
     /** Removes only empty ownership; non-empty gas and energy require a separately accounted transfer. */
     public PipeGasInventory tombstoneEmpty(PipeTopology.NodeKey key, UUID id) {
