@@ -300,7 +300,7 @@ public final class BloodSystem {
         var healing = fraction >= policy.get().bloodlossThresholdFraction()
                 ? BloodReducer.bloodloss(fraction, policy.get(), true) : java.util.Map.<String,Float>of();
         if (!damage.isEmpty()) DamageSystem.applyHealthChange(entity, damage, 1f,
-                policy.get().bloodlossIgnoreResistances());
+                policy.get().bloodlossIgnoreResistances(), DamageSystem.Cause.BLOOD_LOSS);
         // Negative-only healing commits directly to the existing typed ledger; the resistance flag
         // is not consulted for healing, and the ledger cannot heal beyond extant matching damage.
         if (!healing.isEmpty()) DamageSystem.applyHealthChange(entity, healing, 1f,

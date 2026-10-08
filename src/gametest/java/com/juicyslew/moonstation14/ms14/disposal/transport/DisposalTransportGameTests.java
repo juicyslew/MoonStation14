@@ -190,11 +190,10 @@ public final class DisposalTransportGameTests {
     public static void finiteRoomUnitAndHolderGasConserved(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var atmos = AtmosphereService.INSTANCE;
-        boolean wasEnabled = atmos.isEnabled();
         var oldVacuum = atmos.vacuumDimensionsForTest();
         var dimensions = new java.util.HashSet<>(oldVacuum);
         dimensions.add(level.dimension());
-        atmos.configureAtServerStart(true, dimensions);
+        atmos.configureAtServerStart(dimensions, atmos.spaceDimensionsForTest());
         try {
             for (int x = 1; x <= 5; x++) for (int z = 1; z <= 5; z++) {
                 helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -253,7 +252,7 @@ public final class DisposalTransportGameTests {
             assertConserved(beforeReleaseRooms, beforeReleaseHolder, afterReleaseRooms, afterReleaseHolder);
             require(close(holderAir.totalMoles(), beforeReleaseHolder.totalMoles()), "holder uses unit flush sample");
             helper.succeed();
-        } finally { atmos.configureAtServerStart(wasEnabled, oldVacuum); }
+        } finally { atmos.configureAtServerStart(oldVacuum, atmos.spaceDimensionsForTest()); }
     }
 
     private static GasMixture sampleRoomSum(AtmosphereService atmos, net.minecraft.server.level.ServerLevel level,

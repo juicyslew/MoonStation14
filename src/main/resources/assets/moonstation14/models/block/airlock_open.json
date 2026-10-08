@@ -1,0 +1,8 @@
+{
+  "ambientocclusion": false,
+  "textures": { "door": "moonstation14:block/airlock/open", "particle": "moonstation14:block/airlock/open" },
+  "elements": [{ "from": [0, 0, 7.9], "to": [16, 32, 8.1], "faces": {
+    "north": { "texture": "#door", "uv": [0, 0, 32, 32] },
+    "south": { "texture": "#door", "uv": [0, 0, 32, 32] }
+  }}]
+}

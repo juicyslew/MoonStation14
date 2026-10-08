@@ -20,6 +20,39 @@ class CharacterMovementMotorTest {
             new MovementCollisionResolver.CollisionResult(displacement, grounded);
 
     @Test
+    void tetherConstraintActsAfterStandingFrictionAndVoluntaryWish() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 3d, 0d, OPEN, 1d, 1d,
+                new MovementVector(-3d, 0d, 0d));
+        CharacterMovementState result = motor.tick(state(MovementVector.ZERO,
+                        new MovementVector(2.5d, 0d, 0d), true),
+                new CharacterMovementCommand(1d, 0d, false, false), environment, false);
+        assertEquals(-.5d, result.velocity().x(), 1e-12,
+                "standing friction and voluntary acceleration must not erase/reverse the opposing tether impulse");
+        assertEquals(-.025d, result.position().x(), 1e-12);
+
+        CharacterMovementEnvironment ordinary = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 0d, 0d, OPEN);
+        CharacterMovementState unchanged = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false), ordinary, false);
+        assertEquals(MovementVector.ZERO, unchanged.velocity(),
+                "the compatibility constructor retains neutral constraint input");
+
+        CharacterMovementEnvironment upwardTether = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 1d, 0d, OPEN, 1d, 1d,
+                new MovementVector(0d, 1d, 0d));
+        CharacterMovementState jump = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, true, false), upwardTether, false);
+        assertEquals(.47d, jump.position().y(), 1e-12,
+                "tether force augments the ordinary jump after jump velocity is selected");
+
+        assertThrows(IllegalArgumentException.class, () -> new CharacterMovementEnvironment(.05d, 32d, 8.4d,
+                .98d, MovementVector.ZERO, 0d, 0d, OPEN, 1d, 1d,
+                new MovementVector(Double.NaN, 0d, 0d)));
+    }
+
+    @Test
     void playerAndVillagerHostsUseTheSameHumanMotorPolicy() {
         CharacterMovementPolicy playerProfile = CharacterMovementPolicy.forCharacterPrototype("moonstation14:human");
         CharacterMovementPolicy villagerProfile = CharacterMovementPolicy.forCharacterPrototype("moonstation14:human");

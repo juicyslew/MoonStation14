@@ -7,4 +7,3 @@ public interface ContainedBodyVisual {
 
     static boolean shouldHide(boolean containedMarker) { return containedMarker; }
 }
-

@@ -132,8 +132,15 @@ public final class BodyContainmentService implements AutoCloseable {
     }
 
     private boolean validBody(LivingEntity body) {
-        return body != null && !body.isRemoved() && body.isAlive() && body.level() == level
-                && body.isAddedToLevel() && level.getEntity(body.getUUID()) == body;
+        return isValidBody(body, level);
+    }
+
+    /** Exact loaded-body check that also retains resolved medical corpses after native death. */
+    public static boolean isValidBody(LivingEntity body, ServerLevel level) {
+        if (body == null || level == null || body.isRemoved() || body.level() != level
+                || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body) return false;
+        return body.isAlive() || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.policy(body) != null
+                && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(body);
     }
 
     private boolean validOwner(ContainedBodyOwner owner) {
@@ -188,4 +195,3 @@ public final class BodyContainmentService implements AutoCloseable {
     /** Immutable original entity flags captured before containment first began. */
     public record ContainedBodyFlags(boolean invisible, boolean noPhysics, boolean noGravity) { }
 }
-

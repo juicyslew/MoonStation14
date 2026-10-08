@@ -3,6 +3,10 @@
     "minecraft:pig"
   ],
   "components": [
+    {"type": "MobState"},
+    {"type": "GhostOnMove", "must_be_dead": true, "can_return": true},
+    {"type": "Pullable"},
+    {"type": "MobThresholds", "thresholds": {"0": "ALIVE", "100": "CRITICAL", "200": "DEAD"}},
     {
       "type": "Barotrauma",
       "damage": {

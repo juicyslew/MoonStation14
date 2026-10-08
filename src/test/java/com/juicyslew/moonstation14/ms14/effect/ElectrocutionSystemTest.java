@@ -63,6 +63,18 @@ class ElectrocutionSystemTest {
     }
 
     @Test
+    void sourceShockKeepsFractionalDamageUntilConductivityAndUsesStrictParalyzeThreshold() {
+        var full = ElectrocutionSystem.sourceShockPlan(7.5f, 1f, 5f);
+        assertEquals(7, full.damage());
+        assertEquals(100, full.stunTicks().orElseThrow());
+        assertEquals(3, ElectrocutionSystem.sourceShockPlan(7.5f, .5f, 5f).damage());
+        assertTrue(ElectrocutionSystem.sourceShockPlan(7.5f, .5f, 5f).stunTicks().isEmpty());
+        var insulated = ElectrocutionSystem.sourceShockPlan(7.5f, 0f, 5f);
+        assertEquals(0, insulated.damage());
+        assertTrue(insulated.stunTicks().isEmpty());
+    }
+
+    @Test
     void zeroInputsAndSecondStageRoundingAreAppliedNoOps() {
         for (EffectData.Electrocute effect : List.of(
                 effect(2f, 0, true, true, 1f),

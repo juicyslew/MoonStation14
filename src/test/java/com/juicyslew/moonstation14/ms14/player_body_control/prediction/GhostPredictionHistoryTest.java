@@ -160,31 +160,24 @@ class GhostPredictionHistoryTest {
     }
 
     @Test
-    void authorityBarrierClearsPendingWithoutResettingSessionTracking() {
+    void suspendedInputSequenceProgressResumesWithoutReplayingPreBarrierFrames() {
         GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
-        history.record(intent(1));
-        history.record(intent(2));
-        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
-                history.reconcile(snapshot(EPOCH, BODY, 10, 1)).status());
-
+        for (int sequence = 1; sequence <= 10; sequence++)
+            assertEquals(GhostPredictionHistory.RecordResult.RECORDED, history.skip(intent(sequence)));
         history.onAuthorityBarrier();
         assertEquals(0, history.pendingCount());
         assertEquals(EPOCH, history.epoch());
         assertEquals(BODY, history.ghostEntityId());
-        assertEquals(2, history.lastRecordedSequence());
-        assertEquals(1, history.lastAcknowledgedSequence());
-        assertRejected(history, snapshot(EPOCH, BODY, 10, 1)); // server tick was not reset
-
-        GhostPredictionHistory.SnapshotResult stale = history.reconcile(snapshot(EPOCH, BODY, 11, 1));
-        assertEquals(GhostPredictionHistory.SnapshotStatus.HISTORY_LOST, stale.status());
-        assertTrue(stale.replayFrames().isEmpty());
-        assertEquals(0, history.pendingCount());
-
-        assertEquals(GhostPredictionHistory.RecordResult.RECORDED, history.record(intent(3)));
-        assertEquals(3, history.lastRecordedSequence());
-        GhostPredictionHistory.SnapshotResult caughtUp = history.reconcile(snapshot(EPOCH, BODY, 12, 3));
-        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, caughtUp.status());
-        assertTrue(caughtUp.replayFrames().isEmpty());
+        assertEquals(10, history.lastRecordedSequence());
+        assertEquals(10, history.lastAcknowledgedSequence());
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
+                history.reconcile(snapshot(EPOCH, BODY, 11, 10)).status());
+        GhostControlPayloads.Intent resumed = intent(11);
+        assertEquals(GhostPredictionHistory.RecordResult.RECORDED, history.record(resumed));
+        GhostPredictionHistory.SnapshotResult replay = history.reconcile(snapshot(EPOCH, BODY, 12, 10));
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, replay.status());
+        assertEquals(List.of(resumed), replay.replayFrames());
+        assertTrue(replay.replayFrames().stream().noneMatch(frame -> frame.sequence() <= 10));
     }
 
     @Test

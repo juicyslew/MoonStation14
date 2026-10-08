@@ -25,8 +25,6 @@ public final class AtmospherePressureTransportGameTests {
     @GameTest(template = "atmos_large_empty", batch = "pressure_transport", timeoutTicks = 2400, templateNamespace = "moonstation14")
     public static void largeSealedRoomCommitsPressureTransport(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        if (AtmosphereService.INSTANCE.isEnabled())
-            throw new GameTestAssertException("pressure fixture requires global atmosphere disabled");
         int x0 = 1, x1 = 11, y0 = 1, y1 = 11, z0 = 1, z1 = 11;
         for (int x = x0 - 1; x <= x1; x++) for (int z = z0 - 1; z <= z1; z++) {
             helper.setBlock(new BlockPos(x, y0 - 1, z), Blocks.STONE);

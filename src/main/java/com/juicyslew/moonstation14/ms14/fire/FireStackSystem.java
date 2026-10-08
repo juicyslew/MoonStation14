@@ -125,7 +125,7 @@ public final class FireStackSystem {
         }
         applyFireStep(transition,
                 heat -> com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureSystem.adjustHeat(entity, heat, 1f),
-                damage -> DamageSystem.applyHealthChange(entity, damage, 1f, false));
+                damage -> DamageSystem.applyHealthChange(entity, damage, 1f, false, DamageSystem.Cause.FIRE));
         persistIfChanged(entity, current, transition.next());
     }
 

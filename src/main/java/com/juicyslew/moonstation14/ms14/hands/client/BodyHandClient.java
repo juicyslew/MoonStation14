@@ -80,6 +80,8 @@ public final class BodyHandClient {
     private static boolean wasContained;
     private static long cameraEpoch;
     private static long clock;
+    private static long pullActionSequence;
+    private static boolean pullProjectionRefreshPending;
     private static boolean worldResultHandRefreshPending;
     private static boolean altWorldStoragePressed;
     private static UUID worldCrossPendingTarget;
@@ -124,6 +126,7 @@ public final class BodyHandClient {
             if (e.getNewScreen() != null) deferredPlacement.clear();
         });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::suppressNativeInventoryScreen);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::renderChatScreenHud);
         BodyHandStateSnapshot.setClientHandler(BodyHandClient::onSnapshot);
         com.juicyslew.moonstation14.ms14.ingestion.IngestionCommitted.setClientHandler(BodyHandClient::ingestionCommitted);
         BodyHandActionResult.setClientHandler(BodyHandClient::onResult);
@@ -147,12 +150,12 @@ public final class BodyHandClient {
         event.register(PRIME_GRENADE);
         event.register(THROW_GRENADE);
         event.register(USE_IN_HAND);
-        event.register(TOGGLE_PULL);
         event.register(CYCLE_PILE);
     }
 
     public static void reset() {
         var mc = net.minecraft.client.Minecraft.getInstance();
+        com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
         closeWorldWindows();
         com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
         if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
@@ -184,14 +187,13 @@ public final class BodyHandClient {
         while (PRIME_GRENADE.consumeClick()) { }
         while (THROW_GRENADE.consumeClick()) { }
         while (USE_IN_HAND.consumeClick()) { }
-        while (TOGGLE_PULL.consumeClick()) { }
         while (CYCLE_PILE.consumeClick()) { }
     }
 
     private static Mob currentBody() {
         var mc = net.minecraft.client.Minecraft.getInstance();
         return mc.player != null && mc.player.isSpectator() && mc.getConnection() != null
-                ? GhostControlClient.ownedCharacterForHud() : null;
+                ? GhostControlClient.ownedCharacterForPresentation() : null;
     }
 
     private static void reconcile() {
@@ -201,6 +203,7 @@ public final class BodyHandClient {
             connection = mc.getConnection();
         }
         if (level != mc.level || player != mc.player) {
+            com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
             pendingWorldObservations.clear();
             worldObservationRetryAt.clear();
@@ -234,6 +237,7 @@ public final class BodyHandClient {
                     || queued.rotation() != plan.rotation()) deferredPlacement.clear();
         }
         if (cameraBody != body || cameraEpoch != epoch || body == null || epoch == 0) {
+            com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
             pendingWorldObservations.clear();
             worldObservationRetryAt.clear();
             closeWorldWindows();
@@ -251,13 +255,20 @@ public final class BodyHandClient {
         POLICY.bind(mc.player.getUUID(), body.getUUID(), epoch);
         WORLD.bind(mc.player.getUUID(), body.getUUID(), epoch);
         POPUPS.bind(body.getUUID(), epoch);
-        if (mc.screen != null && !(mc.screen instanceof StoragePopupScreen)) POLICY.suspend();
+        if (mc.screen != null && !(mc.screen instanceof StoragePopupScreen)
+                && !(mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) POLICY.suspend();
     }
 
     public static void tick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
         clock++;
         reconcile();
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (PointerModePolicy.shouldRestoreHost(POPUPS.pointerMode(), mc.screen == null, currentBody() != null))
+            mc.setScreen(new StoragePopupScreen(POPUPS));
+        var activeWire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if (activeWire != null) activeWire.tick();
         if (cameraBody == null) {
+            pullProjectionRefreshPending = false;
             altWorldStoragePressed = false;
             while (DROP.consumeClick()) { }
             while (SELECT_HAND.consumeClick()) { }
@@ -271,7 +282,6 @@ public final class BodyHandClient {
             while (PRIME_GRENADE.consumeClick()) { }
             while (THROW_GRENADE.consumeClick()) { }
             while (USE_IN_HAND.consumeClick()) { }
-            while (TOGGLE_PULL.consumeClick()) { }
             while (CYCLE_PILE.consumeClick()) { }
             return;
         }
@@ -282,7 +292,6 @@ public final class BodyHandClient {
         altWorldStoragePressed = false;
         boolean equipBag = EQUIP_BAG.consumeClick();
         boolean equipBelt = EQUIP_BELT.consumeClick();
-        var mc = net.minecraft.client.Minecraft.getInstance();
         if (inventory && !inventoryUsesAlt() && !shiftDown() && !controlDown() && !altComboDown()) {
             if (POPUPS.pointerMode()) dismissPointerMode();
             else { POINTER.manualOpen(); pointerMode(true); }
@@ -294,6 +303,16 @@ public final class BodyHandClient {
                 || WORLD.canAct(worldCrossPendingTarget))) worldCrossPendingTarget = null;
         if (worldResultHandRefreshPending) sendWorldResultHandRefresh();
         var proof = POLICY.inventoryView() == null ? null : POLICY.snapshot();
+        if (proof != null) {
+            var posture = cameraBody.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());
+            boolean posturePulling = posture != null && posture.data().pulling();
+            boolean snapshotPulling = proof.hands().stream().anyMatch(hand -> hand.pullTarget() != null);
+            if (posturePulling == snapshotPulling) pullProjectionRefreshPending = false;
+            else if (!pullProjectionRefreshPending) {
+                pullProjectionRefreshPending = true;
+                refreshAfterTimedCompletion();
+            }
+        }
         WORLD.settledHand(proof);
         if (proof != null) for (UUID target : java.util.List.copyOf(pendingWorldObservations)) {
             if (clock >= worldObservationRetryAt.getOrDefault(target, 0L) && !WORLD.hasPendingOpen(target)
@@ -334,23 +353,34 @@ public final class BodyHandClient {
             POLICY.cancelThrowIntent();
             return;
         }
-        if (!ownerMenu && directClimb) requestBlockUse(BodyBlockUseRequest.Intent.CLIMB_INSIDE);
+        long window = mc.getWindow().getWindow();
+        boolean shiftDown = org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                || org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
+        boolean controlDown = org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+                || org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+        boolean altDown = org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
+                || org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
+        boolean down = com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(cameraBody);
+        boolean sharesRoll = com.juicyslew.moonstation14.ms14.standing.client.PostureClient.sharesRollKey(DIRECT_CLIMB);
+        if (!ownerMenu && directClimb && DirectClimbInputPolicy.mayClimb(
+                sharesRoll, down, shiftDown, controlDown, altDown))
+            requestBlockUse(BodyBlockUseRequest.Intent.CLIMB_INSIDE);
         if (equipBag) smartStorage(false);
         if (equipBelt) smartStorage(true);
         boolean prime = PRIME_GRENADE.consumeClick();
         boolean throwGrenade = THROW_GRENADE.consumeClick();
         boolean useInHand = USE_IN_HAND.consumeClick();
-        boolean togglePull = TOGGLE_PULL.consumeClick();
         boolean cyclePile = false;
         while (CYCLE_PILE.consumeClick()) cyclePile = true;
         refreshPile(cameraBody);
         if (cyclePile) PILE.cycle(pileItems.stream().map(ItemEntity::getUUID).toList());
-        if ((mc.screen != null && !ownerMenu) || !mc.mouseHandler.isMouseGrabbed() && !ownerMenu) {
+        boolean gameplayWindow = mc.screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow gameplayScreen
+                && !gameplayScreen.capturesKeyboard();
+        if (mc.screen != null && !gameplayWindow || !mc.mouseHandler.isMouseGrabbed() && !gameplayWindow) {
             POLICY.cancelThrowIntent();
             return;
         }
         boolean handUseRequested = false;
-        if (togglePull && !controlDown() && !shiftDown() && !altDown()) togglePull();
         var worldGesture = BodyInputGesturePolicy.dispatch(false, true, equipBag, equipBelt,
                 alternateWorldUse, worldStorage, altWorldStorage);
         if (worldGesture == BodyInputGesturePolicy.Route.SMART_BAG) smartStorage(false);
@@ -418,11 +448,12 @@ public final class BodyHandClient {
         refreshAfterTimedCompletion();
     }
 
-    private static void requestBlockUse(BodyBlockUseRequest.Intent intent) {
+    private static boolean requestBlockUse(BodyBlockUseRequest.Intent intent) {
         var snapshot = POLICY.snapshot();
-        if (snapshot == null || cameraBody == null) return;
+        if (snapshot == null || cameraBody == null
+                || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isClientActionBlocked(cameraBody)) return false;
         var hand = snapshot.hands().stream().filter(slot -> slot.id().equals(snapshot.activeHand())).findFirst().orElse(null);
-        if (hand == null) return;
+        if (hand == null) return false;
         var plan = hand.itemId() == null ? null : constructionUsePlan(hand.itemId());
         placementProof = intent == BodyBlockUseRequest.Intent.USE && plan != null && hand.itemId() != null
                 && plan.body().equals(snapshot.bodyId()) && plan.epoch() == snapshot.epoch()
@@ -430,17 +461,18 @@ public final class BodyHandClient {
                 hand.count(), plan.required(), plan.revision(), plan.prototype(), plan.rotation()) : null;
         boolean contained = com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained();
         var ownerTarget = containedWorldTarget();
-        if (contained && ownerTarget.isEmpty()) return;
+        if (contained && ownerTarget.isEmpty()) return false;
         var start = cameraBody.getEyePosition();
         var end = start.add(cameraBody.getLookAngle().scale(6.0));
         var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
         if (contained) hit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(ownerTarget.orElseThrow()).add(0, .5, 0), net.minecraft.core.Direction.UP, ownerTarget.orElseThrow(), true);
-        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return;
+        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return false;
         long sequence = POLICY.blockUseSequence(clock);
-        if (sequence == 0) return;
+        if (sequence == 0) return false;
         PacketDistributor.sendToServer(new BodyBlockUseRequest(snapshot.epoch(), sequence, snapshot.revision(),
                 hand.id(), hand.token(), hit.getBlockPos(), hit.getDirection(),
                 net.minecraft.client.Minecraft.getInstance().player.input.shiftKeyDown, intent));
+        return true;
     }
 
     private static boolean openAimedWorldActivation() {
@@ -533,16 +565,21 @@ public final class BodyHandClient {
     }
 
     private static void contextualKey(net.neoforged.neoforge.client.event.InputEvent.Key event) {
+        var screen = net.minecraft.client.Minecraft.getInstance().screen;
         if (constructionSearchFocused()) return;
         boolean altBinding = inventoryUsesAlt() && INVENTORY.matches(event.getKey(), event.getScanCode());
+        if (event.getAction() == GLFW.GLFW_PRESS && !altBinding
+                && screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow
+                && popupAction(event.getKey(), event.getScanCode(), event.getModifiers(), true)) return;
         if (event.getAction() == GLFW.GLFW_PRESS) {
             if (altBinding) ALT_TAP.pressAlt();
             else ALT_TAP.otherPress();
         } else if (event.getAction() == GLFW.GLFW_RELEASE && altBinding) {
             if (ALT_TAP.releaseAlt()) {
                 reconcile();
-                if (cameraBody != null && net.minecraft.client.Minecraft.getInstance().screen == null) {
-                    if (POPUPS.pointerMode()) dismissPointerMode();
+                if (cameraBody != null) {
+                    boolean open = POPUPS.pointerMode();
+                    if (open) dismissPointerMode();
                     else { POINTER.manualOpen(); pointerMode(true); }
                 }
             }
@@ -620,10 +657,32 @@ public final class BodyHandClient {
         double guiY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
         boolean overUi=pointerCanvas&&(((StoragePopupScreen)mc.screen).pointerUiHit(guiX,guiY)
                 || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(guiX,guiY));
+        // Screen owns pointer-canvas input; its routed outside-window action handles Ctrl-pull.
+        if (pointerCanvas) return;
         // The transparent Screen owns every pointer-canvas click (including empty-space dismissal).
         // Never let the global body action listener race it and issue a world action first.
         if (!BodyHandClientPolicy.routeGlobalMouseActions(pointerCanvas)) return;
         boolean routeCanvas=BodyHandClientPolicy.allowPointerWorldAction(pointerCanvas,overUi,constructionSearchFocused());
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS
+                && controlDown() && !shiftDown() && !altDown() && mc.screen == null && mc.mouseHandler.isMouseGrabbed()
+                && mc.player != null && (currentBody() != null || !mc.player.isSpectator())) {
+            var ownedBody = currentBody();
+            if (ownedBody != null) {
+                // Owned bodies use the authenticated LiveHands lease/result path so reservation
+                // state reaches the HUD immediately; the native request has no hand acknowledgement.
+                reconcile();
+                togglePull();
+            } else {
+                var nativeActor = mc.player;
+                var posture = nativeActor.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());
+                boolean pulling = posture != null && posture.data().pulling();
+                UUID target = pulling ? null : lookPullTarget(nativeActor);
+                if (pulling || target != null) PacketDistributor.sendToServer(
+                        new com.juicyslew.moonstation14.ms14.loose_objects.pulling.NativeBodyPullRequest(target));
+            }
+            event.setCanceled(true);
+            return;
+        }
         if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT || event.getAction() != GLFW.GLFW_PRESS
                 || (mc.screen != null && !routeCanvas) || (!mc.mouseHandler.isMouseGrabbed() && !routeCanvas) || currentBody() == null
                 || GhostControlClient.committedCharacterEpoch() == 0) return;
@@ -660,17 +719,82 @@ public final class BodyHandClient {
         event.setCanceled(true);
     }
 
+    /** Route an outside-window left click through the committed body's existing typed use actions. */
+    public static void gameplayWindowMouseUse(int button) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || currentBody() == null
+                || GhostControlClient.committedCharacterEpoch() == 0) return;
+        reconcile();
+        if (altDown() && !shiftDown() && !controlDown()) { alternateWorldUse(); return; }
+        if (controlDown() && !shiftDown() && !altDown()) { togglePull(); return; }
+        var view = POLICY.inventoryView();
+        if (view == null) return;
+        var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
+        UUID target = lookTarget(cameraBody);
+        var start = cameraBody.getEyePosition();
+        var end = start.add(cameraBody.getLookAngle().scale(BodyBlockUseTargetProbe.MAX_REACH));
+        var block = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
+        var route = PrimaryWorldGesture.route(true, block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK,
+                active.token() != null, target != null);
+        if (route == PrimaryWorldGesture.Route.BLOCK_USE) requestBlockUse(BodyBlockUseRequest.Intent.USE);
+        else {
+            var action = PrimaryWorldGesture.action(route);
+            if (action == BodyHandActionRequest.Action.PICKUP && target != null)
+                action = BodyHandActionRequest.Action.PICKUP_SELECTED;
+            if (action != null) request(action);
+        }
+    }
+
+    /** Applies ordinary mouse-look through the committed body while a non-modal gameplay window is open. */
+    public static void gameplayWindowLook(double mouseX, double mouseY) {
+        var body = currentBody();
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (body == null || mc.player == null || GhostControlClient.committedCharacterEpoch() == 0
+                || !Double.isFinite(mouseX) || !Double.isFinite(mouseY)) return;
+        double sensitivity = mc.options.sensitivity().get() * 0.6 + 0.2;
+        double scale = sensitivity * sensitivity * sensitivity * 8.0 * 0.15;
+        double yaw = mouseX * scale;
+        double pitch = mouseY * scale * (mc.options.invertYMouse().get() ? -1.0 : 1.0);
+        mc.player.turn(yaw, pitch);
+        GhostControlClient.projectOwnedGhostLookForRenderFrame();
+    }
+
     private static void togglePull() {
         var snapshot = POLICY.snapshot();
-        if (snapshot == null) return;
+        if (snapshot == null) {
+            var player = net.minecraft.client.Minecraft.getInstance().player;
+            if (player == null || player.isSpectator() || GhostControlClient.ownedCharacterForHud() != null) return;
+            var posture = player.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());
+            if (posture != null && posture.data().pulling()) return;
+            UUID target = lookPullTarget(player);
+            if (target != null)
+                PacketDistributor.sendToServer(new com.juicyslew.moonstation14.ms14.loose_objects.pulling.NativeBodyPullRequest(target));
+            return;
+        }
         var hand = snapshot.hands().stream().filter(h -> h.id().equals(snapshot.activeHand())).findFirst().orElse(null);
         if (hand == null) return;
         if (snapshot.hands().stream().anyMatch(h -> h.pullTarget() != null)) request(BodyHandActionRequest.Action.STOP_PULL);
-        else request(BodyHandActionRequest.Action.TOGGLE_PULL);
+        else requestPull();
+    }
+
+    private static boolean requestPull() {
+        BodyHandStateSnapshot snapshot = POLICY.snapshot();
+        if (snapshot == null) return false;
+        BodyHandStateSnapshot.Hand hand = BodyPullHandSelector.select(snapshot.hands(), snapshot.activeHand());
+        if (hand == null) return false;
+        UUID target = lookPullTarget(cameraBody);
+        if (target == null) { POLICY.noItemUnderCursor(clock); return false; }
+        long sequence = POLICY.action(clock);
+        if (sequence == 0) return false;
+        pullActionSequence = sequence;
+        PacketDistributor.sendToServer(new BodyHandActionRequest(BodyHandActionRequest.Action.TOGGLE_PULL,
+                hand.id(), snapshot.epoch(), sequence, snapshot.revision(), target, null));
+        return true;
     }
 
     private static boolean smartStorage(boolean belt) {
         reconcile();
+        if (cameraBody != null && com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
+                .isClientActionBlocked(cameraBody)) return false;
         var view = POLICY.inventoryView();
         var snapshot = POLICY.snapshot();
         var plan = SmartStorageGesture.plan(belt, view, snapshot);
@@ -686,6 +810,8 @@ public final class BodyHandClient {
     }
 
     static void selectHand() {
+        if (cameraBody != null && com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
+                .isClientActionBlocked(cameraBody)) return;
         BodyHandStateSnapshot snapshot = POLICY.snapshot();
         if (snapshot == null || snapshot.hands().size() != 2) return;
         var other = snapshot.hands().stream().filter(hand -> !hand.id().equals(snapshot.activeHand())).toList();
@@ -832,8 +958,17 @@ public final class BodyHandClient {
     }
 
     /** Screen keyboard routing calls the same snapshot/sequence guarded actions as the world bindings. */
-    static boolean popupAction(int key, int scan, int modifiers, boolean firstPress) {
+    public static boolean popupAction(int key, int scan, int modifiers, boolean firstPress) {
         if (key == GLFW.GLFW_KEY_ESCAPE) return false;
+        // Alt tap is handled centrally on release; never turn its press into an
+        // immediate pointer action from either the host event route or screen key path.
+        if (inventoryUsesAlt() && INVENTORY.matches(key, scan)) return true;
+        boolean use = matches(USE_IN_HAND, key, scan, modifiers);
+        boolean prime = matches(PRIME_GRENADE, key, scan, modifiers);
+        boolean throwItem = matches(THROW_GRENADE, key, scan, modifiers);
+        boolean worldUse = matches(WORLD_STORAGE, key, scan, modifiers);
+        boolean alternateUse = matches(ALTERNATE_WORLD_USE, key, scan, modifiers);
+        boolean pull = matches(TOGGLE_PULL, key, scan, modifiers);
         boolean pointer = matches(INVENTORY, key, scan, modifiers);
         boolean drop = matches(DROP, key, scan, modifiers);
         boolean select = matches(SELECT_HAND, key, scan, modifiers);
@@ -842,6 +977,17 @@ public final class BodyHandClient {
         boolean belt = matches(EQUIP_BELT, key, scan, modifiers);
         if (bag || belt) {
             if (firstPress) smartStorage(belt);
+            return true;
+        }
+        if (use || prime || throwItem || worldUse || alternateUse || pull) {
+            if (firstPress) {
+                if (prime) request(BodyHandActionRequest.Action.PRIME_GRENADE);
+                else if (use) request(BodyHandActionRequest.Action.USE_IN_HAND);
+                else if (throwItem) request(BodyHandActionRequest.Action.THROW_ITEM);
+                else if (worldUse) ordinaryWorldUse();
+                else if (alternateUse) alternateWorldUse();
+                else togglePull();
+            }
             return true;
         }
         if (!pointer && !drop && !select && !storage) return false;
@@ -859,7 +1005,7 @@ public final class BodyHandClient {
         return true;
     }
 
-    static boolean hasCommittedBody() {
+    public static boolean hasCommittedBody() {
         return currentBody() != null && GhostControlClient.committedCharacterEpoch() > 0;
     }
 
@@ -886,6 +1032,17 @@ public final class BodyHandClient {
         return com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused();
     }
     public static void pointerOverlayClosed() { closePointerIfEmpty(); }
+    /** Give the shared storage workspace the pointer while preserving the wire window model. */
+    public static void openWireWorkspace() {
+        reconcile();
+        if (cameraBody == null) return;
+        POINTER.popupOpen();
+        POPUPS.pointerMode(true);
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (!(mc.screen instanceof StoragePopupScreen)) mc.setScreen(new StoragePopupScreen(POPUPS));
+    }
+
+    public static void wireClosed() { closePointerIfEmpty(); }
 
     private static void dismissPointerMode() {
         POINTER.dismiss();
@@ -946,6 +1103,9 @@ public final class BodyHandClient {
                 && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()) {
             if (POINTER.closeWhenEmpty()) pointerMode(false);
         }
+        boolean wireOpen = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active() != null;
+        boolean storageOpen = POPUPS.windows().stream().anyMatch(StoragePopupWorkspace.Window::visible);
+        if (!PointerModePolicy.keepOpenForWindow(wireOpen, storageOpen) && POINTER.closeWhenEmpty()) pointerMode(false);
     }
 
     static BodyHandClientPolicy.GridView popupGrid(BodyHandClientPolicy.InventoryView view,
@@ -1527,6 +1687,8 @@ public final class BodyHandClient {
 
 
     private static boolean request(BodyHandActionRequest.Action action) {
+        if (cameraBody != null && com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
+                .isClientActionBlocked(cameraBody)) return false;
         BodyHandStateSnapshot snapshot = POLICY.snapshot();
         if (snapshot == null) return false;
         BodyHandStateSnapshot.Hand active = snapshot.hands().stream()
@@ -1549,7 +1711,7 @@ public final class BodyHandClient {
                 target = lookTarget(cameraBody);
             }
             case TOGGLE_PULL -> {
-                target = active.pullTarget() != null ? UUID.fromString(active.pullTarget()) : lookTarget(cameraBody);
+                target = active.pullTarget() != null ? UUID.fromString(active.pullTarget()) : lookPullTarget(cameraBody);
                 if (target == null) { POLICY.noItemUnderCursor(clock); return false; }
             }
             case STOP_PULL -> { }
@@ -1568,6 +1730,7 @@ public final class BodyHandClient {
         var ingestionDuration = predictionDuration(action, active, target);
         if (ingestionDuration > 0 && cameraBody != null)
             com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.predictStart(sequence,cameraBody.getUUID(),ingestionDuration);
+        if (action == BodyHandActionRequest.Action.STOP_PULL) pullActionSequence = sequence;
         PacketDistributor.sendToServer(new BodyHandActionRequest(action, active.id(), snapshot.epoch(),
                 sequence, snapshot.revision(), target,
                 expectedToken));
@@ -1594,6 +1757,32 @@ public final class BodyHandClient {
         if (body == null) return null;
         refreshPile(body);
         return PILE.update(pileItems.stream().map(ItemEntity::getUUID).toList());
+    }
+
+    /** Pull nomination prefers the existing selected loose-item target, then resolved pullable characters. */
+    private static UUID lookPullTarget(net.minecraft.world.entity.LivingEntity body) {
+        if (body == null || body.level() != net.minecraft.client.Minecraft.getInstance().level) return null;
+        UUID loose = body instanceof Mob mob ? lookTarget(mob) : null;
+        if (loose != null) return loose;
+        Vec3 start = body.getEyePosition();
+        Vec3 end = start.add(body.getLookAngle().scale(5));
+        var block = body.level().clip(new ClipContext(start, end, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, body));
+        double blocker = block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                ? start.distanceTo(block.getLocation()) : 5;
+        return body.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+                        new AABB(start, end).inflate(2.0), entity -> entity != body
+                                && !entity.isRemoved() && entity.level() == body.level()
+                                && com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem
+                                .projectForActor(entity).filter(data -> data.component(
+                                        com.juicyslew.moonstation14.ms14.character.components.PullableComponent.class).isPresent()).isPresent())
+                .stream().filter(entity -> {
+                    var box = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of(entity);
+                    return com.juicyslew.moonstation14.ms14.standing.BodyInteractionRay
+                            .hit(box, start, end, 5, blocker).isPresent();
+                }).min(java.util.Comparator.comparingDouble(entity -> com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of(entity)
+                        .clip(start, end).map(start::distanceToSqr).orElse(Double.MAX_VALUE)))
+                .map(net.minecraft.world.entity.Entity::getUUID).orElse(null);
     }
 
     private static boolean inventoryUsesAlt() {
@@ -1715,6 +1904,17 @@ public final class BodyHandClient {
     private static void onResult(BodyHandActionResult result) {
         reconcile();
         boolean correlated = POLICY.result(result, clock);
+        boolean pullCompletion = correlated && result.sequence() == pullActionSequence;
+        if (pullCompletion) pullActionSequence = 0;
+        // Pull reservations are part of the authoritative hand snapshot. Refresh immediately
+        // after the server result instead of waiting for the periodic recovery query.
+        if (pullCompletion) {
+            long sequence = POLICY.query(clock);
+            if (sequence != 0) {
+                WORLD.handQueryIssued();
+                PacketDistributor.sendToServer(new BodyHandStateQuery(POLICY.queryEpoch(), sequence));
+            }
+        }
         if(correlated) com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.actionResult(
                 result.sequence(), result.reason() == BodyHandActionResult.Reason.OK);
         var transition = StoragePopupLifecycle.transition(correlated, result);
@@ -1736,7 +1936,23 @@ public final class BodyHandClient {
     }
 
     public static void render(net.neoforged.neoforge.client.event.RenderGuiEvent.Post event) {
+        if (net.minecraft.client.Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.ChatScreen) return;
+        renderHud(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
+    }
+
+    private static void renderChatScreenHud(net.neoforged.neoforge.client.event.ScreenEvent.Render.Post event) {
         var mc = net.minecraft.client.Minecraft.getInstance();
+        if (event.getScreen() instanceof net.minecraft.client.gui.screens.ChatScreen && mc.screen == event.getScreen())
+            renderHud(event.getGuiGraphics(), event.getPartialTick());
+    }
+
+    private static void renderHud(net.minecraft.client.gui.GuiGraphics graphics, float partialTick) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if (wire != null && com.juicyslew.moonstation14.ms14.ui.client.GameplayHudPolicy.hudPaintsWire(mc.screen)
+                && mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen
+                && currentBody() != null && !mc.options.hideGui)
+            wire.render(graphics, -1, -1, partialTick);
         boolean storagePopup = mc.screen instanceof StoragePopupScreen;
         boolean gameplay = mc.screen == null;
         Mob body = currentBody();
@@ -1744,13 +1960,14 @@ public final class BodyHandClient {
                 !mc.options.hideGui, gameplay)) {
             if (!storagePopup || body == null || mc.options.hideGui) {
                 if (gameplay && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
-                        true,false,true,true)) renderPointerWorkspace(event.getGuiGraphics(),
-                        event.getPartialTick().getGameTimeDeltaPartialTick(false));
+                        true,false,true,true)) renderPointerWorkspace(graphics, partialTick);
                 return;
             }
         }
+        boolean hudVisible = com.juicyslew.moonstation14.ms14.ui.client.GameplayHudPolicy.visible(mc.screen);
+        if (!BodyHandClientPolicy.showAimCue(body != null && GhostControlClient.committedCharacterEpoch() > 0,
+                !mc.options.hideGui, gameplay) && (!hudVisible || body == null || mc.options.hideGui)) return;
         reconcile();
-        var graphics = event.getGuiGraphics();
         if (gameplay) {
             int centerX = mc.getWindow().getGuiScaledWidth() / 2;
             int centerY = mc.getWindow().getGuiScaledHeight() / 2;
@@ -1766,12 +1983,12 @@ public final class BodyHandClient {
         var bar = HandBarLayout.calculate(width, height);
         if (bar != null && snapshot != null && snapshot.hands().size() == 2) {
             boolean enabled = !POLICY.presentationPending();
-            drawHandTile(event.getGuiGraphics(), mc, bar.leftHand(), snapshot.hands().get(0),
+            drawHandTile(graphics, mc, bar.leftHand(), snapshot.hands().get(0),
                     snapshot.activeHand().equals(snapshot.hands().get(0).id()), enabled);
-            drawHandTile(event.getGuiGraphics(), mc, bar.rightHand(), snapshot.hands().get(1),
+            drawHandTile(graphics, mc, bar.rightHand(), snapshot.hands().get(1),
                     snapshot.activeHand().equals(snapshot.hands().get(1).id()), enabled);
-            drawEquipmentTile(event.getGuiGraphics(), mc, bar.back(), snapshot.equipment(), "back", enabled);
-            drawEquipmentTile(event.getGuiGraphics(), mc, bar.belt(), snapshot.equipment(), "belt", enabled);
+            drawEquipmentTile(graphics, mc, bar.back(), snapshot.equipment(), "back", enabled);
+            drawEquipmentTile(graphics, mc, bar.belt(), snapshot.equipment(), "belt", enabled);
             var info = HandInfoLayout.calculate(width, height, bar);
             if (info != null) {
                 drawHandInfo(graphics, mc, info.left(), snapshot.hands().get(0), enabled, info.textBudget());
@@ -1783,8 +2000,7 @@ public final class BodyHandClient {
             drawHudLine(graphics, mc, feedback.replaceFirst("^Hands: ", ""), 8, 54, width);
         // Gameplay HUD phase is after the HUD only; Screen hosts paint in ScreenEvent.Render.Post.
         if (gameplay && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
-                true,false,true,true)) renderPointerWorkspace(event.getGuiGraphics(),
-                event.getPartialTick().getGameTimeDeltaPartialTick(false));
+                true,false,true,true)) renderPointerWorkspace(graphics, partialTick);
     }
 
     public static void renderPointerWorkspace(net.minecraft.client.gui.GuiGraphics graphics, float partialTick) {
@@ -1795,7 +2011,7 @@ public final class BodyHandClient {
                 () -> {
                     if ((mc.screen instanceof StoragePopupScreen || mc.screen == null && currentBody() != null)
                             && !mc.options.hideGui)
-                        StoragePopupScreen.drawWindows(graphics,POPUPS,width,height);
+                        StoragePopupScreen.drawWindows(graphics, POPUPS, width, height, partialTick);
                 },
                 () -> com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.render(graphics,
                         (int)(mc.mouseHandler.xpos()*width/mc.getWindow().getScreenWidth()),

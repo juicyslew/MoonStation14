@@ -1,7 +1,6 @@
 package com.juicyslew.moonstation14.ms14.power.graph;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
@@ -34,7 +33,6 @@ public final class PowerGraphService {
 
     /** Mutation notification: edits coalesce by chunk and make all cached answers fail closed. */
     public static void noteChanged(ServerLevel level, ChunkPos chunk) {
-        if (!PowerSimulationGate.isEnabled()) return;
         LevelState state = STATES.get(level);
         if (state != null) {
             state.topologyGeneration++;
@@ -55,8 +53,6 @@ public final class PowerGraphService {
     }
 
     public static LoadedPowerGraph.NodeState state(ServerLevel level, CableFaceNode node) {
-        if (!PowerSimulationGate.isEnabled())
-            return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1);
         LevelState state = STATES.get(level);
         return state == null || !state.pending.isEmpty()
                 ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1)
@@ -67,7 +63,8 @@ public final class PowerGraphService {
     public static java.util.List<CableFaceNode> nodesNear(ServerLevel level, BlockPos center, int radius,
                                                           com.juicyslew.moonstation14.ms14.power.cable.CableTier tier) {
         LevelState state = STATES.get(level);
-        if (!PowerSimulationGate.isEnabled() || state == null || !state.pending.isEmpty()) return null;
+        if (state == null || !state.pending.isEmpty()) return null;
+        if (!ensureLoadedFootprint(level, state, center, radius)) return null;
         return state.graph.nodesNear(center, radius, tier);
     }
 
@@ -80,7 +77,8 @@ public final class PowerGraphService {
     public static CableFaceNode nearestApcExtensionNode(ServerLevel level, BlockPos center, int radius) {
         if (radius < 1 || radius > 16) return null;
         LevelState state = STATES.get(level);
-        if (!PowerSimulationGate.isEnabled() || state == null || !state.pending.isEmpty()) return null;
+        if (state == null || !state.pending.isEmpty()) return null;
+        if (!ensureLoadedFootprint(level, state, center, radius)) return null;
         long revision = state.graph.revision();
         CachedLampNode cached = state.lampChoices.get(center);
         if (cached != null && cached.revision == revision && cached.radius == radius) return cached.node;
@@ -90,6 +88,27 @@ public final class PowerGraphService {
         CableFaceNode nearest = nearestKnownLampNode(state.graph, center, nearby);
         state.lampChoices.put(center.immutable(), new CachedLampNode(revision, radius, nearest));
         return nearest;
+    }
+
+    /** Reconcile missed load bookkeeping only for chunks already present in the FULL cache. */
+    private static boolean ensureLoadedFootprint(ServerLevel level, LevelState state, BlockPos center, int radius) {
+        if (center == null || radius < 0 || radius > 16) return false;
+        int minChunkX = (center.getX() - radius) >> 4;
+        int maxChunkX = (center.getX() + radius) >> 4;
+        int minChunkZ = (center.getZ() - radius) >> 4;
+        int maxChunkZ = (center.getZ() + radius) >> 4;
+        boolean complete = true;
+        for (int cx = minChunkX; cx <= maxChunkX; cx++) for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+            ChunkPos pos = new ChunkPos(cx, cz);
+            if (state.graph.isChunkLoaded(pos)) continue;
+            if (level.getChunkSource().getChunkNow(cx, cz) == null) {
+                complete = false;
+                continue;
+            }
+            if (state.pending.add(pos)) state.topologyGeneration++;
+            complete = false;
+        }
+        return complete;
     }
 
     public static CableFaceNode nearestLampNode(ServerLevel level, BlockPos center) {
@@ -118,7 +137,7 @@ public final class PowerGraphService {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkLoad(ChunkEvent.Load event) {
-        if (PowerSimulationGate.isEnabled() && event.getLevel() instanceof ServerLevel level) {
+        if (event.getLevel() instanceof ServerLevel level) {
             LevelState state = state(level);
             state.topologyGeneration++;
             state.pending.add(event.getChunk().getPos());
@@ -129,7 +148,6 @@ public final class PowerGraphService {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkUnload(ChunkEvent.Unload event) {
-        if (!PowerSimulationGate.isEnabled()) return;
         if (event.getLevel() instanceof ServerLevel level) {
             LevelState state = STATES.get(level);
             if (state != null) {
@@ -157,7 +175,6 @@ public final class PowerGraphService {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onPostServerTick(ServerTickEvent.Post event) {
-        if (!PowerSimulationGate.isEnabled()) return;
         for (ServerLevel level : event.getServer().getAllLevels()) {
             LevelState state = STATES.get(level);
             if (state == null) continue;
@@ -218,12 +235,9 @@ public final class PowerGraphService {
     @net.neoforged.bus.api.SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) { STATES.clear(); }
 
-    public static void onSimulationDisabled() { STATES.clear(); }
-
     private static LevelState state(ServerLevel level) { return STATES.computeIfAbsent(level, ignored -> new LevelState()); }
 
     private static void noteBlockChange(net.minecraft.world.level.LevelAccessor accessor, BlockPos pos) {
-        if (!PowerSimulationGate.isEnabled()) return;
         if (!(accessor instanceof ServerLevel level)) return;
         var chunk = level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
                 ChunkStatus.FULL, false);

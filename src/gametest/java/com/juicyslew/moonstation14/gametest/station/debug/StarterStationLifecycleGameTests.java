@@ -8,7 +8,6 @@ import com.juicyslew.moonstation14.ms14.station.debug.StarterStationLayout;
 import com.juicyslew.moonstation14.ms14.station.debug.StarterStationPlacementState;
 import com.juicyslew.moonstation14.ms14.station.debug.StarterStationSavedData;
 import com.juicyslew.moonstation14.ms14.station.debug.StarterStationPowerPlan;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
@@ -73,14 +72,13 @@ public final class StarterStationLifecycleGameTests {
         if (waitedTicks >= MAX_RUNTIME_SETTLE_TICKS) {
             assertLampRuntime(level, data);
             throw new GameTestAssertException("starter-station lamps did not reach expected runtime state within "
-                    + MAX_RUNTIME_SETTLE_TICKS + " additional ticks (simulation enabled="
-                    + PowerSimulationGate.isEnabled() + ")");
+                    + MAX_RUNTIME_SETTLE_TICKS + " additional ticks");
         }
         helper.runAfterDelay(1, () -> awaitLampRuntime(helper, level, data, waitedTicks + 1));
     }
 
     private static boolean lampsMatchExpectedRuntime(ServerLevel level, StarterStationSavedData data) {
-        boolean expectedLit = PowerSimulationGate.isEnabled();
+        boolean expectedLit = true;
         BlockPos origin = data.selectedOrigin();
         for (StarterStationPowerPlan.Device device : StarterStationPowerPlan.standard().devices()) {
             if (device.kind() != PowerDeviceKind.LAMP) continue;
@@ -91,7 +89,7 @@ public final class StarterStationLifecycleGameTests {
     }
 
     private static void assertLampRuntime(ServerLevel level, StarterStationSavedData data) {
-        boolean expectedLit = PowerSimulationGate.isEnabled();
+        boolean expectedLit = true;
         int expectedEmission = expectedLit ? 14 : 0;
         BlockPos origin = data.selectedOrigin();
         int lampCount = 0;
@@ -101,7 +99,7 @@ public final class StarterStationLifecycleGameTests {
             BlockPos lamp = origin.offset(device.position());
             var state = level.getBlockState(lamp);
             require(state.getValue(PowerDeviceBlock.LIT) == expectedLit,
-                    "station lamp lit state must match power simulation gate at " + lamp);
+                    "station lamp must be lit at " + lamp);
             require(state.getLightEmission(level, lamp) == expectedEmission,
                     "station lamp light emission must be " + expectedEmission + " at " + lamp);
         }

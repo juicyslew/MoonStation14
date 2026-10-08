@@ -81,7 +81,6 @@ public final class AtmosphereReactionGameTests {
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_reaction_fractional_spread", timeoutTicks = 180)
     public static void tritiumHotspotFireChemistryReachesFiniteNeighbor(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "isolated spread fixture requires singleton atmosphere disabled");
         // Fully enclosed three-cell hallway; the only passable cells are x=2..4,y=1,z=1.
         for (int x = 1; x <= 5; x++) for (int y = 0; y <= 2; y++) for (int z = 0; z <= 2; z++)
             helper.setBlock(new BlockPos(x, y, z), x >= 2 && x <= 4 && y == 1 && z == 1
@@ -324,9 +323,7 @@ public final class AtmosphereReactionGameTests {
 
     private static Fixture fixture(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        // Do not alter global policy: if the singleton is ticking, it can race this isolated service.
-        require(!AtmosphereService.INSTANCE.isEnabled(),
-                "isolated reaction fixtures require the singleton atmosphere disabled");
+        // Tests operate on fixture cells; global atmospherics is always active.
         for (int x = 1; x <= 3; x++) for (int z = 1; z <= 3; z++) {
             helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
             helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);

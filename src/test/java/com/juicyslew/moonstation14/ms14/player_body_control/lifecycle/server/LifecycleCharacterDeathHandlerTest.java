@@ -20,13 +20,11 @@ class LifecycleCharacterDeathHandlerTest {
 
     @Test
     void confirmedCallbackRequiresEveryGateAndExactServerBody() {
-        assertTrue(eligible(true, false, true, true, true, true));
-        assertFalse(eligible(false, false, true, true, true, true));
-        assertFalse(eligible(true, true, true, true, true, true));
-        assertFalse(eligible(true, false, false, true, true, true)); // canceled vanilla death
-        assertFalse(eligible(true, false, true, false, true, true));
-        assertFalse(eligible(true, false, true, true, false, true));
-        assertFalse(eligible(true, false, true, true, true, false));
+        assertTrue(eligible(true, true, true, true));
+        assertFalse(eligible(false, true, true, true)); // canceled vanilla death
+        assertFalse(eligible(true, false, true, true));
+        assertFalse(eligible(true, true, false, true));
+        assertFalse(eligible(true, true, true, false));
     }
 
     @Test
@@ -44,7 +42,6 @@ class LifecycleCharacterDeathHandlerTest {
             assertFalse(offlineEligible(state, null, account), state.name());
         }
         for (var state : List.of(LifecycleStartupRuntime.State.RECOVERY_REQUIRED,
-                LifecycleStartupRuntime.State.DISABLED, LifecycleStartupRuntime.State.CONFLICT,
                 LifecycleStartupRuntime.State.STOPPED)) {
             assertFalse(offlineEligible(state, fresh, account), state.name());
         }
@@ -101,9 +98,7 @@ class LifecycleCharacterDeathHandlerTest {
         return LifecycleCharacterDeathHandler.offlineDeathStateEligible(state, context, account);
     }
 
-    private static boolean eligible(boolean enabled, boolean conflict, boolean confirmed,
-                                    boolean serverThread, boolean exact, boolean dead) {
-        return LifecycleCharacterDeathHandler.callbackEligible(enabled, conflict, confirmed,
-                serverThread, exact, dead);
+    private static boolean eligible(boolean confirmed, boolean serverThread, boolean exact, boolean dead) {
+        return LifecycleCharacterDeathHandler.callbackEligible(confirmed, serverThread, exact, dead);
     }
 }

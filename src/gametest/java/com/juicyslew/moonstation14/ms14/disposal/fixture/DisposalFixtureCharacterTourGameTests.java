@@ -21,7 +21,6 @@ import com.juicyslew.moonstation14.ms14.organ.ModOrgans;
 import com.juicyslew.moonstation14.ms14.organ.OrganCategory;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
-import com.juicyslew.moonstation14.ms14.power.PowerSimulationGate;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
@@ -51,8 +50,7 @@ public final class DisposalFixtureCharacterTourGameTests {
     @GameTest(batch = "disposals_camera_tour", template = "disposal_clear", templateNamespace = "moonstation14_camera_tour", timeoutTicks = 1150)
     public static void boundHumanRidesWholePoweredDisposalTourWithFiniteAir(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        PowerSimulationGate.configureAtServerStart(true);
-        AtmosphereService.INSTANCE.configureAtServerStart(true, Set.of(level.dimension()));
+        AtmosphereService.INSTANCE.configureAtServerStart(Set.of(level.dimension()), AtmosphereService.INSTANCE.spaceDimensionsForTest());
         BlockPos floorRef = helper.absolutePos(FLOOR_REF);
         BlockPos origin = floorRef.offset(-6, 0, -8);
         String result = DisposalFixtureCommands.build(level, floorRef);
@@ -73,8 +71,7 @@ public final class DisposalFixtureCharacterTourGameTests {
                 var meter = unit == null ? "missing-unit" : com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.disposalUnitMeter(level, unit);
                 boolean lampLit = level.getBlockState(origin.offset(DisposalFixtureCommands.LAMP)).hasProperty(com.juicyslew.moonstation14.block.custom.PowerDeviceBlock.LIT)
                         && level.getBlockState(origin.offset(DisposalFixtureCommands.LAMP)).getValue(com.juicyslew.moonstation14.block.custom.PowerDeviceBlock.LIT);
-                fail("real disposal unit did not become powered READY; gate=" + PowerSimulationGate.isEnabled()
-                        + ", meter1000W=" + meter + ", lampLit=" + lampLit + ", unitState=" + level.getBlockState(unitPos)
+                fail("real disposal unit did not become powered READY; meter1000W=" + meter + ", lampLit=" + lampLit + ", unitState=" + level.getBlockState(unitPos)
                         + ", timing=" + (unit == null ? "missing" : unit.timingSnapshot()) + ", solve=" + com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.lastSolveDiagnostic(level));
             }
             helper.runAtTickTime(waited + 1, () -> awaitReady(helper, level, origin, floorRef, unitPos, plan,

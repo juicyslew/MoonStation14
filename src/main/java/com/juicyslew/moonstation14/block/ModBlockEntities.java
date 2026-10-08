@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
@@ -58,6 +59,8 @@ public class ModBlockEntities {
             () -> BlockEntityType.Builder.of(AirAlarmBlockEntity::new, ModBlocks.AIR_ALARM.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DisposalUnitBlockEntity>> DISPOSAL_UNIT = BLOCK_ENTITY_TYPES.register("disposal_unit",
             () -> BlockEntityType.Builder.of(DisposalUnitBlockEntity::new, ModBlocks.DISPOSAL_UNIT.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AirlockBlockEntity>> AIRLOCK = BLOCK_ENTITY_TYPES.register("airlock",
+            () -> BlockEntityType.Builder.of(AirlockBlockEntity::new, ModBlocks.AIRLOCK.get()).build(null));
 
     public static void register(IEventBus eventBus){
         BLOCK_ENTITY_TYPES.register(eventBus);

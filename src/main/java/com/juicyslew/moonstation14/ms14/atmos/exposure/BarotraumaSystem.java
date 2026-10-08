@@ -22,7 +22,7 @@ public final class BarotraumaSystem {
     /** Same resolution path for production and isolated-atmosphere tests. */
     public static boolean tickIfDue(LivingEntity entity, long gameTime, AtmosphereService service) {
         if (entity == null || !(entity.level() instanceof ServerLevel level) || !entity.isAlive()
-                || service == null || !service.isEnabled()) return false;
+                || service == null) return false;
         return tickIfDue(entity, gameTime, service, ModCharacters.catalog(level));
     }
 
@@ -30,7 +30,7 @@ public final class BarotraumaSystem {
     public static boolean tickIfDue(LivingEntity entity, long gameTime, AtmosphereService service,
                                     PrototypeCatalog<CharacterData> snapshot) {
         if (entity == null || !(entity.level() instanceof ServerLevel level) || !entity.isAlive()
-                || service == null || !service.isEnabled() || snapshot == null) return false;
+                || service == null || snapshot == null) return false;
         var component = CharacterIdentitySystem.resolveForActor(entity, snapshot)
                 .flatMap(data -> data.component(BarotraumaComponent.class));
         if (component.isEmpty() || Math.floorMod(gameTime + (long) entity.getId(),
@@ -51,7 +51,7 @@ public final class BarotraumaSystem {
         var damage = PressureExposure.limitMatchingDamage(
                 PressureExposure.damageAt(pressure, component.get()),
                 DamageSystem.existingOrVanillaBaseline(entity), component.get());
-        return !damage.isEmpty() && DamageSystem.applyHealthChange(entity, damage, 1f, true)
+        return !damage.isEmpty() && DamageSystem.applyHealthChange(entity, damage, 1f, true, DamageSystem.Cause.RESPIRATION)
                 == DamageSystem.Result.APPLIED;
     }
 }

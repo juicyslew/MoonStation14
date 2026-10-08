@@ -19,7 +19,41 @@ public final class BodyHealthHudPolicy {
         }
     }
 
-    public record View(String label, boolean damageFlash) { }
+    public record View(String label, String debugLabel, boolean damageFlash) { }
+
+    /** Clinical display uses typed damage and resolved state thresholds, not native projection health. */
+    public static View medical(float damage, float criticalThreshold, float deadThreshold) {
+        return medical(damage, criticalThreshold, deadThreshold, null);
+    }
+
+    /** Observed state wins over damage inference (notably, DEAD persists through healing). */
+    public static View medical(float damage, float criticalThreshold, float deadThreshold,
+                               com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State state) {
+        if (!Float.isFinite(damage) || !Float.isFinite(deadThreshold) || deadThreshold <= 0
+                || (!Float.isFinite(criticalThreshold) && !Float.isNaN(criticalThreshold))
+                || (Float.isFinite(criticalThreshold) && (criticalThreshold <= 0 || deadThreshold <= criticalThreshold))) return null;
+        boolean stateAuthoritative = state != null;
+        if (state == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD)
+            return new View("BODY HEALTH DEAD", null, false);
+        float value = Math.max(0, damage);
+        if (state == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL)
+            return criticalDebug(value, deadThreshold);
+        // With a synchronized state, thresholds describe transitions, not state authority:
+        // rejected transitions must not be rendered as if they had occurred.
+        if (!stateAuthoritative && value >= deadThreshold) return new View("BODY HEALTH DEAD", null, false);
+        // Species without a critical threshold still get a meaningful 0–100 healthy bar up to death.
+        if (!Float.isFinite(criticalThreshold)) criticalThreshold = deadThreshold;
+        if (!stateAuthoritative && value >= criticalThreshold) return criticalDebug(value, deadThreshold);
+        float percent = (criticalThreshold - value) * (100f / criticalThreshold);
+        percent = Math.max(0f, Math.min(100f, percent));
+        return new View("BODY HEALTH " + number(percent, 100f) + "/100", null, false);
+    }
+
+    private static View criticalDebug(float damage, float deathThreshold) {
+        return new View("BODY HEALTH CRITICAL 0/100", "DEBUG Critical " + number(damage, deathThreshold)
+                + "/" + number(deathThreshold, deathThreshold) + " damage · "
+                + number(Math.max(0, deathThreshold - damage), deathThreshold) + " to death", false);
+    }
 
     private Key key;
     private float previousHealth;
@@ -48,7 +82,7 @@ public final class BodyHealthHudPolicy {
         previousHealth = displayedHealth;
         previousTick = tick;
         return new View("BODY HEALTH " + number(displayedHealth, cappedMax) + "/" + number(cappedMax, cappedMax)
-                + (flashUntil > tick ? " - DAMAGE" : ""), flashUntil > tick);
+                + (flashUntil > tick ? " - DAMAGE" : ""), null, flashUntil > tick);
     }
 
     private static String number(float value, float maximum) {

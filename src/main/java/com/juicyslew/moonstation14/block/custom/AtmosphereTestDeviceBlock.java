@@ -53,11 +53,6 @@ public class AtmosphereTestDeviceBlock extends Block implements EntityBlock {
         if (level.isClientSide) return InteractionResult.sidedSuccess(true);
         if (!(level instanceof ServerLevel serverLevel)) return InteractionResult.PASS;
 
-        if (!AtmosphereService.INSTANCE.isEnabled()) {
-            player.sendSystemMessage(Component.literal("Atmospherics disabled"));
-            return InteractionResult.SUCCESS;
-        }
-
         BlockPos target = pos.relative(state.getValue(FACING));
         var sample = AtmosphereService.INSTANCE.readAtmosphere(serverLevel, target);
         if (sample.isEmpty()) {

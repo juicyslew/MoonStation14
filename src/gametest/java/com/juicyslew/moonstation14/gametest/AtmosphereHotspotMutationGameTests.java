@@ -29,7 +29,6 @@ public final class AtmosphereHotspotMutationGameTests {
     @GameTest(template = "atmos_large_empty", batch = "atmosphere_hotspot_mutation", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void successfulExternalThermalWriteReconcilesActualHotspotAndRejectedWriteDoesNot(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(), "isolated fixture requires singleton atmosphere disabled");
         for (int x = 1; x <= 3; x++) for (int z = 1; z <= 3; z++) {
             helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
             helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);

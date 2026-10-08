@@ -43,6 +43,7 @@ public final class PeacefulPlayerRegenerationGameTests {
         player.setHealth(player.getMaxHealth() - 5f);
         player.setData(ModDataAttachments.DAMAGE.get(),
                 new DamageData(new DamageMap(Map.of(DamageKeys.BLUNT, 25f))));
+        com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(player);
         player.getFoodData().setFoodLevel(10);
         player.getFoodData().setSaturation(0f);
         var initialLedger = player.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap();

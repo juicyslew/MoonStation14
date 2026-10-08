@@ -3,6 +3,8 @@ package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
+import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import net.minecraft.core.BlockPos;
@@ -54,6 +56,40 @@ public final class MovementEligibilityGameTests {
         double awakeZ = body.getZ();
         require(step.step(body, 0, 1000, false, false, 0f).isPresent(), "awake actor step is accepted");
         require(body.getZ() > awakeZ, "awake body advances under voluntary input");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear",
+            batch = "movement_eligibility", timeoutTicks = 40)
+    public static void criticalAndDeadAreMovementIneligibleButDownedAliveCanCrawl(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(), new BlockPos(4, 1, 4));
+        body.setNoAi(true);
+        net.minecraft.nbt.CompoundTag bindingTag = new net.minecraft.nbt.CompoundTag();
+        net.minecraft.nbt.CompoundTag binding = new net.minecraft.nbt.CompoundTag();
+        binding.putUUID("Account", java.util.UUID.randomUUID());
+        binding.putString("Profile", "main");
+        binding.putUUID("Mind", java.util.UUID.randomUUID());
+        bindingTag.put("Moonstation14PlayerCharacterBinding", binding);
+        body.readAdditionalSaveData(bindingTag);
+        require(CharacterIdentitySystem.enroll(body, level, ModCharacters.HUMAN_ID), "HUMAN identity enrollment");
+        require(CharacterControlSystem.canMove(body), "alive HUMAN remains movement eligible");
+        com.juicyslew.moonstation14.ms14.standing.PostureSystem.forceDown(body, level.getGameTime() + 100);
+        require(com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(body)
+                        && CharacterControlSystem.canMove(body),
+                "knockdown preserves voluntary crawling eligibility");
+        require(CharacterControlSystem.applyStun(body, 20) && !CharacterControlSystem.canMove(body),
+                "stunned body remains movement ineligible");
+        require(DamageSystem.applyHealthChange(body, java.util.Map.of(DamageKeys.BLUNT, 100f), 1f, true)
+                        == DamageSystem.Result.APPLIED
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isCritical(body),
+                "typed damage enters Critical");
+        require(!CharacterControlSystem.canMove(body), "Critical is not movement eligible");
+        require(DamageSystem.applyHealthChange(body, java.util.Map.of(DamageKeys.BLUNT, 100f), 1f, true)
+                        == DamageSystem.Result.APPLIED
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(body),
+                "typed damage enters Dead");
+        require(!CharacterControlSystem.canMove(body), "Dead is not movement eligible");
         helper.succeed();
     }
 

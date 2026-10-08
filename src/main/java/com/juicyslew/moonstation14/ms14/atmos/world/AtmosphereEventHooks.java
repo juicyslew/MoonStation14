@@ -18,7 +18,6 @@ public final class AtmosphereEventHooks {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onPostServerTick(ServerTickEvent.Post event) {
-        if (!AtmosphereService.INSTANCE.isEnabled()) return;
         for (ServerLevel level : event.getServer().getAllLevels()) {
             AtmosphereService.INSTANCE.processDeferredChunkLoads(level);
             AtmosphereService.INSTANCE.tick(level, level.getGameTime());
@@ -27,14 +26,12 @@ public final class AtmosphereEventHooks {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkLoad(ChunkEvent.Load event) {
-        if (!AtmosphereService.INSTANCE.isEnabled()) return;
         if (event.getLevel() instanceof ServerLevel level && event.getChunk() instanceof LevelChunk chunk)
             AtmosphereService.INSTANCE.deferChunkLoad(level, chunk.getPos());
     }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkUnload(ChunkEvent.Unload event) {
-        if (!AtmosphereService.INSTANCE.isEnabled()) return;
         if (event.getLevel() instanceof ServerLevel level)
             AtmosphereService.INSTANCE.onChunkUnload(level, event.getChunk().getPos());
     }
@@ -46,18 +43,17 @@ public final class AtmosphereEventHooks {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onBlockPlaced(BlockEvent.EntityPlaceEvent event) {
-        if (AtmosphereService.INSTANCE.isEnabled()) topologyChanged(event.getLevel(), event.getPos());
+        topologyChanged(event.getLevel(), event.getPos());
     }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onBlockBroken(BlockEvent.BreakEvent event) {
-        if (AtmosphereService.INSTANCE.isEnabled()) topologyChanged(event.getLevel(), event.getPos());
+        topologyChanged(event.getLevel(), event.getPos());
     }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onNeighborNotified(BlockEvent.NeighborNotifyEvent event) {
-        if (AtmosphereService.INSTANCE.isEnabled()
-                && event.getLevel() instanceof ServerLevel level)
+        if (event.getLevel() instanceof ServerLevel level)
             AtmosphereService.INSTANCE.neighborNotified(level, event.getPos());
     }
 

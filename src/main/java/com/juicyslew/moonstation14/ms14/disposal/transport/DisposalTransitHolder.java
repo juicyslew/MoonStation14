@@ -97,7 +97,8 @@ public final class DisposalTransitHolder extends Entity {
         Set<UUID> uniqueBodies = new HashSet<>();
         Map<UUID, com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags> flags = new LinkedHashMap<>();
         for (LivingEntity body : sourceBodies) {
-            if (body == null || !uniqueBodies.add(body.getUUID()) || body.level() != level || body.isRemoved() || !body.isAlive()
+            if (body == null || !uniqueBodies.add(body.getUUID())
+                    || !com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(body, level)
                     || containment.ownerOf(body).orElse(null) != sourceOwner) return Optional.empty();
             var original = containment.export(body, sourceOwner);
             if (original.isEmpty()) return Optional.empty();

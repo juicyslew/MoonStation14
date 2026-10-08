@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 public final class TimedInteractionSystem {
     public enum Completion { REPEAT, STOP, DENIED, RECOVERY_REQUIRED }
     private record Key(UUID body, long id) { }
-    private record Context(int duration, BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled, ServerLevel level, net.minecraft.world.phys.Vec3 start) { }
+    private record Context(int duration, double damageThreshold, BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled, ServerLevel level, net.minecraft.world.phys.Vec3 start) { }
     private record Presentation(long origin, ServerPlayer owner, Optional<net.minecraft.core.BlockPos> worldTarget) { }
     private static final Map<Key, Context> CALLBACKS = new HashMap<>();
     private static final Map<Key, Presentation> PRESENTATION = new HashMap<>();
@@ -34,18 +34,30 @@ public final class TimedInteractionSystem {
     public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             BooleanSupplier valid, Supplier<Completion> completion) {
-        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove, valid, completion, Optional.empty(), () -> { });
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove, 1.0, valid, completion, Optional.empty(), () -> { });
     }
     public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled) {
-        return start(body,owner,originSequence,kind,sourceKey,durationTicks,breakDamage,breakMove,valid,completion,Optional.empty(),cancelled);
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove, 1.0, valid, completion, Optional.empty(), cancelled);
     }
     public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             BooleanSupplier valid, Supplier<Completion> completion, Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled) {
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove, 1.0, valid, completion, worldTarget, cancelled);
+    }
+    public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
+            String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
+            double damageThreshold, BooleanSupplier valid, Supplier<Completion> completion) {
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove, damageThreshold, valid, completion, Optional.empty(), () -> { });
+    }
+    public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
+            String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
+            double damageThreshold, BooleanSupplier valid, Supplier<Completion> completion,
+            Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled) {
         Objects.requireNonNull(body); Objects.requireNonNull(kind); Objects.requireNonNull(sourceKey); Objects.requireNonNull(valid); Objects.requireNonNull(completion);
         Objects.requireNonNull(cancelled);
+        if (!Double.isFinite(damageThreshold) || damageThreshold <= 0) return TimedInteractionEngine.StartResult.DENIED;
         if (!(body.level() instanceof ServerLevel level)) return TimedInteractionEngine.StartResult.DENIED;
         checkThread(level);
         if (body.isRemoved() || !body.isAlive() || durationTicks < 1) return TimedInteractionEngine.StartResult.DENIED;
@@ -57,7 +69,7 @@ public final class TimedInteractionSystem {
         UUID uuid = body.getUUID(); ACTORS.put(uuid, body);
         if (result.result() == TimedInteractionEngine.StartResult.STARTED) {
             Key key = new Key(uuid, result.operation().id());
-            CALLBACKS.put(key, new Context(durationTicks, valid, completion, cancelled, level, body.position()));
+            CALLBACKS.put(key, new Context(durationTicks, damageThreshold, valid, completion, cancelled, level, body.position()));
             PRESENTATION.put(key, new Presentation(originSequence, owner, worldTarget == null ? Optional.empty() : worldTarget));
         }
         cleanupCallbacks(body, result.state());
@@ -75,9 +87,14 @@ public final class TimedInteractionSystem {
     }
     public static void damage(LivingEntity body, double typedDamage) {
         if (!(body.level() instanceof ServerLevel level)) return;
-        checkThread(level); if (typedDamage < 1) return;
+        checkThread(level);
         TimedOperationState state=body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get()); if(state==null)return;
-         var next=TimedInteractionEngine.cancelForDamage(state, now(level)); if(next!=state){body.setData(ModDataAttachments.TIMED_OPERATIONS.get(),next);publish(body);cleanupCallbacks(body,next);cleanupActor(body,next);}
+        var next=state; long current=now(level);
+        for(long id:TimedInteractionDamageSelector.select(state, typedDamage, op -> {
+            Context context = CALLBACKS.get(new Key(body.getUUID(), op.id()));
+            return context == null ? Double.POSITIVE_INFINITY : context.damageThreshold();
+        })) next=TimedInteractionEngine.cancel(next,id,current);
+        if(next!=state){body.setData(ModDataAttachments.TIMED_OPERATIONS.get(),next);publish(body);cleanupCallbacks(body,next);cleanupActor(body,next);}
     }
     public static void onPostServerTick(ServerTickEvent.Post event) {
         for (LivingEntity body : List.copyOf(ACTORS.values())) {
@@ -119,11 +136,18 @@ public final class TimedInteractionSystem {
     private static void publish(LivingEntity body) {
         if (!(body.level() instanceof ServerLevel level)) return;
         TimedOperationState state=body.getData(ModDataAttachments.TIMED_OPERATIONS.get());
-        List<TimedInteractionSnapshot.View> views=views(body,state);
-        var packet=new TimedInteractionSnapshot(level.dimension().location(),body.getId(),body.getUUID(),state.revision(),now(level),views);
+        var packet=snapshot(body);
         PacketDistributor.sendToPlayersTrackingEntity(body,packet);
         Set<ServerPlayer> owners=new HashSet<>(); PRESENTATION.forEach((key,value)->{if(key.body().equals(body.getUUID())&&value.owner()!=null&&!value.owner().isRemoved())owners.add(value.owner());});
         for(ServerPlayer owner:owners) PacketDistributor.sendToPlayer(owner,packet);
+    }
+    /** Returns the same authoritative presentation snapshot sent to trackers and operation owners. */
+    public static TimedInteractionSnapshot snapshot(LivingEntity body) {
+        Objects.requireNonNull(body);
+        if (!(body.level() instanceof ServerLevel level)) throw new IllegalArgumentException("Timed interaction snapshots require a server entity");
+        checkThread(level);
+        TimedOperationState state=body.getData(ModDataAttachments.TIMED_OPERATIONS.get());
+        return new TimedInteractionSnapshot(level.dimension().location(),body.getId(),body.getUUID(),state.revision(),now(level),views(body,state));
     }
     public static void onEntityLeave(EntityLeaveLevelEvent event) {
         if (!(event.getEntity() instanceof LivingEntity body) || !(event.getLevel() instanceof ServerLevel level)) return;

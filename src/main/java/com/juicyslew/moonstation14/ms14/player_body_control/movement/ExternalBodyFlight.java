@@ -18,7 +18,7 @@ public final class ExternalBodyFlight {
 
     public static void launch(Mob body, Vec3 velocity, int durationTicks) {
         if (!(body.level() instanceof ServerLevel level) || durationTicks <= 0
-                || !(body instanceof MindControlledMob owner) || !owner.moonstation14$isMovementOwned()) return;
+                || !hasPhysicsConsumer(body)) return;
         long now = level.getGameTime();
         body.setDeltaMovement(velocity);
         FLIGHTS.put(body, new State(level, now + durationTicks, Long.MIN_VALUE));
@@ -66,8 +66,7 @@ public final class ExternalBodyFlight {
             if (body == null) continue;
             State state = FLIGHTS.get(body);
             if (state == null || state.level != level) continue;
-            if (body.level() != level || body.isRemoved() || !body.isAlive()
-                    || !(body instanceof MindControlledMob owner) || !owner.moonstation14$isMovementOwned()) {
+            if (body.level() != level || body.isRemoved() || !body.isAlive() || !hasPhysicsConsumer(body)) {
                 cancel(body);
                 continue;
             }
@@ -79,8 +78,11 @@ public final class ExternalBodyFlight {
             if (alreadyAdvancedThisTick(body)) {
                 if (remainingTicks(body) == 0 && settled(body)) cancel(body);
             } else {
-                var result = stepper.step(body, 0, 0, false, false, body.getYRot());
-                if (result.isPresent()) {
+                boolean advanced;
+                if (com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics.eligible(body))
+                    advanced = com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics.step(body);
+                else advanced = stepper.step(body, 0, 0, false, false, body.getYRot()).isPresent();
+                if (advanced) {
                     if (remainingTicks(body) == 0 && settled(body)) {
                         // The ordinary post-throw motor has had its landing/ground-friction step.
                         cancel(body);
@@ -88,6 +90,11 @@ public final class ExternalBodyFlight {
                 }
             }
         }
+    }
+
+    private static boolean hasPhysicsConsumer(Mob body) {
+        return body instanceof MindControlledMob owner && owner.moonstation14$isMovementOwned()
+                || com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics.eligible(body);
     }
 
     private record State(ServerLevel level, long endTick, long lastAdvancedTick) { }

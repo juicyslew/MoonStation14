@@ -26,9 +26,13 @@ import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
+import com.juicyslew.moonstation14.ms14.damage.DamageFeedbackProfile;
+import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
+import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
+import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -56,16 +60,17 @@ class PrototypeRuntimeTest {
         client.clearPublishedCatalogs();
 
         assertNotSame(server, client);
-        var expectedTypes = Set.of(ModReagents.REAGENT_TYPE, ModStatusEffects.STATUS_EFFECT_TYPE,
+
+        var expectedTypes = new java.util.HashSet<>(Set.of(ModReagents.REAGENT_TYPE, ModStatusEffects.STATUS_EFFECT_TYPE,
                 ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
                 ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
                 ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE,
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
-                ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE,
-                ModItemFootprints.TYPE, ModIngestionProfiles.TYPE,
+                ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE,
+                ModIngestionProfiles.TYPE, ModDamageFeedback.TYPE, ModAirlocks.TYPE, ModToolProfiles.TYPE,
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE,
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE,
-                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE));
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -126,7 +131,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsAllRegisteredFamiliesIncludingConstructionWithoutSharingState() {
+    void runtimeExportImportsAllRegisteredFamiliesIncludingConstructionAirlocksAndMedicalWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -167,24 +172,33 @@ class PrototypeRuntimeTest {
                 constructionFixtures("construction_recipe"));
         server.reload(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE,
                 constructionFixtures("construction_entity"));
+        server.reload(ModAirlocks.TYPE, Map.of(ModAirlocks.STANDARD,
+                fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
+        server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
+                id("wirecutter"), fixture("tool_profile", "wirecutter"), id("screwdriver"), fixture("tool_profile", "screwdriver"),
+                id("multitool"), fixture("tool_profile", "multitool"), id("airlock_screwdriver"), fixture("tool_profile", "airlock_screwdriver"), id("base_item"), fixture("tool_profile", "base_item"),
+                id("base_crowbar"), fixture("tool_profile", "base_crowbar")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
                 false, 0, 8, .1f, 10, .5f, .5f,
                 new LooseObjectProfile.VisualTuning(.5f, .5f, .5f, .5f, 1, 0));
         server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-test"), profile));
+        DamageFeedbackProfile damageFeedback = DamageFeedbackProfile.PHYSICAL;
+        server.publishDecoded(ModDamageFeedback.TYPE, Map.of(id("damage-feedback-test"), damageFeedback));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
+
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
                 ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
-                 ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
+                ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                 ModIngestionProfiles.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()), exported.keySet());
+                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(), ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -202,6 +216,7 @@ class PrototypeRuntimeTest {
         assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
         assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
+        assertTrue(exported.get(ModDamageFeedback.TYPE.typeId()).containsKey(id("damage-feedback-test")));
         ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
         server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("source-test"), source));
         exported = server.encodePublishedCatalogs();
@@ -231,6 +246,8 @@ class PrototypeRuntimeTest {
         assertEquals(source, PrototypeRuntime.clientExplosiveSources().get(id("source-test")));
         assertEquals(profile, PrototypeRuntime.clientLooseObjectProfiles().get(id("profile-test")));
         assertEquals(profile, PrototypeRuntime.serverLooseObjectProfiles().get(id("profile-test")));
+        assertEquals(damageFeedback, PrototypeRuntime.clientDamageFeedback().get(id("damage-feedback-test")));
+        assertEquals(damageFeedback, PrototypeRuntime.serverDamageFeedback().get(id("damage-feedback-test")));
         assertEquals(explosion, ModExplosions.EXPLOSION_TYPE.codec().parse(JsonOps.INSTANCE,
                 exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).get(id("explosion-test"))).getOrThrow());
         assertEquals(reaction, PrototypeRuntime.serverGasReactions().get(id("reaction-test")));

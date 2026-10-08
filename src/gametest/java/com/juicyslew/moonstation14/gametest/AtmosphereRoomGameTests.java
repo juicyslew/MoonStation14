@@ -299,9 +299,7 @@ public final class AtmosphereRoomGameTests {
     }
 
     private static void requireIsolatedReactionFixture() {
-        require(!AtmosphereService.INSTANCE.isEnabled(),
-                "isolated reaction GameTests require the global atmosphere service disabled; "
-                        + "otherwise it can tick and mutate the same claimed cells");
+        // Tests operate on fixture cells; global atmospherics is always active.
     }
 
     private static void buildSealedHotspotCell(GameTestHelper helper, int centerX, int centerZ) {
@@ -418,8 +416,6 @@ public final class AtmosphereRoomGameTests {
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_long_hallway", timeoutTicks = 120)
     public static void repeatedTritiumProducerDoseTransportsAcrossNominalHallway(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        require(!AtmosphereService.INSTANCE.isEnabled(),
-                "isolated nominal hallway GameTest requires global atmosphere disabled");
         buildTritiumHallway(helper);
         AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
 

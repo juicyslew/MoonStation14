@@ -16,6 +16,9 @@ import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeRecord;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData;
+import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
+import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
+import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -41,6 +44,7 @@ public final class HumanHarnessMovementGameTests {
     private HumanHarnessMovementGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_clear", timeoutTicks = 40)
+    @GameTestTags({"merge-main-regression"})
     public static void disposalContainmentLookupAndDeadBodyRelease(GameTestHelper helper) {
         var first = BodyContainmentService.forLevel(helper.getLevel());
         require(first == BodyContainmentService.forLevel(helper.getLevel()), "level lookup must share service identity");
@@ -49,16 +53,35 @@ public final class HumanHarnessMovementGameTests {
         body.setInvisible(false);
         body.noPhysics = false;
         body.setNoGravity(false);
+        require(CharacterIdentitySystem.enroll(body, helper.getLevel(), ModCharacters.HUMAN_ID),
+                "loaded Villager is enrolled as the supported human character");
         var owner = owner(helper, body.getUUID(), body.position(), ContainedBodyOwner.Stage.TRANSIT,
                 new AtomicInteger());
         require(first.bind(body, owner), "loaded body should bind");
         require(((com.juicyslew.moonstation14.ms14.containment.ContainedBodyVisual) body)
                 .moonstation14$isContainedBodyVisual(), "containment marker must sync true while bound");
-        body.setHealth(0);
-        require(first.ownerOf(body).isEmpty(), "dead body must no longer have an owner");
-        require(!((com.juicyslew.moonstation14.ms14.containment.ContainedBodyVisual) body)
-                .moonstation14$isContainedBodyVisual(), "release must clear presentation marker");
-        require(!body.isInvisible() && !body.noPhysics && !body.isNoGravity(), "dead body flags must be restored");
+        require(DamageSystem.applyHealthChange(body, java.util.Map.of(DamageKeys.BLUNT, 200f), 1f, true)
+                        == DamageSystem.Result.APPLIED && MobStateSystem.isDead(body),
+                "typed damage retains the supported human in medical Dead state");
+        require(first.ownerOf(body).orElse(null) == owner, "retained medical corpse remains contained");
+        require(((com.juicyslew.moonstation14.ms14.containment.ContainedBodyVisual) body)
+                .moonstation14$isContainedBodyVisual(), "retained corpse keeps containment presentation");
+        require(body.isInvisible() && body.noPhysics && body.isNoGravity(), "retained corpse keeps containment flags");
+
+        var unsupported = helper.spawn(EntityType.ZOMBIE, new BlockPos(5, 1, 3));
+        unsupported.setNoAi(true);
+        unsupported.setInvisible(false);
+        unsupported.noPhysics = false;
+        unsupported.setNoGravity(false);
+        var ordinaryOwner = owner(helper, unsupported.getUUID(), unsupported.position(),
+                ContainedBodyOwner.Stage.TRANSIT, new AtomicInteger());
+        require(first.bind(unsupported, ordinaryOwner), "unsupported native mob can bind for cleanup coverage");
+        unsupported.setHealth(0);
+        require(first.ownerOf(unsupported).isEmpty(), "unsupported native dead mob is released");
+        require(!((com.juicyslew.moonstation14.ms14.containment.ContainedBodyVisual) unsupported)
+                .moonstation14$isContainedBodyVisual(), "unsupported dead mob release clears presentation marker");
+        require(!unsupported.isInvisible() && !unsupported.noPhysics && !unsupported.isNoGravity(),
+                "unsupported dead mob release restores containment flags");
         helper.succeed();
         });
     }

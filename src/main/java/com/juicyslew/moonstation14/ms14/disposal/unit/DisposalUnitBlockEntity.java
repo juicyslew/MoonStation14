@@ -58,8 +58,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Contai
     @Override public void onLoad() {
         super.onLoad();
         if (ensureRuntime() && level instanceof ServerLevel server) {
-            if (com.juicyslew.moonstation14.ms14.power.PowerSimulationGate.isEnabled()) com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.disposalUnitChanged(server, worldPosition);
-            else updatePower(false);
+            com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.disposalUnitChanged(server, worldPosition);
         }
     }
     @Override public void setRemoved() {
@@ -125,8 +124,8 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Contai
     public boolean insertBody(LivingEntity body) {
         if (!ensureRuntime()) return false;
         advanceBeforeAction();
-        if (!(level instanceof ServerLevel server) || !isValid() || body == null || body.level() != server
-                || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel() || server.getEntity(body.getUUID()) != body
+        if (!(level instanceof ServerLevel server) || !isValid()
+                || !BodyContainmentService.isValidBody(body, server)
                 || bodies.contains(body.getUUID())) return false;
         if (!BodyContainmentService.forLevel(server).bind(body, owner)) return false;
         BodyContainmentService.forLevel(server).export(body, owner).ifPresent(flags -> bodyFlags.put(body.getUUID(), flags));
@@ -189,7 +188,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Contai
         Map<UUID, LivingEntity> liveBodies = new java.util.LinkedHashMap<>();
         Map<UUID, ContainedBodyFlags> originals = new java.util.HashMap<>();
         for (UUID id : bodyIds) {
-            if (!(server.getEntity(id) instanceof LivingEntity body) || body.isRemoved() || !body.isAlive()
+            if (!(server.getEntity(id) instanceof LivingEntity body) || !BodyContainmentService.isValidBody(body, server)
                     || containment.ownerOf(body).orElse(null) != sourceOwner) return false;
             liveBodies.put(id, body);
             ContainedBodyFlags flags = containment.export(body, sourceOwner).orElse(null);
@@ -431,7 +430,7 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Contai
     }
     private boolean freshPowered() {
         if (gameTestPowerOverride != null) return gameTestPowerOverride;
-        if (!(level instanceof ServerLevel server) || !com.juicyslew.moonstation14.ms14.power.PowerSimulationGate.isEnabled()) return false;
+        if (!(level instanceof ServerLevel server)) return false;
         DisposalEntityData.Unit config = prototype();
         var meter = com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.disposalUnitMeter(server, this);
         return config != null && meter.known() && meter.deliveredWatts() == config.powerWatts();

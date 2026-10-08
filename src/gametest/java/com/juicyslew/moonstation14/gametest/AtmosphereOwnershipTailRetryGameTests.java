@@ -1,6 +1,5 @@
 package com.juicyslew.moonstation14.gametest;
 
-import com.juicyslew.moonstation14.Config;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -25,16 +24,15 @@ public final class AtmosphereOwnershipTailRetryGameTests {
     public static void topologyEditAfterCompletedProofReclassifiesRoom(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         AtmosphereService service = AtmosphereService.INSTANCE;
-        boolean enabled = Config.ENABLE_ATMOSPHERICS.get();
-        Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> vacuum =
-                Config.parseAtmosphereVacuumDimensions(Config.ATMOSPHERE_VACUUM_DIMENSIONS.get());
+        Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> vacuum = service.vacuumDimensionsForTest();
+        Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> spaces = service.spaceDimensionsForTest();
         List<BlockPos> cells = new ArrayList<>();
         // Mutate an already-claimed seed, never an unclaimed tail cell: topologyChanged on an
         // unknown cell would independently enqueue a fresh search and mask retry-tail failures.
         BlockPos localChange = new BlockPos(1, 1, 1);
         BlockPos change = helper.absolutePos(localChange);
         try {
-            service.configureAtServerStart(true, Set.of(level.dimension()));
+            service.configureAtServerStart(Set.of(level.dimension()), spaces);
             buildRoom(helper, cells);
             BlockPos seed = helper.absolutePos(new BlockPos(1, 1, 1));
             service.activateCellAndNeighbors(level, seed); // Activate a loaded seed; ownership remains strictly UNKNOWN until proved.
@@ -69,7 +67,7 @@ public final class AtmosphereOwnershipTailRetryGameTests {
                     + finalFinite + "/" + cells.size() + ", timing=" + service.diagnosticTiming(level));
             helper.succeed();
         } finally {
-            service.configureAtServerStart(enabled, vacuum);
+            service.configureAtServerStart(vacuum, spaces);
         }
     }
 

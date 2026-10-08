@@ -9,14 +9,15 @@ public record CharacterMovementEnvironment(double secondsPerTick, double gravity
                                            double maxUpwardStepBlocks,
                                            MovementCollisionResolver collisionResolver,
                                            double surfaceMovementFactor,
-                                           double voluntarySpeedFactor) {
+                                           double voluntarySpeedFactor,
+                                           MovementVector constraintImpulse) {
     /** Compatibility constructor for neutral-surface pure motor fixtures and callers. */
     public CharacterMovementEnvironment(double secondsPerTick, double gravityPerSecondSquared,
                                         double jumpVelocityPerSecond, double verticalDrag, MovementVector externalImpulse,
                                         double maximumExternalImpulsePerTick, double maxUpwardStepBlocks,
                                         MovementCollisionResolver collisionResolver) {
         this(secondsPerTick, gravityPerSecondSquared, jumpVelocityPerSecond, verticalDrag, externalImpulse,
-                maximumExternalImpulsePerTick, maxUpwardStepBlocks, collisionResolver, 1d, 1d);
+                maximumExternalImpulsePerTick, maxUpwardStepBlocks, collisionResolver, 1d, 1d, MovementVector.ZERO);
     }
 
     /** Compatibility constructor retaining existing surface-factor callers. */
@@ -25,7 +26,19 @@ public record CharacterMovementEnvironment(double secondsPerTick, double gravity
                                         double maximumExternalImpulsePerTick, double maxUpwardStepBlocks,
                                         MovementCollisionResolver collisionResolver, double surfaceMovementFactor) {
         this(secondsPerTick, gravityPerSecondSquared, jumpVelocityPerSecond, verticalDrag, externalImpulse,
-                maximumExternalImpulsePerTick, maxUpwardStepBlocks, collisionResolver, surfaceMovementFactor, 1d);
+                maximumExternalImpulsePerTick, maxUpwardStepBlocks, collisionResolver, surfaceMovementFactor, 1d,
+                MovementVector.ZERO);
+    }
+
+    /** Compatibility constructor retaining both existing movement modifiers. */
+    public CharacterMovementEnvironment(double secondsPerTick, double gravityPerSecondSquared,
+                                        double jumpVelocityPerSecond, double verticalDrag, MovementVector externalImpulse,
+                                        double maximumExternalImpulsePerTick, double maxUpwardStepBlocks,
+                                        MovementCollisionResolver collisionResolver, double surfaceMovementFactor,
+                                        double voluntarySpeedFactor) {
+        this(secondsPerTick, gravityPerSecondSquared, jumpVelocityPerSecond, verticalDrag, externalImpulse,
+                maximumExternalImpulsePerTick, maxUpwardStepBlocks, collisionResolver, surfaceMovementFactor,
+                voluntarySpeedFactor, MovementVector.ZERO);
     }
 
     public CharacterMovementEnvironment {
@@ -41,10 +54,15 @@ public record CharacterMovementEnvironment(double secondsPerTick, double gravity
         requireNonnegative(surfaceMovementFactor, "surface movement factor");
         requireNonnegative(voluntarySpeedFactor, "voluntary speed factor");
         Objects.requireNonNull(externalImpulse, "externalImpulse");
+        Objects.requireNonNull(constraintImpulse, "constraintImpulse");
         Objects.requireNonNull(collisionResolver, "collisionResolver");
         double impulseLength = vectorLength(externalImpulse);
         if (!Double.isFinite(impulseLength) || impulseLength > maximumExternalImpulsePerTick) {
             throw new IllegalArgumentException("external impulse exceeds environment bound");
+        }
+        double constraintLength = vectorLength(constraintImpulse);
+        if (!Double.isFinite(constraintLength) || constraintLength > maximumExternalImpulsePerTick) {
+            throw new IllegalArgumentException("constraint impulse exceeds environment bound");
         }
     }
 

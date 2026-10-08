@@ -25,11 +25,10 @@ public final class DisposalLiveIntakeGameTests {
     public static void liveIntakeWorksWithoutWholeComponentProof(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var atmos = AtmosphereService.INSTANCE;
-        boolean wasEnabled = atmos.isEnabled();
         var oldVacuum = atmos.vacuumDimensionsForTest();
         var dimensions = new java.util.HashSet<>(oldVacuum);
         dimensions.add(level.dimension());
-        atmos.configureAtServerStart(true, dimensions);
+        atmos.configureAtServerStart(dimensions, atmos.spaceDimensionsForTest());
         try {
             // Author a small sealed finite room and let the ordinary ownership pass establish it.
             for (int x = 1; x <= 5; x++) for (int z = 1; z <= 5; z++) {
@@ -85,18 +84,17 @@ public final class DisposalLiveIntakeGameTests {
             require(close(holderSample.pressureKpa(), 90, 4),
                     "resolved holder intake reaches healthy pressure near 90 kPa");
             helper.succeed();
-        } finally { atmos.configureAtServerStart(wasEnabled, oldVacuum); }
+        } finally { atmos.configureAtServerStart(oldVacuum, atmos.spaceDimensionsForTest()); }
     }
 
     @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear", batch = "disposals", timeoutTicks = 100)
     public static void liveIntakeVacuumUnavailableAndStaleEndpointAreSafe(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var atmos = AtmosphereService.INSTANCE;
-        boolean wasEnabled = atmos.isEnabled();
         var oldVacuum = atmos.vacuumDimensionsForTest();
         var dimensions = new java.util.HashSet<>(oldVacuum);
         dimensions.add(level.dimension());
-        atmos.configureAtServerStart(true, dimensions);
+        atmos.configureAtServerStart(dimensions, atmos.spaceDimensionsForTest());
         boolean callbackScheduled = false;
         try {
             for (int x = 1; x <= 5; x++) for (int z = 1; z <= 5; z++) {
@@ -130,16 +128,15 @@ public final class DisposalLiveIntakeGameTests {
             callbackScheduled = true;
             helper.runAfterDelay(1, () -> {
                 try {
-                    require(atmos.isEnabled(), "atmosphere remains enabled through delayed game tick");
                     require(!endpoint.eligible(), "endpoint from previous game tick is ineligible");
                     require(endpoint.snapshot() == null, "stale endpoint has no valid snapshot");
                     GasMixture sourceAfter = atmos.sample(level, unitPos.above()).orElseThrow();
                     require(same(sourceBefore, sourceAfter), "stale endpoint cannot mutate physical source gas");
                     helper.succeed();
-                } finally { atmos.configureAtServerStart(wasEnabled, oldVacuum); }
+                } finally { atmos.configureAtServerStart(oldVacuum, atmos.spaceDimensionsForTest()); }
             });
         } finally {
-            if (!callbackScheduled) atmos.configureAtServerStart(wasEnabled, oldVacuum);
+            if (!callbackScheduled) atmos.configureAtServerStart(oldVacuum, atmos.spaceDimensionsForTest());
         }
     }
 

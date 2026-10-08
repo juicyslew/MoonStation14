@@ -34,7 +34,7 @@ public final class CharacterSchemaAudit {
     private static final Set<String> RESPIRATOR_FIELDS = Set.of("type", "breath_interval_seconds", "breath_volume_liters",
              "max_saturation", "initial_saturation", "min_saturation", "saturation_loss_per_update",
              "suffocation_threshold", "suffocation_damage_per_update", "suffocation_recovery_per_update",
-             "suffocation_ignore_resistances");
+              "suffocation_ignore_resistances", "gasp_interval_seconds", "gasp_sound");
     private static final Set<String> BAROTRAUMA_FIELDS = Set.of("type", "damage", "maxDamage");
     private static final Set<String> COMPLEX_INTERACTION_FIELDS = Set.of("type");
 
@@ -200,7 +200,9 @@ public final class CharacterSchemaAudit {
     public static void auditRespirator(JsonObject lungs, String path, boolean complete) {
         checkFields(lungs, RESPIRATOR_FIELDS, path);
         for (String field : RESPIRATOR_FIELDS) {
-            if (field.equals("type") || field.equals("suffocation_ignore_resistances") || (!complete && !lungs.has(field))) continue;
+            if (field.equals("type") || field.equals("suffocation_ignore_resistances")
+                    || field.equals("gasp_interval_seconds") || field.equals("gasp_sound")
+                    || (!complete && !lungs.has(field))) continue;
             double min = field.equals("min_saturation") ? -2.0 : 0.0;
             double max = field.equals("min_saturation") ? 0.0 : 1_000_000.0;
             boolean exclusive = field.equals("breath_interval_seconds") || field.equals("breath_volume_liters") || field.equals("max_saturation");
@@ -231,6 +233,14 @@ public final class CharacterSchemaAudit {
         if (finiteNumber(lungs.get("min_saturation")) && finiteNumber(lungs.get("initial_saturation"))
                 && lungs.get("initial_saturation").getAsDouble() < lungs.get("min_saturation").getAsDouble())
             fail(path + ".initial_saturation", "must be at least min_saturation");
+        if (lungs.has("gasp_interval_seconds"))
+            auditLungNumber(lungs, "gasp_interval_seconds", 0, 1_000_000, true, path);
+        if (lungs.has("gasp_sound")) {
+            JsonElement gasp = lungs.get("gasp_sound");
+            if (!gasp.isJsonPrimitive() || !gasp.getAsJsonPrimitive().isString()
+                    || !(gasp.getAsString().equals("moonstation14:gasp/male") || gasp.getAsString().equals("moonstation14:gasp/female")))
+                fail(path + ".gasp_sound", "expected supported gasp sound profile");
+        }
     }
 
     public static void auditComponentsIfPresent(JsonObject character) {
@@ -278,7 +288,7 @@ public final class CharacterSchemaAudit {
         }
           if ("Body".equals(type) || "Hunger".equals(type) || "Thirst".equals(type) || "Stomach".equals(type)
                   || "Mouth".equals(type)
-                  || "Blindable".equals(type)) {
+                  || "Blindable".equals(type) || "Incorporeal".equals(type)) {
              checkFields(object, Set.of("type"), path);
              return;
          }
@@ -307,7 +317,8 @@ public final class CharacterSchemaAudit {
             auditMovement(object, path, complete);
             return;
         }
-        if ("NoSlip".equals(type) || "Stunnable".equals(type)) {
+        if ("NoSlip".equals(type) || "Stunnable".equals(type) || "Pullable".equals(type)
+                || com.juicyslew.moonstation14.ms14.character.components.DoorBumpOpenerComponent.TYPE.equals(type)) {
             checkFields(object, Set.of("type"), path);
             return;
         }
@@ -320,6 +331,68 @@ public final class CharacterSchemaAudit {
             for (String field : Set.of("standing_eligible", "prone_eligible")) {
                 if (complete || object.has(field)) auditBoolean(object.get(field), path + "." + field);
             }
+            return;
+        }
+        if ("Puller".equals(type)) {
+            checkFields(object, Set.of("type", "walk_modifier", "sprint_modifier", "tether"), path);
+            for (String field : Set.of("walk_modifier", "sprint_modifier"))
+                if (object.has(field) && (!finiteNumber(object.get(field)) || object.get(field).getAsDouble() < 0))
+                    fail(path + "." + field, "expected finite nonnegative number");
+            if (object.has("tether")) {
+                JsonElement tetherValue = object.get("tether");
+                if (!tetherValue.isJsonObject()) fail(path + ".tether", "expected object");
+                JsonObject tether = tetherValue.getAsJsonObject();
+                checkFields(tether, Set.of("stiffness", "progressive_stiffness", "damping", "maximum_acceleration", "slackAllowance"), path + ".tether");
+                for (String field : Set.of("stiffness", "progressive_stiffness", "damping", "maximum_acceleration", "slackAllowance")) {
+                    if (!tether.has(field)) continue;
+                    JsonElement value = tether.get(field);
+                    double number = finiteNumber(value) ? value.getAsDouble() : Double.NaN;
+                    boolean positive = field.equals("maximum_acceleration");
+                    if (!Double.isFinite(number) || (positive ? number <= 0 : number < 0)
+                            || (!field.equals("slackAllowance") && number > 200))
+                        fail(path + ".tether." + field, positive
+                                ? "expected finite positive number at most 200"
+                                : "expected finite nonnegative number at most 200");
+                }
+            }
+            return;
+        }
+        if ("ObserverMovement".equals(type)) {
+            checkFields(object, Set.of("type", "walk_speed", "sprint_speed"), path);
+            for (String field : Set.of("walk_speed", "sprint_speed")) {
+                if (object.has(field) && (!finiteNumber(object.get(field)) || object.get(field).getAsDouble() <= 0))
+                    fail(path + "." + field, "expected finite positive number");
+            }
+            return;
+        }
+        if ("MobState".equals(type)) {
+            checkFields(object, Set.of("type", "allowed_states"), path);
+            if (object.has("allowed_states")) auditMobStateArray(object, "allowed_states", path);
+            return;
+        }
+        if ("GhostOnMove".equals(type)) {
+            checkFields(object, Set.of("type", "must_be_dead", "can_return"), path);
+            for (String field : Set.of("must_be_dead", "can_return"))
+                if (object.has(field)) auditBoolean(object.get(field), path + "." + field);
+            return;
+        }
+        if ("MobThresholds".equals(type)) {
+            checkFields(object, Set.of("type", "thresholds", "allow_revives"), path);
+            JsonElement map = object.get("thresholds");
+            if (map != null) {
+                if (!map.isJsonObject() || map.getAsJsonObject().size() == 0) fail(path + ".thresholds", "expected nonempty threshold map");
+                for (String amount : map.getAsJsonObject().keySet()) {
+                    try { if (!Double.isFinite(Double.parseDouble(amount)) || Double.parseDouble(amount) < 0) throw new NumberFormatException(); }
+                    catch (NumberFormatException ex) { fail(path + ".thresholds." + amount, "expected finite nonnegative damage threshold"); }
+                    JsonElement state = map.getAsJsonObject().get(amount);
+                    if (!state.isJsonPrimitive() || !state.getAsJsonPrimitive().isString() || !isMobState(state.getAsString())) fail(path + ".thresholds." + amount, "unknown state");
+                }
+            }
+            if (object.has("allow_revives")) auditBoolean(object.get("allow_revives"), path + ".allow_revives");
+            return;
+        }
+        if ("Crawler".equals(type)) {
+            checkFields(object, Set.of("type", "speed_modifier", "default_knocked_duration_seconds", "stand_time_seconds", "damage_threshold", "friction_modifier"), path);
             return;
         }
         if ("Reactive".equals(type)) {
@@ -614,8 +687,32 @@ public final class CharacterSchemaAudit {
                 fail(path + "[" + i + "]", "expected string");
             }
             String serialized = element.getAsString();
-            if (!allowed.contains(serialized)) fail(path + "[" + i + "]", "unknown or non-canonical value");
+            if (!allowed.contains(serialized)) fail(path + "[" + i + "]", "unknown value");
             if (!seen.add(serialized)) fail(path + "[" + i + "]", "duplicate value");
+        }
+    }
+
+    private static void auditMobStateArray(JsonObject object, String field, String parentPath) {
+        JsonElement value = object.get(field);
+        String path = parentPath + "." + field;
+        if (value == null) fail(path, "required field is missing");
+        if (!value.isJsonArray()) fail(path, "expected array");
+        Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < value.getAsJsonArray().size(); i++) {
+            JsonElement element = value.getAsJsonArray().get(i);
+            if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) fail(path + "[" + i + "]", "expected string");
+            String serialized = element.getAsString();
+            if (!isMobState(serialized)) fail(path + "[" + i + "]", "unknown value");
+            if (!seen.add(serialized.toUpperCase(java.util.Locale.ROOT))) fail(path + "[" + i + "]", "duplicate value");
+        }
+    }
+
+    private static boolean isMobState(String value) {
+        try {
+            com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.valueOf(value.toUpperCase(java.util.Locale.ROOT));
+            return true;
+        } catch (IllegalArgumentException ex) {
+            return false;
         }
     }
 
