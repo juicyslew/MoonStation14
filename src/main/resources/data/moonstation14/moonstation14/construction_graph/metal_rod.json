@@ -1,0 +1,7 @@
+{
+  "start":"start",
+  "nodes": {
+    "start":{"edges":[{"to":"metal_rod","steps":[{"type":"material","requirement":"Steel","amount":1,"seconds":0}]}]},
+    "metal_rod":{"entity":"moonstation14:metal_rod","outputStackCount":2,"edges":[]}
+  }
+}

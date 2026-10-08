@@ -6,6 +6,8 @@
   "metadata": { "name": "Human" },
   "components": [
     {"type": "Examiner"},
+    {"type": "Damageable", "damage_container": "Biological"},
+    {"type": "HumanoidProfile", "species": "Human"},
     {"type": "MobState"},
     {"type": "MobThresholds", "thresholds": {"0": "ALIVE", "100": "CRITICAL", "200": "DEAD"}},
     {"type": "Crawler"},

@@ -44,11 +44,11 @@ public final class DisposalContainedActionPolicy {
                     SMART_STORE_BELT, SMART_STORE_BACK, SMART_TAKE_BELT, SMART_TAKE_BACK,
                     GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
                     GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
-                    USE_HELD, USE_IN_HAND, PRIME_GRENADE, STOP_PULL, DROP -> true;
+                    USE_HELD, USE_IN_HAND, PRIME_GRENADE, STOP_PULL, DROP, CYCLE_SYRINGE_AMOUNT -> true;
             // World targets, external throws/pickups, pouch legacy actions and unknown
             // future actions fail closed while the body's world position is owner-locked.
             case PICKUP, PICKUP_SELECTED, THROW_GRENADE, THROW_ITEM, USE_TARGET,
-                    ALTERNATE_TARGET, TOGGLE_PULL, SIP_PUDDLE, INSERT_POUCH, EXTRACT_POUCH -> false;
+                    ALTERNATE_TARGET, TOGGLE_PULL, SIP_PUDDLE, INSERT_POUCH, EXTRACT_POUCH, USE_BODY -> false;
         };
     }
 }

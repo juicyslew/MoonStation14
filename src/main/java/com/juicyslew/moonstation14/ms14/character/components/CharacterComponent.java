@@ -9,6 +9,6 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         TemperatureComponent, TemperatureDamageComponent, ThermalRegulatorComponent, ThirstPrototypeComponent,
         MouthComponent, MobStateComponent, MobThresholdsComponent, CrawlerComponent, PullableComponent,
         ObserverMovementComponent, IncorporealComponent, GhostOnMoveComponent, PullerComponent, DoorBumpOpenerComponent,
-        ExaminerComponent {
+        ExaminerComponent, DamageableComponent, HumanoidProfileComponent {
     String type();
 }

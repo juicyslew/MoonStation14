@@ -122,6 +122,38 @@ public final class TimedInteractionDamageGameTests {
         });
     }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 35)
+    @GameTestTags({"construction"})
+    public static void thresholdCancellationKeepsConstructionPresentationAndRefundCallback(GameTestHelper helper) {
+        Villager body = body(helper, new BlockPos(2, 1, 2));
+        AtomicInteger refunds = new AtomicInteger();
+        BlockPos target = helper.absolutePos(new BlockPos(4, 1, 2));
+        require(TimedInteractionSystem.start(body, null, 23, "construction_graph", "threshold-refund",
+                20, true, false, 3.0, () -> true, () -> TimedInteractionSystem.Completion.STOP,
+                java.util.Optional.of(target), refunds::incrementAndGet).name().equals("STARTED"),
+                "threshold-aware construction operation starts");
+        var initial = TimedInteractionSystem.snapshot(body);
+        require(initial.views().size() == 1 && initial.views().get(0).phase() == TimedOperation.Phase.ACTIVE
+                && initial.views().get(0).worldTarget().equals(java.util.Optional.of(target)),
+                "live snapshot immediately publishes work target");
+
+        TimedInteractionSystem.damage(body, 2.9);
+        require(operation(body).phase() == TimedOperation.Phase.ACTIVE && refunds.get() == 0,
+                "subthreshold typed damage neither cancels nor refunds");
+        TimedInteractionSystem.damage(body, 3.0);
+        require(operation(body).phase() == TimedOperation.Phase.CANCELLED && refunds.get() == 1,
+                "threshold typed damage cancels and invokes refund once");
+        var cancelled = TimedInteractionSystem.snapshot(body);
+        require(cancelled.views().get(0).worldTarget().equals(java.util.Optional.of(target)),
+                "cancelled terminal snapshot retains the published work target");
+        TimedInteractionSystem.damage(body, 3.0);
+        require(refunds.get() == 1, "repeated damage cannot refund twice");
+        helper.runAfterDelay(12, () -> {
+            require(refunds.get() == 1, "terminal pruning cannot refund twice");
+            helper.succeed();
+        });
+    }
+
     private static Villager body(GameTestHelper helper, BlockPos pos) {
         var level = helper.getLevel();
         level.setBlock(helper.absolutePos(pos).below(), Blocks.STONE.defaultBlockState(), 3);

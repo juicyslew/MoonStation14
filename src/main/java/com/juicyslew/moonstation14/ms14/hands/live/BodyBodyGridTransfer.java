@@ -32,7 +32,7 @@ public final class BodyBodyGridTransfer {
             String child, long revision, GridGeometry.Cell oldAnchor, GridGeometry.Rotation oldRotation,
             GridGeometry.Cell newAnchor, GridGeometry.Rotation newRotation, BooleanSupplier authorityValid) {
         return moveOwned(body, from, to, child, revision, oldAnchor, oldRotation, newAnchor, newRotation,
-                authorityValid, (carrier, next) -> carrier.setData(ModDataAttachments.LIVE_HANDS.get(), next));
+                authorityValid, (carrier, next) -> LiveHandsCommitGateway.commitOwned(carrier, next));
     }
 
     static Result moveOwned(LivingEntity body, LiveHands.GridHost from, LiveHands.GridHost to,

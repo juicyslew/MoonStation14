@@ -70,11 +70,16 @@ class PrototypeRuntimeTest {
                 ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
         expectedTypes.add(ModDamageFeedback.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
         expectedTypes.add(ModAirlocks.TYPE);
         expectedTypes.add(ModToolProfiles.TYPE);
         expectedTypes.add(ModPuddles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -135,7 +140,7 @@ class PrototypeRuntimeTest {
     }
 
     @Test
-    void runtimeExportImportsPrototypeFamiliesIncludingPuddlesWithoutSharingState() {
+    void runtimeExportImportsAllRegisteredFamiliesIncludingConstructionAirlocksAndMedicalWithoutSharingState() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
         server.clearPublishedCatalogs();
@@ -170,6 +175,12 @@ class PrototypeRuntimeTest {
                  ModAirAlarms.AIR_ALARM, alarm("air_alarm")));
         server.reload(ModTools.TOOL_TYPE, toolFixtures());
         server.reload(ModDisposals.DISPOSAL_TYPE, disposalFixtures());
+        server.reload(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE,
+                Map.of(id("girder"), fixture("construction_graph", "girder")));
+        server.reload(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE,
+                constructionFixtures("construction_recipe"));
+        server.reload(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE,
+                constructionFixtures("construction_entity"));
         server.reload(ModAirlocks.TYPE, Map.of(ModAirlocks.STANDARD,
                 fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
         server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
@@ -184,6 +195,11 @@ class PrototypeRuntimeTest {
         server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-test"), profile));
         DamageFeedbackProfile damageFeedback = DamageFeedbackProfile.PHYSICAL;
         server.publishDecoded(ModDamageFeedback.TYPE, Map.of(id("damage-feedback-test"), damageFeedback));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE,
+                Map.of(id("medical-test"), new com.juicyslew.moonstation14.ms14.medical.MedicalItemData(
+                        new com.juicyslew.moonstation14.ms14.medical.MedicalItemData.Item("Small"),
+                        java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
+                        java.util.Optional.empty(), java.util.Optional.empty())));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -196,7 +212,17 @@ class PrototypeRuntimeTest {
                 ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
                 ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId()), exported.keySet());
+                com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()), exported.keySet());
+        assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
+        assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
+        assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
+        assertEquals("Steel Wall", exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId())
+                .get(id("steel_wall")).get("name").getAsString(), "Recipe export includes resolved recipe metadata");
         assertTrue(exported.get(ModTools.TOOL_TYPE.typeId()).keySet().containsAll(Set.of(
                 ModTools.WRENCH, ModTools.SCREWDRIVER, ModTools.WELDER)));
         assertTrue(exported.get(ModDisposals.DISPOSAL_TYPE.typeId()).keySet().containsAll(Set.of(
@@ -246,6 +272,14 @@ class PrototypeRuntimeTest {
         assertEquals(reaction, PrototypeRuntime.serverGasReactions().get(id("reaction-test")));
         assertEquals(PrototypeRuntime.serverVentilationDevices().asMap(), PrototypeRuntime.clientVentilationDevices().asMap());
         assertEquals(PrototypeRuntime.serverAirAlarms().asMap(), PrototypeRuntime.clientAirAlarms().asMap());
+        assertEquals(1, PrototypeRuntime.clientConstructionGraphs().asMap().size());
+        assertEquals(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size(),
+                PrototypeRuntime.clientConstructionRecipes().asMap().size());
+        assertEquals(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size(),
+                PrototypeRuntime.clientConstructionEntities().asMap().size());
+        assertEquals(PrototypeRuntime.serverConstructionGraphs().asMap(), PrototypeRuntime.clientConstructionGraphs().asMap());
+        assertEquals(PrototypeRuntime.serverConstructionRecipes().asMap(), PrototypeRuntime.clientConstructionRecipes().asMap());
+        assertEquals(PrototypeRuntime.serverConstructionEntities().asMap(), PrototypeRuntime.clientConstructionEntities().asMap());
         assertEquals(explosion, PrototypeRuntime.serverExplosions().get(id("explosion-test")));
         assertTrue(PrototypeRuntime.clientCharacters().contains(id("human-test")));
         assertFalse(PrototypeRuntime.clientCharacters().contains(id("missing")));
@@ -297,7 +331,7 @@ class PrototypeRuntimeTest {
 
     private static Map<ResourceLocation, JsonObject> toolFixtures() {
         Map<ResourceLocation, JsonObject> values = new LinkedHashMap<>();
-        for (String name : java.util.List.of("base_tool", "wrench", "screwdriver", "welder"))
+        for (String name : java.util.List.of("base_tool", "wrench", "screwdriver", "welder", "crowbar"))
             values.put(ModTools.id(name), fixture("construction_tool", name));
         return values;
     }
@@ -310,6 +344,19 @@ class PrototypeRuntimeTest {
             paths.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
                 String name = path.getFileName().toString().replaceFirst("\\.json$", "");
                 values.put(ModDisposals.id(name), fixture("disposal_entity", name));
+            });
+        } catch (java.io.IOException exception) { throw new java.io.UncheckedIOException(exception); }
+        return values;
+    }
+
+    private static Map<ResourceLocation, JsonObject> constructionFixtures(String family) {
+        Map<ResourceLocation, JsonObject> values = new LinkedHashMap<>();
+        try (var paths = java.nio.file.Files.list(java.nio.file.Path.of(
+                java.net.URI.create(PrototypeRuntimeTest.class
+                        .getResource("/data/moonstation14/moonstation14/" + family).toExternalForm())))) {
+            paths.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
+                String name = path.getFileName().toString().replaceFirst("\\.json$", "");
+                values.put(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.id(name), fixture(family, name));
             });
         } catch (java.io.IOException exception) { throw new java.io.UncheckedIOException(exception); }
         return values;

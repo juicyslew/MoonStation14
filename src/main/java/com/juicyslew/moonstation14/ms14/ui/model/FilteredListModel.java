@@ -14,7 +14,7 @@ public final class FilteredListModel {
     }
 
     private final int cap;
-    private final int pageSize;
+    private int pageSize;
     private List<Entry> entries = List.of();
     private final ArrayList<Entry> matches = new ArrayList<>();
     private String query = "";
@@ -42,6 +42,15 @@ public final class FilteredListModel {
         if (this.query.equals(query)) return;
         this.query = query;
         rebuild();
+    }
+
+    /** Updates the number of rows that fit the current widget viewport. */
+    public void setPageSize(int pageSize) {
+        ModelBounds.size(pageSize, cap);
+        if (this.pageSize == pageSize) return;
+        this.pageSize = pageSize;
+        first = Math.min(first, Math.max(0, matches.size() - pageSize));
+        if (selectedId != null) select(selectedId);
     }
 
     private void rebuild() {

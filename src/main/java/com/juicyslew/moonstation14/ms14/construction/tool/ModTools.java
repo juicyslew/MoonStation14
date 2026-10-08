@@ -5,6 +5,8 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeType;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
@@ -14,6 +16,7 @@ public final class ModTools {
     public static final ResourceLocation WRENCH = id("wrench");
     public static final ResourceLocation SCREWDRIVER = id("screwdriver");
     public static final ResourceLocation WELDER = id("welder");
+    public static final ResourceLocation CROWBAR = id("crowbar");
     public static final PrototypeType<ToolPrototypeData> TOOL_TYPE = new PrototypeType<>(
             id("construction_tool"), "moonstation14/construction_tool", ToolPrototypeData.CODEC,
             ModTools::validateInheritance);
@@ -27,7 +30,7 @@ public final class ModTools {
                 || base.has("parent") || !base.has("qualities") || !base.has("speedModifier"))
             throw new IllegalArgumentException("invalid abstract BaseItem tool parent");
         if (resolved.get(BASE) != null) throw new IllegalArgumentException("abstract tool parent was published");
-        for (ResourceLocation childId : new ResourceLocation[]{WRENCH, SCREWDRIVER, WELDER}) {
+        for (ResourceLocation childId : new ResourceLocation[]{WRENCH, SCREWDRIVER, WELDER, CROWBAR}) {
             JsonObject child = raw.get(childId);
             if (child == null || !child.has("parent") || !BASE.getPath().equals(child.get("parent").getAsString()))
                 throw new IllegalArgumentException("tool must inherit base_tool: " + childId);
@@ -57,5 +60,25 @@ public final class ModTools {
         ToolPrototypeData tool = catalog.get(prototype);
         return tool != null && tool.qualities().contains(requiredQuality)
                 ? Optional.of(tool.speedModifier()) : Optional.empty();
+    }
+
+    /** Construction-step capability lookup; caller supplies the resolved item tool prototype. */
+    public static boolean canPryConstructionStep(PrototypeCatalog<ToolPrototypeData> catalog,
+                                                 ResourceLocation toolPrototype) {
+        return hasQuality(catalog, toolPrototype, ToolPrototypeData.Quality.Prying);
+    }
+
+    /** Resolve a held stack through its registered item id to the local tool prototype, then query its capability. */
+    public static boolean canPryConstructionStep(PrototypeCatalog<ToolPrototypeData> catalog, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        return itemPrototype(BuiltInRegistries.ITEM.getResourceKey(stack.getItem()).map(key -> key.location()))
+                .map(toolPrototype -> canPryConstructionStep(catalog, toolPrototype)).orElse(false);
+    }
+
+    static Optional<ResourceLocation> itemPrototype(Optional<ResourceLocation> itemId) {
+        if (itemId == null || itemId.isEmpty()) return Optional.empty();
+        ResourceLocation registeredId = itemId.get();
+        if (!MoonStation14.MOD_ID.equals(registeredId.getNamespace())) return Optional.empty();
+        return Optional.of(id(registeredId.getPath()));
     }
 }

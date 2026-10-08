@@ -55,6 +55,16 @@ public final class BodyHeldItemActions {
                 || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands)
             return BodyHandActionResult.Reason.DENIED;
         var before = hands.stackCopy(request.handId()).orElse(null);
+        if (before != null) {
+            var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(before.getItem());
+            try {
+                var medical = id == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                        com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(authority.body().level()), id);
+                if (medical != null && medical.healthAnalyzer().isPresent())
+                    return com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerServer.activate(actor, request.handId(),
+                            request.expectedToken(), request.expectedRevision(), request.sequence());
+            } catch (RuntimeException ignored) { }
+        }
         if (before == null || !before.is(ModItems.WELDER.get())
                 || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level))
             return BodyHandActionResult.Reason.DENIED;

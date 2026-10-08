@@ -28,6 +28,7 @@ import java.util.Optional;
 /** Immutable, data-only character policy. The catalog key supplies identity. */
 public record CharacterData(List<ResourceLocation> hostEntityTypes,
                             List<CharacterComponent> components, ExamineMetadata metadata) {
+    public static final int MAX_COMPONENTS = 64;
     private static final Codec<CharacterData> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     Codec.list(ResourceLocation.CODEC).optionalFieldOf("host_entity_types", List.of())
@@ -73,8 +74,8 @@ public record CharacterData(List<ResourceLocation> hostEntityTypes,
         Objects.requireNonNull(hostEntityTypes, "hostEntityTypes");
         hostEntityTypes = List.copyOf(hostEntityTypes);
         components = List.copyOf(Objects.requireNonNull(components, "components"));
-        if (components.size() > 32 || components.stream().map(CharacterComponent::type).distinct().count() != components.size())
-            throw new IllegalArgumentException("components must contain at most 32 distinct types");
+        if (components.size() > MAX_COMPONENTS || components.stream().map(CharacterComponent::type).distinct().count() != components.size())
+            throw new IllegalArgumentException("components must contain at most " + MAX_COMPONENTS + " distinct types");
         if (components.stream().anyMatch(component -> !CharacterComponentRegistry.registered(component.type())))
             throw new IllegalArgumentException("components must use registered types");
         if (components.stream().anyMatch(StomachPrototypeComponent.class::isInstance)

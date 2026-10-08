@@ -9,6 +9,31 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StoragePopupWorkspaceTest {
+    @Test void storageAndAnalyzerShareMoveToFrontOrder() {
+        var storage=new StoragePopupWorkspace(500,400);
+        var key=StoragePopupWorkspace.HostKey.world(UUID.randomUUID());
+        storage.open(key,true,10,10,100,100);
+        var analyzer=new com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace();
+        var id=UUID.randomUUID(); var actor=UUID.randomUUID();
+        analyzer.accept(new com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerWindowState(id,1,actor,1,true,java.util.Optional.empty()),500,400);
+        var aw=analyzer.get(id); var sw=storage.window(key);
+        assertTrue(aw.z()>sw.z());
+        storage.raise(sw); assertTrue(sw.z()>aw.z());
+        assertSame(sw,storage.topmost(20,20));
+    }
+    @Test void pointerLockCyclePreservesTopRightWindowAndViewportGeometry() {
+        var workspace=new StoragePopupWorkspace(400,300);
+        workspace.bind(UUID.randomUUID(),1);
+        var host=StoragePopupWorkspace.HostKey.world(UUID.randomUUID());
+        workspace.open(host,true,305,12,80,60);
+        var window=workspace.window(host);
+        workspace.pointerMode(true);
+        workspace.pointerMode(false);
+        workspace.pointerMode(true);
+        assertSame(window,workspace.window(host));
+        assertEquals(new StoragePopupWorkspace.Point(305,12),new StoragePopupWorkspace.Point(window.x(),window.y()));
+        assertEquals(80,window.width());assertEquals(60,window.height());
+    }
     @Test void authoritativeResizeKeepsPositionAndZWhileClampingBounds() {
         var workspace = new StoragePopupWorkspace(400, 300);
         var key = StoragePopupWorkspace.HostKey.world(UUID.randomUUID());

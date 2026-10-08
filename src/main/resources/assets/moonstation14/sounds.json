@@ -5,34 +5,281 @@
     ],
     "subtitle": "sounds.moonstation14.crowbar_use"
   },
-  "tools/wirecutter": { "sounds": ["moonstation14:tools/wirecutter"] },
-  "apc/switch": { "sounds": ["moonstation14:apc/machine_switch"], "subtitle": "sounds.moonstation14.apc.switch" },
-  "airlock/airlock_open": { "sounds": ["moonstation14:airlock/airlock_open"], "subtitle": "sounds.moonstation14.airlock.open" },
-  "airlock/airlock_close": { "sounds": ["moonstation14:airlock/airlock_close"], "subtitle": "sounds.moonstation14.airlock.close" },
-  "airlock/airlock_deny": { "sounds": ["moonstation14:airlock/airlock_deny"], "subtitle": "sounds.moonstation14.airlock.deny" },
-  "airlock/boltsup": { "sounds": ["moonstation14:airlock/boltsup"], "subtitle": "sounds.moonstation14.airlock.bolts_up" },
-  "airlock/boltsdown": { "sounds": ["moonstation14:airlock/boltsdown"], "subtitle": "sounds.moonstation14.airlock.bolts_down" },
-  "airlock/panel_open": { "sounds": ["moonstation14:airlock/panel_open"], "subtitle": "sounds.moonstation14.airlock.panel_open" },
-  "airlock/panel_close": { "sounds": ["moonstation14:airlock/panel_close"], "subtitle": "sounds.moonstation14.airlock.panel_close" },
-  "airlock/airlock_electrify_on": { "sounds": ["moonstation14:airlock/airlock_electrify_on"] },
-  "airlock/airlock_electrify_off": { "sounds": ["moonstation14:airlock/airlock_electrify_off"] },
-  "airlock/shock": { "sounds": ["moonstation14:airlock/sparks/sparks1", "moonstation14:airlock/sparks/sparks2", "moonstation14:airlock/sparks/sparks3", "moonstation14:airlock/sparks/sparks4"] },
-  "ss14/items/drink": { "sounds": ["moonstation14:ss14/items/drink"] },
-  "gasp/male": { "sounds": ["moonstation14:gasp/gasp_male1", "moonstation14:gasp/gasp_male2"] },
-  "gasp/female": { "sounds": ["moonstation14:gasp/gasp_female1", "moonstation14:gasp/gasp_female2", "moonstation14:gasp/gasp_female3"] },
-  "grenade/beep": { "sounds": [{ "name": "moonstation14:grenade/beep1", "attenuation_distance": 32 }], "subtitle": "sounds.moonstation14.grenade.beep" },
-  "grenade/explode": { "sounds": [{ "name": "moonstation14:grenade/explosion1", "attenuation_distance": 32 }], "subtitle": "sounds.moonstation14.grenade.explode" },
-  "grenade/explode_far": { "sounds": ["moonstation14:grenade/explosionfar"], "subtitle": "sounds.moonstation14.grenade.explode_far" },
-  "disposal/flush": { "sounds": ["moonstation14:disposal/flush"], "subtitle": "sounds.moonstation14.disposal.flush" },
-  "disposal/pipe_clang": { "sounds": ["moonstation14:disposal/pipe_clang"], "subtitle": "sounds.moonstation14.disposal.pipe_clang" },
-  "disposal/insert": { "sounds": ["moonstation14:disposal/insert"], "subtitle": "sounds.moonstation14.disposal.insert" },
-  "emote/cough": { "sounds": ["moonstation14:emote/cough/male_cough_1", "moonstation14:emote/cough/male_cough_2", "moonstation14:emote/cough/female_cough_1", "moonstation14:emote/cough/female_cough_2"], "subtitle": "sounds.moonstation14.emote.cough" },
-  "emote/crying": { "sounds": ["moonstation14:emote/crying/cry_male_1", "moonstation14:emote/crying/cry_male_2", "moonstation14:emote/crying/cry_male_3", "moonstation14:emote/crying/cry_male_4", "moonstation14:emote/crying/cry_female_1", "moonstation14:emote/crying/cry_female_2", "moonstation14:emote/crying/cry_female_3", "moonstation14:emote/crying/cry_female_4"], "subtitle": "sounds.moonstation14.emote.crying" },
-  "emote/hew": { "sounds": ["moonstation14:emote/hew/hew"], "subtitle": "sounds.moonstation14.emote.hew" },
-  "emote/honk": { "sounds": ["moonstation14:emote/honk/goose_honk"], "subtitle": "sounds.moonstation14.emote.honk" },
-  "emote/laugh": { "sounds": ["moonstation14:emote/laugh/manlaugh1", "moonstation14:emote/laugh/manlaugh2", "moonstation14:emote/laugh/womanlaugh"], "subtitle": "sounds.moonstation14.emote.laugh" },
-  "emote/scream": { "sounds": ["moonstation14:emote/scream/malescream_1", "moonstation14:emote/scream/malescream_2", "moonstation14:emote/scream/malescream_3", "moonstation14:emote/scream/malescream_4", "moonstation14:emote/scream/malescream_5", "moonstation14:emote/scream/malescream_6", "moonstation14:emote/scream/femalescream_1", "moonstation14:emote/scream/femalescream_2", "moonstation14:emote/scream/femalescream_3", "moonstation14:emote/scream/femalescream_4", "moonstation14:emote/scream/femalescream_5"], "subtitle": "sounds.moonstation14.emote.scream" },
-  "emote/weh": { "sounds": ["moonstation14:emote/weh/weh"], "subtitle": "sounds.moonstation14.emote.weh" },
-  "emote/whistle": { "sounds": ["moonstation14:emote/whistle/whistle_1", "moonstation14:emote/whistle/whistle_2", "moonstation14:emote/whistle/whistle_3"], "subtitle": "sounds.moonstation14.emote.whistle" },
-  "emote/yawn": { "sounds": ["moonstation14:emote/yawn/male_yawn_1", "moonstation14:emote/yawn/female_yawn_1"], "subtitle": "sounds.moonstation14.emote.yawn" }
+  "medical/ointment_begin": {
+    "sounds": [
+      "moonstation14:medical/ointment_begin"
+    ]
+  },
+  "medical/ointment_end": {
+    "sounds": [
+      "moonstation14:medical/ointment_end"
+    ]
+  },
+  "medical/brutepack_begin": {
+    "sounds": [
+      "moonstation14:medical/brutepack_begin"
+    ]
+  },
+  "medical/brutepack_end": {
+    "sounds": [
+      "moonstation14:medical/brutepack_end"
+    ]
+  },
+  "medical/healthscanner": {
+    "sounds": [
+      "moonstation14:medical/healthscanner"
+    ]
+  },
+  "apc/switch": {
+    "sounds": [
+      "moonstation14:apc/machine_switch"
+    ],
+    "subtitle": "sounds.moonstation14.apc.switch"
+  },
+  "ss14/items/drink": {
+    "sounds": [
+      "moonstation14:ss14/items/drink"
+    ]
+  },
+  "body_fall": {
+    "sounds": [
+      {
+        "name": "moonstation14:bodyfall1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:bodyfall2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:bodyfall3",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:bodyfall4",
+        "weight": 1
+      }
+    ]
+  },
+  "gasp/male": {
+    "sounds": [
+      "moonstation14:gasp/gasp_male1",
+      "moonstation14:gasp/gasp_male2"
+    ]
+  },
+  "gasp/female": {
+    "sounds": [
+      "moonstation14:gasp/gasp_female1",
+      "moonstation14:gasp/gasp_female2",
+      "moonstation14:gasp/gasp_female3"
+    ]
+  },
+  "grenade/beep": {
+    "sounds": [
+      {
+        "name": "moonstation14:grenade/beep1",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "sounds.moonstation14.grenade.beep"
+  },
+  "grenade/explode": {
+    "sounds": [
+      {
+        "name": "moonstation14:grenade/explosion1",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "sounds.moonstation14.grenade.explode"
+  },
+  "grenade/explode_far": {
+    "sounds": [
+      "moonstation14:grenade/explosionfar"
+    ],
+    "subtitle": "sounds.moonstation14.grenade.explode_far"
+  },
+  "disposal/flush": {
+    "sounds": [
+      "moonstation14:disposal/flush"
+    ],
+    "subtitle": "sounds.moonstation14.disposal.flush"
+  },
+  "disposal/pipe_clang": {
+    "sounds": [
+      "moonstation14:disposal/pipe_clang"
+    ],
+    "subtitle": "sounds.moonstation14.disposal.pipe_clang"
+  },
+  "disposal/insert": {
+    "sounds": [
+      "moonstation14:disposal/insert"
+    ],
+    "subtitle": "sounds.moonstation14.disposal.insert"
+  },
+  "emote/cough": {
+    "sounds": [
+      "moonstation14:emote/cough/male_cough_1",
+      "moonstation14:emote/cough/male_cough_2",
+      "moonstation14:emote/cough/female_cough_1",
+      "moonstation14:emote/cough/female_cough_2"
+    ],
+    "subtitle": "sounds.moonstation14.emote.cough"
+  },
+  "emote/crying": {
+    "sounds": [
+      "moonstation14:emote/crying/cry_male_1",
+      "moonstation14:emote/crying/cry_male_2",
+      "moonstation14:emote/crying/cry_male_3",
+      "moonstation14:emote/crying/cry_male_4",
+      "moonstation14:emote/crying/cry_female_1",
+      "moonstation14:emote/crying/cry_female_2",
+      "moonstation14:emote/crying/cry_female_3",
+      "moonstation14:emote/crying/cry_female_4"
+    ],
+    "subtitle": "sounds.moonstation14.emote.crying"
+  },
+  "emote/hew": {
+    "sounds": [
+      "moonstation14:emote/hew/hew"
+    ],
+    "subtitle": "sounds.moonstation14.emote.hew"
+  },
+  "emote/honk": {
+    "sounds": [
+      "moonstation14:emote/honk/goose_honk"
+    ],
+    "subtitle": "sounds.moonstation14.emote.honk"
+  },
+  "emote/laugh": {
+    "sounds": [
+      "moonstation14:emote/laugh/manlaugh1",
+      "moonstation14:emote/laugh/manlaugh2",
+      "moonstation14:emote/laugh/womanlaugh"
+    ],
+    "subtitle": "sounds.moonstation14.emote.laugh"
+  },
+  "emote/scream": {
+    "sounds": [
+      "moonstation14:emote/scream/malescream_1",
+      "moonstation14:emote/scream/malescream_2",
+      "moonstation14:emote/scream/malescream_3",
+      "moonstation14:emote/scream/malescream_4",
+      "moonstation14:emote/scream/malescream_5",
+      "moonstation14:emote/scream/malescream_6",
+      "moonstation14:emote/scream/femalescream_1",
+      "moonstation14:emote/scream/femalescream_2",
+      "moonstation14:emote/scream/femalescream_3",
+      "moonstation14:emote/scream/femalescream_4",
+      "moonstation14:emote/scream/femalescream_5"
+    ],
+    "subtitle": "sounds.moonstation14.emote.scream"
+  },
+  "emote/weh": {
+    "sounds": [
+      "moonstation14:emote/weh/weh"
+    ],
+    "subtitle": "sounds.moonstation14.emote.weh"
+  },
+  "emote/whistle": {
+    "sounds": [
+      "moonstation14:emote/whistle/whistle_1",
+      "moonstation14:emote/whistle/whistle_2",
+      "moonstation14:emote/whistle/whistle_3"
+    ],
+    "subtitle": "sounds.moonstation14.emote.whistle"
+  },
+  "emote/yawn": {
+    "sounds": [
+      "moonstation14:emote/yawn/male_yawn_1",
+      "moonstation14:emote/yawn/female_yawn_1"
+    ],
+    "subtitle": "sounds.moonstation14.emote.yawn"
+  },
+  "ss14/tools/ratchet": {
+    "sounds": [
+      "moonstation14:ss14/tools/ratchet"
+    ]
+  },
+  "ss14/tools/crowbar": {
+    "sounds": [
+      "moonstation14:ss14/tools/crowbar"
+    ]
+  },
+  "ss14/tools/screwdriver": {
+    "sounds": [
+      "moonstation14:ss14/tools/screwdriver",
+      "moonstation14:ss14/tools/screwdriver2"
+    ]
+  },
+  "ss14/tools/welder": {
+    "sounds": [
+      "moonstation14:ss14/tools/welder",
+      "moonstation14:ss14/tools/welder2"
+    ]
+  },
+  "tools/wirecutter": {
+    "sounds": [
+      "moonstation14:tools/wirecutter"
+    ]
+  },
+  "airlock/airlock_open": {
+    "sounds": [
+      "moonstation14:airlock/airlock_open"
+    ],
+    "subtitle": "sounds.moonstation14.airlock.open"
+  },
+  "airlock/airlock_close": {
+    "sounds": [
+      "moonstation14:airlock/airlock_close"
+    ],
+    "subtitle": "sounds.moonstation14.airlock.close"
+  },
+  "airlock/airlock_deny": {
+    "sounds": [
+      "moonstation14:airlock/airlock_deny"
+    ],
+    "subtitle": "sounds.moonstation14.airlock.deny"
+  },
+  "airlock/boltsup": {
+    "sounds": [
+      "moonstation14:airlock/boltsup"
+    ],
+    "subtitle": "sounds.moonstation14.airlock.bolts_up"
+  },
+  "airlock/boltsdown": {
+    "sounds": [
+      "moonstation14:airlock/boltsdown"
+    ],
+    "subtitle": "sounds.moonstation14.airlock.bolts_down"
+  },
+  "airlock/panel_open": {
+    "sounds": [
+      "moonstation14:airlock/panel_open"
+    ],
+    "subtitle": "sounds.moonstation14.airlock.panel_open"
+  },
+  "airlock/panel_close": {
+    "sounds": [
+      "moonstation14:airlock/panel_close"
+    ],
+    "subtitle": "sounds.moonstation14.airlock.panel_close"
+  },
+  "airlock/airlock_electrify_on": {
+    "sounds": [
+      "moonstation14:airlock/airlock_electrify_on"
+    ]
+  },
+  "airlock/airlock_electrify_off": {
+    "sounds": [
+      "moonstation14:airlock/airlock_electrify_off"
+    ]
+  },
+  "airlock/shock": {
+    "sounds": [
+      "moonstation14:airlock/sparks/sparks1",
+      "moonstation14:airlock/sparks/sparks2",
+      "moonstation14:airlock/sparks/sparks3",
+      "moonstation14:airlock/sparks/sparks4"
+    ]
+  }
 }

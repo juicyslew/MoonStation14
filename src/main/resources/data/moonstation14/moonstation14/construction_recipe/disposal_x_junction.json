@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal X Junction","description":"Build a disposal X junction","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_x_junction","graph":"disposal_pipes","startingNode":"start","targetNode":"x_junction"}

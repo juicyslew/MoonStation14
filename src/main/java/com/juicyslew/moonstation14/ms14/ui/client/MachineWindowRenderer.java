@@ -13,7 +13,7 @@ public final class MachineWindowRenderer {
     private static final int HEADER = 0xff26363d;
     private static final int INSET = 0xff141f24;
     private static final int TRACK = 0xff090f12;
-    private static final int HIGHLIGHT = 0xff82959b;
+    public static final int HIGHLIGHT = 0xff82959b;
     private static final String[] PERCENT_LABELS = new String[101];
 
     static {
@@ -32,6 +32,19 @@ public final class MachineWindowRenderer {
         graphics.fill(x + 3, y + 3, x + width - 3, y + 26, HEADER);
         divider(graphics, x + 3, y + 26, width - 6);
         graphics.drawString(font, title, x + 10, y + 10, TEXT, true);
+    }
+
+    /** Same machine frame with a compact 13px title region for half-scale chat-sized windows. */
+    public static void compactWindow(net.minecraft.client.gui.GuiGraphics graphics, net.minecraft.client.gui.Font font,
+                                     int x,int y,int width,int height,Component title) {
+        if(width<=0||height<=0)return;
+        graphics.fill(x,y,x+width,y+height,FRAME);
+        graphics.fill(x+1,y+1,x+width-1,y+height-1,BORDER);
+        graphics.fill(x+2,y+2,x+width-2,y+height-2,FACE);
+        graphics.fill(x+3,y+3,x+width-3,y+13,HEADER);
+        divider(graphics,x+3,y+13,width-6);
+        graphics.pose().pushPose();graphics.pose().translate(x+5,y+4,0);graphics.pose().scale(.5f,.5f,1);
+        graphics.drawString(font,title,0,5,TEXT,true);graphics.pose().popPose();
     }
 
     /** Recessed panel, including a one-pixel rim. */

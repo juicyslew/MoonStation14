@@ -6,6 +6,16 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MachineSearchListLabelsTest {
+    @Test void rowPlacementKeepsIconsAndScaledLabelsInsideCompactRow() {
+        var icon=MachineSearchList.rowPlacement(9,true);
+        assertEquals(1,icon.iconY());
+        assertEquals(3.5f,icon.labelY());
+        assertEquals(7f,icon.iconY()+12/2f,"12-unit icon canvas is centred in the 14-unit row");
+        assertTrue(icon.labelY()+9*.8f+.8f/2<MachineSearchList.ROW_HEIGHT);
+        var plain=MachineSearchList.rowPlacement(9,false);
+        assertEquals(3.5f,plain.labelY(),"label placement remains unchanged");
+        assertEquals(icon.labelY(),plain.labelY());
+    }
     private static final List<FilteredListModel.Entry> ENTRIES = List.of(
             new FilteredListModel.Entry("oxygen", "Oxygen"),
             new FilteredListModel.Entry("nitrogen", "Nitrogen"),
@@ -40,5 +50,16 @@ class MachineSearchListLabelsTest {
             model.filter("nit"); // The gallery reapplies the query after building its resized list.
             assertEquals("Nitrogen", labels.get(model.visibleAt(0).id()).getString());
         }
+    }
+
+    @Test void firstSingleBrowserPublicationBuildsLabelsAndRefreshAtSameRevisionPreservesThem() {
+        var model=new FilteredListModel(16,2);
+        var labels=new MachineSearchList.LabelCache(model);
+        assertTrue(labels.snapshot(0,ENTRIES));
+        assertEquals("Oxygen",labels.get("oxygen").getString());
+        assertFalse(labels.snapshot(0,ENTRIES)); // unchanged browser refresh is a no-op, not a second emptying publish
+        assertNotNull(labels.get("oxygen"));
+        model.filter("Carbon");
+        assertEquals("Carbon dioxide",labels.get(model.visibleAt(0).id()).getString());
     }
 }

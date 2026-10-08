@@ -74,7 +74,7 @@ public final class BodyEquipmentTransfer {
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body) || !eligible(slot, stack)) return Result.DENIED;
         try {
-            body.setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow());
+            LiveHandsCommitGateway.commitOwned(body, next.orElseThrow());
         } catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;

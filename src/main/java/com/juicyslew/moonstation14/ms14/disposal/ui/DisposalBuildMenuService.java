@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.disposal.ui;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
+import com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
@@ -80,53 +81,105 @@ public final class DisposalBuildMenuService {
            return resolved!=null&&DisposalConstructionPlacementPolicy.matchesMaterial(resolved.construction(),held.getItem());
        }
 
-      private static boolean startPlacement(ServerPlayer actor, BodyBlockUseRequest request,
-               HandActorAuthority.Snapshot authority, DisposalConstructionMode.Plan plan) {
-           String prototype=plan.prototype();
-          if(actor==null||request==null||authority==null||!(authority.body().level() instanceof ServerLevel level)
-                  ||!HandActorAuthority.revalidate(actor,authority))return false;
-          if(PENDING.containsKey(authority.body().getUUID()))return false;
-          var hands=authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-           var resolved=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(prototype));
-           if(resolved==null||resolved.construction()==null||!DisposalConstructionPlacementPolicy.matchesMaterial(resolved.construction(),hands==null?null:hands.stackCopy(request.handId()).map(ItemStack::getItem).orElse(null)))return false;
-           if(hands==null||!request.handId().equals(hands.activeHand())||request.expectedRevision()!=hands.revision()
-                   ||!authority.handIds().contains(request.handId())
-                    ||!hands.token(request.handId()).filter(request.expectedToken()::equals).isPresent()
-                    ||hands.stackCopy(request.handId()).filter(s->DisposalConstructionPlacementPolicy.enoughMaterial(resolved.construction(),s.getItem(),s.getCount())).isEmpty())return false;
-          BlockPos host=request.target().immutable(); var state=level.getBlockState(host);
+        private static boolean startPlacement(ServerPlayer actor, BodyBlockUseRequest request,
+                 HandActorAuthority.Snapshot authority, DisposalConstructionMode.Plan plan) {
+            if(actor==null||request==null||authority==null||plan==null)return false;
+           if(PENDING.containsKey(authority.body().getUUID()))return false;
+           Pending pending=preparePlacement(actor,request,authority,plan,null,-1);
+           if(pending==null)return false;
+           PENDING.put(authority.body().getUUID(),pending);
+           ServerLevel level=(ServerLevel)authority.body().level();
+           if (DisposalConstructionPlacementPolicy.requiredTicks(PrototypeRuntime.serverDisposals()
+                   .get(net.minecraft.resources.ResourceLocation.tryParse(pending.prototype())).construction()) == 0)
+               finish(pending, level);
+           return true;
+       }
+
+        private static Pending preparePlacement(ServerPlayer actor, BodyBlockUseRequest request,
+                HandActorAuthority.Snapshot authority, DisposalConstructionMode.Plan plan, DisposalBuildMenu menu, int canonicalCost) {
+            if(plan==null)return null;
+            String prototype=plan.prototype();
+           if(actor==null||request==null||authority==null||!(authority.body().level() instanceof ServerLevel level)
+                   ||!HandActorAuthority.revalidate(actor,authority))return null;
+           var hands=authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+             var resolved=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(prototype));
+             ItemStack source=hands==null?null:hands.stackCopy(request.handId()).orElse(null);
+             if(resolved==null||resolved.construction()==null||source==null)return null;
+             if(canonicalCost<0) {
+                 if(!DisposalConstructionPlacementPolicy.matchesMaterial(resolved.construction(),source.getItem()))return null;
+             } else if(!source.is(com.juicyslew.moonstation14.item.ModItems.STEEL)||source.getCount()<canonicalCost)return null;
+            if(hands==null||!request.handId().equals(hands.activeHand())||request.expectedRevision()!=hands.revision()
+                    ||!authority.handIds().contains(request.handId())
+                      ||!hands.token(request.handId()).filter(request.expectedToken()::equals).isPresent()
+                      ||(canonicalCost<0?!DisposalConstructionPlacementPolicy.enoughMaterial(resolved.construction(),source.getItem(),source.getCount())
+                              :source.getCount()<canonicalCost))return null;
+           BlockPos host=request.target().immutable(); var state=level.getBlockState(host);
             boolean eligibleSteel=com.juicyslew.moonstation14.ms14.atmos.piping.SealedWallHostEligibility.defaults().eligible(level,host);
             boolean liveTube=com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData.existing(level)
                     .map(data -> data.lookup(level,host).kind()==com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeWorldData.LookupKind.PRESENT).orElse(false);
             boolean sealed=DisposalConstructionTargetPolicy.sealed(eligibleSteel,liveTube,resolved.tube().kind());
-            if(!eligibleHost(level,host,sealed))return false;
+            if(!eligibleHost(level,host,sealed))return null;
            BlockPos target=sealed?host:host.relative(request.face());
            var chunk=level.getChunkSource().getChunk(target.getX()>>4,target.getZ()>>4,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false);
-           if(!(chunk instanceof net.minecraft.world.level.chunk.LevelChunk)||(!sealed&&!level.getBlockState(target).isAir()))return false;
+            if(!(chunk instanceof net.minecraft.world.level.chunk.LevelChunk)||(!sealed&&!level.getBlockState(target).isAir()))return null;
            var look=authority.body().getLookAngle();
            var bodyLook=Direction.getNearest(look.x,look.y,look.z);
            var preferred=com.juicyslew.moonstation14.ms14.disposal.domain.DisposalOrientation.placement(request.face(),bodyLook);
            var candidates=com.juicyslew.moonstation14.ms14.disposal.domain.DisposalOrientationCandidates.candidates(resolved.tube(),preferred,reciprocalNeighbours(level,target));
-           if(candidates.isEmpty())return false;
+            if(candidates.isEmpty())return null;
            var frame=candidates.get(Math.floorMod(plan.rotationOffset(),candidates.size()));
-          if(!collisionFree(level,authority.body(),target,prototype,frame,sealed))return false;
+           if(!collisionFree(level,authority.body(),target,prototype,frame,sealed))return null;
           var chunkAtHost=level.getChunkSource().getChunk(host.getX()>>4,host.getZ()>>4,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false);
-          if(!(chunkAtHost instanceof net.minecraft.world.level.chunk.LevelChunk hostChunk))return false;
+           if(!(chunkAtHost instanceof net.minecraft.world.level.chunk.LevelChunk hostChunk))return null;
           var generations=hostChunk.getExistingDataOrNull(ModDataAttachments.SEALED_WALL_HOST_GENERATIONS.get());
           if(sealed&&generations==null)generations=hostChunk.getData(ModDataAttachments.SEALED_WALL_HOST_GENERATIONS.get());
           var generation=sealed&&generations!=null?generations.active(host.asLong()).orElse(null):null;
           if(sealed&&generation==null){
-              if(generations.hasRecord(host.asLong())||!generations.registerIfAbsent(host.asLong(),java.util.UUID.randomUUID()))return false;
+               if(generations.hasRecord(host.asLong())||!generations.registerIfAbsent(host.asLong(),java.util.UUID.randomUUID()))return null;
               generation=generations.active(host.asLong()).orElseThrow();
               hostChunk.setUnsaved(true);
           }
-           var pending=new Pending(null,authority,actor,authority.body(),authority.body().position(),request.handId(),request.expectedToken(),hands.revision(),host,target,sealed,prototype,plan.revision(),frame,level.getGameTime(),state,generation);
-           PENDING.put(authority.body().getUUID(),pending);
-           // Zero-time recipes are deliberately synchronous: there is no tick-sized
-           // pending-action barrier for the ordinary pipe placement adaptation.
-           if (DisposalConstructionPlacementPolicy.requiredTicks(resolved.construction()) == 0)
-               finish(pending, level);
-           return true;
-      }
+             return new Pending(menu,authority,actor,authority.body(),authority.body().position(),request.handId(),request.expectedToken(),hands.revision(),host,target,sealed,prototype,plan.revision(),frame,level.getGameTime(),state,generation);
+        }
+
+       /** Shared construction-menu entry: candidate geometry is selected by this same legacy placement adapter,
+        * while material ownership and timed execution are delegated to ConstructionWorldService. */
+       public static boolean beginSharedPlacement(com.juicyslew.moonstation14.ms14.hands.network.BodyUseItemContext context,
+               net.minecraft.resources.ResourceLocation recipeId,
+               com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionCatalog.InitialStage stage) {
+           var authority=context.authority();
+           var plan=DisposalConstructionMode.activePlan(authority).orElse(null);
+           if(plan==null||stage==null||!plan.prototype().equals(ModConstruction.entityId(stage.entity()).toString()))return false;
+           var request=new BodyBlockUseRequest(authority.epoch(),1,context.revision(),context.handId(),context.token(),
+                   context.pos(),context.face(),false);
+           int cost=0;
+           for(var step:stage.steps()) {
+               if(!(step instanceof com.juicyslew.moonstation14.ms14.construction.domain.ConstructionGraph.MaterialStep material)
+                       ||material.material()!=com.juicyslew.moonstation14.ms14.construction.domain.ConstructionGraph.MaterialId.Steel)return false;
+               cost=Math.addExact(cost,material.amount());
+           }
+           if(cost<1)return false;
+           Pending prepared=preparePlacement(context.actor(),request,authority,plan,null,cost);
+           if(prepared==null)return false;
+           ServerLevel level=(ServerLevel)authority.body().level();
+           return com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService.beginReservedPlacement(
+                   context,cost,stage.durationSeconds(),prepared.target(),prepared.target().asLong()+":"+prepared.host().asLong(),
+                   ()->validSharedPlacement(prepared,level),()->installSharedPlacement(prepared,level));
+       }
+
+       private static boolean validSharedPlacement(Pending p,ServerLevel level) {
+           return p.body().level()==level&&p.body().isAlive()&&HandActorAuthority.revalidate(p.actor(),p.authority())
+                   &&level.hasChunkAt(p.host())&&level.hasChunkAt(p.target())&&level.mayInteract(p.actor(),p.host())
+                   &&level.mayInteract(p.actor(),p.target())&&hostUnchanged(level,p)
+                   &&validPlacement(level,p)&&collisionFree(level,p.body(),p.target(),p.prototype(),p.frame(),p.sealed())
+                   &&DisposalTubeWorldData.existing(level).map(d->d.lookup(level,p.target()).kind()==DisposalTubeWorldData.LookupKind.ABSENT).orElse(true);
+       }
+
+       private static com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.Completion installSharedPlacement(Pending p,ServerLevel level) {
+           return installPrepared(p,level)==null
+                   ?com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.Completion.DENIED
+                   :com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.Completion.STOP;
+       }
 
       private static boolean collisionFree(ServerLevel level, LivingEntity body, BlockPos pos, String prototype,
               com.juicyslew.moonstation14.ms14.disposal.domain.DisposalOrientation frame, boolean sealed) {
@@ -289,49 +342,48 @@ public final class DisposalBuildMenuService {
          if(resolved==null||resolved.construction()==null)return false;
          return h!=null&&h.revision()==p.revision()&&p.hand().equals(h.activeHand())&&h.token(p.hand()).filter(p.token()::equals).isPresent()&&h.stackCopy(p.hand()).map(s->DisposalConstructionPlacementPolicy.enoughMaterial(resolved.construction(),s.getItem(),s.getCount())).orElse(false);
     }
-    private static void finish(Pending p,ServerLevel level) {
-         var menu=p.menu(); var auth=p.authority(); boolean recipe=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(p.prototype()))!=null;
-           var plan=auth==null?null:DisposalConstructionMode.activePlan(auth).orElse(null);
-           var recipeData=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(p.prototype()));
-           long required=recipeData==null?Long.MAX_VALUE:DisposalConstructionPlacementPolicy.requiredTicks(recipeData.construction());
-           if(auth==null||!DisposalConstructionPlacementPolicy.samePlan(plan,p.prototype(),p.planRevision())
-                   ||!DisposalBuildActionPolicy.mayComplete(level.getGameTime()-p.started(),required,true,p.body().position().equals(p.bodyPos()),validPlacement(level,p),recipe,sourceMatches(p))||!HandActorAuthority.revalidate(p.actor(),auth)){cancel(p,"Construction failed");return;}
-         var data=DisposalTubeWorldData.forMutation(level); if(data.lookup(level,p.target()).kind()!=DisposalTubeWorldData.LookupKind.ABSENT){cancel(p,"Target unavailable");return;}
+     private static void finish(Pending p,ServerLevel level) {
+          var menu=p.menu(); var auth=p.authority(); boolean recipe=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(p.prototype()))!=null;
+          var plan=auth==null?null:DisposalConstructionMode.activePlan(auth).orElse(null);
+          var recipeData=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(p.prototype()));
+          long required=recipeData==null?Long.MAX_VALUE:DisposalConstructionPlacementPolicy.requiredTicks(recipeData.construction());
+          if(auth==null||!DisposalConstructionPlacementPolicy.samePlan(plan,p.prototype(),p.planRevision())
+                  ||!DisposalBuildActionPolicy.mayComplete(level.getGameTime()-p.started(),required,true,p.body().position().equals(p.bodyPos()),validPlacement(level,p),recipe,sourceMatches(p))||!HandActorAuthority.revalidate(p.actor(),auth)){cancel(p,"Construction failed");return;}
           if(!validPlacement(level,p)||!collisionFree(level,p.body(),p.target(),p.prototype(),p.frame(),p.sealed())||!sourceMatches(p)){cancel(p,"Construction cancelled");return;}
-        var hands=auth.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-         if(hands==null){cancel(p,"Materials changed");return;}
-         var resolved=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(p.prototype()));
+          var hands=auth.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+          if(hands==null){cancel(p,"Materials changed");return;}
+          var resolved=recipeData;
           if(resolved==null||resolved.construction()==null||DisposalConstructionPlacementPolicy.requiredMaterial(resolved.construction()).isEmpty()){cancel(p,"Target unavailable");return;}
-         int cost=resolved.construction().steelCount();
-           var before=hands.stackCopy(p.hand()).orElse(ItemStack.EMPTY); if(!DisposalConstructionPlacementPolicy.enoughMaterial(resolved.construction(),before.getItem(),before.getCount())){cancel(p,"Need "+cost+" material");return;}
-         ItemStack after=before.copy(); after.shrink(cost);
-          boolean hostWall=p.sealed();
-          if(hostWall && !p.prototype().equals(ModDisposals.id("disposal_pipe").toString())) { cancel(p,"Target unavailable"); return; }
-           if(resolved==null){cancel(p,"Target unavailable");return;}
-          var record=new DisposalTubeRecord(UUID.randomUUID(),p.target(),p.prototype(),p.frame(),resolved.anchored(),"","",0,
-                  DisposalTubeRecord.HostKind.EXPOSED,"",null);
-          boolean installed=hostWall ? data.installSealed(level,p.host(),p.frame(),p.prototype())
-                  : data.installExposed(level,record);
-          if(!installed) { cancel(p,"Target changed"); return; }
-          if(hostWall) record=data.lookup(level,p.host()).record();
-         var committed=BodyHeldItemMutation.commit(p.actor(),auth,hands,p.hand(),p.token(),p.revision(),before,after);
-         var materials = observeMaterials(auth.body(), level, p.hand(), p.token(), p.revision(), before, after);
-         var decision = DisposalBuildCommitPolicy.decide(committed, materials);
-         if (decision == DisposalBuildCommitPolicy.Decision.ROLLBACK_TUBE) {
-              boolean rolledBack = data.remove(level, record, pos -> true);
-              if (rolledBack && record.hostKind() == DisposalTubeRecord.HostKind.EXPOSED
-                      && level.getBlockState(record.pos()).is(ModBlocks.DISPOSAL_TUBE.get()))
-                  level.setBlock(record.pos(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
-              cancel(p, rolledBack ? "Construction failed" : "Construction recovery required");
-             return;
-         }
-         if (decision == DisposalBuildCommitPolicy.Decision.KEEP_TUBE_RECOVERY) {
-              if(menu!=null)menu.result("Construction recovery required");
-              PENDING.remove(p.body().getUUID(),p);
-             return;
-         }
-          if(menu!=null)menu.result("Construction complete"); PENDING.remove(p.body().getUUID(),p);
-     }
+          int cost=resolved.construction().steelCount();
+          var before=hands.stackCopy(p.hand()).orElse(ItemStack.EMPTY);
+          if(!DisposalConstructionPlacementPolicy.enoughMaterial(resolved.construction(),before.getItem(),before.getCount())){cancel(p,"Need "+cost+" material");return;}
+          ItemStack after=before.copy(); after.shrink(cost);
+          var record=installPrepared(p,level);
+          if(record==null){cancel(p,"Target changed");return;}
+          var committed=BodyHeldItemMutation.commit(p.actor(),auth,hands,p.hand(),p.token(),p.revision(),before,after);
+          var materials=observeMaterials(auth.body(),level,p.hand(),p.token(),p.revision(),before,after);
+          var decision=DisposalBuildCommitPolicy.decide(committed,materials);
+          if(decision==DisposalBuildCommitPolicy.Decision.ROLLBACK_TUBE){
+              boolean rolledBack=DisposalTubeWorldData.forMutation(level).remove(level,record,pos->true);
+              if(rolledBack&&record.hostKind()==DisposalTubeRecord.HostKind.EXPOSED&&level.getBlockState(record.pos()).is(ModBlocks.DISPOSAL_TUBE.get()))
+                  level.setBlock(record.pos(),net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),3);
+              cancel(p,rolledBack?"Construction failed":"Construction recovery required");return;
+          }
+          if(decision==DisposalBuildCommitPolicy.Decision.KEEP_TUBE_RECOVERY){if(menu!=null)menu.result("Construction recovery required");PENDING.remove(p.body().getUUID(),p);return;}
+          if(menu!=null)menu.result("Construction complete");PENDING.remove(p.body().getUUID(),p);
+      }
+
+      /** One physical world transaction for both the legacy menu wrapper and shared reserved construction. */
+      private static DisposalTubeRecord installPrepared(Pending p,ServerLevel level) {
+          if(!validPlacement(level,p)||!collisionFree(level,p.body(),p.target(),p.prototype(),p.frame(),p.sealed())||!hostUnchanged(level,p))return null;
+          var data=DisposalTubeWorldData.forMutation(level);
+          if(data.lookup(level,p.target()).kind()!=DisposalTubeWorldData.LookupKind.ABSENT)return null;
+          var resolved=PrototypeRuntime.serverDisposals().get(net.minecraft.resources.ResourceLocation.tryParse(p.prototype()));
+          if(resolved==null||resolved.construction()==null||p.sealed()&&!p.prototype().equals(ModDisposals.id("disposal_pipe").toString()))return null;
+          var record=new DisposalTubeRecord(UUID.randomUUID(),p.target(),p.prototype(),p.frame(),resolved.anchored(),"","",0,DisposalTubeRecord.HostKind.EXPOSED,"",null);
+          if(!(p.sealed()?data.installSealed(level,p.host(),p.frame(),p.prototype()):data.installExposed(level,record)))return null;
+          return p.sealed()?data.lookup(level,p.host()).record():record;
+      }
      private static DisposalBuildCommitPolicy.Materials observeMaterials(LivingEntity body, ServerLevel level,
              String hand, String token, long revision, ItemStack before, ItemStack after) {
          if (body == null || body.level() != level || body.isRemoved() || !body.isAddedToLevel()

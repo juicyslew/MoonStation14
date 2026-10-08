@@ -113,6 +113,31 @@ The approved input correction is Ctrl + left-click (`TryPullObject`), matching
 `Resources/keybinds.yml:226–230` and the shared interaction pointer binding.
 Implementation and connected-client acceptance of this correction remain pending.
 
+## Medical forced-down audio
+
+Pinned `Content.Shared/Mobs/Components/StandingStateComponent.cs` supplies the
+`BodyFall` default; `MobHuman → BaseSpeciesMobOrganic` and `MobPig → SimpleMobBase`
+inherit `StandingState`. SS14's critical/dead and stun-knockdown paths call the
+shared standing transition with sound enabled only when actually changing from
+standing to down; component startup and already-down transitions are quiet.
+Local `StandingStateComponent.down_sound` resolves through prototype inheritance,
+defaulting to the native `moonstation14:body_fall` weighted event (see
+`FALL-AUDIO.md`). Medical and knockdown forced-down transitions share the existing
+posture save boundary and controlled positional sound dispatch; only actual
+standing→down transitions after the body is registered in its live level emit;
+native tick count is not used as a proxy for initialization because active
+Minecraft entities can validly have tick count zero. Join/restore, already-down
+medical updates, rolls, movement refresh, and voluntary C prone remain quiet.
+Voluntary C-prone quietness is an intentional Minecraft adaptation because no
+matching SS14 manual-player-prone sound call was found. Playback is server
+authoritative and routed through each player's active camera, matching medical
+treatment audio rather than adding an owner/world duplicate.
+`PostureSystem`'s package-private test path supplies only the audio sink; it uses
+the same forced-down transition, resolved component, and physical posture commit
+as the production dispatcher. Tagged GameTests observe selected sound IDs and
+state transitions, not client audibility; `ControlledSoundDispatch` retains its
+separate camera-routing tests.
+
 ## Approved face-up / face-down representation
 
 ### Idle prone rendering geometry

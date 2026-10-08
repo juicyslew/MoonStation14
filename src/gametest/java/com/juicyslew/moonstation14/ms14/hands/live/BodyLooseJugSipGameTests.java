@@ -13,6 +13,10 @@ import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
 import com.juicyslew.moonstation14.ms14.stomach.StomachSystem;
+import com.juicyslew.moonstation14.component.ModDataComponents;
+import com.juicyslew.moonstation14.ms14.medical.SyringeStackData;
+import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.item.custom.SyringeItem;
 import com.juicyslew.moonstation14.entities.LooseItemEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -146,6 +150,152 @@ public final class BodyLooseJugSipGameTests {
                         == BodyLiquidInteraction.Result.DENIED,
                 "full target is rejected");
         requireUnchanged(body, target, snapshot, heldSnapshot, worldSnapshot, hand, "full target denial");
+        helper.succeed();
+    }
+
+    @GameTestTags({"syringe", "medical-treatment", "hands", "chemistry"})
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void syringeContainerSelectedDosesDrawAndInjectAtTwoBlockReach(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = EntityType.VILLAGER.create(level);
+        require(body != null, "human body created");
+        body.setNoAi(true); body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+        body.setYRot(-90); body.setYHeadRot(-90); body.setXRot(0);
+        require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level,
+                com.juicyslew.moonstation14.ms14.character.ModCharacters.HUMAN_ID), "human body enrolled");
+        require(LiveHands.initialize(body).isPresent() && BodySystem.reconcile(body), "typed hands initialized");
+        LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        String hand = initial.activeHand();
+        var syringe = new ItemStack(ModItems.SYRINGE.get());
+        var initialData = SyringeItem.initialData(level);
+        syringe.set(ModDataComponents.SYRINGE.get(), new SyringeStackData(initialData.mode(), 5));
+        LiveHands.WholeResult heldResult = initial.putWhole(initial.revision(), hand,
+                new com.juicyslew.moonstation14.ms14.hands.ItemToken("syringe"), syringe);
+        require(heldResult.succeeded(), "real syringe inserted into hands");
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), heldResult.state());
+        LiveHands hands = heldResult.state();
+        String token = hands.token(hand).orElseThrow();
+        LooseItemEntity target = LooseItemEntity.create(level,
+                new Vec3(origin.getX() + 2.25, origin.getY() + 1.2, origin.getZ() + .5), filledJug(30));
+        target.setNoPickUpDelay(); require(level.addFreshEntity(target), "loose jug spawned");
+        var initialBox = target.getBoundingBox();
+        var eye = body.getEyePosition();
+        double targetX = eye.x + 1.75 + (target.getX() - initialBox.minX);
+        double targetY = eye.y + (target.getY() - initialBox.getCenter().y);
+        double targetZ = eye.z + (target.getZ() - initialBox.getCenter().z);
+        target.setPos(targetX, targetY, targetZ);
+        var box = target.getBoundingBox();
+        var closest = new net.minecraft.world.phys.Vec3(
+                net.minecraft.util.Mth.clamp(eye.x, box.minX, box.maxX),
+                net.minecraft.util.Mth.clamp(eye.y, box.minY, box.maxY),
+                net.minecraft.util.Mth.clamp(eye.z, box.minZ, box.maxZ));
+        require(Math.abs(eye.distanceTo(closest) - 1.75) < 1e-6,
+                "non-inflated jug bounding box nearest face is exactly 1.75 from body eye");
+        double horizontal = Math.sqrt(Math.pow(closest.x - body.getX(), 2) + Math.pow(closest.z - body.getZ(), 2));
+        body.setYRot(-90); body.setYHeadRot(-90);
+        body.setXRot((float)-Math.toDegrees(Math.atan2(closest.y - body.getEyeY(), horizontal)));
+        require(BodyItemTargetProbe.probeSelected(level, body, target.getUUID(), 2.0) != null,
+                "the correctly aimed 2.0-block probe admits the target");
+        require(BodyItemTargetProbe.loadedReachableItem(level, body, target.getUUID(), 2.0),
+                "the actual completion reach predicate admits the target at 2.0 blocks");
+        require(!BodyItemTargetProbe.loadedReachableItem(level, body, target.getUUID(), 1.5),
+                "the former non-inflated completion predicate rejects this target at 1.5 blocks");
+
+        var catalog = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(level);
+        var policy = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(catalog, SyringeItem.PROTOTYPE_ID)
+                .syringePolicy().orElseThrow();
+        var modes = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverInjectorModes();
+        var drawId = policy.allowedModes().stream().filter(id -> modes.get(id).kind()
+                == com.juicyslew.moonstation14.ms14.medical.InjectorModeData.Kind.DRAW).findFirst().orElseThrow();
+        var injectId = policy.allowedModes().stream().filter(id -> modes.get(id).kind()
+                == com.juicyslew.moonstation14.ms14.medical.InjectorModeData.Kind.INJECT).findFirst().orElseThrow();
+        for (int selected : new int[]{5, 10, 15}) {
+            ItemStack selectedStack = hands.stackCopy(hand).orElseThrow();
+            selectedStack.set(ModDataComponents.SYRINGE.get(), new SyringeStackData(drawId, selected));
+            hands = hands.replaceOwnedComponents(hands.revision(), hand,
+                    new com.juicyslew.moonstation14.ms14.hands.ItemToken(token), selectedStack).orElseThrow();
+            body.setData(ModDataAttachments.LIVE_HANDS.get(), hands);
+            long remaining = 15;
+            while (remaining > 0) {
+                ItemStack currentSyringe = hands.stackCopy(hand).orElseThrow();
+                SyringeStackData selectedData = ((SyringeItem) currentSyringe.getItem()).dataOrInitial(currentSyringe, level);
+                require(selectedData.transferAmountUnits() == selected, "resolved stack retains selected dose " + selected);
+                long requestedCents = ReagentUnits.fromFloat(selectedData.transferAmountUnits());
+                require(requestedCents == selected * 100, "fixture selection resolves to expected hundredths");
+                require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
+                                && hands.compatible(body) && hands.activeHand().equals(hand)
+                                && hands.token(hand).filter(token::equals).isPresent(),
+                        "fixture presents current compatible owned hand proof");
+                require(hands.stackCopy(hand).orElseThrow().getItem() instanceof com.juicyslew.moonstation14.ms14.reagent.IReagentTrait
+                                && target.getItem().getItem() instanceof com.juicyslew.moonstation14.ms14.reagent.IReagentTrait,
+                        "syringe and jug both implement reagent trait");
+                require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body),
+                        "fixture body is eligible to act");
+                require(com.juicyslew.moonstation14.ms14.reagent.ReagentSystem.bridgeForHolder(hands.stackCopy(hand).orElseThrow()) != null,
+                        "syringe has an existing reagent bridge");
+                require(BodyItemTargetProbe.probeSelected(level, body, target.getUUID(), 2.0) != null,
+                        "selected consumer target remains on body-eye ray");
+                require(com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.representable(hands, body),
+                        "selected syringe hands remain representable at trusted commit");
+                var syringeProbe = hands.stackCopy(hand).orElseThrow();
+                var sourceProbe = target.getItem().copy();
+                var syringeBridge = com.juicyslew.moonstation14.ms14.reagent.ReagentSystem.bridgeForHolder(syringeProbe);
+                var sourceBridge = com.juicyslew.moonstation14.ms14.reagent.ReagentSystem.bridgeForHolder(sourceProbe);
+                require(syringeBridge != null && sourceBridge != null, "container transfer endpoints have reagent bridges");
+                var dosePlan = com.juicyslew.moonstation14.ms14.loose_objects.interaction.LiquidInteractionCapability.plan(
+                        ReagentUnits.fromMap(com.juicyslew.moonstation14.ms14.MS14Provider.getDetached(sourceProbe, sourceBridge).getMap()),
+                        ReagentUnits.fromMap(com.juicyslew.moonstation14.ms14.MS14Provider.getDetached(syringeProbe, syringeBridge).getMap()),
+                        ReagentUnits.fromFloat(((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) syringeProbe.getItem())
+                                .getCapacity(syringeProbe, level)), requestedCents);
+                long syringeCapacity = ReagentUnits.fromFloat(((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) syringeProbe.getItem())
+                        .getCapacity(syringeProbe, level));
+                long expectedAdmitted = Math.min(requestedCents, Math.min(waterCents(target.getItem()),
+                        syringeCapacity - waterCents(syringeProbe)));
+                require(dosePlan.transferredCents() == expectedAdmitted,
+                        "selected draw clamps to source and remaining syringe capacity");
+                long before = waterCents(target.getItem());
+                var transferResult = BodyLiquidInteraction.fillDoseOwned(body, target.getUUID(), hand, token, hands.revision(), true,
+                        Math.toIntExact(requestedCents), () -> true);
+                require(transferResult == BodyLiquidInteraction.Result.SUCCESS,
+                        "selected draw accepted by production owned consumer at 1.75 blocks; result=" + transferResult);
+                hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                long moved = before - waterCents(target.getItem());
+                require(moved > 0 && moved <= selected * 100, "draw clamps to selected dose/source/free capacity");
+                remaining -= moved / 100;
+                require(waterCents(hands.stackCopy(hand).orElseThrow()) + waterCents(target.getItem())
+                        == 3000, "integer-cent contents conserved on draw");
+                if (remaining == 0) {
+                    require(hands.stackCopy(hand).orElseThrow().get(ModDataComponents.SYRINGE.get()).mode().equals(injectId),
+                            "full syringe auto-switches to inject");
+                    break;
+                }
+            }
+            long doseLeft = 15;
+            while (doseLeft > 0) {
+                ItemStack currentSyringe = hands.stackCopy(hand).orElseThrow();
+                SyringeStackData selectedData = ((SyringeItem) currentSyringe.getItem()).dataOrInitial(currentSyringe, level);
+                require(selectedData.mode().equals(injectId) && selectedData.transferAmountUnits() == selected,
+                        "inject mode and selected dose retained");
+                long requestedCents = ReagentUnits.fromFloat(selectedData.transferAmountUnits());
+                require(requestedCents == selected * 100, "inject selection resolves to expected hundredths");
+                long before = waterCents(target.getItem());
+                require(BodyLiquidInteraction.fillDoseOwned(body, target.getUUID(), hand, token, hands.revision(), false,
+                        Math.toIntExact(requestedCents), () -> true) == BodyLiquidInteraction.Result.SUCCESS,
+                        "selected inject accepted immediately by production owned consumer");
+                hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                long moved = waterCents(target.getItem()) - before;
+                require(moved > 0 && moved <= selected * 100, "inject clamps to selected dose/source/free capacity");
+                doseLeft -= moved / 100;
+                require(waterCents(hands.stackCopy(hand).orElseThrow()) + waterCents(target.getItem())
+                        == 3000, "integer-cent contents conserved on inject");
+                if (doseLeft == 0) {
+                    require(hands.stackCopy(hand).orElseThrow().get(ModDataComponents.SYRINGE.get()).mode().equals(drawId),
+                            "empty syringe auto-switches to draw");
+                    break;
+                }
+            }
+        }
         helper.succeed();
     }
 

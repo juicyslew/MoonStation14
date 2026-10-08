@@ -22,7 +22,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.ArrayList;
 import java.util.List;
 
-@GameTestTags({"storage", "hands"})
+@GameTestTags({"storage", "hands", "medical-treatment"})
 @PrefixGameTestTemplate(false)
 public final class GridContentsGameTests {
     private GridContentsGameTests() { }
@@ -124,6 +124,21 @@ public final class GridContentsGameTests {
         require(ItemStack.CODEC.parse(ops, encodedHost).result().isEmpty(), "host with 33 entries fails decoding");
         require(!host.has(ModDataComponents.GRID_CONTENTS.get()) && GridContents.read(host).orElseThrow().entries().isEmpty(),
                 "failed host decoding never mutates live host");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void resolvedMedicalSizeControlsLiveGridPlacement(GameTestHelper helper) {
+        var small = ItemFootprints.serverForId(net.minecraft.resources.ResourceLocation.parse("moonstation14:ointment"));
+        var tiny = ItemFootprints.serverForId(net.minecraft.resources.ResourceLocation.parse("moonstation14:syringe"));
+        var oneCell = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(1, 1));
+        require(oneCell.place("syringe", tiny, new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0).accepted(),
+                "Tiny syringe fits one free storage cell");
+        require(!oneCell.place("ointment", small, new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0).accepted(),
+                "Small medical supply cannot fit a single free cell");
+        var twoCells = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(1, 2));
+        require(twoCells.place("ointment", small, new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0).accepted(),
+                "Small medical supply fits the existing 1x2 footprint");
         helper.succeed();
     }
 

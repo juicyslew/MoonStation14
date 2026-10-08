@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
@@ -55,7 +56,6 @@ public final class BodyHandRequestService {
         var authority = resolved.orElseThrow();
         if (!BodyHandStateService.hasIssued(actor, authority)) return null;
         if (!CharacterControlSystem.canAct(authority.body())) return null;
-        if (!CharacterControlSystem.canAct(authority.body())) return null;
         var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
         if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null) return null;
         LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
@@ -94,8 +94,6 @@ public final class BodyHandRequestService {
             return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
         if (!CharacterControlSystem.canAct(authority.body()))
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
-        if (!CharacterControlSystem.canAct(authority.body()))
-            return result(request, BodyHandActionResult.Reason.DENIED, authority);
         SequenceGate gate = GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
         BodyHandActionResult.Reason admission = gate.admit(authority.epoch(), request.epoch(), request.sequence(),
                 actor.level().getGameTime());
@@ -127,7 +125,8 @@ public final class BodyHandRequestService {
                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
             BodyHandActionResult.Reason reason;
             try {
-                authority.body().setData(ModDataAttachments.LIVE_HANDS.get(), next.orElseThrow());
+                if (!com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.commit(actor, authority, next.orElseThrow()))
+                    throw new IllegalStateException("hand commit rejected");
                 reason = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next.orElseThrow()
                         && next.orElseThrow().compatible(authority.body())
                         ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.RECOVERY_REQUIRED;
@@ -495,6 +494,15 @@ public final class BodyHandRequestService {
             if (request.expectedToken() != null && !request.expectedToken().equals(ownedToken))
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
             if (ownedToken != null) {
+                var held = hands.stackCopy(request.handId()).orElse(null);
+                var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
+                try {
+                    var medical = heldId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                            com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(authority.body().level()), heldId);
+                    if (medical != null && medical.syringePolicy().isPresent())
+                        return result(request, liquidReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeContainerService.useContainer(
+                                actor, request.handId(), ownedToken, request.expectedRevision(), request.sequence(), request.pickupTarget())), authority);
+                } catch (RuntimeException ignored) { return result(request, BodyHandActionResult.Reason.DENIED, authority); }
                 var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), ownedToken,
                         request.expectedRevision(), true);
                 BodyHandActionResult response = result(request, liquidReason(outcome), authority);
@@ -523,6 +531,15 @@ public final class BodyHandRequestService {
             return result(request, throwReason, authority, transition);
         }
         if (request.action() == BodyHandActionRequest.Action.USE_TARGET) {
+            var held = hands.stackCopy(request.handId()).orElse(null);
+            var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
+            try {
+                var medical = heldId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                        com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(authority.body().level()), heldId);
+                if (medical != null && medical.syringePolicy().isPresent())
+                    return result(request, liquidReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeContainerService.useContainer(
+                            actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), request.pickupTarget())), authority);
+            } catch (RuntimeException ignored) { return result(request, BodyHandActionResult.Reason.DENIED, authority); }
             var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), request.expectedToken(),
                     request.expectedRevision(), false);
             BodyHandActionResult response = result(request, liquidReason(outcome), authority);
@@ -532,6 +549,20 @@ public final class BodyHandRequestService {
         if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
             var stack = hands.stackCopy(request.handId()).orElse(null);
             if (stack == null) return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var medicalId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            try {
+                var medical = medicalId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                        com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(authority.body().level()), medicalId);
+                if (medical != null && medical.healing().isPresent())
+                    return result(request, com.juicyslew.moonstation14.ms14.medical.MedicalTreatmentService.start(
+                            actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), authority.body().getUUID()), authority);
+                if (medical != null && medical.healthAnalyzer().isPresent())
+                    return result(request, com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerServer.activate(
+                            actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence()), authority);
+                if (medical != null && medical.syringePolicy().isPresent())
+                    return result(request, heldMutationReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeModeService.activate(
+                            actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence())), authority);
+            } catch (RuntimeException ignored) { }
             if (!(stack.getItem() instanceof IReagentTrait))
                 return result(request, BodyHeldItemActions.activate(actor, request), authority);
             if (!ModIngestionProfiles.serverReady())
@@ -543,6 +574,38 @@ public final class BodyHandRequestService {
                     request.expectedToken(), request.expectedRevision(), request.sequence());
             BodyHandActionResult response = result(request, reason, authority);
             return response;
+        }
+        if (request.action() == BodyHandActionRequest.Action.USE_BODY) {
+            var held = hands.stackCopy(request.handId()).orElse(null);
+            if (held == null) return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var id = BuiltInRegistries.ITEM.getKey(held.getItem());
+            com.juicyslew.moonstation14.ms14.medical.MedicalItemData medical = null;
+            try {
+                if (id != null) medical = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                        com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(authority.body().level()), id);
+            } catch (RuntimeException ignored) { }
+            if (medical == null) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            BodyHandActionResult.Reason outcome;
+            if (medical.syringePolicy().isPresent()) outcome = com.juicyslew.moonstation14.ms14.medical.syringe.SyringeService.useBody(
+                    actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), request.pickupTarget());
+            else if (medical.healing().isPresent()) outcome = com.juicyslew.moonstation14.ms14.medical.MedicalTreatmentService.start(
+                    actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), request.pickupTarget());
+            else if (medical.healthAnalyzer().isPresent()) outcome = com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerServer.scan(
+                    actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), request.pickupTarget());
+            else outcome = BodyHandActionResult.Reason.DENIED;
+            return result(request, outcome, authority);
+        }
+        if (request.action() == BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT) {
+            var held = hands.stackCopy(request.handId()).orElse(null);
+            var id = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
+            com.juicyslew.moonstation14.ms14.medical.MedicalItemData medical = null;
+            try { if (id != null) medical = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                    com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(authority.body().level()), id); }
+            catch (RuntimeException ignored) { }
+            if (medical == null || medical.syringePolicy().isEmpty())
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            return result(request, heldMutationReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeModeService.cycleDose(
+                    actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence())), authority);
         }
         if (request.action() == BodyHandActionRequest.Action.PRIME_GRENADE) {
             var primeOutcome = BodyGrenadePrime.prime(actor, request.handId(), request.expectedToken(), request.expectedRevision());
@@ -616,6 +679,14 @@ public final class BodyHandRequestService {
     }
 
     private static BodyHandActionResult.Reason reason(BodyHandItemTransfer.Result outcome) {
+        return switch (outcome) {
+            case SUCCESS -> BodyHandActionResult.Reason.OK;
+            case DENIED -> BodyHandActionResult.Reason.DENIED;
+            case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED;
+        };
+    }
+
+    private static BodyHandActionResult.Reason heldMutationReason(com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation.Result outcome) {
         return switch (outcome) {
             case SUCCESS -> BodyHandActionResult.Reason.OK;
             case DENIED -> BodyHandActionResult.Reason.DENIED;

@@ -13,6 +13,27 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void syringeGesturesRouteModeDoseAndBodyUseSeparately() {
+        assertEquals(MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE,
+                MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, false, true));
+        assertEquals(MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE,
+                MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, true, true));
+        assertTrue(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, false, false));
+        assertFalse(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, true, false));
+        assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT,
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values()[
+                        com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values().length - 1]);
+    }
+    @Test void configuredKeyMatcherHonorsRemappedKeyAndModifier() {
+        var mapping=new net.minecraft.client.KeyMapping("test.binding",
+                net.neoforged.neoforge.client.settings.KeyConflictContext.UNIVERSAL,
+                net.neoforged.neoforge.client.settings.KeyModifier.CONTROL,
+                com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_J,"test");
+        assertTrue(BodyHandClient.matches(mapping,org.lwjgl.glfw.GLFW.GLFW_KEY_J,0,org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL));
+        assertFalse(BodyHandClient.matches(mapping,org.lwjgl.glfw.GLFW.GLFW_KEY_J,0,0));
+        assertFalse(BodyHandClient.matches(mapping,org.lwjgl.glfw.GLFW.GLFW_KEY_G,0,org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL));
+    }
     @Test void deferredPlacementRequiresFreshSameIntentAndSource() {
         var body=java.util.UUID.randomUUID(); var pos=new net.minecraft.core.BlockPos(1,2,3);
         assertTrue(BodyHandClientPolicy.deferredPlacementStillValid(body,4,body,4,3,4,"main","main","root-token","root-token",
@@ -121,6 +142,38 @@ class BodyHandClientPolicyTest {
     private static BodyHandStateSnapshot snapshot(long requested, long sequence, UUID account, UUID body, long epoch) {
         return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
                 account, body, epoch, 3, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)));
+    }
+
+    @Test void pushedSnapshotsAdvanceWithoutStealingQueryOrActionCorrelations() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        long q = policy.query(1);
+        assertTrue(policy.accept(snapshot(0, q, ACCOUNT, BODY, 7)));
+        long action = policy.action(2);
+        var pushed = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 5,
+                "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)), List.of(), List.of(), true);
+        assertTrue(policy.accept(pushed));
+        assertTrue(policy.result(result(7, action, BodyHandActionResult.Reason.OK), 3));
+        long refresh = policy.query(4);
+        assertFalse(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)), "older query cannot roll back push revision");
+        assertEquals(5, policy.presentationSnapshot().revision());
+    }
+
+    @Test void pushRejectsWrongAuthorityEpochAndOlderRevision() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        var newer = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 5,
+                "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)), List.of(), List.of(), true);
+        assertFalse(policy.accept(new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), BODY, 7, 6,
+                "left", newer.hands(), List.of(), List.of(), true)));
+        assertFalse(policy.accept(new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 8, 6,
+                "left", newer.hands(), List.of(), List.of(), true)));
+        assertTrue(policy.accept(newer));
+        var older = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 4,
+                "left", newer.hands(), List.of(), List.of(), true);
+        assertFalse(policy.accept(older));
+        assertEquals(5, policy.snapshot().revision());
     }
 
     private static BodyHandActionResult result(long epoch, long sequence, BodyHandActionResult.Reason reason) {
@@ -569,6 +622,42 @@ class BodyHandClientPolicyTest {
         assertTrue(policy.accept(new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
                 ACCOUNT, BODY, 7, 4, "left", armed)));
         assertTrue(policy.action(4) > use);
+    }
+    @Test void sharedConstructionDeferralAdmitsGirderAndPipeThenRequiresRemainingMaterial() {
+        assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(true, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 3));
+        assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(true, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 2));
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(true, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 1));
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(true, false,
+                "moonstation14:steel", 2, "moonstation14:steel", 3));
+        assertFalse(BodyHandClientPolicy.mayDeferConstructionUse(false, true,
+                "moonstation14:steel", 2, "moonstation14:steel", 3));
+    }
+
+    @Test void acceptedTimedWorkInvalidatesReservedMaterialProofUntilFreshSnapshot() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var before = List.of(new BodyHandStateSnapshot.Hand("left", "steel-stack", "moonstation14:steel", 3),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, policy.query(1), BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 10, "left", before)));
+        long use = policy.blockUseSequence(2);
+        assertFalse(policy.blockUseResult(new BodyBlockUseResult(7, use + 1, BodyBlockUseResult.Outcome.WORK_STARTED)));
+        assertTrue(policy.blockUseResult(new BodyBlockUseResult(7, use, BodyBlockUseResult.Outcome.WORK_STARTED)));
+        assertTrue(policy.blockUseBarrier());
+        assertNull(policy.snapshot());
+        assertEquals(0, policy.blockUseSequence(3));
+        long refresh = policy.query(3);
+        var reserved = List.of(new BodyHandStateSnapshot.Hand("left", "steel-stack", "moonstation14:steel", 2),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0));
+        assertFalse(policy.accept(new BodyHandStateSnapshot(0, refresh + 1, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 11, "left", reserved)));
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0, refresh, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 7, 11, "left", reserved)));
+        assertFalse(policy.blockUseBarrier());
+        assertTrue(policy.blockUseSequence(4) > use);
     }
 
     @Test void timedOutActionRetriesQueryWithoutTransientStatus() {
