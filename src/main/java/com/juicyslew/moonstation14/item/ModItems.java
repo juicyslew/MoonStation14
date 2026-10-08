@@ -11,7 +11,7 @@ import com.juicyslew.moonstation14.item.custom.SteelItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTileItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTilePryItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
-import com.juicyslew.moonstation14.item.custom.CableCutterItem;
+import com.juicyslew.moonstation14.item.custom.WirecutterItem;
 import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.item.custom.SyringeItem;
@@ -30,23 +30,23 @@ public class ModItems {
 
     // SIMPLE ITEMS
     public static final DeferredItem<Item> PLASTIC = ITEMS.register("plastic",
-            () -> new Item(new Item.Properties().stacksTo(8))
+            () -> new Item(new Item.Properties().stacksTo(30))
     );
     public static final DeferredItem<Item> GLASS = ITEMS.register("glass",
-            () -> new Item(new Item.Properties().stacksTo(8).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "glass")))
+            () -> new Item(new Item.Properties().stacksTo(30).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "glass")))
     );
     public static final DeferredItem<Item> PAPER = ITEMS.register("paper",
-            () -> new Item(new Item.Properties().stacksTo(8))
+            () -> new Item(new Item.Properties().stacksTo(30))
     );
     public static final DeferredItem<Item> CLOTH = ITEMS.register("cloth",
-            () -> new Item(new Item.Properties().stacksTo(8))
+            () -> new Item(new Item.Properties().stacksTo(30))
     );
     public static final DeferredItem<Item> BAG = ITEMS.register("bag",
             () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "bag"))));
     public static final DeferredItem<Item> BELT = ITEMS.register("belt",
             () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> WOOD = ITEMS.register("wood",
-            () -> new Item(new Item.Properties().stacksTo(8))
+            () -> new Item(new Item.Properties().stacksTo(30))
     );
     public static final DeferredItem<Item> PICKAXE = ITEMS.register("pickaxe",
             () -> new Item(new Item.Properties().durability(250))
@@ -63,7 +63,11 @@ public class ModItems {
     // CUSTOM ITEMS
     // TODO: If I start having dependency issues with what needs to be defined before what, consider a lazy-initialized static map pattern for these item's construction result maps.
     public static final DeferredItem<Item> STEEL = ITEMS.register("steel",
-            () -> new SteelItem(new Item.Properties().component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "steel")))
+            () -> new SteelItem(new Item.Properties().stacksTo(30).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "steel")))
+    );
+    public static final DeferredItem<Item> METAL_ROD = ITEMS.register("metal_rod",
+            () -> new Item(new Item.Properties().stacksTo(30)
+                    .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "metal_rod")))
     );
     public static final DeferredItem<Item> CROWBAR = ITEMS.register("crowbar",
             () -> new CrowbarItem(new Item.Properties().durability(32))
@@ -80,8 +84,12 @@ public class ModItems {
             () -> new CableSpoolItem(new Item.Properties().stacksTo(16), CableTier.MV));
     public static final DeferredItem<CableSpoolItem> APC_CABLE_SPOOL = ITEMS.register("apc_cable_spool",
             () -> new CableSpoolItem(new Item.Properties().stacksTo(16), CableTier.APC));
-    public static final DeferredItem<CableCutterItem> CABLE_CUTTER = ITEMS.register("cable_cutter",
-            () -> new CableCutterItem(new Item.Properties().durability(128)));
+    public static final DeferredItem<WirecutterItem> WIRECUTTER = ITEMS.register("wirecutter",
+            () -> new WirecutterItem(new Item.Properties().durability(128)));
+    public static final DeferredItem<Item> AIRLOCK_SCREWDRIVER = ITEMS.register("airlock_screwdriver",
+            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_screwdriver"))));
+    public static final DeferredItem<Item> AIRLOCK_MULTITOOL = ITEMS.register("multitool",
+            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_multitool"))));
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",
             () -> new BottleItem(new Item.Properties().stacksTo(1))
     );

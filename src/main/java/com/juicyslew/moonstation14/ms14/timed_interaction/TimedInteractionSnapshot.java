@@ -4,6 +4,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,14 +23,19 @@ public record TimedInteractionSnapshot(ResourceLocation dimension, int bodyEntit
                 for (View view : value.views) {
                     buf.writeVarLong(view.operationID); buf.writeVarLong(view.startTick); buf.writeVarInt(view.durationTicks);
                     buf.writeEnum(view.phase); buf.writeVarLong(view.terminalTick); buf.writeVarLong(view.originatingActionSequence);
+                    buf.writeBoolean(view.worldTarget().isPresent()); view.worldTarget().ifPresent(buf::writeBlockPos);
                 }
             }, buf -> {
                 ResourceLocation dimension = buf.readResourceLocation(); int entity = buf.readVarInt(); UUID uuid = buf.readUUID();
                 long revision = buf.readVarLong(), tick = buf.readVarLong(); int count = buf.readVarInt();
                 if (count < 0 || count > 32) throw new IllegalArgumentException("invalid timed view count");
                 java.util.ArrayList<View> views = new java.util.ArrayList<>(count);
-                for (int i=0;i<count;i++) views.add(new View(buf.readVarLong(), buf.readVarLong(), buf.readVarInt(),
-                        buf.readEnum(TimedOperation.Phase.class), buf.readVarLong(), buf.readVarLong()));
+                for (int i=0;i<count;i++) {
+                    long id=buf.readVarLong(), start=buf.readVarLong(); int duration=buf.readVarInt();
+                    var phase=buf.readEnum(TimedOperation.Phase.class); long terminal=buf.readVarLong(), sequence=buf.readVarLong();
+                    views.add(new View(id,start,duration,phase,terminal,sequence,
+                            buf.readBoolean()?java.util.Optional.of(buf.readBlockPos()):java.util.Optional.empty()));
+                }
                 return new TimedInteractionSnapshot(dimension, entity, uuid, revision, tick, views);
             });
     private static volatile Consumer<TimedInteractionSnapshot> clientHandler;
@@ -41,8 +47,13 @@ public record TimedInteractionSnapshot(ResourceLocation dimension, int bodyEntit
         views = List.copyOf(views);
     }
     public record View(long operationID, long startTick, int durationTicks, TimedOperation.Phase phase,
-                       long terminalTick, long originatingActionSequence) {
+                       long terminalTick, long originatingActionSequence, java.util.Optional<BlockPos> worldTarget) {
+        public View(long operationID, long startTick, int durationTicks, TimedOperation.Phase phase,
+                    long terminalTick, long originatingActionSequence) {
+            this(operationID,startTick,durationTicks,phase,terminalTick,originatingActionSequence,java.util.Optional.empty());
+        }
         public View {
+            worldTarget = worldTarget == null ? java.util.Optional.empty() : worldTarget;
             if (operationID < 1 || startTick < 0 || durationTicks < 1 || originatingActionSequence < 0)
                 throw new IllegalArgumentException("invalid timed interaction view");
             if (phase == null || (phase == TimedOperation.Phase.ACTIVE

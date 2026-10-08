@@ -41,4 +41,24 @@ class PointerModePolicyTest {
         policy.authorityClear();
         assertFalse(policy.open());
     }
+
+    @Test void wireAndStorageWindowKeepSharedPointerButWireClosureReleasesOnlyAutomaticIntent() {
+        var policy = new PointerModePolicy();
+        policy.popupOpen();
+        assertTrue(PointerModePolicy.keepOpenForWindow(true, false));
+        assertTrue(PointerModePolicy.keepOpenForWindow(false, true));
+        assertFalse(PointerModePolicy.keepOpenForWindow(false, false));
+        assertTrue(policy.closeWhenEmpty()); // after wire and storage windows both close
+
+        policy.manualOpen();
+        assertFalse(policy.closeWhenEmpty()); // X/server close never erases manual intent
+        assertTrue(policy.open());
+    }
+
+    @Test void sharedHostReturnsAfterChatScreenReleasesToGameplayOnlyWhenPointerStillOpen() {
+        assertTrue(PointerModePolicy.shouldRestoreHost(true, true, true));
+        assertFalse(PointerModePolicy.shouldRestoreHost(false, true, true));
+        assertFalse(PointerModePolicy.shouldRestoreHost(true, false, true));
+        assertFalse(PointerModePolicy.shouldRestoreHost(true, true, false));
+    }
 }

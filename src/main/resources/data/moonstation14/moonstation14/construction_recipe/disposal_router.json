@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal Router","description":"Build a disposal router","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_router","graph":"disposal_pipes","startingNode":"start","targetNode":"router"}

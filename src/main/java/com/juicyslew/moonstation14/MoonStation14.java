@@ -110,6 +110,7 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalBuildNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalConstructionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical.MedicalNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionNetworking::registerPayloadHandlers);
@@ -204,6 +205,7 @@ public class MoonStation14 {
 
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
+        com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireMenuService.onServerStopped();
         com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService.onServerStopped();
         com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeAll();
         AtmosphereService.INSTANCE.onServerStopped();

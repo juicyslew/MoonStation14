@@ -1,0 +1,6 @@
+Asset: welder2.ogg
+
+Source: Space Station 14, Resources/Audio/Items/welder2.ogg, pinned revision c9df5ef5d675b0d1d226828bddf6b78c28502d91.
+SHA-256: 865efd6ada43bf70f85fbfdc6fdfb160973fd702dab7c1d2aeed78f99774e887 (source and imported destination verified identical).
+
+File-specific author, license, and original source URL are unresolved. No license is inferred or claimed; do not assume MIT or a blanket license. See docs/audio-unknown-provenance.md. Resolve rights before distribution, or remove this asset and its registration if terms cannot be established.

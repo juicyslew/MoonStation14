@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal Flipped Junction","description":"Build a directionally flipped disposal junction","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_junction_flipped","graph":"disposal_pipes","startingNode":"start","targetNode":"junction_flipped"}

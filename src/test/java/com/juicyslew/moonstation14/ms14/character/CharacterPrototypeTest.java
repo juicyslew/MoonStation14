@@ -664,7 +664,7 @@ class CharacterPrototypeTest {
         withoutBlood.remove("components");
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, withoutBlood).getOrThrow().component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).isEmpty());
         JsonObject legacy = valid.deepCopy();
-        legacy.add("blood", legacy.getAsJsonArray("components").get(1).getAsJsonObject().deepCopy());
+        legacy.add("blood", component(legacy, "Bloodstream").deepCopy());
         for (JsonObject rejected : List.of(legacy, bloodField(valid, "unknown", "1"))) {
             assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, rejected).error().isPresent());
         }
@@ -678,9 +678,12 @@ class CharacterPrototypeTest {
                 ModCharacters.CHARACTER_TYPE, Map.of(ModCharacters.HUMAN_ID, abstractLegacy)))).getMessage()
                 .contains("$.blood"));
         JsonObject duplicateBloodstream = valid.deepCopy();
-        duplicateBloodstream.getAsJsonArray("components").add(valid.getAsJsonArray("components").get(1).deepCopy());
-        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, duplicateBloodstream).error().orElseThrow().message()
-                  .contains("$.components[" + (valid.getAsJsonArray("components").size()) + "].type"));
+        var duplicateComponents = duplicateBloodstream.getAsJsonArray("components");
+        duplicateComponents.remove(duplicateComponents.size() - 1); // Keep under the schema's 32-component limit.
+        int duplicateIndex = duplicateComponents.size();
+        duplicateComponents.add(component(valid, "Bloodstream").deepCopy());
+        String duplicateError = CharacterData.CODEC.parse(JsonOps.INSTANCE, duplicateBloodstream).error().orElseThrow().message();
+        assertTrue(duplicateError.contains("$.components[" + duplicateIndex + "].type"), duplicateError);
         var blood = CharacterData.CODEC.parse(JsonOps.INSTANCE, valid).getOrThrow().component(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent.class).map(com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent::policy).orElseThrow();
         assertEquals(Map.of("moonstation14:blood", 300.0), blood.referenceSolution());
         assertEquals(List.of(ResourceLocation.parse("moonstation14:blood")), blood.metabolismExclusions());

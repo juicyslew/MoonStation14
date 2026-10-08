@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Girder","description":"Build a girder","icon":"girder","startingNode":"start","targetNode":"girder"}

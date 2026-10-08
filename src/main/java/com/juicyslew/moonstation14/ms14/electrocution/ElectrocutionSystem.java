@@ -96,6 +96,62 @@ public final class ElectrocutionSystem {
     }
 
     /**
+     * Applies a server-authored environmental shock. Unlike a chemical
+     * Electrocute effect this source already has resolved conductivity, so it
+     * does not consult (or bypass) the chemical insulation policy. Inputs are
+     * floats so source damage (for example 7.5) is multiplied by conductivity
+     * before the upstream-compatible integer truncation.
+     */
+    public static EffectResult applySourceShock(LivingEntity living, float shockDamage,
+                                                float siemensCoefficient, float stunSeconds) {
+        Objects.requireNonNull(living, "living");
+        if (!(living.level() instanceof ServerLevel level)
+                || !(living instanceof IStatusEffectTrait statusHolder)) {
+            return EffectResult.SKIPPED_UNSUPPORTED;
+        }
+        if (!Float.isFinite(shockDamage) || shockDamage < 0f
+                || !Float.isFinite(siemensCoefficient) || siemensCoefficient < 0f
+                || !Float.isFinite(stunSeconds) || stunSeconds < 0f) {
+            return EffectResult.FAILED;
+        }
+        SourceShockPlan plan = sourceShockPlan(shockDamage, siemensCoefficient, stunSeconds);
+        if (plan.result() != EffectResult.APPLIED) return plan.result();
+        int damage = plan.damage();
+        OptionalInt stunTicks = plan.stunTicks();
+        boolean paralyze = stunTicks.isPresent();
+        if (paralyze && !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
+                .applyParalyze(living, stunTicks.orElse(0))) return EffectResult.SKIPPED_UNSUPPORTED;
+        if (damage == 0) return EffectResult.APPLIED;
+        return switch (DamageSystem.applyHealthChange(living, Map.of(DamageKeys.SHOCK, (float) damage), 1f, false)) {
+            case APPLIED -> EffectResult.APPLIED;
+            case SKIPPED_UNSUPPORTED -> EffectResult.SKIPPED_UNSUPPORTED;
+            case FAILED -> EffectResult.FAILED;
+        };
+    }
+
+    /** Pure arithmetic for an already-resolved source conductivity value. */
+    public static SourceShockPlan sourceShockPlan(float shockDamage, float siemensCoefficient, float stunSeconds) {
+        if (!Float.isFinite(shockDamage) || shockDamage < 0f
+                || !Float.isFinite(siemensCoefficient) || siemensCoefficient < 0f
+                || !Float.isFinite(stunSeconds) || stunSeconds < 0f) {
+            return new SourceShockPlan(EffectResult.FAILED, 0, OptionalInt.empty());
+        }
+        float product = shockDamage * siemensCoefficient;
+        if (!inIntegerRange(product)) return new SourceShockPlan(EffectResult.FAILED, 0, OptionalInt.empty());
+        int damage = truncateTowardZero(product);
+        boolean paralyze = siemensCoefficient > .5f && stunSeconds > 0f;
+        OptionalInt stunTicks = OptionalInt.empty();
+        if (paralyze) {
+            try {
+                stunTicks = OptionalInt.of(StatusEffectSystem.nonNegativeSecondsToTicks(stunSeconds));
+            } catch (IllegalArgumentException invalidDuration) {
+                return new SourceShockPlan(EffectResult.FAILED, 0, OptionalInt.empty());
+            }
+        }
+        return new SourceShockPlan(EffectResult.APPLIED, damage, stunTicks);
+    }
+
+    /**
      * Computes the complete electrocution admission and arithmetic plan.
      * Multiplication and truncation are intentionally separate float stages:
      * {@code truncate((float) damage * scale)}, then
@@ -192,6 +248,13 @@ public final class ElectrocutionSystem {
         static Plan insulationRejected(int scaledDamage) {
             return new Plan(EffectResult.SKIPPED_UNSUPPORTED, scaledDamage, 0,
                     OptionalInt.empty(), StatusEffectOperation.UPDATE, true);
+        }
+    }
+
+    public record SourceShockPlan(EffectResult result, int damage, OptionalInt stunTicks) {
+        public SourceShockPlan {
+            Objects.requireNonNull(result, "result");
+            Objects.requireNonNull(stunTicks, "stunTicks");
         }
     }
 

@@ -287,11 +287,10 @@ public final class BodyPullService {
             PostureSystem.refreshMovementAvailability(body, false);
             return true;
         }
-        LiveHands next = before.releaseHand(hand, target).orElse(null);
-        if (next == null) return false;
-        LiveHandsCommitGateway.commitOwned(body, next);
-        boolean released = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next
-                && next.reservation(hand).isEmpty();
+        if (!LiveHandsCommitGateway.clearPullReservationTrusted(body, before, hand, target)) return false;
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        boolean released = after != null && after.revision() == before.revision() + 1
+                && after.reservation(hand).isEmpty();
         if (released) PostureSystem.refreshMovementAvailability(body, false);
         return released;
     }

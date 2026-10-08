@@ -1,4 +1,5 @@
 {
   "parent": "base_tool",
-  "qualities": ["Screwing"]
+  "qualities": ["Screwing"],
+  "useSound": "Screwdriver"
 }

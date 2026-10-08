@@ -44,13 +44,40 @@ public final class LiveHandsCommitGateway {
                 || !body.level().getServer().isSameThread() || expected != null
                 && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != expected
                 || !value.compatible(body) || !BodyHandStateService.representable(value, body)) return false;
+        return writeTrusted(body, expected, value, false);
+    }
+
+    /** Clear only this exact pull reservation when prototype drift makes normal hand commits invalid. */
+    public static boolean clearPullReservationTrusted(LivingEntity body, LiveHands expected,
+                                                      String hand, java.util.UUID exactTarget) {
+        if (body == null || expected == null || hand == null || exactTarget == null
+                || body.level().isClientSide || body.level().getServer() == null
+                || !body.level().getServer().isSameThread()) return false;
+        LiveHands released = expected.releaseHand(hand, exactTarget).orElse(null);
+        if (released == null) return false;
+        if (released.compatible(body) && BodyHandStateService.representable(released, body))
+            return commitTrusted(body, expected, released);
+        // This fallback is intentionally limited to a derived exact-reservation removal.
+        // Invalid layouts remain unpublishable; it only prevents a dead pull lease from surviving drift.
+        return writeTrusted(body, expected, released, true);
+    }
+
+    private static boolean writeTrusted(LivingEntity body, LiveHands expected, LiveHands value,
+                                        boolean allowIncompatibleCleanup) {
+        if (body == null || value == null || body.level().isClientSide || body.level().getServer() == null
+                || !body.level().getServer().isSameThread() || expected != null
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != expected) return false;
+        boolean publishable = value.compatible(body) && BodyHandStateService.representable(value, body);
+        if (!publishable && !allowIncompatibleCleanup) return false;
         try { body.setData(ModDataAttachments.LIVE_HANDS.get(), value); }
         catch (RuntimeException failure) { return false; }
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != value) return false;
-        var server = body.level().getServer();
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            var authority = HandActorAuthority.resolve(player).orElse(null);
-            if (authority != null && authority.body() == body) { deferOrPublish(player, authority); break; }
+        if (publishable) {
+            var server = body.level().getServer();
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                var authority = HandActorAuthority.resolve(player).orElse(null);
+                if (authority != null && authority.body() == body) { deferOrPublish(player, authority); break; }
+            }
         }
         return true;
     }

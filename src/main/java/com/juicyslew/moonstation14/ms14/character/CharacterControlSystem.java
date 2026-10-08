@@ -53,6 +53,19 @@ public final class CharacterControlSystem {
         return applyStun(entity, StatusEffectSystem.secondsToTicks(seconds));
     }
 
+    /** Applies the SS14-style paralyze projection: action-blocking stun plus visible knockdown. */
+    public static boolean applyParalyze(LivingEntity entity, int durationTicks) {
+        if (!applyStun(entity, durationTicks) || !(entity instanceof IStatusEffectTrait statusTrait)
+                || !(entity.level() instanceof ServerLevel level)) return false;
+        StatusEffectSystem.apply(statusTrait.toHandleSelf(), level, KNOCKDOWN,
+                StatusEffectOperation.SET, OptionalInt.of(durationTicks), 0);
+        return true;
+    }
+
+    public static boolean applyParalyze(LivingEntity entity, float seconds) {
+        return applyParalyze(entity, StatusEffectSystem.secondsToTicks(seconds));
+    }
+
     /** True only for active action-blocking statuses on an eligible bound profile. */
     public static boolean isStunned(LivingEntity entity) {
         Objects.requireNonNull(entity, "entity");

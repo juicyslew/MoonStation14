@@ -34,6 +34,11 @@ public final class TimedInteractionClient {
                 && (s.revision()<old.snapshot().revision()
                 || (s.revision()==old.snapshot().revision() && s.serverTick()<old.snapshot().serverTick()))) return;
         if(old!=null && !old.snapshot().bodyUuid().equals(s.bodyUuid()) && entity==null) return;
+        var owned = GhostControlClient.ownedCharacterForHud();
+        if (TimedInteractionInventoryRefreshPolicy.shouldRefresh(old == null ? null : old.snapshot(), s,
+                owned == null ? null : owned.getUUID(), mc.level.dimension().location())) {
+            com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.externalTimedWorldCompletion(s.bodyUuid(), s.dimension());
+        }
         s.views().forEach(v -> {
             Prediction prediction=predictions.get(v.originatingActionSequence());
             if(prediction!=null && TimedInteractionPredictionIdentity.matches(prediction.body(),prediction.sequence(),

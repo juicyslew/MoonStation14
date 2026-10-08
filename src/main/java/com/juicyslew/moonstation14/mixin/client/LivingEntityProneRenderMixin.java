@@ -39,7 +39,19 @@ public abstract class LivingEntityProneRenderMixin {
     private void moonstation14$layDownedBody(LivingEntity entity, PoseStack poseStack, float bob,
                                              float bodyYaw, float partialTick, float scale,
                                              CallbackInfo callback) {
-        if (!PostureSystem.isDownPosture(entity)) return;
+        boolean physicalProne = PostureSystem.isDownPosture(entity);
+        boolean synchronizedKnockdown = com.juicyslew.moonstation14.ms14.character.KnockdownRenderPolicy
+                .shouldRenderProne(entity);
+        if (!physicalProne && !synchronizedKnockdown) return;
+
+        // Airlock shocks/crushes still use synchronized knockdown state. Fold that
+        // projection into the posture renderer now that the legacy facing mixin is retired.
+        if (!physicalProne) {
+            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - bodyYaw));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(90.0F));
+            callback.cancel();
+            return;
+        }
 
         // Prone heading is synchronized from accepted owner movement, never camera look.
         var attachment = entity.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());

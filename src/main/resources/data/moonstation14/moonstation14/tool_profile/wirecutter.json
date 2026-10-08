@@ -1,0 +1,5 @@
+{
+  "parent": "base_item",
+  "tool": { "qualities": ["CUTTING"] },
+  "useSound": "moonstation14:tools/wirecutter"
+}

@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal Flipped Router","description":"Build a directionally flipped disposal router","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_router_flipped","graph":"disposal_pipes","startingNode":"start","targetNode":"router_flipped"}
