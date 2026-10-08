@@ -9,6 +9,19 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StoragePopupWorkspaceTest {
+    @Test void pointerLockCyclePreservesTopRightWindowAndViewportGeometry() {
+        var workspace=new StoragePopupWorkspace(400,300);
+        workspace.bind(UUID.randomUUID(),1);
+        var host=StoragePopupWorkspace.HostKey.world(UUID.randomUUID());
+        workspace.open(host,true,305,12,80,60);
+        var window=workspace.window(host);
+        workspace.pointerMode(true);
+        workspace.pointerMode(false);
+        workspace.pointerMode(true);
+        assertSame(window,workspace.window(host));
+        assertEquals(new StoragePopupWorkspace.Point(305,12),new StoragePopupWorkspace.Point(window.x(),window.y()));
+        assertEquals(80,window.width());assertEquals(60,window.height());
+    }
     @Test void authoritativeResizeKeepsPositionAndZWhileClampingBounds() {
         var workspace = new StoragePopupWorkspace(400, 300);
         var key = StoragePopupWorkspace.HostKey.world(UUID.randomUUID());

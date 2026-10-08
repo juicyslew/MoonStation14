@@ -9,29 +9,38 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.IntStream;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.font.FontSet;
+import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Pure interaction examples for the tab strip, list viewport and EditBox submit wrapper. */
 class NavigationWidgetsTest {
+    private static final Font TEST_FONT = new Font((ResourceLocation id) -> (FontSet) null, false) {
+        @Override public int width(String text) { return text.length() * 6; }
+        @Override public String plainSubstrByWidth(String text, int width) {
+            return text.substring(0, Math.min(text.length(), Math.max(0, width / 6)));
+        }
+    };
     @Test void searchListViewportRejectsOversizedPages() {
         assertThrows(IllegalArgumentException.class, () -> MachineSearchList.viewportHeight(0));
         assertThrows(IllegalArgumentException.class, () -> MachineSearchList.viewportHeight(25));
         assertThrows(IllegalArgumentException.class, () -> MachineSearchList.viewportHeight(512));
         assertThrows(IllegalArgumentException.class, () -> MachineSearchList.viewportHeight(Integer.MAX_VALUE));
-        assertEquals(24 * 18, MachineSearchList.viewportHeight(MachineSearchList.MAX_VISIBLE_ROWS));
+        assertEquals(24 * MachineSearchList.ROW_HEIGHT, MachineSearchList.viewportHeight(MachineSearchList.MAX_VISIBLE_ROWS));
     }
 
     @Test void searchListRejectsMismatchedPageSizeEvenWithFewEntries() {
         var empty = new FilteredListModel(4, 2);
         assertEquals(2, empty.pageSize());
         assertThrows(IllegalArgumentException.class, () -> new MachineSearchList(0, 22, 80, 1,
-                Component.literal("Search"), empty, id -> {}));
+                Component.literal("Search"), empty, id -> {}, value -> {}, TEST_FONT));
 
         var single = new FilteredListModel(4, 1);
         single.snapshot(1, List.of(new FilteredListModel.Entry("a", "Alpha")));
         assertThrows(IllegalArgumentException.class, () -> new MachineSearchList(0, 22, 80, 2,
-                Component.literal("Search"), single, id -> {}));
+                Component.literal("Search"), single, id -> {}, value -> {}, TEST_FONT));
     }
 
     @Test void searchListViewportBoundsVisibleRowsAndHitExtentAtModelCap() {
@@ -42,16 +51,16 @@ class NavigationWidgetsTest {
                 .mapToObj(i -> new FilteredListModel.Entry("id-" + i, "Entry " + i)).toList());
         assertEquals(512, list.matchCount());
         assertEquals(pageSize, list.visibleCount());
-        assertEquals(pageSize - 1, NavigationHit.row(10, 20 + height - 1, 0, 20, 80, 18,
+        assertEquals(pageSize - 1, NavigationHit.row(10, 20 + height - 1, 0, 20, 80, MachineSearchList.ROW_HEIGHT,
                 Math.min(pageSize, list.visibleCount())));
-        assertEquals(-1, NavigationHit.row(10, 20 + height, 0, 20, 80, 18,
+        assertEquals(-1, NavigationHit.row(10, 20 + height, 0, 20, 80, MachineSearchList.ROW_HEIGHT,
                 Math.min(pageSize, list.visibleCount())));
         list.scroll(512);
         assertEquals(pageSize, list.visibleCount());
         assertEquals("id-511", list.visibleAt(pageSize - 1).id());
         list.filter("Entry 511");
         assertEquals(1, list.visibleCount());
-        assertEquals(-1, NavigationHit.row(10, 20 + 18, 0, 20, 80, 18,
+        assertEquals(-1, NavigationHit.row(10, 20 + MachineSearchList.ROW_HEIGHT, 0, 20, 80, MachineSearchList.ROW_HEIGHT,
                 Math.min(pageSize, list.visibleCount())));
     }
 

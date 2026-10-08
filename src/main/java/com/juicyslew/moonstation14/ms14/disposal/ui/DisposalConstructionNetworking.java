@@ -13,8 +13,27 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 public final class DisposalConstructionNetworking {
     private DisposalConstructionNetworking(){}
     public static void registerPayloadHandlers(RegisterPayloadHandlersEvent event){
-        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent logout)->DisposalConstructionMode.clearActor(logout.getEntity().getUUID()));
+        com.juicyslew.moonstation14.ms14.construction.network.ConstructionCraftNetworking.register(event);
+        com.juicyslew.moonstation14.ms14.construction.network.ConstructionGuidanceNetworking.register(event);
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent logout)->{
+            DisposalConstructionMode.clearActor(logout.getEntity().getUUID());
+            com.juicyslew.moonstation14.ms14.construction.plan.ConstructionPlanMode.clearActor(logout.getEntity().getUUID());
+        });
         event.registrar("1").executesOn(HandlerThread.MAIN)
+                .playToServer(com.juicyslew.moonstation14.ms14.construction.plan.ConstructionPlanRequest.TYPE,
+                        com.juicyslew.moonstation14.ms14.construction.plan.ConstructionPlanRequest.STREAM_CODEC,(request,context)->{
+                    if(!(context.player() instanceof ServerPlayer actor)||actor.connection==null||actor.getServer()==null||actor.getServer().getPlayerList().getPlayer(actor.getUUID())!=actor)return;
+                    com.juicyslew.moonstation14.ms14.construction.plan.ConstructionPlanMode.handle(actor,request).ifPresent(plan->{
+                        if(actor.getServer().getPlayerList().getPlayer(actor.getUUID())==actor){
+                            PacketDistributor.sendToPlayer(actor,new com.juicyslew.moonstation14.ms14.construction.plan.ConstructionPlanState(plan.body(),plan.epoch(),plan.sequence(),plan.revision(),plan.recipe(),plan.rotation()));
+                            DisposalConstructionMode.query(actor).ifPresent(disposalState->PacketDistributor.sendToPlayer(actor,disposalState));
+                        }
+                    });
+                })
+                .playToClient(com.juicyslew.moonstation14.ms14.construction.plan.ConstructionPlanState.TYPE,
+                        com.juicyslew.moonstation14.ms14.construction.plan.ConstructionPlanState.STREAM_CODEC,(state,context)->{
+                    if(FMLEnvironment.dist==Dist.CLIENT)com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalConstructionClient.receiveSharedPlan(state);
+                })
                 .playToServer(DisposalConstructionRequest.TYPE,DisposalConstructionRequest.STREAM_CODEC,(request,context)->{
                     if(!(context.player() instanceof ServerPlayer actor)||actor.connection==null||actor.getServer()==null
                             ||actor.getServer().getPlayerList().getPlayer(actor.getUUID())!=actor)return;

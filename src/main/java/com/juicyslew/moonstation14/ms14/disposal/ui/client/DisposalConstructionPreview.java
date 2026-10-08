@@ -84,8 +84,8 @@ public final class DisposalConstructionPreview {
         PreviewPlan plan=planProvider.get();
         PlacementStatus status=new PlacementStatus(false,false,"no_target");
         try {
-            if(plan==null||mc.level==null||mc.player==null||mc.options.hideGui||!mc.player.isSpectator()||body==null||mc.getCameraEntity()!=body
-                    ||body.level()!=mc.level||!body.isAlive()||plan.epoch()<=0||!plan.body().equals(body.getUUID())||plan.epoch()!=GhostControlClient.committedCharacterEpoch())return;
+            if(plan==null||mc.level==null||!com.juicyslew.moonstation14.ms14.construction.client.ConstructionPreviewView.allowed(true,mc.options.hideGui,body!=null,body!=null&&body.level()==mc.level,GhostControlClient.committedCharacterEpoch())
+                    ||!body.isAlive()||plan.epoch()<=0||!plan.body().equals(body.getUUID())||plan.epoch()!=GhostControlClient.committedCharacterEpoch())return;
             var held=heldStackProvider.apply(plan.body(),plan.epoch()).orElse(null);
             var data=PrototypeRuntime.clientDisposals().get(ResourceLocation.tryParse(plan.prototype()));
             if(data==null||data.tube()==null||data.geometry()==null||data.construction()==null||held==null||!materialMatches(held,data.construction().material()))return;
@@ -111,7 +111,7 @@ public final class DisposalConstructionPreview {
                 for(int x=x0;x<=x1;x++)for(int y=y0;y<=y1;y++)for(int z=z0;z<=z1;z++){BlockPos p=new BlockPos(x,y,z);if(!mc.level.hasChunkAt(p)){valid=false;continue;}if(p.equals(target)&&sealed)continue;var state=mc.level.getBlockState(p);if(interactive(state))valid=false;for(var c:state.getCollisionShape(mc.level,p,CollisionContext.empty()).toAabbs())if(c.move(p).intersects(world))valid=false;}}
             status=new PlacementStatus(true,valid&&enough,!enough?"moonstation14.disposal.construction.insufficient_material_reason":valid?"ready":"moonstation14.disposal.construction.blocked_reason",sealed);
             var pose=event.getPoseStack(); if(pose==null)return; var camera=event.getCamera().getPosition(); MultiBufferSource.BufferSource buffers=mc.renderBuffers().bufferSource();var renderType=sealed?SEALED_GHOST:RenderType.entityTranslucent(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14","textures/block/disposal/pipe_material.png"));var consumer=buffers.getBuffer(renderType);
-             int r=valid?(enough?40:135):255,g=valid?(enough?255:135):35,b=valid?(enough?80:135):35;double x=target.getX()-camera.x,y=target.getY()-camera.y,z=target.getZ()-camera.z;int light=net.minecraft.client.renderer.LevelRenderer.getLightColor(mc.level,target);DisposalTubeVisualRenderer.renderMesh(consumer,pose,data.geometry().mesh(data.tube(),frame),x,y,z,r,g,b,valid&&enough?220:150,light);
+              var tint=com.juicyslew.moonstation14.ms14.construction.client.ConstructionPreviewTint.rgba(valid&&enough?com.juicyslew.moonstation14.ms14.construction.client.ConstructionPreviewTint.Kind.READY:enough?com.juicyslew.moonstation14.ms14.construction.client.ConstructionPreviewTint.Kind.BLOCKED:com.juicyslew.moonstation14.ms14.construction.client.ConstructionPreviewTint.Kind.INSUFFICIENT);int r=Math.round(tint.red()*255),g=Math.round(tint.green()*255),b=Math.round(tint.blue()*255),a=Math.round(tint.alpha()*255);double x=target.getX()-camera.x,y=target.getY()-camera.y,z=target.getZ()-camera.z;int light=net.minecraft.client.renderer.LevelRenderer.getLightColor(mc.level,target);DisposalTubeVisualRenderer.renderMesh(consumer,pose,data.geometry().mesh(data.tube(),frame),x,y,z,r,g,b,a,light);
               DisposalTubeVisualRenderer.renderRoles(consumer,pose,data.tube(),frame,data.geometry().diameter(),x,y,z,light);buffers.endBatch(renderType);
         } finally { readiness.accept(status); }
     }

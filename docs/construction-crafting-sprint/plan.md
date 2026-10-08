@@ -2,13 +2,13 @@
 
 ## Status and sequence
 
-**Planned; not authorized for implementation yet.** Finish and commit the
-physical disposal-pipe sprint first. The owner subsequently authorized a narrow
-interim disposal-family construction mode: the eventual browser key acts as if
-Disposal Pipes had been selected. It supplies a non-hand plan, HUD, quick shape
-palette and rotation preview, but no full browser. This sprint follows that
-commit and replaces the direct family entry with the shared catalogue. Existing
-unit and pipe-configuration interfaces are not the shared construction browser.
+**Complete; closed at the owner's direction.** Final icon alignment and open-browser
+G-toggle fixes are built and tested. Known native failures and unobserved client/
+authenticated paths remain documented in `HANDOFF.md` and `validation.md`.
+Scope recorded 2026-10-07, after the
+physical disposal-pipe work was merged. This sprint builds on that implementation
+and replaces direct family entry with the shared catalogue. Existing unit and
+pipe-configuration interfaces are not the shared construction browser.
 
 ## Goal
 
@@ -25,15 +25,31 @@ Steel is a material, not a command to construct disposal pipes.
 - One crafting/construction menu and one configurable keybind to open it.
   Opening it during construction retains the selected plan and highlights it.
   The same key is the HUD's **Change** action; no separate change-plan key.
-- Search, optional **All / Items / Structures** filters, and a compact entry
-  showing output, starting requirements, and whether it is carried or placed.
+  Pressing it again closes an open browser unless a text field has focus.
+- A compact two-pane catalogue using the machine UI toolkit, with search and
+  family navigation; classifications are removed and favourites are deferred.
+  Structure steps remain graph-derived; portable instructions are one unnumbered
+  input→output line without timing or redundant headings. Target roughly one
+  eighth of the screen, with smaller icon-bearing list rows and toolkit-painted
+  close chrome. The list keeps its full height, synchronizes model page size to
+  displayed rows and leaves less than one row of unused space. Search crosses
+  remembered families and explicitly establishes text-field focus on clicking.
+  Instructions have top margin; content-sized thin actions sit below them on the
+  right, with compact material warnings above Craft and no bottom banner.
 - Item selection exposes **Craft** and quantity. Structure selection exposes
-  **Select plan**, closes the browser and enables world placement previews.
+   **Select plan**, without quantity controls, and enables world placement previews.
+   Selecting a plan closes the browser and locks the cursor immediately. Otherwise
+   the browser may remain visible during cursor-locked gameplay.
 - Selecting another structure replaces the active plan directly. Browsing or
   crafting an item does not silently clear a construction plan.
-- A small favourites/recent-plans palette is the proposed fast track for common
-  choices. It selects the same plan state, not another mode. A separate shortcut
-  key is optional; do not require another bind for ordinary plan switching.
+- Opening the browser preserves other windows and does not blur the world.
+   Only pointer hits inside its window and focused search typing are captured;
+   ordinary controls and the existing cursor-lock binding remain available.
+   Clicking outside all windows locks the cursor without performing a world
+   action. The browser is hidden over vanilla pause/modal menus; window render
+   depth and input order must agree, including storage sprites and hand HUD.
+   Storage focus changes ordering, not browser visibility. Screen-hosted windows
+   paint after their screen; gameplay windows paint after the hand HUD.
 - Instructions beyond starting requirements are available on demand, rather
   than always displaying the entire construction graph.
 
@@ -65,13 +81,23 @@ Steel is a material, not a command to construct disposal pipes.
 - Hold the required starting material and aim to preview the intended block;
   confirm with ordinary Use. Derive orientation from the targeted face and
   full body look, not a Facing selector. Placement consumes the recipe's
-  starting material/time, not every component of the finished structure.
+   starting material/time, not every component of the finished structure.
+   Initial work reserves materials before its timer, refunds cancellation and
+   permits concurrent jobs. Distinct existing targets can also progress together
+   while the same surviving held source remains valid. Show ephemeral progress
+   evidence at each work spot, not persistent ghost plans. All nine supported
+   disposal foundations require 2 Steel over 1 second from the resolved graph.
 - Keep the plan selected for repeated placement until explicitly cleared or
   replaced. Players can otherwise play normally with a plan selected.
 - Families may offer a compact palette of related starting objects (e.g.
   disposal straight/bend/junction/trunk). This changes object type without
   reopening the full browser; selection is still explicit, not inferred from
   merely holding steel.
+- Tap G opens a closed browser; pressing G again closes it when not typing.
+  With the browser closed, hold G opens a compact palette for the current family,
+  with scroll selecting variants. Rotation and exit use
+  configurable binds (initial suggestions R and H); tap/hold and bind conflicts
+  must be disambiguated in settings.
 - Infer orientation from compatible neighbouring ports first, then targeted
   face/hit and body look. A rotate input cycles meaningful alternatives without
   requiring the player to reposition in confined space. Prefer connected
@@ -84,11 +110,26 @@ Steel is a material, not a command to construct disposal pipes.
   This replaces SS14's screwdriver junction-type cycle by owner choice.
 - For disposal sealed-wall crossings, preserve the existing eligible-host
   exception to empty-space placement: the wall is retained, not replaced.
-- Once a frame exists, explicitly apply materials, parts and tools to advance
-  its actual graph stage. Do not auto-assemble a whole machine from a backpack.
-- Prefer shared starting forms. A machine frame's board determines its machine
-  and later requirements; girders branch by supplied materials and tools.
-  A chosen final goal may guide work, but must not lock out valid graph branches.
+- Once a construction object exists, explicitly apply materials, parts and
+  tools to advance its actual graph stage. Do not auto-assemble from a backpack.
+  A matching active plan's initial material instead attempts new adjacent
+  placement before hit-host progression, including player-built walls. Placement
+  failure must not fall through into finishing a girder. Exit the plan to resume
+  that material's ordinary progression; unrelated materials/tools remain usable.
+- Sprint scope: disposal pipe family; girder/wall branching; and one simple
+  portable item to prove sequential crafting. Machine frames and boards are
+  deferred, not acceptance criteria. A chosen final goal may guide work, but
+  must not lock out valid graph branches.
+- Persist the intended goal on the placed foundation. Aiming at an incomplete
+  construction object continuously for 0.5 seconds shows a guidance popup based
+  on its current graph stage and remembered goal; looking away dismisses/resets
+  the timer. The popup is not an inspect-key or general inspection system.
+  Changing the active plan later does not rewrite the foundation's remembered
+   goal. Guidance must never block actual valid graph branches.
+   Presentation is only the goal name as header and one next actionable
+   material/tool requirement, with anchoring first when necessary. No Stage/Next
+   prose or complete future material list; family palettes have no misleading
+   Select/Close button footer.
 - Disambiguate initial forms through plan selection when material/context/action
   alone is ambiguous. Change recipes only for meaningful component/material/tool
   distinctions, not arbitrary uniqueness requirements.
@@ -98,18 +139,19 @@ Steel is a material, not a command to construct disposal pipes.
 
 ### HUD and preview readiness
 
-Keep a compact status visible while a plan is selected, even with the wrong
-item in hand or no preview: **Plan: Girder · Hold 2 Steel · [key] Change ·
-[key] Exit**. Starting requirements come from resolved recipe data.
+Keep a content-bounded top banner visible while a plan is selected, even with
+the wrong item in hand or no preview. Center the object title, avoid chat, and
+show material counts plus configured controls. Starting requirements come from
+the resolved initial physical stage. Do not show Ready/Hold/Insufficient words.
 
 | Situation | HUD | Preview |
 | --- | --- | --- |
-| Empty hand/wrong material | Red: Hold 2 Steel | Hidden |
+| Empty hand/wrong material | Red: Steel 0/2 | Hidden |
 | Correct material, too little | Yellow: Steel 1/2 | Dim/unavailable at plausible target |
-| Enough material, valid target | Green: Steel 2/2 — Ready | Bright usable colour |
+| Enough material, valid target | Green: Steel 2/2 | Green translucent ghost |
 | Enough material, blocked target | Material readiness stays green; Placement blocked | Red |
 
-Use text and brightness as well as colour. Material readiness and spatial
+Colorblind-friendly symbols are deferred by owner choice. Material readiness and spatial
 validity are independent. Suppress irrelevant ghosts while holding tools or
 unrelated items; selection remains visible in the HUD. Additional starting
 requirements/tools must be shown when the resolved recipe actually needs them.
@@ -138,10 +180,10 @@ requirements/tools must be shown when the resolved recipe actually needs them.
 
 ## Ordered work units
 
-1. **Audit and vertical-slice contract:** inspect upstream crafting source/result
-   rules and graph branches; map existing local services; choose a small recipe
-   set including item crafting, a girder/wall branch, machine-frame/board-driven
-   work and disposal initial shapes. Document unsupported outputs explicitly.
+  1. **Audit and vertical-slice contract:** inspect upstream crafting source/result
+    rules and graph branches; map existing local services; choose disposal
+    initial shapes, a girder/wall branch and one simple portable crafting recipe.
+    Machine frames/boards are deferred. Document unsupported outputs explicitly.
 2. **Resolved recipes and graph runtime:** data/default resolution, shared
    starting forms, explicit material/tool/board progression and dismantling.
 3. **Sequential item crafting:** single active craft, queued quantity, exact
@@ -167,8 +209,11 @@ requirements/tools must be shown when the resolved recipe actually needs them.
   blocked space produce the specified HUD/preview states, including no ghost
   with unrelated held equipment. Labels use actual configured keys/recipe data.
 - Ordinary controls remain functional with construction selected. Initial
-  ambiguity is resolved by plan; actual frames branch through explicit supplied
-  materials/boards/tools without reopening the browser or final-goal lock-in.
+  ambiguity is resolved by plan; actual construction branches through explicit
+  supplied materials/tools without reopening the browser or final-goal lock-in.
+- Aimed-at incomplete construction guidance appears after 0.5 seconds, reflects
+  current graph stage and persisted foundation goal, dismisses/reset on looking
+  away, and never prevents valid alternate branches.
 - Repeated exposed/vertical disposal placement and eligible sealed crossings use
   existing physical block authority/geometry. Floor finishes have no interaction.
 - Exact body/mind-epoch and inventory authority, recipe inheritance/defaults,
@@ -178,15 +223,14 @@ requirements/tools must be shown when the resolved recipe actually needs them.
 
 ## Open details, not settled requirements
 
-- Choose default browser/exit keys after auditing existing binds; no default
-  key has been agreed. Decide quick-palette activation without multiplying binds.
+- Audit configurable tap/hold G, R rotation and H exit binds and conflicts.
 - Establish exact automatic ingredient-source locations and output-capacity
   policy. Do not claim backpack/nearby sourcing is verified SS14 behaviour.
 - Specify queue cancellation/interruption, switching selected bodies, depletion
   messaging and what happens across disconnect/reload. Prefer simple current
   requirements over persistent cross-session scheduling.
-- Decide search/category layout and initial favourites/recent limit during the
-  UI slice. Do not turn this into a large catalogue-management system.
+- Choose the initial favourites set during the UI slice; do not turn this into a
+  large catalogue-management system.
 
 ## Starting points
 

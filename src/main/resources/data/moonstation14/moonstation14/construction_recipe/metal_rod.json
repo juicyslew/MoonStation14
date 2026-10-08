@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Metal Rod","description":"Craft two metal rods from steel","category":"Materials","family":"metal_rods","icon":"metal_rod","graph":"metal_rod","startingNode":"start","targetNode":"metal_rod","outputKind":"ITEM"}

@@ -1,0 +1,1 @@
+{"parent":"base_recipe","name":"Disposal Bend","description":"Build a disposal bend","category":"Disposal Pipes","family":"disposal_pipes","icon":"disposal_bend","graph":"disposal_pipes","startingNode":"start","targetNode":"bend"}

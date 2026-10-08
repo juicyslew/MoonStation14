@@ -2,20 +2,82 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
+import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
+import net.minecraft.resources.ResourceLocation;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class LiveHandsTest {
     private static final ItemToken TOKEN = new ItemToken("live-token");
+    private java.util.Map<ResourceLocation, ItemFootprintProfile> previousFootprints;
+
+    @BeforeEach
+    void provideLoadedFootprintCatalogForGridFixtures() throws IOException {
+        var manager = PrototypeRuntime.serverManager();
+        var current = manager.snapshot(ModItemFootprints.TYPE);
+        previousFootprints = current.asMap();
+        manager.reload(ModItemFootprints.TYPE, loadFootprintResources());
+    }
+
+    @AfterEach
+    void restoreFootprintCatalog() {
+        if (previousFootprints != null)
+            PrototypeRuntime.serverManager().publishDecoded(ModItemFootprints.TYPE, previousFootprints);
+        previousFootprints = null;
+    }
+
+    private static java.util.Map<ResourceLocation, JsonObject> loadFootprintResources() throws IOException {
+        String rootName = "data/moonstation14/moonstation14/item_footprint";
+        var root = LiveHandsTest.class.getClassLoader().getResource(rootName);
+        if (root == null) throw new IOException("Missing item footprint resources");
+        Path directory;
+        if ("file".equals(root.getProtocol())) directory = Path.of(URI.create(root.toString()));
+        else if ("union".equals(root.getProtocol())) {
+            String value = root.toString();
+            int marker = value.indexOf("/build/");
+            if (marker < 0) throw new IOException("Cannot locate item footprint resources");
+            String project = URLDecoder.decode(value.substring("union:".length(), marker), StandardCharsets.UTF_8);
+            if (project.startsWith("/") && project.length() > 2 && project.charAt(2) == ':') project = project.substring(1);
+            directory = Path.of(project).resolve("src/main/resources").resolve(rootName);
+        } else throw new IOException("Unsupported item footprint resource URL: " + root);
+        var result = new LinkedHashMap<ResourceLocation, JsonObject>();
+        try (var paths = Files.list(directory)) {
+            for (Path path : paths.filter(p -> p.toString().endsWith(".json")).sorted().toList()) {
+                String name = path.getFileName().toString();
+                try (var reader = new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8)) {
+                    result.put(ResourceLocation.fromNamespaceAndPath("moonstation14", name.substring(0, name.length() - 5)),
+                            JsonParser.parseReader(reader).getAsJsonObject());
+                }
+            }
+        }
+        return result;
+    }
 
     private static LiveHands parse(String json) {
         return LiveHands.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(json)).getOrThrow();
@@ -119,6 +181,134 @@ class LiveHandsTest {
         assertSame(state, result.state());
         assertEquals(Optional.of(reason), result.rejection());
         assertTrue(result.takenStack().isEmpty());
+    }
+
+    @Test
+    void stagedCraftConsumesMultipleUnitsAndUsesFreedSourceHand() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":4}");
+        ItemStack steel = new ItemStack(Items.IRON_INGOT, 3);
+        LiveHands stocked = empty.putWhole(4, "left", new ItemToken("steel-owner"), steel).state();
+        ItemStack rods = new ItemStack(Items.STICK, 2);
+        LiveHands crafted = stocked.consumeAndPlace(5,"left","steel-owner",steel,3,rods,"rod-output").orElseThrow();
+        assertTrue(crafted.stackCopy("left").orElseThrow().is(Items.STICK));
+        assertEquals(2, crafted.stackCopy("left").orElseThrow().getCount());
+        assertEquals("rod-output", crafted.token("left").orElseThrow());
+        assertTrue(crafted.stackCopy("right").isEmpty());
+        // The recipe consumes all three units; the source snapshot remains unchanged.
+        assertEquals(3, stocked.stackCopy("left").orElseThrow().getCount());
+        assertEquals(6, crafted.revision());
+    }
+
+    @Test
+    void stagedCraftMergesMatchingOutputAndCapacityFailureIsNoMutation() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        LiveHands stocked = empty.putWhole(0,"left",new ItemToken("steel"),new ItemStack(Items.IRON_INGOT)).state();
+        stocked = stocked.putWhole(1,"right",new ItemToken("sticks"),new ItemStack(Items.STICK, 5)).state();
+        var merged = stocked.consumeAndPlace(2,"left","steel",new ItemStack(Items.IRON_INGOT),1,
+                new ItemStack(Items.STICK,2),"new-rods").orElseThrow();
+        assertEquals(7,merged.stackCopy("right").orElseThrow().getCount());
+        assertEquals("sticks",merged.token("right").orElseThrow());
+        assertTrue(merged.stackCopy("left").isEmpty());
+
+        // One unit would be fully consumed and free the source hand for output.
+        // Two units leave the source occupied, making this an actual capacity failure.
+        LiveHands full = empty.putWhole(0,"left",new ItemToken("steel"),new ItemStack(Items.IRON_INGOT, 2)).state()
+                .putWhole(1,"right",new ItemToken("other"),new ItemStack(Items.DIAMOND)).state();
+        assertTrue(full.consumeAndPlace(2,"left","steel",new ItemStack(Items.IRON_INGOT,2),1,
+                new ItemStack(Items.STICK),"out").isEmpty());
+        assertEquals(2,full.stackCopy("left").orElseThrow().getCount());
+        assertEquals(2,full.revision());
+    }
+
+    @Test
+    void stagedCraftRejectsStaleAndMismatchedSourceWithoutChangingInput() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        LiveHands stocked = empty.putWhole(0,"left",new ItemToken("steel"),new ItemStack(Items.IRON_INGOT,2)).state();
+        assertTrue(stocked.consumeAndPlace(0,"left","steel",new ItemStack(Items.IRON_INGOT,2),1,
+                new ItemStack(Items.STICK),"out").isEmpty());
+        assertTrue(stocked.consumeAndPlace(1,"left","wrong",new ItemStack(Items.IRON_INGOT,2),1,
+                new ItemStack(Items.STICK),"out").isEmpty());
+        assertTrue(stocked.consumeAndPlace(1,"left","steel",new ItemStack(Items.IRON_INGOT,3),1,
+                new ItemStack(Items.STICK),"out").isEmpty());
+        assertEquals(2,stocked.stackCopy("left").orElseThrow().getCount());
+    }
+
+    @Test
+    void worldCraftOutputPreflightDoesNotMutateAndChecksCapacity() {
+        LiveHands empty=parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        LiveHands full=empty.putWhole(0,"left",new ItemToken("a"),new ItemStack(Items.DIAMOND)).state()
+                .putWhole(1,"right",new ItemToken("b"),new ItemStack(Items.EMERALD)).state();
+        assertTrue(full.placeCraftOutput(2,new ItemStack(Items.STICK),"out").isEmpty());
+        assertEquals(2,full.revision());
+        assertTrue(full.stackCopy("left").orElseThrow().is(Items.DIAMOND));
+        var staged=full.placeCraftOutput(2,new ItemStack(Items.DIAMOND),"unused").orElseThrow();
+        assertEquals(1,full.stackCopy("left").orElseThrow().getCount());
+        assertEquals(2,staged.stackCopy("left").orElseThrow().getCount());
+        assertEquals(3,staged.revision());
+    }
+
+    @Test
+    void worldOutputFitsWornGridWithoutChangingInputSnapshot() {
+        LiveHands empty=parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        ItemStack bag=GridContents.applyCopyWithGrid(new ItemStack(ModItems.BAG.get()),GridContents.empty()).orElseThrow();
+        LiveHands state=empty.putWhole(0,"left",new ItemToken("bag"),bag).state();
+        state=state.equip(1,java.util.List.of("belt","back"),"left","back","bag").orElseThrow();
+        state=state.putWhole(2,"left",new ItemToken("l"),new ItemStack(Items.DIAMOND)).state()
+                .putWhole(3,"right",new ItemToken("r"),new ItemStack(Items.EMERALD)).state();
+        var placed=state.placeCraftOutput(4,new ItemStack(Items.STICK,2),"rods").orElseThrow();
+        assertEquals(4,state.revision());
+        assertTrue(GridContents.read(state.equipmentStack("back").orElseThrow()).orElseThrow().entries().isEmpty());
+        assertTrue(GridContents.read(placed.equipmentStack("back").orElseThrow()).orElseThrow().entries()
+                .stream().anyMatch(e->e.token().equals("rods")&&e.stack().getCount()==2));
+        assertEquals(5,placed.revision());
+    }
+
+    @Test
+    void adequateHandMaterialCapacityFailureDoesNotFallThroughToWornGridSource() {
+        LiveHands state=parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        ItemStack bag=GridContents.applyCopyWithGrid(new ItemStack(ModItems.BAG.get()),GridContents.empty()).orElseThrow();
+        var packed = new java.util.ArrayList<GridContents.Entry>();
+        packed.add(new GridContents.Entry("grid-steel", new ItemStack(Items.IRON_INGOT), 0, 0,
+                GridGeometry.Rotation.DEG_0));
+        for (int y = 0; y < 4; y++) for (int x = 0; x < 7; x++)
+            if (x != 0 || y != 0) packed.add(new GridContents.Entry("grid-fill-" + x + "-" + y,
+                    new ItemStack(Items.DIAMOND), x, y, GridGeometry.Rotation.DEG_0));
+        bag = GridContents.applyCopyWithGrid(bag, GridContents.of(packed)).orElseThrow();
+        state=state.putWhole(0,"left",new ItemToken("bag"),bag).state();
+        state=state.equip(1,java.util.List.of("belt","back"),"left","back","bag").orElseThrow();
+        state=state.putWhole(2,"left",new ItemToken("hand-steel"),new ItemStack(Items.IRON_INGOT,2)).state();
+        state=state.putWhole(3,"right",new ItemToken("full"),new ItemStack(Items.DIAMOND)).state();
+        assertTrue(state.consumeBodyMaterial(4,s->s.is(Items.IRON_INGOT),1,new ItemStack(Items.STICK),"out").isEmpty());
+        assertEquals(2,state.stackCopy("left").orElseThrow().getCount());
+        assertTrue(GridContents.read(state.equipmentStack("back").orElseThrow()).orElseThrow().entries()
+                .stream().anyMatch(e->e.token().equals("grid-steel")));
+    }
+
+    @Test
+    void bodyMaterialSelectionConsumesWornGridChildAndFitsOutputIntoFreedGridCell() {
+        LiveHands empty=parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        ItemStack bag=new ItemStack(ModItems.BAG.get());
+        bag=GridContents.applyCopyWithGrid(bag,GridContents.empty()).orElseThrow();
+        LiveHands state=empty.putWhole(0,"left",new ItemToken("bag"),bag).state();
+        state=state.equip(1,java.util.List.of("belt","back"),"left","back","bag").orElseThrow();
+        state=state.addGridChild(2,java.util.List.of("belt","back"),new LiveHands.GridHost(true,"back","bag"),
+                "steel",new ItemStack(Items.IRON_INGOT),new GridGeometry.Cell(0,0),GridGeometry.Rotation.DEG_0).orElseThrow();
+        state=state.putWhole(3,"left",new ItemToken("occupied-left"),new ItemStack(Items.DIAMOND)).state();
+        state=state.putWhole(4,"right",new ItemToken("occupied-right"),new ItemStack(Items.EMERALD)).state();
+        var selection=state.consumeBodyMaterial(5,s->s.is(Items.IRON_INGOT),1,new ItemStack(Items.STICK,2),"rods").orElseThrow();
+        LiveHands result=selection.state();
+        assertTrue(selection.source().wornGrid());
+        assertEquals("back",selection.source().hostId());
+        assertEquals("bag",selection.source().hostToken());
+        assertEquals("steel",selection.source().childToken());
+        assertEquals(6,result.revision());
+        var contents=GridContents.read(result.equipmentStack("back").orElseThrow());
+        assertTrue(contents.orElseThrow().entries().stream().anyMatch(e->e.token().equals("rods")&&e.stack().getCount()==2));
+        assertTrue(contents.orElseThrow().entries().stream().noneMatch(e->e.token().equals("steel")));
+        assertTrue(state.consumeBodyMaterial(4,s->s.is(Items.IRON_INGOT),1,new ItemStack(Items.STICK,2),"stale").isEmpty());
+        assertEquals(1,GridContents.read(state.equipmentStack("back").orElseThrow()).orElseThrow().entries().size(),
+                "stale host/child snapshot leaves original material in place");
+        assertEquals(5,state.revision());
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.block.custom.PuddleBlock;
 import com.juicyslew.moonstation14.block.custom.AtmosphereTestDeviceBlock;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
+import com.juicyslew.moonstation14.block.custom.ConstructionStructureBlock;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
@@ -35,15 +36,18 @@ public class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MoonStation14.MOD_ID);
 
     public static final DeferredBlock<Block> STEEL_WALL_BLOCK = registerBlock("steel_wall_block",
-            () -> new Block(BlockBehaviour.Properties.of()
+            () -> new ConstructionStructureBlock("wall_solid", BlockBehaviour.Properties.of()
                     .strength(4f).requiresCorrectToolForDrops().sound(SoundType.COPPER_GRATE)));
+
+    public static final DeferredBlock<Block> PLASTIC_WALL = registerBlock("plastic_wall",
+            () -> new ConstructionStructureBlock("wall_plastic", BlockBehaviour.Properties.of().strength(2f).requiresCorrectToolForDrops().sound(SoundType.METAL)));
 
     public static final DeferredBlock<StationFloorBlock> STATION_FLOOR = registerBlock("station_floor",
             () -> new StationFloorBlock(BlockBehaviour.Properties.of()
                     .strength(3f).requiresCorrectToolForDrops().sound(SoundType.METAL)));
 
     public static final DeferredBlock<Block> STEEL_WALL_GIRDER_BLOCK = registerBlock("steel_wall_girder_block",
-            () -> new Block(BlockBehaviour.Properties.of().noOcclusion()
+            () -> new ConstructionStructureBlock("girder", BlockBehaviour.Properties.of().noOcclusion()
                     .isViewBlocking(ModBlocks::never)
                     .strength(2f).requiresCorrectToolForDrops().sound(SoundType.COPPER_GRATE)));
 

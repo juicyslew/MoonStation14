@@ -1,0 +1,27 @@
+Reusing configuration cache.
+> Task :jarJar NO-SOURCE
+> Task :generateModMetadata UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :compileGametestJava UP-TO-DATE
+> Task :gametestClasses UP-TO-DATE
+> Task :cleanTest
+> Task :compileTestJava
+> Task :testClasses
+> Task :test
+> Task :check
+> Task :build
+
+BUILD SUCCESSFUL in 34s
+15 actionable tasks: 3 executed, 12 up-to-date
+Configuration cache entry reused.

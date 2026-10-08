@@ -4,6 +4,7 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -20,12 +21,23 @@ class TimedInteractionSnapshotTest {
         for (TimedOperation.Phase phase : TimedOperation.Phase.values()) {
             long terminal = phase == TimedOperation.Phase.ACTIVE ? -1 : 20;
             var input = new TimedInteractionSnapshot(DIMENSION, 42, new UUID(7, 9), 12, 30,
-                    List.of(new TimedInteractionSnapshot.View(5, 10, 11, phase, terminal, 3)));
+                    List.of(new TimedInteractionSnapshot.View(5, 10, 11, phase, terminal, 3, java.util.Optional.of(new BlockPos(12,64,-9)))));
             assertEquals(input, roundTrip(input));
         }
         var repeated = new TimedInteractionSnapshot(DIMENSION, 42, new UUID(7, 9), 13, 31,
                 List.of(new TimedInteractionSnapshot.View(5, 11, 11, TimedOperation.Phase.ACTIVE, -1, 4)));
         assertEquals(repeated, roundTrip(repeated));
+    }
+
+    @Test
+    void worldTargetRoundTripsAndLegacyConstructionDefaultsEmpty() {
+        var world = new TimedInteractionSnapshot.View(8, 4, 10, TimedOperation.Phase.ACTIVE, -1, 2,
+                java.util.Optional.of(new BlockPos(-4, 70, 21)));
+        var absent = new TimedInteractionSnapshot.View(9, 4, 10, TimedOperation.Phase.ACTIVE, -1, 0);
+        var snapshot = new TimedInteractionSnapshot(DIMENSION, 3, UUID.randomUUID(), 1, 5, List.of(world, absent));
+        var decoded = roundTrip(snapshot);
+        assertEquals(world.worldTarget(), decoded.views().getFirst().worldTarget());
+        assertTrue(decoded.views().get(1).worldTarget().isEmpty());
     }
 
     @Test
