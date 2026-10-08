@@ -5,6 +5,19 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PointerWorkspaceLayersTest {
+    @Test void expandedStorageSiblingCountKeepsWireAndFrontOrdersAboveEveryWindow() {
+        int count = 5;
+        int backWire = PointerWorkspaceLayers.wireLayer(false, count);
+        for (int rank = 0; rank < count; rank++)
+            assertTrue(backWire > PointerWorkspaceLayers.storageLayer(rank, false, count));
+        int browserFront = PointerWorkspaceLayers.browserLayer(0, true, count);
+        assertTrue(browserFront > backWire);
+        assertTrue(PointerWorkspaceLayers.storageLayer(count - 1, true, count)
+                > PointerWorkspaceLayers.browserLayer(0, false, count));
+        assertTrue(PointerWorkspaceLayers.wireLayer(true, count)
+                > PointerWorkspaceLayers.storageLayer(count - 1, true, count));
+    }
+
     @Test void browserWireAndStorageDepthsMatchBothFrontOrdersWithItemMargins() {
         int browserFront = PointerWorkspaceLayers.browserLayer(0, true);
         int backWire = PointerWorkspaceLayers.wireLayer(false);

@@ -1,0 +1,6 @@
+{
+  "id": "jug_base",
+  "abstract": true,
+  "solutionContainer": { "solutionName": "drink", "maxVolume": 200.0 },
+  "examinableSolution": { "solutionName": "drink", "exactVolume": true, "heldOnly": false, "examinableWhileClosed": true, "maxDetails": 3 }
+}

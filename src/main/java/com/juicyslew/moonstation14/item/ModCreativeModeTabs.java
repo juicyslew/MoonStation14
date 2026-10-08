@@ -19,12 +19,13 @@ public class ModCreativeModeTabs {
             ModItems.STEEL, ModItems.METAL_ROD, ModItems.WOOD, ModItems.CLOTH, ModItems.GLASS, ModItems.PAPER, ModItems.PLASTIC,
             ModItems.CROWBAR, ModItems.AIRLOCK_SCREWDRIVER, ModItems.AIRLOCK_MULTITOOL, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
-            ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE,
+            ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE, ModItems.SYRINGE,
             ModItems.ATMOSPHERE_ANALYZER, ModItems.GRENADE, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE,
             ModItems.JUG, ModItems.GAS_PIPE_SEGMENT, ModItems.GAS_PIPE_SEGMENT_SECONDARY, ModItems.GAS_PIPE_SEGMENT_TERTIARY,
             ModItems.GAS_VENT, ModItems.GAS_SCRUBBER, ModItems.AIR_ALARM,
             ModItems.DISPOSAL_UNIT,
-            ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER);
+            ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER,
+            ModItems.OINTMENT, ModItems.BRUTEPACK, ModItems.GAUZE, ModItems.HANDHELD_HEALTH_ANALYZER);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
             ModBlocks.STEEL_WALL_BLOCK, ModBlocks.PLASTIC_WALL, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR, ModBlocks.AIRLOCK,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,
@@ -44,7 +45,8 @@ public class ModCreativeModeTabs {
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModItems.STEEL.get()))
                     .title(Component.translatable("creativetab.moonstation14.moonstation_items"))
                     .displayItems((itemDisplayParameters, output) ->
-                            MOONSTATION_ITEM_ENTRIES.forEach(entry -> output.accept(entry.get()))).build());
+                            MOONSTATION_ITEM_ENTRIES.forEach(entry -> output.accept(
+                                    com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.createCreativeStack(entry.get())))).build());
     public static final Supplier<CreativeModeTab> MOONSTATION_BLOCKS_TAB = CREATIVE_MODE_TAB.register("moonstation_blocks_tab",
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocks.STEEL_WALL_GIRDER_BLOCK.get()))
                     .withTabsBefore(ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "moonstation_items_tab"))

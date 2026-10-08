@@ -156,6 +156,11 @@ public final class LiveHands {
     /** Absent result means no compatible equipment capability; persisted distinguishes legacy absence. */
     public static Optional<EquipmentSnapshot> equipmentSnapshot(Entity body) {
         LiveHands state = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        return equipmentSnapshot(body, state);
+    }
+
+    /** Resolve the host layout from the body, but contents from the supplied detached candidate state. */
+    public static Optional<EquipmentSnapshot> equipmentSnapshot(Entity body, LiveHands state) {
         if (state == null || !state.compatible(body)) return Optional.empty();
         return hostEquipmentIds(body).map(ids -> new EquipmentSnapshot(state.equipment.isPresent(),
                 ids.stream().map(id -> new EquipmentSlot(id, state.equipment.orElse(List.of()).stream()
@@ -178,6 +183,12 @@ public final class LiveHands {
     public List<String> handIds() { return hands.stream().map(Slot::id).toList(); }
     public String activeHand() { return active; }
     public long revision() { return revision; }
+
+    /** Advances the observable body-inventory revision after a presentation-only owned-stack change. */
+    public LiveHands advanceRevision() {
+        if (revision == Long.MAX_VALUE) throw new IllegalStateException("Live hand revision exhausted");
+        return new LiveHands(hands, active, revision + 1, equipment);
+    }
 
     /** Transient pull lock; the UUID is the exact target and is not an item/stack token. */
     public Optional<java.util.UUID> reservation(String hand) {
@@ -231,6 +242,59 @@ public final class LiveHands {
         return hands.stream().filter(slot -> slot.id().equals(hand)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("unknown hand"))
                 .occupant().map(Occupant::token);
+    }
+
+    /** Scanner lifecycle component mutation, guarded by the current revision and scanner UUID. */
+    public Optional<LiveHands> deactivateHealthAnalyzer(long expectedRevision, java.util.UUID scannerId) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || scannerId == null) return Optional.empty();
+        ArrayList<Slot> nextHands = new ArrayList<>(hands);
+        ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElse(List.of()));
+        boolean[] changed = {false};
+        java.util.function.UnaryOperator<ItemStack> deactivate = source -> {
+            var data = source.get(ModDataComponents.HEALTH_ANALYZER.get());
+            if (data == null || !data.active() || !data.scannerId().equals(scannerId)) return source;
+            ItemStack result = source.copy();
+            result.set(ModDataComponents.HEALTH_ANALYZER.get(), new com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData(scannerId, false));
+            changed[0] = true;
+            return result;
+        };
+        tickStacks(nextHands, deactivate);
+        tickStacks(nextEquipment, deactivate);
+        for (int i = 0; i < nextHands.size(); i++) {
+            Slot slot = nextHands.get(i);
+            if (slot.occupant().isEmpty()) continue;
+            Occupant owner = slot.occupant().orElseThrow();
+            var updated = updateDirectGridChildren(owner.stack(), scannerId);
+            if (updated != owner.stack() && !ItemStack.matches(updated, owner.stack())) {
+                nextHands.set(i, new Slot(slot.id(), Optional.of(new Occupant(owner.token(), updated)))); changed[0] = true;
+            }
+        }
+        for (int i = 0; i < nextEquipment.size(); i++) {
+            Slot slot = nextEquipment.get(i);
+            if (slot.occupant().isEmpty()) continue;
+            Occupant owner = slot.occupant().orElseThrow();
+            var updated = updateDirectGridChildren(owner.stack(), scannerId);
+            if (!ItemStack.matches(updated, owner.stack())) {
+                nextEquipment.set(i, new Slot(slot.id(), Optional.of(new Occupant(owner.token(), updated)))); changed[0] = true;
+            }
+        }
+        return changed[0] ? Optional.of(new LiveHands(nextHands, active, revision + 1,
+                equipment.isPresent() ? Optional.of(nextEquipment) : Optional.empty())) : Optional.empty();
+    }
+
+    private static ItemStack updateDirectGridChildren(ItemStack host, java.util.UUID id) {
+        var grid = GridContents.read(host);
+        if (grid.isEmpty()) return host;
+        List<GridContents.Entry> entries = new ArrayList<>(); boolean changed = false;
+        for (var entry : grid.orElseThrow().entries()) {
+            ItemStack child = entry.stack();
+            var data = child.get(ModDataComponents.HEALTH_ANALYZER.get());
+            if (data != null && data.active() && data.scannerId().equals(id)) {
+                child.set(ModDataComponents.HEALTH_ANALYZER.get(), new com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData(id, false)); changed = true;
+            }
+            entries.add(new GridContents.Entry(entry.token(), child, entry.x(), entry.y(), entry.rotation()));
+        }
+        return changed ? GridContents.applyCopyWithGrid(host, GridContents.of(entries)).orElse(host) : host;
     }
 
     public Optional<ItemStack> equipmentStack(String slot) {
@@ -466,6 +530,47 @@ public final class LiveHands {
         ArrayList<Slot> next = new ArrayList<>(hands);
         next.set(index, new Slot(hand, Optional.of(new Occupant(token.value(), stack))));
         return new WholeResult(new LiveHands(next, active, revision + 1, equipment), Optional.empty(), Optional.empty());
+    }
+
+    /** Pure give-admission step: merge matching available stacks up to each native stack cap, then fill an empty hand. */
+    public GrantResult grant(long expectedRevision, ItemStack supplied) {
+        if (expectedRevision != revision || revision == Long.MAX_VALUE || supplied == null || supplied.isEmpty())
+            return new GrantResult(this, supplied == null ? ItemStack.EMPTY : supplied.copy(), false);
+        ItemStack remaining = supplied.copy();
+        ArrayList<Slot> next = new ArrayList<>(hands);
+        int activeIndex = handIds().indexOf(active);
+        if (activeIndex < 0) return new GrantResult(this, remaining, false);
+        // Keep active-first ordering; reservations are intentionally unavailable.
+        ArrayList<Integer> order = new ArrayList<>(); order.add(activeIndex);
+        for (int i = 0; i < hands.size(); i++) if (i != activeIndex) order.add(i);
+        boolean changed = false;
+        for (int i : order) {
+            Slot slot = next.get(i);
+            if (slot.reservation().isPresent() || slot.occupant().isEmpty()) continue;
+            ItemStack held = slot.occupant().orElseThrow().stack();
+            if (!ItemStack.isSameItemSameComponents(held, remaining)) continue;
+            int moved = Math.min(remaining.getCount(), Math.max(0, held.getMaxStackSize() - held.getCount()));
+            if (moved == 0) continue;
+            held.grow(moved); remaining.shrink(moved);
+            next.set(i, new Slot(slot.id(), Optional.of(new Occupant(slot.occupant().orElseThrow().token(), held))));
+            changed = true;
+            if (remaining.isEmpty()) break;
+        }
+        for (int i : order) {
+            if (remaining.isEmpty()) break;
+            Slot slot = next.get(i);
+            if (slot.reservation().isPresent() || slot.occupant().isPresent()) continue;
+            int moved = Math.min(remaining.getCount(), remaining.getMaxStackSize());
+            ItemStack placed = remaining.copyWithCount(moved);
+            next.set(i, new Slot(slot.id(), Optional.of(new Occupant(new ItemToken(java.util.UUID.randomUUID().toString()).value(), placed))));
+            remaining.shrink(moved); changed = true;
+        }
+        return new GrantResult(changed ? new LiveHands(next, active, revision + 1, equipment) : this, remaining, changed);
+    }
+
+    public record GrantResult(LiveHands state, ItemStack remainder, boolean changed) {
+        public GrantResult { remainder = remainder.copy(); }
+        @Override public ItemStack remainder() { return remainder.copy(); }
     }
 
     /** Pure whole-stack calculation; caller must publish atomically with the owning carrier. */

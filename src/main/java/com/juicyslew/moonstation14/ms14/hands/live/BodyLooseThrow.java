@@ -35,6 +35,11 @@ public final class BodyLooseThrow {
 
     static Result throwOwned(LivingEntity body, String hand, String expectedToken, long revision,
                              BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committed) {
+        return LiveHandsCommitGateway.batch(() -> throwOwnedCommitted(body, hand, expectedToken, revision, authorityValid, committed));
+    }
+
+    private static Result throwOwnedCommitted(LivingEntity body, String hand, String expectedToken, long revision,
+                             BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committed) {
         if (body == null || hand == null || expectedToken == null || authorityValid == null
                 || !(body.level() instanceof ServerLevel level) || !level.getServer().isSameThread()
                 || !live(body, level) || !CharacterControlSystem.canAct(body) || !level.hasChunkAt(body.blockPosition()))
@@ -94,7 +99,7 @@ public final class BodyLooseThrow {
                 || !before.stackCopy(hand).filter(s -> same(stack, s)).isPresent()
                 || !eye.equals(body.getEyePosition()) || !look.equals(body.getLookAngle()) || !bodyPosition.equals(body.position())
                 || !handOrigin.equals(currentHandOrigin(body, entity.profile().physicalHeight()))) return Result.DENIED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), transition.state()); }
+        try { LiveHandsCommitGateway.commitOwned(body, transition.state()); }
         catch (RuntimeException failure) { return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                 ? Result.DENIED : Result.RECOVERY_REQUIRED; }
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != transition.state()
@@ -122,7 +127,7 @@ public final class BodyLooseThrow {
                 || !cleared.compatible(body)) return Result.RECOVERY_REQUIRED;
         LiveHands.WholeResult restore = cleared.putWhole(cleared.revision(), hand, token, stack);
         if (!restore.succeeded() || restore.state().revision() <= before.revision()) return Result.RECOVERY_REQUIRED;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), restore.state()); }
+        try { LiveHandsCommitGateway.commitOwned(body, restore.state()); }
         catch (RuntimeException failure) { return Result.RECOVERY_REQUIRED; }
         return live(body, level) && level.getEntity(entity.getUUID()) == null && !entity.isAddedToLevel()
                 && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == restore.state()

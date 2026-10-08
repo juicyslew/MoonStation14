@@ -1,6 +1,7 @@
 {
   "id": "base_airlock",
   "abstract": true,
+  "metadata": { "name": "airlock", "description": "It opens, it closes, and maybe crushes you." },
   "door": {
     "openTimeOneSeconds": 0.4,
     "openTimeTwoSeconds": 0.2,

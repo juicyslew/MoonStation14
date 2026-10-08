@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.doors.client;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
 import com.juicyslew.moonstation14.ms14.doors.AirlockState;
+import com.juicyslew.moonstation14.ms14.doors.AirlockGeometry;
 import com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -31,8 +32,7 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
     }
 
     static AABB renderBounds(BlockPos root) {
-        return new AABB(root.getX() - AirlockGeometry.HALF_TRAVEL, root.getY(), root.getZ() - AirlockGeometry.HALF_TRAVEL,
-                root.getX() + 1 + AirlockGeometry.HALF_TRAVEL, root.getY() + 2, root.getZ() + 1 + AirlockGeometry.HALF_TRAVEL);
+        return AirlockGeometry.renderBounds(root);
     }
 
     private static ResourceLocation texture(String name) {
@@ -82,11 +82,8 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
     }
 
     private static void drawFrame(PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        var metal = NEUTRAL_METAL;
-        box(pose,buffers,metal,0,.0,.08,.13,2,.92,light,overlay);
-        box(pose,buffers,metal,.87,.0,.08,1,2,.92,light,overlay);
-        box(pose,buffers,metal,.13,0,.08,.87,.13,.92,light,overlay);
-        box(pose,buffers,metal,.13,1.87,.08,.87,2,.92,light,overlay);
+        for (AirlockGeometry.Box part : AirlockGeometry.frame())
+            box(pose,buffers,NEUTRAL_METAL,part.x0(),part.y0(),part.z0(),part.x1(),part.y1(),part.z1(),light,overlay);
     }
 
     private static void drawLeaves(PoseStack pose, MultiBufferSource buffers, double openness, int light, int overlay) {

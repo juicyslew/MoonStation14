@@ -8,6 +8,9 @@ class PrimaryWorldGestureTest {
     @Test void routesOnlyOwnedWorldPrimaryGestures() {
         assertEquals(PrimaryWorldGesture.Route.VANILLA, PrimaryWorldGesture.route(false, true, true, true));
         assertEquals(PrimaryWorldGesture.Route.TARGET_USE, PrimaryWorldGesture.route(true, true, true, true));
+        assertEquals(PrimaryWorldGesture.Route.MEDICAL_USE, PrimaryWorldGesture.route(true, true, true, true, true));
+        assertEquals(BodyHandActionRequest.Action.USE_BODY,
+                PrimaryWorldGesture.action(PrimaryWorldGesture.route(true, false, true, false, true)));
         assertEquals(BodyHandActionRequest.Action.USE_TARGET,
                 PrimaryWorldGesture.action(PrimaryWorldGesture.route(true, false, true, true)));
         assertEquals(PrimaryWorldGesture.Route.HELD_USE, PrimaryWorldGesture.route(true, false, true, false));

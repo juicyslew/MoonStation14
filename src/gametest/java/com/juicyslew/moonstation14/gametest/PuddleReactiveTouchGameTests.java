@@ -222,7 +222,7 @@ public final class PuddleReactiveTouchGameTests {
         }
     }
 
-    @GameTestTags("suite-stabilization")
+    @GameTestTags({"suite-stabilization", "medical-corrections-regression"})
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 60)
     public static void slidingSuperSlipperySlipDoesNotSpendReactiveTouchDose(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
@@ -299,7 +299,9 @@ public final class PuddleReactiveTouchGameTests {
                                     + villager.getDeltaMovement() + ", onGround=" + villager.onGround()
                                     + ", noGravity=" + villager.isNoGravity() + ", noPhysics=" + villager.noPhysics
                                     + ", status=" + villager.getExistingDataOrNull(ModDataAttachments.STATUS_EFFECT.get())
-                                    + ", sliding=" + SlipSystem.isSliding(villager) + ", events=" + observed.size());
+                                    + ", sliding=" + SlipSystem.isSliding(villager) + ", events=" + observed.size()
+                                    + ", alive=" + villager.isAlive() + ", dead=" + villager.isDeadOrDying()
+                                    + ", prone=" + villager.hasData(ModDataAttachments.STATUS_EFFECT.get()));
                             SlipEvent secondEvent = observed.get(1);
                             require(secondEvent.sourcePosition().equals(helper.absolutePos(secondPosition))
                                             && secondEvent.source() == second.puddle,
@@ -307,7 +309,11 @@ public final class PuddleReactiveTouchGameTests {
                             require(secondEvent.wasSliding(), "second admitted slip must observe already-sliding state");
                             require(MS14Provider.getDetached(second.puddle, MS14Bridges.REAGENT)
                                             .snapshotUnits().equals(second.initial),
-                                    "already-sliding slip must not spend the second source's accepted 15% dose");
+                                    "already-sliding slip must not spend the second source's accepted 15% dose: "
+                                            + "position=" + villager.position() + " alive=" + villager.isAlive()
+                                            + " dead=" + villager.isDeadOrDying() + " prone="
+                                            + villager.hasData(ModDataAttachments.STATUS_EFFECT.get()) + " delta="
+                                            + villager.getDeltaMovement() + " events=" + observed.size());
                             require(Math.abs(caustic(villager) - .3f) < .0001f,
                                     "already-sliding slip must not apply a second Touch or additional caustic");
                             cleanup(trials, observer, helper);

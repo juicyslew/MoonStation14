@@ -6,21 +6,37 @@ public final class PointerWorkspaceLayers {
     public static final int INTERNAL_ITEM_DEPTH = 400;
     public static final int WINDOW_STRIDE = 1000;
     private static final int STORAGE_BASE = 1000;
-    private static final int BROWSER_BASE = STORAGE_BASE + 4 * WINDOW_STRIDE;
+    private static final int DEFAULT_STORAGE_SIBLINGS = 3;
     private PointerWorkspaceLayers() { }
 
     public static int storageLayer(int paintIndex, boolean storageFront) {
-        if (paintIndex < 0 || paintIndex >= 3) throw new IllegalArgumentException("storage window index");
-        return (storageFront ? BROWSER_BASE + WINDOW_STRIDE : STORAGE_BASE) + paintIndex * WINDOW_STRIDE;
+        return storageLayer(paintIndex, storageFront, DEFAULT_STORAGE_SIBLINGS);
+    }
+    public static int storageLayer(int paintIndex, boolean storageFront, int storageSiblingCount) {
+        int count = Math.max(DEFAULT_STORAGE_SIBLINGS, storageSiblingCount);
+        if (paintIndex < 0 || paintIndex >= count) throw new IllegalArgumentException("storage window index");
+        int browserBase = STORAGE_BASE + (count + 1) * WINDOW_STRIDE;
+        return (storageFront ? browserBase + WINDOW_STRIDE : STORAGE_BASE) + paintIndex * WINDOW_STRIDE;
     }
 
     /** Wire input is routed before storage input, so its window must paint above every storage window. */
     public static int wireLayer(boolean storageFront) {
-        return STORAGE_BASE + (storageFront ? 8 : 3) * WINDOW_STRIDE;
+        return wireLayer(storageFront, DEFAULT_STORAGE_SIBLINGS);
+    }
+    public static int wireLayer(boolean storageFront, int storageSiblingCount) {
+        int count = Math.max(DEFAULT_STORAGE_SIBLINGS, storageSiblingCount);
+        int browserBase = STORAGE_BASE + (count + 1) * WINDOW_STRIDE;
+        int storageBase = storageFront ? browserBase + WINDOW_STRIDE : STORAGE_BASE;
+        return storageBase + count * WINDOW_STRIDE;
     }
 
     public static int browserLayer(int paintIndex, boolean browserFront) {
+        return browserLayer(paintIndex, browserFront, DEFAULT_STORAGE_SIBLINGS);
+    }
+    public static int browserLayer(int paintIndex, boolean browserFront, int storageSiblingCount) {
+        int count = Math.max(DEFAULT_STORAGE_SIBLINGS, storageSiblingCount);
         if (paintIndex < 0) throw new IllegalArgumentException("window index");
-        return (browserFront ? BROWSER_BASE : STORAGE_BASE) + paintIndex * WINDOW_STRIDE;
+        int browserBase = STORAGE_BASE + (count + 1) * WINDOW_STRIDE;
+        return (browserFront ? browserBase : STORAGE_BASE) + paintIndex * WINDOW_STRIDE;
     }
 }

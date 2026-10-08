@@ -21,18 +21,24 @@ import java.util.function.Consumer;
 /** Read-only, account-bound full state. No stack NBT/components or client-supplied ownership. */
 public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                      UUID bodyId, long epoch, long revision, String activeHand,
-                                     List<Hand> hands, List<EquipmentSlot> equipment, List<GridHost> grids) implements CustomPacketPayload {
+                                      List<Hand> hands, List<EquipmentSlot> equipment, List<GridHost> grids, boolean push) implements CustomPacketPayload {
     public enum Reason { OK, NO_AUTHORITY, RATE_LIMITED, REPLAY, NOT_READY }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                  UUID bodyId, long epoch, long revision, String activeHand, List<Hand> hands) {
-        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of(), List.of());
+         this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of(), List.of(), false);
     }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                  UUID bodyId, long epoch, long revision, String activeHand,
                                  List<Hand> hands, List<EquipmentSlot> equipment) {
-        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, List.of());
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, List.of(), false);
+    }
+
+    public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
+                                 UUID bodyId, long epoch, long revision, String activeHand,
+                                 List<Hand> hands, List<EquipmentSlot> equipment, List<GridHost> grids) {
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, grids, false);
     }
 
     public record GridEntry(String token, String itemId, int count, int x, int y, int rotation, ReagentComponent reagent,
@@ -132,6 +138,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
             ResourceLocation.fromNamespaceAndPath("moonstation14", "body_hand_state_snapshot"));
     public static final StreamCodec<RegistryFriendlyByteBuf, BodyHandStateSnapshot> STREAM_CODEC = StreamCodec.of(
             (buf, snapshot) -> {
+                buf.writeBoolean(snapshot.push);
                 buf.writeVarLong(snapshot.requestedEpoch);
                 buf.writeVarLong(snapshot.sequence);
                 buf.writeEnum(snapshot.reason);
@@ -194,13 +201,14 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                         }
                     }
                 }
-            }, buf -> {
+            }, buf -> decodeGuarded(buf, () -> {
+                boolean push = buf.readBoolean();
                 long requestedEpoch = buf.readVarLong();
                 long sequence = buf.readVarLong();
                 Reason reason = buf.readEnum(Reason.class);
                 if (reason != Reason.OK) {
                     if (buf.isReadable()) throw new IllegalArgumentException("Unexpected rejection payload");
-                    return new BodyHandStateSnapshot(requestedEpoch, sequence, reason, null, null, 0, 0, null, List.of());
+                    return new BodyHandStateSnapshot(requestedEpoch, sequence, reason, null, null, 0, 0, null, List.of(), List.of(), List.of(), push);
                 }
                 UUID account = buf.readUUID();
                 UUID body = buf.readUUID();
@@ -266,11 +274,19 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 }
                 if (buf.isReadable()) throw new IllegalArgumentException("Unexpected snapshot payload");
                 return new BodyHandStateSnapshot(requestedEpoch, sequence, reason, account, body,
-                        epoch, revision, active, slots, equipment, grids);
-            });
+                        epoch, revision, active, slots, equipment, grids, push);
+            }));
+
+    private static BodyHandStateSnapshot decodeGuarded(RegistryFriendlyByteBuf buf,
+            java.util.function.Supplier<BodyHandStateSnapshot> decode) {
+        try { return decode.get(); }
+        catch (IndexOutOfBoundsException truncated) {
+            throw new IllegalArgumentException("Truncated hand state snapshot", truncated);
+        }
+    }
 
     public BodyHandStateSnapshot {
-        if (requestedEpoch < 0 || sequence <= 0 || reason == null || hands == null || equipment == null || grids == null)
+        if (requestedEpoch < 0 || (push ? sequence != 0 : sequence <= 0) || reason == null || hands == null || equipment == null || grids == null)
             throw new IllegalArgumentException("Invalid hand state snapshot");
         hands = List.copyOf(hands);
         equipment = List.copyOf(equipment);
@@ -339,7 +355,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
 
     public static BodyHandStateSnapshot rejected(BodyHandStateQuery query, Reason reason) {
         if (reason == Reason.OK) throw new IllegalArgumentException("Not a rejection");
-        return new BodyHandStateSnapshot(query.epoch(), query.sequence(), reason, null, null, 0, 0, null, List.of());
+        return new BodyHandStateSnapshot(query.epoch(), query.sequence(), reason, null, null, 0, 0, null, List.of(), List.of(), List.of(), false);
     }
 
     // Client-only callers can install a handler after client startup. The common network layer never loads a UI class.

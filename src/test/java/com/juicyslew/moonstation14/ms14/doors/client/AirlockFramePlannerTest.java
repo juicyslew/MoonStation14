@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.doors.client;
 
 import com.juicyslew.moonstation14.ms14.doors.AirlockState;
+import com.juicyslew.moonstation14.ms14.doors.AirlockGeometry;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;

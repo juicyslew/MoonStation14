@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -83,6 +84,11 @@ public final class BodyCraftInventoryService {
 
     public static Result craftHeld(ServerPlayer actor, String hand, String sourceToken, long revision,
                                    Predicate<ItemStack> materialMatches, int units, ItemStack output) {
+        return LiveHandsCommitGateway.batch(() -> craftHeldCommitted(actor, hand, sourceToken, revision, materialMatches, units, output));
+    }
+
+    private static Result craftHeldCommitted(ServerPlayer actor, String hand, String sourceToken, long revision,
+                                   Predicate<ItemStack> materialMatches, int units, ItemStack output) {
         var authority = HandActorAuthority.resolve(actor);
         if (authority.isEmpty() || materialMatches == null || units < 1 || output == null || output.isEmpty()) return Result.DENIED;
         var snapshot = authority.orElseThrow(); var body = snapshot.body();
@@ -100,10 +106,7 @@ public final class BodyCraftInventoryService {
         if (!HandActorAuthority.revalidate(actor, snapshot) || !CharacterControlSystem.canAct(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || before.revision() != revision || !before.token(hand).filter(sourceToken::equals).isPresent()) return Result.STALE;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(), candidate.orElseThrow()); }
-        catch (RuntimeException failure) {
-            return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
-        }
+        if (!LiveHandsCommitGateway.commitOwned(body, before, candidate.orElseThrow())) return Result.DENIED;
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != candidate.orElseThrow()
                 || !BodyHandStateService.representable(candidate.orElseThrow(), body)) return Result.RECOVERY_REQUIRED;
         BodyHandStateService.requireFreshQuery(actor);
@@ -112,6 +115,11 @@ public final class BodyCraftInventoryService {
 
     /** Automatic body inventory lookup: first adequate hand stack, then worn bag/belt grid entries. */
     public static Result craftBody(ServerPlayer actor, long revision, Predicate<ItemStack> materialMatches,
+                                   int units, ItemStack output) {
+        return LiveHandsCommitGateway.batch(() -> craftBodyCommitted(actor, revision, materialMatches, units, output));
+    }
+
+    private static Result craftBodyCommitted(ServerPlayer actor, long revision, Predicate<ItemStack> materialMatches,
                                    int units, ItemStack output) {
         var authority=HandActorAuthority.resolve(actor);
         if(authority.isEmpty()||materialMatches==null||units<1||output==null||output.isEmpty()) return Result.DENIED;
@@ -128,8 +136,7 @@ public final class BodyCraftInventoryService {
         if(!HandActorAuthority.revalidate(actor,auth)||!CharacterControlSystem.canAct(body)
                 ||body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())!=before||before.revision()!=revision)
             return Result.STALE;
-        try { body.setData(ModDataAttachments.LIVE_HANDS.get(),selected.orElseThrow().state()); }
-        catch(RuntimeException failure) { return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())==before?Result.DENIED:Result.RECOVERY_REQUIRED; }
+        if (!LiveHandsCommitGateway.commitOwned(body, before, selected.orElseThrow().state())) return Result.DENIED;
         if(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())!=selected.orElseThrow().state()
                 ||!BodyHandStateService.representable(selected.orElseThrow().state(),body)) return Result.RECOVERY_REQUIRED;
         BodyHandStateService.requireFreshQuery(actor);
@@ -162,7 +169,13 @@ public final class BodyCraftInventoryService {
                     ||source.isRemoved()||level.getEntity(id)!=source||source.getItem()!=reference||!ItemStack.matches(snapshot,reference)) continue;
             Result committed=publishValidated(new Publication() {
                 public LiveHands body(){return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());}
-                public void body(LiveHands value){body.setData(ModDataAttachments.LIVE_HANDS.get(),value);}
+                public void body(LiveHands value){
+                    LiveHands expected = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                    if (expected != before && expected != staged.orElseThrow())
+                        throw new IllegalStateException("Live hands changed during construction publication");
+                    if (!LiveHandsCommitGateway.commitOwned(body, expected, value))
+                        throw new IllegalStateException("Live hands publication rejected");
+                }
                 public ItemStack world(){return source.isRemoved()?null:source.getItem();}
                 public void world(ItemStack value){source.setItem(value);}
                 public void discardWorld(){source.discard();}
