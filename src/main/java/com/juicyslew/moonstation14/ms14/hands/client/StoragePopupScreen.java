@@ -587,11 +587,23 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         return "back".equals(slot)?HandBarLayout.Layout.Tile.BACK:"belt".equals(slot)?HandBarLayout.Layout.Tile.BELT:null;
     }
 
+    /** Whether the current pointer is over a storage-workspace control. */
+    public static boolean pointerOverInteractiveWindow() {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (!(mc.screen instanceof StoragePopupScreen popup)) return false;
+        double x = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
+        double y = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
+        var medical = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        return popup.pointerUiHit(x, y) || medical.topmost(x, y) != null
+                || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x, y);
+    }
+
     private StoragePopupLayout.Cell visibleCell(StoragePopupWorkspace.Window w, double x, double y) {
         return layout(w).visibleCellAt((int) x, (int) y, w.width(), w.height());
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseClick(mouseX, mouseY, button)) return true;
         var medical=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         var sw=workspace.topmost(mouseX,mouseY); var mw=medical.topmost(mouseX,mouseY);
         var popupAtPress=hit(mouseX,mouseY);
@@ -611,11 +623,11 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             BodyHandClient.analyzerWindowClosed();
             return handled;
         }
-        if(sw!=null) workspace.raise(sw);
         if (wire != null && wire.contains(mouseX, mouseY)) {
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.clearTextFocus();
             return wire.workspaceMouseClicked(mouseX, mouseY, button);
         }
+        if(sw!=null) workspace.raise(sw);
         if (button == 1 && rotateCurrent(mouseX, mouseY)) return true;
         var handBar = HandBarLayout.calculate(width,height);
         boolean menuHit=menuTile!=null&&mouseX>=menuX&&mouseX<menuX+MENU_WIDTH
@@ -1162,6 +1174,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseScroll(mouseX, mouseY, deltaY)) return true;
         var medical = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         var medicalWindow = medical.topmost(mouseX, mouseY);
         var storageWindow = workspace.topmost(mouseX, mouseY);

@@ -39,11 +39,14 @@ public final class BicaridineIngestionGameTests {
     private BicaridineIngestionGameTests() { }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 260)
+    @GameTestTags("suite-stabilization")
     public static void heldBicaridineDoseMetabolizesAndHealsBruteDamage(GameTestHelper helper) {
         Villager treated = body(helper, new BlockPos(2, 1, 2));
         Villager control = body(helper, new BlockPos(4, 1, 2));
         damage(treated);
         damage(control);
+        long startGameTime = helper.getLevel().getGameTime();
+        int treatedStartTick = treated.tickCount, controlStartTick = control.tickCount;
         float treatedInitial = blunt(treated);
         float controlInitial = blunt(control);
 
@@ -75,7 +78,13 @@ public final class BicaridineIngestionGameTests {
         helper.runAfterDelay(220, () -> {
             float treatedDamage = blunt(treated);
             float controlDamage = blunt(control);
-            require(treatedDamage < treatedInitial - .01f, "scheduled oral metabolism reduces actual blunt damage");
+            require(treatedDamage < treatedInitial - .01f, "scheduled oral metabolism reduces actual blunt damage: "
+                    + "startTime=" + startGameTime + ", now=" + helper.getLevel().getGameTime()
+                    + ", ticks=" + treatedStartTick + "->" + treated.tickCount + "/"
+                    + controlStartTick + "->" + control.tickCount + ", treated=" + treated.position()
+                    + ", removed=" + treated.isRemoved() + ", noGravity=" + treated.isNoGravity()
+                    + ", entityTicking=" + helper.getLevel().isPositionEntityTicking(treated.blockPosition())
+                    + ", damage=" + treatedDamage + "/" + treatedInitial + ", control=" + controlDamage);
             require(treatedDamage < controlDamage - .01f, "bicaridine body heals more than matched untreated body");
             require(treatedDamage >= 0 && controlDamage <= controlInitial + .01f, "damage ledger remains valid under natural recovery");
             helper.succeed();

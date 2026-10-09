@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
+import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
@@ -76,7 +77,8 @@ public final class PowerDeviceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 320, templateNamespace = "moonstation14")
+    @GameTestTags({"suite-stabilization"})
+    @GameTest(template = "empty", timeoutTicks = 1400, templateNamespace = "moonstation14")
     public static void lampExtensionReceiverUsesNearestKnownLvCableWithinThreeBlocks(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos apc = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -103,7 +105,8 @@ public final class PowerDeviceGameTests {
         require(CableStorage.place(level, floorCableHost, Direction.UP, CableTier.APC), "place floor LV cable");
         require(CableStorage.place(level, wrongTierHost, Direction.UP, CableTier.MV), "place wrong-tier cable");
 
-        helper.runAfterDelay(100, () -> {
+        awaitLampExtensionPath(helper, level, apcOutputHost, closeLamp, nearbyLamp, farLamp, wrongTierHost, () -> {
+            helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
             require(graphState(level, apcOutputHost, Direction.WEST, CableTier.APC).knowledge()
                             == LoadedPowerGraph.Knowledge.KNOWN,
                     "APC output cable component is known before checking lamp receivers");
@@ -114,9 +117,12 @@ public final class PowerDeviceGameTests {
 
             level.setBlock(closeLamp, Blocks.AIR.defaultBlockState(), 3);
             placeDevice(level, closeLamp, PowerDeviceKind.LAMP, Direction.NORTH);
-            helper.runAfterDelay(60, () -> {
+            awaitLampExtensionPath(helper, level, apcOutputHost, closeLamp, nearbyLamp, farLamp, wrongTierHost, () -> {
+                helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
                 assertLamp(level, closeLamp, true, "replacement lamp resolves its LV extension receiver");
                 helper.succeed();
+            });
+            });
             });
         });
     }
@@ -185,13 +191,15 @@ public final class PowerDeviceGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 240, templateNamespace = "moonstation14")
+    @GameTestTags({"suite-stabilization"})
+    @GameTest(template = "empty", timeoutTicks = 1400, templateNamespace = "moonstation14")
     public static void arbitraryStoneHostReplacementEventuallyStopsEnergizedCable(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
         BlockPos substation = helper.absolutePos(new BlockPos(3, 1, 4));
         BlockPos apc = helper.absolutePos(new BlockPos(3, 1, 6));
         BlockPos lamp = helper.absolutePos(new BlockPos(3, 1, 8));
+        BlockPos outputHost = helper.absolutePos(new BlockPos(4, 1, 6));
         BlockPos changedHost = helper.absolutePos(new BlockPos(4, 1, 3));
         for (int z = 2; z <= 8; z++)
             level.setBlock(helper.absolutePos(new BlockPos(4, 1, z)), Blocks.STONE.defaultBlockState(), 3);
@@ -211,7 +219,8 @@ public final class PowerDeviceGameTests {
             require(CableStorage.place(level, helper.absolutePos(new BlockPos(4, 1, z)), Direction.WEST, CableTier.APC),
                     "place APC cable at z=" + z);
 
-        helper.runAfterDelay(100, () -> {
+        awaitArbitraryHostPath(helper, level, source, substation, apc, outputHost, lamp, () -> {
+            helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
             assertLamp(level, lamp, true, "stone-host cable powers lamp before replacement");
             // Remove the charged backup before testing that the cable path itself
             // loses power; otherwise the APC correctly keeps the lamp energized.
@@ -219,11 +228,14 @@ public final class PowerDeviceGameTests {
             level.setBlock(changedHost, Blocks.DIRT.defaultBlockState(), 3);
             // setBlock(..., 3) is not assumed to emit NeighborNotify; indexed chunks
             // are lazily revalidated under the graph refresh budget.
-            helper.runAfterDelay(100, () -> {
+            awaitArbitraryHostPath(helper, level, source, substation, apc, outputHost, lamp, () -> {
+                helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
                 assertLamp(level, lamp, false, "replaced arbitrary host cannot leave a stale energized path");
                 require(CableStorage.get(level, changedHost, Direction.WEST) == null,
                         "changed host record was pruned after bounded refresh");
                 helper.succeed();
+            });
+            });
             });
         });
     }
@@ -237,6 +249,48 @@ public final class PowerDeviceGameTests {
             case DEBUG_LOAD_LAMP -> ModBlocks.HIGH_LOAD_TEST_LAMP.get();
         };
         level.setBlock(pos, block.defaultBlockState().setValue(PowerDeviceBlock.FACING, facing), 3);
+    }
+
+    private static void awaitLampExtensionPath(GameTestHelper helper, ServerLevel level, BlockPos apcOutputHost,
+            BlockPos closeLamp, BlockPos nearbyLamp, BlockPos farLamp, BlockPos wrongTierHost, Runnable ready) {
+        var output = new CableFaceNode(apcOutputHost, Direction.WEST, CableTier.APC);
+        var wrongTier = new CableFaceNode(wrongTierHost, Direction.UP, CableTier.MV);
+        PowerFixtureReadiness.await(helper, level, 500,
+                () -> {
+                    var close = PowerGraphService.nearestApcExtensionNode(level, closeLamp, 3);
+                    var nearby = PowerGraphService.nearestApcExtensionNode(level, nearbyLamp, 3);
+                    return close != null && nearby != null
+                            && PowerFixtureReadiness.topologyReadyWithKnownPorts(level, output, close, nearby, wrongTier)
+                            && PowerGraphService.nearestApcExtensionNode(level, farLamp, 3) == null;
+                },
+                () -> "APCout=" + PowerGraphService.state(level, output) + ", closeReceiver="
+                        + PowerGraphService.nearestApcExtensionNode(level, closeLamp, 3) + ", nearbyReceiver="
+                        + PowerGraphService.nearestApcExtensionNode(level, nearbyLamp, 3) + ", farReceiver="
+                        + PowerGraphService.nearestApcExtensionNode(level, farLamp, 3) + ", wrongTier="
+                        + PowerGraphService.state(level, wrongTier) + ", topologyReady="
+                        + PowerGraphService.topologyReady(level) + ", indexedDevices="
+                        + PowerRuntime.indexedDeviceCount(level), ready);
+    }
+
+    private static void awaitArbitraryHostPath(GameTestHelper helper, ServerLevel level, BlockPos source,
+            BlockPos substation, BlockPos apc, BlockPos outputHost, BlockPos lamp, Runnable ready) {
+        var sourceHv = new CableFaceNode(source.relative(Direction.EAST), Direction.WEST, CableTier.HV);
+        var subHv = new CableFaceNode(substation.relative(Direction.EAST), Direction.WEST, CableTier.HV);
+        var subMv = new CableFaceNode(substation.relative(Direction.WEST), Direction.EAST, CableTier.MV);
+        var apcMv = new CableFaceNode(apc.relative(Direction.WEST), Direction.EAST, CableTier.MV);
+        var output = new CableFaceNode(outputHost, Direction.WEST, CableTier.APC);
+        var receiver = new CableFaceNode(lamp.relative(Direction.EAST), Direction.WEST, CableTier.APC);
+        var apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
+        PowerFixtureReadiness.await(helper, level, 500,
+                () -> PowerFixtureReadiness.topologyReadyWithKnownPorts(level, sourceHv, subHv, subMv, apcMv,
+                        output, receiver),
+                () -> "sourceHV=" + PowerGraphService.state(level, sourceHv) + ", subHV="
+                        + PowerGraphService.state(level, subHv) + ", subMV=" + PowerGraphService.state(level, subMv)
+                        + ", apcMV=" + PowerGraphService.state(level, apcMv) + ", output="
+                        + PowerGraphService.state(level, output) + ", receiver=" + PowerGraphService.state(level, receiver)
+                        + ", APCvisual=" + PowerRuntime.apcVisualState(level, apcEntity) + ", topologyReady="
+                        + PowerGraphService.topologyReady(level) + ", indexedDevices="
+                        + PowerRuntime.indexedDeviceCount(level), ready);
     }
 
     private static void assertLamp(ServerLevel level, BlockPos lamp, boolean expected, String message) {

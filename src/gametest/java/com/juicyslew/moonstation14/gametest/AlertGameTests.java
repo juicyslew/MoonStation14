@@ -26,8 +26,11 @@ public final class AlertGameTests {
     private AlertGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTestTags("suite-stabilization")
     public static void alertApplicationClearAndExpiry(GameTestHelper helper) {
         ArmorStand character = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(1, 1, 1));
+        long startGameTime = helper.getLevel().getGameTime();
+        int startTickCount = character.tickCount;
         EffectSystem effects = EffectSystem.withDefaults();
         require(apply(effects, helper, character, true, 0) == EffectResult.APPLIED, "immediate clear should be applied");
         require(state(character) == null, "clear should not materialize empty state");
@@ -38,7 +41,11 @@ public final class AlertGameTests {
             require(state(character) != null && !state(character).isEmpty(), "alert must remain before deadline");
             helper.runAfterDelay(20, () -> {
                 AlertAttachment current = state(character);
-                require(current == null || current.isEmpty(), "timed alert must expire at its deadline");
+                require(current == null || current.isEmpty(), "timed alert must expire at its deadline: startTime="
+                        + startGameTime + ", now=" + helper.getLevel().getGameTime() + ", startTick="
+                        + startTickCount + ", tick=" + character.tickCount + ", removed=" + character.isRemoved()
+                        + ", pos=" + character.position() + ", noGravity=" + character.isNoGravity()
+                        + ", entityTicking=" + helper.getLevel().isPositionEntityTicking(character.blockPosition()));
                 helper.succeed();
             });
         });

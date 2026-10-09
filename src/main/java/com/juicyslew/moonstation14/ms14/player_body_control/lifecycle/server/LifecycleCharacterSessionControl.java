@@ -176,6 +176,21 @@ public final class LifecycleCharacterSessionControl {
                 : unavailable;
     }
 
+    /** Exact committed controlled body and epoch for read-only queries, independent of camera position. */
+    public static Optional<ActiveCharacterBody> committedActorSnapshot(ServerPlayer player) {
+        var ownership = committedControlSnapshot(player);
+        if (!ownership.committed() || !(ownership.owned() instanceof PlayerCharacterHarnessEntity body)
+                || !(player.level() instanceof ServerLevel level)) return Optional.empty();
+        Session pinned = session(level.getServer(), player.getUUID());
+        if (pinned == null || pinned.player != player || !pinned.committed || pinned.body != body
+                || !live(body, level) || !connectedExact(level.getServer(), player)
+                || !activeBodyBindingMatches(body.playerCharacterBinding(), pinned.accountId, pinned.profileId, pinned.mindId)
+                || !pinned.lifecycle.authorizesActiveCharacterReadOnly(pinned.accountId, pinned.mindId,
+                        pinned.epoch, pinned.bodyId)
+                || session(level.getServer(), player.getUUID()) != pinned) return Optional.empty();
+        return Optional.of(new ActiveCharacterBody(body, pinned.epoch, pinned.mindId, pinned.bodyId));
+    }
+
     /**
      * Returns the exact live body for a committed lifecycle session, not an arbitrary player camera.
      * The immutable result is a point-in-time view; callers must recheck its body and epoch before commit.

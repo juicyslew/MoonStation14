@@ -3,7 +3,9 @@
     "minecraft:player",
     "minecraft:villager"
   ],
+  "metadata": { "name": "Human" },
   "components": [
+    {"type": "Examiner"},
     {"type": "Damageable", "damage_container": "Biological"},
     {"type": "HumanoidProfile", "species": "Human"},
     {"type": "MobState"},

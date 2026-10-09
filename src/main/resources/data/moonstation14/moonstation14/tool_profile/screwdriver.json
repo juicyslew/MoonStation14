@@ -1,4 +1,5 @@
 {
   "parent": "base_item",
+  "metadata": { "description": "Industrial grade torque in a small screwdriving package." },
   "tool": { "qualities": ["SCREWING"] }
 }

@@ -15,6 +15,7 @@ import com.juicyslew.moonstation14.ms14.character.components.ReactiveComponent;
 import com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.character.components.DamageableComponent;
 import com.juicyslew.moonstation14.ms14.character.components.HumanoidProfileComponent;
+import com.juicyslew.moonstation14.ms14.character.components.ExaminerComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import com.mojang.serialization.JsonOps;
@@ -276,6 +277,8 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
+        assertEquals(33, data.components().size(), "merged Human composition retains both sprint component families");
+        assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());
         assertEquals("Human", data.component(HumanoidProfileComponent.class).orElseThrow().species());
@@ -344,6 +347,23 @@ class CharacterPrototypeTest {
         JsonObject encoded = manager.encodePublishedCatalogs()
                 .get(ModCharacters.CHARACTER_TYPE.typeId()).get(ModCharacters.HUMAN_ID);
         assertEquals(data, CharacterData.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
+    }
+
+    @Test
+    void componentCountLimitIsSharedBySchemaAuditAndTypedData() {
+        assertEquals(64, CharacterData.MAX_COMPONENTS);
+        String components = java.util.stream.IntStream.range(0, CharacterData.MAX_COMPONENTS + 1)
+                .mapToObj(i -> "{\"type\":\"Examiner\"}")
+                .collect(java.util.stream.Collectors.joining(","));
+        JsonObject oversized = JsonParser.parseString("{\"components\":[" + components + "]}").getAsJsonObject();
+        var codecFailure = CharacterData.CODEC.parse(JsonOps.INSTANCE, oversized).error().orElseThrow();
+        assertTrue(codecFailure.message().contains("at most 64 components"), codecFailure.message());
+        var auditFailure = assertThrows(IllegalArgumentException.class,
+                () -> CharacterSchemaAudit.auditComponentsIfPresent(oversized));
+        assertTrue(auditFailure.getMessage().contains("at most 64 components"), auditFailure.getMessage());
+        var constructorFailure = assertThrows(IllegalArgumentException.class, () -> new CharacterData(List.of(),
+                java.util.Collections.nCopies(CharacterData.MAX_COMPONENTS + 1, ExaminerComponent.DEFAULT)));
+        assertTrue(constructorFailure.getMessage().contains("at most 64 distinct types"), constructorFailure.getMessage());
     }
 
     @Test
@@ -1158,7 +1178,7 @@ class CharacterPrototypeTest {
     @Test
     void componentsAreStrictOptionalAndDoNotInferComplexInteraction() throws IOException {
         JsonObject human = readResource(RESOURCE);
-        assertEquals(java.util.Set.of("host_entity_types", "components"), human.keySet());
+        assertEquals(java.util.Set.of("host_entity_types", "metadata", "components"), human.keySet());
         assertEquals(List.of(ResourceLocation.parse("minecraft:player"), ResourceLocation.parse("minecraft:villager")),
                 CharacterData.CODEC.parse(JsonOps.INSTANCE, human).getOrThrow().hostEntityTypes());
         JsonObject absent = human.deepCopy();

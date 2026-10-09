@@ -17,6 +17,7 @@ public final class BodyDropPlacementGameTestEntry {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty")
+    @GameTestTags("suite-stabilization")
     public static void containedRefusalDropsAtOwnerPosition(GameTestHelper helper) {
         BodyDropPlacementGameTests.containedRefusalDropsAtOwnerPosition(helper);
     }

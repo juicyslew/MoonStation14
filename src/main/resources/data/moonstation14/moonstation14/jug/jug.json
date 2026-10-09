@@ -1,0 +1,5 @@
+{
+  "id": "jug",
+  "parent": "jug_base",
+  "metadata": { "name": "jug", "description": "Used to contain a very large amount of chemicals or solutions. Chugging is extremely ill-advised." }
+}

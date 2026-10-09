@@ -57,9 +57,11 @@ public final class BodyHandSelectionGateGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 140)
-    @GameTestTags({"stun_action_gate"})
+    @GameTestTags({"stun_action_gate", "suite-stabilization"})
     public static void stunDeniesSelectionWithoutRevisionChange(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        long startGameTime = helper.getLevel().getGameTime();
+        int startTickCount = body.tickCount;
         helper.runAfterDelay(1, () -> {
             LiveHands before = LiveHands.initialize(body).orElseThrow();
             LiveHands after = before.selectActive(before.revision(), "right").orElseThrow();
@@ -71,7 +73,11 @@ public final class BodyHandSelectionGateGameTests {
                             && before.revision() == 0 && before.activeHand().equals("left"),
                     "stun rejects final selection gate and retains the exact hand snapshot");
             helper.runAfterDelay(101, () -> {
-                require(CharacterControlSystem.canAct(body), "expired paralyze restores action admission");
+                require(CharacterControlSystem.canAct(body), "expired paralyze restores action admission: startTime="
+                        + startGameTime + ", now=" + helper.getLevel().getGameTime() + ", startTick="
+                        + startTickCount + ", tick=" + body.tickCount + ", removed=" + body.isRemoved()
+                        + ", pos=" + body.position() + ", noGravity=" + body.isNoGravity()
+                        + ", entityTicking=" + helper.getLevel().isPositionEntityTicking(body.blockPosition()));
                 LiveHands recovered = before.selectActive(before.revision(), "right").orElseThrow();
                 require(BodyHandRequestService.selectionAllowed(body, before, recovered, 0),
                         "same unchanged hand revision is usable after status expiry");

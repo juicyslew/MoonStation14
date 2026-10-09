@@ -222,12 +222,24 @@ public final class PuddleReactiveTouchGameTests {
         }
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
-    @GameTestTags({"medical-corrections-regression"})
+    @GameTestTags({"suite-stabilization", "medical-corrections-regression"})
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 60)
     public static void slidingSuperSlipperySlipDoesNotSpendReactiveTouchDose(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
-        BlockPos firstPosition = new BlockPos(2, 1, 2);
-        BlockPos secondPosition = new BlockPos(7, 1, 2);
+        BlockPos firstPosition = new BlockPos(2, 2, 2);
+        BlockPos secondPosition = new BlockPos(7, 2, 2);
+        for (int x = 1; x <= 8; x++) for (int z = 1; z <= 3; z++) {
+            BlockPos floor = helper.absolutePos(new BlockPos(x, 1, z));
+            var floorState = level.getBlockState(floor);
+            require(floorState.isAir() || floorState.is(Blocks.STONE), "reactive-slip floor must not overwrite "
+                    + "an unrelated block: " + floor + " state=" + floorState);
+            if (floorState.isAir()) helper.setBlock(new BlockPos(x, 1, z), Blocks.STONE);
+        }
+        for (int x = 1; x <= 8; x++) for (int z = 1; z <= 3; z++) for (int y = 2; y <= 4; y++) {
+            BlockPos pos = helper.absolutePos(new BlockPos(x, y, z));
+            require(level.getBlockState(pos).isAir(), "reactive-slip movement corridor must be declared air: "
+                    + pos + " state=" + level.getBlockState(pos));
+        }
         // Place the actor outside both sources before either puddle is populated.
         Villager villager = helper.spawn(EntityType.VILLAGER, firstPosition.offset(-1, 0, 0));
         villager.setNoAi(true);
@@ -276,13 +288,20 @@ public final class PuddleReactiveTouchGameTests {
                             // Leave the first contact and make a real move into the distinct second source.
                             putAt(villager, helper, secondPosition.offset(-1, 0, 0));
                             villager.setDeltaMovement(.12, 0, 0);
+                            Vec3 beforeSecondMove = villager.position();
+                            Vec3 velocityBeforeSecondMove = villager.getDeltaMovement();
                             villager.move(MoverType.SELF, new Vec3(1, 0, 0));
-                            require(observed.size() == 2,
-                                    "actual second Entity.move must emit an event while knockdown is active: events="
-                                            + observed.size() + " position=" + villager.position() + " alive="
-                                            + villager.isAlive() + " dead=" + villager.isDeadOrDying() + " prone="
-                                            + villager.hasData(ModDataAttachments.STATUS_EFFECT.get()) + " delta="
-                                            + villager.getDeltaMovement());
+                            Vec3 afterSecondMove = villager.position();
+                            require(observed.size() == 2, "actual second Entity.move must emit an event while "
+                                    + "knockdown is active: before=" + beforeSecondMove + ", after=" + afterSecondMove
+                                    + ", accepted=" + afterSecondMove.subtract(beforeSecondMove)
+                                    + ", velocityBefore=" + velocityBeforeSecondMove + ", velocityAfter="
+                                    + villager.getDeltaMovement() + ", onGround=" + villager.onGround()
+                                    + ", noGravity=" + villager.isNoGravity() + ", noPhysics=" + villager.noPhysics
+                                    + ", status=" + villager.getExistingDataOrNull(ModDataAttachments.STATUS_EFFECT.get())
+                                    + ", sliding=" + SlipSystem.isSliding(villager) + ", events=" + observed.size()
+                                    + ", alive=" + villager.isAlive() + ", dead=" + villager.isDeadOrDying()
+                                    + ", prone=" + villager.hasData(ModDataAttachments.STATUS_EFFECT.get()));
                             SlipEvent secondEvent = observed.get(1);
                             require(secondEvent.sourcePosition().equals(helper.absolutePos(secondPosition))
                                             && secondEvent.source() == second.puddle,

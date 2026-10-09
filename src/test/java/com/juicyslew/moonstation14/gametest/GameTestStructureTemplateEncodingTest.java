@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GameTestStructureTemplateEncodingTest {
     @Test
     void powerStructureSizesUseTheListEncodingConsumedByStructureTemplate() throws Exception {
+        assertSize("empty.nbt", 16, 10, 16);
         assertSize("power_live_chain_clear.nbt", 9, 4, 10);
         assertSize("power_overload_clear.nbt", 13, 4, 16);
         assertSize("disposal_clear.nbt", 32, 8, 32);

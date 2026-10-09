@@ -33,6 +33,7 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
+import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -75,6 +76,9 @@ class PrototypeRuntimeTest {
         expectedTypes.add(ModToolProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE);
+        expectedTypes.add(ModPuddles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
@@ -208,9 +212,11 @@ class PrototypeRuntimeTest {
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
                 ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
+                ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE.typeId(),
-                ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
