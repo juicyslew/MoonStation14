@@ -228,7 +228,8 @@ public final class FireStackGameTests {
         helper.succeed();
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTestTags({"suite-stabilization"})
     public static void negativeStacksDryOnePerDueIntervalAndCleanUp(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
         EffectSystem effects = EffectSystem.withDefaults();
@@ -242,45 +243,75 @@ public final class FireStackGameTests {
         long start = helper.getTick();
         int startEntityTick = zombie.tickCount;
         long startGameTime = zombie.level().getGameTime();
-        long[] firstDry = {-1L};
+        long firstDue = nextFireDue(startGameTime, zombie.getId());
+        long secondDue = firstDue + EntityActivity.FIRE_DRYING.tickInterval();
+        requireOwnedTicking(helper, zombie, "before first due drying pass");
         helper.startSequence()
                 .thenWaitUntil(() -> {
                     FireStackComponent state = state(zombie);
                     long elapsed = helper.getTick() - start;
-                    long gameTimeElapsed = zombie.level().getGameTime() - startGameTime;
-                    // thenWaitUntil retries assertion failures. Keep waiting while the
-                    // staggered activity has not yet reached its first due tick.
-                    if (state == null || state.stacks() != -1f) {
-                        if (elapsed <= 20) return;
-                        require(false, "first due drying interval must add exactly one stack; actualStack="
-                                + (state == null ? "absent" : state.stacks()) + ", elapsedTicks=" + elapsed
-                                + ", gameTimeElapsed=" + gameTimeElapsed + ", entityTickElapsed="
+                    long now = zombie.level().getGameTime();
+                    boolean ticking = helper.getLevel().isPositionEntityTicking(zombie.blockPosition());
+                    if (now < firstDue) {
+                        require(state != null && state.stacks() == -2f && ticking,
+                                "stacks/activity must remain unchanged before first due; now=" + now + " due="
+                                        + firstDue + " state=" + state + ", alive=" + zombie.isAlive()
+                                        + ", ticking=" + ticking + ", entityTickElapsed="
+                                        + (zombie.tickCount - startEntityTick));
+                        require(false, "waiting for first real drying due; now=" + now + " due=" + firstDue
+                                + " helperElapsed=" + elapsed + " entityTickElapsed="
                                 + (zombie.tickCount - startEntityTick));
                     }
-                    firstDry[0] = helper.getTick();
-                    require(elapsed >= 1 && elapsed <= 20,
-                            "first drying update must occur within one 20-tick interval; actualStack="
-                                    + state.stacks() + ", elapsedTicks=" + elapsed + ", gameTimeElapsed="
-                                    + gameTimeElapsed + ", entityTickElapsed=" + (zombie.tickCount - startEntityTick));
+                    require(state != null && state.stacks() == -1f && ticking
+                                    && now <= firstDue + 1,
+                            "first due drying pass must add exactly one stack; actualStack="
+                                    + (state == null ? "absent" : state.stacks()) + ", now=" + now + " due="
+                                    + firstDue + " helperElapsed=" + elapsed + ", entityTickElapsed="
+                                    + (zombie.tickCount - startEntityTick) + ", alive=" + zombie.isAlive()
+                                    + ", ticking=" + ticking + ", position=" + zombie.position());
                 })
                 .thenWaitUntil(() -> {
                     FireStackComponent state = state(zombie);
-                    long elapsed = helper.getTick() - firstDry[0];
-                    long gameTimeElapsed = zombie.level().getGameTime() - startGameTime;
-                    if (state != null && state.stacks() == -1f && elapsed <= 20) return;
-                    require(!zombie.hasData(ModDataAttachments.FIRE_STACK.get()),
-                            "second due interval must clean up at zero; actualStack="
-                                    + (state == null ? "absent" : state.stacks()) + ", elapsedTicks=" + elapsed
-                                    + ", gameTimeElapsed=" + gameTimeElapsed + ", entityTickElapsed="
-                                    + (zombie.tickCount - startEntityTick));
-                    require(!hasActivity(zombie, EntityActivity.FIRE_DRYING),
-                            "drying activity must be removed at zero; actualStack=0, elapsedTicks=" + elapsed);
-                    require(elapsed > 0,
-                            "cleanup must occur on a later due interval; actualStack=0, elapsedTicks=" + elapsed);
-                    require(elapsed <= 20,
-                            "second drying update must occur within one 20-tick interval; actualStack=0, elapsedTicks=" + elapsed);
+                    long now = zombie.level().getGameTime();
+                    long elapsed = now - firstDue;
+                    boolean ticking = helper.getLevel().isPositionEntityTicking(zombie.blockPosition());
+                    if (now < secondDue) {
+                        require(state != null && state.stacks() == -1f
+                                        && hasActivity(zombie, EntityActivity.FIRE_DRYING) && ticking,
+                                "one stack and drying activity must persist between due buckets; state=" + state
+                                        + " now=" + now + " nextDue=" + secondDue + ", alive=" + zombie.isAlive()
+                                        + ", ticking=" + ticking + ", entityTickElapsed="
+                                        + (zombie.tickCount - startEntityTick));
+                        require(false, "waiting for second real drying due; now=" + now + " nextDue=" + secondDue
+                                + " elapsedFromFirstBucket=" + elapsed);
+                    }
+                    if (now == secondDue && state != null && state.stacks() == -1f) {
+                        require(false, "second due callback has not run yet this server tick; now=" + now
+                                + " nextDue=" + secondDue + " entityTick=" + zombie.tickCount);
+                    }
+                    require(!zombie.hasData(ModDataAttachments.FIRE_STACK.get())
+                                    && !hasActivity(zombie, EntityActivity.FIRE_DRYING)
+                                    && ticking && now <= secondDue + 1,
+                            "second due interval must clean up exactly at zero; actualStack="
+                                    + (state == null ? "absent" : state.stacks()) + ", now=" + now
+                                    + " nextDue=" + secondDue + ", elapsedFromFirstBucket=" + elapsed
+                                    + ", entityTickElapsed=" + (zombie.tickCount - startEntityTick)
+                                    + ", alive=" + zombie.isAlive() + ", ticking=" + ticking
+                                    + ", position=" + zombie.position());
                 })
                 .thenExecute(helper::succeed);
+    }
+
+    private static long nextFireDue(long after, int entityId) {
+        long due = after + 1;
+        while (!EntityActivity.FIRE_DRYING.isDue(due, entityId)) due++;
+        return due;
+    }
+
+    private static void requireOwnedTicking(GameTestHelper helper, Villager entity, String phase) {
+        require(helper.getLevel().isPositionEntityTicking(entity.blockPosition()), phase
+                + "; entityTicking=false position=" + entity.blockPosition() + " alive=" + entity.isAlive()
+                + " entityTick=" + entity.tickCount + " gameTime=" + entity.level().getGameTime());
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)

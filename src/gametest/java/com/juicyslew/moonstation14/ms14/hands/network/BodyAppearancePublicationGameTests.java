@@ -13,7 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import java.util.ArrayList;
 
-@GameTestTags({"equipment-render"})
+@GameTestTags({"equipment-render", "equipment"})
 public final class BodyAppearancePublicationGameTests {
     private BodyAppearancePublicationGameTests() { }
     public static void gatewayBatchPublishesFinalUnownedBodyAppearanceOnce(GameTestHelper helper) {

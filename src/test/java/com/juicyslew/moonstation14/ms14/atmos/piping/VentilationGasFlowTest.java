@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.atmos.piping;
 
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
+import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -10,6 +11,25 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VentilationGasFlowTest {
+    @Test void resolvedDefaultPressureVentMovesTracePlasmaFromLowPressurePipe() {
+        var definition = PipeGasTransactionTest.resolvedVentilationDefinitions().get(ModVentilationDevices.VENT);
+        assertNotNull(definition);
+        var settings = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT, definition).settings();
+        assertEquals(0.0, settings.volumeRateM3PerSecond(), "gasVentPump has no scrubber volume-rate field");
+        assertEquals(101.325, settings.targetPressureChangeKPaPerSecond());
+        var pipe = new GasMixture(Map.of(GasType.PLASMA, 0.4), 300.0, 0.2);
+        var room = GasMixture.vacuum();
+
+        var plan = VentilationGasFlow.planVentRelease(pipe, room, 0.2, 1.0, 1.0, settings).orElseThrow(
+                () -> new AssertionError("resolved pressure-only pump must release low-pressure Plasma; pipe=" + pipe
+                        + " room=" + room + " settings=" + settings));
+
+        assertTrue(plan.packet().moles(GasType.PLASMA) > 0.0,
+                "positive source-to-vacuum transfer despite zero scrubber volume rate; packet=" + plan.packet());
+        assertTrue(plan.packet().totalMoles() <= pipe.totalMoles());
+        assertConserved(pipe, room, plan);
+    }
+
     @Test void ventUsesPressureChangeAndTargetBoundAndConservesInventory() {
         var config = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT);
         GasMixture pipe = new GasMixture(Map.of(GasType.OXYGEN, 100.0), 300.0);

@@ -269,6 +269,7 @@ public final class PuddleSlipGameTests {
         AtomicInteger events = new AtomicInteger();
         AtomicInteger totalEvents = new AtomicInteger();
         AtomicReference<UUID> targetId = new AtomicReference<>();
+        AtomicReference<FakePlayer> fixturePlayer = new AtomicReference<>();
         java.util.function.Consumer<com.juicyslew.moonstation14.ms14.slip.SlipEvent> observer = event -> {
             totalEvents.incrementAndGet();
             if (event.target().getUUID().equals(targetId.get())) events.incrementAndGet();
@@ -287,6 +288,8 @@ public final class PuddleSlipGameTests {
 
         net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         FakePlayer player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "soap-slip"));
+        fixturePlayer.set(player);
+        try {
         putAt(player, helper, new BlockPos(1, 1, 2));
         require(level.addFreshEntity(player), "soap-contact FakePlayer must join the GameTest level");
         targetId.set(player.getUUID());
@@ -298,6 +301,7 @@ public final class PuddleSlipGameTests {
         MS14Provider.update(unbound, MS14Bridges.CHARACTER_IDENTITY, invalidIdentity);
 
         helper.runAfterDelay(2, () -> {
+            try {
             BlockPos endpoint = helper.absolutePos(puddlePos);
             player.setPos(endpoint.getX() + .5d, endpoint.getY(), endpoint.getZ() + .5d);
             SlipSystem.onAcceptedPlayerMovement(player, new Vec3(.1d, 0d, 0d));
@@ -317,7 +321,16 @@ public final class PuddleSlipGameTests {
                     "unconfigured Cow must not emit a slip event for soap source contact");
             SlipSystem.removeListener(observer);
             helper.succeed();
+            } finally {
+                SlipSystem.removeListener(observer);
+                discardFixturePlayer(player);
+            }
         });
+        } catch (RuntimeException | Error failure) {
+            discardFixturePlayer(player);
+            SlipSystem.removeListener(observer);
+            throw failure;
+        }
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)

@@ -224,17 +224,7 @@ public final class BodyEquipmentTransferGameTests {
             equipFixture(body, "left", "small-med", new ItemStack(ModItems.BRUTEPACK.get(), 10), "pocket1");
             equipFixture(body, "left", "card", new ItemStack(ModEquipmentItems.BLANK_ID_CARD.get()), "id");
             equipFixture(body, "left", "gloves", new ItemStack(ModEquipmentItems.BLACK_GLOVES.get()), "gloves");
-
             equipFixture(body, "left", "coat", new ItemStack(ModEquipmentItems.SIMPLE_COAT.get()), "outerClothing");
-            put(body, "left", "case", new ItemStack(ModEquipmentItems.UTILITY_CASE.get()));
-            LiveHands beforeCase = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-            require(BodyEquipmentTransfer.transferOwned(body, "left", "suitstorage", "case",
-                    beforeCase.revision(), true, () -> true) == BodyEquipmentTransfer.Result.DENIED,
-                    "simple coat does not permit suit storage");
-            require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").filter("case"::equals).isPresent()
-                    && LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
-                    .filter(s -> s.id().equals("suitstorage")).findFirst().orElseThrow().stack().isEmpty(),
-                    "denied suit storage preserves case ownership and empty slot");
 
             ItemStack bag = new ItemStack(ModItems.BAG.get());
             bag.set(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get(),
@@ -251,11 +241,13 @@ public final class BodyEquipmentTransferGameTests {
                     .stack().isEmpty(), "suit storage remains empty with outer clothing removal");
 
             LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(before.stackCopy("left").isEmpty(), "nominated hand is empty before prerequisite removal");
+            String activeHandBefore = before.activeHand();
             require(BodyEquipmentTransfer.transferOwned(body, "left", "jumpsuit", "jump", before.revision(), false,
                     () -> true) == BodyEquipmentTransfer.Result.SUCCESS, "remove jumpsuit commits with dependent drops");
             LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             var slots = LiveHands.equipmentSnapshot(body).orElseThrow().slots();
-            require(after.revision() == before.revision() + 1 && "left".equals(after.activeHand())
+            require(after.revision() == before.revision() + 1 && activeHandBefore.equals(after.activeHand())
                     && after.token("left").filter("jump"::equals).isPresent(), "prerequisite preserved in selected empty hand");
             for (String removed : List.of("jumpsuit", "pocket1", "id"))
                 require(slots.stream().filter(s -> s.id().equals(removed)).findFirst().orElseThrow().stack().isEmpty(),
@@ -273,8 +265,36 @@ public final class BodyEquipmentTransferGameTests {
             require(dropped.stream().anyMatch(e -> e.getItem().is(ModEquipmentItems.BLANK_ID_CARD.get())
                             && e.position().distanceToSqr(body.position()) < 16),
                     "dependent ID dropped");
-            require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").filter("case"::equals).isPresent(),
-                    "denied case remains owned in hand");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"equipment-transfer", "equipment-regression"})
+    public static void simpleCoatDeniesSuitStorageAndPreservesCase(GameTestHelper helper) {
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        helper.runAfterDelay(1, () -> {
+            LiveHands.initialize(body).orElseThrow();
+            equipFixture(body, "left", "coat", new ItemStack(ModEquipmentItems.SIMPLE_COAT.get()), "outerClothing");
+            put(body, "left", "case", new ItemStack(ModEquipmentItems.UTILITY_CASE.get()));
+            LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(BodyEquipmentTransfer.transferOwned(body, "left", "suitstorage", "case",
+                    before.revision(), true, () -> true) == BodyEquipmentTransfer.Result.DENIED,
+                    "simple coat does not permit suit storage");
+            require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left")
+                            .filter("case"::equals).isPresent()
+                    && LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
+                            .filter(s -> s.id().equals("suitstorage")).findFirst().orElseThrow().stack().isEmpty(),
+                    "denied suit storage preserves case ownership and empty slot");
+            LiveHands beforeRemoval = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(BodyEquipmentTransfer.transferOwned(body, "right", "outerClothing", "coat",
+                    beforeRemoval.revision(), false, () -> true) == BodyEquipmentTransfer.Result.SUCCESS,
+                    "coat removal succeeds without disturbing denied case");
+            LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(after.token("left").filter("case"::equals).isPresent()
+                            && after.stackCopy("left").filter(stack -> stack.is(ModEquipmentItems.UTILITY_CASE.get())).isPresent()
+                            && after.token("right").filter("coat"::equals).isPresent(),
+                    "case and removed coat remain owned by their respective hands");
             helper.succeed();
         });
     }

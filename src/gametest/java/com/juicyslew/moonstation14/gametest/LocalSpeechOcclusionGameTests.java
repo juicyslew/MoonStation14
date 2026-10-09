@@ -78,16 +78,23 @@ public final class LocalSpeechOcclusionGameTests {
         helper.succeed();
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags("suite-stabilization")
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 20)
     public static void clearEyeLineUsesFifteenBlockEyeToEyeRange(GameTestHelper helper) {
-        Vec3 source = eye(helper, 2, 1.6, 2);
-        require(audible(helper, source, eye(helper, 17, 1.6, 2)),
-                "clear eye-to-eye ray at exactly 15 blocks must pass");
-        require(!audible(helper, source, eye(helper, 17, 1.6, 2).add(0.001, 0, 0)),
+        for (int x = 2; x <= 17; x++) for (int y = 2; y <= 4; y++) {
+            BlockPos pos = helper.absolutePos(new BlockPos(x, y, 2));
+            require(helper.getLevel().getBlockState(pos).isAir(), "15-block speech ray corridor must be clear: "
+                    + pos + " state=" + helper.getLevel().getBlockState(pos));
+        }
+        Vec3 source = eye(helper, 2, 2.6, 2);
+        Vec3 exactRange = eye(helper, 17, 2.6, 2);
+        require(audible(helper, source, exactRange), "clear eye-to-eye ray at exactly 15 blocks must pass: "
+                + speechDiagnostic(helper, source, exactRange));
+        require(!audible(helper, source, eye(helper, 17, 2.6, 2).add(0.001, 0, 0)),
                 "clear eye-to-eye ray beyond 15 blocks must fail");
-        require(!audible(helper, source, eye(helper, 17, 3.4, 2)),
+        require(!audible(helper, source, eye(helper, 17, 4.4, 2)),
                 "15 horizontal blocks plus eye-height difference exceed the range");
-        require(audible(helper, source, eye(helper, 16, 3.4, 2)),
+        require(audible(helper, source, eye(helper, 16, 4.4, 2)),
                 "mixed-level body positions within 15 eye-to-eye blocks still pass");
         helper.succeed();
     }
@@ -194,6 +201,18 @@ public final class LocalSpeechOcclusionGameTests {
     private static boolean audible(GameTestHelper helper, Vec3 source, Vec3 listener) {
         // Never force-load chunks for a speech check; the sampler fails closed.
         return LocalSpeechOcclusion.audible(helper.getLevel(), source, listener);
+    }
+
+    private static String speechDiagnostic(GameTestHelper helper, Vec3 source, Vec3 listener) {
+        var level = helper.getLevel();
+        var hit = level.clip(new net.minecraft.world.level.ClipContext(source, listener,
+                net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE,
+                net.minecraft.world.phys.shapes.CollisionContext.empty()));
+        return "source=" + source + ", listener=" + listener + ", eyeDistance=" + source.distanceTo(listener)
+                + ", blockHit=" + hit.getType() + "@" + hit.getLocation() + ", hitBlock=" + hit.getBlockPos()
+                + ", sourceChunkTicking=" + level.isPositionEntityTicking(BlockPos.containing(source))
+                + ", targetChunkTicking=" + level.isPositionEntityTicking(BlockPos.containing(listener));
     }
 
     private static void require(boolean condition, String message) {

@@ -27,7 +27,7 @@ public class ModSpecialProperties {
                 (stack, level, entity, seed) -> {
                     var reagent = stack.get(ModDataComponents.REAGENT.get());
                     return com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.fillTier(reagent,
-                            com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents()) / 6f;
+                            com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents(level)) / 6f;
                 });
     }
 
@@ -41,7 +41,8 @@ public class ModSpecialProperties {
                     );
                     // Use the capacity defined in your interface!
                     float capacity;
-                    if (level != null) capacity = item.getCapacity(stack, level);
+                    if (level != null) capacity = item instanceof com.juicyslew.moonstation14.item.custom.JugItem jug
+                            ? jug.getCapacity(level) : item.getCapacity(stack, level);
                     else {
                         // Null-level queries are client UI callbacks; ensure bundled resolved defaults
                         // are available before authoritative prototype sync.

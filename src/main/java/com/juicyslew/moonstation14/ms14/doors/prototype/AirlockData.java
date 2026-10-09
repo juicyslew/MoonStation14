@@ -10,12 +10,21 @@ import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.juicyslew.moonstation14.ms14.tools.ToolProfile;
+import com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata;
 import java.util.Set;
 
 /** Resolved local subset of SS14 Airlock -> Door/Airlock/DoorBolt/ApcPowerReceiver/WiresPanel. */
 public record AirlockData(Door door, Airlock airlock, DoorBolt doorBolt,
                           ApcPowerReceiver apcPowerReceiver, ExtensionCableReceiver extensionCableReceiver,
-                          WiresPanel wiresPanel,WiresPanelSecurity wiresPanelSecurity,Wires wires, ElectrifiedData electrified) {
+                           WiresPanel wiresPanel,WiresPanelSecurity wiresPanelSecurity,Wires wires, ElectrifiedData electrified,
+                           ExamineMetadata metadata) {
+    public AirlockData { if (metadata == null) throw new IllegalArgumentException("missing airlock metadata"); }
+    public AirlockData(Door door, Airlock airlock, DoorBolt doorBolt, ApcPowerReceiver apcPowerReceiver,
+                       ExtensionCableReceiver extensionCableReceiver, WiresPanel wiresPanel,
+                       WiresPanelSecurity wiresPanelSecurity, Wires wires, ElectrifiedData electrified) {
+        this(door, airlock, doorBolt, apcPowerReceiver, extensionCableReceiver, wiresPanel, wiresPanelSecurity,
+                wires, electrified, ExamineMetadata.EMPTY);
+    }
     public record Door(double openTimeOneSeconds, double openTimeTwoSeconds,
                         double closeTimeOneSeconds, double closeTimeTwoSeconds,
                         double denyDurationSeconds, double crushDamageBlunt,double crushStunSeconds, boolean bumpOpen) {
@@ -92,8 +101,9 @@ public record AirlockData(Door door, Airlock airlock, DoorBolt doorBolt,
              ExtensionCableReceiver.CODEC.fieldOf("extensionCableReceiver").forGetter(AirlockData::extensionCableReceiver),
              WiresPanel.CODEC.fieldOf("wiresPanel").forGetter(AirlockData::wiresPanel),WiresPanelSecurity.CODEC.fieldOf("wiresPanelSecurity").forGetter(AirlockData::wiresPanelSecurity),
              Wires.CODEC.fieldOf("wires").forGetter(AirlockData::wires),
-             ElectrifiedData.CODEC.optionalFieldOf("electrified", ElectrifiedData.AIRLOCK_DEFAULTS).forGetter(AirlockData::electrified)
-    ).apply(i, AirlockData::new));
+             ElectrifiedData.CODEC.optionalFieldOf("electrified", ElectrifiedData.AIRLOCK_DEFAULTS).forGetter(AirlockData::electrified),
+             ExamineMetadata.CODEC.optionalFieldOf("metadata", ExamineMetadata.EMPTY).forGetter(AirlockData::metadata)
+     ).apply(i, AirlockData::new));
     public static final Codec<AirlockData> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
         @Override public <T> DataResult<Pair<AirlockData,T>> decode(DynamicOps<T> ops, T input) {
             try {
@@ -125,7 +135,8 @@ public record AirlockData(Door door, Airlock airlock, DoorBolt doorBolt,
     private static void positive(double d,String field) { if(!Double.isFinite(d)||d<=0) throw new IllegalArgumentException(field+" must be finite and positive"); }
     private static void audit(JsonElement json) {
         if (!json.isJsonObject()) throw new IllegalArgumentException("expected object"); JsonObject o=json.getAsJsonObject();
-          fields(o,Set.of("id","parent","abstract","door","airlock","doorBolt","apcPowerReceiver","extensionCableReceiver","wiresPanel","wiresPanelSecurity","wires","electrified"));
+          fields(o,Set.of("id","parent","abstract","door","airlock","doorBolt","apcPowerReceiver","extensionCableReceiver","wiresPanel","wiresPanelSecurity","wires","electrified","metadata"));
+          if(o.has("metadata")) nested(o,"metadata",Set.of("name","description"));
         nested(o,"door",Set.of("openTimeOneSeconds","openTimeTwoSeconds","closeTimeOneSeconds","closeTimeTwoSeconds","denyDurationSeconds","crushDamageBlunt","crushStunSeconds","bumpOpen"));
         nested(o,"airlock",Set.of("safety","autoClose","autoCloseSeconds","unboltedPryModifier","boltedPryMultiplier","openPanelVisible"));
          nested(o,"doorBolt",Set.of("boltLightsEnabled")); nested(o,"apcPowerReceiver",Set.of("requestedWatts")); nested(o,"extensionCableReceiver",Set.of("localReachBlocks"));

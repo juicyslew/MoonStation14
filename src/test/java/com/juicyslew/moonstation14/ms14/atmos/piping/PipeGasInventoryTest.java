@@ -149,4 +149,31 @@ class PipeGasInventoryTest {
         assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(partial));
         assertEquals(before, result.snapshot());
     }
+
+    @Test void batchRejectsFiniteSpeciesTotalsThatOverflowFloatStorage() {
+        var keys = new java.util.ArrayList<PipeTopology.NodeKey>();
+        var ids = new java.util.ArrayList<UUID>();
+        var inventory = new PipeGasInventory();
+        for (int i = 0; i < 40; i++) {
+            var key = new PipeTopology.NodeKey(new BlockPos(30 + i, 0, 0), PipeTopology.Layer.PRIMARY);
+            var id = UUID.randomUUID();
+            keys.add(key);
+            ids.add(id);
+            inventory = inventory.admit(key, id, 1);
+            inventory = inventory.withMixture(key, id, inventory.get(key).orElseThrow().version(),
+                    new GasMixture(Map.of(GasType.TRITIUM, 1.0e37), 2.7));
+        }
+        var before = inventory;
+        var deletesAll = new java.util.LinkedHashMap<PipeTopology.NodeKey,
+                PipeGasInventory.ExpectedIdentityVersionAndGasAfter>();
+        for (int i = 0; i < keys.size(); i++) {
+            var entry = before.get(keys.get(i)).orElseThrow();
+            deletesAll.put(keys.get(i), new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(
+                    ids.get(i), entry.version(), GasMixture.vacuum()));
+        }
+
+        assertThrows(IllegalArgumentException.class, () -> before.withBatchMixtures(deletesAll));
+        assertEquals(4.0e38, keys.stream().mapToDouble(key -> before.get(key).orElseThrow()
+                .mixture().moles(GasType.TRITIUM)).sum(), Math.ulp((float) 4.0e38) * 2.0);
+    }
 }

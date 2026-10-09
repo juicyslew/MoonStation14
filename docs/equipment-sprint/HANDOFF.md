@@ -5,6 +5,9 @@
 Closed with owner approval on 2026-10-08. Changes remain uncommitted; closure
 does not authorize staging, committing, or pushing.
 
+Subsequent equipment/examination integration is recorded in
+[MERGE-MAIN.md](MERGE-MAIN.md); the sprint validation below predates that merge.
+
 Implemented the resolved human 15-slot inventory, representative native items,
 Z quick-equip, clothing clicks and drag/drop, authoritative public appearance,
 and eleven authored wide/Steve wearable meshes. First-person body/arm/item

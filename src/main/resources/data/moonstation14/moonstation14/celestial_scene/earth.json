@@ -1,0 +1,10 @@
+{
+  "id": "earth",
+  "parent": "base",
+  "side": "EARTH",
+  "radius": 7.0,
+  "red": 63,
+  "green": 139,
+  "blue": 226,
+  "metadata": { "name": "Earth", "description": "Home to some. Hell to others." }
+}

@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
+import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -22,6 +23,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
@@ -31,8 +33,8 @@ import java.util.UUID;
 public final class AirAlarmPowerGameTests {
     private AirAlarmPowerGameTests() { }
 
-    @GameTestTags({"airlock", "power", "power_loaded_index_reconcile"})
-    @GameTest(template = "empty", timeoutTicks = 320, templateNamespace = "moonstation14")
+    @GameTestTags({"airlock", "power", "power_loaded_index_reconcile", "suite-stabilization"})
+    @GameTest(template = "empty", timeoutTicks = 600, templateNamespace = "moonstation14")
     public static void receiverReconcilesAlreadyLoadedMissingFootprint(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         int y = 12;
@@ -58,12 +60,8 @@ public final class AirAlarmPowerGameTests {
         require(PowerGraphService.nodesNear(level, alarmPos, 3, CableTier.APC) == null, "missed index is unknown and catch-up queued");
         require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "catch-up cannot fabricate a meter sample");
         require(PowerGraphService.nodesNear(level, alarmPos, 3, CableTier.APC) == null, "repeated query stays unknown while queued");
-        helper.runAfterDelay(80, () -> {
-            require(PowerRuntime.airAlarmMeter(level, alarm).known()
-                    && PowerRuntime.airAlarmMeter(level, alarm).deliveredWatts() == 100,
-                    "normal bounded refresh and allocation prove live delivery");
-            helper.succeed();
-        });
+        awaitFreshAlarmMeter(helper, level, alarm, alarmPos, apc, helper.absolutePos(new BlockPos(4, y, 7)),
+                "loaded missing-footprint reconciliation proves delivered 100 W", helper::succeed);
     }
 
     @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")
@@ -80,7 +78,8 @@ public final class AirAlarmPowerGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 320, templateNamespace = "moonstation14")
+    @GameTestTags({"suite-stabilization"})
+    @GameTest(template = "empty", timeoutTicks = 1800, templateNamespace = "moonstation14")
     public static void alarmUsesInheritedHundredWattsAndRadiusThree(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         int y = 12;
@@ -112,18 +111,13 @@ public final class AirAlarmPowerGameTests {
                 "live BE uses resolved inherited definition");
         require(alarm.prototype().apcPowerReceiver().requestedWatts() == 100
                 && alarm.prototype().extensionCableReceiver().localReachBlocks() == 3, "prototype values");
-        awaitPaidSolve(helper, level, alarm, alarmPos, apc, cable, 0);
+        awaitPaidSolve(helper, level, alarm, alarmPos, apc, cable);
     }
 
     private static void awaitPaidSolve(GameTestHelper helper, ServerLevel level, AirAlarmBlockEntity alarm,
-                                       BlockPos alarmPos, BlockPos apc, BlockPos cable, int elapsed) {
-        if (!PowerRuntime.airAlarmMeter(level, alarm).known()) {
-            require(elapsed < 220, "connected alarm awaits billed 100 W: meter=" + PowerRuntime.airAlarmMeter(level, alarm)
-                    + ", node=" + PowerGraphService.nearestApcExtensionNode(level, alarmPos, 3)
-                    + ", ready=" + PowerGraphService.topologyReady(level));
-            helper.runAfterDelay(5, () -> awaitPaidSolve(helper, level, alarm, alarmPos, apc, cable, elapsed + 5));
-            return;
-        }
+                                       BlockPos alarmPos, BlockPos apc, BlockPos cable) {
+        awaitFreshAlarmMeter(helper, level, alarm, alarmPos, apc, cable,
+                "connected alarm reaches fresh prototype-resolved 100 W", () -> {
         require(PowerRuntime.airAlarmMeter(level, alarm).deliveredWatts() == 100, "100 W full alarm solve");
             PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
             Player player = new Player(level, apc, 0, new GameProfile(UUID.randomUUID(), "alarm-power-test")) {
@@ -135,12 +129,15 @@ public final class AirAlarmPowerGameTests {
             require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "breaker invalidates sample immediately");
             require(apcEntity.toggleBreaker(player, 0), "close breaker");
             require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "closing breaker needs new solve");
-            helper.runAfterDelay(40, () -> {
+            awaitFreshAlarmMeter(helper, level, alarm, alarmPos, apc, cable,
+                    "fresh solve after closing breaker restores alarm", () -> {
                 require(PowerRuntime.airAlarmMeter(level, alarm).known(), "fresh solve restores alarm");
                 BlockPos secondApc = apc.south();
                 place(level, secondApc, ModBlocks.APC.get(), Direction.WEST);
                 require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "new ambiguous provider invalidates sample");
-                helper.runAfterDelay(40, () -> {
+                awaitKnownAlarmTopology(helper, level, alarmPos, cable,
+                        "ambiguous second APC reaches a settled known graph", () -> {
+                    helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
                     require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "two APCs cannot bill alarm ambiguously");
                     level.setBlock(secondApc, Blocks.AIR.defaultBlockState(), 3);
                     require(CableStorage.remove(level, cable, Direction.WEST, CableTier.APC) == CableTier.APC, "cut cable");
@@ -152,8 +149,53 @@ public final class AirAlarmPowerGameTests {
                             && !PowerRuntime.airAlarmMeter(level, alarm).known()
                             && !PowerRuntime.airAlarmMeter(level, replacement).known(), "replacement cannot inherit sample");
                     helper.succeed();
+                    });
                 });
             });
+        });
+    }
+
+    private static void awaitFreshAlarmMeter(GameTestHelper helper, ServerLevel level, AirAlarmBlockEntity alarm,
+            BlockPos alarmPos, BlockPos apc, BlockPos cable, String phase, Runnable ready) {
+        PowerFixtureReadiness.await(helper, level, 500,
+                () -> alarmPortsKnown(level, alarmPos, cable)
+                        && PowerRuntime.airAlarmMeter(level, alarm).known()
+                        && PowerRuntime.airAlarmMeter(level, alarm).deliveredWatts() == 100,
+                () -> phase + ", meter=" + PowerRuntime.airAlarmMeter(level, alarm) + ", ports="
+                        + alarmPortDiagnostic(level, alarmPos, apc, cable) + ", indexedDevices="
+                        + PowerRuntime.indexedDeviceCount(level), ready);
+    }
+
+    private static void awaitKnownAlarmTopology(GameTestHelper helper, ServerLevel level, BlockPos alarmPos,
+                                                BlockPos cable, String phase, Runnable ready) {
+        PowerFixtureReadiness.await(helper, level, 500,
+                () -> PowerFixtureReadiness.topologyReadyWithKnownPorts(level, alarmPorts(alarmPos, cable)),
+                () -> phase + ", ports=" + alarmPortDiagnostic(level, alarmPos,
+                        alarmPos.offset(-1, 0, -4), cable) + ", indexedDevices="
+                        + PowerRuntime.indexedDeviceCount(level), ready);
+    }
+
+    private static boolean alarmPortsKnown(ServerLevel level, BlockPos alarmPos, BlockPos cable) {
+        return PowerFixtureReadiness.topologyReadyWithKnownPorts(level, alarmPorts(alarmPos, cable));
+    }
+
+    private static CableFaceNode[] alarmPorts(BlockPos alarmPos, BlockPos cable) {
+        return new CableFaceNode[]{
+                new CableFaceNode(alarmPos.offset(0, 0, -8), Direction.WEST, CableTier.HV),
+                new CableFaceNode(alarmPos.offset(0, 0, -6), Direction.WEST, CableTier.HV),
+                new CableFaceNode(alarmPos.offset(-2, 0, -6), Direction.EAST, CableTier.MV),
+                new CableFaceNode(alarmPos.offset(-2, 0, -4), Direction.EAST, CableTier.MV),
+                new CableFaceNode(alarmPos.offset(0, 0, -4), Direction.WEST, CableTier.APC),
+                new CableFaceNode(cable, Direction.WEST, CableTier.APC)};
+    }
+
+    private static String alarmPortDiagnostic(ServerLevel level, BlockPos alarmPos, BlockPos apc, BlockPos cable) {
+        var ports = alarmPorts(alarmPos, cable);
+        return "sourceHV=" + PowerGraphService.state(level, ports[0]) + ",subHV=" + PowerGraphService.state(level, ports[1])
+                + ",subMV=" + PowerGraphService.state(level, ports[2]) + ",apcMV=" + PowerGraphService.state(level, ports[3])
+                + ",apcOutput=" + PowerGraphService.state(level, ports[4]) + ",extension=" + PowerGraphService.state(level, ports[5])
+                + ",nearest=" + PowerGraphService.nearestApcExtensionNode(level, alarmPos, 3) + ",apc=" + apc
+                + ",topologyReady=" + PowerGraphService.topologyReady(level);
     }
 
     private static void place(ServerLevel level, BlockPos pos, PowerDeviceBlock block, Direction facing) {

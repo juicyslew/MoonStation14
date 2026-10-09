@@ -33,6 +33,7 @@ import java.util.UUID;
 public final class VentilationPowerGameTests {
     private VentilationPowerGameTests() { }
 
+    @GameTestTags("suite-stabilization")
     @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void loadedInheritedDefinitionsDriveDefaultsAndReceiver(GameTestHelper helper) {
         var catalog = PrototypeRuntime.serverVentilationDevices();
@@ -57,7 +58,7 @@ public final class VentilationPowerGameTests {
                 && scrubber.config().settings().filteredGases().equals(java.util.Set.copyOf(scrubberDefinition.gasVentScrubber().filteredGases()))
                 && scrubber.selectedLayer().name().equals(scrubberDefinition.pipeLane().name()),
                 "new scrubber defaults derive from inherited definition");
-        helper.runAfterDelay(100, () -> {
+        awaitMeters(helper, fixture.level(), vent, scrubber, 0, 160, () -> {
             require(PowerRuntime.ventilationMeter(fixture.level(), vent).known()
                     && PowerRuntime.ventilationMeter(fixture.level(), scrubber).known()
                     && PowerRuntime.ventilationMeter(fixture.level(), scrubber).deliveredWatts()
@@ -79,10 +80,10 @@ public final class VentilationPowerGameTests {
     }
 
     @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
-    @GameTestTags("simulation-defaults")
+    @GameTestTags({"simulation-defaults", "suite-stabilization"})
     public static void poweredVentMeterTracksBreakerAndReplacement(GameTestHelper helper) {
         Fixture fixture = connectVent(helper);
-        helper.runAfterDelay(100, () -> {
+        awaitMeter(helper, fixture.level(), fixture.vent(), 0, 150, () -> {
             ServerLevel level = fixture.level();
             VentilationDeviceBlockEntity vent = fixture.vent();
             require(PowerRuntime.ventilationMeter(level, vent).known(), "powered vent meter is known after solve");
@@ -92,7 +93,7 @@ public final class VentilationPowerGameTests {
             require(apcEntity.toggleBreaker(player, 0), "open APC breaker");
             require(!PowerRuntime.ventilationMeter(level, vent).known(), "open breaker immediately invalidates meter");
             require(apcEntity.toggleBreaker(player, 0), "close APC breaker");
-            helper.runAfterDelay(40, () -> {
+            awaitMeter(helper, level, vent, 0, 45, () -> {
                 require(PowerRuntime.ventilationMeter(level, vent).known(), "meter returns after fresh solve");
                 level.setBlock(fixture.ventPos(), Blocks.AIR.defaultBlockState(), 3);
                 level.setBlock(fixture.ventPos(), ModBlocks.GAS_VENT.get().defaultBlockState().setValue(com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock.FACING, Direction.NORTH), 3);
@@ -156,19 +157,7 @@ public final class VentilationPowerGameTests {
             require(CableStorage.remove(level, intended.host(), intended.face(), CableTier.APC) == CableTier.APC,
                     "cut nearest APC cable");
             require(!PowerRuntime.ventilationMeter(level, scrubber).known(), "cut invalidates old sample immediately");
-            helper.runAfterDelay(45, () -> {
-                require(CableStorage.has(level, remaining.host(), remaining.face(), CableTier.APC),
-                        "radius-four APC cable remains after cut");
-                require(remaining.equals(PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 4)),
-                        "remaining APC cable is known at radius four");
-                require(PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 3) == null,
-                        "no APC receiver remains within radius three after cut");
-                require(!PowerRuntime.ventilationMeter(level, scrubber).known(),
-                        "remaining APC cable at radius four cannot power scrubber; meter="
-                                + PowerRuntime.ventilationMeter(level, scrubber) + ", lastSolve="
-                                + PowerRuntime.lastSolveDiagnostic(level));
-                helper.succeed();
-            });
+            helper.runAfterDelay(1, () -> awaitCutTopology(helper, scrubber, remaining, 0));
             return;
         }
         require(elapsed < 175, "radius-three extension receives a completed 5 W solve without a DOWN cable; meter="
@@ -209,6 +198,61 @@ public final class VentilationPowerGameTests {
         VentilationDeviceBlockEntity vent = (VentilationDeviceBlockEntity) level.getBlockEntity(ventPos);
         require(vent != null, "vent block entity exists");
         return new Fixture(level, vent, apc, ventPos);
+    }
+
+    private static void awaitCutTopology(GameTestHelper helper, VentilationDeviceBlockEntity scrubber,
+                                         CableFaceNode remaining, int waited) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        var remainingState = PowerGraphService.state(level, remaining);
+        CableFaceNode selectedAtFour = PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 4);
+        if (PowerGraphService.topologyReady(level)
+                && remainingState.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.KNOWN
+                && remaining.equals(selectedAtFour)) {
+            require(CableStorage.has(level, remaining.host(), remaining.face(), CableTier.APC),
+                    "radius-four APC cable remains after cut");
+            require(PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 3) == null,
+                    "no APC receiver remains within radius three after cut");
+            require(!PowerRuntime.ventilationMeter(level, scrubber).known(),
+                    "remaining APC cable at radius four cannot power scrubber; meter="
+                            + PowerRuntime.ventilationMeter(level, scrubber) + ", lastSolve="
+                            + PowerRuntime.lastSolveDiagnostic(level));
+            helper.succeed();
+            return;
+        }
+        require(waited < 100, "remaining radius-four cable did not reach settled KNOWN topology; topologyReady="
+                + PowerGraphService.topologyReady(level) + " nodeState=" + remainingState + " selectedAtFour="
+                + selectedAtFour + " meter=" + PowerRuntime.ventilationMeter(level, scrubber));
+        helper.runAfterDelay(1, () -> awaitCutTopology(helper, scrubber, remaining, waited + 1));
+    }
+
+    private static void awaitMeter(GameTestHelper helper, ServerLevel level,
+                                   VentilationDeviceBlockEntity vent, int elapsed, int deadline, Runnable ready) {
+        var meter = PowerRuntime.ventilationMeter(level, vent);
+        if (meter.known() && meter.deliveredWatts() >= vent.prototype().apcPowerReceiver().requestedWatts()) {
+            ready.run();
+            return;
+        }
+        require(elapsed < deadline, "powered receiver meter did not settle within bounded readiness window; meter="
+                + meter + " topologyReady=" + PowerGraphService.topologyReady(level)
+                + " indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
+                + " nearby=" + PowerGraphService.nodesNear(level, vent.getBlockPos(), 3, CableTier.APC));
+        helper.runAfterDelay(5, () -> awaitMeter(helper, level, vent, elapsed + 5, deadline, ready));
+    }
+
+    private static void awaitMeters(GameTestHelper helper, ServerLevel level,
+            VentilationDeviceBlockEntity vent, VentilationDeviceBlockEntity scrubber,
+            int elapsed, int deadline, Runnable ready) {
+        var ventMeter = PowerRuntime.ventilationMeter(level, vent);
+        var scrubberMeter = PowerRuntime.ventilationMeter(level, scrubber);
+        boolean ventPaid = ventMeter.known() && ventMeter.deliveredWatts()
+                >= vent.prototype().apcPowerReceiver().requestedWatts();
+        boolean scrubberPaid = scrubberMeter.known() && scrubberMeter.deliveredWatts()
+                >= scrubber.prototype().apcPowerReceiver().requestedWatts();
+        if (ventPaid && scrubberPaid) { ready.run(); return; }
+        require(elapsed < deadline, "both powered ventilation meters did not settle; vent=" + ventMeter
+                + " scrubber=" + scrubberMeter + " topologyReady=" + PowerGraphService.topologyReady(level)
+                + " indexedDevices=" + PowerRuntime.indexedDeviceCount(level));
+        helper.runAfterDelay(5, () -> awaitMeters(helper, level, vent, scrubber, elapsed + 5, deadline, ready));
     }
 
     private static Player creativePlayer(ServerLevel level, BlockPos pos) {

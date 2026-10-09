@@ -21,7 +21,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 
-@GameTestTags({"hands", "storage"})
+@GameTestTags({"hands", "storage", "equipment"})
 @PrefixGameTestTemplate(false)
 public final class BodyEquippedStorageTransferGameTests {
     private BodyEquippedStorageTransferGameTests() { }

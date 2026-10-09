@@ -29,6 +29,7 @@ import java.util.List;
 public final class BodyPullGameTests {
     private BodyPullGameTests() { }
 
+    @GameTestTags("suite-stabilization")
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
     public static void pullsDeadHumanTargetAndReleasesWhenSourceBecomesCritical(GameTestHelper helper) {
         var level = helper.getLevel();
@@ -39,6 +40,7 @@ public final class BodyPullGameTests {
         LiveHands targetHands = LiveHands.initialize(target).orElseThrow();
         require(DamageSystem.applyHealthChange(target, Map.of(DamageKeys.BLUNT, 200f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isDead(target), "target enters native DEAD state");
+        PullFixtureAim.aimAtVisibleInteractionPoint(source, target);
         var targetId = target.getUUID();
         require(BodyPullService.toggleFixture(source, targetId, "left", sourceHands.revision(), () -> true)
                 == BodyPullService.Result.SUCCESS, "dead human target can be pulled");
@@ -69,6 +71,7 @@ public final class BodyPullGameTests {
         helper.succeed();
     }
 
+    @GameTestTags("suite-stabilization")
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
     public static void tetherRetainsLeaseAtElasticExtensionAndClearsOnReservationLoss(GameTestHelper helper) {
         var level = helper.getLevel();
@@ -77,6 +80,7 @@ public final class BodyPullGameTests {
         Villager target = human(level, origin.getX() + .5, origin.getY(), origin.getZ() + .5);
         source.setYRot(90);
         source.setYHeadRot(90);
+        PullFixtureAim.aimAtVisibleInteractionPoint(source, target);
         LiveHands hands = LiveHands.initialize(source).orElseThrow();
         var targetId = target.getUUID();
         require(BodyPullService.toggleFixture(source, targetId, "left", hands.revision(), () -> true)

@@ -111,9 +111,10 @@ class ServerClassloadingTest {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")
                         || relativePath.startsWith(CLIENT_CONSTRUCTION_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/equipment/client/")) {
                     continue;
                 }

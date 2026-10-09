@@ -10,22 +10,27 @@ import net.neoforged.api.distmarker.OnlyIn;
 @OnlyIn(Dist.CLIENT)
 public final class ItemUiAppearance {
     public record SpriteLayers(ResourceLocation base, ResourceLocation overlay, int tint) { }
-    @FunctionalInterface private interface Provider { SpriteLayers resolve(ItemStack stack); }
+    @FunctionalInterface private interface Provider { SpriteLayers resolve(ItemStack stack, net.minecraft.world.level.Level level); }
     private static final java.util.Map<ResourceLocation, Provider> PROVIDERS = java.util.Map.of(
             ResourceLocation.fromNamespaceAndPath("moonstation14", "jug"), ItemUiAppearance::jug);
     private ItemUiAppearance() { }
 
     public static SpriteLayers resolve(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return null;
-        Provider provider = PROVIDERS.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
-        return provider == null ? null : provider.resolve(stack);
+        return resolve(stack, net.minecraft.client.Minecraft.getInstance().level);
     }
 
-    private static SpriteLayers jug(ItemStack stack) {
+    public static SpriteLayers resolve(ItemStack stack, net.minecraft.world.level.Level level) {
+        if (stack == null || stack.isEmpty()) return null;
+        Provider provider = PROVIDERS.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        return provider == null ? null : provider.resolve(stack, level);
+    }
+
+    private static SpriteLayers jug(ItemStack stack, net.minecraft.world.level.Level level) {
         var reagent = stack.get(ModDataComponents.REAGENT.get());
-        int tier = com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.fillTier(reagent, com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents());
+        int tier = com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.fillTier(reagent,
+                com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents(level));
         return new SpriteLayers(ResourceLocation.fromNamespaceAndPath("moonstation14", "textures/item/jug.png"),
                 ResourceLocation.fromNamespaceAndPath("moonstation14", "textures/item/jug_" + tier + ".png"),
-                com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.color(reagent, net.minecraft.client.Minecraft.getInstance().level));
+                com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.color(reagent, level));
     }
 }
