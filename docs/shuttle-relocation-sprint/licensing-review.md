@@ -1,12 +1,12 @@
 # Sable / optional Aeronautics — licensing review
 
-**2026-10-10. Repository/release-metadata review, not legal advice or permission from a rights holder.** No dependencies installed, code/assets copied, maintainers contacted or distributable integration produced. Read [Instructions.md](Instructions.md) for the gated implementation assignment.
+**2026-10-10. Repository/release-metadata review, not legal advice or permission from a rights holder.** No dependencies installed, code/assets copied, maintainers contacted or distributable integration produced. The owner has separately authorized bounded M0–M3 Sable feasibility work while accepting the uncertainty as project risk; see [Instructions.md](Instructions.md). This does not change the assessment below.
 
 ## Bottom line
 
 **Sable's PolyForm Shield noncompete clause is the material unresolved risk.** It is not MIT or a general-purpose permissive open-source license. MoonStation being free, MIT, SS14-inspired, an addon, or separately downloaded does **not** by itself settle whether the intended use is permitted. The available evidence establishes neither a prohibition nor clearance for this project.
 
-Recommendation: get **project-specific written clarification/permission from the licensor** before committing to Sable-dependent public ship gameplay/distribution. Clarify the private feasibility prototype too; the license does not contain an express blanket private-testing exemption. Treat this as an adoption gate, not proof that ordinary Sable addons are forbidden. Source/license investigation and dependency-free baselines can proceed while the question is resolved.
+Owner decision (2026-10-10): proceed with bounded Sable integration/feasibility through M0–M3 despite unresolved interpretation. This accepts the risk for those prototypes only; it does not establish permission, legal clearance, or automatic approval for public gameplay or redistribution. No written permission has been received, and no author contact is to be made on the owner's behalf. Project-specific clarification remains recommended when public release is considered. Complete the exact artifact/dependency/native/notice audit and applicable distribution review before distributing; keep asset restrictions in force.
 
 Prefer Sable alone initially. Optional Create/Aeronautics adds separate reserved-asset and dependency obligations. Their licenses do not solve Sable's permitted-purpose question.
 
@@ -56,7 +56,7 @@ Create/Aeronautics release 1.3.2 (`44pLdPGg`) was identified, but its exact lice
 
 1. Keep independently authored MoonStation adapters/data separate; reuse supported APIs rather than copy engine internals. This minimizes imported material, not the Shield permitted-purpose question.
 2. Prefer pinned dependencies installed separately for feasibility. Do not shade/fork/bundle dependencies, ship their assets in MoonStation, or assume an installer/modpack is exempt from redistribution obligations.
-3. Obtain owner-authorized clarification before dependent public gameplay/release. Record who granted it, the covered project/use/versions/distribution, any conditions, and whether future changes need renewed review. Do not claim permission has been received until it has.
+3. No project-specific clarification has been received. The owner permits bounded M0–M3 feasibility to proceed with the Shield issue documented as an accepted project risk. Consider clarification when public release is contemplated; this decision is not permission or automatic approval for redistribution. If a response is obtained, record who granted it, the covered project/use/versions/distribution, any conditions, and whether future changes need renewed review.
 4. Before distributing any third-party material, verify the exact version/hash and each included component's license. Supply applicable licenses/copyright/required notices and any source/relinking materials the actual licenses require. Verify platform-native redistribution as well as Java jars.
 5. Keep proprietary/reserved optional-mod resources out unless specific rights are established. Preserve individual SS14 resource provenance/share-alike obligations; unclear audio belongs in `docs/audio-unknown-provenance.md`.
 
