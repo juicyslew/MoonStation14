@@ -62,7 +62,7 @@ public final class ConstructionBrowserWindow implements com.juicyslew.moonstatio
                 }
             }
         }
-        com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.openConstructionPointerWorkspace();
+        com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.openSharedPointerWorkspace();
     }
     public static void toggle(String remembered) { if (INSTANCE.visible) INSTANCE.close(); else open(remembered); }
     @Override public boolean visible() { return visible; }

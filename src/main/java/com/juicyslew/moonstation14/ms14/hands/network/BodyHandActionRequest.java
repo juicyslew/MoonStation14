@@ -214,7 +214,10 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                            || !isGridMove(action) && (oldCellX != -1 || oldCellY != -1 || oldRotation != -1)
                       : isSmart(action) ? expectedChildOrSourceToken == null || expectedChildOrSourceToken.isBlank()
                           || expectedChildOrSourceToken.length() > ItemToken.MAX_LENGTH || cellX != -1 || cellY != -1 || rotation != -1 || oldCellX != -1 || oldCellY != -1 || oldRotation != -1
-                       : expectedChildOrSourceToken != null || cellX != -1 || cellY != -1 || rotation != -1 || oldCellX != -1 || oldCellY != -1 || oldRotation != -1)
+                        : action == Action.MOVE_EQUIPMENT
+                                ? expectedChildOrSourceToken != null || cellX != 0 || cellY != 0 || rotation != 0
+                                    || oldCellX != 0 || oldCellY != 0 || oldRotation != 0
+                                : expectedChildOrSourceToken != null || cellX != -1 || cellY != -1 || rotation != -1 || oldCellX != -1 || oldCellY != -1 || oldRotation != -1)
                    )
             throw new IllegalArgumentException("Invalid body hand intent");
     }

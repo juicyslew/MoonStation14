@@ -13,12 +13,15 @@ public final class EquipmentPanelRenderer {
     public static void drawSlot(GuiGraphics g, EquipmentPanelLayout.SlotRect slot,
                                 InventoryTemplateData.Slot definition, boolean enabled,
                                 boolean pendingOrStale) {
-        var r = slot.rect();
+        drawSlot(g, slot.rect(), definition == null ? null : definition.icon(), enabled, pendingOrStale);
+    }
+    /** Shared read-only slot chrome for views which have no owner inventory model. */
+    public static void drawSlot(GuiGraphics g, com.juicyslew.moonstation14.ms14.hands.client.HandBarLayout.Rect r,
+                                ResourceLocation icon, boolean enabled, boolean pendingOrStale) {
         g.fill(r.x(), r.y(), r.x()+r.width(), r.y()+r.height(), 0xff11191d);
         g.fill(r.x()+1,r.y()+1,r.x()+r.width()-1,r.y()+r.height()-1,
                 pendingOrStale ? 0xff554733 : 0xff35474e);
-        ResourceLocation icon = definition.icon();
-        g.blit(icon,r.x()+2,r.y()+2,r.width()-4,r.height()-4,0,0,32,32,32,32);
+        if (icon != null) g.blit(icon,r.x()+2,r.y()+2,r.width()-4,r.height()-4,0,0,32,32,32,32);
         if (!enabled) g.fill(r.x()+1,r.y()+1,r.x()+r.width()-1,r.y()+r.height()-1,0x66090f12);
     }
     public static void drawToggle(GuiGraphics g, EquipmentPanelLayout.Layout layout, boolean expanded) {

@@ -30,7 +30,8 @@ public final class ExperimentalGhostCarrierGameTests {
     @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void unregisteredParkedCarrierAndBootstrappedBodyHaveNoHandAuthority(GameTestHelper helper) {
         var body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
-        if (BodyHandBootstrap.ensure(body) != BodyHandBootstrap.Result.INITIALIZED)
+        if (BodyHandBootstrap.ensure(body) != BodyHandBootstrap.Result.PRESERVED
+                || !body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).compatible(body))
             throw new GameTestAssertException("body hand fixture");
         UUID account = UUID.randomUUID();
         ServerPlayer carrier = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),

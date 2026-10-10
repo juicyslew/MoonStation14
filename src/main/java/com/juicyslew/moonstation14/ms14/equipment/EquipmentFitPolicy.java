@@ -49,11 +49,23 @@ public final class EquipmentFitPolicy {
     /** First declared eligible slot, retaining template order and excluding duplicate candidate slots. */
     public static java.util.Optional<String> firstQuickEquipSlot(Level level, InventoryTemplateData template,
             ItemStack stack, java.util.Set<String> occupied, java.util.Set<String> attempted) {
-        if (!quickEquip(level, stack) || template == null) return java.util.Optional.empty();
+        return quickEquipSlots(level, template, stack, occupied, attempted).stream().findFirst();
+    }
+
+    /** Eligible slots in preferred-flag order, then the body's unchanged resolved template order. */
+    public static java.util.List<String> quickEquipSlots(Level level, InventoryTemplateData template,
+            ItemStack stack, java.util.Set<String> occupied, java.util.Set<String> attempted) {
+        if (!quickEquip(level, stack) || template == null) return java.util.List.of();
+        var data = ModEquipmentItems.catalog(level).get(stack.getItem().builtInRegistryHolder().key().location());
+        var preferred = data.clothing().orElseThrow().quickEquipPreferredSlotFlags();
         return template.slots().stream().map(InventoryTemplateData.Slot::id)
                 .filter(id -> attempted == null || !attempted.contains(id))
                 .filter(id -> fits(level, template, id, stack, occupied))
-                .findFirst();
+                .sorted(java.util.Comparator.comparingInt(id -> {
+                    var slot = template.slot(id).orElseThrow();
+                    for (int i = 0; i < preferred.size(); i++) if (slot.flags().contains(preferred.get(i))) return i;
+                    return preferred.size();
+                })).toList();
     }
 
     public static boolean fits(InventoryTemplateData template, String slotId, EquipmentItemData data,

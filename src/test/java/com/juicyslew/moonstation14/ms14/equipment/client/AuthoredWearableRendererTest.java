@@ -38,7 +38,7 @@ class AuthoredWearableRendererTest {
         assertEquals(0f,pose.last().pose().m30(),1e-6f,"emitter must restore the caller pose");
     }
 
-    private static final class Capture implements VertexConsumer {
+    static class Capture implements VertexConsumer {
         final java.util.ArrayList<Float> x=new java.util.ArrayList<>(),u=new java.util.ArrayList<>(),v=new java.util.ArrayList<>(),normalZ=new java.util.ArrayList<>();
         final java.util.ArrayList<int[]> colors=new java.util.ArrayList<>();
         @Override public VertexConsumer addVertex(float x,float y,float z){this.x.add(x);return this;}

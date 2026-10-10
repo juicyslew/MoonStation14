@@ -43,10 +43,15 @@ class EquipmentPrototypeTest {
         assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.HEAD),resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().slotFlags());
         for(String id:java.util.List.of("grey_cap","grey_jumpsuit","simple_coat","black_shoes","belt"))
             assertEquals("Normal",resolved.get(ModInventoryTemplates.id(id)).item().size(),id);
-        for(String id:java.util.List.of("black_gloves","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case"))
+        for(String id:java.util.List.of("black_gloves","glasses","red_tie","black_bandana","earpieces","blank_id_card"))
             assertEquals("Small",resolved.get(ModInventoryTemplates.id(id)).item().size(),id);
+        assertEquals("Ginormous",resolved.get(ModInventoryTemplates.id("utility_case")).item().size());
+        assertThrows(IllegalArgumentException.class, () -> new EquipmentItemData.Item("Unrecognized"));
         assertEquals("Huge",resolved.get(ModInventoryTemplates.id("bag")).item().size());
         assertEquals(0,resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().equipDelay());
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.IDCARD),
+                resolved.get(ModInventoryTemplates.id("blank_id_card")).clothing().orElseThrow().quickEquipPreferredSlotFlags());
+        assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().quickEquipPreferredSlotFlags().isEmpty());
         assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().quickEquip());
         assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().equipSound().isEmpty());
         assertTrue(resolved.get(ModInventoryTemplates.id("simple_coat")).allowSuitStorage().isEmpty());
@@ -70,6 +75,16 @@ class EquipmentPrototypeTest {
         assertFalse(resolved.get(ModInventoryTemplates.id("child_override")).clothing().orElseThrow().quickEquip());
         assertEquals("Small",resolved.get(ModInventoryTemplates.id("child_override")).item().size());
         assertEquals(0xffffffff,resolved.get(ModInventoryTemplates.id("child_override")).clothing().orElseThrow().color());
+        var preferredParent=resource("equipment_item","blank_id_card");
+        items.put(ModInventoryTemplates.id("preferred_parent"),preferredParent);
+        var inherited=JsonParser.parseString("{\"parent\":\"preferred_parent\",\"clothing\":{\"color\":-1}}").getAsJsonObject();
+        items.put(ModInventoryTemplates.id("preferred_inherited"),inherited);
+        var cleared=JsonParser.parseString("{\"parent\":\"preferred_parent\",\"clothing\":{\"quick_equip_preferred_slot_flags\":[]}}").getAsJsonObject();
+        items.put(ModInventoryTemplates.id("preferred_cleared"),cleared);
+        manager.reload(ModEquipmentItems.TYPE,items);
+        var composed=manager.snapshot(ModEquipmentItems.TYPE);
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.IDCARD),composed.get(ModInventoryTemplates.id("preferred_inherited")).clothing().orElseThrow().quickEquipPreferredSlotFlags());
+        assertTrue(composed.get(ModInventoryTemplates.id("preferred_cleared")).clothing().orElseThrow().quickEquipPreferredSlotFlags().isEmpty());
     }
 
     @Test void templatesPermitSubsetAndApplyOnlyOmittedSlotFlagDefaults() {
@@ -127,6 +142,7 @@ class EquipmentPrototypeTest {
         assertFalse(EquipmentFitPolicy.fits(template,"id",catalog.get(ModInventoryTemplates.id("blank_id_card")),java.util.Set.of(),false));
         assertTrue(EquipmentFitPolicy.fits(template,"id",catalog.get(ModInventoryTemplates.id("blank_id_card")),java.util.Set.of("jumpsuit"),false));
         var suitStorage=catalog.get(ModInventoryTemplates.id("utility_case"));
+        assertFalse(EquipmentFitPolicy.fits(template,"pocket1",suitStorage,java.util.Set.of("jumpsuit"),false));
         assertFalse(EquipmentFitPolicy.fits(template,"suitstorage",suitStorage,java.util.Set.of(),true));
         assertFalse(EquipmentFitPolicy.fits(template,"suitstorage",suitStorage,java.util.Set.of("outerClothing"),false));
         assertFalse(EquipmentFitPolicy.fits(template,"suitstorage",small,java.util.Set.of("outerClothing"),true));

@@ -20,15 +20,23 @@ public final class BodyAppearanceClothingLayer extends RenderLayer<PlayerCharact
         var snapshot = BodyHandNetworking.clientCache().get(entity.level().dimension().location(), entity.getUUID(), entity.getId()).orElse(null);
         if (snapshot == null) return;
         var plan = EquipmentRenderPlan.create(snapshot, com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.clientCatalog());
-        boolean slim = entity.bodyShape() == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape.SLIM;
-        var model = getParentModel();
-        var placeholderConsumer = buffer.getBuffer(RenderType.entityCutoutNoCull(EquipmentPlaceholderGeometry.WHITE_TEXTURE));
-        for (var garment : plan.garments()) {
-            boolean authored = AuthoredWearableRenderer.canRender(garment.wornModel(), entity.bodyShape(),
+        renderGarments(plan.garments(), getParentModel(), entity.bodyShape(), pose, buffer, light);
+    }
+
+    static void renderGarments(java.util.List<EquipmentRenderPlan.Garment> garments,
+                              PlayerModel<?> model,
+                              com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape shape,
+                              PoseStack pose, MultiBufferSource buffer, int light) {
+        boolean slim = shape == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape.SLIM;
+        for (var garment : garments) {
+            boolean authored = AuthoredWearableRenderer.canRender(garment.wornModel(), shape,
                     garment.wornModel().flatMap(w -> AuthoredWearableMeshes.get(w.mesh())).isPresent())
                     && AuthoredWearableRenderer.render(garment, model, pose, buffer, light);
-            if (!authored) for (var anchor : garment.anchors()) {
-                EquipmentPlaceholderGeometry.render(garment, anchor, model, slim, pose, placeholderConsumer, light);
+            if (!authored) {
+                // Authored rendering may switch the shared MultiBufferSource's active builder.
+                // Acquire the placeholder consumer only after that attempt, for this garment.
+                var placeholderConsumer = buffer.getBuffer(RenderType.entityCutoutNoCull(EquipmentPlaceholderGeometry.WHITE_TEXTURE));
+                EquipmentPlaceholderGeometry.render(garment, model, slim, pose, placeholderConsumer, light);
             }
         }
     }
