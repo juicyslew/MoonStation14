@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ItemFootprintResourceTest {
@@ -27,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(36, raw.size());
+        assertEquals(47, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(31, resolved.size());
+        assertEquals(42, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -48,7 +49,12 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(31, catalog.size());
+        assertEquals(42, catalog.size());
+        assertEquals(catalog.get(id("wirecutter")).cells(), catalog.get(id("screwdriver")).cells());
+        for (String item : new String[]{"screwdriver", "crowbar", "wirecutter", "multitool", "atmosphere_analyzer"})
+            assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(item)).itemSize(), item);
+        assertTrue(raw.get(id("small")).get("item_size") == null,
+                "abstract geometry templates do not invent/inherit a physical size");
         assertEquals(16, catalog.get(id("bag")).cells().size());
         assertEquals(36, catalog.get(id("belt")).cells().size());
         assertEquals(5, catalog.get(id("pickaxe")).cells().size());
@@ -59,6 +65,27 @@ class ItemFootprintResourceTest {
         assertEquals(1, catalog.get(id("signal_button")).cells().size());
         assertEquals(1, catalog.get(id("signal_switch")).cells().size());
         assertTrue(catalog.get(id("bag")).cells().contains(new GridGeometry.Cell(3, 3)));
+    }
+
+    @Test void pocketAdmissionUsesExplicitPhysicalSizeAndNeverInfersItFromFootprintGeometry() {
+        var icon = ResourceLocation.withDefaultNamespace("test");
+        var slot = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.Slot("pocket1", "Pocket",
+                icon, "Default", 0, 0, java.util.List.of(
+                com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.POCKET),
+                java.util.List.of(), java.util.List.of(), false);
+        var template = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData(java.util.List.of(slot));
+        var standardSizeGeometry = new ItemFootprintProfile(java.util.List.of(new GridGeometry.Cell(0, 0),
+                new GridGeometry.Cell(1, 0)), java.util.Optional.of(ItemFootprintProfile.ItemSize.Small));
+        var unitGeometryWithoutSize = new ItemFootprintProfile(java.util.List.of(new GridGeometry.Cell(0, 0)));
+        var normal = new ItemFootprintProfile(java.util.List.of(new GridGeometry.Cell(0, 0)),
+                java.util.Optional.of(ItemFootprintProfile.ItemSize.Normal));
+        assertTrue(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(template, "pocket1",
+                standardSizeGeometry, 1, 64, java.util.Set.of()));
+        assertFalse(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(template, "pocket1",
+                unitGeometryWithoutSize, 1, 64, java.util.Set.of()));
+        assertFalse(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(template, "pocket1",
+                normal, 1, 64, java.util.Set.of()));
+        assertEquals(java.util.Optional.empty(), unitGeometryWithoutSize.itemSize());
     }
 
     private static void assertCounts(PrototypeCatalog<JsonObject> catalog, int expected, String... ids) {

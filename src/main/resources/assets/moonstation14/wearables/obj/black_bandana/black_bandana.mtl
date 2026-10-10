@@ -1,0 +1,4 @@
+newmtl black_bandana
+Kd 1 1 1
+d 1
+map_Kd ../../../../textures/entity/equipment/black_bandana.png

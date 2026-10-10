@@ -25,6 +25,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Direction;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
+import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
@@ -41,6 +42,9 @@ public final class VentilationPowerGameTests {
         var scrubberDefinition = catalog.get(ModVentilationDevices.SCRUBBER);
         require(ventDefinition != null && scrubberDefinition != null,
                 "resource reload publishes both inherited concrete definitions");
+        require(ventDefinition.apcPowerReceiver().requestedWatts() == 5
+                        && scrubberDefinition.apcPowerReceiver().requestedWatts() == 5,
+                "resolved inherited receiver prototypes request the verified default 5 W");
         Fixture fixture = connectVent(helper);
         VentilationDeviceBlockEntity vent = fixture.vent();
         require(vent.prototype() == ventDefinition, "live BE resolves published vent definition");
@@ -58,7 +62,7 @@ public final class VentilationPowerGameTests {
                 && scrubber.config().settings().filteredGases().equals(java.util.Set.copyOf(scrubberDefinition.gasVentScrubber().filteredGases()))
                 && scrubber.selectedLayer().name().equals(scrubberDefinition.pipeLane().name()),
                 "new scrubber defaults derive from inherited definition");
-        helper.runAfterDelay(100, () -> {
+        awaitMeters(helper, fixture.level(), vent, scrubber, 0, 160, () -> {
             require(PowerRuntime.ventilationMeter(fixture.level(), vent).known()
                     && PowerRuntime.ventilationMeter(fixture.level(), scrubber).known()
                     && PowerRuntime.ventilationMeter(fixture.level(), scrubber).deliveredWatts()
@@ -80,7 +84,7 @@ public final class VentilationPowerGameTests {
     }
 
     @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
-    @GameTestTags("simulation-defaults")
+    @GameTestTags({"simulation-defaults", "suite-stabilization"})
     public static void poweredVentMeterTracksBreakerAndReplacement(GameTestHelper helper) {
         Fixture fixture = connectVent(helper);
         ServerLevel level = fixture.level();
@@ -93,11 +97,12 @@ public final class VentilationPowerGameTests {
         // 100/40-tick phase budgets; callbacks never append to the running task iterator.
         for (int tick = 1; tick <= 140; tick++) {
             int checkTick = tick;
-            helper.runAfterDelay(tick, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, tick, () -> {
                 if (completed.get()) return;
                 if (firstPaidTick.get() < 0) {
                     var meter = PowerRuntime.ventilationMeter(level, vent);
-                    if (meter.known() && meter.deliveredWatts() == 5) {
+                    if (meter.known() && meter.deliveredWatts() == 5
+                            && ventilationFixtureReady(level, fixture)) {
                         firstPaidTick.set(checkTick);
                         Player player = creativePlayer(level, fixture.apc());
                         require(apcEntity.toggleBreaker(player, 0), "open APC breaker");
@@ -107,14 +112,15 @@ public final class VentilationPowerGameTests {
                         recloseTick.set(checkTick);
                     } else if (checkTick == 100) {
                         require(false, "vent has no fresh 5 W paid meter within existing 100-tick admission phase: "
-                                + meter + ", " + ventMeterDiagnostic(level, vent));
+                                + meter + ", " + ventMeterDiagnostic(level, fixture, "admission", checkTick));
                     }
                     return;
                 }
                 int closedAt = recloseTick.get();
                 if (closedAt < 0 || checkTick <= closedAt) return;
                 var meter = PowerRuntime.ventilationMeter(level, vent);
-                if (meter.known() && meter.deliveredWatts() == 5) {
+                if (meter.known() && meter.deliveredWatts() == 5
+                        && ventilationFixtureReady(level, fixture)) {
                     if (!completed.compareAndSet(false, true)) return;
                     level.setBlock(fixture.ventPos(), Blocks.AIR.defaultBlockState(), 3);
                     level.setBlock(fixture.ventPos(), ModBlocks.GAS_VENT.get().defaultBlockState()
@@ -129,7 +135,7 @@ public final class VentilationPowerGameTests {
                     helper.succeed();
                 } else if (checkTick == closedAt + 40) {
                     require(false, "vent meter did not return within existing 40-tick reclose phase: "
-                            + meter + ", " + ventMeterDiagnostic(level, vent));
+                            + meter + ", " + ventMeterDiagnostic(level, fixture, "reclose", checkTick - closedAt));
                 }
             });
         }
@@ -188,19 +194,7 @@ public final class VentilationPowerGameTests {
             require(CableStorage.remove(level, intended.host(), intended.face(), CableTier.APC) == CableTier.APC,
                     "cut nearest APC cable");
             require(!PowerRuntime.ventilationMeter(level, scrubber).known(), "cut invalidates old sample immediately");
-            helper.runAfterDelay(45, () -> {
-                require(CableStorage.has(level, remaining.host(), remaining.face(), CableTier.APC),
-                        "radius-four APC cable remains after cut");
-                require(remaining.equals(PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 4)),
-                        "remaining APC cable is known at radius four");
-                require(PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 3) == null,
-                        "no APC receiver remains within radius three after cut");
-                require(!PowerRuntime.ventilationMeter(level, scrubber).known(),
-                        "remaining APC cable at radius four cannot power scrubber; meter="
-                                + PowerRuntime.ventilationMeter(level, scrubber) + ", lastSolve="
-                                + PowerRuntime.lastSolveDiagnostic(level));
-                helper.succeed();
-            });
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> awaitCutTopology(helper, scrubber, remaining, 0));
             return;
         }
         require(elapsed < 175, "radius-three extension receives a completed 5 W solve without a DOWN cable; meter="
@@ -246,11 +240,60 @@ public final class VentilationPowerGameTests {
         return new Fixture(level, vent, apc, ventPos);
     }
 
-    private static String ventMeterDiagnostic(ServerLevel level, VentilationDeviceBlockEntity vent) {
-        return "meterGate=" + PowerRuntime.ventilationMeterDiagnostic(level, vent)
+    private static String ventMeterDiagnostic(ServerLevel level, Fixture fixture, String phase, int phaseTick) {
+        StringBuilder portStates = new StringBuilder();
+        for (CableFaceNode port : expectedFixturePorts(fixture)) portStates.append(port).append('=').append(PowerGraphService.state(level, port)).append(';');
+        return "phase=" + phase + ",phaseTick=" + phaseTick
+                + ",meterGate=" + PowerRuntime.ventilationMeterDiagnostic(level, fixture.vent())
+                + ",expectedPorts=" + portStates
                 + ",topology=" + PowerGraphService.topologyReady(level)
                 + ",graph=" + PowerGraphService.diagnosticSnapshot(level)
                 + ",solve=" + PowerRuntime.lastSolveSummary(level);
+    }
+
+    private static boolean ventilationFixtureReady(ServerLevel level, Fixture fixture) {
+        return PowerFixtureReadiness.topologyReadyWithKnownPorts(level, expectedFixturePorts(fixture));
+    }
+
+    private static CableFaceNode[] expectedFixturePorts(Fixture fixture) {
+        BlockPos vent = fixture.ventPos();
+        return new CableFaceNode[]{
+                new CableFaceNode(vent.offset(1, 0, -6), Direction.WEST, CableTier.HV),
+                new CableFaceNode(vent.offset(1, 0, -4), Direction.WEST, CableTier.HV),
+                new CableFaceNode(vent.offset(-1, 0, -4), Direction.EAST, CableTier.MV),
+                new CableFaceNode(vent.offset(-1, 0, -2), Direction.EAST, CableTier.MV),
+                new CableFaceNode(vent.offset(1, 0, -2), Direction.WEST, CableTier.APC),
+                new CableFaceNode(vent.offset(1, 0, -1), Direction.WEST, CableTier.APC)};
+    }
+
+    private static void awaitMeters(GameTestHelper helper, ServerLevel level, VentilationDeviceBlockEntity vent,
+                                    VentilationDeviceBlockEntity scrubber, int waited, int limit, Runnable ready) {
+        PowerFixtureReadiness.await(helper, level, limit,
+                () -> PowerRuntime.ventilationMeter(level, vent).known()
+                        && PowerRuntime.ventilationMeter(level, scrubber).known(),
+                () -> "ventilation receiver solve pending: vent=" + PowerRuntime.ventilationMeter(level, vent)
+                        + ", scrubber=" + PowerRuntime.ventilationMeter(level, scrubber) + ", waited=" + waited,
+                ready);
+    }
+
+    private static void awaitCutTopology(GameTestHelper helper, VentilationDeviceBlockEntity scrubber,
+                                         CableFaceNode remaining, int waited) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        PowerFixtureReadiness.await(helper, level, 100,
+                () -> PowerGraphService.topologyReady(level)
+                        && PowerGraphService.state(level, remaining).knowledge()
+                        == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.KNOWN
+                        && remaining.equals(PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 4)),
+                () -> "waiting for radius-four cable topology; waited=" + waited + ", node="
+                        + PowerGraphService.state(level, remaining), () -> {
+                    require(CableStorage.has(level, remaining.host(), remaining.face(), CableTier.APC),
+                            "radius-four APC cable remains after cut");
+                    require(PowerGraphService.nearestApcExtensionNode(level, scrubber.getBlockPos(), 3) == null,
+                            "no APC receiver remains within radius three after cut");
+                    require(!PowerRuntime.ventilationMeter(level, scrubber).known(),
+                            "remaining radius-four APC cable cannot power scrubber");
+                    helper.succeed();
+                });
     }
 
     private static Player creativePlayer(ServerLevel level, BlockPos pos) {

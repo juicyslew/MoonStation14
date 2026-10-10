@@ -24,7 +24,9 @@ public final class BodyGiveCoreGameTests {
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void coreGrantConsumesInputIntoBodyHand(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
-        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED, "body hands initialized");
+        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.PRESERVED
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).compatible(body),
+                "joined body already has compatible live hands");
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         ItemStack input = new ItemStack(Items.STONE, 3);
         // Trusted core-consumer fixture: this validates admission/transfer, not command actor authentication.

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.mobs;
 
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
@@ -52,6 +53,7 @@ public final class OwnedCorpsePhysicsGameTests {
         require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "corpse-physics",
                         UUID.randomUUID(), ModCharacters.HUMAN_ID),
                 "harness resolves as a bound human character");
+        bootstrapHands(body);
         ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
         body.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET));
         UUID id = body.getUUID();
@@ -81,7 +83,8 @@ public final class OwnedCorpsePhysicsGameTests {
         }, spawn, helper.absolutePos(new BlockPos(3, 0, 3)));
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
+    @GameTestTags("suite-stabilization")
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 50)
     public static void ownedCriticalBodyFallsOnNativeTicks(GameTestHelper helper) {
         BlockPos spawn = helper.absolutePos(new BlockPos(3, 9, 3));
         var tickets = FixtureChunkTickets.around(helper, spawn, spawn.below(9), 1);
@@ -93,6 +96,7 @@ public final class OwnedCorpsePhysicsGameTests {
         require(helper.getLevel().addFreshEntity(body), "harness joins world");
         require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "critical-physics",
                 UUID.randomUUID(), ModCharacters.HUMAN_ID), "harness binds as human");
+        bootstrapHands(body);
         ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
         require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 100f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isCritical(body), "body enters typed Critical");
@@ -134,6 +138,7 @@ public final class OwnedCorpsePhysicsGameTests {
         require(helper.getLevel().addFreshEntity(body), "harness joins the world");
         require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "unowned-flight",
                 UUID.randomUUID(), ModCharacters.HUMAN_ID), "harness binds as human");
+        bootstrapHands(body);
         require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 100f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isCritical(body), "body enters typed Critical");
         ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(false);
@@ -173,6 +178,7 @@ public final class OwnedCorpsePhysicsGameTests {
         require(helper.getLevel().addFreshEntity(body), label + " harness joins the world");
         require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "dead-contained-" + label,
                 UUID.randomUUID(), ModCharacters.HUMAN_ID), label + " harness binds as human");
+        bootstrapHands(body);
         require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 100f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isCritical(body), "body enters Critical before admission");
         boolean initiallyMovementOwned = ((MindControlledMob) (Object) body).moonstation14$isMovementOwned();
@@ -232,6 +238,7 @@ public final class OwnedCorpsePhysicsGameTests {
         require(helper.getLevel().addFreshEntity(body), label + " harness joins the world");
         require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "contained-corpse-" + label,
                 UUID.randomUUID(), ModCharacters.HUMAN_ID), label + " harness binds as human");
+        bootstrapHands(body);
         require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 100f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isCritical(body), "body enters typed Critical");
         var owner = new ContainedBodyOwner() {
@@ -256,6 +263,11 @@ public final class OwnedCorpsePhysicsGameTests {
             service.unbind(body, owner);
             helper.succeed();
         });
+    }
+
+    private static void bootstrapHands(PlayerCharacterHarnessEntity body) {
+        require(BodyHandBootstrap.ensure(body) != BodyHandBootstrap.Result.REJECTED,
+                "bound harness bootstraps composed body hands");
     }
 
     private static void require(boolean condition, String message) {

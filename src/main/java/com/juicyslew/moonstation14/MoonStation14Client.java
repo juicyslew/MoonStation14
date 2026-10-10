@@ -143,6 +143,7 @@ public class MoonStation14Client {
             });
         });
         modEventBus.addListener(MoonStation14Client::onClientSetup);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.equipment.client.AuthoredWearableMeshes::register);
         modEventBus.addListener(MoonStation14Client::registerMoonSky);
         modEventBus.addListener(MoonStation14Client::registerItemColors);
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
@@ -187,6 +188,7 @@ public class MoonStation14Client {
                 (response, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.accept(response)),
                 (close, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.close(close.windowId(), close.session())));
         BodyHandClient.install();
+        com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().bind();
         TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
         NeoForge.EVENT_BUS.addListener(MachineUiGalleryCommands::register);
@@ -195,6 +197,8 @@ public class MoonStation14Client {
     static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates::bootstrapClientBundled);
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems::bootstrapClientBundled);
         ModSpecialProperties.addCustomItemProperties(event);
         DisposalTubeBlock.setRecordProvider((level,pos) -> DISPOSAL_TUBES.get(level.dimension().location(),pos));
         DisposalConstructionClient.register();

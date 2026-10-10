@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandComponent;
 import com.juicyslew.moonstation14.ms14.hands.HandState;
@@ -46,11 +47,12 @@ public final class BodyPullGameTests {
         Villager target = human(level, origin.getX() + 2.5, origin.getY(), origin.getZ() + .5);
         require(ticket.entityTicking(source.blockPosition()) && ticket.entityTicking(target.blockPosition()),
                 "source, target, and selection-ray chunks are entity-ticking before pull admission");
-        LiveHands sourceHands = LiveHands.initialize(source).orElseThrow();
-        LiveHands targetHands = LiveHands.initialize(target).orElseThrow();
+        LiveHands sourceHands = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        LiveHands targetHands = target.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(sourceHands != null && targetHands != null, "enrollment bootstraps composed body hands");
         require(DamageSystem.applyHealthChange(target, Map.of(DamageKeys.BLUNT, 200f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isDead(target), "target enters native DEAD state");
-        aimAt(source, visibleInteractionPoint(source, target));
+        PullFixtureAim.aimAtVisibleInteractionPoint(source, target);
         var targetId = target.getUUID();
         require(BodyPullService.toggleFixture(source, targetId, "left", sourceHands.revision(), () -> true)
                 == BodyPullService.Result.SUCCESS, "dead human target can be pulled; "
@@ -83,6 +85,7 @@ public final class BodyPullGameTests {
         helper.succeed();
     }
 
+    @GameTestTags("suite-stabilization")
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
     public static void tetherRetainsLeaseAtElasticExtensionAndClearsOnReservationLoss(GameTestHelper helper) {
         var level = helper.getLevel();
@@ -91,7 +94,9 @@ public final class BodyPullGameTests {
         Villager target = human(level, origin.getX() + .5, origin.getY(), origin.getZ() + .5);
         source.setYRot(90);
         source.setYHeadRot(90);
-        LiveHands hands = LiveHands.initialize(source).orElseThrow();
+        PullFixtureAim.aimAtVisibleInteractionPoint(source, target);
+        LiveHands hands = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(hands != null, "enrollment bootstraps composed body hands");
         var targetId = target.getUUID();
         require(BodyPullService.toggleFixture(source, targetId, "left", hands.revision(), () -> true)
                         == BodyPullService.Result.SUCCESS,
@@ -122,7 +127,8 @@ public final class BodyPullGameTests {
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
         Villager source = human(level, origin.getX() + .5, origin.getY(), origin.getZ() + .5);
         Villager target = human(level, origin.getX() + 2.5, origin.getY(), origin.getZ() + .5);
-        LiveHands hands = LiveHands.initialize(source).orElseThrow();
+        LiveHands hands = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(hands != null, "enrollment bootstraps composed body hands");
         require(BodyPullService.toggleFixture(source, target.getUUID(), "left", hands.revision(), () -> true)
                         == BodyPullService.Result.SUCCESS,
                 "pull starts before puller removal");
@@ -143,7 +149,8 @@ public final class BodyPullGameTests {
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
         Villager source = human(level, origin.getX() + .5, origin.getY(), origin.getZ() + .5);
         Villager target = human(level, origin.getX() + 2.5, origin.getY(), origin.getZ() + .5);
-        LiveHands initial = LiveHands.initialize(source).orElseThrow();
+        LiveHands initial = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(initial != null, "enrollment bootstraps composed body hands");
         var encoded = LiveHands.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, initial)
                 .getOrThrow().getAsJsonObject();
         var slots = encoded.getAsJsonArray("hands");
@@ -202,6 +209,8 @@ public final class BodyPullGameTests {
         body.setXRot(0);
         require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level, ModCharacters.HUMAN_ID)
                 && BodySystem.reconcile(body), "villager enrolled as human body");
+        require(BodyHandBootstrap.ensure(body) != BodyHandBootstrap.Result.REJECTED,
+                "enrolled body bootstraps composed body hands");
         body.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
         body.setHealth(40f);
         return body;

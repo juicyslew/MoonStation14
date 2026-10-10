@@ -1,0 +1,8 @@
+Asset: grey_cap
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/Head/Soft/greysoft.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/4f6190e2895e09116663ef282d3ce1d8b35c032e
+Imported PNG SHA-256: b60d6bbaa0bfdb6f0e1eb40a09adecf9a3fa5247535fce8e2a8a4c58d24bfa6f
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

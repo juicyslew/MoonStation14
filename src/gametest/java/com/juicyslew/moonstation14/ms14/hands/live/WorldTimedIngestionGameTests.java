@@ -39,9 +39,11 @@ public final class WorldTimedIngestionGameTests {
 
     private WorldTimedIngestionGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    @GameTestTags({"suite-stabilization"})
     public static void worldSourceContinuesAfterLookAwayAndHandPutThenCompletesEmpty(GameTestHelper h) {
         Fixture f = fixture(h, 10);
+        requireOwnedTicking(h, f, "before world-action admission");
         require(start(f, 1).name().equals("OK"), "world ingestion starts from exact loose source");
         require(source(f) == 1000 && stomach(f.body) == 0, "start transfers no reagent");
         f.body.setYRot(90); f.body.setYHeadRot(90); // no longer looking at the source
@@ -51,11 +53,19 @@ public final class WorldTimedIngestionGameTests {
         require(put.succeeded(), "ordinary item legitimately put into active hand");
         f.body.setData(ModDataAttachments.LIVE_HANDS.get(), put.state());
         h.runAfterDelay(21, () -> {
-            require(source(f) == 500, "first dose committed after timed interval");
+            requireOwnedTicking(h, f, "at first timed dose");
+            require(source(f) == 500, "first dose committed after timed interval; source=" + source(f)
+                    + ", stomach=" + stomach(f.body) + ", bodyTick=" + f.body.tickCount + ", gameTime="
+                    + f.level.getGameTime() + ", bodyAlive=" + f.body.isAlive() + ", sourceAlive="
+                    + !f.source.isRemoved() + ", sourcePos=" + f.source.position());
             require(f.level.getEntity(f.sourceId) == f.source && !f.source.isRemoved(), "source remains same world entity");
             require(ItemStack.matches(ordinary, hands(f.body).stackCopy("left").orElseThrow()), "active hand unchanged");
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 21, () -> {
-                require(source(f) == 0, "second dose empties source");
+                requireOwnedTicking(h, f, "at second timed dose");
+                require(source(f) == 0, "second dose empties source; source=" + source(f)
+                        + ", stomach=" + stomach(f.body) + ", bodyTick=" + f.body.tickCount + ", gameTime="
+                        + f.level.getGameTime() + ", bodyAlive=" + f.body.isAlive() + ", sourceAlive="
+                        + !f.source.isRemoved() + ", sourcePos=" + f.source.position());
                 require(f.level.getEntity(f.sourceId) == f.source && !f.source.isRemoved(), "empty bottle retained as world entity");
                 require(f.source.getItem().getCount() == 1 && f.source.getItem().has(net.minecraft.core.component.DataComponents.CUSTOM_NAME)
                         && "World bottle".equals(f.source.getItem().getHoverName().getString()), "original item count and custom name retained");
@@ -100,12 +110,24 @@ public final class WorldTimedIngestionGameTests {
         stack.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, units)));
         stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("World bottle"));
         Vec3 pos = new Vec3(p.getX() + 2.5, p.getY(), p.getZ() + .2);
+        level.setBlock(new BlockPos((int) Math.floor(pos.x), p.getY() - 1, (int) Math.floor(pos.z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
         LooseItemEntity source = LooseItemEntity.create(level, pos, stack);
         require(level.addFreshEntity(source), "loose bottle spawned");
         body.setYRot(-90); body.setYHeadRot(-90);
         body.setXRot((float) Math.toDegrees(Math.atan2(body.getEyeY() - source.getBoundingBox().getCenter().y,
                 Math.sqrt(Math.pow(body.getX() - source.getX(), 2) + Math.pow(body.getZ() - source.getZ(), 2)))));
         return new Fixture(level, body, source, source.getUUID(), hands.activeHand(), hands.revision());
+    }
+
+    private static void requireOwnedTicking(GameTestHelper h, Fixture f, String phase) {
+        var bodyPos = BlockPos.containing(f.body.position());
+        var sourcePos = BlockPos.containing(f.source.position());
+        boolean bodyTicking = f.level.isPositionEntityTicking(bodyPos);
+        boolean sourceTicking = f.level.isPositionEntityTicking(sourcePos);
+        require(bodyTicking && sourceTicking, phase + " remains in owned entity-ticking volume; body=" + bodyPos
+                + " ticking=" + bodyTicking + " source=" + sourcePos + " ticking=" + sourceTicking
+                + " bodyAlive=" + f.body.isAlive() + " sourceRemoved=" + f.source.isRemoved());
     }
 
     private static com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason start(Fixture f, long seq) {

@@ -1,0 +1,8 @@
+Asset: earpieces
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/Ears/Headsets/base.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/f8f4aeda930fcd0805ca4cc76d9bc9412a5b3428
+Imported PNG SHA-256: 633702c34df60baa82c85a665ca2530bffdc902fb1ac6414102fb61218d0a4d3
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

@@ -37,8 +37,9 @@ class PopupActionPlanTest {
         return new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 3, "right",
                 List.of(new BodyHandStateSnapshot.Hand("left", LEFT.token(), "moonstation14:bag", 1),
                         new BodyHandStateSnapshot.Hand("right", RIGHT.token(), "moonstation14:belt", 1)),
-                List.of(new BodyHandStateSnapshot.EquipmentSlot("belt", BELT.token(), "moonstation14:belt", 1, null, null, 0),
-                        new BodyHandStateSnapshot.EquipmentSlot("back", BAG.token(), "moonstation14:bag", 1, null, null, 0)),
+                 List.of(new BodyHandStateSnapshot.EquipmentSlot("belt", BELT.token(), "moonstation14:belt", 1, null, null, 0),
+                         new BodyHandStateSnapshot.EquipmentSlot("back", BAG.token(), "moonstation14:bag", 1, null, null, 0),
+                         new BodyHandStateSnapshot.EquipmentSlot("head", null, null, 0, null, null, 0)),
                 List.of(new BodyHandStateSnapshot.GridHost(BELT.token(), "belt", 8, 2, beltEntries),
                         new BodyHandStateSnapshot.GridHost(BAG.token(), "bag", 7, 4, bagEntries),
                         new BodyHandStateSnapshot.GridHost(LEFT.token(), "bag", 7, 4, leftEntries),
@@ -100,6 +101,58 @@ class PopupActionPlanTest {
                 new GridGeometry.Cell(3, 0), origin.oldRotation());
         assertNull(PopupActionPlan.worldCrossPlan(moved, BAG, state, world, true,
                 new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0, 0));
+    }
+
+    @Test void equipmentToWorldPlannerUsesReleaseAdmissionAndActualEquipmentSourceProof() {
+        var state = bodyProof(List.of(), List.of(), List.of(), List.of());
+        var destination = world(List.of(), 12, 3);
+        var anchor = new GridGeometry.Cell(2, 1);
+        var plan = PopupActionPlan.equipmentToWorldPlan("belt", BELT.token(), "moonstation14:belt", 1,
+                state, state, destination, anchor, GridGeometry.Rotation.DEG_0, true, true, 0);
+        assertNotNull(plan);
+        assertEquals(BodyWorldCrossAction.Direction.EQUIPMENT_TO_WORLD, plan.direction());
+        assertEquals(BELT.token(), plan.hostToken());
+        assertEquals(BELT.token(), plan.child());
+        assertEquals(new GridGeometry.Cell(0, 0), plan.oldAnchor());
+        assertEquals(GridGeometry.Rotation.DEG_0, plan.oldRotation());
+        assertEquals(anchor, plan.newAnchor());
+        assertNull(PopupActionPlan.equipmentToWorldPlan("belt", BELT.token(), "moonstation14:belt", 1,
+                state, state, destination, anchor, GridGeometry.Rotation.DEG_0, true, false, 0));
+        assertNull(PopupActionPlan.equipmentToWorldPlan("belt", "stale-token", "moonstation14:belt", 1,
+                state, state, destination, anchor, GridGeometry.Rotation.DEG_0, true, true, 0));
+        assertNull(PopupActionPlan.equipmentToWorldPlan("belt", BELT.token(), "moonstation14:belt", 1,
+                state, state, destination, anchor, GridGeometry.Rotation.DEG_0, true, true, 1));
+        var blocked = world(List.of(new BodyWorldGridSnapshot.Entry("block", "minecraft:dirt", 1, 2, 1, 0)), 12, 3);
+        assertNull(PopupActionPlan.equipmentToWorldPlan("belt", BELT.token(), "moonstation14:belt", 1,
+                state, state, blocked, anchor, GridGeometry.Rotation.DEG_0, true, true, 0));
+    }
+
+    @Test void worldEquipmentEndpointsUseResolvedSnapshotSlotsAndFitAdmission() {
+        var base = bodyProof(List.of(), List.of(), List.of(), List.of());
+        var world = world(List.of(WORLD_CHILD), 12, 3);
+        var captured = PopupActionPlan.worldCrossSource(base, world, WORLD_CHILD);
+        for (var slotId : List.of("shoes", "gloves", "ears", "pocket1")) {
+            var slot = new BodyHandStateSnapshot.EquipmentSlot(slotId, null, null, 0, null, null, 0);
+            var state = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 3,
+                    base.activeHand(), base.hands(), java.util.stream.Stream.concat(base.equipment().stream(), java.util.stream.Stream.of(slot)).toList(), base.grids());
+            var plan = PopupActionPlan.worldToEquipmentPlan(captured, slotId, state, world, true, true, 0);
+            assertNotNull(plan, slotId);
+            assertEquals(slotId, plan.hostId());
+        }
+        assertNull(PopupActionPlan.worldToEquipmentPlan(captured, "shoes", base, world, true, true, 0));
+        assertNull(PopupActionPlan.worldToEquipmentPlan(captured, "unknown-slot", base, world, true, true, 0));
+        var stale = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 4,
+                base.activeHand(), base.hands(), base.equipment(), base.grids());
+        assertNull(PopupActionPlan.worldToEquipmentPlan(captured, "shoes", stale, world, true, true, 0));
+
+        var item = "minecraft:dirt";
+        var pocket = new BodyHandStateSnapshot.EquipmentSlot("pocket1", "pocket-token", item, 10, null, null, 0);
+        var occupied = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 3,
+                base.activeHand(), base.hands(), java.util.stream.Stream.concat(base.equipment().stream(), java.util.stream.Stream.of(pocket)).toList(), base.grids());
+        assertNotNull(PopupActionPlan.equipmentToWorldPlan("pocket1", "pocket-token", item, 10, occupied, occupied,
+                world(List.of(), 13, 3), new GridGeometry.Cell(1, 1), GridGeometry.Rotation.DEG_0, true, true, 0));
+        assertNull(PopupActionPlan.equipmentToWorldPlan("pocket1", "missing", item, 10, occupied, occupied,
+                world(List.of(), 13, 3), new GridGeometry.Cell(1, 1), GridGeometry.Rotation.DEG_0, true, true, 0));
     }
 
     @Test void distinctWorldPlannerUsesPinnedSourceAndDestinationGeometry() {
@@ -254,6 +307,35 @@ class PopupActionPlanTest {
         assertNull(PopupActionPlan.crossRequest(source, RIGHT, bodyProof(List.of(), List.of(), List.of(CHILD), full),
                 anchor, GridGeometry.Rotation.DEG_0, 0, 2));
         assertNull(PopupActionPlan.crossRequest(source, RIGHT, state, anchor, GridGeometry.Rotation.DEG_0, 1, 2));
+    }
+
+    @Test void bodyGridEquipmentPlanRetainsExactOriginTokensAndRequiresFitEmptySlotAndFreshProof() {
+        for (var host : List.of(LEFT, RIGHT, BAG, BELT)) {
+            var entries = new java.util.ArrayList<List<BodyHandStateSnapshot.GridEntry>>(List.of(List.of(), List.of(), List.of(), List.of()));
+            entries.set(List.of(BELT, BAG, LEFT, RIGHT).indexOf(host), List.of(CHILD));
+            var state = bodyProof(entries.get(0), entries.get(1), entries.get(2), entries.get(3));
+            var source = PopupActionPlan.crossSource(state, host, CHILD);
+            var request = PopupActionPlan.gridToEquipmentRequest(source, "head", state, true, 0, 17);
+            assertNotNull(request);
+            assertEquals(BodyHandActionRequest.Action.GRID_BODY_TO_EQUIPMENT, request.action());
+            assertEquals(host.token(), request.expectedToken());
+            assertEquals("child", request.expectedChildOrSourceToken());
+            assertEquals(host.kind() == StoragePopupWorkspace.HostKind.HELD ? host == LEFT ? "left" : "right"
+                    : state.activeHand(), request.handId());
+            assertEquals(host.kind() == StoragePopupWorkspace.HostKind.HELD ? host.token().equals(LEFT.token()) ? "left" : "right"
+                    : host == BAG ? "back" : "belt", request.sourceHostId());
+            assertEquals("head", request.destinationHostId());
+            assertEquals(2, request.oldCellX()); assertEquals(0, request.oldCellY()); assertEquals(90, request.oldRotation());
+            assertNull(request.destinationHostToken());
+            assertNull(PopupActionPlan.gridToEquipmentRequest(source, "head", state, false, 0, 18));
+            var occupied = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 3,
+                    state.activeHand(), state.hands(), java.util.stream.Stream.concat(state.equipment().stream(),
+                    java.util.stream.Stream.of(new BodyHandStateSnapshot.EquipmentSlot("eyes", "occupied", "minecraft:stone", 1, null, null, 0))).toList(), state.grids());
+            if (host == LEFT) assertNull(PopupActionPlan.gridToEquipmentRequest(source, "eyes", occupied, true, 0, 19));
+            var stale = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 4,
+                    state.activeHand(), state.hands(), state.equipment(), state.grids());
+            assertNull(PopupActionPlan.gridToEquipmentRequest(source, "head", stale, true, 0, 20));
+        }
     }
 
     @Test void heldTopmostOccludesEvenWhenItsBorderIsNotGrid() {

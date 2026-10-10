@@ -455,6 +455,46 @@ public final class BodyWorldGridService {
             revoke(state, action.session());
             return crossResult(action, 0, BodyWorldCrossActionResult.Reason.STALE);
         }
+        if (action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT) {
+            var allowed = com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent.ALLOWED_SLOTS;
+            var equipment = LiveHands.equipmentSnapshot(authority.body()).orElse(null);
+            var template = com.juicyslew.moonstation14.ms14.hands.live.BodyEquipmentTransfer.templateForTransfer(authority.body());
+            if (!action.worn() || action.bodyHostToken() != null || !allowed.contains(action.bodyHostId())
+                    || action.newX() != 0 || action.newY() != 0 || action.newRotation() != 0
+                    || equipment == null || template == null) return crossResult(action, revision, BodyWorldCrossActionResult.Reason.DENIED);
+            var occupied = new java.util.HashSet<String>();
+            for (var slot : equipment.slots()) if (slot.stack().isPresent()) occupied.add(slot.id());
+            var incoming = GridContents.read(session.copy()).flatMap(contents -> contents.entries().stream()
+                    .filter(entry -> entry.token().equals(action.childToken()) && entry.x() == action.oldX()
+                            && entry.y() == action.oldY() && entry.rotation().degrees() == action.oldRotation())
+                    .map(GridContents.Entry::stack).findFirst()).orElse(null);
+            if (incoming == null || !com.juicyslew.moonstation14.ms14.hands.live.BodyEquipmentTransfer.fitsForTransfer(
+                    session.level(), template, equipment, action.bodyHostId(), incoming, occupied))
+                return crossResult(action, revision, BodyWorldCrossActionResult.Reason.DENIED);
+        } else if (action.direction() == BodyWorldCrossAction.Direction.EQUIPMENT_TO_WORLD) {
+            var allowed = com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent.ALLOWED_SLOTS;
+            var equipment = LiveHands.equipmentSnapshot(authority.body()).orElse(null);
+            var source = equipment == null ? null : equipment.slots().stream()
+                    .filter(slot -> slot.id().equals(action.bodyHostId())
+                            && slot.token().filter(action.bodyHostToken()::equals).isPresent())
+                    .findFirst().orElse(null);
+            var garment = source == null ? null : source.stack().orElse(null);
+            var outgoing = garment;
+            var destinationGrid = GridContents.read(session.copy()).orElse(null);
+            boolean destinationFits = false;
+            if (destinationGrid != null && outgoing != null) {
+                try {
+                    var entries = new java.util.ArrayList<>(destinationGrid.entries());
+                    entries.add(new GridContents.Entry(action.childToken(), outgoing, action.newX(), action.newY(), rotation(action.newRotation())));
+                    destinationFits = GridContents.applyCopyWithGrid(session.copy(), GridContents.of(entries)).isPresent();
+                } catch (IllegalArgumentException invalid) { destinationFits = false; }
+            }
+            if (!action.worn() || !allowed.contains(action.bodyHostId())
+                    || !action.bodyHostToken().equals(action.childToken()) || equipment == null
+                    || !equipment.persisted() || garment == null
+                    || !destinationFits)
+                return crossResult(action, revision, BodyWorldCrossActionResult.Reason.DENIED);
+        }
         BodyWorldCrossTransfer.Outcome outcome;
         try { outcome = BodyWorldCrossTransfer.apply(actor, authority, session.entity(), session.reference(), session.copy(), action); }
         catch (RuntimeException callbackFailure) { outcome = BodyWorldCrossTransfer.Outcome.RECOVERY_REQUIRED; }

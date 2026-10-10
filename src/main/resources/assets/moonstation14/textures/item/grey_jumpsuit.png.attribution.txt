@@ -1,0 +1,6 @@
+Source: SS14 pinned c9df5ef5d675b0d1d226828bddf6b78c28502d91
+RSI: Clothing/Uniforms/Jumpsuit/color.rsi
+State: icon
+License: CC-BY-SA-3.0
+Copyright: Taken from vgstation at commit https://github.com/vgstation-coders/vgstation13/commit/993de554ecfc30cc45f8340819c5a60ef1eee7e1 and modified for SS14 by Flareguy & P3MOIRA
+

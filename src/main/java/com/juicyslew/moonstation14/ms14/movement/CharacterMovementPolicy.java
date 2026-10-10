@@ -15,6 +15,8 @@ public record CharacterMovementPolicy(double accelerationPerSecondSquared,
     /** Test fixture only. Live movement must resolve the current typed prototype instead. */
     public static final CharacterMovementPolicy HUMAN = new CharacterMovementPolicy(20d, 2.5d, 4.5d,
             20d, 20d, .005d);
+    /** Minecraft baseline adaptation: resolved grounded walk and sprint speeds are 25% faster than SS14 values. */
+    public static final double MINECRAFT_GROUND_SPEED_SCALE = 1.25d;
     /** Pinned SS14 human crawler speed modifier; hand-occupancy scaling is not modeled locally. */
     public static final double HUMAN_KNOCKDOWN_SPEED_FACTOR = .4d;
     public static final String HUMAN_PROTOTYPE_ID = "moonstation14:human";
@@ -33,7 +35,9 @@ public record CharacterMovementPolicy(double accelerationPerSecondSquared,
         if (!"grounded".equals(movement.mode())) {
             throw new IllegalArgumentException("unsupported character movement mode: " + movement.mode());
         }
-        return new CharacterMovementPolicy(movement.acceleration(), movement.walkSpeed(), movement.sprintSpeed(),
+        return new CharacterMovementPolicy(movement.acceleration(),
+                movement.walkSpeed() * MINECRAFT_GROUND_SPEED_SCALE,
+                movement.sprintSpeed() * MINECRAFT_GROUND_SPEED_SCALE,
                 movement.groundFrictionWithInput(), movement.groundFrictionWithoutInput(),
                 movement.minimumFrictionSpeed());
     }

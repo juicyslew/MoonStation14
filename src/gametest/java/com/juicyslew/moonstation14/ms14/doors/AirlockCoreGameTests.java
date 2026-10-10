@@ -95,7 +95,7 @@ public final class AirlockCoreGameTests {
                 root.offset(-4,0,-2),root.offset(2,2,9),1);
         final com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets.Lease[] reloadLease={null};
         var identity=door.identity();
-        helper.runAfterDelay(100,()->{
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 100,()->{
             var meter=PowerRuntime.airlockPower(level,door);
             require(meter.known()&&meter.deliveredWatts()==door.prototype().apcPowerReceiver().requestedWatts(),
                     "remote fixture has fresh fully paid controller power before unload: "+meter+", "+doorDiagnostic(level,door));
@@ -124,7 +124,7 @@ public final class AirlockCoreGameTests {
                 });
             }));
         });
-        helper.runAfterDelay(400,()->{
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 400,()->{
             require(reloadLease[0]!=null&&!reloadLease[0].isClosed(),"manual reload owner ticket remains held through power recovery");
             var reloadedChunk=level.getChunkSource().getChunkNow(root.getX()>>4,root.getZ()>>4);
             require(isFull(reloadedChunk),"manually reloaded controller remains FULL-loaded for its solve: "+chunkStatus(reloadedChunk));
@@ -181,6 +181,7 @@ public final class AirlockCoreGameTests {
         });
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
+    @GameTestTags({"suite-stabilization"})
     public static void obstructionUsesExactlyTwoDoorwayCellsAndSafetyDeniesCloseActor(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets.around(helper,f.root().offset(-2,0,-2),f.root().offset(2,2,2),1);
@@ -203,6 +204,14 @@ public final class AirlockCoreGameTests {
                 helper.succeed();
             });
         });
+    }
+
+    private static String entitySpatialDiagnostic(net.minecraft.world.entity.LivingEntity entity) {
+        var posture = entity.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());
+        return "uuid=" + entity.getUUID() + ",type=" + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+                + ",pos=" + entity.position() + ",bbox=" + entity.getBoundingBox() + ",alive=" + entity.isAlive()
+                + ",removed=" + entity.isRemoved() + ",noGravity=" + entity.isNoGravity() + ",posture="
+                + (posture == null ? "none" : posture.data());
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     public static void receiverRequiresFullResolvedWattsAndBoltsGateNormalActivation(GameTestHelper helper) {
@@ -241,7 +250,7 @@ public final class AirlockCoreGameTests {
         helper.succeed();
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=850)
-    @GameTestTags({"airlock_log_pulse"})
+     @GameTestTags({"airlock_log_pulse", "suite-stabilization"})
     public static void logPulseDisablesLampAndRestoresAtResolvedDeadline(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{

@@ -1,0 +1,8 @@
+Asset: grey_jumpsuit
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/Uniforms/Jumpsuit/color.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Taken from vgstation at commit https://github.com/vgstation-coders/vgstation13/commit/993de554ecfc30cc45f8340819c5a60ef1eee7e1 and modified for SS14 by Flareguy & P3MOIRA
+Imported PNG SHA-256: c81b2c958f62d5149a46b01995a97542d1613769d6c38f35cf5d5f37de3137a1
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

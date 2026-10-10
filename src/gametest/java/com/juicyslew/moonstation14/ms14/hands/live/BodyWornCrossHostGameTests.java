@@ -42,7 +42,8 @@ public final class BodyWornCrossHostGameTests {
             require(BodyEquipmentTransfer.transferOwned(body, "left", "back", "bag-host", 3, true, () -> true)
                     == BodyEquipmentTransfer.Result.SUCCESS, "pristine bag equipped");
             LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-            List<String> declared = List.of("belt", "back");
+            List<String> declared = LiveHands.equipmentSnapshot(body, before).orElseThrow().slots().stream()
+                    .map(LiveHands.EquipmentSlot::id).toList();
             require(before.moveEquippedGridBetweenHosts(before.revision(), declared, "belt", "belt-host",
                     "back", "bag-host", "child", new GridGeometry.Cell(1, 0), R0, ZERO, R0).isEmpty(), "old anchor");
             require(before.moveEquippedGridBetweenHosts(before.revision(), declared, "belt", "belt-host",

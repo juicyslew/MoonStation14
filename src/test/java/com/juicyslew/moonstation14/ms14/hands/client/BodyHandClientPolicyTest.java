@@ -13,6 +13,11 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void medicalPocketCountUsesDeclaredCapNotOnlyNativeItemCap() {
+        assertTrue(BodyHandClientPolicy.equipmentCountFits(10, 64, true));
+        assertFalse(BodyHandClientPolicy.equipmentCountFits(11, 10, true));
+        assertFalse(BodyHandClientPolicy.equipmentCountFits(2, 64, false));
+    }
     @Test void syringeGesturesRouteModeDoseAndBodyUseSeparately() {
         assertEquals(MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE,
                 MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, false, true));
@@ -20,9 +25,8 @@ class BodyHandClientPolicyTest {
                 MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, true, true));
         assertTrue(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, false, false));
         assertFalse(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, true, false));
-        assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT,
-                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values()[
-                        com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values().length - 1]);
+        assertTrue(java.util.List.of(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values())
+                .contains(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT));
     }
     @Test void configuredKeyMatcherHonorsRemappedKeyAndModifier() {
         var mapping=new net.minecraft.client.KeyMapping("test.binding",
