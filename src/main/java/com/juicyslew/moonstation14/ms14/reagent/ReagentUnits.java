@@ -63,6 +63,17 @@ public final class ReagentUnits {
         return cents / 100f;
     }
 
+    /** Formats validated hundredths as a locale-independent decimal without insignificant zeroes. */
+    public static String formatCents(long cents) {
+        requireCents(cents, "cents");
+        return BigDecimal.valueOf(cents, 2).stripTrailingZeros().toPlainString();
+    }
+
+    /** Converts legacy unit-shaped values using the canonical cent conversion, then formats them. */
+    public static String formatUnits(float units) {
+        return formatCents(fromFloat(units));
+    }
+
     /** Validates and returns an immutable snapshot ordered by resource location. */
     public static Map<ResourceKey<ReagentData>, Long> fromMap(Map<ResourceKey<ReagentData>, Float> values) {
         Objects.requireNonNull(values, "values");

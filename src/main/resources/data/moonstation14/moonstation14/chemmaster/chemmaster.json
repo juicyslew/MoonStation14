@@ -1,0 +1,7 @@
+{
+  "id": "chemmaster",
+  "parent": "moonstation14:base",
+  "powerLoadWatts": 250,
+  "dumpableSolution": { "enabled": true, "solutionName": "buffer", "unlimited": true },
+  "clickSound": "moonstation14:chemistry/chemmaster/click"
+}

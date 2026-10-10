@@ -10,6 +10,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.Level;
@@ -21,8 +22,21 @@ import static com.juicyslew.moonstation14.util.CodecHelpers.LENIENT_ID_CODEC;
 public record ReactionRecipe(
         Map<ResourceKey<ReagentData>, Float> inputs,
         Map<ResourceKey<ReagentData>, Float> catalysts, //TODO: Make this a Set (Figure out the Stream Codecs :C )
-        Map<ResourceKey<ReagentData>, Float> outputs
+        Map<ResourceKey<ReagentData>, Float> outputs,
+        /** Empty means silent; JSON uses an empty string for silence, absent sound defaults to bubbles. */
+        Optional<ResourceLocation> sound
 ) implements Recipe<ReactionRecipeInput> {
+    /** SS14 parity: Chemistry reaction Sound defaults to Audio/Effects/Chemistry/bubbles.ogg. */
+    public static final ResourceLocation DEFAULT_SOUND = ResourceLocation.fromNamespaceAndPath("moonstation14", "chemistry/reaction_bubbles");
+    private static final com.mojang.serialization.MapCodec<Optional<ResourceLocation>> SOUND_CODEC =
+            Codec.STRING.optionalFieldOf("sound", DEFAULT_SOUND.toString()).xmap(
+                    value -> value.isEmpty() ? Optional.empty() : Optional.of(ResourceLocation.parse(value)),
+                    value -> value.map(ResourceLocation::toString).orElse(""));
+    public ReactionRecipe(Map<ResourceKey<ReagentData>, Float> inputs, Map<ResourceKey<ReagentData>, Float> catalysts,
+                          Map<ResourceKey<ReagentData>, Float> outputs) {
+        this(inputs, catalysts, outputs, Optional.of(DEFAULT_SOUND));
+    }
+    public ReactionRecipe { sound = Objects.requireNonNull(sound, "sound"); }
 
     @Override
     public boolean matches(ReactionRecipeInput input, Level level) {
@@ -85,7 +99,8 @@ public record ReactionRecipe(
         public static final MapCodec<ReactionRecipe> CODEC = RecordCodecBuilder.mapCodec((RecordCodecBuilder.Instance<ReactionRecipe> inst) -> inst.group(
                 reagentCountMapCodec().fieldOf("inputs").forGetter(ReactionRecipe::inputs),
                 reagentCountMapCodec().fieldOf("catalysts").forGetter(ReactionRecipe::catalysts),
-                reagentCountMapCodec().fieldOf("outputs").forGetter(ReactionRecipe::outputs)
+                reagentCountMapCodec().fieldOf("outputs").forGetter(ReactionRecipe::outputs),
+                SOUND_CODEC.forGetter(ReactionRecipe::sound)
         ).apply(inst, ReactionRecipe::new));
 
         public static final StreamCodec<RegistryFriendlyByteBuf, ReactionRecipe> STREAM_CODEC =
@@ -93,6 +108,7 @@ public record ReactionRecipe(
                         mapSubStreamCodec(), ReactionRecipe::inputs,
                         mapSubStreamCodec(), ReactionRecipe::catalysts,
                         mapSubStreamCodec(), ReactionRecipe::outputs,
+                        ByteBufCodecs.optional(ResourceLocation.STREAM_CODEC), ReactionRecipe::sound,
                         ReactionRecipe::new
                 );
 

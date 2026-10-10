@@ -12,6 +12,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
@@ -77,6 +78,9 @@ public final class VentilationFixtureService {
                 default -> throw new IllegalArgumentException("Unsupported fixture power device kind: " + device.kind());
             };
             BlockPos pos = origin.offset(device.position());
+            if (device.kind() == PowerDeviceKind.APC
+                    && !PowerDeviceFixturePlacement.ensureApcSupport(level, pos, device.facing()))
+                return "Partial placement: APC support unavailable; manual recovery required.";
             level.setBlock(pos, block.defaultBlockState().setValue(PowerDeviceBlock.FACING, device.facing()), 3);
             if (level.getBlockState(pos).getBlock() != block) return "Partial placement: power device failed; manual recovery required.";
         }

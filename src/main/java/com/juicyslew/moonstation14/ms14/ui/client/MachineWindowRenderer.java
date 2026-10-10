@@ -56,6 +56,41 @@ public final class MachineWindowRenderer {
         graphics.fill(x + 1, y + height - 2, x + width - 1, y + height - 1, BORDER);
     }
 
+    /** ChemMaster frame: shared chrome without a separate title band or divider; caller composes title/tabs in one header row. */
+    public static void compactWorkspaceFrame(net.minecraft.client.gui.GuiGraphics graphics,int x,int y,int width,int height) {
+        if(width<=0||height<=0)return;
+        graphics.fill(x,y,x+width,y+height,FRAME);
+        graphics.fill(x+1,y+1,x+width-1,y+height-1,BORDER);
+        graphics.fill(x+2,y+2,x+width-2,y+height-2,FACE);
+    }
+
+    /** Joined tab strip and pane surface for compact workspaces. The selected tab opens into the pane. */
+    public static void tabbedPane(net.minecraft.client.gui.GuiGraphics graphics, net.minecraft.client.gui.Font font,
+                                  int x, int y, int width, int bottom,
+                                  int firstX, int firstWidth, int secondX, int secondWidth, boolean secondSelected) {
+        if (width < 3 || bottom <= y) return;
+        graphics.fill(x, y, x + width, bottom, FACE);
+        graphics.fill(x, y, x + width, y + 1, BORDER);
+        graphics.fill(x, y, x + 1, bottom, BORDER);
+        graphics.fill(x + width - 1, y, x + width, bottom, BORDER);
+        graphics.fill(x, bottom - 1, x + width, bottom, BORDER);
+        int activeX = secondSelected ? secondX : firstX;
+        int activeWidth = secondSelected ? secondWidth : firstWidth;
+        if (activeWidth > 0) graphics.fill(activeX, y, activeX + activeWidth, y + 1, FACE);
+    }
+
+    public static void tabLabel(net.minecraft.client.gui.GuiGraphics graphics, net.minecraft.client.gui.Font font,
+                                String text, int x, int y, int width, int height, boolean selected) {
+        if (width < 3 || height < 3) return;
+        int fill = selected ? FACE : HEADER;
+        graphics.fill(x, y + (selected ? 0 : 2), x + width, y + height, fill);
+        graphics.fill(x, y + (selected ? 0 : 2), x + width, y + (selected ? 1 : 3), selected ? BORDER : FRAME);
+        graphics.fill(x, y + (selected ? 0 : 2), x + 1, y + height, BORDER);
+        graphics.fill(x + width - 1, y + (selected ? 0 : 2), x + width, y + height, selected ? BORDER : FRAME);
+        String label = font.plainSubstrByWidth(text, Math.max(0, width - 10));
+        graphics.drawString(font, label, x + 5, y + (height - font.lineHeight) / 2, selected ? TEXT : MUTED_TEXT, true);
+    }
+
     public static void divider(net.minecraft.client.gui.GuiGraphics graphics, int x, int y, int width) {
         if (width <= 0) return;
         graphics.fill(x, y, x + width, y + 1, FRAME);

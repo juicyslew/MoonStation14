@@ -101,3 +101,16 @@ provenance.
 from pinned SS14 `Resources/Audio/Machines/`. The pinned machines attribution
 file identifies them as CC0-1.0 by ScarKy0, source
 [PR #32012](https://github.com/space-wizards/space-station-14/pull/32012).
+
+## ChemMaster slot samples
+
+| Status | Audio / upstream source | Local destination and adjacent notice | Evidence and open question | Next action |
+|---|---|---|---|---|
+| Imported - unresolved | SS14 `Resources/Audio/Weapons/Guns/MagIn/revolver_magin.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91` | `src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magin.ogg`; adjacent [`notice`](../src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magin.ogg.license.txt) | Pinned `Content.Shared/Containers/ItemSlot/ItemSlotsComponent.cs:78-81` supplies the resolved ItemSlots `slotInsertSound` sample. SHA-256 `05AC8EF3A1219E504B36ECB902DF3745301072DB487A32D2CEF8E62991CB17A2`; no file-specific attribution/license record verified. | Seek per-file clearance or remove/replace. |
+| Imported - unresolved | SS14 `Resources/Audio/Weapons/Guns/MagOut/revolver_magout.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91` | `src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magout.ogg`; adjacent [`notice`](../src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magout.ogg.license.txt) | Pinned `Content.Shared/Containers/ItemSlot/ItemSlotsComponent.cs:78-81` supplies the resolved ItemSlots `slotEjectSound` sample. SHA-256 `C87B4A5115E46FB90BDA415A2BB5258EC880CD5CC717E6C1785B2DA94DDAA75C`; no file-specific attribution/license record verified. | Seek per-file clearance or remove/replace. |
+| Imported - unresolved | SS14 `Resources/Audio/Effects/Fluids/slosh.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91` | `src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/dump.ogg`; adjacent [notice](../src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/dump.ogg.license.txt) | `Content.Shared/Fluids/SolutionDumpingSystem.cs` plays `AbsorbentComponent.DefaultTransferSound` at -3 dB. SHA-256 `B1FF48CEB87BD5672F8458680D9CF40AA2AFD60BDF46BD91CD65449C12AA8E3C`; no file-specific license/attribution found. | Seek per-file clearance or remove/replace. |
+| Imported - unresolved | SS14 `Resources/Audio/Effects/Chemistry/bubbles.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; 21,048 bytes, SHA-256 `55CB6421386835B21428F98DF14C84CA8923DBB858C4D3630E98FD2959BE0F9F` | [`reaction_bubbles.ogg`](../src/main/resources/assets/moonstation14/sounds/chemistry/reaction_bubbles.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/chemistry/reaction_bubbles.ogg.license.txt); copied bytes verified by matching SHA-256. | No matching file-specific entry in pinned `Resources/Audio/Effects/attributions.yml`; author, license, and original source unresolved. No blanket license inferred. | Seek file-specific clearance or remove/replace. |
+
+The ChemMaster click reuses the APC sample `machine_switch.ogg`; retain its
+existing unresolved-provenance entry above and adjacent notice. Source SHA-256:
+`E39E881D52AFC399F50AC4ED9B79084736A3025CF10CDE51460F106A2BACE55D`.

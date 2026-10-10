@@ -472,6 +472,7 @@ public final class AirlockCoreGameTests {
         for(long key:chunks){var pos=new net.minecraft.world.level.ChunkPos(key);level.setChunkForced(pos.x,pos.z,false);}chunks.clear();
     }
     private static void placePowerDevice(ServerLevel level,BlockPos pos,PowerDeviceKind kind,Direction facing){
+        if(kind==PowerDeviceKind.APC){require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level,pos,facing),"place supported APC");return;}
         var block=switch(kind){case HV_SOURCE->ModBlocks.HV_SOURCE.get();case HV_MV_SUBSTATION->ModBlocks.HV_MV_SUBSTATION.get();case APC->ModBlocks.APC.get();default->throw new IllegalArgumentException("unexpected device");};
         level.setBlock(pos,block.defaultBlockState().setValue(PowerDeviceBlock.FACING,facing),3);
     }

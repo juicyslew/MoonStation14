@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
 import com.mojang.authlib.GameProfile;
@@ -199,6 +200,10 @@ public final class AirAlarmPowerGameTests {
     }
 
     private static void place(ServerLevel level, BlockPos pos, PowerDeviceBlock block, Direction facing) {
+        if (block.kind() == PowerDeviceKind.APC) {
+            require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, facing), "place supported APC");
+            return;
+        }
         level.setBlock(pos, block.defaultBlockState().setValue(PowerDeviceBlock.FACING, facing), 3);
     }
 

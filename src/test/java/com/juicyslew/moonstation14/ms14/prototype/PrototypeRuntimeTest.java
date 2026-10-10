@@ -80,6 +80,9 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -200,6 +203,14 @@ class PrototypeRuntimeTest {
                         new com.juicyslew.moonstation14.ms14.medical.MedicalItemData.Item("Small"),
                         java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
                         java.util.Optional.empty(), java.util.Optional.empty())));
+        var appearanceShape = new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData.Shape(0,0,0,16,16,16);
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE, Map.of(
+                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.SOURCE,
+                new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("hv_source","unpowered","fixed_on","charging","full","lack",0,appearanceShape),
+                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.SUBSTATION,
+                new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("hv_mv_substation","dead","on","charging","full","lack",0,appearanceShape),
+                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.APC,
+                new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("apc","off","on","charging","full","lack",3,appearanceShape)));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -217,7 +228,10 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()), exported.keySet());
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);

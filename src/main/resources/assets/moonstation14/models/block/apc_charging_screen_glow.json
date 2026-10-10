@@ -1,0 +1,7 @@
+{
+  "textures": { "atlas": "moonstation14:block/apc_charging", "particle": "moonstation14:block/apc_charging" },
+  "elements": [{
+    "from": [6, 6, 12.748], "to": [11.5, 10, 12.749], "shade": false,
+    "faces": { "north": { "texture": "#atlas", "uv": [14.25, 0.125, 15.625, 1.125], "neoforge_data": { "block_light": 15, "sky_light": 15, "ambient_occlusion": false } } }
+  }]
+}

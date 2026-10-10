@@ -10,7 +10,7 @@ import net.minecraft.world.level.Level;
 public final class ModJugs {
     public static final ResourceLocation BASE_ID = id("jug_base");
     public static final ResourceLocation JUG_ID = id("jug");
-    public static final PrototypeType<JugData> TYPE = new PrototypeType<>(id("jug"), "moonstation14/jug", JugData.CODEC);
+    public static final PrototypeType<JugData> TYPE = new PrototypeType<>(id("jug"), "moonstation14/jug", JugData.CODEC, new JugMergeStrategy());
     private ModJugs() { }
     private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, path); }
     public static PrototypeCatalog<JugData> catalog(Level level) {

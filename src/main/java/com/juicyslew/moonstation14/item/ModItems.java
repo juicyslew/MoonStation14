@@ -15,6 +15,9 @@ import com.juicyslew.moonstation14.item.custom.WirecutterItem;
 import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.item.custom.SyringeItem;
+import com.juicyslew.moonstation14.item.custom.BeakerItem;
+import com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
@@ -128,6 +131,12 @@ public class ModItems {
     public static final DeferredItem<Item> BRUTEPACK = ITEMS.register("brutepack", () -> new Item(new Item.Properties().stacksTo(10)));
     public static final DeferredItem<Item> GAUZE = ITEMS.register("gauze", () -> new Item(new Item.Properties().stacksTo(10)));
     public static final DeferredItem<Item> HANDHELD_HEALTH_ANALYZER = ITEMS.register("handheld_health_analyzer", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<BeakerItem> BEAKER = ITEMS.register("beaker", () -> new BeakerItem(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.SMALL_ID));
+    public static final DeferredItem<BeakerItem> BEAKER_LARGE = ITEMS.register("beaker_large", () -> new BeakerItem(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.LARGE_ID));
+    public static final DeferredItem<BlockItem> CHEM_MASTER = ITEMS.register("chem_master",
+            () -> new BlockItem(com.juicyslew.moonstation14.block.ModBlocks.CHEM_MASTER.get(), new Item.Properties().stacksTo(1)));
     public static final DeferredItem<BlockItem> DISPOSAL_UNIT = ITEMS.register("disposal_unit",
             () -> new BlockItem(ModBlocks.DISPOSAL_UNIT.get(), new Item.Properties().stacksTo(1)));
 

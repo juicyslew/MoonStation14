@@ -27,15 +27,15 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(32, raw.size());
+        assertEquals(35, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(27, resolved.size());
+        assertEquals(30, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
                 "apc_cable_spool", "bag", "belt", "pickaxe", "syringe", "metal_rod", "screwdriver",
-                "airlock_screwdriver", "multitool"};
+                "airlock_screwdriver", "multitool", "beaker", "beaker_large", "chem_master"};
         for (String name : coreItems) assertTrue(resolved.get(id(name)) != null, "missing profile " + name);
 
         assertCounts(resolved, 4, "steel", "glass", "plastic", "cloth", "wood", "jug",
@@ -48,12 +48,15 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(27, catalog.size());
+        assertEquals(30, catalog.size());
         assertEquals(catalog.get(id("screwdriver")).cells(), catalog.get(id("airlock_screwdriver")).cells());
         assertEquals(16, catalog.get(id("bag")).cells().size());
         assertEquals(36, catalog.get(id("belt")).cells().size());
         assertEquals(5, catalog.get(id("pickaxe")).cells().size());
         assertEquals(4, catalog.get(id("metal_rod")).cells().size());
+        assertEquals(2, catalog.get(id("beaker")).cells().size());
+        assertEquals(4, catalog.get(id("beaker_large")).cells().size());
+        assertEquals(4, catalog.get(id("chem_master")).cells().size());
         assertTrue(catalog.get(id("bag")).cells().contains(new GridGeometry.Cell(3, 3)));
     }
 

@@ -1,0 +1,6 @@
+FILE-SPECIFIC LICENSE UNRESOLVED; do not assume CC-BY-SA applies to this file.
+Upstream: Space Station 14, Resources/Audio/Weapons/Guns/MagOut/revolver_magout.ogg
+Commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Weapons/Guns/MagOut/revolver_magout.ogg
+SHA-256: C87B4A5115E46FB90BDA415A2BB5258EC880CD5CC717E6C1785B2DA94DDAA75C
+No file-specific attribution/license entry was found in the pinned checkout. Seek permission or remove before redistribution if rights cannot be established.

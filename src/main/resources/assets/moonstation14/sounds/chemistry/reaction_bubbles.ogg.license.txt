@@ -1,0 +1,7 @@
+Source: Space Station 14, pinned revision c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Upstream path: Resources/Audio/Effects/Chemistry/bubbles.ogg
+SHA-256: 55CB6421386835B21428F98DF14C84CA8923DBB858C4D3630E98FD2959BE0F9F
+
+The pinned Resources/Audio/Effects/attributions.yml has no file-specific entry
+for this sound. Author, original source, and license are unresolved. This notice
+does not assert a license or grant permission; see docs/audio-unknown-provenance.md.

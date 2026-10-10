@@ -1,0 +1,10 @@
+{
+  "id": "base",
+  "abstract": true,
+  "powerLoadWatts": 1000,
+  "cableReach": 3,
+  "uiRange": 2.0,
+  "inputSlot": { "fitsInDispenser": true },
+  "slotInsertSound": "moonstation14:chemistry/chemmaster/insert",
+  "slotEjectSound": "moonstation14:chemistry/chemmaster/eject"
+}

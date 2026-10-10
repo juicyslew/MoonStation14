@@ -29,6 +29,19 @@ public class ModSpecialProperties {
                     return com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.fillTier(reagent,
                             com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.capacityCents(level)) / 6f;
                 });
+        registerBeakerFill(ModItems.BEAKER.get());
+        registerBeakerFill(ModItems.BEAKER_LARGE.get());
+    }
+
+    private static void registerBeakerFill(com.juicyslew.moonstation14.item.custom.BeakerItem item) {
+        ItemProperties.register(item, ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "fill"),
+                (stack, level, entity, seed) -> {
+                    var data = com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.resolved(level, item.prototypeId());
+                    var visuals = data == null ? null : data.solutionVisuals();
+                    if (!com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerItemAppearance.supported(data)) return 0f;
+                    var reagent = stack.get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
+                    return com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerItemAppearance.fillTier(reagent, data);
+                });
     }
 
     private static <T extends Item & IReagentTrait> void registerFillProperty(T item) {

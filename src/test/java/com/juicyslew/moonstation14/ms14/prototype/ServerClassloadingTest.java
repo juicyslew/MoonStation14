@@ -24,6 +24,8 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/construction/client/";
     private static final String CLIENT_HANDS_SOURCE_PREFIX =
             "com/juicyslew/moonstation14/ms14/hands/client/";
+    private static final String CLIENT_CHEMMASTER_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/chemistry/chemmaster/client/";
     private static final Set<String> CLIENT_ONLY_SOURCES = Set.of(
             "com/juicyslew/moonstation14/MoonStation14Client.java",
             "com/juicyslew/moonstation14/CameraJitterHandler.java",
@@ -97,6 +99,8 @@ class ServerClassloadingTest {
                     + "com\\.mojang\\.blaze3d)(?:\\.[A-Za-z_$][\\w$]*)+\\.class\\b");
     private static final Pattern CLIENT_UI_REFERENCE = Pattern.compile(
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.ui\\.client\\.[A-Za-z_$][\\w$]*");
+    private static final Pattern CLIENT_CHEMMASTER_REFERENCE = Pattern.compile(
+            "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.chemistry\\.chemmaster\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern PACKAGE_DECLARATION = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
     private static final Pattern COMMENTS = Pattern.compile("(?s)/\\*.*?\\*/|//[^\\r\\n]*");
 
@@ -115,6 +119,7 @@ class ServerClassloadingTest {
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")
                         || relativePath.startsWith(CLIENT_CONSTRUCTION_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)
+                        || relativePath.startsWith(CLIENT_CHEMMASTER_SOURCE_PREFIX)
                         ) {
                     continue;
                 }
@@ -124,6 +129,8 @@ class ServerClassloadingTest {
                 findMatches(CLIENT_CLASS_LITERAL, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
                 findMatches(CLIENT_UI_REFERENCE, code)
+                        .forEach(match -> violations.add(relativePath + ": " + match));
+                findMatches(CLIENT_CHEMMASTER_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
             }
         }

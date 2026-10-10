@@ -25,9 +25,12 @@ public final class BodyTimedIngestionService {
         var snapshot = HandActorAuthority.resolve(actor).orElse(null);
         if (snapshot == null) return BodyHandActionResult.Reason.NO_AUTHORITY;
         BooleanSupplier authority = () -> HandActorAuthority.revalidate(actor, snapshot);
+        var hands = snapshot.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        var stack = hands == null ? null : hands.stackCopy(hand).orElse(null);
+        IngestionProfile policyProfile = drinkProfile(snapshot.body(), stack);
         return start(snapshot.body(), actor, sequence, authority,
                 () -> TimedIngestionAccess.admitHeld(snapshot.body(), hand, token, revision, authority), "held:" + token,
-                () -> intentValid(snapshot.body(), authority, hand, revision, token, true, false));
+                () -> intentValid(snapshot.body(), authority, hand, revision, token, true, false), policyProfile);
     }
 
     public static BodyHandActionResult.Reason startWorld(ServerPlayer actor, UUID target, String hand,
@@ -37,7 +40,7 @@ public final class BodyTimedIngestionService {
         BooleanSupplier authority = () -> HandActorAuthority.revalidate(actor, snapshot);
         return start(snapshot.body(), actor, sequence, authority,
                 () -> TimedIngestionAccess.admitWorld(snapshot.body(), target, hand, revision, authority), "world:" + target,
-                () -> intentValid(snapshot.body(), authority, hand, revision, null, false, target != null));
+                () -> intentValid(snapshot.body(), authority, hand, revision, null, false, target != null), null);
     }
 
     public static BodyHandActionResult.Reason startPuddle(ServerPlayer actor, BlockPos pos, String hand,
@@ -49,21 +52,23 @@ public final class BodyTimedIngestionService {
         return start(snapshot.body(), actor, sequence, authority,
                 () -> TimedIngestionAccess.admitPuddle(snapshot.body(), pos, hand, revision, authority), key,
                 () -> intentValid(snapshot.body(), authority, hand, revision, null, false, pos != null
-                        && snapshot.body().level() instanceof net.minecraft.server.level.ServerLevel l && l.isInWorldBounds(pos)));
+                        && snapshot.body().level() instanceof net.minecraft.server.level.ServerLevel l && l.isInWorldBounds(pos)), null);
     }
 
     public static BodyHandActionResult.Reason startHeldOwned(LivingEntity body, String hand, String token,
                                                               long revision, long sequence, BooleanSupplier authority) {
         return start(body, null, sequence, authority,
                 () -> TimedIngestionAccess.admitHeld(body, hand, token, revision, authority), "held:" + token,
-                () -> intentValid(body, authority, hand, revision, token, true, false));
+                () -> intentValid(body, authority, hand, revision, token, true, false),
+                drinkProfile(body, body == null || body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()) == null
+                        ? null : body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()).stackCopy(hand).orElse(null)));
     }
 
     public static BodyHandActionResult.Reason startWorldOwned(LivingEntity body, UUID target, String hand,
                                                                long revision, long sequence, BooleanSupplier authority) {
         return start(body, null, sequence, authority,
                 () -> TimedIngestionAccess.admitWorld(body, target, hand, revision, authority), "world:" + target,
-                () -> intentValid(body, authority, hand, revision, null, false, target != null));
+                () -> intentValid(body, authority, hand, revision, null, false, target != null), null);
     }
 
     public static BodyHandActionResult.Reason startPuddleOwned(LivingEntity body, BlockPos pos, String hand,
@@ -71,12 +76,12 @@ public final class BodyTimedIngestionService {
         return start(body, null, sequence, authority,
                 () -> TimedIngestionAccess.admitPuddle(body, pos, hand, revision, authority), puddleKey(body, pos),
                 () -> intentValid(body, authority, hand, revision, null, false, pos != null
-                        && body != null && body.level() instanceof net.minecraft.server.level.ServerLevel l && l.isInWorldBounds(pos)));
+                        && body != null && body.level() instanceof net.minecraft.server.level.ServerLevel l && l.isInWorldBounds(pos)), null);
     }
 
     private static BodyHandActionResult.Reason start(LivingEntity body, ServerPlayer owner, long sequence,
             BooleanSupplier authority, java.util.function.Supplier<java.util.Optional<TimedIngestionAccess.Admission>> admissionSupplier,
-            String sourceKey, BooleanSupplier intent) {
+            String sourceKey, BooleanSupplier intent, IngestionProfile overrideProfile) {
         if (body == null || authority == null || sourceKey == null || intent == null || !intent.getAsBoolean()) return BodyHandActionResult.Reason.DENIED;
         if (TimedInteractionSystem.cancelDuplicate(body, KIND, sourceKey)) {
             fresh(owner);
@@ -85,7 +90,7 @@ public final class BodyTimedIngestionService {
         var admission = admissionSupplier.get();
         if (admission.isEmpty() || !ModIngestionProfiles.serverReady()) return BodyHandActionResult.Reason.DENIED;
         TimedIngestionAccess.Admission admitted = admission.orElseThrow();
-        IngestionProfile profile = ModIngestionProfiles.serverLookup(admitted.profileId());
+        IngestionProfile profile = overrideProfile != null ? overrideProfile : ModIngestionProfiles.serverLookup(admitted.profileId());
         if (profile == null) return BodyHandActionResult.Reason.DENIED;
         var result = TimedInteractionSystem.start(body, owner, sequence, KIND, admitted.sourceKey(),
                 profile.delayTicks(), true, false,
@@ -115,6 +120,16 @@ public final class BodyTimedIngestionService {
         if (hands == null || !hands.compatible(body) || hands.revision() != revision || !hands.activeHand().equals(hand)) return false;
         if (held) return hands.token(hand).filter(token::equals).isPresent();
         return hands.stackCopy(hand).isEmpty() && hands.reservation(hand).isEmpty();
+    }
+
+    private static IngestionProfile drinkProfile(LivingEntity body, net.minecraft.world.item.ItemStack stack) {
+        if (body == null || stack == null || !(stack.getItem() instanceof com.juicyslew.moonstation14.ms14.reagent.IReagentTrait trait)) return null;
+        var policy = trait.drinkSolution(stack, body.level());
+        if (policy == null || !policy.enabled() || !trait.solutionName(stack, body.level()).equals(policy.solutionName())) return null;
+        try { return new IngestionProfile(new IngestionProfile.Edible(
+                Math.toIntExact(com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.fromFloat(policy.consumeAmount())),
+                policy.personalDelayTicks(), false)); }
+        catch (RuntimeException invalid) { return null; }
     }
 
     private static void fresh(ServerPlayer actor) {
