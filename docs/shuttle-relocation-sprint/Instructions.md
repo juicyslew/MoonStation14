@@ -2,11 +2,11 @@
 
 ## Status, priority, and delegation
 
-**Revised 2026-10-10; planning only. No ship integration or performance validation delivered.** This supersedes the original discrete region-relocation plan, retained in [discrete-relocation-reference.md](discrete-relocation-reference.md) only as a historical alternative. The owner requested execution by **another agent in a worktree**; the authoring session must not finish this implementation.
+**Revised 2026-10-10; planning only. No ship integration or performance validation delivered.** The owner authorizes bounded Sable integration/feasibility through M0–M3 despite unresolved Shield interpretation, as a project risk. This supersedes the original discrete region-relocation plan, retained in [discrete-relocation-reference.md](discrete-relocation-reference.md) only as a historical alternative. This is not legal clearance, technical adoption, or sprint closure.
 
 Read [HANDOFF.md](HANDOFF.md), [licensing-review.md](licensing-review.md), then this plan. The assignment is **first to prove Sable works seamlessly and efficiently with MoonStation's actual bodies and systems**, then, if the licensing/technical gates pass, deliver a bounded playable continuous-flight and FTL slice. Merely installing Aeronautics or flying an empty vanilla cabin is not the feasibility result requested.
 
-Follow M0–M6 in order. Work autonomously within these boundaries; escalate material licensing questions, backend changes, demonstrated infeasibility, destructive actions, or unresolved gameplay choices. Do not silently revert to region copying, maintain two competing movement backends, or treat source inspection as a measured performance guarantee.
+Follow M0–M6 in order. Work autonomously within these boundaries; escalate backend changes, demonstrated infeasibility, destructive actions, or unresolved gameplay choices. Do not contact the author on the owner's behalf. Do not silently revert to region copying, maintain two competing movement backends, or treat source inspection as a measured performance guarantee.
 
 ### Worktree bootstrap
 
@@ -49,9 +49,9 @@ Continuous flight and cross-dimension FTL are now intended work; the older docum
 
 ## 2. Licensing and dependency gate
 
-**Sable is a candidate dependency, not already approved for adoption/distribution.** Read [licensing-review.md](licensing-review.md). Its PolyForm Shield noncompete clause is the principal unresolved issue. It is not automatically safe because MoonStation is free, MIT, an addon, or a different genre; nor has this research established that MoonStation is prohibited.
+**Sable is the owner-chosen candidate for bounded feasibility, not technically adopted or cleared for distribution.** Read [licensing-review.md](licensing-review.md). Its PolyForm Shield noncompete clause remains unresolved. The owner accepts this interpretation uncertainty as a project risk for M0–M3 prototypes; no written permission has been received and no legal clearance is claimed. It is not automatically safe because MoonStation is free, MIT, an addon, or a different genre; nor has this research established that MoonStation is prohibited.
 
-M0 must record a basis for permitted use of the intended prototype and later product. Do not assume private evaluation is a blanket exemption. Because independently authored ship gameplay could overlap covered vehicle products, obtain project-specific written clarification/permission before committing to dependent public gameplay/distribution; this review does not establish competition or legal affiliation. Do not contact anyone, agree to terms for the owner, or publish artifacts without owner authority. Until resolved, source/artifact/license inventory and dependency-free baselines can proceed; flag any blocked runtime evaluation explicitly.
+M0 must record the unresolved risk and complete the exact artifact/dependency/native/notice inventory; it need not resolve permitted-purpose interpretation before bounded M0–M3 prototype work. Do not assume private evaluation is a blanket exemption. Project-specific written clarification is recommended when public release is considered; no automatic permission for public gameplay or redistribution follows from this owner decision. Do not contact anyone or agree to terms for the owner. Complete applicable artifact/license and redistribution review before distribution, and honor asset boundaries throughout.
 
 Prefer **Sable alone** for the first cabin prototype. Evaluate Create/Aeronautics only where their actual components reduce current work; taking the engine does not require importing Create progression or aircraft recipes. Sable Companion's MIT license does not relicense Sable. Avoid copying internal Sable implementation or restricted Aeronautics/Create assets. Use separately installed pinned dependencies by default; no shading, fork, bundled installer or copied asset package without an exact-artifact compliance review.
 
@@ -188,7 +188,7 @@ Resolve the licensing basis for the intended work; complete exact artifact/depen
 
 Build the stationary baseline with existing helpers: supported hull/window/two-cell airlock, real powered machine/cables, finite non-default room/pipe gas, controlled body/corpse, filled container and representative settled cargo. Define repeatable performance workloads/budgets/headroom and a time-box for the feasibility gate. Read existing health/lifecycle failures before new death/dimension tests.
 
-**Exit:** `PARITY.md`, short frame/owner architecture, pinned artifact/license inventory and stationary baseline evidence. No unresolved legal assumption disguised as permission, no version advertising substituted for compatibility, no runtime/global-gate changes merely to make a fixture easy.
+**Exit:** `PARITY.md`, short frame/owner architecture, exact artifact/dependency/native/notice inventory and stationary baseline evidence, with Shield uncertainty explicitly recorded as project risk—not permission. No version advertising substituted for compatibility, no runtime/global-gate changes merely to make a fixture easy.
 
 ### M1 — Engine/body/query/cargo proof, not empty-ship demo
 
@@ -208,7 +208,7 @@ Measure the integrated stationary-versus-moving fixture, representative settled 
 
 Independent review checks actual source/identity/service boundaries and evidence. Identify whether failures come from our adapter, engine/API, lifecycle/persistence, or intrinsic cost. If requirements/budgets fail, optimize the demonstrated bottleneck within scope or return concrete alternatives to the owner. Do not automatically implement the historical copying backend or two parallel backends.
 
-**Exit:** owner-reviewed go/no-go for Sable-based gameplay with explicit measured bounds and license gate satisfied. Passing means this **combined** fixture, not proof of 20–100 authentic clients. Do not begin the broader pilot/FTL gameplay on unsupported assumptions.
+**Exit:** owner-reviewed technical go/no-go for Sable-based gameplay with explicit measured bounds. Passing means this **combined** fixture, not proof of 20–100 authentic clients, legal clearance, public-release authorization, or automatic redistribution approval. Do not begin broader pilot/FTL gameplay on unsupported assumptions; public release consideration should trigger project-specific licensing clarification and distribution review.
 
 ### M4 — Playable piloting, physical moon flight and docking
 
@@ -261,7 +261,7 @@ Choose explicit provisional time/memory/network/frame budgets and headroom in M0
 
 | Criterion | Required evidence |
 | --- | --- |
-| Permission / distribution readiness | Exact-artifact license/dependency inventory and resolved permitted-purpose basis; project-specific clarification where needed, notices and asset boundaries. |
+| Permission / distribution readiness | For M0–M3, exact-artifact license/dependency/native/notice inventory, explicit unresolved Shield risk, and asset boundaries. Before distribution, complete applicable exact-artifact compliance review; project-specific clarification is recommended when public release is considered. |
 | Composition and parity | Full relevant pinned parent/default/consumer mapping; resolved local inheritance and live flight/controller/FTL consumer tests; configuration and adaptations distinguished. |
 | Seamless physical body/cargo | Connected actual controlled-body/camera proof, relative carried motion/settled items, frame-aware reach/LOS, possession/token/corpse/containment continuity. |
 | Live interior systems | Paid machinery, gas/pipe species/energy, vacuum claims, breathing/exhalation/temperature, breach/repair, edits/split policy, owner/cache persistence. |

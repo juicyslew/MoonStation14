@@ -2,7 +2,7 @@
 
 ## STATUS
 
-**Revised 2026-10-10; planning/research only. No dependency integration, ship gameplay, benchmarks or runtime tests delivered.** The owner requests execution by a different agent in a worktree; the authoring session must not finish implementation. Read [Instructions.md](Instructions.md) and [licensing-review.md](licensing-review.md).
+**Revised 2026-10-10; planning/research only. No dependency integration, ship gameplay, benchmarks or runtime tests delivered.** The owner authorizes bounded Sable integration/feasibility work to proceed now through M0–M3; this is not sprint closure or technical adoption. Read [Instructions.md](Instructions.md) and [licensing-review.md](licensing-review.md).
 
 **The previous discrete region-copy plan is superseded.** It is retained in [discrete-relocation-reference.md](discrete-relocation-reference.md), not a fallback automatically authorized by a failed feasibility test. Copy this whole directory into the worktree if uncommitted; a worktree created from HEAD will not include it. Preserve unrelated edits; no commit/push requested.
 
@@ -12,7 +12,7 @@ New intention: evaluate **Sable persistent sublevels** first, then implement bou
 
 Separate world-space body/physics/camera/reach from stable plot-space blocks/machinery/gas/cables. Extend existing query/storage/lifecycle owners, not duplicate solvers or remap every cell each frame. Preserve the real damaged hull and item/character ownership. The spectator carrier is not a passenger; a moving cabin is not disposal containment.
 
-Sable is a candidate, not yet adopted. Prefer Sable-only feasibility; optional Create/Aeronautics requires demonstrated utility and separate asset/dependency review. No generic moving-world engine, recurring reassembly, remote shell or two competing backends.
+Sable remains a candidate, not technically adopted. Proceed with bounded Sable-only feasibility; optional Create/Aeronautics requires demonstrated utility and separate asset/dependency review. No generic moving-world engine, recurring reassembly, remote shell or two competing backends.
 
 Normal moon travel is physical flight, not default same-map FTL. Large ships require compatible berths; living/loose objects are not structural arrival vetoes. Ordinary collisions and FTL arrival hazards are distinct. FTL warnings must be readable in 3D, including airborne players. The owner wants beyond-overlap FTL gib danger; approximately 3 m was discussed, not SS14's default. Resolve hazard/cover/escape-time policy together before claiming acceptance.
 
@@ -21,7 +21,7 @@ Stealth uses terrain/recessed appropriately sized berths. Flying antagonist ship
 ## IMPORTANT FILES
 
 - `Instructions.md`: M0 license/artifact/parity baseline; M1 body/query/cargo proof; M2 existing simulation owners; M3 decisive seamlessness/performance go/no-go; M4 piloting/physical flight/docking; M5 FTL/actual dimension gate; M6 final limits/regressions.
-- `licensing-review.md`: primary licenses, unresolved Shield noncompete question, distribution/asset obligations and suggested permission request. **License clearance is a real gate.**
+- `licensing-review.md`: primary licenses, unresolved Shield noncompete question, distribution/asset obligations and suggested permission request. Owner accepts that interpretation uncertainty as a project risk for bounded M0–M3 prototypes; it is not legal clearance or permission.
 - Newer local indexes: `docs/disposals-pneumatic-sprint/HANDOFF.md`, `docs/airlocks-sprint/HANDOFF.md`, loose-world-foundation/hands-inventory/timed-ingestion handoffs, pressure/power/APC/powered-ventilation successors, `docs/gametest-tags.md`. Historical lifecycle/experimental movement descriptions do not override current source.
 
 Java paths below are under `src/main/java/com/juicyslew/moonstation14/`:
@@ -52,7 +52,7 @@ Source supports persistent plot/pose motion, general `Entity.move` collision hoo
 
 Concrete integration work: our owned bodies cancel vanilla travel while Sable supplies living carried motion there; our non-Level loaded ray getter bypasses Sable projection; exposure samples world eyes rather than plot gas; settled item support/carry/contact logic needs ship awareness. Plot attachments/indexing, splits, client visuals, containment and actual cross-dimension transfer remain unproven. Same-pipeline teleport is not dimension transfer.
 
-Shield permits noncompeting purposes and restricts competing products, including free ones and licensor/affiliate products. MoonStation's use is **not established prohibited or permitted**; get project-specific clarification before dependent public gameplay/distribution. Companion MIT does not relicense Sable; restricted optional-mod assets and embedded libraries need separate review.
+Shield permits noncompeting purposes and restricts competing products, including free ones and licensor/affiliate products. MoonStation's use is **not established prohibited or permitted**. The owner authorizes bounded M0–M3 feasibility despite this unresolved interpretation; no written permission has been received and no legal clearance is claimed. Companion MIT does not relicense Sable; restricted optional-mod assets and embedded libraries need separate review.
 
 No combined efficiency or 20–100-client evidence. Existing full-suite failures remain; establish a current baseline and do not call new failures unrelated without evidence.
 
@@ -62,4 +62,8 @@ Source/license/documentation research only. No code, dependency installation, as
 
 ## NEXT WORK
 
-M0 legal/artifact/parity/current-owner baseline first. M1–M3 must prove the **combined** cabin before adopting broader gameplay. Pass gates → M4 flight/docking → M5 phased FTL and actual dimensions → M6 limits/regressions. Fail/block → concrete findings and owner decision, not silent copying-backend fallback. Update this handoff on actual owner closure, not because an empty vanilla ship flew.
+M0 records the unresolved license risk alongside exact artifact/dependency/native/notice audit, parity and current-owner baseline; M1–M3 feasibility may proceed under the dated owner decision below. Complete exact audits before any distribution, and keep assets within stated boundaries. M3 remains a technical go/no-go for Sable gameplay, not automatic authorization for broader public release. Seek project-specific clarification when public release is considered; no automatic approved redistribution follows. Pass gates → M4 flight/docking → M5 phased FTL and actual dimensions → M6 limits/regressions. Fail/block → concrete findings and owner decision, not silent copying-backend fallback. Update this handoff on actual owner closure, not because an empty vanilla ship flew.
+
+## OWNER DECISION — 2026-10-10 (separate from assessment)
+
+The owner chooses to move forward using Sable for bounded integration/feasibility, including M0–M3 prototypes, accepting the unresolved Shield interpretation as a project risk for this work. No written permission has been received; this is not legal clearance, a finding that the use is permitted, or authorization for automatic redistribution. No one is to contact the author on the owner's behalf. Author contact is deferred and may be considered later if integration gets far; clarification is recommended when public release is considered. Technical M3 go/no-go, exact artifact/dependency/native/notice audit, and asset boundaries remain in force, with applicable distribution review completed before distribution. This decision neither closes the sprint nor changes its historical discrete-relocation alternative.
