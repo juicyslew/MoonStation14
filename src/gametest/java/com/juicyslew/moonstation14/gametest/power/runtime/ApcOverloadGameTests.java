@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
+import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
@@ -33,16 +34,41 @@ import java.util.UUID;
 public final class ApcOverloadGameTests {
     private ApcOverloadGameTests() { }
 
-    @GameTest(template = "apc_debug_fixture", timeoutTicks = 320, templateNamespace = "moonstation14")
+    @GameTestTags({"suite-stabilization", "repair-debug-overload"})
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 2600, templateNamespace = "moonstation14", batch = "apc_debug_overload")
     public static void twoWiredDebugLampsTripAndGoDarkThenReclose(GameTestHelper helper) {
-        DebugFixture fixture = debugFixture(helper, true);
-        helper.runAfterDelay(100, () -> {
+        DebugFixture initialFixture = debugFixture(helper, false);
+        initialFixture.apc().setEnergyJoules(0);
+        DebugFixture fixture = addSecondNativeSourceToDebugFixture(helper, initialFixture);
+        assertDebugFixtureInsideBounds(helper, fixture);
+        fixture.lit(0); // Validate the authored first load before adding the second real load.
+        double totalDebugDemand = 2 * PowerDeviceKind.DEBUG_LOAD_LAMP.lampDemandWatts();
+        double ratedSubstationOutput = 30_000 * .9;
+        require(Math.min(ratedSubstationOutput, fixture.sources().size() * PowerRuntime.SOURCE_WATTS * .9)
+                        >= totalDebugDemand,
+                "native source composition continuously supports both full debug loads without battery discharge: "
+                        + fixture.sources().size() + " sources * " + PowerRuntime.SOURCE_WATTS
+                         + " W, substation-rated output=" + ratedSubstationOutput + " W, demand=" + totalDebugDemand + " W");
+        awaitDebugFixture(helper, fixture, () -> {
             requireConnectedDebugFixture(fixture);
-            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 100, () -> {
-                require(!fixture.apc().breakerClosed() && fixture.apc().tripLatched(),
-                        "24 kW actual delivery trips after more than three seconds: " + debugState(fixture));
-                require(!fixture.lit(0) && !fixture.lit(1),
-                        "post-trip solve darkens both lamps: " + debugState(fixture));
+            require(fixture.apc().breakerClosed() && !fixture.apc().tripLatched() && fixture.lit(0),
+                    "one known 12 kW fixture load is powered before adding overload demand: " + debugState(fixture));
+            placeDevice(fixture.level(), fixture.lamps().get(1), PowerDeviceKind.DEBUG_LOAD_LAMP, Direction.NORTH);
+            requireDebugLampsPresent(fixture, "second native debug lamp placement");
+            awaitFullDebugDelivery(helper, fixture, () -> {
+                requireConnectedDebugFixture(fixture);
+                require(fixture.apc().breakerClosed() && !fixture.apc().tripLatched(),
+                        "fresh known graph admits the two-lamp 24 kW overload interval: " + debugState(fixture));
+                long fullDeliveryGameTime = fixture.level().getGameTime();
+                long fullDeliveryHelperTick = helper.getTick();
+                double batteryBeforeOverloadWindow = fixture.apc().energyJoules();
+                awaitOverloadTrip(helper, fixture, fullDeliveryGameTime, fullDeliveryHelperTick,
+                        batteryBeforeOverloadWindow, () -> {
+                require(fixture.apc().energyJoules() >= batteryBeforeOverloadWindow,
+                        "fully delivered two-lamp interval did not consume APC battery support: before="
+                                + batteryBeforeOverloadWindow + " after=" + fixture.apc().energyJoules()
+                                + " " + debugState(fixture));
+                require(bothDebugLampsDark(fixture), "post-trip solve darkens both lamps: " + debugState(fixture));
                 Player player = new Player(fixture.level(), fixture.apcPos(), 0,
                         new GameProfile(UUID.randomUUID(), "debug-load-reclose")) {
                     @Override public boolean isCreative() { return true; }
@@ -50,16 +76,87 @@ public final class ApcOverloadGameTests {
                 };
                 player.getAbilities().instabuild = true;
                 require(fixture.apc().toggleBreaker(player, 0), "authorized reclose succeeds");
-                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 25, () -> {
-                    require(fixture.lit(0) && fixture.lit(1),
-                            "reclose restores powered lamps: " + debugState(fixture));
+                awaitFullDebugDelivery(helper, fixture, () -> {
+                    require(fixture.apc().breakerClosed() && !fixture.apc().tripLatched(),
+                            "reclose restores APC supply: " + debugState(fixture));
                     helper.succeed();
+                });
                 });
             });
         });
     }
 
-    @GameTest(template = "apc_debug_fixture", timeoutTicks = 200, templateNamespace = "moonstation14")
+    private static void awaitFullDebugDelivery(GameTestHelper helper, DebugFixture fixture, Runnable ready) {
+        PowerFixtureReadiness.await(helper, fixture.level(), 600,
+                () -> debugFixturePortsKnown(fixture)
+                        && PowerRuntime.apcVisualState(fixture.level(), fixture.apc())
+                        != com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState.UNKNOWN
+                        && bothDebugLampsFullyLit(fixture),
+                () -> "awaiting known full 24 kW lamp delivery, " + debugState(fixture), ready);
+    }
+
+    private static boolean bothDebugLampsFullyLit(DebugFixture fixture) {
+        for (int i = 0; i < 2; i++) {
+            var state = fixture.level().getBlockState(fixture.lamps().get(i));
+            if (!(state.getBlock() instanceof PowerDeviceBlock block)
+                    || block.kind() != PowerDeviceKind.DEBUG_LOAD_LAMP
+                    || !state.getValue(PowerDeviceBlock.LIT)) return false;
+        }
+        return true;
+    }
+
+    private static boolean bothDebugLampsDark(DebugFixture fixture) {
+        for (int i = 0; i < 2; i++) {
+            var state = fixture.level().getBlockState(fixture.lamps().get(i));
+            if (!(state.getBlock() instanceof PowerDeviceBlock block)
+                    || block.kind() != PowerDeviceKind.DEBUG_LOAD_LAMP
+                    || state.getValue(PowerDeviceBlock.LIT)) return false;
+        }
+        return true;
+    }
+
+    /** Once a known full-delivery sample has been observed, await the actual protection outcome boundedly. */
+    private static void awaitOverloadTrip(GameTestHelper helper, DebugFixture fixture, long fullGameTime,
+                                          long fullHelperTick, double batteryBefore, Runnable tripped) {
+        if (!fixture.apc().breakerClosed() && fixture.apc().tripLatched() && bothDebugLampsDark(fixture)) {
+            tripped.run();
+            return;
+        }
+        long elapsedHelperTicks = helper.getTick() - fullHelperTick;
+        long elapsedLevelTicks = fixture.level().getGameTime() - fullGameTime;
+        if (elapsedHelperTicks >= 600 || elapsedLevelTicks >= 600)
+            throw new GameTestAssertException("real delivered 24 kW fixture did not trip before bounded actual-outcome deadline; "
+                    + "fullDeliveryGameTime=" + fullGameTime + " currentGameTime=" + fixture.level().getGameTime()
+                    + " elapsedHelperTicks=" + elapsedHelperTicks + "/600 elapsedLevelTicks=" + elapsedLevelTicks
+                    + "/600 batteryBefore=" + batteryBefore + " batteryNow=" + fixture.apc().energyJoules()
+                    + " state=" + debugState(fixture));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> awaitOverloadTrip(helper, fixture, fullGameTime, fullHelperTick,
+                batteryBefore, tripped));
+    }
+
+    private static void awaitDebugFixture(GameTestHelper helper, DebugFixture fixture, Runnable ready) {
+        PowerFixtureReadiness.await(helper, fixture.level(), 600,
+                () -> debugFixturePortsKnown(fixture)
+                        && PowerRuntime.apcVisualState(fixture.level(), fixture.apc())
+                        != com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState.UNKNOWN,
+                () -> debugState(fixture) + ", topologyReady=" + PowerGraphService.topologyReady(fixture.level()), ready);
+    }
+
+    private static boolean debugFixturePortsKnown(DebugFixture fixture) {
+        var level = fixture.level();
+        var ports = new java.util.ArrayList<CableFaceNode>(fixture.sources());
+        ports.addAll(List.of(fixture.subHvPort(), fixture.subMvPort(), fixture.apcMvPort(), fixture.output()));
+        for (BlockPos lamp : fixture.lamps()) {
+            if (!(level.getBlockState(lamp).getBlock() instanceof PowerDeviceBlock block)
+                    || block.kind() != PowerDeviceKind.DEBUG_LOAD_LAMP) continue;
+            CableFaceNode receiver = PowerGraphService.nearestLampNode(level, lamp);
+            if (receiver == null) return false;
+            ports.add(receiver);
+        }
+        return PowerFixtureReadiness.topologyReadyWithKnownPorts(level, ports.toArray(CableFaceNode[]::new));
+    }
+
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 200, templateNamespace = "moonstation14")
     public static void oneWiredDebugLampStaysBelowTripThreshold(GameTestHelper helper) {
         DebugFixture fixture = debugFixture(helper, false);
         com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.await(helper, 100,
@@ -75,13 +172,19 @@ public final class ApcOverloadGameTests {
     }
 
     private record DebugFixture(ServerLevel level, BlockPos apcPos, PowerDeviceBlockEntity apc,
-                                CableFaceNode sourcePort, CableFaceNode subHvPort, CableFaceNode subMvPort,
+                                List<CableFaceNode> sources, CableFaceNode subHvPort, CableFaceNode subMvPort,
                                 CableFaceNode apcMvPort, CableFaceNode output, List<BlockPos> lamps) {
-        boolean lit(int index) { return level.getBlockState(lamps.get(index)).getValue(PowerDeviceBlock.LIT); }
+        boolean lit(int index) {
+            var state = level.getBlockState(lamps.get(index));
+            require(state.getBlock() instanceof PowerDeviceBlock block
+                            && block.kind() == PowerDeviceKind.DEBUG_LOAD_LAMP,
+                    "expected authored debug lamp at " + lamps.get(index) + " but found " + state);
+            return state.getValue(PowerDeviceBlock.LIT);
+        }
     }
 
     private static boolean debugFixtureReady(DebugFixture fixture) {
-        var source = PowerGraphService.state(fixture.level(), fixture.sourcePort());
+        var source = PowerGraphService.state(fixture.level(), fixture.sources().get(0));
         var subHv = PowerGraphService.state(fixture.level(), fixture.subHvPort());
         var subMv = PowerGraphService.state(fixture.level(), fixture.subMvPort());
         var apcMv = PowerGraphService.state(fixture.level(), fixture.apcMvPort());
@@ -107,7 +210,7 @@ public final class ApcOverloadGameTests {
     private static String debugState(DebugFixture fixture) {
         var level = fixture.level();
         CableFaceNode receiver = PowerGraphService.nearestLampNode(level, fixture.lamps().get(0));
-        return "source=" + PowerGraphService.state(level, fixture.sourcePort())
+        return "sources=" + fixture.sources().stream().map(port -> PowerGraphService.state(level, port)).toList()
                 + ",subHV=" + PowerGraphService.state(level, fixture.subHvPort())
                 + ",subMV=" + PowerGraphService.state(level, fixture.subMvPort())
                 + ",apcMV=" + PowerGraphService.state(level, fixture.apcMvPort())
@@ -117,9 +220,13 @@ public final class ApcOverloadGameTests {
                 + ",breakerClosed=" + fixture.apc().breakerClosed()
                 + ",tripLatched=" + fixture.apc().tripLatched()
                 + ",energyJoules=" + fixture.apc().energyJoules()
+                + ",debugLoadWatts=" + 2 * PowerDeviceKind.DEBUG_LOAD_LAMP.lampDemandWatts()
+                + ",sourceRatedWatts=" + PowerRuntime.SOURCE_WATTS
+                + ",substationRatedOutputWatts=" + (30_000 * .9)
+                + ",lampStates=" + lampDiagnostic(fixture, 0) + "/" + lampDiagnostic(fixture, 1)
                 + ",apcSupplyState=" + PowerRuntime.apcVisualState(level, fixture.apc())
                 + ",indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
-                + ",sourceChunk=" + loadedChunk(level, fixture.sourcePort().host())
+                + ",sourceChunk=" + loadedChunk(level, fixture.sources().get(0).host())
                 + ",substationHvChunk=" + loadedChunk(level, fixture.subHvPort().host())
                 + ",substationMvChunk=" + loadedChunk(level, fixture.subMvPort().host())
                 + ",apcMvChunk=" + loadedChunk(level, fixture.apcMvPort().host())
@@ -138,43 +245,100 @@ public final class ApcOverloadGameTests {
         var ticket = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 0, 2)),
                 helper.absolutePos(new BlockPos(5, 1, 7)), 0);
         ServerLevel level = (ServerLevel) helper.getLevel();
-        BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
-        BlockPos sub = helper.absolutePos(new BlockPos(3, 1, 4));
-        BlockPos apc = helper.absolutePos(new BlockPos(3, 1, 6));
+        BlockPos source = debugPos(helper, 3, 1, 2);
+        BlockPos sub = debugPos(helper, 3, 1, 4);
+        BlockPos apc = debugPos(helper, 3, 1, 6);
         for (int z = 2; z <= 4; z++) {
-            BlockPos host = helper.absolutePos(new BlockPos(4, 1, z));
+            BlockPos host = debugPos(helper, 4, 1, z);
             level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
             require(CableStorage.place(level, host, Direction.WEST, CableTier.HV), "HV cable " + z);
         }
         for (int z = 4; z <= 6; z++) {
-            BlockPos host = helper.absolutePos(new BlockPos(2, 1, z));
+            BlockPos host = debugPos(helper, 2, 1, z);
             level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
             require(CableStorage.place(level, host, Direction.EAST, CableTier.MV), "MV cable " + z);
         }
         placeDevice(level, source, PowerDeviceKind.HV_SOURCE, Direction.EAST);
         placeDevice(level, sub, PowerDeviceKind.HV_MV_SUBSTATION, Direction.EAST);
         placeDevice(level, apc, PowerDeviceKind.APC, Direction.WEST);
-        BlockPos outputHost = helper.absolutePos(new BlockPos(4, 1, 6));
+        BlockPos outputHost = debugPos(helper, 4, 1, 6);
         level.setBlock(outputHost, Blocks.STONE.defaultBlockState(), 3);
         require(CableStorage.place(level, outputHost, Direction.WEST, CableTier.APC), "APC output lead");
         for (int x = 3; x <= 5; x++) for (int z = 6; z <= 7; z++) {
-            BlockPos host = helper.absolutePos(new BlockPos(x, 0, z));
+            BlockPos host = debugPos(helper, x, 0, z);
             level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
             require(CableStorage.place(level, host, Direction.UP, CableTier.APC), "floor LV cable " + host);
         }
-        BlockPos first = helper.absolutePos(new BlockPos(4, 1, 7));
-        BlockPos second = helper.absolutePos(new BlockPos(5, 1, 7));
+        BlockPos first = debugPos(helper, 4, 1, 7);
+        BlockPos second = debugPos(helper, 5, 1, 7);
         placeDevice(level, first, PowerDeviceKind.DEBUG_LOAD_LAMP, Direction.NORTH);
         if (twoLamps) placeDevice(level, second, PowerDeviceKind.DEBUG_LOAD_LAMP, Direction.NORTH);
         else require(level.getBlockState(second).isAir(), "single-lamp fixture has no second load");
         PowerDeviceBlockEntity entity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
         entity.setEnergyJoules(100_000);
         return new DebugFixture(level, apc, entity,
-                new CableFaceNode(helper.absolutePos(new BlockPos(4, 1, 2)), Direction.WEST, CableTier.HV),
-                new CableFaceNode(helper.absolutePos(new BlockPos(4, 1, 4)), Direction.WEST, CableTier.HV),
-                new CableFaceNode(helper.absolutePos(new BlockPos(2, 1, 4)), Direction.EAST, CableTier.MV),
-                new CableFaceNode(helper.absolutePos(new BlockPos(2, 1, 6)), Direction.EAST, CableTier.MV),
+                List.of(new CableFaceNode(debugPos(helper, 4, 1, 2), Direction.WEST, CableTier.HV)),
+                new CableFaceNode(debugPos(helper, 4, 1, 4), Direction.WEST, CableTier.HV),
+                new CableFaceNode(debugPos(helper, 2, 1, 4), Direction.EAST, CableTier.MV),
+                new CableFaceNode(debugPos(helper, 2, 1, 6), Direction.EAST, CableTier.MV),
                 new CableFaceNode(outputHost, Direction.WEST, CableTier.APC), List.of(first, second));
+    }
+
+    /** Adds a second ordinary source on the same already-connected HV cable spine. */
+    private static DebugFixture addSecondNativeSourceToDebugFixture(GameTestHelper helper, DebugFixture fixture) {
+        BlockPos source = debugPos(helper, 3, 1, 3);
+        placeDevice(fixture.level(), source, PowerDeviceKind.HV_SOURCE, Direction.EAST);
+        var sources = new java.util.ArrayList<>(fixture.sources());
+        sources.add(new CableFaceNode(debugPos(helper, 4, 1, 3), Direction.WEST, CableTier.HV));
+        return new DebugFixture(fixture.level(), fixture.apcPos(), fixture.apc(), List.copyOf(sources),
+                fixture.subHvPort(), fixture.subMvPort(), fixture.apcMvPort(), fixture.output(), fixture.lamps());
+    }
+
+    private static void requireDebugLampsPresent(DebugFixture fixture, String phase) {
+        for (BlockPos pos : fixture.lamps()) {
+            var state = fixture.level().getBlockState(pos);
+            require(state.getBlock() instanceof PowerDeviceBlock block
+                            && block.kind() == PowerDeviceKind.DEBUG_LOAD_LAMP,
+                    phase + " expected debug lamp at " + pos + " state=" + state + " bounds diagnostics="
+                            + fixture.level().getBlockState(fixture.apcPos()));
+        }
+    }
+
+    private static String lampDiagnostic(DebugFixture fixture, int index) {
+        BlockPos pos = fixture.lamps().get(index);
+        var state = fixture.level().getBlockState(pos);
+        if (state.getBlock() instanceof PowerDeviceBlock block
+                && block.kind() == PowerDeviceKind.DEBUG_LOAD_LAMP)
+            return pos + ":lit=" + state.getValue(PowerDeviceBlock.LIT);
+        return pos + ":not-present=" + state;
+    }
+
+    private static void assertDebugFixtureInsideBounds(GameTestHelper helper, DebugFixture fixture) {
+        var bounds = helper.getBounds();
+        var positions = new java.util.ArrayList<BlockPos>(fixture.lamps());
+        positions.add(fixture.apcPos());
+        positions.add(debugPos(helper, 3, 1, 2));
+        positions.add(debugPos(helper, 3, 1, 3));
+        positions.add(debugPos(helper, 3, 1, 4));
+        positions.add(debugPos(helper, 3, 1, 6));
+        positions.add(fixture.subHvPort().host());
+        positions.add(fixture.subMvPort().host());
+        positions.add(fixture.apcMvPort().host());
+        positions.add(fixture.output().host());
+        for (int z = 2; z <= 4; z++) positions.add(debugPos(helper, 4, 1, z));
+        for (int z = 4; z <= 6; z++) positions.add(debugPos(helper, 2, 1, z));
+        for (int x = 3; x <= 5; x++) for (int z = 6; z <= 7; z++)
+            positions.add(debugPos(helper, x, 0, z));
+        for (BlockPos pos : positions) {
+            var center = new net.minecraft.world.phys.Vec3(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5);
+            require(bounds.contains(center), "debug overload fixture coordinate outside declared template bounds: pos="
+                    + pos + " relative=" + pos.subtract(helper.absolutePos(BlockPos.ZERO)) + " bounds=" + bounds);
+        }
+    }
+
+    /** All fixture-local y coordinates are raised one block to keep supports inside the declared 12x4x12 volume. */
+    private static BlockPos debugPos(GameTestHelper helper, int x, int y, int z) {
+        return helper.absolutePos(new BlockPos(x, y + 1, z));
     }
 
     /** Transition guard proof using synthetic meter observations, independent of the wire fixture. */
@@ -281,50 +445,50 @@ public final class ApcOverloadGameTests {
     @GameTest(template = "power_overload_clear", timeoutTicks = 400, templateNamespace = "moonstation14", batch = "apc_connected_overload")
     @GameTestTags({"repair-connected-overload"})
     public static void connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt(GameTestHelper helper) {
-        FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 0, 2)),
-                helper.absolutePos(new BlockPos(12, 3, 15)), 0);
+        FixtureChunkTickets.around(helper, heavyPos(helper, 2, 0, 2),
+                heavyPos(helper, 12, 3, 15), 0);
         ServerLevel level = (ServerLevel) helper.getLevel();
-        BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
-        BlockPos secondSource = helper.absolutePos(new BlockPos(3, 1, 3));
-        BlockPos substation = helper.absolutePos(new BlockPos(3, 1, 4));
-        BlockPos secondSubstation = helper.absolutePos(new BlockPos(3, 1, 5));
-        BlockPos apc = helper.absolutePos(new BlockPos(3, 1, 6));
+        BlockPos source = heavyPos(helper, 3, 1, 2);
+        BlockPos secondSource = heavyPos(helper, 3, 1, 3);
+        BlockPos substation = heavyPos(helper, 3, 1, 4);
+        BlockPos secondSubstation = heavyPos(helper, 3, 1, 5);
+        BlockPos apc = heavyPos(helper, 3, 1, 6);
 
         // Two real 25 kW sources and two existing typed substations share the same
         // connected tiers. Each transformer has a 30 kW input cap and 90% efficiency;
         // the pair provides 45 kW MV-side capacity, while the APC's 30 kW cap can
         // satisfy the 29.8 kW demand of 298 resolved 100 W lamps.
         for (int z = 2; z <= 5; z++)
-            level.setBlock(helper.absolutePos(new BlockPos(4, 1, z)), Blocks.STONE.defaultBlockState(), 3);
+            level.setBlock(heavyPos(helper, 4, 1, z), Blocks.STONE.defaultBlockState(), 3);
         for (int z = 4; z <= 6; z++)
-            level.setBlock(helper.absolutePos(new BlockPos(2, 1, z)), Blocks.STONE.defaultBlockState(), 3);
+            level.setBlock(heavyPos(helper, 2, 1, z), Blocks.STONE.defaultBlockState(), 3);
         placeDevice(level, source, PowerDeviceKind.HV_SOURCE, Direction.EAST);
         placeDevice(level, secondSource, PowerDeviceKind.HV_SOURCE, Direction.EAST);
         placeDevice(level, substation, PowerDeviceKind.HV_MV_SUBSTATION, Direction.EAST);
         placeDevice(level, secondSubstation, PowerDeviceKind.HV_MV_SUBSTATION, Direction.EAST);
         placeDevice(level, apc, PowerDeviceKind.APC, Direction.WEST);
         for (int z = 2; z <= 5; z++)
-            require(CableStorage.place(level, helper.absolutePos(new BlockPos(4, 1, z)), Direction.WEST,
+            require(CableStorage.place(level, heavyPos(helper, 4, 1, z), Direction.WEST,
                     CableTier.HV), "place source/substation HV cable at z=" + z);
         for (int z = 4; z <= 6; z++)
-            require(CableStorage.place(level, helper.absolutePos(new BlockPos(2, 1, z)), Direction.EAST,
+            require(CableStorage.place(level, heavyPos(helper, 2, 1, z), Direction.EAST,
                     CableTier.MV), "place substation/APC MV cable at z=" + z);
 
         // The APC output turns down from its west-facing cable onto a connected 10x10
         // floor spine. Three lamp layers sit one, two, or three blocks above each node.
-        BlockPos outputHost = helper.absolutePos(new BlockPos(4, 1, 6));
+        BlockPos outputHost = heavyPos(helper, 4, 1, 6);
         level.setBlock(outputHost, Blocks.STONE.defaultBlockState(), 3);
         require(CableStorage.place(level, outputHost, Direction.WEST, CableTier.APC),
                 "place APC output lead");
         int lampCount = 0;
         for (int x = 3; x <= 12; x++) {
             for (int z = 6; z <= 15; z++) {
-                BlockPos floorHost = helper.absolutePos(new BlockPos(x, 0, z));
+                BlockPos floorHost = heavyPos(helper, x, 0, z);
                 level.setBlock(floorHost, Blocks.STONE.defaultBlockState(), 3);
                 require(CableStorage.place(level, floorHost, Direction.UP, CableTier.APC),
                         "place APC floor spine at " + floorHost);
                 for (int y = 1; y <= 3; y++) {
-                    BlockPos lamp = helper.absolutePos(new BlockPos(x, y, z));
+                    BlockPos lamp = heavyPos(helper, x, y, z);
                     if (lamp.equals(apc) || lamp.equals(outputHost)) continue;
                     placeDevice(level, lamp, PowerDeviceKind.LAMP, Direction.NORTH);
                     lampCount++;
@@ -332,16 +496,29 @@ public final class ApcOverloadGameTests {
             }
         }
         require(lampCount > 200, "fixture has enough real lamps to exceed the APC rating: " + lampCount);
+        double fullFixtureDemandWatts = lampCount * PowerDeviceKind.LAMP.lampDemandWatts();
+        double sourceCapacityWatts = 2 * PowerRuntime.SOURCE_WATTS * .9;
+        require(sourceCapacityWatts >= fullFixtureDemandWatts && 2 * 30_000 * .9 >= fullFixtureDemandWatts,
+                "native source and transformer capacity sustain full fixture demand: sources="
+                        + sourceCapacityWatts + " W, substations=" + (2 * 30_000 * .9)
+                        + " W, demand=" + fullFixtureDemandWatts + " W (must reach at least 29.8 kW)");
+        var fixtureBounds = helper.getBounds();
+        for (int x = 3; x <= 12; x++) for (int z = 6; z <= 15; z++) for (int y = 1; y <= 4; y++) {
+            BlockPos pos = heavyPos(helper, x, y - 1, z);
+            var center = new net.minecraft.world.phys.Vec3(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5);
+            require(fixtureBounds.contains(center), "native overload fixture coordinate outside template bounds: "
+                    + pos + " bounds=" + fixtureBounds);
+        }
         PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
         apcEntity.setEnergyJoules(0);
 
         // Start the protection window at the first fresh, known APC output sample that
         // actually powers this connected fixture; absolute GameTest time is unrelated.
         CableFaceNode output = new CableFaceNode(outputHost, Direction.WEST, CableTier.APC);
-        BlockPos spineHost = helper.absolutePos(new BlockPos(3, 0, 6));
+        BlockPos spineHost = heavyPos(helper, 3, 0, 6);
         CableFaceNode spine = new CableFaceNode(spineHost, Direction.UP, CableTier.APC);
         scheduleConnectedOverloadSequence(helper, level, apcEntity, apc, output, spine,
-                helper.absolutePos(new BlockPos(3, 1, 7)), lampCount * PowerDeviceKind.LAMP.lampDemandWatts());
+                heavyPos(helper, 3, 1, 7), fullFixtureDemandWatts);
     }
 
     private static void scheduleConnectedOverloadSequence(GameTestHelper helper, ServerLevel level,
@@ -354,7 +531,7 @@ public final class ApcOverloadGameTests {
         var lastNativeTicks = new java.util.concurrent.atomic.AtomicLong();
         for (int tick = 1; tick <= 400; tick++) {
             final int checkTick = tick;
-            helper.runAfterDelay(tick, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, tick, () -> {
                 // A trip intentionally zeros output and resets native protection; detect it
                 // before inspecting output/knownness so that legitimate trip is not a gap.
                 if (tripTick.get() < 0) {
@@ -415,7 +592,7 @@ public final class ApcOverloadGameTests {
                 } else if (checkTick == tripped + 50) {
                     require(level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT),
                             "fresh scheduled solve restores lamp after manual reclose");
-                    BlockPos mvCable = helper.absolutePos(new BlockPos(2, 1, 5));
+                    BlockPos mvCable = heavyPos(helper, 2, 1, 5);
                     require(CableStorage.remove(level, mvCable, Direction.EAST, CableTier.MV) == CableTier.MV,
                             "remove real MV cable after overload accumulation has begun");
                     cutTick.set(checkTick);
@@ -428,6 +605,11 @@ public final class ApcOverloadGameTests {
                 }
             });
         }
+    }
+
+    /** Converts fixture-local coordinates to authored positions one block above the template origin. */
+    private static BlockPos heavyPos(GameTestHelper helper, int x, int y, int z) {
+        return helper.absolutePos(new BlockPos(x, y + 1, z));
     }
 
     private static String overloadState(ServerLevel level, PowerDeviceBlockEntity apc,

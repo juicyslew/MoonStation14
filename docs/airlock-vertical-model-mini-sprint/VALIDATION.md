@@ -1,5 +1,8 @@
 # Validation — 2026-10-10
 
+This record certifies the pre-main-merge slice. Subsequent combined validation and
+the current merged artifact are recorded in [MERGE-MAIN.md](MERGE-MAIN.md).
+
 ## Build and focused checks
 
 - `test compileGametestJava assemble`: passed, 2,982 JUnit tests, zero failures.

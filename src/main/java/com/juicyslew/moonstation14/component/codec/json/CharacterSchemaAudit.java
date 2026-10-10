@@ -446,13 +446,24 @@ public final class CharacterSchemaAudit {
             return;
         }
         if ("Hands".equals(type)) {
-            checkFields(object, Set.of("type", "hands"), path);
+            checkFields(object, Set.of("type", "hands", "can_be_stripped"), path);
             if (complete || object.has("hands")) auditHands(object.get("hands"), path + ".hands");
+            if (object.has("can_be_stripped")) auditBoolean(object.get("can_be_stripped"), path + ".can_be_stripped");
+            return;
+        }
+        if ("Stripping".equals(type)) { checkFields(object, Set.of("type"), path); return; }
+        if ("Strippable".equals(type)) {
+            checkFields(object, Set.of("type", "hand_strip_delay"), path);
+            if (object.has("hand_strip_delay")) auditNonNegativeNumber(object.get("hand_strip_delay"), path + ".hand_strip_delay");
             return;
         }
         if (EquipmentSlotsPrototypeComponent.TYPE.equals(type)) {
-            checkFields(object, Set.of("type", "slots"), path);
-            if (complete || object.has("slots")) auditEquipmentSlots(object.get("slots"), path + ".slots");
+            checkFields(object, Set.of("type", "slots", "template"), path);
+            if (object.has("slots")) auditEquipmentSlots(object.get("slots"), path + ".slots");
+            if (object.has("template") && (!object.get("template").isJsonPrimitive()
+                    || !object.getAsJsonPrimitive("template").isString())) fail(path + ".template", "expected prototype ID string");
+            if (complete && !object.has("slots") && !object.has("template")) fail(path, "equipment layout requires slots or template");
+            if (object.has("slots") && object.has("template")) fail(path, "slots and template are mutually exclusive");
             return;
         }
         if ("Metabolizer".equals(type)) {
@@ -638,6 +649,12 @@ public final class CharacterSchemaAudit {
     private static void auditBoolean(JsonElement value, String path) {
         if (value == null) fail(path, "required field is missing");
         if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) fail(path, "expected boolean");
+    }
+
+    private static void auditNonNegativeNumber(JsonElement value, String path) {
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) fail(path, "expected non-negative finite number");
+        double number = value.getAsDouble();
+        if (!Double.isFinite(number) || number < 0) fail(path, "expected non-negative finite number");
     }
 
     public static void auditMovement(JsonObject movement, String path, boolean complete) {

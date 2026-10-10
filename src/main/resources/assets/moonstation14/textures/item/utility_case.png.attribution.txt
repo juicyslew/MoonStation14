@@ -1,0 +1,6 @@
+Source: SS14 pinned c9df5ef5d675b0d1d226828bddf6b78c28502d91
+RSI: Objects/Tools/Toolboxes/toolbox_yellow.rsi
+State: icon
+License: CC-BY-SA-3.0
+Copyright: Taken from baystation at commit https://github.com/Baystation12/Baystation12/commit/a929584d9db319eb7484113221be25cfa1d5dc09 , held sprites redone by Alekshhh
+

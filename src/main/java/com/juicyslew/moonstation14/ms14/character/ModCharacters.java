@@ -147,6 +147,22 @@ public final class ModCharacters {
         }
     }
 
+    /** Validate equipment-template bindings against the same detached reload candidate. */
+    public static void validateInventoryTemplateReferences(Map<ResourceLocation, PrototypeCatalog<?>> catalogs) {
+        PrototypeCatalog<?> characters = catalogs.get(CHARACTER_TYPE.typeId());
+        PrototypeCatalog<?> templates = catalogs.get(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE.typeId());
+        if (characters == null || templates == null) return;
+        for (var entry : characters.asMap().entrySet()) {
+            CharacterData character = (CharacterData) entry.getValue();
+            character.component(com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent.class)
+                    .flatMap(com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent::template)
+                    .ifPresent(id -> {
+                        if (templates.get(id) == null) throw new IllegalArgumentException("character " + entry.getKey()
+                                + " references missing inventory template " + id);
+                    });
+        }
+    }
+
     private static void requireReagent(ResourceLocation characterId, String fieldPath, String reagentId,
                                        Set<ResourceLocation> reagentIds) {
         ResourceLocation parsed = ResourceLocation.tryParse(reagentId);

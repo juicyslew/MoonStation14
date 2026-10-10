@@ -71,6 +71,42 @@ class BodyHandStatePolicyTest {
         assertEquals(query, BodyHandStateQuery.STREAM_CODEC.decode(requestBuffer));
     }
 
+    @Test void snapshotAcceptsAnySupportedHumanoidEquipmentSlotAndRejectsUnknownIds() {
+        var body = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), UUID.randomUUID(),
+                1, 0, "right", List.of(new BodyHandStateSnapshot.Hand("right", null, null, 0)),
+                List.of(new BodyHandStateSnapshot.EquipmentSlot("pocket1", null, null, 0, null, null, 0)), List.of(), false,
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "human"));
+        var decoded = BodyHandStateSnapshot.STREAM_CODEC.decode(encoded(body));
+        assertEquals("pocket1", decoded.equipment().getFirst().id());
+        assertEquals(body.templateId(), decoded.templateId());
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot("unknown", null, null, 0, null, null, 0));
+    }
+
+    @Test void pocketEquipmentSnapshotPreservesNativeStackCountAndPresentation() {
+        var stack = new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.BRUTEPACK.get(), 10);
+        var slot = new BodyHandStateSnapshot.EquipmentSlot("pocket1", "med-token",
+                "moonstation14:brutepack", 10, null, null, 0,
+                ItemPresentation.fromStack(stack), null);
+        var snapshot = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), UUID.randomUUID(),
+                1, 2, "right", List.of(new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of(slot));
+        var decoded = BodyHandStateSnapshot.STREAM_CODEC.decode(encoded(snapshot));
+        assertEquals(10, decoded.equipment().getFirst().count());
+        assertEquals(10, decoded.equipment().getFirst().presentation().stack().getCount());
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot("pocket1",
+                "med-token", "moonstation14:brutepack", 11, null, null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot("pocket1",
+                "med-token", "moonstation14:brutepack", 10, null, null, 0,
+                ItemPresentation.fromStack(new net.minecraft.world.item.ItemStack(
+                        com.juicyslew.moonstation14.item.ModItems.BRUTEPACK.get(), 9)), null));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot("gloves",
+                "glove-token", com.juicyslew.moonstation14.item.ModEquipmentItems.BLACK_GLOVES.getId().toString(),
+                2, null, null, 0));
+    }
+
+    private static RegistryFriendlyByteBuf encoded(BodyHandStateSnapshot snapshot) {
+        var buffer = buffer(); BodyHandStateSnapshot.STREAM_CODEC.encode(buffer, snapshot); return buffer;
+    }
+
     @Test void codecRejectsOversizedAndMalformedFields() {
         var query = buffer();
         query.writeVarLong(-1);
@@ -161,8 +197,8 @@ class BodyHandStatePolicyTest {
         assertEquals(snapshot, BodyHandStateSnapshot.STREAM_CODEC.decode(buf));
         assertThrows(UnsupportedOperationException.class, () -> snapshot.equipment().clear());
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot(
-                "head", null, null, 0, null, null, 0));
-        assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot(
+                "bogus", null, null, 0, null, null, 0));
+        assertDoesNotThrow(() -> new BodyHandStateSnapshot.EquipmentSlot(
                 "back", "x", ModItems.BELT.getId().toString(), 1, null, null, 0));
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateSnapshot.EquipmentSlot(
                 "belt", "x", ModItems.BELT.getId().toString(), 1, "y", "minecraft:stone", 65));
@@ -256,7 +292,8 @@ class BodyHandStatePolicyTest {
     }
 
     private static RegistryFriendlyByteBuf buffer() {
-        return new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        return new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.fromRegistryOfRegistries(
+                net.minecraft.core.registries.BuiltInRegistries.REGISTRY));
     }
 
     private static RegistryFriendlyByteBuf header(int size) {
@@ -270,6 +307,7 @@ class BodyHandStatePolicyTest {
         buf.writeVarLong(7);
         buf.writeVarLong(0);
         buf.writeUtf("right");
+        buf.writeBoolean(false);
         buf.writeVarInt(size);
         return buf;
     }

@@ -19,7 +19,7 @@ import java.util.Set;
 public final class FixtureChunkTicketsGameTests {
     private FixtureChunkTicketsGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 24)
     public static void fixtureTicketsKeepBothSidesOfSignedChunkEdgesEntityTicking(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -46,9 +46,10 @@ public final class FixtureChunkTicketsGameTests {
                 actors[i].setPos(positions[i].getX() + .5, positions[i].getY(), positions[i].getZ() + .5);
                 if (!level.addFreshEntity(actors[i])) throw new GameTestAssertException("boundary fixture actor joins");
             }
-            helper.runAfterDelay(2, () -> {
+            FixtureChunkTickets.awaitEntityTicking(helper, tickets, 8, () -> {
             for (int i = 0; i < actors.length; i++) {
-                if (level.getEntity(actors[i].getUUID()) != actors[i] || !tickets.entityTicking(positions[i]))
+                if (level.getEntity(actors[i].getUUID()) != actors[i] || actors[i].tickCount <= 0
+                        || !tickets.entityTicking(positions[i]))
                     throw new GameTestAssertException("ticket retains signed-corner actor through natural tick: " + positions[i]);
             }
             tickets.close();
@@ -56,7 +57,7 @@ public final class FixtureChunkTicketsGameTests {
                     || level.isPositionEntityTicking(center) != rootWasEntityTicking)
                 throw new GameTestAssertException("fixture ticket removal preserves engine and forced-ticket state");
             helper.succeed();
-            });
+            }, positions);
         }, positions);
     }
 }

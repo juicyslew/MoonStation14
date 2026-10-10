@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "anchors": {
+    "head": [
+      0,
+      24,
+      0
+    ],
+    "body": [
+      0,
+      24,
+      0
+    ],
+    "left_arm": [
+      5,
+      22,
+      0
+    ],
+    "right_arm": [
+      -5,
+      22,
+      0
+    ],
+    "left_leg": [
+      1.9,
+      12,
+      0
+    ],
+    "right_leg": [
+      -1.9,
+      12,
+      0
+    ]
+  },
+  "native_bindings": {
+    "head": "HEAD / FACE",
+    "body": "TORSO / BACK / WAIST / CHEST",
+    "left_arm": "LEFT_ARM",
+    "right_arm": "RIGHT_ARM",
+    "left_leg": "LEFT_LEG",
+    "right_leg": "RIGHT_LEG"
+  },
+  "transform": "OBJ and mesh JSON already bone-local MC (+Y down). ModelPart.translateAndRotate(pose), then divide authored coordinates by16 once. Do NOT apply canonical pivot again.",
+  "uv": "mesh JSON top-left normalized PNG UV; OBJ V is flipped for standard OBJ. No white procedural tint; use white RGBA multiplier.",
+  "material": "entityCutoutNoCull, no emissive or translucent passes required; source glass reflections painted opaque",
+  "poses": "inherit authoritative PlayerModel bone poses; no garment independent animation/network state",
+  "layers": "base skin, jumpsuit, gloves/shoes, coat, tie/backpack/belt; head independently cap/glasses/bandana/left earpiece",
+  "fit_limit": "standard wide only. Base leg pivot \u00b11.9 retained, authored centers \u00b12; nominal seams overlap slightly as vanilla. Thick custom skin/armor and arbitrary sizes not validated.",
+  "integration_required": [
+    "Replace slot procedural geometry with per-item authored faces; no existing file reader.",
+    "Avoid applying slot placeholder to every bone in addition to these item meshes.",
+    "Provide authored PNG resource per item with WHITE tint; retain inventory/held item assets untouched.",
+    "Validate real walking/crouching/swimming/head rotations, lighting, UV orientation, first person separately.",
+    "Future resizing scales limbs about anchor pivots, updates garment shell clearances; slim arm set remains future work."
+  ]
+}

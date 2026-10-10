@@ -1,0 +1,441 @@
+{
+  "sourceRoot": "Asset Building Workspace/assets/Objects/Clothing/Wearables",
+  "sourceManifestSha256": "91c256fd26461b1ba162be61e8858fd6898bff4243ffe1d0a4218d8abeb5415b",
+  "exportManifestSha256": "a50ca05274925b891b606f96a85afcdbf07aeebe0d988a28e5476f3f5fe707e7",
+  "geometryDestination": "null in supplied manifest; native runtime renderer adapter pending",
+  "runtime": "Meshes are candidate resources; renderer adapter pending; not installed or validated in-game",
+  "assets": [
+    {
+      "source": "export/meshes/grey_cap.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/grey_cap.json",
+      "sourceSha256": "14c17e28c1e902d6b316d015b3c307f55e0b44ecc1d198d6edc23cd855659473",
+      "destinationSha256": "14c17e28c1e902d6b316d015b3c307f55e0b44ecc1d198d6edc23cd855659473",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/grey_cap.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/grey_cap.png",
+      "sourceSha256": "b60d6bbaa0bfdb6f0e1eb40a09adecf9a3fa5247535fce8e2a8a4c58d24bfa6f",
+      "destinationSha256": "b60d6bbaa0bfdb6f0e1eb40a09adecf9a3fa5247535fce8e2a8a4c58d24bfa6f",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_cap/head.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_cap/head.obj",
+      "sourceSha256": "4ddbaf03d0c4f291a1c5ff857f195dfe6541ffae4ae636e7f5c39394954c11db",
+      "destinationSha256": "4ddbaf03d0c4f291a1c5ff857f195dfe6541ffae4ae636e7f5c39394954c11db",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_cap/grey_cap.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_cap/grey_cap.mtl",
+      "sourceSha256": "01cb7e70350ee9477613c58bea80817efb7e6fccae3c705e78f9b08011b27084",
+      "destinationSha256": "09b337f09525a9ae8ebdf5e9848767573f0730a4a34dfb5c7de0646ab89cbdbb",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/grey_jumpsuit.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/grey_jumpsuit.json",
+      "sourceSha256": "7c17a86bfee24b56544a2a4e97aefd7d46b5bf8f04c3e625766da4f1ec7ef5cf",
+      "destinationSha256": "7c17a86bfee24b56544a2a4e97aefd7d46b5bf8f04c3e625766da4f1ec7ef5cf",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/grey_jumpsuit.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/grey_jumpsuit.png",
+      "sourceSha256": "c81b2c958f62d5149a46b01995a97542d1613769d6c38f35cf5d5f37de3137a1",
+      "destinationSha256": "c81b2c958f62d5149a46b01995a97542d1613769d6c38f35cf5d5f37de3137a1",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_jumpsuit/body.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_jumpsuit/body.obj",
+      "sourceSha256": "640a8758932d00206886d55d6bdad5eafddef961dbc1dad39e522153e30967d0",
+      "destinationSha256": "640a8758932d00206886d55d6bdad5eafddef961dbc1dad39e522153e30967d0",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_jumpsuit/left_arm.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_jumpsuit/left_arm.obj",
+      "sourceSha256": "8395bb95268b5c7f85277631d887eba97c7fa9447876139fa74a2852da5404e1",
+      "destinationSha256": "8395bb95268b5c7f85277631d887eba97c7fa9447876139fa74a2852da5404e1",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_jumpsuit/right_arm.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_jumpsuit/right_arm.obj",
+      "sourceSha256": "0bcb174796a4f1f52f678903cace76ab166ea9e9e4ac51b076cb17ba9f678445",
+      "destinationSha256": "0bcb174796a4f1f52f678903cace76ab166ea9e9e4ac51b076cb17ba9f678445",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_jumpsuit/left_leg.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_jumpsuit/left_leg.obj",
+      "sourceSha256": "61e1cc4bca6bc5904820368f7e4b2629539fd093acfec09b339b1b89b2eb95b6",
+      "destinationSha256": "61e1cc4bca6bc5904820368f7e4b2629539fd093acfec09b339b1b89b2eb95b6",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_jumpsuit/right_leg.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_jumpsuit/right_leg.obj",
+      "sourceSha256": "8873b8692090d26720233bd22db0cfa674774412bcd63dfbf2746f91900a2f4b",
+      "destinationSha256": "8873b8692090d26720233bd22db0cfa674774412bcd63dfbf2746f91900a2f4b",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/grey_jumpsuit/grey_jumpsuit.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/grey_jumpsuit/grey_jumpsuit.mtl",
+      "sourceSha256": "f512287fc83c2ff51476e09e7eb53305530a9277ada2d3c76a866fcbc1d5fd90",
+      "destinationSha256": "98b0c4943d89a67e8b6f9622e20ba1ec32774b5c072a8311e838ddb443f1f587",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/simple_coat.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/simple_coat.json",
+      "sourceSha256": "1998972dfb647512b40b46d20998d38e5a8f0d002754c46d601a13c421b9e35a",
+      "destinationSha256": "1998972dfb647512b40b46d20998d38e5a8f0d002754c46d601a13c421b9e35a",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/simple_coat.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/simple_coat.png",
+      "sourceSha256": "d79acb173b70e45f76de23a02e1c3ddfc9b5ab3c1266692543a4ff90f91182ef",
+      "destinationSha256": "d79acb173b70e45f76de23a02e1c3ddfc9b5ab3c1266692543a4ff90f91182ef",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/simple_coat/body.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/simple_coat/body.obj",
+      "sourceSha256": "90d0a682aa864ca4e077a8c32d67a5cb265f13dca8d17b1a09e99f8b177daf92",
+      "destinationSha256": "90d0a682aa864ca4e077a8c32d67a5cb265f13dca8d17b1a09e99f8b177daf92",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/simple_coat/left_arm.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/simple_coat/left_arm.obj",
+      "sourceSha256": "c19a5eaab923cc7728f429d468b53624a9d303efa7971b6f8af6284aad8ae762",
+      "destinationSha256": "c19a5eaab923cc7728f429d468b53624a9d303efa7971b6f8af6284aad8ae762",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/simple_coat/right_arm.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/simple_coat/right_arm.obj",
+      "sourceSha256": "9a6ff5ccfb503321b2f91ab769bada53e2b860fa425926a65022a00ab14850d8",
+      "destinationSha256": "9a6ff5ccfb503321b2f91ab769bada53e2b860fa425926a65022a00ab14850d8",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/simple_coat/left_leg.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/simple_coat/left_leg.obj",
+      "sourceSha256": "ec36432da68bde7d22b4edbcfede4820edbc2ea87507b8a7cd7e22a459563fb9",
+      "destinationSha256": "ec36432da68bde7d22b4edbcfede4820edbc2ea87507b8a7cd7e22a459563fb9",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/simple_coat/right_leg.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/simple_coat/right_leg.obj",
+      "sourceSha256": "f43f088a64e8b17718e52308e19774f448fd78f0b67fe55b4a16bdf2bb560063",
+      "destinationSha256": "f43f088a64e8b17718e52308e19774f448fd78f0b67fe55b4a16bdf2bb560063",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/simple_coat/simple_coat.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/simple_coat/simple_coat.mtl",
+      "sourceSha256": "da32fcdfb497072738240d970b9f5e271da57925a3671d7b844c2ab01f1b4aa3",
+      "destinationSha256": "be2ea58c5d5257ffef21bf1cbc6d53dfedc764eb95f23e3e4c3951d7bdc8fe01",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/black_gloves.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/black_gloves.json",
+      "sourceSha256": "eb0c5141213a63b7be7881d2797101e6bcdb8ccd018a92705d61eadb160973f4",
+      "destinationSha256": "eb0c5141213a63b7be7881d2797101e6bcdb8ccd018a92705d61eadb160973f4",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/black_gloves.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/black_gloves.png",
+      "sourceSha256": "9ed14629f23307ba5c45b818d5805763453c79d27e47e25806ed04b797464f3d",
+      "destinationSha256": "9ed14629f23307ba5c45b818d5805763453c79d27e47e25806ed04b797464f3d",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_gloves/left_arm.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_gloves/left_arm.obj",
+      "sourceSha256": "3a296a9faf1c9aed6bc007087d475224a6af5e4bc4973ef7e57b7c46f7946d87",
+      "destinationSha256": "3a296a9faf1c9aed6bc007087d475224a6af5e4bc4973ef7e57b7c46f7946d87",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_gloves/right_arm.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_gloves/right_arm.obj",
+      "sourceSha256": "0a18e75c96871c1ecd5125a674c6b963c92d9c188cd6cfc48d7d3aa183acc398",
+      "destinationSha256": "0a18e75c96871c1ecd5125a674c6b963c92d9c188cd6cfc48d7d3aa183acc398",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_gloves/black_gloves.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_gloves/black_gloves.mtl",
+      "sourceSha256": "d3aaa453e03648844d7853195d7691983767bf976adedf662403fc8e9ddb661b",
+      "destinationSha256": "f9d70b41e9b456b0cf77bc170bac701328dba887fb7a1c14d3e620fcb8cab557",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/black_shoes.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/black_shoes.json",
+      "sourceSha256": "5adb5928a8deed31d3b37787b92fd2f1a37ed4867872dd34d06232f71765a798",
+      "destinationSha256": "5adb5928a8deed31d3b37787b92fd2f1a37ed4867872dd34d06232f71765a798",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/black_shoes.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/black_shoes.png",
+      "sourceSha256": "3e48bc558422c23756d8aacacb1bcb002b9c4097e149c705c31a1fd4e8c6c428",
+      "destinationSha256": "3e48bc558422c23756d8aacacb1bcb002b9c4097e149c705c31a1fd4e8c6c428",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_shoes/left_leg.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_shoes/left_leg.obj",
+      "sourceSha256": "76c4f05a926d33d6e113c687bbc0833f6aed32b0bdad4c5f358f38b81e2a06bf",
+      "destinationSha256": "76c4f05a926d33d6e113c687bbc0833f6aed32b0bdad4c5f358f38b81e2a06bf",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_shoes/right_leg.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_shoes/right_leg.obj",
+      "sourceSha256": "1d0ff6462695bebbd1ad169cc2601575273fe1d724f68be3e557f014007cd553",
+      "destinationSha256": "1d0ff6462695bebbd1ad169cc2601575273fe1d724f68be3e557f014007cd553",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_shoes/black_shoes.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_shoes/black_shoes.mtl",
+      "sourceSha256": "6616b496f1142794b6d492e825a3e12fddae796b7ee3f94086f4f35317c88263",
+      "destinationSha256": "93e86c097ea0e67e275e854039b1d6c817172af5932e396fda66a7580ef89347",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/glasses.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/glasses.json",
+      "sourceSha256": "870bdd8f8246a4471138f97750430212a1355bc91a3a8bc066796d76ba84effc",
+      "destinationSha256": "870bdd8f8246a4471138f97750430212a1355bc91a3a8bc066796d76ba84effc",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/glasses.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/glasses.png",
+      "sourceSha256": "5b8a7f37f90be1031e3102dc7f0f4f95099140706aa746d16c72a6b94294bf06",
+      "destinationSha256": "5b8a7f37f90be1031e3102dc7f0f4f95099140706aa746d16c72a6b94294bf06",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/glasses/head.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/glasses/head.obj",
+      "sourceSha256": "6df4585d6e19930aa2773149b44984c754a18d0f552e5d82df8fda0a4d315834",
+      "destinationSha256": "6df4585d6e19930aa2773149b44984c754a18d0f552e5d82df8fda0a4d315834",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/glasses/glasses.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/glasses/glasses.mtl",
+      "sourceSha256": "b4c7ad4841f3e7a793cd6b56c3e339686b5530cb661dad22b5a639740cf4b9f2",
+      "destinationSha256": "b7de154828c6fe1d6d61aa0572884d572675d200b70b74fb159645fcabd8dfaa",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/red_tie.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/red_tie.json",
+      "sourceSha256": "e96afdcb39af3c40ec26068d35ab726305d6e0214609c288c67dac471e172328",
+      "destinationSha256": "e96afdcb39af3c40ec26068d35ab726305d6e0214609c288c67dac471e172328",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/red_tie.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/red_tie.png",
+      "sourceSha256": "fa560a3f531abfea8406d2aa2b908ef15fefa2d8d7d59ba9ac214070bac93543",
+      "destinationSha256": "fa560a3f531abfea8406d2aa2b908ef15fefa2d8d7d59ba9ac214070bac93543",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/red_tie/body.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/red_tie/body.obj",
+      "sourceSha256": "b80fdfcb536aed4c26a20b7b9331bba052bbdb2114076184e097ecef5b006a2c",
+      "destinationSha256": "b80fdfcb536aed4c26a20b7b9331bba052bbdb2114076184e097ecef5b006a2c",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/red_tie/red_tie.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/red_tie/red_tie.mtl",
+      "sourceSha256": "4b6ff86729a899a551458e92ac869e4f60e80a5b9908f0f61d3e0491a378f485",
+      "destinationSha256": "18ed480041e8bbe7af43fc9dd28157899a040aa12d0c3037fe49c45796b1d57b",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/black_bandana.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/black_bandana.json",
+      "sourceSha256": "ddf7002427bdbd5f446017cbd5817764e39f63f56ddb864c06697d215197b01d",
+      "destinationSha256": "ddf7002427bdbd5f446017cbd5817764e39f63f56ddb864c06697d215197b01d",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/black_bandana.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/black_bandana.png",
+      "sourceSha256": "c7c8758b1da9010da40ea52b298336a01e2bce8c6a1a4345d4c558dcfd952823",
+      "destinationSha256": "c7c8758b1da9010da40ea52b298336a01e2bce8c6a1a4345d4c558dcfd952823",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_bandana/head.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_bandana/head.obj",
+      "sourceSha256": "978862c77e8b3c939d998ebf39b1e37c170653e742c339c1f88c0fd29fc01c99",
+      "destinationSha256": "978862c77e8b3c939d998ebf39b1e37c170653e742c339c1f88c0fd29fc01c99",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/black_bandana/black_bandana.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/black_bandana/black_bandana.mtl",
+      "sourceSha256": "59ce29acf5b560bb2d27ea6d4426a7dd2cc83b471ac74efe6d547fb883a14539",
+      "destinationSha256": "86dfaaa2fc2149b83688a0ba642898a1e5759da96d9ee2bebac76cce29b2a194",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/earpieces.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/earpieces.json",
+      "sourceSha256": "4f959568c01b683e489333539a30943639792184738eb42d448da5d5d9a33682",
+      "destinationSha256": "4f959568c01b683e489333539a30943639792184738eb42d448da5d5d9a33682",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/earpieces.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/earpieces.png",
+      "sourceSha256": "633702c34df60baa82c85a665ca2530bffdc902fb1ac6414102fb61218d0a4d3",
+      "destinationSha256": "633702c34df60baa82c85a665ca2530bffdc902fb1ac6414102fb61218d0a4d3",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/earpieces/head.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/earpieces/head.obj",
+      "sourceSha256": "e5a7e3244c436ae9a82f3a733e0bc400420ed587ad337d8603937c7eb65e1bb7",
+      "destinationSha256": "e5a7e3244c436ae9a82f3a733e0bc400420ed587ad337d8603937c7eb65e1bb7",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/earpieces/earpieces.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/earpieces/earpieces.mtl",
+      "sourceSha256": "c028b3b2cb0460098cc5e5fa60d3129be99c41e7b3cc976f75509bcae5d52e26",
+      "destinationSha256": "dfb8aa6214cddc3a3dae43a916115a8f87ba7ff5a7d4e07b1d13a2760a6f09a5",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/bag.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/bag.json",
+      "sourceSha256": "6502c4abe01462fc0c9de30db0c47c40c0c9124b9ac492c95d257857bbf14ddf",
+      "destinationSha256": "6502c4abe01462fc0c9de30db0c47c40c0c9124b9ac492c95d257857bbf14ddf",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/bag.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/bag.png",
+      "sourceSha256": "3219bdc097ef6fb3f4498facb6fc898dcbcea18b3aa88710a4287001b2ad3038",
+      "destinationSha256": "3219bdc097ef6fb3f4498facb6fc898dcbcea18b3aa88710a4287001b2ad3038",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/bag/body.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/bag/body.obj",
+      "sourceSha256": "f6445db868fd74cc85cac8cb40d2364f8a0a8944e5535220a2a3e48eb69a1a42",
+      "destinationSha256": "f6445db868fd74cc85cac8cb40d2364f8a0a8944e5535220a2a3e48eb69a1a42",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/bag/bag.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/bag/bag.mtl",
+      "sourceSha256": "857e7d28dbc4e004ac82c318c5c9bb6ab144488bcf77d99c46737534ef6d30a0",
+      "destinationSha256": "7a8add2c3ea1328cd032cca3a84d808020f1fbebf16b7ab74c5e90c672284492",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    },
+    {
+      "source": "export/meshes/belt.json",
+      "destination": "src/main/resources/assets/moonstation14/wearables/meshes/belt.json",
+      "sourceSha256": "2af0f6529c8dd454ad4d3f7c2fa1174dbbb2875e1042691cd65a41d3bcc4a83e",
+      "destinationSha256": "2af0f6529c8dd454ad4d3f7c2fa1174dbbb2875e1042691cd65a41d3bcc4a83e",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "textures/belt.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/entity/equipment/belt.png",
+      "sourceSha256": "2be79b88971d23e36e1cdc13967ed8f61dbc6ea08b3c25f1345e27c11ff649b9",
+      "destinationSha256": "2be79b88971d23e36e1cdc13967ed8f61dbc6ea08b3c25f1345e27c11ff649b9",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/belt/body.obj",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/belt/body.obj",
+      "sourceSha256": "b3f77a0734ed99573c21a6d705ad64689d506384ff1e9ef34ea142b2492b4f3e",
+      "destinationSha256": "b3f77a0734ed99573c21a6d705ad64689d506384ff1e9ef34ea142b2492b4f3e",
+      "byteEqual": true,
+      "mtlPathRemapOnly": null
+    },
+    {
+      "source": "export/obj/belt/belt.mtl",
+      "destination": "src/main/resources/assets/moonstation14/wearables/obj/belt/belt.mtl",
+      "sourceSha256": "f9a1a4e45ca9b0e6aa140a74e61bbd5714595b93772b7ad296bdec713e17fdcc",
+      "destinationSha256": "d4029d18b8c845da5c139d25be4c099bcb2dc98200ae8e370a4d217942a81c7e",
+      "byteEqual": false,
+      "mtlPathRemapOnly": true
+    }
+  ]
+}

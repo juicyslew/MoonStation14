@@ -57,9 +57,11 @@ public final class BodyHandSelectionGateGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 140)
-    @GameTestTags({"stun_action_gate"})
+    @GameTestTags({"stun_action_gate", "suite-stabilization"})
     public static void stunDeniesSelectionWithoutRevisionChange(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        long startGameTime = helper.getLevel().getGameTime();
+        int startTickCount = body.tickCount;
         helper.runAfterDelay(1, () -> {
             LiveHands before = LiveHands.initialize(body).orElseThrow();
             LiveHands after = before.selectActive(before.revision(), "right").orElseThrow();

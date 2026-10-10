@@ -101,6 +101,7 @@ public final class PrototypeManager {
             prepared.put(type.typeId(), loadEncoded(type, owned.get(type.typeId())));
         }
         com.juicyslew.moonstation14.ms14.character.ModCharacters.validateOrganReferences(prepared);
+        com.juicyslew.moonstation14.ms14.character.ModCharacters.validateInventoryTemplateReferences(prepared);
         discardStagedReload();
         publishedCatalogs = immutableCatalogMap(prepared);
     }
@@ -154,6 +155,7 @@ public final class PrototypeManager {
 
         Map<ResourceLocation, PrototypeCatalog<?>> immutableCandidate = immutableCatalogMap(candidate);
         com.juicyslew.moonstation14.ms14.character.ModCharacters.validateOrganReferences(immutableCandidate);
+        com.juicyslew.moonstation14.ms14.character.ModCharacters.validateInventoryTemplateReferences(immutableCandidate);
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> encoded = encodeCandidate(immutableCandidate);
         if (candidateValidator != null) {
             // Do not let a validator mutate the token's detached encoded data.

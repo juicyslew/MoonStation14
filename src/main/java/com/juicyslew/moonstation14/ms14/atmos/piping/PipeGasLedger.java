@@ -49,18 +49,34 @@ public final class PipeGasLedger {
             result.add(part);
         }
         double representedEnergy = result.stream().mapToDouble(GasMixture::thermalEnergy).sum();
-        if (!Double.isFinite(representedEnergy) || Math.abs(representedEnergy - source.thermalEnergy()) > energyTolerance(source.thermalEnergy()))
+        if (!conservedEnergy(source.thermalEnergy(), representedEnergy))
             throw new IllegalArgumentException("split energy cannot be represented conservatively");
         for (GasType gas : GasType.values()) {
             double represented = result.stream().mapToDouble(part -> part.moles(gas)).sum();
-            if (Math.abs(represented - source.moles(gas)) > Math.ulp((float) source.moles(gas)) * 8.0)
+            if (!conservedSpecies(represented, source.moles(gas)))
                 throw new IllegalArgumentException("split species cannot be represented conservatively");
         }
         return Collections.unmodifiableList(result);
     }
 
     private static double energyTolerance(double energy) {
-        return Math.max(Math.ulp((float) energy) * 8.0, Math.ulp(energy) * 8.0);
+        float stored = (float) energy;
+        if (!Float.isFinite(stored)) return Double.NaN;
+        return Math.max(Math.ulp(stored) * 8.0, Math.ulp(energy) * 8.0);
+    }
+
+    static boolean conservedSpecies(double before, double after) {
+        float storedBefore = (float) before, storedAfter = (float) after;
+        return Double.isFinite(before) && Double.isFinite(after) && Float.isFinite(storedBefore)
+                && Float.isFinite(storedAfter)
+                && Math.abs(before - after) <= Math.max(Math.ulp(storedBefore) * 8.0,
+                Math.ulp(storedAfter) * 8.0);
+    }
+
+    static boolean conservedEnergy(double before, double after) {
+        double tolerance = Math.max(energyTolerance(before), energyTolerance(after));
+        return Double.isFinite(before) && Double.isFinite(after) && Double.isFinite(tolerance)
+                && Math.abs(before - after) <= tolerance;
     }
 
     /** Combines species inventories and their actual thermal energies. */

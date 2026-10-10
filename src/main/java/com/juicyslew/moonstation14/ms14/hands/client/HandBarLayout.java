@@ -5,7 +5,7 @@ public final class HandBarLayout {
     public record Rect(int x, int y, int width, int height) {
         public boolean contains(int px, int py) { return px >= x && py >= y && px < x + width && py < y + height; }
     }
-    public record Layout(Rect leftHand, Rect rightHand, Rect back, Rect belt) {
+    public record Layout(Rect leftHand, Rect rightHand, Rect back, Rect belt, Rect id, Rect suitstorage, Rect pocket1, Rect pocket2) {
         public enum Tile { FIRST, SECOND, BACK, BELT }
         public Tile tileAt(int x, int y) {
             if (leftHand.contains(x, y)) return Tile.FIRST;
@@ -18,33 +18,37 @@ public final class HandBarLayout {
             for (Rect rect : new Rect[]{leftHand, rightHand, back, belt}) if (rect.contains(x, y)) return rect;
             return null;
         }
+        /** Historical side-of-hotbar positions for the remaining equipment tiles. */
+        public Rect equipmentSlot(String slotId) {
+            return switch (slotId) {
+                case "id" -> id; case "suitstorage" -> suitstorage;
+                case "pocket1" -> pocket1; case "pocket2" -> pocket2;
+                default -> null;
+            };
+        }
     }
     private HandBarLayout() { }
 
     public static Layout calculate(int width, int height) {
         if (width < 90 || height < 120) return null;
         int gap = 3;
-        int equipmentGap = 2;
-        int hand = Math.min(18, Math.max(1, (width - 20) / 5));
-        int equipment = Math.min(15, Math.max(1, hand - 2));
-        int handGroupWidth = hand * 2 + gap;
-        int handX = (width - handGroupWidth) / 2;
-        int equipmentInset = 8;
-        int equipmentStart = handX - equipment * 2 - equipmentGap - equipmentInset;
-        // Keep the centered hand group and fit both equipment tiles to its left.
-        while (equipmentStart < 0
-                && hand > 1) {
-            hand--;
-            equipment = Math.min(equipment, Math.max(1, hand - 2));
-            handGroupWidth = hand * 2 + gap;
-            handX = (width - handGroupWidth) / 2;
-            equipmentStart = handX - equipment * 2 - equipmentGap - equipmentInset;
-        }
-        if (equipmentStart < 0) return null;
+        int hand = 18;
+        int handX = (width - (hand * 2 + gap)) / 2;
+        int equipmentGap = 3;
+        // Reserve the left clothing block before placing hotbar equipment. One
+        // canonical wearable size keeps panel hitboxes aligned with this bar.
+        int equipment = Math.min(15, Math.max(1, (handX - 17) / 6));
         int y = Math.max(0, height - hand - 2);
         int equipmentY = y + (hand - equipment) / 2;
+        int rightX = handX + hand * 2 + gap;
+        int side = handX - equipment * 3 - equipmentGap * 3;
+        int rightStart = rightX + equipmentGap;
         return new Layout(new Rect(handX, y, hand, hand), new Rect(handX + hand + gap, y, hand, hand),
-                new Rect(equipmentStart, equipmentY, equipment, equipment),
-                new Rect(equipmentStart + equipment + equipmentGap, equipmentY, equipment, equipment));
+                new Rect(handX - equipment * 2 - equipmentGap * 2, equipmentY, equipment, equipment),
+                new Rect(handX - equipment - equipmentGap, equipmentY, equipment, equipment),
+                new Rect(side, equipmentY, equipment, equipment),
+                new Rect(rightStart + equipment * 2 + equipmentGap * 2, equipmentY, equipment, equipment),
+                new Rect(rightStart, equipmentY, equipment, equipment),
+                new Rect(rightStart + equipment + equipmentGap, equipmentY, equipment, equipment));
     }
 }

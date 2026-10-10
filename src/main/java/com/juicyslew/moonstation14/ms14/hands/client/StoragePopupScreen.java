@@ -32,6 +32,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     private PopupActionPlan.CrossSource crossSource;
     private PopupActionPlan.WorldCrossSource worldCrossSource;
     private HandEquipmentGesture.Drag equipmentDrag;
+    private double equipmentPressX, equipmentPressY;
     private HandEquipmentGesture.Drag handGridDrag;
     private boolean handGridWasInactive;
     private String inactiveClickHand;
@@ -354,6 +355,9 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // Deliberately no super.render/background: the world and hand bar stay visible.
+        var snapshot=BodyHandClient.inventoryProof();
+        if(snapshot!=null) BodyHandClient.drawEquipmentPanel(g,net.minecraft.client.Minecraft.getInstance(),snapshot,width,height,
+                !BodyHandClient.pendingSnapshot());
         BodyHandClient.renderPointerWorkspace(g, partialTick);
         drawCrossPreview(g, mouseX, mouseY);
         var bar = HandBarLayout.calculate(width, height);
@@ -362,9 +366,13 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             var inactive = display.activeHand().equals(display.first().id()) ? bar.rightHand() : bar.leftHand();
             g.fill(inactive.x(), inactive.y(), inactive.x() + inactive.width(), inactive.y() + inactive.height(), 0x88090f12);
             if (equipmentDrag != null) {
-                var target = bar.tileAt(mouseX, mouseY);
-                boolean valid = HandEquipmentGesture.plan(equipmentDrag, target, BodyHandClient.inventoryView(),
-                        BodyHandClient.inventoryProof()) != null;
+                var target = hudTileAt(mouseX, mouseY);
+                String gearTarget = BodyHandClient.equipmentPanelSlotAt(mouseX, mouseY, width, height);
+                boolean valid = equipmentDrag.sourceSlotId() != null
+                        ? (gearTarget != null && hit(mouseX, mouseY) == null
+                            ? HandEquipmentGesture.gearMovePlan(equipmentDrag, gearTarget, BodyHandClient.inventoryProof()) != null
+                            : HandEquipmentGesture.dropOnHand(equipmentDrag, target, BodyHandClient.inventoryView(), BodyHandClient.inventoryProof()) != null)
+                        : HandEquipmentGesture.plan(equipmentDrag, target, BodyHandClient.inventoryView(), BodyHandClient.inventoryProof()) != null;
                 HandBarLayout.Rect rect = target == HandBarLayout.Layout.Tile.FIRST ? bar.leftHand()
                         : target == HandBarLayout.Layout.Tile.SECOND ? bar.rightHand()
                         : target == HandBarLayout.Layout.Tile.BACK ? bar.back()
@@ -372,11 +380,13 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                 if (rect != null) g.fill(rect.x(), rect.y(), rect.x() + rect.width(), rect.y() + rect.height(),
                         valid ? 0x8858b867 : 0x88da4545);
                 var held = BodyHandClient.inventoryPresentation();
-                var heldItem = held == null ? null : equipmentDrag.handId().equals(held.first().id()) ? held.first() : held.second();
+                var heldItem = held == null || equipmentDrag.sourceSlotId() != null ? null
+                        : equipmentDrag.handId().equals(held.first().id()) ? held.first() : held.second();
                 sprite(g, equipmentDrag.itemId(), equipmentDrag.count(), heldItem == null ? null : heldItem.presentation(), mouseX - 8, mouseY - 8);
                 g.drawString(font, Component.translatable(valid ? "gui.moonstation14.popup.release"
                         : "gui.moonstation14.popup.cancel"), mouseX + 12, mouseY + 8,
                         valid ? 0xff8ce39a : 0xffe99898, true);
+                if (equipmentDrag.sourceSlotId() != null) drawEquipmentWorldPreview(g, mouseX, mouseY);
             }
             if (handGridDrag != null) {
                 var w = hit(mouseX, mouseY);
@@ -546,8 +556,44 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     boolean pointerUiHit(double x,double y) {
         if (configuratorHit(x,y) || hit(x,y)!=null || menuTile!=null&&x>=menuX&&x<menuX+MENU_WIDTH&&y>=menuY&&y<menuY+MENU_ROW*2+4) return true;
+        if (BodyHandClient.equipmentPanelHit((int)x,(int)y,width,height)) return true;
+        return hudTileAt((int)x,(int)y)!=null;
+    }
+
+    private void drawEquipmentWorldPreview(net.minecraft.client.gui.GuiGraphics g, int x, int y) {
+        var target = hit(x, y);
+        if (target == null || target.key().kind() != StoragePopupWorkspace.HostKind.WORLD
+                || visibleCell(target, x, y) == null) return;
+        var anchor = itemCell(target, x, y);
+        var world = BodyHandClient.worldGrid(target.key().worldId());
+        var proof = BodyHandClient.inventoryProof();
+        var plan = PopupActionPlan.equipmentToWorldPlan(equipmentDrag.sourceSlotId(), equipmentDrag.token(),
+                equipmentDrag.itemId(), equipmentDrag.count(), proof, proof, world, anchor, GridGeometry.Rotation.DEG_0,
+                proof != null && BodyHandClientPolicy.equipmentFitsSlot(proof, equipmentDrag.sourceSlotId(), equipmentDrag.itemId()),
+                world != null && BodyHandClient.worldActionable(world.target()) && proof != null
+                        && proof.revision() == equipmentDrag.revision() && proof.epoch() == equipmentDrag.epoch()
+                        && proof.accountId().equals(equipmentDrag.accountId()) && proof.bodyId().equals(equipmentDrag.bodyId()), 0);
+        var id = ResourceLocation.tryParse(equipmentDrag.itemId());
+        if (id == null || world == null) return;
+        var footprint = ItemFootprints.clientForId(id); var layout = layout(target); var bounds = layout.gridBounds();
+        var visible = layout.visibleGrid(target.width(), target.height());
+        for (var piece : workspace.uncovered(visible, target)) {
+            g.enableScissor(piece.x(), piece.y(), piece.x() + piece.width(), piece.y() + piece.height());
+            for (var cell : new GridGeometry.Placement<>(equipmentDrag.token(), footprint, anchor, GridGeometry.Rotation.DEG_0).occupiedCells()) {
+                if (cell.x() < 0 || cell.y() < 0 || cell.x() >= world.width() || cell.y() >= world.height()) continue;
+                int px = bounds.x() + cell.x() * CELL, py = bounds.y() + cell.y() * CELL;
+                g.fill(px, py, px + CELL - 1, py + CELL - 1, plan == null ? 0x99da4545 : 0x9958b867);
+            }
+            g.disableScissor();
+        }
+    }
+
+    private HandBarLayout.Layout.Tile hudTileAt(int x,int y) {
         var bar=HandBarLayout.calculate(width,height);
-        return bar!=null&&bar.tileAt((int)x,(int)y)!=null;
+        var hand=bar==null?null:bar.tileAt(x,y);
+        if(hand==HandBarLayout.Layout.Tile.FIRST||hand==HandBarLayout.Layout.Tile.SECOND)return hand;
+        String slot=BodyHandClient.equipmentPanelSlotAt(x,y,width,height);
+        return "back".equals(slot)?HandBarLayout.Layout.Tile.BACK:"belt".equals(slot)?HandBarLayout.Layout.Tile.BELT:null;
     }
 
     private boolean configuratorHit(double x,double y) {
@@ -618,7 +664,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         var handBar = HandBarLayout.calculate(width,height);
         boolean menuHit=menuTile!=null&&mouseX>=menuX&&mouseX<menuX+MENU_WIDTH
                 &&mouseY>=menuY&&mouseY<menuY+MENU_ROW*2+4;
-        boolean knownUiHit=hit(mouseX,mouseY)!=null||menuHit||handBar!=null&&handBar.tileAt((int)mouseX,(int)mouseY)!=null
+        boolean knownUiHit=hit(mouseX,mouseY)!=null||menuHit||BodyHandClient.equipmentPanelHit((int)mouseX,(int)mouseY,width,height)
+                ||handBar!=null&&(handBar.leftHand().contains((int)mouseX,(int)mouseY)||handBar.rightHand().contains((int)mouseX,(int)mouseY))
                 ||com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(mouseX,mouseY);
         boolean idle=moving==null&&dragging==null&&handGridDrag==null&&equipmentDrag==null;
         if(shouldDismissPointerWorkspace(button,idle,knownUiHit)) {
@@ -655,10 +702,48 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             }
         }
         var w = hit(mouseX, mouseY);
+        if(com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelLayout.receivesInput(
+                BodyHandClient.equipmentPanelHit((int)mouseX,(int)mouseY,width,height),w!=null)) {
+            if(BodyHandClient.toggleEquipmentPanel((int)mouseX,(int)mouseY,width,height))return true;
+            String slotId=BodyHandClient.equipmentPanelSlotAt((int)mouseX,(int)mouseY,width,height);
+            var view=BodyHandClient.inventoryView(); var proof=BodyHandClient.inventoryProof();
+            if(slotId!=null&&view!=null) {
+                var observed=proof==null?null:proof.equipment().stream().filter(s->s.id().equals(slotId)).findFirst().orElse(null);
+                if(button==1&&(slotId.equals("back")||slotId.equals("belt"))&&observed!=null&&observed.token()!=null) {
+                    menuTile=slotId.equals("back")?HandBarLayout.Layout.Tile.BACK:HandBarLayout.Layout.Tile.BELT;
+                    menuSource=HandEquipmentGesture.begin(menuTile,view,proof);
+                    menuX=Math.min((int)mouseX,width-MENU_WIDTH); menuY=Math.min((int)mouseY,height-MENU_ROW*2-4); return true;
+                }
+                if(button==0&&slotId.equals("back")||button==0&&slotId.equals("belt")) {
+                    if(observed!=null&&observed.token()!=null) {
+                        var worn=slotId.equals("back")?HandBarLayout.Layout.Tile.BACK:HandBarLayout.Layout.Tile.BELT;
+                        equipmentDrag=HandEquipmentGesture.beginSlot(slotId,view,proof);
+                        equipmentPressX=mouseX; equipmentPressY=mouseY;
+                        if(equipmentDrag==null) BodyHandClient.togglePopup(slotId.equals("back")?StoragePopupWorkspace.HostKind.BAG:StoragePopupWorkspace.HostKind.BELT);
+                        return true;
+                    }
+                }
+                if (button == 0 && observed != null && observed.token() != null) {
+                    equipmentDrag = HandEquipmentGesture.beginSlot(slotId, view, proof);
+                    equipmentPressX=mouseX; equipmentPressY=mouseY;
+                    return true;
+                }
+                if(button==0&&(view.first().token()!=null||view.second().token()!=null)) {
+                    var nominated=view.first().id().equals(view.activeHand())?view.first():view.second();
+                    var source=nominated.token()!=null?nominated:view.first().token()!=null?view.first():view.second();
+                    var tile=source.id().equals(view.first().id())?HandBarLayout.Layout.Tile.FIRST:HandBarLayout.Layout.Tile.SECOND;
+                    equipmentDrag=HandEquipmentGesture.beginAny(tile,view,proof);
+                    return true;
+                }
+                if(button==0&&observed!=null&&observed.token()!=null) BodyHandClient.equipmentSlotClick(slotId);
+                return true;
+            }
+            return true;
+        }
         if (w == null) {
             var bar = HandBarLayout.calculate(width, height);
             if (bar != null) {
-                var tile = bar.tileAt((int) mouseX, (int) mouseY);
+                var tile = hudTileAt((int) mouseX, (int) mouseY);
                 var view = BodyHandClient.inventoryView();
                 if (tile != null && view != null) {
                     if (button == 1) {
@@ -669,7 +754,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                             var hand = tile == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
                             if (hand.token() != null && hand.count() == 1 && ("moonstation14:bag".equals(hand.itemId())
                                     || "moonstation14:belt".equals(hand.itemId())))
-                                candidate = new HandEquipmentGesture.Drag(tile, hand.id(), hand.token(), hand.itemId(),
+                                candidate = new HandEquipmentGesture.Drag(tile, null, hand.id(), hand.token(), hand.itemId(),
                                         hand.count(), proof.accountId(), proof.bodyId(), proof.epoch(), proof.revision());
                         }
                         if (candidate != null) {
@@ -839,11 +924,80 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             return true;
         }
         if (dragging != null) updateItemPointer(x, y, true);
+        if (button == 0 && dragging != null && itemMoved && crossSource != null) {
+            String slot = hit(x, y) == null ? BodyHandClient.equipmentPanelSlotAt((int)x, (int)y, width, height) : null;
+            if (slot != null) {
+                BodyHandClient.popupGridToEquipment(crossSource, slot);
+                var old = dragging; dragging = null; crossSource = null; worldCrossSource = null;
+                workspace.clearDrag(old); itemMoved = false; return true;
+            }
+        }
+        if (button == 0 && dragging != null && itemMoved && worldCrossSource != null
+                && worldCrossSource.host().kind() == StoragePopupWorkspace.HostKind.WORLD) {
+            String slot = hit(x, y) == null
+                    ? BodyHandClient.equipmentPanelSlotAt((int) x, (int) y, width, height) : null;
+            if (slot != null) {
+                BodyHandClient.popupWorldToEquipment(worldCrossSource, slot);
+                var old = dragging; dragging = null; crossSource = null; worldCrossSource = null;
+                workspace.clearDrag(old); itemMoved = false; return true;
+            }
+        }
+        if (button == 0 && equipmentDrag != null && equipmentDrag.sourceSlotId() != null) {
+            var captured=equipmentDrag;
+            boolean sameOrigin=BodyHandClient.equipmentPanelSlotAt((int)x,(int)y,width,height)
+                    !=null&&captured.sourceSlotId().equals(BodyHandClient.equipmentPanelSlotAt((int)x,(int)y,width,height));
+            boolean frontWindow=hit(x,y)!=null
+                    ||com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x,y);
+            var proof=BodyHandClient.inventoryProof();
+            boolean sourceClick=HandEquipmentGesture.sourceClickValid(captured, proof, sameOrigin, frontWindow,
+                    PopupActionPlan.moved(equipmentPressX,equipmentPressY,x,y), BodyHandClient.pendingSnapshot());
+            if(HandEquipmentGesture.sourceClickUnequip(captured, proof, sameOrigin, frontWindow,
+                    PopupActionPlan.moved(equipmentPressX,equipmentPressY,x,y), BodyHandClient.pendingSnapshot())) {
+                equipmentDrag=null;
+                BodyHandClient.equipmentSlotClick(captured.sourceSlotId(),captured.handId());
+                return true;
+            }
+            if(sourceClick&&("back".equals(captured.sourceSlotId())||"belt".equals(captured.sourceSlotId()))) {
+                equipmentDrag=null;
+                BodyHandClient.togglePopup("back".equals(captured.sourceSlotId())
+                        ? StoragePopupWorkspace.HostKind.BAG : StoragePopupWorkspace.HostKind.BELT);
+                return true;
+            }
+            String destination = hit(x, y) == null ? BodyHandClient.equipmentPanelSlotAt((int)x, (int)y, width, height) : null;
+            if (destination != null) {
+                var plan = HandEquipmentGesture.gearMovePlan(equipmentDrag, destination, BodyHandClient.inventoryProof());
+                if (plan != null) BodyHandClient.moveEquipment(plan);
+                equipmentDrag = null; return true;
+            }
+            var targetWindow = hit(x, y);
+            if (targetWindow != null && targetWindow.key().kind() == StoragePopupWorkspace.HostKind.WORLD
+                    && visibleCell(targetWindow, x, y) != null) {
+                BodyHandClient.popupEquipmentToWorld(equipmentDrag, targetWindow, itemCell(targetWindow, x, y), GridGeometry.Rotation.DEG_0);
+                equipmentDrag = null; return true;
+            }
+            if (targetWindow != null && targetWindow.key().kind() != StoragePopupWorkspace.HostKind.WORLD
+                    && visibleCell(targetWindow, x, y) != null) {
+                BodyHandClient.popupEquipmentToGrid(equipmentDrag.sourceSlotId(), targetWindow.key(),
+                        itemCell(targetWindow, x, y), GridGeometry.Rotation.DEG_0);
+                equipmentDrag = null; return true;
+            }
+        }
         if (button == 0 && handGridDrag != null) {
             var source = handGridDrag; handGridDrag = null;
             var w = hit(x, y);
             var bar = HandBarLayout.calculate(width, height);
-            var releasedTile = w == null && bar != null ? bar.tileAt((int) x, (int) y) : null;
+            String equipmentSlot=w==null?BodyHandClient.equipmentPanelSlotAt((int)x,(int)y,width,height):null;
+            if(equipmentSlot!=null) {
+                var proof=BodyHandClient.inventoryProof();
+                var occupied=proof==null?null:proof.equipment().stream().filter(s->s.id().equals(equipmentSlot)).findFirst().orElse(null);
+                var kind=HandEquipmentGesture.slotDropKind(equipmentSlot,occupied!=null&&occupied.token()!=null,source.token()!=null,
+                        BodyHandClient.pendingSnapshot(),BodyHandClient.equipmentPanelDependencyEnabled(equipmentSlot));
+                if(kind==HandEquipmentGesture.SlotDropKind.STORE_BACK||kind==HandEquipmentGesture.SlotDropKind.STORE_BELT)
+                    BodyHandClient.popupSmartStore(source,kind==HandEquipmentGesture.SlotDropKind.STORE_BACK?HandBarLayout.Layout.Tile.BACK:HandBarLayout.Layout.Tile.BELT);
+                else if(kind==HandEquipmentGesture.SlotDropKind.EQUIP)BodyHandClient.popupEquipmentSlot(source,equipmentSlot);
+                return true;
+            }
+            var releasedTile = w == null ? hudTileAt((int) x, (int) y) : null;
             if (handGridWasInactive && releasedTile == source.source()
                     && !PopupActionPlan.moved(dragStartX, dragStartY, x, y)) {
                 handGridWasInactive = false;
@@ -871,9 +1025,23 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         }
         if (button == 0 && equipmentDrag != null) {
             var drag = equipmentDrag; equipmentDrag = null;
-            var bar = HandBarLayout.calculate(width, height);
-            var target = hit(x, y) == null && bar != null ? bar.tileAt((int) x, (int) y) : null;
-            if (target != drag.source()) BodyHandClient.popupEquipment(drag, target);
+            var target = hit(x, y) == null ? hudTileAt((int) x, (int) y) : null;
+            String slotId=hit(x,y)==null?BodyHandClient.equipmentPanelSlotAt((int)x,(int)y,width,height):null;
+            if (drag.sourceSlotId() != null && (target == HandBarLayout.Layout.Tile.FIRST || target == HandBarLayout.Layout.Tile.SECOND)) {
+                var plan = HandEquipmentGesture.dropOnHand(drag, target, BodyHandClient.inventoryView(), BodyHandClient.inventoryProof());
+                if (plan != null) BodyHandClient.equipmentSlotClick(plan.slotId(), plan.handId());
+            }
+            else if (drag.sourceSlotId() != null) { /* Equipment sources only drop into an empty hand. */ }
+            else if(slotId!=null&&(drag.source()==HandBarLayout.Layout.Tile.FIRST||drag.source()==HandBarLayout.Layout.Tile.SECOND)) {
+                var proof=BodyHandClient.inventoryProof();
+                var occupied=proof==null?null:proof.equipment().stream().filter(s->s.id().equals(slotId)).findFirst().orElse(null);
+                var kind=HandEquipmentGesture.slotDropKind(slotId,occupied!=null&&occupied.token()!=null,drag.token()!=null,
+                        BodyHandClient.pendingSnapshot(),BodyHandClient.equipmentPanelDependencyEnabled(slotId));
+                if(kind==HandEquipmentGesture.SlotDropKind.STORE_BACK||kind==HandEquipmentGesture.SlotDropKind.STORE_BELT)
+                    BodyHandClient.popupSmartStore(drag,kind==HandEquipmentGesture.SlotDropKind.STORE_BACK?HandBarLayout.Layout.Tile.BACK:HandBarLayout.Layout.Tile.BELT);
+                else if(kind==HandEquipmentGesture.SlotDropKind.EQUIP)BodyHandClient.popupEquipmentSlot(drag,slotId);
+            }
+            else if (target != drag.source()) BodyHandClient.popupEquipment(drag, target);
             else if (target == HandBarLayout.Layout.Tile.BACK || target == HandBarLayout.Layout.Tile.BELT)
                 BodyHandClient.togglePopup(target == HandBarLayout.Layout.Tile.BACK
                         ? StoragePopupWorkspace.HostKind.BAG : StoragePopupWorkspace.HostKind.BELT);
@@ -906,7 +1074,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             // A grid child released over either hand tile is an explicit TAKE destination,
             // independent of whether this host is worn, held, or in the world.
             var destinationBar = HandBarLayout.calculate(width, height);
-            var destinationTile = destinationBar == null || hit(x, y) != null ? null : destinationBar.tileAt((int) x, (int) y);
+            var destinationTile = hit(x, y) != null ? null : hudTileAt((int) x, (int) y);
             var destinationView = BodyHandClient.inventoryView();
             var destination = destinationView == null || destinationTile == null ? null
                     : destinationTile == HandBarLayout.Layout.Tile.FIRST ? destinationView.first()
@@ -927,7 +1095,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                     && PopupActionPlan.allowWorldGridFallback(key, target == null ? null : target.key())) {
                 var drag = w.drag();
                 var bar = HandBarLayout.calculate(width, height);
-                var tile = bar == null || hit(x, y) != null ? null : bar.tileAt((int) x, (int) y);
+                var tile = hit(x, y) != null ? null : hudTileAt((int) x, (int) y);
                 if (!fromHand && (tile == HandBarLayout.Layout.Tile.FIRST || tile == HandBarLayout.Layout.Tile.SECOND)) {
                     var targetView = BodyHandClient.inventoryView();
                     var legacyDestination = targetView == null ? null : tile == HandBarLayout.Layout.Tile.FIRST
@@ -1060,6 +1228,14 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         var storageWindow = workspace.topmost(mouseX, mouseY);
         if (medicalWindow != null && (storageWindow == null || medicalWindow.z() > storageWindow.z())) {
             medical.scroll(mouseX, mouseY, deltaY);
+            return true;
+        }
+        if (hit(mouseX,mouseY)==null && BodyHandClient.equipmentPanelHit((int)mouseX,(int)mouseY,width,height)) {
+            if (BodyHandClient.toggleEquipmentPanel((int)mouseX,(int)mouseY,width,height)) return true;
+            var panel=BodyHandClient.equipmentPanelLayout(width,height);
+            if(panel!=null) for(var slot:panel.slots()) if(slot.rect().contains((int)mouseX,(int)mouseY)) {
+                BodyHandClient.equipmentSlotClick(slot.slotId()); return true;
+            }
             return true;
         }
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();

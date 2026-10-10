@@ -51,6 +51,10 @@ public class ModEventHooks {
         if (event.getLevel() instanceof ServerLevel && event.getEntity() instanceof LivingEntity livingEntity) {
             com.juicyslew.moonstation14.ms14.slip.SlipSystem.onEntityJoin(livingEntity);
             CharacterIdentitySystem.enrollSupportedActor(livingEntity, (ServerLevel) event.getLevel());
+            if (livingEntity instanceof net.minecraft.world.entity.Mob mob
+                    && CharacterIdentitySystem.resolveForActor(mob).isPresent()) {
+                com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap.ensure(mob);
+            }
             com.juicyslew.moonstation14.ms14.blood.BloodstreamStorage.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.blood.BloodSystem.reconcile(livingEntity);
             com.juicyslew.moonstation14.ms14.organ.BodySystem.reconcile(livingEntity);

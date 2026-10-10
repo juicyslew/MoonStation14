@@ -24,7 +24,9 @@ public final class BodyCraftInventoryServiceGameTests {
     @GameTestTags("crafting")
     public static void fakeCarrierCannotCraftFromBodyOwnedSteel(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
-        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED, "body hand bootstrap");
+        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.PRESERVED
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).compatible(body),
+                "joined body already has compatible live hands");
         LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         String hand = initial.handIds().getFirst();
         ItemToken steelToken = new ItemToken("body-steel-input");

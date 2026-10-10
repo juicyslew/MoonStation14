@@ -7,10 +7,11 @@ crafting browser, nine disposal shapes, Girder → steel/plastic wall branches a
 Metal Rod crafting. Final polish centers sprites/meshes without moving text;
 the configured G binding now closes an open browser. Owner previously reported
 construction/search working and accepted the other UI/family changes.
-Construction is committed as `5e366dc`; subsequent main integration is indexed in
-`MERGE-MAIN.md`. No assistant merge commit or push made. Aggregate native
-certification remains non-green; closure does not certify unobserved connected-client
-or authenticated paths.
+Construction is committed as `5e366dc`; the owner committed main integration as
+`82ff81f`, indexed in `MERGE-MAIN.md`. Follow-up native validation is indexed in
+`../native-suite-stabilization/validation.md`. No assistant merge commit or push
+made. Aggregate native certification remains non-green; closure does not certify
+unobserved connected-client or authenticated paths.
 
 ## ARCHITECTURE
 

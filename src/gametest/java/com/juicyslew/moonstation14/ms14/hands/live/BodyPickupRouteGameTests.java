@@ -58,8 +58,20 @@ public final class BodyPickupRouteGameTests {
                 body.getEyePosition().add(body.getLookAngle().scale(5))).isEmpty(), "raw near miss");
         require(BodyHandItemTransfer.pickupOwned(body, target.getUUID(), "left", before.revision(), () -> false)
                 == BodyHandItemTransfer.Result.DENIED, "invalid authority denied");
-        require(BodyHandItemTransfer.pickupOwned(body, target.getUUID(), "left", before.revision(), () -> true)
-                == BodyHandItemTransfer.Result.SUCCESS, "real world source committed to body hand");
+        var canonicalHit = BodyItemTargetProbe.probeSelected(level, body, target.getUUID(), 5);
+        long startGameTime = level.getGameTime();
+        int startTickCount = body.tickCount;
+        var pickup = BodyHandItemTransfer.pickupOwned(body, target.getUUID(), "left", before.revision(), () -> true);
+        require(pickup == BodyHandItemTransfer.Result.SUCCESS, "real world source committed to body hand: result="
+                + pickup + ", canonicalHit=" + canonicalHit + ", body=" + body.position() + ", eye="
+                + body.getEyePosition() + ", look=" + body.getLookAngle() + ", source=" + target.position()
+                + ", sourceRemoved=" + target.isRemoved() + ", sourcePresent="
+                + (level.getEntity(target.getUUID()) == target) + ", sourceStack=" + target.getItem()
+                + ", hand=" + body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).stackCopy("left")
+                + ", revision=" + body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).revision()
+                + ", startTime=" + startGameTime + ", now=" + level.getGameTime() + ", tick="
+                + startTickCount + "->" + body.tickCount + ", entityTicking="
+                + level.isPositionEntityTicking(body.blockPosition()));
         LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         require(target.isRemoved() && level.getEntity(target.getUUID()) == null
                 && after != null && after.revision() == before.revision() + 1

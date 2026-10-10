@@ -157,7 +157,9 @@ public final class BodyGiveCoreGameTests {
 
     private static Villager body(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
-        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED, "body hands initialized");
+        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.PRESERVED
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).compatible(body),
+                "joined body already has compatible live hands");
         return body;
     }
 

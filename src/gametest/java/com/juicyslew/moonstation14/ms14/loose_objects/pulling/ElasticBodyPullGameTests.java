@@ -8,8 +8,10 @@ import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
@@ -46,7 +48,7 @@ public final class ElasticBodyPullGameTests {
         require(ticket.entityTicking(actor.blockPosition()) && ticket.entityTicking(target.blockPosition()),
                 "puller, target, and selection footprint are entity-ticking before admission");
         kill(target);
-        aimAt(actor, visibleInteractionPoint(actor, target));
+        PullFixtureAim.aimAtVisibleInteractionPoint(actor, target);
         attach(actor, target);
         // The obstruction is installed after admission, so the fixture uses the same legitimate initial
         // body-pull selection as the existing trusted body-pull fixtures.
@@ -88,7 +90,7 @@ public final class ElasticBodyPullGameTests {
                         && ticket.entityTicking(selection),
                 "puller, target, and selection footprint are entity-ticking before admission");
         kill(target);
-        aimAt(actor, visibleInteractionPoint(actor, target));
+        PullFixtureAim.aimAtVisibleInteractionPoint(actor, target);
         attach(actor, target);
         helper.setBlock(new BlockPos(4, 2, 3), Blocks.STONE);
         GroundedHarnessWorldStep stepper = new GroundedHarnessWorldStep();
@@ -156,6 +158,13 @@ public final class ElasticBodyPullGameTests {
     // Ticket/ground readiness <=8 ticks + one callback handoff + 65 native tether steps = <=74 of 100.
     @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 100)
     public static void detachedDeadBodyMovesFromLiveActorsNativePull(GameTestHelper helper) {
+        // This fixture moves the puller across the whole corridor; require the declared template volume
+        // to provide that headroom instead of inheriting undeclared neighboring GameTest blocks.
+        for (int x = 1; x <= 14; x++) for (int z = 3; z <= 5; z++) for (int y = 2; y <= 4; y++) {
+            BlockPos pos = helper.absolutePos(new BlockPos(x, y, z));
+            require(helper.getLevel().getBlockState(pos).isAir(), "detached-pull corridor must be owned air: "
+                    + pos + " state=" + helper.getLevel().getBlockState(pos));
+        }
         for (int x = 1; x <= 14; x++) for (int z = 1; z <= 7; z++)
             helper.setBlock(new BlockPos(x, 1, z), Blocks.STONE);
         for (int x = 1; x <= 14; x++) for (int z = 1; z <= 7; z++)
@@ -178,7 +187,7 @@ public final class ElasticBodyPullGameTests {
         FixtureChunkTickets.awaitEntityTicking(helper, ticket, 8,
                 () -> actor.onGround() && body.onGround(), "puller and live target grounded", () -> {
             kill(body);
-            aimAt(actor, visibleInteractionPoint(actor, body));
+            PullFixtureAim.aimAtVisibleInteractionPoint(actor, body);
             attach(actor, body);
             ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(false);
             double startX = body.getX();
@@ -244,7 +253,7 @@ public final class ElasticBodyPullGameTests {
             ticks[0]++;
             if (ticks[0] == 3) {
                 startZ[0] = jug.getZ();
-                aimAt(actor, jug.getBoundingBox().getCenter());
+                PullFixtureAim.aimAtPoint(actor, jug.getBoundingBox().getCenter());
                 attach(actor, jug);
                 return;
             }
@@ -279,12 +288,20 @@ public final class ElasticBodyPullGameTests {
         }, actor.blockPosition(), jug.blockPosition());
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTestTags("suite-stabilization")
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 40)
     public static void stoppingOneChainLinkPreservesTheOtherUntilAllEndpointsClear(GameTestHelper helper) {
+        for (int x = 1; x <= 7; x++) for (int z = 1; z <= 7; z++) for (int y = 2; y <= 4; y++) {
+            BlockPos pos = helper.absolutePos(new BlockPos(x, y, z));
+            require(helper.getLevel().getBlockState(pos).isAir(), "pull-chain selector space must be declared air: "
+                    + pos + " state=" + helper.getLevel().getBlockState(pos));
+        }
         floor(helper);
         PlayerCharacterHarnessEntity a = harness(helper, new BlockPos(4, 2, 6));
         PlayerCharacterHarnessEntity b = harness(helper, new BlockPos(4, 2, 4));
         PlayerCharacterHarnessEntity c = harness(helper, new BlockPos(4, 2, 2));
+        PullFixtureAim.aimAtVisibleInteractionPoint(a, b);
+        PullFixtureAim.aimAtVisibleInteractionPoint(b, c);
         attach(a, b);
         attach(b, c);
         final int[] ticks = {0};
@@ -313,23 +330,6 @@ public final class ElasticBodyPullGameTests {
         require(result == BodyPullService.Result.SUCCESS, "trusted loose-item pull fixture admitted: " + result);
     }
 
-    private static void aimAt(PlayerCharacterHarnessEntity actor, Vec3 point) {
-        Vec3 eye = actor.getEyePosition();
-        double dx = point.x - eye.x, dy = point.y - eye.y, dz = point.z - eye.z;
-        actor.setYRot((float) Math.toDegrees(Math.atan2(-dx, dz)));
-        actor.setYHeadRot(actor.getYRot());
-        actor.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
-    }
-
-    private static Vec3 visibleInteractionPoint(PlayerCharacterHarnessEntity actor,
-                                                PlayerCharacterHarnessEntity target) {
-        var box = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of(target);
-        Vec3 eye = actor.getEyePosition();
-        return new Vec3(net.minecraft.util.Mth.clamp(eye.x, box.minX, box.maxX),
-                net.minecraft.util.Mth.clamp(eye.y, box.minY, box.maxY),
-                net.minecraft.util.Mth.clamp(eye.z, box.minZ, box.maxZ));
-    }
-
     private static int endpointCount(PlayerCharacterHarnessEntity entity) {
         RopeConstraintAttachment attachment = entity.getExistingDataOrNull(ModDataAttachments.ROPE_CONSTRAINT.get());
         return attachment == null ? 0 : attachment.constraints().size();
@@ -349,6 +349,27 @@ public final class ElasticBodyPullGameTests {
                 + ",rope=" + constraint;
     }
 
+    private static String pullAdmissionDiagnostic(GameTestHelper helper, PlayerCharacterHarnessEntity actor,
+                                                   PlayerCharacterHarnessEntity target,
+                                                   net.minecraft.world.phys.AABB bounds, Vec3 eye, Vec3 rayEnd,
+                                                   Vec3 rayPoint, net.minecraft.world.phys.BlockHitResult blockHit,
+                                                   com.juicyslew.moonstation14.component.codec.json.CharacterData actorData,
+                                                   LiveHands hands) {
+        String puller = actorData == null ? "unresolved" : "puller=" + actorData.component(
+                com.juicyslew.moonstation14.ms14.character.components.PullerComponent.class).isPresent();
+        String hand = hands == null ? "missing" : "revision=" + hands.revision() + ",ids=" + hands.handIds()
+                + ",reservation=" + hands.reservation("left") + ",stack=" + hands.stackCopy("left");
+        return "actor=" + actor.position() + ", eye=" + eye + ", look=" + actor.getLookAngle()
+                + ", canAct=" + com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(actor)
+                + ", " + puller + ", target=" + target.position() + ", targetAlive=" + target.isAlive()
+                + ", targetDead=" + MobStateSystem.isDead(target) + ", eligibleTarget="
+                + BodyPullService.eligibleTarget(target) + ", selected="
+                + (BodyPullService.probeSelected(helper.getLevel(), actor, target.getUUID()) == target)
+                + ", hand=" + hand + ", rayEnd=" + rayEnd + ", bounds=" + bounds + ", rayPoint=" + rayPoint
+                + ", blockHit=" + (blockHit == null ? "none" : blockHit.getType() + "@" + blockHit.getBlockPos())
+                + ", actorPulling=" + BodyPullService.isPulling(actor);
+    }
+
     private static void floor(GameTestHelper helper) {
         for (int x = 1; x <= 7; x++) for (int z = 1; z <= 7; z++)
             helper.setBlock(new BlockPos(x, 1, z), Blocks.STONE);
@@ -366,8 +387,11 @@ public final class ElasticBodyPullGameTests {
         body.move(net.minecraft.world.entity.MoverType.SELF, new Vec3(0d, -.05d, 0d));
         require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "elastic-pull",
                 UUID.randomUUID(), ModCharacters.HUMAN_ID), "harness bound as human character");
+        require(BodyHandBootstrap.ensure(body) != BodyHandBootstrap.Result.REJECTED,
+                "bound harness bootstraps composed body hands");
         ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
-        LiveHands.initialize(body).orElseThrow();
+        require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != null,
+                "binding bootstraps composed body hands");
         body.setYRot(180);
         body.setYHeadRot(180);
         return body;

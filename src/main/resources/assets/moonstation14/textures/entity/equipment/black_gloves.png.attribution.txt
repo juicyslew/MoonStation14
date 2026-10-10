@@ -1,0 +1,8 @@
+Asset: black_gloves
+Source collection: Asset Building Workspace/assets/Objects/Clothing/Wearables
+Selected RSI: Resources/Textures/Clothing/Hands/Gloves/Color/black.rsi
+License: CC-BY-SA-3.0
+Copyright/credit: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/4f6190e2895e09116663ef282d3ce1d8b35c032e. Inhand sprites made by SeamLesss, Inhand & equipped-HAND sprites modified by Prole0 (Github)
+Imported PNG SHA-256: 9ed14629f23307ba5c45b818d5805763453c79d27e47e25806ed04b797464f3d
+See docs/equipment-sprint/authored-wearables/source/manifest.json and ATTRIBUTION.md for source evidence and state details.
+Workspace-authored reconstruction/painting attribution is retained as documented there; not asserted as new authorship.

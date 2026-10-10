@@ -44,8 +44,10 @@ public final class BodyHandBootstrapGameTests {
         Villager human = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(3, 1, 1));
         helper.runAfterDelay(1, () -> {
-            require(!human.hasData(ModDataAttachments.LIVE_HANDS.get()), "no eager initialization");
-            require(BodyHandBootstrap.ensure(human) == BodyHandBootstrap.Result.INITIALIZED, "human starts hands");
+            require(human.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != null
+                    && human.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).compatible(human),
+                    "joined resolved character receives composed hands");
+            require(BodyHandBootstrap.ensure(human) == BodyHandBootstrap.Result.PRESERVED, "human hands already ready");
             LiveHands initial = human.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             require(initial != null && initial.handIds().equals(List.of("left", "right"))
                     && initial.revision() == 0 && initial.compatible(human)
@@ -70,9 +72,11 @@ public final class BodyHandBootstrapGameTests {
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void incompatibleAndLegacyOccupancyNeverOverwrite(GameTestHelper helper) {
         Villager human = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
-        Villager legacy = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 1, 1));
+        // This fixture specifically verifies that an unjoined legacy-only entity is not
+        // implicitly initialized by the normal character-join bootstrap.
+        Villager legacy = EntityType.VILLAGER.create(helper.getLevel());
         helper.runAfterDelay(1, () -> {
-            require(BodyHandBootstrap.ensure(human) == BodyHandBootstrap.Result.INITIALIZED, "fixture");
+            require(BodyHandBootstrap.ensure(human) == BodyHandBootstrap.Result.PRESERVED, "joined fixture is already initialized");
             LiveHands original = human.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             human.setData(ModDataAttachments.HANDS.get(), new HandAttachment(HandComponent.from(
                     HandState.create(List.of("left", "right"))
@@ -80,6 +84,11 @@ public final class BodyHandBootstrapGameTests {
             require(BodyHandBootstrap.ensure(human) == BodyHandBootstrap.Result.REJECTED
                     && human.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == original,
                     "legacy occupancy cannot replace existing live snapshot");
+            require(legacy != null, "unjoined legacy fixture");
+            require(CharacterIdentitySystem.enroll(legacy, helper.getLevel(), ModCharacters.HUMAN_ID)
+                    && CharacterIdentitySystem.resolveForActor(legacy).isPresent()
+                    && !legacy.hasData(ModDataAttachments.LIVE_HANDS.get()),
+                    "unjoined legacy fixture is explicitly enrolled but not automatically initialized");
             legacy.setData(ModDataAttachments.HANDS.get(), new HandAttachment(HandComponent.from(
                     HandState.create(List.of("left", "right"))
                             .place("right", new ItemToken("old-token")).state())));
@@ -100,6 +109,10 @@ public final class BodyHandBootstrapGameTests {
                     && human.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == carried
                     && carried.stackCopy("left").orElseThrow().getCount() == 3,
                     "compatible occupied snapshot retains item, revision and active hand");
+            require(LiveHands.initialize(human).orElseThrow() == carried
+                    && human.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == carried
+                    && carried.revision() == 7 && carried.stackCopy("left").orElseThrow().getCount() == 3,
+                    "explicit repeated initialization returns exact occupied snapshot without writes");
             Pig wrongHost = EntityType.PIG.create(helper.getLevel());
             require(wrongHost != null, "wrong-host fixture");
             CharacterIdentityAttachment falseHuman = new CharacterIdentityAttachment();
