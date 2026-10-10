@@ -49,7 +49,7 @@ public final class PowerFixtureReadiness {
             throw new GameTestAssertException("loaded power fixture did not become authoritative before bounded deadline; elapsedHelperTicks="
                     + elapsed + "/" + maxHelperTicks + " elapsedLevelTicks=" + elapsedLevelTicks + "/" + maxHelperTicks
                     + " levelGameTime=" + level.getGameTime() + " state=" + diagnostic.get());
-        helper.runAfterDelay(1, () -> poll(helper, level, startHelperTick, startLevelGameTime,
+        BoundedGameTestWait.safeDelay(helper, 1, () -> poll(helper, level, startHelperTick, startLevelGameTime,
                 maxHelperTicks, ready, diagnostic, onReady));
     }
 }

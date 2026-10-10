@@ -13,6 +13,11 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void medicalPocketCountUsesDeclaredCapNotOnlyNativeItemCap() {
+        assertTrue(BodyHandClientPolicy.equipmentCountFits(10, 64, true));
+        assertFalse(BodyHandClientPolicy.equipmentCountFits(11, 10, true));
+        assertFalse(BodyHandClientPolicy.equipmentCountFits(2, 64, false));
+    }
     @Test void syringeGesturesRouteModeDoseAndBodyUseSeparately() {
         assertEquals(MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE,
                 MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, false, true));
@@ -20,9 +25,8 @@ class BodyHandClientPolicyTest {
                 MedicalUseGesturePolicy.inHand(MedicalUseGesturePolicy.Kind.SYRINGE, true, true));
         assertTrue(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, false, false));
         assertFalse(MedicalUseGesturePolicy.primaryBodyUse(MedicalUseGesturePolicy.Kind.SYRINGE, true, true, false));
-        assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT,
-                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values()[
-                        com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values().length - 1]);
+        assertTrue(java.util.List.of(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.values())
+                .contains(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT));
     }
     @Test void configuredKeyMatcherHonorsRemappedKeyAndModifier() {
         var mapping=new net.minecraft.client.KeyMapping("test.binding",
@@ -498,6 +502,7 @@ class BodyHandClientPolicyTest {
         assertTrue(blockUse > 0);
         var pipeStep = new com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData.ConstructionStep(2,0,"moonstation14:steel");
         assertTrue(policy.blockUseBarrier()); // request sent; awaiting result
+        assertSame(hands, policy.confirmedSnapshot()); // read-only configurator proof survives the action-input barrier
         assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(policy.blockUseBarrier(),true,
                 "moonstation14:disposal_bend",pipeStep,"moonstation14:steel"));
         assertNotNull(policy.hudSnapshot());
@@ -505,6 +510,7 @@ class BodyHandClientPolicyTest {
         assertEquals(0, policy.blockUseSequence(3)); // one outstanding use until correlated completion
         assertTrue(policy.blockUseResult(new com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult(
                 7, blockUse, com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult.Outcome.PLACED)));
+        assertNull(policy.confirmedSnapshot()); // mutating result invalidates the old authority snapshot
         assertTrue(policy.blockUseBarrier()); // result received; authoritative refresh still pending
         assertTrue(BodyHandClientPolicy.mayDeferConstructionUse(policy.blockUseBarrier(),true,
                 "moonstation14:disposal_router",pipeStep,"moonstation14:steel"));
@@ -537,6 +543,7 @@ class BodyHandClientPolicyTest {
                 ACCOUNT, BODY, 7, 3, "left", hands.hands())));
         policy.suspend();
         assertEquals(0, policy.blockUseSequence(48));
+        assertNull(policy.confirmedSnapshot());
     }
 
     @Test void lostBlockUseAckAndQueryTimeoutFailClosedAndRetryOnce() {

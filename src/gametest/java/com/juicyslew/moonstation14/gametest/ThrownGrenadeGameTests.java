@@ -60,7 +60,7 @@ public final class ThrownGrenadeGameTests {
                 "world staging keeps the absolute deadline");
         helper.runAfterDelay(2, () -> {
             helper.assertTrue(grenade.isAlive(), "grenade remains alive before deadline");
-            helper.runAfterDelay(10, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> {
                 helper.assertTrue(level.getGameTime() >= deadline, "expiry check is after deadline");
                 helper.assertTrue(grenade.isRemoved(), "world projectile fuse expires and removes projectile");
                 helper.succeed();

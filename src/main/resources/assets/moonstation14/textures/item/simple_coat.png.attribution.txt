@@ -1,0 +1,6 @@
+Source: SS14 pinned c9df5ef5d675b0d1d226828bddf6b78c28502d91
+RSI: Clothing/OuterClothing/Coats/labcoat.rsi
+State: icon
+License: CC-BY-SA-3.0
+Copyright: Made by Flareguy for Space Station 14, original base sprite from tgstation at commit https://github.com/tgstation/tgstation/commit/4f6190e2895e09116663ef282d3ce1d8b35c032e
+

@@ -71,7 +71,15 @@ public final class BodyMachineSlotEjectionFallbackGameTests {
     private static Villager body(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
         body.setNoAi(true);
-        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED, "compatible fixture hands initialized");
+        var readiness = BodyHandBootstrap.ensure(body);
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var prototypeHands = com.juicyslew.moonstation14.ms14.hands.HandCapability.resolve(body);
+        require((readiness == BodyHandBootstrap.Result.INITIALIZED || readiness == BodyHandBootstrap.Result.PRESERVED)
+                        && hands != null && hands.compatible(body)
+                        && prototypeHands.filter(hands.handIds()::equals).isPresent(),
+                "fixture body has compatible hands at readiness boundary (result=" + readiness
+                        + ", resolved=" + prototypeHands.orElse(java.util.List.of()) + ", live="
+                        + (hands == null ? "absent" : hands.handIds()) + ")");
         return body;
     }
     private static MachineItemSlot slot(Villager body, ItemLocationLedger ledger) {

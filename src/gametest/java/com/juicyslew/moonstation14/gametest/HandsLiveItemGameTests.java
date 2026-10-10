@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway;
@@ -38,17 +39,23 @@ public final class HandsLiveItemGameTests {
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void liveStacksPersistComponentsAndReadsDoNotInitialize(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        Villager detachedHuman = EntityType.VILLAGER.create(helper.getLevel());
         Zombie unbound = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 1, 1));
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(5, 1, 1));
         helper.runAfterDelay(1, () -> {
-            require(!LiveHands.isEmptyHand(body, "left") && !body.hasData(ModDataAttachments.LIVE_HANDS.get()),
-                    "absence cannot authorize empty-hand actions");
+            require(detachedHuman != null && CharacterIdentitySystem.enroll(detachedHuman, helper.getLevel(), ModCharacters.HUMAN_ID),
+                    "detached control fixture explicitly enrolls as human");
+            LiveHands normalSpawn = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(normalSpawn != null && normalSpawn.compatible(body) && normalSpawn.revision() == 0
+                            && !LiveHands.isEmptyHand(detachedHuman, "left")
+                            && !detachedHuman.hasData(ModDataAttachments.LIVE_HANDS.get()),
+                    "joined human is ready; read-only absence on detached human does not initialize");
             require(LiveHands.initialize(pig).isEmpty() && LiveHands.initialize(unbound).isEmpty()
                             && !pig.hasData(ModDataAttachments.LIVE_HANDS.get())
                             && !unbound.hasData(ModDataAttachments.LIVE_HANDS.get()),
                     "pig and unbound actor cannot inherit human hands");
-            require(LiveHands.initialize(body).isPresent() && LiveHands.isEmptyHand(body, "left"),
-                    "bound human can explicitly initialize an empty layout");
+            require(LiveHands.initialize(body).orElseThrow() == normalSpawn && LiveHands.isEmptyHand(body, "left"),
+                    "repeated explicit initialization preserves ready empty layout");
             LiveHands initialized = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             LiveHands selected = initialized.selectActive(initialized.revision(), "right").orElseThrow();
             require(!LiveHandsCommitGateway.commitTrusted(body, selected, selected)

@@ -141,18 +141,18 @@ public final class DisposalTransportGameTests {
                         + holder.position() + ", currentTube=" + holder.currentPos() + ", removed=" + holder.isRemoved());
             }
             long selectedAt = helper.getLevel().getGameTime();
-            helper.runAfterDelay(2, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                 require(holder.currentPos().equals(bend) && atCellCenter(holder, straight),
                         "straight physical arrival expected at gameTime " + (selectedAt + 2) + "; observed="
                                 + helper.getLevel().getGameTime() + ", position=" + holder.position()
                                 + ", currentTube=" + holder.currentPos() + ", removed=" + holder.isRemoved());
                 require(!holder.isRemoved(), "actual bend turn continues rather than bouncing");
-                helper.runAfterDelay(2, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                     require(holder.currentPos().equals(exit) && atCellCenter(holder, bend),
                             "bend physical arrival expected at gameTime " + (selectedAt + 4) + "; observed="
                                     + helper.getLevel().getGameTime() + ", position=" + holder.position()
                                     + ", currentTube=" + holder.currentPos() + ", removed=" + holder.isRemoved());
-                    helper.runAfterDelay(5, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5, () -> {
                         require(holder.isRemoved(), "open endpoint exits holder after bounded release");
                         require(source.snapshot().isEmpty(), "source store relinquished payload");
                         require(ledger.snapshot().locations().get(token) instanceof ItemLocation.WorldEntity,

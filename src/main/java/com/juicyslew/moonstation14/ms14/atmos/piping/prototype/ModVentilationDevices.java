@@ -18,6 +18,27 @@ public final class ModVentilationDevices {
     public static final ResourceLocation SCRUBBER = id("gas_scrubber");
     public static final PrototypeType<VentilationDeviceData> VENTILATION_DEVICE_TYPE = new PrototypeType<>(
             id("ventilation_device"), "moonstation14/ventilation_device", VentilationDeviceData.CODEC,
+            new com.juicyslew.moonstation14.ms14.prototype.PrototypeMergeStrategy() {
+                @Override public boolean handles(String field) { return field.equals("deviceComponents"); }
+                @Override public JsonElement merge(String field, ResourceLocation id, JsonObject child, java.util.List<JsonObject> parents) {
+                    JsonObject merged = new JsonObject();
+                     for (JsonObject parent : parents) if (parent.has(field) && parent.get(field).isJsonObject()) overlay(merged, parent.getAsJsonObject(field));
+                     if (child.has(field) && child.get(field).isJsonObject()) overlay(merged, child.getAsJsonObject(field));
+                     return merged;
+                 }
+
+                 private void overlay(JsonObject target, JsonObject source) {
+                     for (var entry : source.entrySet()) {
+                         JsonElement old = target.get(entry.getKey());
+                         JsonElement value = entry.getValue();
+                         if (old != null && old.isJsonObject() && value.isJsonObject()) {
+                             JsonObject nested = old.getAsJsonObject().deepCopy();
+                             overlay(nested, value.getAsJsonObject());
+                             target.add(entry.getKey(), nested);
+                         } else target.add(entry.getKey(), value.deepCopy());
+                     }
+                 }
+            },
             ModVentilationDevices::validateInheritance, ModVentilationDevices::validateCatalog);
 
     private ModVentilationDevices() { }
@@ -38,8 +59,8 @@ public final class ModVentilationDevices {
                 || !base.has("pipeLane") || !base.has("apcPowerReceiver")
                   || !base.has("extensionCableReceiver")
                   || !base.has("fixtureGeometry")
-                 || !base.keySet().equals(Set.of("abstract", "pipeLane", "apcPowerReceiver",
-                          "extensionCableReceiver", "fixtureGeometry")))
+                  || !Set.of("abstract", "pipeLane", "apcPowerReceiver", "extensionCableReceiver",
+                           "fixtureGeometry", "deviceComponents").containsAll(base.keySet()))
             throw new IllegalArgumentException("gas_unary_base must be an abstract shared parent without kind components");
         for (ResourceLocation id : Set.of(VENT, SCRUBBER)) {
             JsonObject child = raw.get(id);

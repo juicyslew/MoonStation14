@@ -51,6 +51,12 @@ Latest isolated full-run failures: `localextensionreceiverrespectsradiusandcable
 - Evidence: `build/gametest-tags-isolated-{chat,union,full}.log`; failure world retained at `build/gametest-tags-fixture`. Build evidence is ignored by Git; copy explicitly if needed in another worktree.
 - Earlier runs used owner `run/config`, where atmosphere was enabled, and produced isolation-guard failures. Those are superseded by the correctly isolated runs; owner configuration was not overwritten.
 
+## NATIVE SCHEDULER SAFETY FOLLOW-UP
+
+GameTest callbacks dispatched from task-map iteration must not recursively add another task-map entry. Recursive readiness polls and nested callback scheduling use `BoundedGameTestWait.safeDelay` (or `safeAtTickTime` when retaining an absolute test tick); its native sequence bridge defers registration until sequence processing has completed. Calls made in main fixture setup and native-sequence `thenExecute` callbacks remain native `runAfterDelay` calls: those registration points are already safe, and mutating the active sequence collection is not.
+
+The follow-up parsed 287 fixture files with a disposable Javac AST audit, migrated 86 task-phase sites and 27 manually classified callbacks, and corrected two additional indirect recursive power waiters. The final direct-call inventory had zero flagged/manual cases; main/prequeued and sequence-phase registrations stay native. Two scheduling stress fixtures passed (2/730 selected). Full-suite acceptance is recorded in `docs/airlock-vertical-model-mini-sprint/FAILURE-REPAIR.md`, not inferred from the audit or stress tests. Earlier interrupted runs with zero assertion failures were not completed passes.
+
 ## NEXT WORK
 
 Integrate `build.gradle`, new support sources, unit test and fixture migration together. For fixtures added by another agent, remove automatic holders, add tags and explicit template namespace, and preserve their existing prefix/batch/test attributes. Include all new untracked files; a tracked-only diff is incomplete.

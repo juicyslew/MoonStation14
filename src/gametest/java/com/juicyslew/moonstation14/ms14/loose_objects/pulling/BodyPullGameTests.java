@@ -2,15 +2,21 @@ package com.juicyslew.moonstation14.ms14.loose_objects.pulling;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyHandBootstrap;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandComponent;
 import com.juicyslew.moonstation14.ms14.hands.HandState;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
+import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.character.components.PullableComponent;
+import com.juicyslew.moonstation14.ms14.character.components.PullerComponent;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.juicyslew.moonstation14.ms14.organ.BodySystem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -19,6 +25,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
@@ -29,21 +37,26 @@ import java.util.List;
 public final class BodyPullGameTests {
     private BodyPullGameTests() { }
 
-    @GameTestTags("suite-stabilization")
+    @GameTestTags("full-suite-movement-regression")
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
     public static void pullsDeadHumanTargetAndReleasesWhenSourceBecomesCritical(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        var ticket = FixtureChunkTickets.around(helper, origin, origin.offset(10, 0, 0), 1);
         Villager source = human(level, origin.getX() + .5, origin.getY(), origin.getZ() + .5);
         Villager target = human(level, origin.getX() + 2.5, origin.getY(), origin.getZ() + .5);
-        LiveHands sourceHands = LiveHands.initialize(source).orElseThrow();
-        LiveHands targetHands = LiveHands.initialize(target).orElseThrow();
+        require(ticket.entityTicking(source.blockPosition()) && ticket.entityTicking(target.blockPosition()),
+                "source, target, and selection-ray chunks are entity-ticking before pull admission");
+        LiveHands sourceHands = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        LiveHands targetHands = target.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(sourceHands != null && targetHands != null, "enrollment bootstraps composed body hands");
         require(DamageSystem.applyHealthChange(target, Map.of(DamageKeys.BLUNT, 200f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isDead(target), "target enters native DEAD state");
         PullFixtureAim.aimAtVisibleInteractionPoint(source, target);
         var targetId = target.getUUID();
         require(BodyPullService.toggleFixture(source, targetId, "left", sourceHands.revision(), () -> true)
-                == BodyPullService.Result.SUCCESS, "dead human target can be pulled");
+                == BodyPullService.Result.SUCCESS, "dead human target can be pulled; "
+                        + pullAdmissionDiagnostic(source, target, () -> true));
         require(BodyPullService.toggleFixture(target, source.getUUID(), "left", targetHands.revision(), () -> true)
                 != BodyPullService.Result.SUCCESS, "another body cannot reserve the already-pulled target");
         require(source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).reservation("left")
@@ -68,6 +81,7 @@ public final class BodyPullGameTests {
                 "medical incapacitation stops pull and releases its hand");
         require(!source.getExistingDataOrNull(ModDataAttachments.POSTURE.get()).data().pulling(),
                 "stopped pull clears pulling posture flag");
+        ticket.close();
         helper.succeed();
     }
 
@@ -81,7 +95,8 @@ public final class BodyPullGameTests {
         source.setYRot(90);
         source.setYHeadRot(90);
         PullFixtureAim.aimAtVisibleInteractionPoint(source, target);
-        LiveHands hands = LiveHands.initialize(source).orElseThrow();
+        LiveHands hands = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(hands != null, "enrollment bootstraps composed body hands");
         var targetId = target.getUUID();
         require(BodyPullService.toggleFixture(source, targetId, "left", hands.revision(), () -> true)
                         == BodyPullService.Result.SUCCESS,
@@ -112,7 +127,8 @@ public final class BodyPullGameTests {
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
         Villager source = human(level, origin.getX() + .5, origin.getY(), origin.getZ() + .5);
         Villager target = human(level, origin.getX() + 2.5, origin.getY(), origin.getZ() + .5);
-        LiveHands hands = LiveHands.initialize(source).orElseThrow();
+        LiveHands hands = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(hands != null, "enrollment bootstraps composed body hands");
         require(BodyPullService.toggleFixture(source, target.getUUID(), "left", hands.revision(), () -> true)
                         == BodyPullService.Result.SUCCESS,
                 "pull starts before puller removal");
@@ -133,7 +149,8 @@ public final class BodyPullGameTests {
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
         Villager source = human(level, origin.getX() + .5, origin.getY(), origin.getZ() + .5);
         Villager target = human(level, origin.getX() + 2.5, origin.getY(), origin.getZ() + .5);
-        LiveHands initial = LiveHands.initialize(source).orElseThrow();
+        LiveHands initial = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(initial != null, "enrollment bootstraps composed body hands");
         var encoded = LiveHands.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, initial)
                 .getOrThrow().getAsJsonObject();
         var slots = encoded.getAsJsonArray("hands");
@@ -192,9 +209,83 @@ public final class BodyPullGameTests {
         body.setXRot(0);
         require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level, ModCharacters.HUMAN_ID)
                 && BodySystem.reconcile(body), "villager enrolled as human body");
+        require(BodyHandBootstrap.ensure(body) != BodyHandBootstrap.Result.REJECTED,
+                "enrolled body bootstraps composed body hands");
         body.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
         body.setHealth(40f);
         return body;
+    }
+
+    static String pullAdmissionDiagnostic(LivingEntity body, net.minecraft.world.entity.Entity target,
+                                          java.util.function.BooleanSupplier authorityValid) {
+        var actorData = ActiveCharacterPolicy.resolveActor(body);
+        var targetData = ActiveCharacterPolicy.resolveActor(target);
+        boolean puller = actorData.flatMap(data -> data.component(PullerComponent.class)).isPresent();
+        boolean pullable = targetData.flatMap(data -> data.component(PullableComponent.class)).isPresent();
+        Vec3 eye = body.getEyePosition();
+        Vec3 rayEnd = eye.add(body.getLookAngle().scale(5.0));
+        var targetBox = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of((LivingEntity) target);
+        Vec3 selectedPoint = com.juicyslew.moonstation14.ms14.standing.BodyInteractionRay
+                .hit(targetBox, eye, rayEnd, 5.0, Double.POSITIVE_INFINITY).orElse(null);
+        boolean visible = false;
+        Object blockHit = "not-tested";
+        boolean selectionChunksLoaded = false;
+        if (selectedPoint != null && body.level() instanceof net.minecraft.server.level.ServerLevel level) {
+            var endpoint = net.minecraft.core.BlockPos.containing(selectedPoint);
+            int minX = Math.min(body.blockPosition().getX(), endpoint.getX()) >> 4;
+            int maxX = Math.max(body.blockPosition().getX(), endpoint.getX()) >> 4;
+            int minZ = Math.min(body.blockPosition().getZ(), endpoint.getZ()) >> 4;
+            int maxZ = Math.max(body.blockPosition().getZ(), endpoint.getZ()) >> 4;
+            selectionChunksLoaded = true;
+            for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++)
+                selectionChunksLoaded &= level.getChunkSource().getChunkNow(x, z) != null;
+            var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, selectedPoint,
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                    net.minecraft.world.level.ClipContext.Fluid.NONE, body));
+            blockHit = hit.getType() + (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                    ? ":" + ((net.minecraft.world.phys.BlockHitResult) hit).getBlockPos() : "");
+            visible = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+        }
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        return "source=" + body.getUUID() + " pos=" + body.position() + " alive=" + body.isAlive()
+                + " critical=" + MobStateSystem.isCritical(body) + " dead=" + MobStateSystem.isDead(body)
+                + " stunned=" + CharacterControlSystem.isStunned(body) + " canAct=" + CharacterControlSystem.canAct(body)
+                + " actorIdentity=" + identityId(body)
+                + " actorResolved=" + actorData.isPresent() + " puller=" + puller
+                + " hands=" + (hands == null ? null : "compatible=" + hands.compatible(body) + ",revision=" + hands.revision())
+                + " target=" + target.getUUID() + " targetPos=" + target.position() + " targetPresent="
+                + (body.level() instanceof net.minecraft.server.level.ServerLevel serverLevel
+                && serverLevel.getEntity(target.getUUID()) == target) + " targetRemoved=" + target.isRemoved()
+                + " targetIdentity=" + identityId(target)
+                + " targetResolved=" + targetData.isPresent() + " pullable=" + pullable
+                + " authorityValid=" + authorityValid.getAsBoolean() + " rayPoint=" + selectedPoint
+                + " rayDistance=" + (selectedPoint == null ? "none" : eye.distanceTo(selectedPoint))
+                + " rayReach=5.0 selectionChunksLoaded=" + selectionChunksLoaded
+                + " visible=" + visible + " blockHit=" + blockHit + " targetAlive="
+                + (target instanceof LivingEntity living && living.isAlive()) + " targetCritical="
+                + (target instanceof LivingEntity living && MobStateSystem.isCritical(living)) + " targetDead="
+                + (target instanceof LivingEntity living && MobStateSystem.isDead(living));
+    }
+
+    private static Vec3 visibleInteractionPoint(LivingEntity body, LivingEntity target) {
+        var box = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of(target);
+        Vec3 eye = body.getEyePosition();
+        return new Vec3(net.minecraft.util.Mth.clamp(eye.x, box.minX, box.maxX),
+                net.minecraft.util.Mth.clamp(eye.y, box.minY, box.maxY),
+                net.minecraft.util.Mth.clamp(eye.z, box.minZ, box.maxZ));
+    }
+
+    private static void aimAt(LivingEntity body, Vec3 point) {
+        Vec3 eye = body.getEyePosition();
+        double dx = point.x - eye.x, dy = point.y - eye.y, dz = point.z - eye.z;
+        body.setYRot((float) Math.toDegrees(Math.atan2(-dx, dz)));
+        body.setYHeadRot(body.getYRot());
+        body.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+    }
+
+    private static Object identityId(net.minecraft.world.entity.Entity entity) {
+        var identity = entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        return identity == null ? null : identity.characterId();
     }
 
     private static void require(boolean condition, String message) {

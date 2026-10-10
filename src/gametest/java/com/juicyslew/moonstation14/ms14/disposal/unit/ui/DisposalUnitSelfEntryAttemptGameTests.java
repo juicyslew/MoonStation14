@@ -57,7 +57,7 @@ public final class DisposalUnitSelfEntryAttemptGameTests {
             require(level.getGameTime() - started < attempt.requiredTicks(), "nine real world ticks remain before deadline");
             require(unit.bodyIds().isEmpty() && BodyContainmentService.forLevel(level).ownerOf(body).isEmpty(), "no early insertion");
             require(attempt.advance(level.getGameTime(), true).result() == DisposalUnitSelfEntryAttempt.Result.WAIT, "waits at nine ticks");
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 var entered = attempt.advance(level.getGameTime(), true);
                 require(level.getGameTime() - started >= attempt.requiredTicks(), "real world clock crossed deadline");
                 require(entered.result() == DisposalUnitSelfEntryAttempt.Result.ENTERED, "deadline enters via real unit insertion");

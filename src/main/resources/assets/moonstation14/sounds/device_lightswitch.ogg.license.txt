@@ -1,0 +1,8 @@
+Upstream: Space Station 14, Resources/Audio/Machines/lightswitch.ogg
+Commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+SHA-256: be52cc82754a6a3893f9493b082e5e572b052506a5fceebef8775bc4f920e62b
+Copied verbatim without audio edits.
+
+Attribution and license from Resources/Audio/Machines/attributions.yml:
+CC-BY-SA-3.0; copyright Skyrat-SS13.
+Source: https://github.com/Skyrat-SS13/Skyrat-tg/blob/3f6099bbc3c2afdc609bf1991c2f06297a0f13c2/modular_skyrat/modules/aesthetics/lightswitch/sound/lightswitch.ogg

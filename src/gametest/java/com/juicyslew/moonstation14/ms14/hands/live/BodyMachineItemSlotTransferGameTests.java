@@ -22,6 +22,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -182,9 +183,17 @@ public final class BodyMachineItemSlotTransferGameTests {
     private static Villager body(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
         body.setNoAi(true);
+        var readiness = BodyHandBootstrap.ensure(body);
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var prototypeHands = com.juicyslew.moonstation14.ms14.hands.HandCapability.resolve(body);
         require(helper.getBounds().contains(body.position()) && insideScene(helper, body.blockPosition())
-                        && BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED,
-                "in-bounds compatible human hands initialized");
+                        && (readiness == BodyHandBootstrap.Result.INITIALIZED
+                        || readiness == BodyHandBootstrap.Result.PRESERVED)
+                        && hands != null && hands.compatible(body)
+                        && prototypeHands.filter(hands.handIds()::equals).isPresent(),
+                "in-bounds body has compatible hands at readiness boundary (result=" + readiness
+                        + ", resolved=" + prototypeHands.orElse(List.of()) + ", live="
+                        + (hands == null ? "absent" : hands.handIds()) + ")");
         return body;
     }
     private static void awaitWorldPickup(GameTestHelper helper, Villager body, LooseItemEntity worldPayload,

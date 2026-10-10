@@ -27,7 +27,8 @@ import java.util.UUID;
 public final class CharacterControlGameTests {
     private CharacterControlGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 140)
+    @GameTestTags({"posture_knockdown"})
     public static void authoritativeKnockdownDrivesRendererProjectionUntilExpiry(GameTestHelper helper) {
         FakePlayer player = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "knockdown-projection"));
         player.setPos(2.5, 1, 2.5);
@@ -35,27 +36,39 @@ public final class CharacterControlGameTests {
         helper.runAfterDelay(1, () -> {
             require(CharacterControlSystem.applyParalyze(player, 3), "bound player accepts paralyze");
             require(CharacterControlSystem.isKnockedDown(player), "authoritative knockdown status is active");
+            require(com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(player)
+                            && player.getPose() == net.minecraft.world.entity.Pose.SWIMMING
+                            && Math.abs(player.getBoundingBox().getYsize() - .6) < .001,
+                    "actual PlayerCharacterHarness player is physically prone with lowered dimensions");
             require(KnockdownRenderPolicy.shouldRenderProne(player),
                     "production renderer adapter projects active synchronized knockdown");
-            helper.runAfterDelay(4, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 102, () -> {
                 require(!CharacterControlSystem.isKnockedDown(player), "knockdown status expires");
                 require(!KnockdownRenderPolicy.shouldRenderProne(player),
                         "renderer adapter restores standing rotation after status expiry");
-                helper.succeed();
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 25, () -> {
+                    require(!com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(player),
+                            "posture auto-stands after finite hold and existing get-up timer");
+                    helper.succeed();
+                });
             });
         });
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void boundHumanPlayerAndVillagerShareTimedStunPolicy(GameTestHelper helper) {
+        var tickets = com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets.around(
+                helper, new BlockPos(1, 1, 1), new BlockPos(4, 1, 1), 2);
         Villager villager = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         var pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 1));
         var cow = helper.spawn(EntityType.COW, new BlockPos(4, 1, 1));
         FakePlayer player = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "stun-policy"));
         player.setPos(3.5, 1, 1.5);
         require(helper.getLevel().addFreshEntity(player), "fake player must join");
-        helper.runAfterDelay(1, () -> {
+        com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets.awaitEntityTicking(
+                helper, tickets, 8, () -> helper.runAfterDelay(1, () -> {
             require(CharacterControlSystem.applyStun(villager, 3), "bound villager accepts stun");
+            int villagerTickAtApply = villager.tickCount;
             require(CharacterControlSystem.applyStun(player, 3), "bound player accepts stun");
             require(CharacterControlSystem.isStunned(villager), "bound villager must report active stun");
             require(CharacterControlSystem.isStunned(player), "bound fake player must report active stun");
@@ -85,8 +98,16 @@ public final class CharacterControlGameTests {
             require(!cow.hasData(ModDataAttachments.STATUS_EFFECT.get()),
                     "failed profile resolution must not create status storage");
 
-            // Check after the scheduled third status-effect tick has completed.
-            helper.runAfterDelay(4, () -> {
+            // Status durations advance on native living ticks, not GameTest sequence ticks.
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.await(helper, 8,
+                    () -> "stun expiry did not complete naturally: villagerNativeTickDelta="
+                            + (villager.tickCount - villagerTickAtApply)
+                            + ", liveActorTicker=LivingEntity.tickCount, villagerRemainingStatusInstance="
+                            + MS14Provider.get(villager, MS14Bridges.STATUS_EFFECT)
+                            .get(ModStatusEffects.createKey("statuseffectstunned")),
+                    () -> villager.tickCount - villagerTickAtApply >= 3
+                            && !CharacterControlSystem.isStunned(villager)
+                            && !CharacterControlSystem.isStunned(player), () -> {
                 require(!CharacterControlSystem.isStunned(villager), "finite status expiry clears villager stun");
                 require(!CharacterControlSystem.isStunned(player), "finite status expiry clears fake player stun");
                 require(CharacterControlSystem.canAct(villager) && CharacterControlSystem.canAct(player),
@@ -99,7 +120,7 @@ public final class CharacterControlGameTests {
                         "expired status attachment entry is removed");
                 helper.succeed();
             });
-        });
+        }), new BlockPos(1, 1, 1), new BlockPos(2, 1, 1), new BlockPos(3, 1, 1), new BlockPos(4, 1, 1));
     }
 
     private static void require(boolean condition, String message) {

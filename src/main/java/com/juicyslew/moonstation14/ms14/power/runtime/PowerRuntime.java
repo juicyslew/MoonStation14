@@ -174,48 +174,140 @@ public final class PowerRuntime {
                 && chemMasterMeter(level, expected).known();
     }
     public static VentMeterObservation disposalUnitMeter(ServerLevel level, DisposalUnitBlockEntity expected) {
-        if (expected == null || expected.isRemoved()) return VentMeterObservation.UNKNOWN;
+        return disposalUnitMeterCheck(level, expected).observation();
+    }
+
+    public static String disposalUnitMeterDiagnostic(ServerLevel level, DisposalUnitBlockEntity expected) {
+        DisposalMeterCheck check = disposalUnitMeterCheck(level, expected);
+        DisposalMeterSample sample = check.sample();
+        return check.reason() + (sample == null ? " sample=absent" : " sampleTick=" + sample.sampleTick()
+                + " sampleGeneration=" + sample.topologyGeneration() + " sampleWatts=" + sample.deliveredWatts()
+                + " sampleUnitIdentity=" + (sample.unit() == expected)
+                + " samplePrototypeIdentity=" + (expected != null && sample.prototype() == expected.prototype())
+                + " sampleApc=" + (sample.apc() == null ? "none" : sample.apc().getBlockPos().toShortString())
+                + " sampleBreakerRevision=" + sample.breakerRevision())
+                + " " + PowerGraphService.diagnosticSnapshot(level);
+    }
+
+    private record DisposalMeterCheck(VentMeterObservation observation, String reason, DisposalMeterSample sample) { }
+
+    private static DisposalMeterCheck disposalMeterCheck(VentMeterObservation observation, String reason,
+                                                          DisposalMeterSample sample) {
+        return new DisposalMeterCheck(observation, reason, sample);
+    }
+
+    private static DisposalMeterCheck disposalUnitMeterCheck(ServerLevel level, DisposalUnitBlockEntity expected) {
+        if (expected == null) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "expected=missing", null);
+        if (expected.isRemoved()) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "expected=removed", null);
         BlockPos pos = expected.getBlockPos();
         if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
-                || chunk.getBlockEntity(pos) != expected || !PowerGraphService.topologyReady(level)) return VentMeterObservation.UNKNOWN;
+                ) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "unitChunk=not-full", null);
+        if (chunk.getBlockEntity(pos) != expected) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "unitIdentity=stale", null);
+        if (!PowerGraphService.topologyReady(level)) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "topology=not-ready", null);
         DisposalMeterSample sample = DISPOSAL_METERS.getOrDefault(level, Map.of()).get(pos);
-        if (!expected.participatesInPowerLoad() || sample == null || sample.unit() != expected || sample.prototype() != expected.prototype()
-                || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
-                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE
-                || sample.apc() == null || sample.apc().isRemoved() || !sample.apc().breakerClosed()
-                || sample.apc().breakerRevision() != sample.breakerRevision()
-                || sample.deliveredWatts() != sample.prototype().powerWatts()) return VentMeterObservation.UNKNOWN;
+        if (!expected.participatesInPowerLoad()) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "unit=not-participating", sample);
+        if (sample == null) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "sample=absent", null);
+        if (sample.unit() != expected) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "sampleUnit=identity-mismatch", sample);
+        if (sample.prototype() != expected.prototype()) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "samplePrototype=identity-mismatch", sample);
+        long generation = PowerGraphService.topologyGeneration(level);
+        if (sample.topologyGeneration() != generation) return disposalMeterCheck(VentMeterObservation.UNKNOWN,
+                "generation=mismatch(sample=" + sample.topologyGeneration() + ",current=" + generation + ")", sample);
+        if (serverTickSequence < sample.sampleTick()) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "sample=future", sample);
+        long age = serverTickSequence - sample.sampleTick();
+        if (age > TICKS_PER_SOLVE) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "sample=stale(age=" + age + ")", sample);
+        if (sample.apc() == null) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "apc=missing", sample);
+        if (sample.apc().isRemoved()) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "apc=removed", sample);
+        if (!sample.apc().breakerClosed()) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "apc=breaker-open", sample);
+        if (sample.apc().breakerRevision() != sample.breakerRevision()) return disposalMeterCheck(VentMeterObservation.UNKNOWN,
+                "apc=breaker-revision-mismatch(current=" + sample.apc().breakerRevision() + ")", sample);
+        if (sample.deliveredWatts() != sample.prototype().powerWatts()) return disposalMeterCheck(VentMeterObservation.UNKNOWN,
+                "delivery=mismatch(expected=" + sample.prototype().powerWatts() + ")", sample);
         BlockPos apcPos = sample.apc().getBlockPos();
         if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk apcChunk)
-                || apcChunk.getBlockEntity(apcPos) != sample.apc()
-                || !(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock apcBlock)
-                || apcBlock.kind() != PowerDeviceKind.APC) return VentMeterObservation.UNKNOWN;
-        return new VentMeterObservation(true, sample.deliveredWatts());
+                ) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "apcChunk=not-full", sample);
+        if (apcChunk.getBlockEntity(apcPos) != sample.apc()) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "apcIdentity=stale", sample);
+        if (!(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock apcBlock)
+                || apcBlock.kind() != PowerDeviceKind.APC) return disposalMeterCheck(VentMeterObservation.UNKNOWN, "apcBlock=wrong", sample);
+        return disposalMeterCheck(new VentMeterObservation(true, sample.deliveredWatts()), "accepted", sample);
     }
     public static void airlockChanged(ServerLevel level,BlockPos pos) {
         PowerGraphService.invalidateLampChoice(level,pos);
         AIRLOCKS.computeIfAbsent(level,ignored->new LinkedHashSet<>()).add(pos.immutable());
-        AIRLOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>()).remove(pos); PowerGraphService.noteChanged(level,new ChunkPos(pos));
+        AIRLOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>()).remove(pos); PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
     public static void airlockRemoved(ServerLevel level,BlockPos pos) {
         PowerGraphService.invalidateLampChoice(level,pos);Set<BlockPos> index=AIRLOCKS.get(level);if(index!=null)index.remove(pos);
         Map<BlockPos,AirlockMeterSample> meters=AIRLOCK_METERS.get(level);if(meters!=null)meters.remove(pos);
-        PowerGraphService.noteChanged(level,new ChunkPos(pos));
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
     public static VentMeterObservation airlockPower(ServerLevel level,AirlockBlockEntity expected) {
-        if(expected==null||expected.isRemoved())return VentMeterObservation.UNKNOWN;
-        BlockPos pos=expected.getBlockPos(); if(!(level.getChunkSource().getChunk(pos.getX()>>4,pos.getZ()>>4,ChunkStatus.FULL,false) instanceof LevelChunk chunk)
-                ||chunk.getBlockEntity(pos)!=expected||!(expected.getBlockState().getBlock() instanceof AirlockBlock))return VentMeterObservation.UNKNOWN;
-        if(expected.state().receiverPowerDisabled())return new VentMeterObservation(true,0);
-        if(!PowerGraphService.topologyReady(level))return VentMeterObservation.UNKNOWN;
-        AirlockMeterSample sample=AIRLOCK_METERS.getOrDefault(level,Map.of()).get(pos);
-        if(sample==null||sample.airlock()!=expected||sample.prototype()!=expected.prototype()||sample.topologyGeneration()!=PowerGraphService.topologyGeneration(level)
-                ||serverTickSequence<sample.sampleTick()||serverTickSequence-sample.sampleTick()>TICKS_PER_SOLVE
-                )return VentMeterObservation.UNKNOWN;
-        if(sample.apc()!=null){if(sample.apc().isRemoved()||!sample.apc().breakerClosed()||sample.apc().breakerRevision()!=sample.breakerRevision())return VentMeterObservation.UNKNOWN;
-            BlockPos apcPos=sample.apc().getBlockPos(); if(!(level.getChunkSource().getChunk(apcPos.getX()>>4,apcPos.getZ()>>4,ChunkStatus.FULL,false) instanceof LevelChunk apcChunk)
-                ||apcChunk.getBlockEntity(apcPos)!=sample.apc()||!(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock block)||block.kind()!=PowerDeviceKind.APC)return VentMeterObservation.UNKNOWN;}
-        return new VentMeterObservation(true,sample.deliveredWatts());
+        return airlockMeterCheck(level, expected).observation();
+    }
+
+    /** Diagnostic for the exact airlock meter acceptance checks; read-only and non-loading. */
+    public static String airlockPowerDiagnostic(ServerLevel level, AirlockBlockEntity expected) {
+        AirlockMeterCheck check = airlockMeterCheck(level, expected);
+        AirlockMeterSample sample = check.sample();
+        return check.reason() + (sample == null ? " sample=absent" : " sampleTick=" + sample.sampleTick()
+                + " sampleGeneration=" + sample.topologyGeneration() + " sampleWatts=" + sample.deliveredWatts()
+                + " sampleDoorIdentity=" + (sample.airlock() == expected)
+                + " samplePrototypeIdentity=" + (expected != null && sample.prototype() == expected.prototype())
+                + " sampleApc=" + (sample.apc() == null ? "none" : sample.apc().getBlockPos().toShortString())
+                + " sampleBreakerRevision=" + sample.breakerRevision());
+    }
+
+    private record AirlockMeterCheck(VentMeterObservation observation, String reason, AirlockMeterSample sample) { }
+
+    private static AirlockMeterCheck airlockMeterCheck(ServerLevel level, AirlockBlockEntity expected) {
+        if (expected == null) return airlockCheck(VentMeterObservation.UNKNOWN, "expected=missing", null);
+        if (expected.isRemoved()) return airlockCheck(VentMeterObservation.UNKNOWN, "expected=removed", null);
+        BlockPos pos = expected.getBlockPos();
+        if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                ChunkStatus.FULL, false) instanceof LevelChunk chunk))
+            return airlockCheck(VentMeterObservation.UNKNOWN, "doorChunk=not-full", null);
+        if (chunk.getBlockEntity(pos) != expected) return airlockCheck(VentMeterObservation.UNKNOWN, "doorIdentity=stale", null);
+        if (!(expected.getBlockState().getBlock() instanceof AirlockBlock))
+            return airlockCheck(VentMeterObservation.UNKNOWN, "doorBlock=wrong", null);
+        if (expected.state().receiverPowerDisabled())
+            return airlockCheck(new VentMeterObservation(true, 0), "receiver=disabled", null);
+        if (!PowerGraphService.topologyReady(level))
+            return airlockCheck(VentMeterObservation.UNKNOWN, "topology=not-ready", null);
+        AirlockMeterSample sample = AIRLOCK_METERS.getOrDefault(level, Map.of()).get(pos);
+        if (sample == null) return airlockCheck(VentMeterObservation.UNKNOWN, "sample=absent", null);
+        if (sample.airlock() != expected) return airlockCheck(VentMeterObservation.UNKNOWN, "sampleDoor=identity-mismatch", sample);
+        if (sample.prototype() != expected.prototype()) return airlockCheck(VentMeterObservation.UNKNOWN, "samplePrototype=identity-mismatch", sample);
+        long currentGeneration = PowerGraphService.topologyGeneration(level);
+        if (sample.topologyGeneration() != currentGeneration)
+            return airlockCheck(VentMeterObservation.UNKNOWN, "generation=mismatch(sample=" + sample.topologyGeneration()
+                    + ",current=" + currentGeneration + ")", sample);
+        if (serverTickSequence < sample.sampleTick())
+            return airlockCheck(VentMeterObservation.UNKNOWN, "sample=future(tick=" + sample.sampleTick()
+                    + ",now=" + serverTickSequence + ")", sample);
+        long age = serverTickSequence - sample.sampleTick();
+        if (age > TICKS_PER_SOLVE)
+            return airlockCheck(VentMeterObservation.UNKNOWN, "sample=stale(age=" + age + ")", sample);
+        if (sample.apc() != null) {
+            if (sample.apc().isRemoved()) return airlockCheck(VentMeterObservation.UNKNOWN, "apc=removed", sample);
+            if (!sample.apc().breakerClosed()) return airlockCheck(VentMeterObservation.UNKNOWN, "apc=breaker-open", sample);
+            if (sample.apc().breakerRevision() != sample.breakerRevision())
+                return airlockCheck(VentMeterObservation.UNKNOWN, "apc=breaker-revision-mismatch(current="
+                        + sample.apc().breakerRevision() + ")", sample);
+            BlockPos apcPos = sample.apc().getBlockPos();
+            if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4,
+                    ChunkStatus.FULL, false) instanceof LevelChunk apcChunk))
+                return airlockCheck(VentMeterObservation.UNKNOWN, "apcChunk=not-full", sample);
+            if (apcChunk.getBlockEntity(apcPos) != sample.apc())
+                return airlockCheck(VentMeterObservation.UNKNOWN, "apcIdentity=stale", sample);
+            if (!(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock block)
+                    || block.kind() != PowerDeviceKind.APC)
+                return airlockCheck(VentMeterObservation.UNKNOWN, "apcBlock=wrong", sample);
+        }
+        return airlockCheck(new VentMeterObservation(true, sample.deliveredWatts()), "accepted", sample);
+    }
+
+    private static AirlockMeterCheck airlockCheck(VentMeterObservation observation, String reason,
+                                                   AirlockMeterSample sample) {
+        return new AirlockMeterCheck(observation, reason, sample);
     }
 
     /** Observation, not power authorization: only a fresh, fully delivered 100 W solve is powered. */
@@ -306,25 +398,60 @@ public final class PowerRuntime {
 
     /** Observation of the most recent solve only; this is not a prepaid gas grant. */
     public static VentMeterObservation ventilationMeter(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
-        if (expectedBE == null || expectedBE.isRemoved()) return VentMeterObservation.UNKNOWN;
+        return ventilationMeterCheck(level, expectedBE).observation();
+    }
+
+    public static String ventilationMeterDiagnostic(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
+        VentMeterCheck check = ventilationMeterCheck(level, expectedBE);
+        VentMeterSample sample = check.sample();
+        return check.reason() + (sample == null ? " sample=absent" : " sampleTick=" + sample.sampleTick()
+                + " sampleGeneration=" + sample.topologyGeneration() + " sampleWatts=" + sample.deliveredWatts()
+                + " sampleVentIdentity=" + (sample.vent() == expectedBE)
+                + " sampleApc=" + (sample.apc() == null ? "none" : sample.apc().getBlockPos().toShortString())
+                + " sampleBreakerRevision=" + sample.breakerRevision());
+    }
+
+    private record VentMeterCheck(VentMeterObservation observation, String reason, VentMeterSample sample) { }
+
+    private static VentMeterCheck ventMeterCheck(VentMeterObservation observation, String reason, VentMeterSample sample) {
+        return new VentMeterCheck(observation, reason, sample);
+    }
+
+    private static VentMeterCheck ventilationMeterCheck(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
+        if (expectedBE == null) return ventMeterCheck(VentMeterObservation.UNKNOWN, "expected=missing", null);
+        if (expectedBE.isRemoved()) return ventMeterCheck(VentMeterObservation.UNKNOWN, "expected=removed", null);
         BlockPos pos = expectedBE.getBlockPos();
         if (!(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
-                || chunk.getBlockEntity(pos) != expectedBE
-                || !(expectedBE.getBlockState().getBlock() instanceof VentilationDeviceBlock)
-                || !expectedBE.settingsValid()
-                || !PowerGraphService.topologyReady(level)) return VentMeterObservation.UNKNOWN;
+                ) return ventMeterCheck(VentMeterObservation.UNKNOWN, "ventChunk=not-full", null);
+        if (chunk.getBlockEntity(pos) != expectedBE) return ventMeterCheck(VentMeterObservation.UNKNOWN, "ventIdentity=stale", null);
+        if (!(expectedBE.getBlockState().getBlock() instanceof VentilationDeviceBlock))
+            return ventMeterCheck(VentMeterObservation.UNKNOWN, "ventBlock=wrong", null);
+        if (!expectedBE.settingsValid()) return ventMeterCheck(VentMeterObservation.UNKNOWN, "ventSettings=invalid", null);
+        if (!PowerGraphService.topologyReady(level)) return ventMeterCheck(VentMeterObservation.UNKNOWN, "topology=not-ready", null);
         VentMeterSample sample = VENT_METERS.getOrDefault(level, Map.of()).get(pos);
-        if (sample == null || sample.vent() != expectedBE || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
-                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE
-                || sample.apc() == null || sample.apc().isRemoved() || sample.apc().breakerRevision() != sample.breakerRevision()
-                || !sample.apc().breakerClosed() || sample.deliveredWatts() != PowerLiveLoop.SS14_UNARY_ATMOS_POWER_WATTS)
-            return VentMeterObservation.UNKNOWN;
+        if (sample == null) return ventMeterCheck(VentMeterObservation.UNKNOWN, "sample=absent", null);
+        if (sample.vent() != expectedBE) return ventMeterCheck(VentMeterObservation.UNKNOWN, "sampleVent=identity-mismatch", sample);
+        long generation = PowerGraphService.topologyGeneration(level);
+        if (sample.topologyGeneration() != generation) return ventMeterCheck(VentMeterObservation.UNKNOWN,
+                "generation=mismatch(sample=" + sample.topologyGeneration() + ",current=" + generation + ")", sample);
+        if (serverTickSequence < sample.sampleTick()) return ventMeterCheck(VentMeterObservation.UNKNOWN, "sample=future", sample);
+        long age = serverTickSequence - sample.sampleTick();
+        if (age > TICKS_PER_SOLVE) return ventMeterCheck(VentMeterObservation.UNKNOWN, "sample=stale(age=" + age + ")", sample);
+        if (sample.apc() == null) return ventMeterCheck(VentMeterObservation.UNKNOWN, "apc=missing", sample);
+        if (sample.apc().isRemoved()) return ventMeterCheck(VentMeterObservation.UNKNOWN, "apc=removed", sample);
+        if (sample.apc().breakerRevision() != sample.breakerRevision()) return ventMeterCheck(VentMeterObservation.UNKNOWN,
+                "apc=breaker-revision-mismatch(current=" + sample.apc().breakerRevision() + ")", sample);
+        if (!sample.apc().breakerClosed()) return ventMeterCheck(VentMeterObservation.UNKNOWN, "apc=breaker-open", sample);
+        if (sample.deliveredWatts() != PowerLiveLoop.SS14_UNARY_ATMOS_POWER_WATTS)
+            return ventMeterCheck(VentMeterObservation.UNKNOWN, "delivery=mismatch(expected="
+                    + PowerLiveLoop.SS14_UNARY_ATMOS_POWER_WATTS + ")", sample);
         BlockPos apcPos = sample.apc().getBlockPos();
         if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk apcChunk)
-                || apcChunk.getBlockEntity(apcPos) != sample.apc()
-                || !(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock apcBlock)
-                || apcBlock.kind() != PowerDeviceKind.APC) return VentMeterObservation.UNKNOWN;
-        return new VentMeterObservation(true, sample.deliveredWatts());
+                ) return ventMeterCheck(VentMeterObservation.UNKNOWN, "apcChunk=not-full", sample);
+        if (apcChunk.getBlockEntity(apcPos) != sample.apc()) return ventMeterCheck(VentMeterObservation.UNKNOWN, "apcIdentity=stale", sample);
+        if (!(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock apcBlock)
+                || apcBlock.kind() != PowerDeviceKind.APC) return ventMeterCheck(VentMeterObservation.UNKNOWN, "apcBlock=wrong", sample);
+        return ventMeterCheck(new VentMeterObservation(true, sample.deliveredWatts()), "accepted", sample);
     }
 
     /** Number of currently indexed loaded devices; exposed for diagnostics and scale audits. */
@@ -345,9 +472,27 @@ public final class PowerRuntime {
         return LAST_DIAGNOSTIC.getOrDefault(level, "no solve yet");
     }
 
+    public static String lastSolveSummary(ServerLevel level) { return lastSolveDiagnostic(level); }
+
     /** Constant-time, read-only menu lookup. Never triggers a solve or loads a chunk. */
     public static ApcVisualState apcVisualState(ServerLevel level, PowerDeviceBlockEntity device) {
-        if (device == null) return ApcVisualState.UNKNOWN;
+        ApcOutputSample sample = currentApcOutputSample(level, device);
+        return sample == null ? ApcVisualState.UNKNOWN : sample.visualState();
+    }
+
+    /** Fresh solve-backed APC output observation for diagnostics/tests; never triggers a solve. */
+    public record ApcOutputObservation(boolean known, double outputWatts, long sampleTick, long topologyGeneration) {
+        public static final ApcOutputObservation UNKNOWN = new ApcOutputObservation(false, 0, -1, -1);
+    }
+
+    public static ApcOutputObservation apcOutputObservation(ServerLevel level, PowerDeviceBlockEntity device) {
+        ApcOutputSample sample = currentApcOutputSample(level, device);
+        return sample == null ? ApcOutputObservation.UNKNOWN : new ApcOutputObservation(true,
+                sample.outputWatts(), sample.sampleTick(), sample.topologyGeneration());
+    }
+
+    private static ApcOutputSample currentApcOutputSample(ServerLevel level, PowerDeviceBlockEntity device) {
+        if (device == null) return null;
         BlockPos pos = device.getBlockPos();
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
         ApcOutputSample sample = samples == null ? null : samples.get(pos);
@@ -360,8 +505,8 @@ public final class PowerRuntime {
                 || !sample.graphKnown() || sample.visualGeneration() != PowerGraphService.topologyGeneration(level)
                 || sample.breakerRevision() != device.breakerRevision()
                 || serverTickSequence < sample.visualTick()
-                || serverTickSequence - sample.visualTick() > TICKS_PER_SOLVE) return ApcVisualState.UNKNOWN;
-        return sample.visualState();
+                || serverTickSequence - sample.visualTick() > TICKS_PER_SOLVE) return null;
+        return sample;
     }
 
     public static void deviceRemoved(ServerLevel level, BlockPos pos) {
@@ -504,8 +649,9 @@ public final class PowerRuntime {
         Iterator<BlockPos> iterator = indexed.iterator();
         while (iterator.hasNext()) {
             BlockPos pos = iterator.next();
-            if (!level.hasChunkAt(pos)) { iterator.remove(); continue; }
-            BlockEntity be = level.getBlockEntity(pos);
+            LevelChunk chunk = loadedFullChunk(level, pos);
+            if (chunk == null) { iterator.remove(); continue; }
+            BlockEntity be = chunk.getBlockEntity(pos);
             if (!(be instanceof PowerDeviceBlockEntity device)) { iterator.remove(); continue; }
             devices.add(device);
         }
@@ -773,10 +919,11 @@ public final class PowerRuntime {
                             + "/" + unit.participatesInPowerLoad() + "/t" + PowerGraphService.topologyReady(level)
                             + "/rx" + (receiver == null ? "-" : receiver.host().toShortString() + "/" + receiver.face())
                             + "/" + state.knowledge() + "/c" + state.componentId()
-                            + "/a" + matches.size() + "/s" + (sample == null ? "-" : sample.sampleTick() + "g"
-                                    + sample.topologyGeneration() + ":" + sample.deliveredWatts())
-                            + "/r" + unit.prototype().powerWatts();
-                }).limit(2).toList());
+                             + "/a" + matches.size() + "/s" + (sample == null ? "-" : sample.sampleTick() + "g"
+                                     + sample.topologyGeneration() + ":" + sample.deliveredWatts())
+                             + "/gate" + disposalUnitMeterDiagnostic(level, unit)
+                             + "/r" + unit.prototype().powerWatts();
+                }).limit(2).toList() + "," + PowerGraphService.diagnosticSnapshot(level));
         for (PowerDeviceBlockEntity apc : apcs)
             apc.setEnergyJoules(result.batteryEnergyJoules().getOrDefault(id(apc), apc.energyJoules()));
         VentilationPaidInterval paid = PAID_INTERVALS.computeIfAbsent(level, ignored -> new VentilationPaidInterval());
@@ -866,8 +1013,9 @@ public final class PowerRuntime {
         while (iterator.hasNext()) {
             Map.Entry<BlockPos, ApcOutputSample> entry = iterator.next();
             BlockPos pos = entry.getKey();
-            if (!level.hasChunkAt(pos)) { iterator.remove(); continue; }
-            BlockEntity be = level.getBlockEntity(pos);
+            LevelChunk chunk = loadedFullChunk(level, pos);
+            if (chunk == null) { iterator.remove(); continue; }
+            BlockEntity be = chunk.getBlockEntity(pos);
             if (!(be instanceof PowerDeviceBlockEntity apc)
                     || !(be.getBlockState().getBlock() instanceof PowerDeviceBlock block)
                     || block.kind() != PowerDeviceKind.APC) { iterator.remove(); continue; }
@@ -925,6 +1073,11 @@ public final class PowerRuntime {
         CableFaceNode node=nearby.stream().filter(candidate->PowerGraphService.state(level,candidate).knowledge()==LoadedPowerGraph.Knowledge.KNOWN)
                 .min(Comparator.comparingDouble(candidate->candidate.host().distSqr(door.getBlockPos()))).orElse(null);
         return node==null?new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.KNOWN,-1):PowerGraphService.state(level,node);
+    }
+    /** Return an already-loaded full chunk only; periodic power work must never request a chunk ticket. */
+    private static LevelChunk loadedFullChunk(ServerLevel level, BlockPos pos) {
+        return level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                ChunkStatus.FULL, false) instanceof LevelChunk chunk ? chunk : null;
     }
 
     private static LoadedPowerGraph.NodeState disposalReceiverState(ServerLevel level, DisposalUnitBlockEntity unit) {

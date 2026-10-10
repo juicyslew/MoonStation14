@@ -30,6 +30,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MoonStation14.MOD_ID);
+    // Force the equipment item declarations to register on the same native item registry.
+    private static final Object EQUIPMENT_ITEMS = ModEquipmentItems.GREY_CAP;
 
     // SIMPLE ITEMS
     public static final DeferredItem<Item> PLASTIC = ITEMS.register("plastic",
@@ -55,7 +57,8 @@ public class ModItems {
             () -> new Item(new Item.Properties().durability(250))
     );
     public static final DeferredItem<Item> WRENCH = ITEMS.register("wrench", () -> new Item(new Item.Properties().stacksTo(1)));
-    public static final DeferredItem<Item> SCREWDRIVER = ITEMS.register("screwdriver", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> SCREWDRIVER = ITEMS.register("screwdriver", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "screwdriver"))));
     public static final DeferredItem<Item> WELDER = ITEMS.register("welder", () -> new Item(new Item.Properties().stacksTo(1)));
 
     // Food
@@ -89,8 +92,6 @@ public class ModItems {
             () -> new CableSpoolItem(new Item.Properties().stacksTo(16), CableTier.APC));
     public static final DeferredItem<WirecutterItem> WIRECUTTER = ITEMS.register("wirecutter",
             () -> new WirecutterItem(new Item.Properties().durability(128)));
-    public static final DeferredItem<Item> AIRLOCK_SCREWDRIVER = ITEMS.register("airlock_screwdriver",
-            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_screwdriver"))));
     public static final DeferredItem<Item> AIRLOCK_MULTITOOL = ITEMS.register("multitool",
             () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_multitool"))));
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",
@@ -137,6 +138,15 @@ public class ModItems {
             .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.LARGE_ID));
     public static final DeferredItem<BlockItem> CHEM_MASTER = ITEMS.register("chem_master",
             () -> new BlockItem(com.juicyslew.moonstation14.block.ModBlocks.CHEM_MASTER.get(), new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> NETWORK_CONFIGURATOR = ITEMS.register("network_configurator", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "network_configurator"))
+            .component(ModDataComponents.NETWORK_DEVICE_ITEM_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "configurator"))));
+    public static final DeferredItem<Item> REMOTE_SIGNALLER = ITEMS.register("remote_signaller", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "remote_signaller"))
+            .component(ModDataComponents.NETWORK_DEVICE_ITEM_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "standardwireless15"))));
+    public static final DeferredItem<Item> REMOTE_SIGNALLER_ADVANCED = ITEMS.register("remote_signaller_advanced", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "remote_signaller_advanced"))
+            .component(ModDataComponents.NETWORK_DEVICE_ITEM_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "advancedwireless50"))));
     public static final DeferredItem<BlockItem> DISPOSAL_UNIT = ITEMS.register("disposal_unit",
             () -> new BlockItem(ModBlocks.DISPOSAL_UNIT.get(), new Item.Properties().stacksTo(1)));
 

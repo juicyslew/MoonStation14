@@ -205,6 +205,51 @@ final class PopupActionPlan {
                 bodyHost.token(), source.child(), source.oldAnchor(), source.oldRotation(), anchor, rotation);
     }
 
+    /** World child into an empty, fitting equipment slot; the world entry is the source proof. */
+    static WorldCrossPlan worldToEquipmentPlan(WorldCrossSource source, String slotId,
+            BodyHandStateSnapshot proof, WorldGridClientPolicy.GridView world, boolean fit,
+            boolean actionable, int button) {
+        if (button != 0 || source == null || slotId == null || proof == null || world == null || !fit
+                || !actionable || world.stale() || proof.reason() != BodyHandStateSnapshot.Reason.OK
+                || !source.account().equals(proof.accountId()) || !source.body().equals(proof.bodyId())
+                || source.epoch() != proof.epoch() || source.bodyRevision() != proof.revision()
+                || world.handRevision() != proof.revision() || !source.worldTarget().equals(world.target())
+                || !source.session().equals(world.session()) || source.worldRevision() != world.hostRevision()) return null;
+        var slots = proof.equipment().stream().filter(s -> slotId.equals(s.id())).toList();
+        var slot = slots.size() == 1 ? slots.getFirst() : null;
+        var child = world.entries().stream().filter(e -> source.child().equals(e.token())).findFirst().orElse(null);
+        if (slot == null || slot.token() != null || child == null || !child.itemId().equals(source.itemId())
+                || child.count() != source.count() || child.x() != source.oldAnchor().x()
+                || child.y() != source.oldAnchor().y() || child.rotation() != source.oldRotation().degrees()) return null;
+        return new WorldCrossPlan(BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT, world.target(), true,
+                slotId, null, source.child(), source.oldAnchor(), source.oldRotation(), source.oldAnchor(),
+                GridGeometry.Rotation.DEG_0);
+    }
+
+    /** Worn equipment source into a proved world grid; equipment has no source-cell geometry. */
+    static WorldCrossPlan equipmentToWorldPlan(String slotId, String token, String itemId, int count,
+            BodyHandStateSnapshot capturedProof, BodyHandStateSnapshot proof,
+            WorldGridClientPolicy.GridView world, GridGeometry.Cell anchor, GridGeometry.Rotation rotation,
+            boolean fit, boolean actionable, int button) {
+        if (button != 0 || capturedProof == null || proof == null || world == null || anchor == null || rotation == null
+                || !fit || !actionable || world.stale() || proof.reason() != BodyHandStateSnapshot.Reason.OK
+                || capturedProof.reason() != BodyHandStateSnapshot.Reason.OK
+                || !capturedProof.accountId().equals(proof.accountId()) || !capturedProof.bodyId().equals(proof.bodyId())
+                || capturedProof.epoch() != proof.epoch() || capturedProof.revision() != proof.revision()
+                || proof.revision() != world.handRevision()) return null;
+        if (slotId == null) return null;
+        var source = proof.equipment().stream().filter(s -> slotId.equals(s.id()) && token != null
+                && token.equals(s.token()) && itemId != null && itemId.equals(s.itemId()) && count == s.count()).toList();
+        var captured = capturedProof.equipment().stream().filter(s -> slotId.equals(s.id()) && token != null
+                && token.equals(s.token()) && itemId != null && itemId.equals(s.itemId()) && count == s.count()).count();
+        var id = ResourceLocation.tryParse(itemId);
+        if (source.size() != 1 || captured != 1 || id == null || world.entries().size() >= GridGeometry.MAX_ENTRIES
+                || world.entries().stream().anyMatch(e -> token.equals(e.token()))) return null;
+        if (!StoragePopupWorkspace.preview(world.geometry(), null, ItemFootprints.clientForId(id), anchor, rotation, true).maySendAction()) return null;
+        return new WorldCrossPlan(BodyWorldCrossAction.Direction.EQUIPMENT_TO_WORLD, world.target(), true,
+                slotId, token, token, new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0, anchor, rotation);
+    }
+
     static CrossSource crossSource(BodyHandStateSnapshot proof, StoragePopupWorkspace.HostKey host,
                                    BodyHandStateSnapshot.GridEntry entry) {
         if (proof == null || proof.reason() != BodyHandStateSnapshot.Reason.OK || host == null || entry == null
@@ -308,6 +353,59 @@ final class PopupActionPlan {
                 source.child(), anchor.x(), anchor.y(), rotation.degrees(), source.oldAnchor().x(),
                 source.oldAnchor().y(), source.oldRotation().degrees(), target.token(),
                 fromHeld || toHeld ? source.hostId() : null, fromHeld || toHeld ? targetId : null);
+    }
+
+    /** Body-owned grid child into an empty equipment slot; preview and release share this proof. */
+    static BodyHandActionRequest gridToEquipmentRequest(CrossSource source, String destinationSlot,
+            BodyHandStateSnapshot proof, boolean fit, int button, long sequence) {
+        if (button != 0 || sequence <= 0 || source == null || proof == null || destinationSlot == null
+                || proof.reason() != BodyHandStateSnapshot.Reason.OK
+                || !java.util.Set.of("head", "eyes", "mask", "outerClothing", "innerClothing", "back", "belt").contains(destinationSlot)
+                || !source.account().equals(proof.accountId()) || !source.body().equals(proof.bodyId())
+                || source.epoch() != proof.epoch() || source.revision() != proof.revision()
+                || !bodyHost(source.host()) || !source.hostId().equals(hostId(proof, source.host())) || !fit) return null;
+        var slot = proof.equipment().stream().filter(s -> s.id().equals(destinationSlot)).findFirst().orElse(null);
+        if (slot == null || slot.token() != null) return null;
+        var origin = explicitGrid(proof, source.host());
+        var entry = origin == null ? null : origin.entries().stream().filter(e -> e.token().equals(source.child())).findFirst().orElse(null);
+        if (entry == null || !entry.itemId().equals(source.itemId()) || entry.count() != source.count()
+                || entry.x() != source.oldAnchor().x() || entry.y() != source.oldAnchor().y()
+                || entry.rotation() != source.oldRotation().degrees()) return null;
+        return new BodyHandActionRequest(BodyHandActionRequest.Action.GRID_BODY_TO_EQUIPMENT,
+                source.host().kind() == StoragePopupWorkspace.HostKind.HELD ? source.hostId() : proof.activeHand(),
+                proof.epoch(), sequence, proof.revision(), null, source.host().token(),
+                source.child(), entry.x(), entry.y(), entry.rotation(), entry.x(), entry.y(), entry.rotation(),
+                null, source.hostId(), destinationSlot);
+    }
+
+    /** Worn equipment item into an explicitly nominated body grid, retaining both host proofs. */
+    static BodyHandActionRequest equipmentToGridRequest(String sourceSlot, String sourceToken, String itemId,
+            int count, BodyHandStateSnapshot proof, StoragePopupWorkspace.HostKey destination,
+            GridGeometry.Cell anchor, GridGeometry.Rotation rotation, int button, long sequence) {
+        if (button != 0 || sequence <= 0 || proof == null || proof.reason() != BodyHandStateSnapshot.Reason.OK
+                || sourceSlot == null || destination == null || anchor == null || rotation == null
+                || !bodyHost(destination) || !java.util.Set.of("back", "belt").contains(sourceSlot)) return null;
+        var equipment = proof.equipment().stream().filter(s -> s.id().equals(sourceSlot)
+                && sourceToken.equals(s.token()) && itemId.equals(s.itemId()) && s.count() == count).toList();
+        if (equipment.size() != 1 || destination.kind() == StoragePopupWorkspace.HostKind.HELD
+                && destination.token().equals(sourceToken)) return null;
+        String destinationId = hostId(proof, destination);
+        var grid = explicitGrid(proof, destination);
+        var id = ResourceLocation.tryParse(itemId);
+        if (destinationId == null || grid == null || id == null || grid.entries().size() >= GridGeometry.MAX_ENTRIES
+                || grid.entries().stream().anyMatch(e -> e.token().equals(sourceToken))) return null;
+        var occupancy = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(grid.width(), grid.height()));
+        for (var entry : grid.entries()) {
+            var entryId = ResourceLocation.tryParse(entry.itemId()); if (entryId == null) return null;
+            var placed = occupancy.place(entry.token(), ItemFootprints.clientForId(entryId),
+                    new GridGeometry.Cell(entry.x(), entry.y()), GridGeometry.Rotation.values()[entry.rotation() / 90]);
+            if (!placed.accepted()) return null;
+            occupancy = placed.snapshot();
+        }
+        if (!StoragePopupWorkspace.preview(occupancy, null, ItemFootprints.clientForId(id), anchor, rotation, true).maySendAction()) return null;
+        return new BodyHandActionRequest(BodyHandActionRequest.Action.GRID_EQUIPMENT_TO_BODY, proof.activeHand(),
+                proof.epoch(), sequence, proof.revision(), null, sourceToken, sourceToken, anchor.x(), anchor.y(),
+                rotation.degrees(), 0, 0, 0, destination.token(), sourceSlot, destinationId);
     }
 
     static Action plan(boolean firstPress, boolean pointer, boolean drop, boolean select, boolean storage,

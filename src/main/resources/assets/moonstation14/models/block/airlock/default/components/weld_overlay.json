@@ -1,0 +1,227 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/airlock/default/closed",
+    "particle": "moonstation14:block/airlock/default/closed"
+  },
+  "elements": [
+    {
+      "name": "seam_weld_front",
+      "from": [
+        7.5,
+        0.5,
+        6.42
+      ],
+      "to": [
+        8.5,
+        30.75,
+        6.4350000000000005
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            5.9375,
+            8.8125,
+            6.0625,
+            12.5625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            6.1875,
+            8.8125,
+            6.25,
+            12.5625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            6.375,
+            8.8125,
+            6.5,
+            12.5625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            6.625,
+            8.8125,
+            6.6875,
+            12.5625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            6.8125,
+            8.8125,
+            6.9375,
+            8.875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            7.0625,
+            8.8125,
+            7.1875,
+            8.875
+          ]
+        }
+      }
+    },
+    {
+      "name": "seam_weld_back",
+      "from": [
+        7.5,
+        0.5,
+        9.565
+      ],
+      "to": [
+        8.5,
+        30.75,
+        9.58
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            7.3125,
+            8.8125,
+            7.4375,
+            12.5625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            7.5625,
+            8.8125,
+            7.625,
+            12.5625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            7.75,
+            8.8125,
+            7.875,
+            12.5625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            8.0,
+            8.8125,
+            8.0625,
+            12.5625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            8.1875,
+            8.8125,
+            8.3125,
+            8.875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            8.4375,
+            8.8125,
+            8.5625,
+            8.875
+          ]
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    }
+  },
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

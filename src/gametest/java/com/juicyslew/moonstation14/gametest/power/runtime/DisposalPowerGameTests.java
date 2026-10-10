@@ -80,7 +80,7 @@ public final class DisposalPowerGameTests {
                     "authorized breaker transition advances revision");
             var tripped = PowerRuntime.disposalUnitMeter(level, unit);
             require(!tripped.known(), "breaker revision immediately revokes stale full-power meter: " + tripped);
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 require(!level.getBlockState(unitPos).getValue(DisposalUnitBlock.POWERED),
                         "next unit tick projects fresh unpowered state after APC breaker opens");
                 helper.succeed();

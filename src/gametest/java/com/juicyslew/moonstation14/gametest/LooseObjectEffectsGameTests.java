@@ -90,12 +90,12 @@ public final class LooseObjectEffectsGameTests {
             require(state != null && state.phase() == GrenadeFuse.Phase.ARMED && state.deadline() == deadline,
                     "NBT reload preserves armed fuse deadline");
             require(state.beepedAtPrime() && !state.beepedAtForty(), "initial evaluation primes without forty-tick beep");
-            h.runAfterDelay(16, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 16, () -> {
             loaded.tick();
             GrenadeFuseData forty = loaded.getItem().get(ModDataComponents.GRENADE_FUSE.get());
             require(forty != null && forty.beepedAtForty() && forty.deadline() == deadline,
                     "forty-tick milestone preserves original deadline");
-            h.runAfterDelay(20, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 20, () -> {
             loaded.tick();
             require(loaded.isRemoved(), "expired loose grenade removed");
             // A second direct tick cannot repeat the detonation after removal.

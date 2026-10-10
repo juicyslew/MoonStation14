@@ -105,7 +105,7 @@ public final class CharacterIdentityGameTests {
             MS14Provider.update(danglingPlayer, MS14Bridges.CHARACTER_IDENTITY, invalid);
             danglingPlayer.setPos(4.5, 1, 1.5);
             require(helper.getLevel().addFreshEntity(danglingPlayer), "dangling player must rejoin the level");
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 require(MS14Provider.getDetached(danglingPlayer, MS14Bridges.CHARACTER_IDENTITY)
                                 .characterId().equals(invalidId),
                         "join enrollment must not overwrite a dangling persisted key");
@@ -147,7 +147,7 @@ public final class CharacterIdentityGameTests {
 
             clone.setPos(4.5, 1, 1.5);
             require(helper.getLevel().addFreshEntity(clone), "identity-bearing clone must rejoin the level");
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 require(MS14Provider.getDetached(clone, MS14Bridges.CHARACTER_IDENTITY).characterId()
                                 .equals(originalKey),
                         "join enrollment must leave the cloned key unchanged");

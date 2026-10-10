@@ -1,0 +1,1 @@
+{"parent":"minecraft:item/generated","textures":{"layer0":"moonstation14:item/network_configurator-strip","layer1":"moonstation14:item/network_configurator-mode-link"},"overrides":[{"predicate":{"moonstation14:configurator_mode":1.0},"model":"moonstation14:item/network_configurator_list"}]}

@@ -85,6 +85,11 @@ public class DefaultStatusEffectLifecycle implements StatusEffectLifecycle {
             movement = new StatusEffectPayload.MovementSpeedModifier(multiplier);
         }
         MovementSpeedProjection.reconcile(entity, key, movement);
+        if (instance.isActive() && definition.behaviors().contains(StatusEffectBehavior.KNOCKDOWN_POSTURE)
+                && entity.level() instanceof ServerLevel) {
+            int remaining = instance.remainingDurationTicks().orElse(0);
+            com.juicyslew.moonstation14.ms14.standing.PostureSystem.projectKnockdown(entity, remaining);
+        }
         for (StatusEffectBehavior behavior : definition.behaviors()) {
             switch (behavior) {
                 case MARKER -> markerNoOp();
@@ -94,6 +99,9 @@ public class DefaultStatusEffectLifecycle implements StatusEffectLifecycle {
                 }
                 case STUN_ACTION_BLOCK -> {
                     // Read directly from active authoritative status state.
+                }
+                case KNOCKDOWN_POSTURE -> {
+                    // Projected above through the shared posture authority.
                 }
             }
         }

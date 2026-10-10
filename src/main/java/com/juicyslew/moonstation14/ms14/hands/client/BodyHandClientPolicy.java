@@ -154,6 +154,11 @@ public final class BodyHandClientPolicy {
     }
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
+    /** Confirmed read-only authority state; unlike inventoryView this remains usable while input is barred. */
+    public BodyHandStateSnapshot confirmedSnapshot() {
+        return inputEnabled && snapshot != null && snapshot.reason() == BodyHandStateSnapshot.Reason.OK
+                && snapshot.epoch() == epoch ? snapshot : null;
+    }
     /** Screen presentation requires a settled, validated pair; never display stale state during a query. */
     public record InventoryView(BodyHandStateSnapshot.Hand first, BodyHandStateSnapshot.Hand second,
                                  String activeHand, EquipmentView belt, EquipmentView back,
@@ -268,8 +273,8 @@ public final class BodyHandClientPolicy {
                                 boolean canUnequip, boolean canStore, boolean canTake) {
         public boolean allows(BodyHandActionRequest.Action action) {
             return switch (action) {
-                case EQUIP_BELT, EQUIP_BACK -> canEquip;
-                case UNEQUIP_BELT, UNEQUIP_BACK -> canUnequip;
+                case EQUIP_BELT, EQUIP_BACK, EQUIP_SLOT -> canEquip;
+                case UNEQUIP_BELT, UNEQUIP_BACK, UNEQUIP_SLOT -> canUnequip;
                 case STORE_BELT, STORE_BACK -> canStore;
                 case TAKE_BELT, TAKE_BACK -> canTake;
                 default -> false;
@@ -283,14 +288,86 @@ public final class BodyHandClientPolicy {
         var slot = slots.getFirst();
         boolean emptyHand = active.token() == null && active.pullTarget() == null;
         boolean emptySlot = slot.token() == null;
-        boolean matching = ("belt".equals(id) ? "moonstation14:belt" : "moonstation14:bag").equals(active.itemId());
+        boolean matching = equipmentFits(source, id, active.itemId());
+        boolean validCount = active.itemId() != null && equipmentCountFits(source, id, active.itemId(), active.count());
         // Snapshot summaries cannot prove stack components; the server still validates child admission.
         boolean supported = active.pullTarget() == null && active.token() != null && active.count() <= 64 && !active.pouch()
                 && !"moonstation14:belt".equals(active.itemId()) && !"moonstation14:bag".equals(active.itemId());
         boolean gridHost = source.grids().stream().anyMatch(grid -> grid.hostToken().equals(slot.token()));
-        return new EquipmentView(slot, emptySlot && matching && active.count() == 1,
+        return new EquipmentView(slot, emptySlot && matching && validCount,
                 !emptySlot && emptyHand, !gridHost && !emptySlot && slot.childToken() == null && supported,
                 !gridHost && !emptySlot && slot.childToken() != null && emptyHand);
+    }
+
+    static boolean equipmentCountFits(BodyHandStateSnapshot snapshot, String slotId, String itemId, int count) {
+        var itemIdValue = net.minecraft.resources.ResourceLocation.tryParse(itemId);
+        if (itemIdValue == null || !net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(itemIdValue)) return false;
+        var templateId = snapshot.templateId();
+        var template = templateId == null ? null
+                : com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.clientCatalog().get(templateId);
+        var slot = template == null ? null : template.slot(slotId).orElse(null);
+        if (slot == null) return count == 1;
+        boolean pocket = slot.flags().contains(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.POCKET);
+        int nativeCap = new net.minecraft.world.item.ItemStack(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.get(itemIdValue)).getMaxStackSize();
+        var medical = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalogForSide(true).get(itemIdValue);
+        if (medical != null) nativeCap = Math.min(nativeCap,
+                medical.stack().map(com.juicyslew.moonstation14.ms14.medical.MedicalItemData.Stack::maxCount).orElse(nativeCap));
+        return equipmentCountFits(count, nativeCap, pocket);
+    }
+
+    static boolean equipmentCountFits(int count, int resolvedNativeCap, boolean pocket) {
+        return pocket ? count > 0 && count <= resolvedNativeCap : count == 1;
+    }
+
+    private static boolean equipmentFits(BodyHandStateSnapshot snapshot, String slotId, String itemId) {
+        if (itemId == null) return false;
+        if ("belt".equals(slotId)) return "moonstation14:belt".equals(itemId);
+        if ("back".equals(slotId)) return "moonstation14:bag".equals(itemId);
+        var templateId = snapshot.templateId();
+        var itemResource = net.minecraft.resources.ResourceLocation.tryParse(itemId);
+        if (templateId == null || itemResource == null) return false;
+        var template = com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.clientCatalog().get(templateId);
+        var slot = template == null ? null : template.slot(slotId).orElse(null);
+        var item = com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.clientCatalog().get(itemResource);
+        if (slot == null) return false;
+        var occupied = snapshot.equipment().stream().filter(value -> value.token() != null)
+                .map(BodyHandStateSnapshot.EquipmentSlot::id).collect(java.util.stream.Collectors.toSet());
+        if (!slot.dependsOn().stream().allMatch(occupied::contains)) return false;
+        boolean pocket = slot.flags().contains(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.POCKET);
+        if (item == null) {
+            if (pocket) {
+                var medical = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalogForSide(true).get(itemResource);
+                if (medical != null) return "Tiny".equals(medical.item().size()) || "Small".equals(medical.item().size());
+                var profile = com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints.get(
+                        com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints.clientCatalog(), itemResource);
+                var size = profile == null ? null : profile.itemSize().map(
+                        com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile.ItemSize::name).orElse(null);
+                return "Tiny".equals(size) || "Small".equals(size);
+            }
+            return false;
+        }
+        if (pocket)
+            return "Tiny".equals(item.item().size()) || "Small".equals(item.item().size());
+        if (item.clothing().isEmpty()) return false;
+        try {
+            var flags = slot.flags();
+            if (java.util.Collections.disjoint(item.clothing().orElseThrow().slotFlags(), flags)
+                    || slot.blacklist().stream().anyMatch(item.tags()::contains)) return false;
+            if (flags.contains(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.SUITSTORAGE)) {
+                var outer = snapshot.equipment().stream().filter(value -> "outerClothing".equals(value.id()) && value.itemId() != null)
+                        .map(value -> com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.clientCatalog().get(
+                                net.minecraft.resources.ResourceLocation.tryParse(value.itemId())))
+                        .anyMatch(value -> value != null && value.allowSuitStorage().map(
+                                com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.AllowSuitStorage::enabled).orElse(false));
+                return outer && slot.allowSuitStorage();
+            }
+            return true;
+        } catch (IllegalArgumentException unsupported) { return false; }
+    }
+
+    public static boolean equipmentFitsSlot(BodyHandStateSnapshot snapshot,String slotId,String itemId) {
+        return snapshot!=null&&equipmentFits(snapshot,slotId,itemId);
     }
 
     public InventoryView inventoryView() {

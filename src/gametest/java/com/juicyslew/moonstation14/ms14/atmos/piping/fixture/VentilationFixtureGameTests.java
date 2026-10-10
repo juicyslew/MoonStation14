@@ -109,7 +109,7 @@ public final class VentilationFixtureGameTests {
                     && com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility.alphaByte(plan.testGas(), plan.testGasMolesPerCell(), 1.0) > 0,
                     "initial source concentration has a visible gas overlay");
             var counters = AtmosphereService.INSTANCE.diagnosticRuntime(level);
-            helper.runAfterDelay(10, () -> captureScrubbedGas(helper, level, origin, plan, newlyForced, initial, counters, 10));
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> captureScrubbedGas(helper, level, origin, plan, newlyForced, initial, counters, 10));
         } catch (RuntimeException | Error failure) {
             unforce(level, newlyForced);
             throw failure;
@@ -241,12 +241,12 @@ public final class VentilationFixtureGameTests {
                 require(scrubber.compareAndSetSettings(current.revision(), disabled), "disable scrubber through revision-checked device settings");
                 System.out.println("VENTILATION_FIXTURE_PASS finite-scrub-capture");
                 var disabledCounters = AtmosphereService.INSTANCE.diagnosticRuntime(level);
-                helper.runAfterDelay(10, () -> verifyDisabledScrubberAndEnableVent(helper, level, origin, plan,
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> verifyDisabledScrubberAndEnableVent(helper, level, origin, plan,
                         newlyForced, initial, now, disabledCounters));
                 return;
             }
             if (elapsed >= 200) throw new GameTestAssertException("normal paid scrubber did not capture source test gas; source=" + now.source() + " pipe=" + now.pipe());
-            helper.runAfterDelay(10, () -> captureScrubbedGas(helper, level, origin, plan,
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> captureScrubbedGas(helper, level, origin, plan,
                     newlyForced, initial, countersBefore, elapsed + 10));
         } catch (RuntimeException | Error failure) { unforce(level, newlyForced); throw failure; }
     }
@@ -278,7 +278,7 @@ public final class VentilationFixtureGameTests {
             if (!current.configuredEnabled()) require(vent.compareAndSetSettings(current.revision(), enabled), "enable vent through revision-checked device settings");
             GasTotals releaseStart = totals(level, origin, plan);
             var releaseCounters = AtmosphereService.INSTANCE.diagnosticRuntime(level);
-            helper.runAfterDelay(10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
                     releaseStart, releaseCounters, 10));
         } catch (RuntimeException | Error failure) { unforce(level, newlyForced); throw failure; }
     }
@@ -328,7 +328,7 @@ public final class VentilationFixtureGameTests {
                     + " pipeNodes=" + now.pipeDetail()
                     + " energyDelta=" + (now.allInventory().energy() - releaseStart.allInventory().energy())
                     + " operations=" + operations);
-            helper.runAfterDelay(10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
                     releaseStart, countersBefore, elapsed + 10));
         } catch (RuntimeException | Error failure) { unforce(level, newlyForced); throw failure; }
     }

@@ -14,6 +14,103 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PowerGraphTest {
+    @Test void unknownAbsentChunkRemovalDoesNotRestartGraph() {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        CableFaceNode cable = node(4, CableTier.HV);
+        ChunkPos cableChunk = new ChunkPos(0, 0);
+        graph.replaceChunk(cableChunk, List.of(cable));
+        finish(graph, 16);
+        long revision = graph.revision();
+
+        graph.removeChunk(new ChunkPos(2, 0));
+
+        assertFalse(graph.isDirty());
+        assertEquals(revision, graph.revision());
+        assertEquals(LoadedPowerGraph.Knowledge.UNKNOWN, graph.state(cable).knowledge());
+    }
+
+    @Test void loadedEmptyNeighborRemovalRestoresUnknownFrontier() {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        ChunkPos cableChunk = new ChunkPos(0, 0);
+        ChunkPos neighbor = new ChunkPos(1, 0);
+        CableFaceNode cable = new CableFaceNode(new BlockPos(15, 0, 8), Direction.UP, CableTier.HV);
+        graph.replaceChunk(cableChunk, List.of(cable));
+        graph.replaceChunk(neighbor, List.of());
+        finish(graph, 16);
+        assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.state(cable).knowledge());
+
+        graph.removeChunk(neighbor);
+        finish(graph, 16);
+        assertEquals(LoadedPowerGraph.Knowledge.UNKNOWN, graph.state(cable).knowledge());
+
+        graph.replaceChunk(neighbor, List.of());
+        finish(graph, 16);
+        assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.state(cable).knowledge());
+    }
+
+    @Test void distantEmptyChunkChurnPreservesBoundedBuildProgressButCableEditRestartsIt() {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        List<CableFaceNode> nodes = new ArrayList<>();
+        for (int x = 0; x < 600; x++) nodes.add(node(x, CableTier.HV));
+        ChunkPos cableChunk = new ChunkPos(0, 0);
+        graph.replaceChunk(cableChunk, nodes);
+        graph.process(256);
+        var before = graph.buildProgress();
+        assertTrue(before.dirty());
+
+        ChunkPos distant = new ChunkPos(100, 100);
+        assertFalse(graph.setChunkLoaded(distant, true));
+        assertFalse(graph.setChunkLoaded(distant, false));
+        var after = graph.buildProgress();
+        assertEquals(before.revision(), after.revision());
+        assertEquals(before.nodeCursor(), after.nodeCursor());
+        assertEquals(before.visitedNodes(), after.visitedNodes());
+
+        graph.replaceChunk(cableChunk, nodes.subList(0, nodes.size() - 1));
+        assertTrue(graph.isDirty());
+        assertTrue(graph.revision() > before.revision());
+        assertEquals(0, graph.buildProgress().nodeCursor());
+    }
+
+    @Test void boundaryInterestIsTrackedBeforeComponentBfsVisitsNodes() {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        List<CableFaceNode> nodes = new ArrayList<>();
+        for (int index = 0; index < 300; index++)
+            nodes.add(new CableFaceNode(new BlockPos(15, index * 3, 8), Direction.UP, CableTier.HV));
+        graph.replaceChunk(new ChunkPos(0, 0), nodes);
+        graph.process(256);
+        var before = graph.buildProgress();
+        assertFalse(before.indexed(), "component BFS has not started");
+
+        ChunkPos neighbor = new ChunkPos(1, 0);
+        assertTrue(graph.setChunkLoaded(neighbor, true), "indexed cable has a potential edge into the neighbor");
+        long afterLoadRevision = graph.revision();
+        assertEquals(before.nodeCursor(), graph.buildProgress().nodeCursor(), "boundary update preserves index work");
+        assertTrue(graph.setChunkLoaded(neighbor, false));
+        assertTrue(graph.revision() > afterLoadRevision, "unload also advances boundary freshness");
+
+        finish(graph, 256);
+        assertEquals(LoadedPowerGraph.Knowledge.UNKNOWN, graph.state(nodes.getFirst()).knowledge());
+        assertTrue(graph.setChunkLoaded(neighbor, true));
+        assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.state(nodes.getFirst()).knowledge());
+        assertTrue(graph.setChunkLoaded(neighbor, false));
+        assertEquals(LoadedPowerGraph.Knowledge.UNKNOWN, graph.state(nodes.getFirst()).knowledge());
+    }
+
+    @Test void earlyChunkLoadIsDeferredUntilFullReconciliationWithoutMutationQueue() {
+        PowerGraphService.LevelState state = new PowerGraphService.LevelState();
+        ChunkPos pos = new ChunkPos(12, -4);
+
+        PowerGraphService.deferFullChunkLoad(state, pos);
+        assertTrue(state.deferredLoads.contains(pos));
+        assertTrue(state.pending.isEmpty(), "pre-FULL event must not block topology readiness as a mutation");
+        assertTrue(state.validation.poll().equals(pos), "deferred load uses bounded validation rotation");
+
+        // The validation callback seeing this same position in FULL cache reconciles it.
+        PowerGraphService.resolveFullChunkLoad(state, pos);
+        assertFalse(state.deferredLoads.contains(pos));
+    }
+
     @Test void blockEventFilterIgnoresRepeatedNonCablePositionsAndFindsCableHosts() {
         CableChunkData data = new CableChunkData();
         data.put(4, 8, 8, Direction.UP, CableTier.HV);

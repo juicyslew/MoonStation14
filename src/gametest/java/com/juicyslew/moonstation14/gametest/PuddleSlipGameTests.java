@@ -83,7 +83,7 @@ public final class PuddleSlipGameTests {
             require(slipCount(counts, fake) == 0, "zero accepted displacement must remain inert");
             fake.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
             SlipSystem.onAcceptedPlayerMovement(fake, new net.minecraft.world.phys.Vec3(.12, 0, 0));
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 require(CharacterControlSystem.isStunned(villager), "villager must slip through actual entityInside; count="
                         + slipCount(counts, villager) + ", pos=" + villager.position() + ", velocity=" + villager.getDeltaMovement());
                 require(CharacterControlSystem.isStunned(fake), "FakePlayer must slip through actual entityInside");
@@ -92,9 +92,6 @@ public final class PuddleSlipGameTests {
                 require(villager.hasData(ModDataAttachments.STATUS_EFFECT.get())
                                 && fake.hasData(ModDataAttachments.STATUS_EFFECT.get()),
                         "slip must apply timed server status to both actors");
-                require(SlipSystem.isSliding(villager) == SlidingFrictionSystem.hasQualifyingContact(villager)
-                                && SlipSystem.isSliding(fake) == SlidingFrictionSystem.hasQualifyingContact(fake),
-                        "sliding projection must remain only while each actor's feet contact a qualifying source");
                 require(!unbound.hasData(ModDataAttachments.STATUS_EFFECT.get()),
                         "unconfigured Cow remains inert despite physical puddle contact");
                 require(!SlipSystem.isSliding(unbound) && !unbound.hasData(ModDataAttachments.SLIDING.get()),
@@ -104,13 +101,22 @@ public final class PuddleSlipGameTests {
                 SlipSystem.onAcceptedPlayerMovement(fake, new net.minecraft.world.phys.Vec3(.1, 0, 0));
                 require(slipCount(counts, villager) == 1 && slipCount(counts, fake) == 1,
                         "repeated movement callbacks during one puddle contact must not slip twice");
-                helper.runAfterDelay(2, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
+                    require(SlipSystem.isSliding(villager) == SlidingFrictionSystem.hasQualifyingContact(villager)
+                                    && SlipSystem.isSliding(fake) == SlidingFrictionSystem.hasQualifyingContact(fake),
+                            "sliding projection must match each actor's feet contact after the native contact tick; "
+                                    + "villagerSliding=" + SlipSystem.isSliding(villager)
+                                    + ", villagerContact=" + SlidingFrictionSystem.hasQualifyingContact(villager)
+                                    + ", villagerFeet=" + villager.getBoundingBox().minY
+                                    + ", fakeSliding=" + SlipSystem.isSliding(fake)
+                                    + ", fakeContact=" + SlidingFrictionSystem.hasQualifyingContact(fake)
+                                    + ", fakeFeet=" + fake.getBoundingBox().minY);
                     villager.setDeltaMovement(-.12, 0, 0);
                     fake.setDeltaMovement(-.12, 0, 0);
                     villager.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(-1, 0, 0));
                     fake.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(-1, 0, 0));
                     SlipSystem.onAcceptedPlayerMovement(fake, new net.minecraft.world.phys.Vec3(-1, 0, 0));
-                    helper.runAfterDelay(2, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                         // Reactive Touch consumes solution on admitted slips. Restore and
                         // verify the source so the re-entry behavior is tested with a
                         // qualifying puddle, not an exhausted one.
@@ -412,7 +418,7 @@ public final class PuddleSlipGameTests {
             // a discontinuous position jump that could otherwise mask a teleport.
             for (int tick = 1; tick <= 3; tick++) {
                 final int observedTick = tick;
-                helper.runAfterDelay(observedTick, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, observedTick, () -> {
                     Vec3 position = villager.position();
                     require(Math.abs(position.y - floorY) <= .08d,
                             "stunned Villager feet must stay at the stone floor top on natural tick "
@@ -430,7 +436,7 @@ public final class PuddleSlipGameTests {
 
             // No travel(), explicit move(), or client movement packets occur during these
             // three ticks: only the server's normal entity tick can advance the actors.
-            helper.runAfterDelay(3, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 3, () -> {
                 Vec3 playerDelta = player.position().subtract(playerStart);
                 Vec3 villagerDelta = villager.position().subtract(villagerStart);
                 Vec3 playerBaselineDelta = playerBaseline.position().subtract(playerBaselineStart);
@@ -499,12 +505,12 @@ public final class PuddleSlipGameTests {
             target.setDeltaMovement(.005, 0, 0);
             putAt(target, helper, new BlockPos(2, 1, 2));
             target.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(.05, 0, 0));
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 require(!target.hasData(ModDataAttachments.STATUS_EFFECT.get()), "slow contact must remain inert");
                 require(slipCount(counts, target) == 0, "slow contact must not invoke the slip hook");
                 target.setDeltaMovement(.12, 0, 0);
                 target.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(.1, 0, 0));
-                helper.runAfterDelay(1, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                     require(CharacterControlSystem.isStunned(target),
                             "a slow contact must remain eligible for a later fast move on the same puddle");
                     require(slipCount(counts, target) == 1, "later fast movement must invoke the slip hook once");
@@ -552,7 +558,7 @@ public final class PuddleSlipGameTests {
             try {
                 target.setDeltaMovement(.12, 0, 0);
                 target.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(1, 0, 0));
-                helper.runAfterDelay(1, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                     try {
                         require(gateCalls.get() == 1, "qualifying real movement must invoke the cancellable gate");
                         require(slipEvents.get() == 0, "cancelled attempt must not emit a SlipEvent");
@@ -565,7 +571,7 @@ public final class PuddleSlipGameTests {
                         // of target/source cancellation, so faster repeated movement cannot retry.
                         target.setDeltaMovement(.12, 0, 0);
                         target.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(.1, 0, 0));
-                        helper.runAfterDelay(1, () -> {
+                        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                             try {
                                 require(gateCalls.get() == 1, "unregistered gate must not be called again");
                                 require(slipEvents.get() == 0
@@ -574,11 +580,11 @@ public final class PuddleSlipGameTests {
 
                                 target.setDeltaMovement(-.12, 0, 0);
                                 target.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(-2, 0, 0));
-                                helper.runAfterDelay(2, () -> {
+                                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                                     try {
                                         target.setDeltaMovement(.12, 0, 0);
                                         target.move(MoverType.SELF, new net.minecraft.world.phys.Vec3(2, 0, 0));
-                                        helper.runAfterDelay(1, () -> {
+                                        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                                             try {
                                                 require(slipEvents.get() == 1,
                                                         "leaving and re-entering must admit exactly one slip");

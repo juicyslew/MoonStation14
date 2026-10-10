@@ -229,15 +229,9 @@ public final class SyringeService {
         return hands != null && hands.compatible(body) && hands.revision() == revision && hands.activeHand().equals(hand)
                 && hands.token(hand).filter(token::equals).isPresent();
     }
-    private static boolean inReach(LivingEntity actor, LivingEntity target) {
-        if (actor.level() != target.level() || actor.distanceToSqr(target) > 2.25
-                || !(actor.level() instanceof ServerLevel level)) return false;
-        var from = actor.getEyePosition();
-        var to = target.getEyePosition();
-        var hit = level.clip(new net.minecraft.world.level.ClipContext(from, to,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                net.minecraft.world.level.ClipContext.Fluid.NONE, actor));
-        return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+    static boolean inReach(LivingEntity actor, LivingEntity target) {
+        return com.juicyslew.moonstation14.ms14.hands.live.BodyInteractionAccess.inRange(actor, target,
+                com.juicyslew.moonstation14.ms14.interaction.InteractionReach.DEFAULT_BLOCKS);
     }
 
     public record Admission(InjectorModeData.Kind kind, long doseCents) {

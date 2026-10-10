@@ -87,12 +87,16 @@ class CharacterMovementMotorTest {
             pigSprint = pigMotor.tick(pigSprint, new CharacterMovementCommand(1d, 0d, false, true), environment, false);
         }
 
-        assertEquals(2.5d, humanWalk.velocity().x(), 1e-9);
-        assertEquals(4d, pigWalk.velocity().x(), 1e-9);
-        assertEquals(4.5d, humanSprint.velocity().x(), 1e-9);
-        assertEquals(4d, pigSprint.velocity().x(), 1e-9);
+        assertEquals(3.125d, humanWalk.velocity().x(), 1e-9);
+        assertEquals(5d, pigWalk.velocity().x(), 1e-9);
+        assertEquals(5.625d, humanSprint.velocity().x(), 1e-9);
+        assertEquals(5d, pigSprint.velocity().x(), 1e-9);
         assertEquals(20d, human.accelerationPerSecondSquared());
         assertEquals(20d, pig.accelerationPerSecondSquared());
+        assertEquals(20d, human.groundFrictionWithInputPerSecond());
+        assertEquals(20d, human.groundFrictionNoInputPerSecond());
+        assertEquals(3.125d, human.walkSpeedPerSecond());
+        assertEquals(5.625d, human.sprintSpeedPerSecond());
     }
 
     private static CharacterData readCharacter(String name) throws IOException {

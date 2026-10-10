@@ -14,13 +14,22 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceComponents;
 
 /** Resolved component definition only; it does not configure a live device. */
 public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
                                     ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
-                                    GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry) {
+                                     GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry,
+                                     DeviceComponents deviceComponents) {
     public enum Kind { VENT, SCRUBBER }
     public enum PipeLane { PRIMARY, SECONDARY, TERTIARY }
+
+    public VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
+                                 ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
+                                 GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry) {
+        this(kind, pipeLane, apcPowerReceiver, extensionCableReceiver, gasVentPump, gasVentScrubber,
+                fixtureGeometry, DeviceComponents.empty());
+    }
 
     public record ApcPowerReceiver(double requestedWatts) {
         public static final Codec<ApcPowerReceiver> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -72,9 +81,10 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
             ExtensionCableReceiver.CODEC.fieldOf("extensionCableReceiver").forGetter(VentilationDeviceData::extensionCableReceiver),
             GasVentPump.CODEC.optionalFieldOf("gasVentPump").forGetter(d -> java.util.Optional.ofNullable(d.gasVentPump())),
             GasVentScrubber.CODEC.optionalFieldOf("gasVentScrubber").forGetter(d -> java.util.Optional.ofNullable(d.gasVentScrubber()))
-            , FixtureGeometry.CODEC.fieldOf("fixtureGeometry").forGetter(VentilationDeviceData::fixtureGeometry)
-    ).apply(i, (kind, lane, apc, extension, vent, scrubber, geometry) ->
-            new VentilationDeviceData(kind, lane, apc, extension, vent.orElse(null), scrubber.orElse(null), geometry)));
+             , FixtureGeometry.CODEC.fieldOf("fixtureGeometry").forGetter(VentilationDeviceData::fixtureGeometry),
+            DeviceComponents.CODEC.optionalFieldOf("deviceComponents", DeviceComponents.empty()).forGetter(VentilationDeviceData::deviceComponents)
+    ).apply(i, (kind, lane, apc, extension, vent, scrubber, geometry, components) ->
+            new VentilationDeviceData(kind, lane, apc, extension, vent.orElse(null), scrubber.orElse(null), geometry, components)));
 
     public static final Codec<VentilationDeviceData> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
         @Override public <T> DataResult<Pair<VentilationDeviceData, T>> decode(DynamicOps<T> ops, T input) {
@@ -96,7 +106,7 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
     });
 
     public void validate() {
-        if (kind == null || pipeLane == null || apcPowerReceiver == null || extensionCableReceiver == null)
+        if (kind == null || pipeLane == null || apcPowerReceiver == null || extensionCableReceiver == null || deviceComponents == null)
             throw new IllegalArgumentException("missing shared ventilation components");
         if (fixtureGeometry == null || fixtureGeometry.width() <= 0 || fixtureGeometry.width() > 1
                 || fixtureGeometry.height() <= 0 || fixtureGeometry.height() > 1
@@ -132,7 +142,7 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
     private static void audit(JsonElement json) {
         if (!json.isJsonObject()) throw new IllegalArgumentException("expected object");
         JsonObject object = json.getAsJsonObject();
-        fields(object, Set.of("kind", "pipeLane", "apcPowerReceiver", "extensionCableReceiver", "gasVentPump", "gasVentScrubber", "fixtureGeometry"));
+        fields(object, Set.of("kind", "pipeLane", "apcPowerReceiver", "extensionCableReceiver", "gasVentPump", "gasVentScrubber", "fixtureGeometry", "deviceComponents"));
         for (String name : List.of("apcPowerReceiver", "extensionCableReceiver"))
             if (object.has(name)) nested(object, name, switch (name) {
                 case "apcPowerReceiver" -> Set.of("requestedWatts");

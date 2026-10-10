@@ -25,6 +25,8 @@ public class ModSounds {
     public static final Supplier<SoundEvent> CHEMMASTER_EJECT = registerSoundEvent("chemistry/chemmaster/eject");
     public static final Supplier<SoundEvent> CHEMMASTER_DUMP = registerSoundEvent("chemistry/chemmaster/dump");
     public static final Supplier<SoundEvent> REACTION_BUBBLES = registerSoundEvent("chemistry/reaction_bubbles");
+    public static final Supplier<SoundEvent> DEVICE_LIGHTSWITCH = registerSoundEvent("device_lightswitch");
+    public static final Supplier<SoundEvent> DEVICE_OVERLOAD = registerSoundEvent("device/defib_zap");
     public static final Supplier<SoundEvent> AIRLOCK_OPEN = registerSoundEvent("airlock/airlock_open");
     public static final Supplier<SoundEvent> AIRLOCK_CLOSE = registerSoundEvent("airlock/airlock_close");
     public static final Supplier<SoundEvent> AIRLOCK_DENY = registerSoundEvent("airlock/airlock_deny");

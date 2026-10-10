@@ -1,5 +1,12 @@
 # Current validation
 
+## Subsequent model and manual-test follow-up
+
+The later exported-model replacement and screwdriver/stationary-contact fixes
+are recorded in `../airlock-model-mini-sprint/IMPLEMENTATION.md`. That document
+contains the newer artifact identity and validation evidence; closure artifacts
+below are historical.
+
 ## Sprint closure (2026-10-07)
 
 The owner declared the work complete and closed the sprint. See `HANDOFF.md`
