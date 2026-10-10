@@ -1,1 +1,244 @@
-{"variants":{"facing=north":{"model":"moonstation14:block/high_load_test_lamp"},"facing=east":{"model":"moonstation14:block/high_load_test_lamp","y":90},"facing=south":{"model":"moonstation14:block/high_load_test_lamp","y":180},"facing=west":{"model":"moonstation14:block/high_load_test_lamp","y":270}}}
+{
+  "variants": {
+    "facing=north,lit=false,display=off": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=false,display=on": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=false,display=fixed_on": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=false,display=unpowered": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=false,display=dead": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=false,display=charging": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=false,display=full": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=false,display=lack": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=off": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=on": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=fixed_on": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=unpowered": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=dead": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=charging": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=full": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=north,lit=true,display=lack": {
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=off": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=on": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=fixed_on": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=unpowered": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=dead": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=charging": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=full": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=false,display=lack": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=off": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=on": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=fixed_on": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=unpowered": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=dead": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=charging": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=full": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=south,lit=true,display=lack": {
+      "y": 180,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=off": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=on": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=fixed_on": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=unpowered": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=dead": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=charging": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=full": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=false,display=lack": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=off": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=on": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=fixed_on": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=unpowered": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=dead": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=charging": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=full": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=west,lit=true,display=lack": {
+      "y": 270,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=off": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=on": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=fixed_on": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=unpowered": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=dead": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=charging": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=full": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=false,display=lack": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=off": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=on": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=fixed_on": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=unpowered": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=dead": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=charging": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=full": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    },
+    "facing=east,lit=true,display=lack": {
+      "y": 90,
+      "model": "moonstation14:block/high_load_test_lamp"
+    }
+  }
+}

@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.block.custom.PuddleBlock;
 import com.juicyslew.moonstation14.block.custom.AtmosphereTestDeviceBlock;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
+import com.juicyslew.moonstation14.block.custom.ApcPowerDeviceBlock;
 import com.juicyslew.moonstation14.block.custom.ConstructionStructureBlock;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
@@ -17,6 +18,7 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -104,6 +106,7 @@ public class ModBlocks {
     public static final DeferredBlock<DisposalUnitBlock> DISPOSAL_UNIT = BLOCKS.register("disposal_unit", DisposalUnitBlock::new);
     public static final DeferredBlock<DisposalTubeBlock> DISPOSAL_TUBE = BLOCKS.register("disposal_tube",
             () -> new DisposalTubeBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion().noLootTable()));
+    public static final DeferredBlock<ChemMasterBlock> CHEM_MASTER = BLOCKS.register("chem_master", ChemMasterBlock::new);
     static {
         ModItems.ITEMS.register("disposal_tube", () -> new CatalogOnlyDisposalPipeBlockItem(
                 DISPOSAL_TUBE.get(), new Item.Properties()));
@@ -121,7 +124,10 @@ public class ModBlocks {
     }
 
     private static DeferredBlock<PowerDeviceBlock> registerPowerDevice(PowerDeviceKind kind) {
-        return registerBlock(kind.id(), () -> new PowerDeviceBlock(kind,
+        return registerBlock(kind.id(), () -> kind == PowerDeviceKind.APC ? new ApcPowerDeviceBlock(
+                BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER).noOcclusion()
+                        .lightLevel(state -> state.hasProperty(PowerDeviceBlock.EMISSION) ? state.getValue(PowerDeviceBlock.EMISSION)
+                                : kind.isLamp() && state.getValue(PowerDeviceBlock.LIT) ? 14 : 0)) : new PowerDeviceBlock(kind,
                 BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER).noOcclusion()
                         .lightLevel(state -> kind.isLamp() && state.getValue(PowerDeviceBlock.LIT) ? 14 : 0)));
     }

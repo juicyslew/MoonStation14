@@ -21,7 +21,7 @@ public final class ApcBodyInteractionGameTests {
     public static void authorizedCoreTogglesOnlyWithinNativeRange(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(4, 1, 2));
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, net.minecraft.core.Direction.NORTH)) throw new IllegalStateException("supported APC fixture placement failed");
         PowerDeviceBlockEntity device = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
         device.setEnergyJoules(0);
         long revision = device.breakerRevision();

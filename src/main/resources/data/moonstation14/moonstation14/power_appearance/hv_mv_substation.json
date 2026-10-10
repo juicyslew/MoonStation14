@@ -1,0 +1,9 @@
+{
+  "parent": "base_power_appearance",
+  "kind": "hv_mv_substation",
+  "inactive": "dead",
+  "active": "full",
+  "charging": "charging",
+  "full": "full",
+  "lack": "lack"
+}

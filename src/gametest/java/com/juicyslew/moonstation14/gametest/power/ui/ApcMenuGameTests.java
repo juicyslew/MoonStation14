@@ -31,7 +31,7 @@ public final class ApcMenuGameTests {
     public static void initialSnapshotMarkerDistinguishesUnsyncedClientFromServer(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, net.minecraft.core.Direction.NORTH)) throw new IllegalStateException("supported APC fixture placement failed");
         PowerDeviceBlockEntity device = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
         FakePlayer player = player(level, "apc-snapshot", pos);
         UUID session = UUID.randomUUID();
@@ -83,7 +83,7 @@ public final class ApcMenuGameTests {
     public static void openedServerMenuAllowsOneToggleAndRefreshesAllViewers(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, net.minecraft.core.Direction.NORTH)) throw new IllegalStateException("supported APC fixture placement failed");
         PowerDeviceBlockEntity device = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
         FakePlayer first = player(level, "apc-first", pos);
         FakePlayer second = player(level, "apc-second", pos);
@@ -139,7 +139,7 @@ public final class ApcMenuGameTests {
     public static void staleMenuRejectsRemovedOrReplacedDeviceAndContextChanges(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, net.minecraft.core.Direction.NORTH)) throw new IllegalStateException("supported APC fixture placement failed");
         PowerDeviceBlockEntity device = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
         FakePlayer player = player(level, "apc-stale", pos);
         require(level.addFreshEntity(player), "FakePlayer must join GameTest level");
@@ -151,7 +151,7 @@ public final class ApcMenuGameTests {
         player.setPos(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5);
         level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
         require(!ApcMenuService.apply(player, request).hasSnapshot() && device.breakerClosed(), "removed device cannot be toggled");
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, net.minecraft.core.Direction.NORTH)) throw new IllegalStateException("supported APC fixture placement failed");
         require(!ApcMenuService.apply(player, request).hasSnapshot(), "replacement BE does not inherit old menu identity");
         helper.succeed();
     }

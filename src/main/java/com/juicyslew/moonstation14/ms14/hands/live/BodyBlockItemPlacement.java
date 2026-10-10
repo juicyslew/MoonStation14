@@ -36,8 +36,8 @@ public final class BodyBlockItemPlacement {
                 || block == ModBlocks.ATMOS_GAS_SINK.get() || block == ModBlocks.ATMOS_HEATER.get()
                 || block == ModBlocks.ATMOS_COOLER.get() || block == ModBlocks.HV_SOURCE.get()
                 || block == ModBlocks.HV_MV_SUBSTATION.get() || block == ModBlocks.APC.get()
-                || block == ModBlocks.POWER_LAMP.get() || block == ModBlocks.HIGH_LOAD_TEST_LAMP.get()
-                || block == ModBlocks.AIRLOCK.get();
+                 || block == ModBlocks.POWER_LAMP.get() || block == ModBlocks.HIGH_LOAD_TEST_LAMP.get()
+                 || block == ModBlocks.AIRLOCK.get() || block == ModBlocks.CHEM_MASTER.get();
     }
 
     public static BodyBlockUseResult.Outcome place(ServerPlayer actor, BodyBlockUseRequest request,
@@ -84,6 +84,9 @@ public final class BodyBlockItemPlacement {
         if (!level.setBlock(dest, placed, Block.UPDATE_ALL)) return BodyBlockUseResult.Outcome.DENIED;
         var ownedBlockEntity = level.getBlockEntity(dest);
         try {
+            item.updateCustomBlockEntityTag(level, bodyPlayer, dest, stack.copy());
+            if (ownedBlockEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster)
+                chemMaster.resetPlacementIdentity();
             item.getBlock().setPlacedBy(level, dest, placed, body, stack.copy());
         } catch (RuntimeException failure) {
             return rollbackPlacement(level, dest, placed, ownedBlockEntity, old)

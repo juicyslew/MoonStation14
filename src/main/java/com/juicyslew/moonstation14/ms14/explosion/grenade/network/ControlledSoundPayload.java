@@ -8,22 +8,25 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Positional sound routed to listeners by their active server camera rather than carrier position. */
 public record ControlledSoundPayload(ResourceLocation dimension, ResourceLocation sound,
-                                     double x, double y, double z) implements CustomPacketPayload {
+                                     double x, double y, double z, float volume) implements CustomPacketPayload {
     public static final Type<ControlledSoundPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "controlled_sound"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ControlledSoundPayload> STREAM_CODEC =
             StreamCodec.of(ControlledSoundPayload::write, ControlledSoundPayload::read);
     public ControlledSoundPayload {
-        if (dimension == null || sound == null || !Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z))
+        if (dimension == null || sound == null || !Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z) || !Float.isFinite(volume) || volume < 0)
             throw new IllegalArgumentException("Invalid controlled sound payload");
+    }
+    public ControlledSoundPayload(ResourceLocation dimension, ResourceLocation sound, double x, double y, double z) {
+        this(dimension, sound, x, y, z, 1f);
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     private static void write(RegistryFriendlyByteBuf b, ControlledSoundPayload p) {
         b.writeUtf(p.dimension.toString(), 256); b.writeUtf(p.sound.toString(), 256);
-        b.writeDouble(p.x); b.writeDouble(p.y); b.writeDouble(p.z);
+        b.writeDouble(p.x); b.writeDouble(p.y); b.writeDouble(p.z); b.writeFloat(p.volume);
     }
     private static ControlledSoundPayload read(RegistryFriendlyByteBuf b) {
         return new ControlledSoundPayload(ResourceLocation.parse(b.readUtf(256)), ResourceLocation.parse(b.readUtf(256)),
-                b.readDouble(), b.readDouble(), b.readDouble());
+                b.readDouble(), b.readDouble(), b.readDouble(), b.readFloat());
     }
 }

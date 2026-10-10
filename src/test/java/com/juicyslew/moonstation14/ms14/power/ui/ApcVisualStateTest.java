@@ -7,23 +7,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ApcVisualStateTest {
     @Test void fullIsStrictlyAboveNinetyPercent() {
         assertEquals(ApcVisualState.FULL, ApcVisualState.fromSolve(true, true, 0, 0, 900_001, 900_001));
-        assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, true, 0, 0, 900_000, 900_000));
+        assertEquals(ApcVisualState.LACK, ApcVisualState.fromSolve(true, true, 0, 0, 900_000, 900_000));
     }
 
     @Test void chargingIncludesOpenBreakerWhenBatteryActuallyGainsEnergy() {
         assertEquals(ApcVisualState.CHARGING, ApcVisualState.fromSolve(true, true, 5000, 0, 500_000, 505_000));
-        assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, true, 5000, 0, 500_000, 500_000));
+        assertEquals(ApcVisualState.LACK, ApcVisualState.fromSolve(true, true, 5000, 0, 500_000, 500_000));
         assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, false, 5000, 0, 500_000, 505_000));
     }
 
-    @Test void balancedOperationIsNotLack() {
-        assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, true, 100, 100, 500_000, 500_000));
-        assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, true, 100, 200, 500_000, 500_000));
+    @Test void nonIncreasingBatteryStateIsLack() {
+        assertEquals(ApcVisualState.LACK, ApcVisualState.fromSolve(true, true, 100, 100, 500_000, 500_000));
+        assertEquals(ApcVisualState.LACK, ApcVisualState.fromSolve(true, true, 100, 200, 500_000, 500_000));
     }
 
-    @Test void lackRequiresMeasuredInputAndActualBatteryDrain() {
+    @Test void lackRequiresKnownBatteryObservation() {
         assertEquals(ApcVisualState.LACK, ApcVisualState.fromSolve(true, true, 100, 200, 500_000, 499_000));
-        assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, true, 0, 100, 500_000, 499_000));
+        assertEquals(ApcVisualState.LACK, ApcVisualState.fromSolve(true, true, 0, 100, 500_000, 499_000));
         assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(false, true, 100, 200, 500_000, 499_000));
         assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, false, 100, 200, 500_000, 499_000));
         assertEquals(ApcVisualState.UNKNOWN, ApcVisualState.fromSolve(true, true, Double.NaN, 200, 500_000, 499_000));

@@ -67,6 +67,32 @@ public class JugItem extends Item implements IReagentTrait {
         return resolvedJugData(level);
     }
 
+    @Override public com.juicyslew.moonstation14.ms14.reagent.DrainableSolutionPolicy drainableSolution(ItemStack stack, Level level) {
+        var data = resolvedJugData(level);
+        return drainableSolutionFromResolved(data);
+    }
+    @Override public String solutionName(ItemStack stack, Level level) {
+        var data = resolvedJugData(level);
+        return primarySolutionNameFromResolved(data);
+    }
+    @Override public com.juicyslew.moonstation14.ms14.reagent.RefillableSolutionPolicy refillableSolution(ItemStack stack, Level level) { return refillableSolutionFromResolved(resolvedJugData(level)); }
+    @Override public com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy solutionTransfer(ItemStack stack, Level level) { return solutionTransferFromResolved(resolvedJugData(level)); }
+    @Override public com.juicyslew.moonstation14.ms14.reagent.DrinkSolutionPolicy drinkSolution(ItemStack stack, Level level) { return drinkSolutionFromResolved(resolvedJugData(level)); }
+    public static com.juicyslew.moonstation14.ms14.reagent.RefillableSolutionPolicy refillableSolutionFromResolved(com.juicyslew.moonstation14.ms14.jug.JugData data) { return data == null ? com.juicyslew.moonstation14.ms14.reagent.RefillableSolutionPolicy.DISABLED : data.refillableSolution(); }
+    public static com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy solutionTransferFromResolved(com.juicyslew.moonstation14.ms14.jug.JugData data) { return data == null ? com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy.DISABLED : data.solutionTransfer(); }
+    public static com.juicyslew.moonstation14.ms14.reagent.DrinkSolutionPolicy drinkSolutionFromResolved(com.juicyslew.moonstation14.ms14.jug.JugData data) { return data == null ? com.juicyslew.moonstation14.ms14.reagent.DrinkSolutionPolicy.DISABLED : data.drinkSolution(); }
+
+    /** Drain policy projection shared by bound runtime getters and resolved-profile validation. */
+    public static com.juicyslew.moonstation14.ms14.reagent.DrainableSolutionPolicy drainableSolutionFromResolved(
+            com.juicyslew.moonstation14.ms14.jug.JugData data) {
+        return data == null ? null : data.drainableSolution();
+    }
+
+    /** Primary solution projection shared by runtime getters and resolved-profile validation. */
+    public static String primarySolutionNameFromResolved(com.juicyslew.moonstation14.ms14.jug.JugData data) {
+        return data == null ? "default" : data.solutionContainer().solutionName();
+    }
+
     @Override
     public UseAnim getUseAnimation(ItemStack stack) { return UseAnim.DRINK; }
 

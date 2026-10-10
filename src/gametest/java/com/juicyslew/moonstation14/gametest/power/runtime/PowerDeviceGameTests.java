@@ -8,6 +8,8 @@ import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement;
+import com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
@@ -127,7 +129,86 @@ public final class PowerDeviceGameTests {
         });
     }
 
-    @GameTest(template = "power_live_chain_clear", timeoutTicks = 400, templateNamespace = "moonstation14")
+    @GameTestTags({"apc-light-source"})
+    @GameTest(template = "empty", timeoutTicks = 140, templateNamespace = "moonstation14")
+    public static void isolatedApcProjectsNativeEmissionAndSurvivesOpenBreaker(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        // Elevate the sealed fixture beyond the harness's nearby beacon propagation radius.
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO).above(20);
+        // A sealed opaque room excludes the GameTest beacon/debug marker and neighboring fixtures.
+        for (int x = -1; x <= 7; x++) for (int y = -1; y <= 5; y++) for (int z = -1; z <= 7; z++) {
+            if (x <= 1 || x >= 5 || y <= 0 || y >= 4 || z <= 1 || z >= 5)
+                level.setBlock(origin.offset(x, y, z), Blocks.STONE.defaultBlockState(), 3);
+        }
+        BlockPos apc = origin.offset(3, 2, 3);
+        require(PowerDeviceFixturePlacement.placeApc(level, apc, Direction.WEST), "place isolated wall-mounted APC");
+        PowerDeviceBlockEntity device = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
+        var profile = ModPowerAppearances.catalog(level).get(ModPowerAppearances.APC);
+        require(profile != null, "resolved APC profile exists");
+        device.setEnergyJoules(0);
+        helper.runAfterDelay(10, () -> {
+        int baseline = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, apc.north());
+        require(baseline == 0, "sealed APC room starts at zero block light; got " + baseline + diagnosticEmitters(level, apc));
+        device.setEnergyJoules(500_000);
+        helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE + 2, () -> {
+            var state = level.getBlockState(apc);
+            require(state.getValue(PowerDeviceBlock.GLOW), "charged battery projects GLOW");
+            require(state.getValue(PowerDeviceBlock.EMISSION) == profile.lightLevel(), "resolved profile emission is projected");
+            require(state.getLightEmission(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO) == profile.lightLevel(),
+                    "native context-free state query sees emission without a block entity");
+            require(chunkSourcesApc(level, apc), "native chunk source scan discovers already-on APC without a GLOW transition");
+            require(level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, apc) == profile.lightLevel()
+                    && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, apc.north()) == profile.lightLevel() - 1,
+                    "isolated APC illuminates itself and adjacent air");
+            require(device.toggleBreakerAuthorized(true, 0), "open APC breaker through authorized entity API");
+            helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE + 2, () -> {
+                require(level.getBlockState(apc).getValue(PowerDeviceBlock.GLOW), "charged open-breaker APC remains lit");
+                device.setEnergyJoules(0);
+                helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE + 2, () -> {
+                    var dark = level.getBlockState(apc);
+                    require(!dark.getValue(PowerDeviceBlock.GLOW) && dark.getValue(PowerDeviceBlock.EMISSION) == 0,
+                            "zero-energy no-input APC extinguishes");
+                    require(dark.getLightEmission(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO) == 0,
+                            "context-free state query reports extinction");
+                    require(!chunkSourcesApc(level, apc), "native chunk source scan excludes extinguished APC");
+                    awaitDark(helper, level, apc, 40);
+                });
+            });
+        });
+        });
+    }
+
+    private static boolean chunkSourcesApc(ServerLevel level, BlockPos apc) {
+        boolean[] found = {false};
+        level.getChunk(apc).findBlockLightSources((sourcePos, sourceState) -> {
+            if (sourcePos.equals(apc) && sourceState.getBlock() instanceof PowerDeviceBlock block
+                    && block.kind() == PowerDeviceKind.APC) found[0] = true;
+        });
+        return found[0];
+    }
+
+    private static void awaitDark(GameTestHelper helper, ServerLevel level, BlockPos apc, int remaining) {
+        int brightness = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, apc.north());
+        if (brightness == 0) { helper.succeed(); return; }
+        if (remaining <= 0) throw new GameTestAssertException("sealed APC neighbor stayed lit: " + brightness
+                + diagnosticEmitters(level, apc));
+        helper.runAfterDelay(1, () -> awaitDark(helper, level, apc, remaining - 1));
+    }
+
+    private static String diagnosticEmitters(ServerLevel level, BlockPos center) {
+        StringBuilder result = new StringBuilder("; local emitters=");
+        BlockPos.betweenClosed(center.offset(-15, -15, -15), center.offset(15, 15, 15)).forEach(pos -> {
+            var state = level.getBlockState(pos);
+            int emission = state.getLightEmission(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+            if (emission > 0 || state.getLightEmission(level, pos) > 0)
+                result.append(pos).append(':').append(state.getBlock()).append("[empty=").append(emission)
+                        .append(",context=").append(state.getLightEmission(level, pos)).append("] ");
+        });
+        return result.toString();
+    }
+
+    @GameTest(template = "power_live_chain_clear", timeoutTicks = 1200, templateNamespace = "moonstation14")
+    @GameTestTags({"machine-model-regression"})
     public static void liveSourceSubstationApcBatteryAndLampChain(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         // Shift the requested x=0 device row into the bounded template; y and z remain aligned.
@@ -159,7 +240,19 @@ public final class PowerDeviceGameTests {
 
             // Removing HV isolates the source, but the precharged APC battery supplies the lamp.
             level.setBlock(source, Blocks.AIR.defaultBlockState(), 3);
-            helper.runAfterDelay(60, () -> {
+            var sourceHv=new CableFaceNode(helper.absolutePos(new BlockPos(4,1,2)),Direction.WEST,CableTier.HV);
+            var subHv=new CableFaceNode(helper.absolutePos(new BlockPos(4,1,4)),Direction.WEST,CableTier.HV);
+            var subMv=new CableFaceNode(helper.absolutePos(new BlockPos(2,1,4)),Direction.EAST,CableTier.MV);
+            var apcMv=new CableFaceNode(helper.absolutePos(new BlockPos(2,1,6)),Direction.EAST,CableTier.MV);
+            var apcOut=new CableFaceNode(helper.absolutePos(new BlockPos(4,1,6)),Direction.WEST,CableTier.APC);
+            com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness.await(helper,level,600,
+                    ()->com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness.topologyReadyWithKnownPorts(
+                            level,sourceHv,subHv,subMv,apcMv,apcOut)
+                            &&level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT),
+                    ()->"source="+PowerGraphService.state(level,sourceHv)+", subHV="+PowerGraphService.state(level,subHv)
+                            +", subMV="+PowerGraphService.state(level,subMv)+", apcMV="+PowerGraphService.state(level,apcMv)
+                            +", apcOut="+PowerGraphService.state(level,apcOut)+", "
+                            +PowerRuntime.lastSolveDiagnostic(level),()->{
                 assertLamp(level, lamp, true, "precharged battery keeps lamp lit after HV break");
                 PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
                 Player player = new Player(level, apc, 0, new GameProfile(UUID.randomUUID(), "power-test")) {
@@ -241,6 +334,10 @@ public final class PowerDeviceGameTests {
     }
 
     private static void placeDevice(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {
+        if (kind == PowerDeviceKind.APC) {
+            require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, facing), "place supported APC");
+            return;
+        }
         var block = switch (kind) {
             case HV_SOURCE -> ModBlocks.HV_SOURCE.get();
             case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION.get();

@@ -31,6 +31,9 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
+import net.minecraft.resources.ResourceLocation;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import java.util.function.Supplier;
 
 /** Main-thread-only request gate; neither a menu nor a carrier-inventory route. */
 public final class BodyHandRequestService {
@@ -534,17 +537,24 @@ public final class BodyHandRequestService {
             var held = hands.stackCopy(request.handId()).orElse(null);
             var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
             try {
-                var medical = heldId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
-                        com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(authority.body().level()), heldId);
-                if (medical != null && medical.syringePolicy().isPresent())
-                    return result(request, liquidReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeContainerService.useContainer(
-                            actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), request.pickupTarget())), authority);
+                // Ordinary liquid containers are intentionally not in the medical catalog.
+                // Only a catalog failure is exceptional; an absent medical definition falls
+                // through to the shared, policy-driven liquid transaction below.
+                var medical = targetUseMedicalLookup(heldId, com.juicyslew.moonstation14.ms14.medical.ModMedicalItems
+                        .catalog(authority.body().level()));
+                var dispatched = dispatchTargetUse(medical,
+                        () -> result(request, liquidReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeContainerService.useContainer(
+                                actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), request.pickupTarget())), authority),
+                        () -> {
+                            var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), request.expectedToken(),
+                                    request.expectedRevision(), false);
+                            BodyHandActionResult response = result(request, liquidReason(outcome), authority);
+                            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                            return response;
+                        });
+                if (dispatched != null) return dispatched;
             } catch (RuntimeException ignored) { return result(request, BodyHandActionResult.Reason.DENIED, authority); }
-            var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), request.expectedToken(),
-                    request.expectedRevision(), false);
-            BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
-            return response;
+            return result(request, BodyHandActionResult.Reason.DENIED, authority);
         }
         if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
             var stack = hands.stackCopy(request.handId()).orElse(null);
@@ -565,10 +575,15 @@ public final class BodyHandRequestService {
             } catch (RuntimeException ignored) { }
             if (!(stack.getItem() instanceof IReagentTrait))
                 return result(request, BodyHeldItemActions.activate(actor, request), authority);
-            if (!ModIngestionProfiles.serverReady())
-                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            boolean policyDrink = false;
+            if (stack.getItem() instanceof IReagentTrait trait) {
+                var policy = trait.drinkSolution(stack, authority.body().level());
+                policyDrink = policy != null && policy.enabled()
+                        && trait.solutionName(stack, authority.body().level()).equals(policy.solutionName());
+            }
             var itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            if (itemId == null || ModIngestionProfiles.serverLookup(itemId) == null)
+            if (!ModIngestionProfiles.serverReady() || itemId == null
+                    || !policyDrink && ModIngestionProfiles.serverLookup(itemId) == null)
                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
             BodyHandActionResult.Reason reason = BodyTimedIngestionService.startHeld(actor, request.handId(),
                     request.expectedToken(), request.expectedRevision(), request.sequence());
@@ -633,6 +648,16 @@ public final class BodyHandRequestService {
         return result(request, dropReason, authority, dropReason == BodyHandActionResult.Reason.OK && spawned.get() != null
                  ? new BodyHandActionResult.HostTransition(BodyHandActionResult.HostTransition.Direction.DROP,
                      spawned.get(), request.expectedToken()) : null);
+    }
+
+    /** Missing medical entry is the normal route for generic reagent containers. */
+    static com.juicyslew.moonstation14.ms14.medical.MedicalItemData targetUseMedicalLookup(
+            ResourceLocation itemId, PrototypeCatalog<com.juicyslew.moonstation14.ms14.medical.MedicalItemData> catalog) {
+        return itemId == null ? null : java.util.Objects.requireNonNull(catalog).get(itemId);
+    }
+    static <T> T dispatchTargetUse(com.juicyslew.moonstation14.ms14.medical.MedicalItemData medical,
+                                   Supplier<T> syringe, Supplier<T> genericLiquid) {
+        return medical != null && medical.syringePolicy().isPresent() ? syringe.get() : genericLiquid.get();
     }
 
     private static BodyHandActionResult.Reason heldUseReason(ServerPlayer actor, BodyHandActionRequest request, LiveHands hands) {

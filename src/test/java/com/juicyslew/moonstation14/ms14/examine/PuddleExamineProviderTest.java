@@ -12,6 +12,6 @@ class PuddleExamineProviderTest {
         assertEquals("full", BuiltinExamineContributors.examinedVolume(100000, 1000, false));
         assertEquals("mostly-full", BuiltinExamineContributors.examinedVolume(35000, 500, false),
                 "inherited prototype capacity feeds examination categorization");
-        assertEquals("50.00 / 500.00", BuiltinExamineContributors.examinedVolume(5000, 500, true));
+        assertEquals("50 / 500", BuiltinExamineContributors.examinedVolume(5000, 500, true));
     }
 }

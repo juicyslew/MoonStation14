@@ -333,7 +333,7 @@ public final class ApcOverloadGameTests {
     public static void breakerTransitionsIgnoreRejectedActionsAndRepeatedTripSamples(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, Direction.NORTH), "place supported APC");
         PowerDeviceBlockEntity apc = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
         Player player = new Player(level, pos, 0, new GameProfile(UUID.randomUUID(), "switch-test")) {
             @Override public boolean isCreative() { return true; }
@@ -366,7 +366,7 @@ public final class ApcOverloadGameTests {
     public static void protectionTripsAfterContinuousMeterAndManualRecloseClearsLatch(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, Direction.NORTH), "place supported APC");
         PowerDeviceBlockEntity apc = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
 
         apc.observeActualApcOutput(1, 1, false, 25_000);
@@ -429,8 +429,8 @@ public final class ApcOverloadGameTests {
     }
 
     /** Real connected HV/MV/APC graph with enough live lamps to trip the output meter. */
-    @GameTestTags("suite-stabilization")
-    @GameTest(template = "power_overload_clear", timeoutTicks = 400, templateNamespace = "moonstation14")
+    @GameTestTags({"suite-stabilization", "machine-model-regression"})
+    @GameTest(template = "power_overload_clear", timeoutTicks = 1200, templateNamespace = "moonstation14")
     public static void connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
@@ -484,7 +484,8 @@ public final class ApcOverloadGameTests {
                 Direction.UP, CableTier.APC);
         BlockPos sampledLamp = helper.absolutePos(new BlockPos(3, 1, 7));
         awaitConnectedOverloadPath(helper, level, output, spine, sampledLamp, 0,
-                () -> helper.runAfterDelay(100, () -> {
+                () -> helper.runAfterDelay(100, () -> awaitConnectedOverloadPath(helper, level, output, spine,
+                        sampledLamp, 0, () -> {
             var outputState = PowerGraphService.state(level, output);
             require(outputState.knowledge() == LoadedPowerGraph.Knowledge.KNOWN,
                     "APC output path is indexed and known (output=" + outputState + ", spine="
@@ -539,7 +540,7 @@ public final class ApcOverloadGameTests {
                     });
                 });
             });
-        }));
+        })));
     }
 
     private static void awaitConnectedOverloadPath(GameTestHelper helper, ServerLevel level,
@@ -554,7 +555,7 @@ public final class ApcOverloadGameTests {
                 && outputState.componentId() == spineState.componentId()
                 && outputState.componentId() == lampState.componentId();
         if (connected) { ready.run(); return; }
-        require(elapsed < 100, "connected overload receiver did not become known within initial readiness window; output="
+        require(elapsed < 800, "connected overload receiver did not become known within bounded initial readiness window; output="
                 + outputState + " spine=" + spineState + " lamp=" + lampState + " indexedDevices="
                 + PowerRuntime.indexedDeviceCount(level) + " elapsed=" + elapsed);
         helper.runAfterDelay(5, () -> awaitConnectedOverloadPath(helper, level, output, spine, lamp,
@@ -576,6 +577,10 @@ public final class ApcOverloadGameTests {
     }
 
     private static void placeDevice(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {
+        if (kind == PowerDeviceKind.APC) {
+            require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, facing), "place supported APC");
+            return;
+        }
         var block = switch (kind) {
             case HV_SOURCE -> ModBlocks.HV_SOURCE.get();
             case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION.get();

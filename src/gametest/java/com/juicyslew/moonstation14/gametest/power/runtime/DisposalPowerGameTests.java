@@ -29,6 +29,7 @@ public final class DisposalPowerGameTests {
     private DisposalPowerGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", batch = "disposals", template = "disposal_power_clear", timeoutTicks = 360)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"machine-model-regression"})
     public static void liveApcSupplyMetersDisposalUnitAndLossRevokesPower(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = helper.absolutePos(new BlockPos(19, 1, 18));
@@ -88,6 +89,10 @@ public final class DisposalPowerGameTests {
     }
 
     private static void place(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {
+        if (kind == PowerDeviceKind.APC) {
+            require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, facing), "place supported APC");
+            return;
+        }
         var block = switch (kind) {
             case HV_SOURCE -> ModBlocks.HV_SOURCE.get();
             case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION.get();

@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.examine;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
@@ -43,8 +44,8 @@ public final class SolutionExamineFormatter {
             return new Output(volume, List.of());
         } else if (exact) {
             Object[] values = templates.exactIncludesCapacity()
-                    ? new Object[]{String.format(java.util.Locale.ROOT, "%.2f", total / 100d), String.format(java.util.Locale.ROOT, "%.2f", capacity)}
-                    : new Object[]{String.format(java.util.Locale.ROOT, "%.2f", total / 100d)};
+                    ? new Object[]{ReagentUnits.formatCents(total), ReagentUnits.formatUnits(capacity)}
+                    : new Object[]{ReagentUnits.formatCents(total)};
             volume = Component.translatable(templates.exactVolume(), values);
         } else {
             volume = Component.translatable(templates.volume(), Component.translatable(

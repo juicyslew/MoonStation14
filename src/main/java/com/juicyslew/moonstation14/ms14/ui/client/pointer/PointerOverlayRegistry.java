@@ -33,6 +33,8 @@ public final class PointerOverlayRegistry {
         return gameplay||pointerWorkspace||projectMachineUi;
     }
     public static void register(PointerOverlayWindow window) { if (!WINDOWS.contains(window)) WINDOWS.add(window); }
+    public static void unregister(PointerOverlayWindow window) { WINDOWS.remove(window); }
+    public static void bringToFront(PointerOverlayWindow window) { if(WINDOWS.remove(window)) WINDOWS.add(window); }
     public static boolean anyVisible() { return WINDOWS.stream().anyMatch(PointerOverlayWindow::visible); }
     public static boolean textFocused() { return WINDOWS.stream().anyMatch(w -> w.visible() && w.isSearchFocused()); }
     public static void clearTextFocus() { for (var w : WINDOWS) w.clearTextFocus(); }

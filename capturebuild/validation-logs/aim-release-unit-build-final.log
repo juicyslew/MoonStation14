@@ -1,0 +1,34 @@
+Starting a Gradle Daemon, 1 busy and 31 stopped Daemons could not be reused, use --status for details
+Reusing configuration cache.
+> Task :jarJar NO-SOURCE
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :cleanTest
+> Task :processTestResources UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :processResources UP-TO-DATE
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :classes
+> Task :jar
+> Task :assemble
+> Task :compileGametestJava
+> Task :gametestClasses
+> Task :compileTestJava UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :test
+> Task :check
+> Task :build
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-01/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 50s
+15 actionable tasks: 5 executed, 10 up-to-date
+Configuration cache entry reused.

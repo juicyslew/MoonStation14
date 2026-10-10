@@ -32,6 +32,7 @@ public final class BuiltinExamineContributors {
         ExamineContributorRegistry.register("apc-battery", BuiltinExamineContributors::apcBattery);
         ExamineContributorRegistry.register("puddle-solution", BuiltinExamineContributors::puddleSolution);
         ExamineContributorRegistry.register("jug-solution", BuiltinExamineContributors::jugSolution);
+        ExamineContributorRegistry.register("beaker-solution", BuiltinExamineContributors::beakerSolution);
     }
 
     static void metadata(ExamineContext context, ExamineCollector collector) {
@@ -131,12 +132,29 @@ public final class BuiltinExamineContributors {
         for (int i = 0; i < count; i++) collector.detailEntry(output.details().get(i), "jug-solution", 39 - i);
     }
 
+    /** World-item beaker inspection; held-stack examine targets are not supported by ExamineContext. */
+    static void beakerSolution(ExamineContext context, ExamineCollector collector) {
+        if (!context.detailsAllowed() || !(context.targetEntity() instanceof ItemEntity item)
+                || !(item.getItem().getItem() instanceof com.juicyslew.moonstation14.item.custom.BeakerItem beaker)) return;
+        var data = com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.resolved(context.level(), beaker.prototypeId());
+        if (data == null || !data.examinableSolution().enabled() || data.examinableSolution().heldOnly()
+                || !data.examinableSolution().solutionName().equals(data.solutionContainer().solutionName())) return;
+        ReagentAttachment solution = MS14Provider.getDetached(beaker.toHandle(item.getItem()), MS14Bridges.REAGENT);
+        var output = SolutionExamineFormatter.format(solution, context.level(), beaker.getCapacity(item.getItem(), context.level()),
+                data.examinableSolution().exactVolume(), SolutionExamineFormatter.Templates.GENERIC,
+                id -> lookup(context, id));
+        collector.detailEntry(output.volume(), "beaker-solution", 40);
+        for (int i = 0; i < output.details().size(); i++)
+            collector.detailEntry(output.details().get(i), "beaker-solution", 39 - i);
+    }
+
     private static ReagentData lookup(ExamineContext context, ResourceLocation id) {
         try { return ModReagents.require(context.level(), id); }
         catch (IllegalArgumentException missing) { return null; }
     }
     static String examinedVolume(long units, float capacity, boolean exact) {
-        if (exact) return String.format(java.util.Locale.ROOT, "%.2f / %.2f", units / 100d, capacity);
+        if (exact) return com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(units)
+                + " / " + com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatUnits(capacity);
         return SolutionExamineFormatter.volumeCategory(units, capacity); // deterministic adaptation for SS14 examiner-dependent middle band.
     }
 }

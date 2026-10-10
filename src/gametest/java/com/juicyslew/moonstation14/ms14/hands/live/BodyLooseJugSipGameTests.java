@@ -38,8 +38,98 @@ public final class BodyLooseJugSipGameTests {
     private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> WATER =
             ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
                     ResourceLocation.fromNamespaceAndPath("moonstation14", "water"));
+    private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> SODIUM =
+            ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "sodium"));
+    private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> CHLORINE =
+            ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "chlorine"));
+    private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> TABLESALT =
+            ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "tablesalt"));
 
     private BodyLooseJugSipGameTests() { }
+
+    @GameTestTags({"hands-liquid", "beaker"})
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void resolvedJugAndBeakerPoliciesPourFiveAcrossContainerKinds(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = EntityType.VILLAGER.create(level);
+        require(body != null, "human body created");
+        body.setNoAi(true); body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+        body.setYRot(-90); body.setYHeadRot(-90);
+        require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level,
+                com.juicyslew.moonstation14.ms14.character.ModCharacters.HUMAN_ID), "human body enrolled");
+        require(LiveHands.initialize(body).isPresent() && BodySystem.reconcile(body), "hands initialized");
+        for (ItemStack prototype : new ItemStack[]{new ItemStack(ModItems.JUG.get()), new ItemStack(ModItems.BEAKER.get())}) {
+            for (ItemStack receiver : new ItemStack[]{new ItemStack(ModItems.JUG.get()), new ItemStack(ModItems.BEAKER.get())}) {
+                ItemStack filled = prototype.copy(); filled.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, 10f)));
+                LiveHands empty = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                String hand = empty.activeHand(), token = "pair-" + UUID.randomUUID();
+                var inserted = empty.putWhole(empty.revision(), hand, new com.juicyslew.moonstation14.ms14.hands.ItemToken(token), filled);
+                require(inserted.succeeded(), "real registered source inserted"); body.setData(ModDataAttachments.LIVE_HANDS.get(), inserted.state());
+                LooseItemEntity target = LooseItemEntity.create(level,
+                        new Vec3(origin.getX() + 2.5, origin.getY() + 1.2, origin.getZ() + .5), receiver);
+                target.setNoPickUpDelay(); require(level.addFreshEntity(target), "real registered recipient spawned");
+                body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target.position());
+                LiveHands before = inserted.state();
+                require(BodyLiquidInteraction.fillOwned(body, target.getUUID(), hand, token, before.revision(), false, () -> true)
+                        == BodyLiquidInteraction.Result.SUCCESS, "resolved source drain/target refill policies permit "
+                        + prototype.getItem() + " -> " + receiver.getItem());
+                LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                require(water(after.stackCopy(hand).orElseThrow()) == 5f && water(target.getItem()) == 5f,
+                        "five units moved across independently named logical solutions");
+                require(waterCents(after.stackCopy(hand).orElseThrow()) + waterCents(target.getItem()) == 1000,
+                        "integer-cent conservation");
+                target.discard();
+                var removed = after.takeWhole(after.revision(), hand, new com.juicyslew.moonstation14.ms14.hands.ItemToken(token));
+                require(removed.succeeded(), "fixture releases prior pair source");
+                body.setData(ModDataAttachments.LIVE_HANDS.get(), removed.state());
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTestTags({"hands-liquid", "beaker", "chemmaster-reactions"})
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void ownedJugPourReactsInRecipientBeaker(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = EntityType.VILLAGER.create(level);
+        require(body != null, "human body created");
+        body.setNoAi(true); body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+        body.setYRot(-90); body.setYHeadRot(-90);
+        require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level,
+                com.juicyslew.moonstation14.ms14.character.ModCharacters.HUMAN_ID), "human body enrolled");
+        require(LiveHands.initialize(body).isPresent() && BodySystem.reconcile(body), "hands initialized");
+        ItemStack source = new ItemStack(ModItems.JUG.get());
+        source.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(CHLORINE, 5f)));
+        LiveHands empty = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        String hand = empty.activeHand(), token = "reaction-pour";
+        var inserted = empty.putWhole(empty.revision(), hand, new com.juicyslew.moonstation14.ms14.hands.ItemToken(token), source);
+        require(inserted.succeeded(), "real registered jug inserted"); body.setData(ModDataAttachments.LIVE_HANDS.get(), inserted.state());
+        ItemStack recipient = new ItemStack(ModItems.BEAKER.get());
+        recipient.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(SODIUM, 5f)));
+        LooseItemEntity target = LooseItemEntity.create(level,
+                new Vec3(origin.getX() + 2.5, origin.getY() + 1.2, origin.getZ() + .5), recipient);
+        target.setNoPickUpDelay(); require(level.addFreshEntity(target), "real registered recipient beaker spawned");
+        body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target.position());
+        require(BodyItemTargetProbe.probeSelected(level, body, target.getUUID(), BodyItemTargetProbe.MAX_REACH) != null,
+                "recipient is reachable by the live item target probe");
+        require(((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) source.getItem()).drainableSolution(source, level).enabled()
+                        && ((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) recipient.getItem()).refillableSolution(recipient, level).enabled(),
+                "resolved jug drain and beaker refill policies are enabled");
+        LiveHands before = inserted.state();
+        var pourResult = BodyLiquidInteraction.fillOwned(body, target.getUUID(), hand, token, before.revision(), false, () -> true);
+        require(pourResult == BodyLiquidInteraction.Result.SUCCESS, "owned jug-to-beaker pour committed: " + pourResult);
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var destination = target.getItem().get(ModDataComponents.REAGENT.get());
+        var remainingSource = after.stackCopy(hand).orElseThrow().get(ModDataComponents.REAGENT.get());
+        require(destination != null && destination.centContents().getOrDefault(TABLESALT, 0L) == 1000L
+                        && !destination.centContents().containsKey(SODIUM) && !destination.centContents().containsKey(CHLORINE),
+                "actual pour recipient runs the registered sodium/chlorine recipe into ten units of table salt");
+        require(remainingSource != null && remainingSource.centContents().getOrDefault(CHLORINE, 0L) == 0L,
+                "source jug loses exactly the accepted five-unit chlorine dose");
+        helper.succeed();
+    }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void emptyHandSipsLooseJugConservingContents(GameTestHelper helper) {
@@ -128,12 +218,12 @@ public final class BodyLooseJugSipGameTests {
         require(waterCents(poured.stackCopy(hand).orElseThrow()) + waterCents(target.getItem()) == 1000,
                 "forward transfer conserves integer cents");
         require(BodyLiquidInteraction.fillOwned(body, targetId, hand, token, poured.revision(), true, () -> true)
-                == BodyLiquidInteraction.Result.SUCCESS, "loose jug fills held jug");
+                == BodyLiquidInteraction.Result.SUCCESS, "reverse gesture keeps the qualifying held-source pour first");
         LiveHands returned = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         require(returned.revision() == poured.revision() + 1 && returned.token(hand).filter(token::equals).isPresent(),
-                "reverse fill preserves ownership and advances revision once");
-        require(water(returned.stackCopy(hand).orElseThrow()) == 10f && water(target.getItem()) == 0f,
-                "reverse transfer restores ten units to held jug");
+                "forward-priority pour preserves ownership and advances revision once");
+        require(water(returned.stackCopy(hand).orElseThrow()) == 0f && water(target.getItem()) == 10f,
+                "forward-priority transfer moves only the still-available held source");
         require(waterCents(returned.stackCopy(hand).orElseThrow()) + waterCents(target.getItem()) == 1000,
                 "reverse transfer conserves integer cents");
 

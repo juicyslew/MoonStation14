@@ -80,7 +80,7 @@ public final class VentilationPowerGameTests {
     }
 
     @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
-    @GameTestTags({"simulation-defaults", "suite-stabilization"})
+    @GameTestTags({"simulation-defaults", "suite-stabilization", "machine-model-vent-regression"})
     public static void poweredVentMeterTracksBreakerAndReplacement(GameTestHelper helper) {
         Fixture fixture = connectVent(helper);
         awaitMeter(helper, fixture.level(), fixture.vent(), 0, 150, () -> {
@@ -235,7 +235,8 @@ public final class VentilationPowerGameTests {
         require(elapsed < deadline, "powered receiver meter did not settle within bounded readiness window; meter="
                 + meter + " topologyReady=" + PowerGraphService.topologyReady(level)
                 + " indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
-                + " nearby=" + PowerGraphService.nodesNear(level, vent.getBlockPos(), 3, CableTier.APC));
+                + " nearby=" + PowerGraphService.nodesNear(level, vent.getBlockPos(), 3, CableTier.APC)
+                + " lastSolve=" + PowerRuntime.lastSolveDiagnostic(level));
         helper.runAfterDelay(5, () -> awaitMeter(helper, level, vent, elapsed + 5, deadline, ready));
     }
 
@@ -267,6 +268,10 @@ public final class VentilationPowerGameTests {
     private record Fixture(ServerLevel level, VentilationDeviceBlockEntity vent, BlockPos apc, BlockPos ventPos) { }
 
     private static void placeDevice(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {
+        if (kind == PowerDeviceKind.APC) {
+            require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, facing), "place supported APC");
+            return;
+        }
         var block = switch (kind) {
             case HV_SOURCE -> ModBlocks.HV_SOURCE.get();
             case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION.get();

@@ -51,6 +51,12 @@ import com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneData;
 import com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes;
 import com.juicyslew.moonstation14.ms14.jug.JugData;
 import com.juicyslew.moonstation14.ms14.jug.ModJugs;
+import com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerData;
+import com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterData;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters;
+import com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances;
+import com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -176,6 +182,12 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<CelestialSceneData> clientCelestialScenes() { return CLIENT_MANAGER.snapshot(ModCelestialScenes.TYPE); }
     public static PrototypeCatalog<JugData> serverJugs() { return SERVER_MANAGER.snapshot(ModJugs.TYPE); }
     public static PrototypeCatalog<JugData> clientJugs() { return CLIENT_MANAGER.snapshot(ModJugs.TYPE); }
+    public static PrototypeCatalog<BeakerData> serverBeakers() { return SERVER_MANAGER.snapshot(ModBeakers.TYPE); }
+    public static PrototypeCatalog<BeakerData> clientBeakers() { return CLIENT_MANAGER.snapshot(ModBeakers.TYPE); }
+    public static PrototypeCatalog<ChemMasterData> serverChemMasters() { return SERVER_MANAGER.snapshot(ModChemMasters.TYPE); }
+    public static PrototypeCatalog<ChemMasterData> clientChemMasters() { return CLIENT_MANAGER.snapshot(ModChemMasters.TYPE); }
+    public static PrototypeCatalog<PowerAppearanceData> serverPowerAppearances() { return SERVER_MANAGER.snapshot(ModPowerAppearances.TYPE); }
+    public static PrototypeCatalog<PowerAppearanceData> clientPowerAppearances() { return CLIENT_MANAGER.snapshot(ModPowerAppearances.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -206,6 +218,9 @@ public final class PrototypeRuntime {
         manager.register(ModPuddles.TYPE);
         manager.register(ModCelestialScenes.TYPE);
         manager.register(ModJugs.TYPE);
+        manager.register(ModBeakers.TYPE);
+        manager.register(ModChemMasters.TYPE);
+        manager.register(ModPowerAppearances.TYPE);
         return manager;
     }
 }

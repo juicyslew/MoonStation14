@@ -90,6 +90,33 @@ public final class ExamineClient {
         return true;
     }
 
+    /** Explicitly examine one captured loose entity, independent of the release-time gaze target. */
+    public static boolean examineEntityClick(UUID entityId) {
+        if (entityId == null || !worldIntentAllowed()) return false;
+        Authority actor = authority();
+        Minecraft mc = Minecraft.getInstance();
+        Entity entity = null;
+        if (mc.level != null && actor != null) {
+            for (Entity candidate : mc.level.entitiesForRendering()) {
+                if (entityId.equals(candidate.getUUID()) && !candidate.isRemoved() && candidate.level() == mc.level) {
+                    entity = candidate;
+                    break;
+                }
+            }
+        }
+        if (actor == null || entity == null || entity.isRemoved() || entity.level() != mc.level) return false;
+        ExamineTarget target = ExamineTarget.entity(entity);
+        ExamineSelector.Candidate candidate = new ExamineSelector.Candidate(target, entity.position(), 0,
+                entity.getName().getString(), entity.getBoundingBox(), false);
+        if (!candidateEligible(candidate)) return false;
+        selected = candidate; intent = true; popupDismissed = false;
+        POPUP.open(target, actor.epoch());
+        popupScrollOffset = 0; popupVisibleLines = 0; popupScrollContent = List.of(); popupWrappedLines = List.of();
+        popupScrollTarget = null; popupScrollWidth = -1; popupScrollAvailable = -1;
+        request(target, true);
+        return true;
+    }
+
     public static boolean cycle(int delta) {
         if (delta == 0 || !worldIntentAllowed()) return false;
         refreshSelection(false);

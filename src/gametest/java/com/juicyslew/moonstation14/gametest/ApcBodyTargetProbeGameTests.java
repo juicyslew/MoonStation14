@@ -20,32 +20,39 @@ public final class ApcBodyTargetProbeGameTests {
     private ApcBodyTargetProbeGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"machine-model-regression"})
     public static void loadedBodyOriginAndRejectsSpoofs(GameTestHelper helper) {
         BlockPos target = helper.absolutePos(new BlockPos(4, 1, 2));
         BlockPos bodyPos = helper.absolutePos(new BlockPos(2, 1, 2));
         var level = helper.getLevel();
-        level.setBlock(target, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, target, net.minecraft.core.Direction.EAST)) throw new IllegalStateException("supported APC fixture placement failed");
         Villager body = EntityType.VILLAGER.create(level);
         require(body != null, "villager created");
         body.setNoAi(true); // fixture only; production NPC movement is untouched
-        body.setPos(bodyPos.getX() + .5, bodyPos.getY(), bodyPos.getZ() + .5);
-        body.setYRot(-90);
-        body.setXRot(20); // eye is above the APC: aim at its face rather than horizontally over it
-        body.setYHeadRot(-90);
+        body.setPos(target.getX() + 2.5, target.getY(), target.getZ() + .5);
+        body.setYRot(90);
+        body.setXRot(25); // approach the facing panel from its exposed front
+        body.setYHeadRot(90);
         require(level.addFreshEntity(body), "body joined server");
         var result = ApcBodyTargetProbe.probe(level, body, target, 4);
+        var raw = level.clip(new net.minecraft.world.level.ClipContext(body.getEyePosition(),
+                body.getEyePosition().add(body.getLookAngle().scale(4)),
+                net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, body));
         require(result != null && result.pos().equals(target) && result.face() != null,
-                "loaded APC hit from live body eye");
+                "loaded APC hit from live body eye; eye=" + body.getEyePosition() + ", look=" + body.getLookAngle()
+                        + ", shape=" + level.getBlockState(target).getShape(level, target).bounds()
+                        + ", target=" + target + ", rawBlock=" + raw.getBlockPos() + ", rawLocation=" + raw.getLocation()
+                        + ", rawType=" + raw.getType());
         require(ApcBodyTargetProbe.probe(level, body, target.offset(0, 0, 1), 4) == null,
                 "expected block must be exact");
         require(ApcBodyTargetProbe.probe(level, body, target, 1) == null, "too far");
         require(ApcBodyTargetProbe.probe(level, body, target, Double.POSITIVE_INFINITY) == null, "unbounded reach");
-        body.setYRot(90);
-        body.setYHeadRot(90);
-        require(ApcBodyTargetProbe.probe(level, body, target, 4) == null, "wrong look");
         body.setYRot(-90);
         body.setYHeadRot(-90);
-        BlockPos barrier = helper.absolutePos(new BlockPos(3, 2, 2));
+        require(ApcBodyTargetProbe.probe(level, body, target, 4) == null, "wrong look");
+        body.setYRot(90);
+        body.setYHeadRot(90);
+        BlockPos barrier = target.relative(net.minecraft.core.Direction.EAST);
         level.setBlock(barrier, Blocks.STONE.defaultBlockState(), 3);
         require(ApcBodyTargetProbe.probe(level, body, target, 4) == null, "occluded");
         level.setBlock(barrier, Blocks.AIR.defaultBlockState(), 3);
@@ -89,13 +96,13 @@ public final class ApcBodyTargetProbeGameTests {
         require(found, "loaded ray chunk with an absent margin chunk exists");
         BlockPos bodyPos = new BlockPos((rayX << 4) + 8, origin.getY(), (rayZ << 4) + 8);
         BlockPos target = bodyPos.offset(2, 0, 0);
-        level.setBlock(target, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, target, net.minecraft.core.Direction.NORTH)) throw new IllegalStateException("supported APC fixture placement failed");
         Villager body = EntityType.VILLAGER.create(level);
         require(body != null, "villager created");
         body.setNoAi(true);
         body.setPos(bodyPos.getX() + .5, bodyPos.getY(), bodyPos.getZ() + .5);
         body.setYRot(-90);
-        body.setXRot(20);
+        body.setXRot(30);
         body.setYHeadRot(-90);
         require(level.addFreshEntity(body), "body joined server");
         require(level.getChunkSource().getChunkNow(rayX, rayZ) != null

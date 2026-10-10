@@ -1,0 +1,11 @@
+{
+  "parent": "base_power_appearance",
+  "kind": "apc",
+  "inactive": "lack",
+  "active": "full",
+  "charging": "charging",
+  "full": "full",
+  "lack": "lack",
+  "lightLevel": 5,
+  "shape": { "minX": 4, "minY": 4.5, "minZ": 12.7, "maxX": 12, "maxY": 11.5, "maxZ": 16 }
+}

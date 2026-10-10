@@ -7,6 +7,16 @@ import net.minecraft.world.level.Level;
 public interface IReagentTrait {
     float getCapacity();
 
+    /** Null means this resolved item composition is not authorized as a world-dump source. */
+    default DrainableSolutionPolicy drainableSolution(ItemStack stack, Level level) { return null; }
+
+    /** Primary logical solution represented by a single-solution item trait. */
+    default String solutionName(ItemStack stack, Level level) { return "default"; }
+
+    default RefillableSolutionPolicy refillableSolution(ItemStack stack, Level level) { return RefillableSolutionPolicy.DISABLED; }
+    default SolutionTransferPolicy solutionTransfer(ItemStack stack, Level level) { return SolutionTransferPolicy.DISABLED; }
+    default DrinkSolutionPolicy drinkSolution(ItemStack stack, Level level) { return DrinkSolutionPolicy.DISABLED; }
+
     /** Context-aware capacity for prototype-backed containers; legacy traits retain their fixed capacity. */
     default float getCapacity(ItemStack stack, Level level) { return getCapacity(); }
 

@@ -53,6 +53,22 @@ public final class HeldTimedIngestionGameTests {
         });
     }
 
+    @GameTestTags({"hands-liquid", "beaker"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    public static void resolvedBeakerDrinkConsumesFiveUnitsAfterTwentyTicks(GameTestHelper h) {
+        Fixture f = fixtureWithItem(h, new ItemStack(ModItems.BEAKER.get()), 6);
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 90, () -> true).name().equals("OK"),
+                "resolved drink policy starts the existing timed ingestion operation");
+        h.runAfterDelay(10, () -> require(source(f) == 600, "beaker remains unchanged before its 20-tick deadline"));
+        h.runAfterDelay(23, () -> {
+            require(source(f) == 100, "resolved 5u serving leaves 1u from 6u source");
+            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
+                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) == 500,
+                    "exact serving reaches the actual body stomach");
+            h.succeed();
+        });
+    }
+
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
     public static void heldTokenMayMoveHandsAndBodyWithoutCancelling(GameTestHelper h) {
         Fixture f = fixture(h, 10); start(f, 2, () -> true);
@@ -98,13 +114,16 @@ public final class HeldTimedIngestionGameTests {
     }
 
     private static Fixture fixture(GameTestHelper h, float units) {
+        return fixtureWithItem(h, new ItemStack(ModItems.BOTTLE.get()), units);
+    }
+    private static Fixture fixtureWithItem(GameTestHelper h, ItemStack source, float units) {
         var level = h.getLevel(); BlockPos p = h.absolutePos(new BlockPos(2, 1, 2));
         Villager body = EntityType.VILLAGER.create(level); require(body != null, "body created"); body.setNoAi(true); body.setNoGravity(true); body.setPos(p.getX()+.5,p.getY(),p.getZ()+.5);
         require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level, ModCharacters.HUMAN_ID), "human body enrolled");
         require(LiveHands.initialize(body).isPresent() && BodySystem.reconcile(body), "eligible body initialized");
-        LiveHands initial = hands(body); ItemStack bottle = new ItemStack(ModItems.BOTTLE.get());
-        bottle.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, units)));
-        var put = initial.putWhole(initial.revision(), "left", new ItemToken("bottle"), bottle); require(put.succeeded(), "filled source inserted");
+        LiveHands initial = hands(body);
+        source.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, units)));
+        var put = initial.putWhole(initial.revision(), "left", new ItemToken("bottle"), source); require(put.succeeded(), "filled source inserted");
         body.setData(ModDataAttachments.LIVE_HANDS.get(), put.state());
         return new Fixture(body, put.state().token("left").orElseThrow(), put.state().revision());
     }
