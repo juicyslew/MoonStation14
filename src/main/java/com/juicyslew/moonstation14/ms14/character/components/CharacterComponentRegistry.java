@@ -39,6 +39,8 @@ public final class CharacterComponentRegistry {
             Map.entry(EquipmentSlotsPrototypeComponent.TYPE, new Entry<>(EquipmentSlotsPrototypeComponent.class, EquipmentSlotsPrototypeComponent.CODEC)),
             Map.entry(FlammablePrototypeComponent.TYPE, new Entry<>(FlammablePrototypeComponent.class, FlammablePrototypeComponent.CODEC)),
             Map.entry(HandsPrototypeComponent.TYPE, new Entry<>(HandsPrototypeComponent.class, HandsPrototypeComponent.CODEC)),
+            Map.entry(StrippingPrototypeComponent.TYPE, new Entry<>(StrippingPrototypeComponent.class, StrippingPrototypeComponent.CODEC)),
+            Map.entry(StrippablePrototypeComponent.TYPE, new Entry<>(StrippablePrototypeComponent.class, StrippablePrototypeComponent.CODEC)),
             Map.entry(PullableComponent.TYPE, new Entry<>(PullableComponent.class, PullableComponent.CODEC)),
             Map.entry(PullerComponent.TYPE, new Entry<>(PullerComponent.class, PullerComponent.CODEC)),
             Map.entry(HungerPrototypeComponent.TYPE, new Entry<>(HungerPrototypeComponent.class, HungerPrototypeComponent.CODEC)),

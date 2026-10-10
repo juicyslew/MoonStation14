@@ -8,7 +8,7 @@ import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 @PrefixGameTestTemplate(false)
-@GameTestTags({"hands", "storage"})
+@GameTestTags({"hands", "storage", "equipment-regression"})
 public final class BodyWorldCrossPublicationGameTestEntry {
     private BodyWorldCrossPublicationGameTestEntry() { }
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)

@@ -35,14 +35,19 @@ class EquipmentSlotsPrototypeTest {
         var human = CharacterData.CODEC.parse(JsonOps.INSTANCE, resource("human")).getOrThrow();
         var pig = CharacterData.CODEC.parse(JsonOps.INSTANCE, resource("pig")).getOrThrow();
         var slots = human.component(EquipmentSlotsPrototypeComponent.class).orElseThrow();
-        assertEquals(List.of("belt", "back"), slots.slots());
+        assertEquals(List.of(), slots.slots());
+        assertEquals(ResourceLocation.parse("moonstation14:human"), slots.template().orElseThrow());
         assertThrows(UnsupportedOperationException.class, () -> slots.slots().clear());
         assertTrue(pig.component(EquipmentSlotsPrototypeComponent.class).isEmpty());
         assertTrue(new CharacterData().component(EquipmentSlotsPrototypeComponent.class).isEmpty());
         assertEquals(slots, CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE,
                 CharacterComponentRegistry.CODEC.encodeStart(JsonOps.INSTANCE, slots).getOrThrow()).getOrThrow());
         assertThrows(IllegalArgumentException.class, () -> new EquipmentSlotsPrototypeComponent(List.of("belt", "belt")));
-        assertThrows(IllegalArgumentException.class, () -> new EquipmentSlotsPrototypeComponent(List.of("head")));
+        assertEquals(List.of("shoes", "jumpsuit", "outerClothing", "gloves", "neck", "mask", "eyes",
+                "ears", "head", "pocket1", "pocket2", "suitstorage", "id", "belt", "back"),
+                EquipmentSlotsPrototypeComponent.HUMAN_SLOT_ORDER);
+        assertDoesNotThrow(() -> new EquipmentSlotsPrototypeComponent(EquipmentSlotsPrototypeComponent.HUMAN_SLOT_ORDER));
+        assertThrows(IllegalArgumentException.class, () -> new EquipmentSlotsPrototypeComponent(List.of("unknown")));
     }
 
     @Test void strictCodecRejectsLegacyMalformedDuplicateAndUnreviewedSlots() {
@@ -54,7 +59,7 @@ class EquipmentSlotsPrototypeTest {
                         .message().contains("$." + field));
             }
         }
-        for (String value : List.of("null", "{}", "[1]", "[\"head\"]", "[\"Belt\"]",
+        for (String value : List.of("null", "{}", "[1]", "[\"unknown\"]", "[\"Belt\"]",
                 "[\"belt\",\"belt\"]", "[\"belt\",\"back\",\"belt\"]")) {
             var input = json("{\"components\":[{\"type\":\"EquipmentSlots\"} ]}");
             input.getAsJsonArray("components").get(0).getAsJsonObject().add("slots", JsonParser.parseString(value));
@@ -80,7 +85,7 @@ class EquipmentSlotsPrototypeTest {
         manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(parentId, parent, childId, child));
         assertEquals(List.of("back"), manager.snapshot(ModCharacters.CHARACTER_TYPE).get(childId)
                 .component(EquipmentSlotsPrototypeComponent.class).orElseThrow().slots());
-        for (String invalid : List.of("[\"head\"]", "[\"belt\",\"belt\"]", "null")) {
+        for (String invalid : List.of("[\"unknown\"]", "[\"belt\",\"belt\"]", "null")) {
             var brokenParent = parent.deepCopy();
             brokenParent.getAsJsonArray("components").get(0).getAsJsonObject().add("slots", JsonParser.parseString(invalid));
             assertThrows(RuntimeException.class, () -> manager.stage(Map.of(ModCharacters.CHARACTER_TYPE,

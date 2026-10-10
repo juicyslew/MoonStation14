@@ -1,6 +1,7 @@
 {
   "parent": "gas_unary_base",
   "kind": "SCRUBBER",
+  "deviceComponents": { "deviceNetwork": { "addressPrefix": "SCR-" } },
   "gasVentScrubber": {
     "volumeRateM3PerSecond": 0.2,
     "filteredGases": ["carbon_dioxide", "plasma", "tritium", "water_vapor", "ammonia", "nitrous_oxide", "frezon"]

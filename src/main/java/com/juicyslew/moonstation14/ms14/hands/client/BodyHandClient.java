@@ -33,6 +33,9 @@ import java.util.UUID;
 /** Client presentation and intent only; all hand occupancy and transfer remain server-owned. */
 public final class BodyHandClient {
     private static final org.slf4j.Logger DUMP_LOGGER = com.mojang.logging.LogUtils.getLogger();
+    /** Existing normal E activation ray ceiling, shared with client-only body nomination. */
+    public static final double NORMAL_WORLD_AIM_REACH = 6.0;
+    private static final com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelState EQUIPMENT_PANEL_STATE = new com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelState();
     private static int suppressExaminePauseTicks;
     private static final net.minecraft.client.KeyMapping DROP = new net.minecraft.client.KeyMapping("key.moonstation14.body_drop",
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Q, "key.categories.moonstation14");
@@ -177,6 +180,8 @@ public final class BodyHandClient {
     }
 
     public static void reset() {
+        com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
+        EQUIPMENT_PANEL_STATE.beginBody(Long.MIN_VALUE);
         com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.clear();
         var mc = net.minecraft.client.Minecraft.getInstance();
         com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
@@ -186,6 +191,7 @@ public final class BodyHandClient {
         POPUPS.clear();
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
         com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
         POLICY.reset();
         placementProof = null; deferredPlacement.clear();
         WORLD.clear();
@@ -239,6 +245,7 @@ public final class BodyHandClient {
             connection = mc.getConnection();
         }
         if (level != mc.level || player != mc.player) {
+            com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
             com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
             pendingWorldObservations.clear();
@@ -252,6 +259,7 @@ public final class BodyHandClient {
             POPUPS.clear();
             com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
             com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
+            com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
             POINTER.authorityClear();
             level = mc.level;
             player = mc.player;
@@ -266,6 +274,7 @@ public final class BodyHandClient {
         long epoch = GhostControlClient.committedCharacterEpoch();
         if (cameraBody != body || cameraEpoch != epoch) {
             if (DUMP_GESTURE.active()) { sendDumpCancel(); DUMP_GESTURE.contextLost(); }
+            com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
         }
         if (deferredPlacement.pending()) {
@@ -288,6 +297,7 @@ public final class BodyHandClient {
             POPUPS.clear();
             com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
             com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
+            com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
             POINTER.authorityClear();
             cameraBody = body;
             cameraEpoch = epoch;
@@ -312,6 +322,7 @@ public final class BodyHandClient {
                 currentBody() == null ? null : currentBody().getUUID(), GhostControlClient.committedCharacterEpoch())
                 || looseEntity(dumpSource) == null)) sendDumpCancel();
         while (AIM_RELEASE_DUMP.consumeClick()) { }
+        com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().tick(clock);
         com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.tick();
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (PointerModePolicy.shouldRestoreHost(POPUPS.pointerMode(), mc.screen == null, currentBody() != null))
@@ -417,8 +428,6 @@ public final class BodyHandClient {
         if (!ownerMenu && directClimb && DirectClimbInputPolicy.mayClimb(
                 sharesRoll, down, shiftDown, controlDown, altDown))
             requestBlockUse(BodyBlockUseRequest.Intent.CLIMB_INSIDE);
-        if (equipBag) smartStorage(false);
-        if (equipBelt) smartStorage(true);
         boolean prime = PRIME_GRENADE.consumeClick();
         boolean throwGrenade = THROW_GRENADE.consumeClick();
         boolean useInHand = USE_IN_HAND.consumeClick();
@@ -461,7 +470,7 @@ public final class BodyHandClient {
         if (drop && !throwGrenade && !controlDown()) request(BodyHandActionRequest.Action.DROP);
         else if (ctrlV || select && !storage) selectHand();
         if (prime) handUseRequested = request(BodyHandActionRequest.Action.PRIME_GRENADE);
-        else if (useInHand && !controlDown() && !altDown()) {
+        else if (useInHand && !controlDown() && !altDown() && !quickEquipInHand()) {
             var view = POLICY.inventoryView();
             var active = view == null ? null : (view.first().id().equals(view.activeHand()) ? view.first() : view.second());
             var kind = active == null ? MedicalUseGesturePolicy.Kind.NONE : medicalKind(active.itemId());
@@ -534,7 +543,7 @@ public final class BodyHandClient {
         var ownerTarget = containedWorldTarget();
         if (contained && ownerTarget.isEmpty()) return false;
         var start = cameraBody.getEyePosition();
-        var end = start.add(cameraBody.getLookAngle().scale(6.0));
+        var end = start.add(cameraBody.getLookAngle().scale(NORMAL_WORLD_AIM_REACH));
         var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
         if (contained) hit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(ownerTarget.orElseThrow()).add(0, .5, 0), net.minecraft.core.Direction.UP, ownerTarget.orElseThrow(), true);
         if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return false;
@@ -555,8 +564,9 @@ public final class BodyHandClient {
             requestBlockUse(BodyBlockUseRequest.Intent.ACTIVATE_WORLD);
             return true;
         }
+        if (com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().openAimed()) return true;
         var start = cameraBody.getEyePosition();
-        var end = start.add(cameraBody.getLookAngle().scale(6.0));
+        var end = start.add(cameraBody.getLookAngle().scale(NORMAL_WORLD_AIM_REACH));
         var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE,
                 ClipContext.Fluid.NONE, cameraBody));
         if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return false;
@@ -705,6 +715,14 @@ public final class BodyHandClient {
         UUID target = lookTarget(cameraBody);
         var route = BodyInputGesturePolicy.normalWorldRoute(false, target != null,
                 active != null && active.token() != null);
+        if (route == BodyInputGesturePolicy.NormalWorldRoute.ACTIVATE_TARGET) {
+            var loose = findAimedLoose(target);
+            if (loose != null
+                    && com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.resolve(loose.getItem(), true)
+                    .filter(profile -> profile.signallerPort().isPresent()).isPresent())
+                request(BodyHandActionRequest.Action.ACTIVATE_TARGET);
+            return;
+        }
         if (route == BodyInputGesturePolicy.NormalWorldRoute.TARGET_USE) {
             request(BodyHandActionRequest.Action.USE_TARGET);
         } else if (route == BodyInputGesturePolicy.NormalWorldRoute.BLOCK_ACTIVATE) {
@@ -763,12 +781,40 @@ public final class BodyHandClient {
                 return;
             }
         }
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS
+                && shiftDown() && !controlDown() && !altDown() && mc.screen == null
+                && mc.mouseHandler.isMouseGrabbed()
+                && !equipmentPanelHit((int)(mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth()),
+                        (int)(mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight()),
+                        mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())
+                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(
+                        mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth(),
+                        mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight())
+                && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineWorldClick()) {
+            event.setCanceled(true); return;
+        }
         double guiX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
         double guiY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
         boolean overUi=pointerCanvas&&((StoragePopupScreen)mc.screen).pointerUiHit(guiX,guiY)
                 || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(guiX,guiY);
         // Screen owns pointer-canvas input; its routed outside-window action handles Ctrl-pull.
         if (pointerCanvas) return;
+        if (mc.screen == null && currentBody()!=null && event.getAction()==GLFW.GLFW_PRESS
+                && equipmentPanelHit((int)guiX,(int)guiY,mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())
+                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(guiX,guiY)
+                && POPUPS.topmost(guiX,guiY)==null
+                && com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.topmost(guiX,guiY)==null
+                && (com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active()==null
+                    || !com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active().contains(guiX,guiY))) {
+            if (!toggleEquipmentPanel((int)guiX,(int)guiY,mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())) {
+                var panel=equipmentPanelLayout(mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight());
+                if(panel!=null) for(var slot:panel.slots()) if(slot.rect().contains((int)guiX,(int)guiY)) {
+                    if(event.getButton()==GLFW.GLFW_MOUSE_BUTTON_LEFT) equipmentSlotClick(slot.slotId());
+                    event.setCanceled(true); return;
+                }
+            }
+            event.setCanceled(true); return;
+        }
         // The transparent Screen owns every pointer-canvas click (including empty-space dismissal).
         // Never let the global body action listener race it and issue a world action first.
         if (!BodyHandClientPolicy.routeGlobalMouseActions(pointerCanvas)) return;
@@ -878,6 +924,10 @@ public final class BodyHandClient {
             return;
         }
         if (!shiftDown() || controlDown() || altDown() || mc.screen != null
+                || equipmentPanelHit((int)x,(int)y,mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())
+                || POPUPS.topmost(x,y)!=null
+                || com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.topmost(x,y)!=null
+                || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x,y)
                 || com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_G)) return;
         if (event.getScrollDeltaY()!=0 && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.cycle(event.getScrollDeltaY()>0?1:-1)) event.setCanceled(true);
     }
@@ -990,6 +1040,16 @@ public final class BodyHandClient {
         return cameraBody == null ? null : POLICY.inventoryView();
     }
 
+    /** Settled authenticated owner proof; deliberately exposes no mutable inventory authority. */
+    public record OwnerProof(Mob body, long epoch, long revision) { }
+    public static OwnerProof ownerProof() {
+        reconcile(); var proof=POLICY.snapshot();
+        return cameraBody==null||proof==null||proof.reason()!=BodyHandStateSnapshot.Reason.OK
+                ||!cameraBody.getUUID().equals(proof.bodyId())||proof.epoch()!=GhostControlClient.committedCharacterEpoch()
+                ?null:new OwnerProof(cameraBody,proof.epoch(),proof.revision());
+    }
+    public static Mob currentControlledBody() { reconcile(); return cameraBody; }
+
     private static boolean deferPlacementPress() {
         if (com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained()) return false;
         if (deferredPlacement.pending()) return true;
@@ -1086,6 +1146,12 @@ public final class BodyHandClient {
         return POLICY.inventoryView() == null ? null : POLICY.snapshot();
     }
 
+    /** Read-only latest confirmed body-hand proof for authenticated tool workspaces. */
+    public static BodyHandStateSnapshot networkConfiguratorProof() {
+        reconcile();
+        return cameraBody == null ? null : POLICY.confirmedSnapshot();
+    }
+
     /** Browser craft intent uses the same private current-body proof as other hand actions. */
     public static void requestConstructionCraft(String recipe, int quantity, boolean cancel) {
         var proof = inventoryProof();
@@ -1145,7 +1211,7 @@ public final class BodyHandClient {
         if (use || prime || throwItem || worldUse || alternateUse || pull) {
             if (firstPress) {
                 if (prime) request(BodyHandActionRequest.Action.PRIME_GRENADE);
-                else if (use) request(BodyHandActionRequest.Action.USE_IN_HAND);
+                else if (use) { if (!quickEquipInHand()) request(BodyHandActionRequest.Action.USE_IN_HAND); }
                 else if (throwItem) request(BodyHandActionRequest.Action.THROW_ITEM);
                 else if (worldUse) ordinaryWorldUse();
                 else if (alternateUse) alternateWorldUse();
@@ -1187,15 +1253,17 @@ public final class BodyHandClient {
     /** Routes the existing Z gesture through the unlocked popup screen exactly once. */
     static boolean popupUseInHand(int key,int scan,int modifiers) {
         if(!USE_IN_HAND.matches(key,scan) || (modifiers & (GLFW.GLFW_MOD_CONTROL|GLFW.GLFW_MOD_SUPER)) != 0) return false;
+        if ((modifiers & GLFW.GLFW_MOD_ALT) == 0 && quickEquipInHand()) return true;
         var view=POLICY.inventoryView(); if(view==null) return true;
         var active=view.first().id().equals(view.activeHand())?view.first():view.second();
         var kind=medicalKind(active.itemId());
         if((modifiers&GLFW.GLFW_MOD_ALT)!=0) { if(kind==MedicalUseGesturePolicy.Kind.SYRINGE) request(BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT); return true; }
-        var inHand=MedicalUseGesturePolicy.inHand(kind,(modifiers&GLFW.GLFW_MOD_SHIFT)!=0,true);
-        if(inHand==MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE || inHand==MedicalUseGesturePolicy.InHand.SELF_SCAN)
-            request(BodyHandActionRequest.Action.USE_BODY,cameraBody==null?null:cameraBody.getUUID());
-        else if(inHand==MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE || inHand==MedicalUseGesturePolicy.InHand.TOGGLE_ANALYZER)
-            request(BodyHandActionRequest.Action.USE_IN_HAND);
+            var inHand=MedicalUseGesturePolicy.inHand(kind,(modifiers&GLFW.GLFW_MOD_SHIFT)!=0,true);
+            if(inHand==MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE || inHand==MedicalUseGesturePolicy.InHand.SELF_SCAN)
+                request(BodyHandActionRequest.Action.USE_BODY,cameraBody==null?null:cameraBody.getUUID());
+            else if(inHand==MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE || inHand==MedicalUseGesturePolicy.InHand.TOGGLE_ANALYZER)
+                request(BodyHandActionRequest.Action.USE_IN_HAND);
+            else request(BodyHandActionRequest.Action.USE_IN_HAND);
         return true;
     }
 
@@ -1359,6 +1427,7 @@ public final class BodyHandClient {
         if (cameraBody == null) reconcile();
         if (cameraBody != null && !POPUPS.pointerMode()) { POINTER.manualOpen(); pointerMode(true); }
     }
+    public static void openSharedPointerWorkspace() { openConstructionPointerWorkspace(); }
     public static boolean constructionSearchFocused() {
         return com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused();
     }
@@ -1434,7 +1503,8 @@ public final class BodyHandClient {
                 .windows().stream().anyMatch(w -> w.visible());
         if (POPUPS.windows().stream().noneMatch(StoragePopupWorkspace.Window::visible)
                 && !analyzerOpen
-                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()) {
+                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()
+                && !com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorWindows.anyVisible()) {
             if (POINTER.closeWhenEmpty()) pointerMode(false);
         }
         boolean wireOpen = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active() != null;
@@ -2042,6 +2112,11 @@ public final class BodyHandClient {
                 if (active.token() == null || !BodyHandClientPolicy.handAvailableForItemAction(active)) return false;
                 target = lookTarget(cameraBody);
             }
+            case ACTIVATE_TARGET -> {
+                if (active.token() != null || !BodyHandClientPolicy.handAvailableForItemAction(active)) return false;
+                target = lookTarget(cameraBody);
+                expectedToken = null;
+            }
             case USE_BODY -> {
                 if (active.token() == null || !BodyHandClientPolicy.handAvailableForItemAction(active)
                         || nominatedBody == null) return false;
@@ -2065,7 +2140,7 @@ public final class BodyHandClient {
         }
         if ((action == BodyHandActionRequest.Action.PICKUP || action == BodyHandActionRequest.Action.PICKUP_SELECTED
                 || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
-                || action == BodyHandActionRequest.Action.USE_BODY)
+                || action == BodyHandActionRequest.Action.USE_BODY || action == BodyHandActionRequest.Action.ACTIVATE_TARGET)
                 && target == null) { POLICY.noItemUnderCursor(clock); return false; }
         long sequence = POLICY.action(clock);
         if (sequence == 0) return false;
@@ -2099,6 +2174,16 @@ public final class BodyHandClient {
         if (body == null) return null;
         refreshPile(body);
         return PILE.update(pileItems.stream().map(ItemEntity::getUUID).toList());
+    }
+
+    /** Resolve the UUID only from the existing bounded client pile nomination. */
+    private static com.juicyslew.moonstation14.entities.LooseItemEntity findAimedLoose(UUID target) {
+        if (target == null || cameraBody == null) return null;
+        refreshPile(cameraBody);
+        return pileItems.stream().filter(item -> target.equals(item.getUUID()))
+                .filter(com.juicyslew.moonstation14.entities.LooseItemEntity.class::isInstance)
+                .map(com.juicyslew.moonstation14.entities.LooseItemEntity.class::cast)
+                .findFirst().orElse(null);
     }
     public static void analyzerWindowClosed() {
         if (POPUPS.windows().stream().anyMatch(StoragePopupWorkspace.Window::visible)
@@ -2239,15 +2324,12 @@ public final class BodyHandClient {
                 new AABB(start, end).inflate(BodyItemTargetProbe.TARGET_MARGIN),
                 entity -> entity.isAlive() && !entity.getItem().isEmpty())) {
             var box = item.getBoundingBox();
-            var expanded = box.inflate(BodyItemTargetProbe.TARGET_MARGIN);
-            var hit = expanded.contains(start) ? java.util.Optional.of(start) : expanded.clip(start, end);
-            if (hit.isEmpty()) continue;
+            Vec3 hit = LooseItemRayGeometry.entry(box, start, end);
+            if (hit == null) continue;
             Vec3 look = body.getLookAngle();
-            double nearFace = (look.x >= 0 ? box.minX : box.maxX) * look.x
-                    + (look.y >= 0 ? box.minY : box.maxY) * look.y
-                    + (look.z >= 0 ? box.minZ : box.maxZ) * look.z - start.dot(look);
+            double nearFace = LooseItemRayGeometry.physicalNearFace(box, start, look);
             if (nearFace >= blockerDistance) continue;
-            double distance = hit.orElseThrow().distanceToSqr(start);
+            double distance = hit.distanceToSqr(start);
             if (distance <= maxDistance) { candidates.add(item); distances.put(item.getUUID(), distance); }
         }
         candidates.sort(java.util.Comparator.comparingDouble((ItemEntity i) -> distances.get(i.getUUID()))
@@ -2387,8 +2469,6 @@ public final class BodyHandClient {
                     snapshot.activeHand().equals(snapshot.hands().get(0).id()), enabled);
             drawHandTile(graphics, mc, bar.rightHand(), snapshot.hands().get(1),
                     snapshot.activeHand().equals(snapshot.hands().get(1).id()), enabled);
-            drawEquipmentTile(graphics, mc, bar.back(), snapshot.equipment(), "back", enabled);
-            drawEquipmentTile(graphics, mc, bar.belt(), snapshot.equipment(), "belt", enabled);
             var info = HandInfoLayout.calculate(width, height, bar);
             if (info != null) {
                 drawHandInfo(graphics, mc, info.left(), snapshot.hands().get(0), enabled, info.textBudget(), true);
@@ -2398,6 +2478,7 @@ public final class BodyHandClient {
         String feedback = POLICY.feedback();
         if (feedback != null && !feedback.toLowerCase(java.util.Locale.ROOT).contains("waiting"))
             drawHudLine(graphics, mc, feedback.replaceFirst("^Hands: ", ""), 8, 54, width);
+        if (snapshot != null) drawEquipmentPanel(graphics, mc, snapshot, width, height, !POLICY.presentationPending());
         // Gameplay HUD phase is after the HUD only; Screen hosts paint in ScreenEvent.Render.Post.
         if (gameplay && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
                 true,false,true,true)) renderPointerWorkspace(graphics, partialTick);
@@ -2422,6 +2503,224 @@ public final class BodyHandClient {
                 && sourcePolicy.solutionName().equals(machine.prototype().dumpableSolution().solutionName()))
             label = "Release " + keyLabel + " to pour entire container";
         graphics.drawCenteredString(mc.font, label, graphics.guiWidth() / 2, graphics.guiHeight() / 2 + 20, 0xffe7f5ff);
+    }
+
+    static boolean popupWorldToEquipment(PopupActionPlan.WorldCrossSource source, String slotId) {
+        if (!(net.minecraft.client.Minecraft.getInstance().screen instanceof StoragePopupScreen)
+                || source == null || slotId == null || !ItemFootprints.clientCatalogIsLoaded()) return false;
+        reconcile();
+        var proof = inventoryProof();
+        var world = WORLD.view(source.worldTarget());
+        var window = POPUPS.window(source.host());
+        if (proof == null || world == null || window == null || !window.visible() || window.provisional()
+                || !equipmentPanelDependencyEnabled(slotId)
+                || !BodyHandClientPolicy.equipmentFitsSlot(proof, slotId, source.itemId())) return false;
+        var plan = PopupActionPlan.worldToEquipmentPlan(source, slotId, proof, world, true,
+                worldActionable(source.worldTarget()), 0);
+        if (plan == null) return false;
+        return WORLD.crossAction(plan.target(), proof, plan.direction(), true, plan.hostId(), null,
+                plan.child(), plan.oldAnchor().x(), plan.oldAnchor().y(), plan.oldRotation().degrees(),
+                plan.newAnchor().x(), plan.newAnchor().y(), plan.newRotation().degrees(), clock).map(action -> {
+            worldCrossPendingTarget = plan.target(); PacketDistributor.sendToServer(action); return true;
+        }).orElse(false);
+    }
+
+    static boolean popupGridToEquipment(PopupActionPlan.CrossSource source, String slotId) {
+        if (!(net.minecraft.client.Minecraft.getInstance().screen instanceof StoragePopupScreen)
+                || source == null || slotId == null) return false;
+        reconcile(); var proof = POLICY.snapshot(); var view = POLICY.inventoryView();
+        var window = POPUPS.window(source.host());
+        if (proof == null || view == null || window == null || !window.visible() || window.provisional()
+                || popupGrid(view, source.host(), false) == null || !equipmentPanelDependencyEnabled(slotId)) return false;
+        if (!BodyHandClientPolicy.equipmentFitsSlot(proof, slotId, source.itemId())) return false;
+        if (PopupActionPlan.gridToEquipmentRequest(source, slotId, proof, true, 0, 1) == null) return false;
+        long sequence = POLICY.action(clock); if (sequence == 0) return false;
+        var request = PopupActionPlan.gridToEquipmentRequest(source, slotId, proof, true, 0, sequence);
+        if (request == null) return false;
+        PacketDistributor.sendToServer(request); return true;
+    }
+
+    static boolean popupEquipmentToGrid(String slotId, StoragePopupWorkspace.HostKey destination,
+            com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell anchor,
+            com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation rotation) {
+        reconcile(); var proof = POLICY.snapshot();
+        var window = destination == null ? null : POPUPS.window(destination);
+        if (proof == null || POLICY.inventoryView() == null || window == null || !window.visible() || window.provisional()) return false;
+        var source = proof.equipment().stream().filter(s -> s.id().equals(slotId) && s.token() != null).findFirst().orElse(null);
+        if (source == null || popupGrid(POLICY.inventoryView(), destination, false) == null
+                || PopupActionPlan.equipmentToGridRequest(slotId, source.token(), source.itemId(), source.count(), proof,
+                destination, anchor, rotation, 0, 1) == null) return false;
+        long sequence = POLICY.action(clock); if (sequence == 0) return false;
+        var request = PopupActionPlan.equipmentToGridRequest(slotId, source.token(), source.itemId(), source.count(), proof,
+                destination, anchor, rotation, 0, sequence);
+        if (request == null) return false; PacketDistributor.sendToServer(request); return true;
+    }
+
+    static boolean popupEquipmentToWorld(HandEquipmentGesture.Drag drag, StoragePopupWorkspace.Window target,
+            com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell anchor,
+            com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation rotation) {
+        if (drag == null || drag.sourceSlotId() == null || target == null
+                || target.key().kind() != StoragePopupWorkspace.HostKind.WORLD) return false;
+        reconcile(); var proof = POLICY.snapshot(); var world = WORLD.view(target.key().worldId());
+        var sourceWindow = POPUPS.window(target.key());
+        if (proof == null || POLICY.inventoryView() == null || POLICY.presentationPending()
+                || proof.revision() != drag.revision() || proof.epoch() != drag.epoch()
+                || !proof.accountId().equals(drag.accountId()) || !proof.bodyId().equals(drag.bodyId())
+                || sourceWindow == null || !sourceWindow.visible() || sourceWindow.provisional()
+                || !equipmentPanelDependencyEnabled(drag.sourceSlotId())) return false;
+        boolean fit = BodyHandClientPolicy.equipmentFitsSlot(proof, drag.sourceSlotId(), drag.itemId());
+        var plan = PopupActionPlan.equipmentToWorldPlan(drag.sourceSlotId(), drag.token(), drag.itemId(), drag.count(),
+                proof, proof, world, anchor, rotation, fit, worldActionable(target.key().worldId()), 0);
+        if (plan == null) return false;
+        return WORLD.crossAction(plan.target(), proof, plan.direction(), true, plan.hostId(), plan.hostToken(),
+                plan.child(), 0, 0, 0, plan.newAnchor().x(), plan.newAnchor().y(), plan.newRotation().degrees(), clock)
+                .map(action -> { worldCrossPendingTarget = plan.target(); PacketDistributor.sendToServer(action); return true; })
+                .orElse(false);
+    }
+
+    static com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelLayout.Layout equipmentPanelLayout(int width,int height) {
+        var snapshot=POLICY.presentationSnapshot();
+        if(snapshot==null||snapshot.equipment().isEmpty())return null;
+        var definitions=equipmentDefinitions(snapshot);
+        return definitions.isEmpty()?null:com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelLayout.calculate(width,height,
+                definitions,EQUIPMENT_PANEL_STATE.expanded(snapshot.epoch()));
+    }
+    private static java.util.List<com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.Slot> equipmentDefinitions(BodyHandStateSnapshot snapshot) {
+        var catalog=com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.clientCatalog();
+        var id=snapshot.templateId()==null?com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.id("human"):snapshot.templateId();
+        var template=catalog.get(id);
+        if(template==null)template=catalog.get(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.id("human"));
+        if(template==null)return java.util.List.of();
+        if(snapshot.templateId()!=null&&snapshot.templateId().equals(id))return template.slots();
+        var observed=snapshot.equipment().stream().map(BodyHandStateSnapshot.EquipmentSlot::id).collect(java.util.stream.Collectors.toSet());
+        return template.slots().stream().filter(slot->observed.contains(slot.id())).toList();
+    }
+    static boolean toggleEquipmentPanel(int x,int y,int width,int height) {
+        var panel=equipmentPanelLayout(width,height); var snapshot=POLICY.presentationSnapshot();
+        if(panel==null||snapshot==null||!panel.toggleRect().contains(x,y))return false;
+        EQUIPMENT_PANEL_STATE.toggle(snapshot.epoch()); return true;
+    }
+    static boolean equipmentPanelHit(int x,int y,int width,int height) {
+        var panel=equipmentPanelLayout(width,height);
+        return panel!=null&&(panel.toggleRect().contains(x,y)||panel.slots().stream().anyMatch(s->s.rect().contains(x,y)));
+    }
+    static String equipmentPanelSlotAt(int x,int y,int width,int height) {
+        var panel=equipmentPanelLayout(width,height); if(panel==null)return null;
+        return panel.slots().stream().filter(s->s.rect().contains(x,y))
+                .filter(s->panel.expanded()||!equipmentDefinitions(POLICY.presentationSnapshot()).stream().filter(d->d.id().equals(s.slotId())).findFirst().map(d->d.group().equals("Default")).orElse(false))
+                .map(com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelLayout.SlotRect::slotId).findFirst().orElse(null);
+    }
+    static boolean equipmentPanelDependencyEnabled(String slotId) {
+        var snapshot=POLICY.presentationSnapshot();
+        if(snapshot==null)return false;
+        var def=equipmentDefinitions(snapshot).stream().filter(s->s.id().equals(slotId)).findFirst().orElse(null);
+        if(def==null)return false;
+        var occupied=snapshot.equipment().stream().filter(s->s.token()!=null).map(s->s.id())
+                .collect(java.util.stream.Collectors.toSet());
+        boolean outerAllows=false;
+        if(slotId.equals("suitstorage")) {
+            var coat=snapshot.equipment().stream().filter(s->s.id().equals("outerClothing")&&s.token()!=null).findFirst().orElse(null);
+            var itemId=coat==null?null:net.minecraft.resources.ResourceLocation.tryParse(coat.itemId());
+            var composition=itemId==null?null:com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.clientCatalog().get(itemId);
+            outerAllows=composition!=null&&composition.allowSuitStorage().map(com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.AllowSuitStorage::enabled).orElse(false);
+        }
+        return com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.dependenciesSatisfied(def,occupied,outerAllows);
+    }
+
+    /** Z quick-equip is a single server-authoritative nomination; ordinary items keep existing use behavior. */
+    private static boolean quickEquipInHand() {
+        reconcile();
+        var proof = POLICY.snapshot();
+        var view = POLICY.inventoryView();
+        if (proof == null || view == null || POLICY.presentationPending()) return true;
+        var hand = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
+        if (hand.itemId() == null) return false;
+        var item = net.minecraft.resources.ResourceLocation.tryParse(hand.itemId());
+        var stack = item == null ? net.minecraft.world.item.ItemStack.EMPTY : new net.minecraft.world.item.ItemStack(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(item).orElse(net.minecraft.world.item.Items.AIR));
+        boolean eligible = cameraBody != null && com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy
+                .quickEquip(cameraBody.level(), stack);
+        if (!eligible) return false;
+        var plan = HandEquipmentGesture.quickEquipPlan(proof, hand, true, false);
+        if (plan == null) return true;
+        long sequence = POLICY.action(clock);
+        if (sequence == 0) return true;
+        PacketDistributor.sendToServer(new BodyHandActionRequest(BodyHandActionRequest.Action.QUICK_EQUIP,
+                plan.handId(), proof.epoch(), sequence, plan.revision(), null, plan.token()));
+        return true;
+    }
+    static boolean pendingSnapshot() { return POLICY.presentationPending(); }
+    static void popupEquipmentSlot(HandEquipmentGesture.Drag drag,String slotId) {
+        if(drag==null||slotId==null)return;
+        reconcile(); var proof=POLICY.snapshot(); var view=POLICY.inventoryView();
+        if(proof==null||view==null||POLICY.presentationPending()||!equipmentPanelDependencyEnabled(slotId)
+                ||!proof.accountId().equals(drag.accountId())||!proof.bodyId().equals(drag.bodyId())
+                ||proof.epoch()!=drag.epoch()||proof.revision()!=drag.revision())return;
+        var slot=proof.equipment().stream().filter(s->s.id().equals(slotId)).findFirst().orElse(null);
+        var hand=drag.handId().equals(view.first().id())?view.first():drag.handId().equals(view.second().id())?view.second():null;
+        if(hand==null||hand.token()==null||!drag.token().equals(hand.token())||!drag.itemId().equals(hand.itemId())||drag.count()!=hand.count())return;
+        if(!com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicy.equipmentFitsSlot(proof,slotId,hand.itemId()))return;
+        var plan=HandEquipmentGesture.slotPlan(slotId,slot,hand,false,POLICY.presentationPending(),true);
+        if(plan==null)return;
+        long sequence=POLICY.action(clock); if(sequence==0)return;
+        PacketDistributor.sendToServer(new BodyHandActionRequest(plan.action(),plan.handId(),proof.epoch(),sequence,
+                proof.revision(),null,plan.expectedToken(),null,-1,-1,-1,-1,-1,-1,null,plan.slotId(),null));
+    }
+    static void equipmentSlotClick(String slotId) {
+        equipmentSlotClick(slotId,null);
+    }
+    static void equipmentSlotClick(String slotId,String nominatedHandId) {
+        reconcile(); var proof=POLICY.snapshot(); var view=POLICY.inventoryView();
+        if(proof==null||view==null||POLICY.presentationPending()||!equipmentPanelDependencyEnabled(slotId))return;
+        var slot=proof.equipment().stream().filter(s->s.id().equals(slotId)).findFirst().orElse(null);
+        if(slot!=null&&slot.token()!=null&&(slotId.equals("back")||slotId.equals("belt"))&&nominatedHandId==null) {
+            togglePopup(slotId.equals("back")?StoragePopupWorkspace.HostKind.BAG:StoragePopupWorkspace.HostKind.BELT); return;
+        }
+        var hand=nominatedHandId==null?(view.first().id().equals(view.activeHand())?view.first():view.second())
+                :view.first().id().equals(nominatedHandId)?view.first():view.second().id().equals(nominatedHandId)?view.second():null;
+        var plan=HandEquipmentGesture.slotPlan(slotId,slot,hand,slot!=null&&slot.token()!=null);
+        if(plan==null)return;
+        if(plan.action()==BodyHandActionRequest.Action.EQUIP_SLOT
+                &&!BodyHandClientPolicy.equipmentFitsSlot(proof,slotId,hand.itemId()))return;
+        long sequence=POLICY.action(clock); if(sequence==0)return;
+        PacketDistributor.sendToServer(new BodyHandActionRequest(plan.action(),plan.handId(),proof.epoch(),sequence,
+                proof.revision(),null,plan.expectedToken(),null,-1,-1,-1,-1,-1,-1,null,plan.slotId(),null));
+    }
+
+    static void moveEquipment(HandEquipmentGesture.GearMovePlan plan) {
+        reconcile();
+        var proof = POLICY.snapshot();
+        if (plan == null || proof == null || proof.epoch() != plan.epoch() || proof.revision() != plan.revision()) return;
+        long sequence = POLICY.action(clock);
+        if (sequence == 0) return;
+        PacketDistributor.sendToServer(new BodyHandActionRequest(BodyHandActionRequest.Action.MOVE_EQUIPMENT,
+                plan.handId(), proof.epoch(), sequence, proof.revision(), null, plan.expectedToken(), null,
+                0, 0, 0, 0, 0, 0, null, plan.sourceSlotId(), plan.destinationSlotId()));
+    }
+
+    static void drawEquipmentPanel(net.minecraft.client.gui.GuiGraphics graphics, net.minecraft.client.Minecraft mc,
+                                           BodyHandStateSnapshot snapshot, int width, int height, boolean enabled) {
+        if (snapshot == null || snapshot.equipment().isEmpty()) return;
+        EQUIPMENT_PANEL_STATE.beginBody(snapshot.epoch());
+        var definitions=equipmentDefinitions(snapshot);
+        if (definitions.isEmpty()) return;
+        var panel = com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelLayout.calculate(width,height,definitions,
+                EQUIPMENT_PANEL_STATE.expanded(snapshot.epoch()));
+        com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelRenderer.drawToggle(graphics,panel,panel.expanded());
+        for (var rect : panel.slots()) {
+            var def = definitions.stream().filter(s -> s.id().equals(rect.slotId())).findFirst().orElse(null);
+            if (def != null && def.group().equals("Default") && !panel.expanded()) continue;
+            var observed = snapshot.equipment().stream().filter(s -> s.id().equals(rect.slotId())).findFirst().orElse(null);
+            if (def == null || observed == null) continue;
+            boolean slotEnabled = enabled && equipmentPanelDependencyEnabled(def.id());
+            com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelRenderer.drawSlot(graphics,rect,def,slotEnabled,POLICY.presentationPending());
+            if (observed.token() != null) drawStack(graphics,observed.itemId(),observed.count(),observed.presentation(),rect.rect(),mc);
+            if (rect.rect().contains((int)(mc.mouseHandler.xpos()*width/mc.getWindow().getScreenWidth()),
+                    (int)(mc.mouseHandler.ypos()*height/mc.getWindow().getScreenHeight())))
+                graphics.renderTooltip(mc.font,net.minecraft.network.chat.Component.literal(def.displayName()),
+                        (int)(mc.mouseHandler.xpos()*width/mc.getWindow().getScreenWidth()),
+                        (int)(mc.mouseHandler.ypos()*height/mc.getWindow().getScreenHeight()));
+    }
     }
 
     public static void renderPointerWorkspace(net.minecraft.client.gui.GuiGraphics graphics, float partialTick) {
@@ -2507,28 +2806,18 @@ public final class BodyHandClient {
         }
     }
 
+    /** Reuse the existing hand glyph for remote empty hand cells; identity stays presentation-only. */
+    public static void drawStripHandPlaceholder(net.minecraft.client.gui.GuiGraphics g, HandBarLayout.Rect r, String handId) {
+        drawPlaceholder(g,r,false);
+        String label=handId!=null&&handId.toLowerCase(java.util.Locale.ROOT).contains("left")?"L":
+                handId!=null&&handId.toLowerCase(java.util.Locale.ROOT).contains("right")?"R":"";
+        if(!label.isEmpty()){var pose=g.pose();pose.pushPose();pose.translate(r.x()+r.width()-4,r.y()+2,0);pose.scale(.45f,.45f,1);g.drawString(net.minecraft.client.Minecraft.getInstance().font,label,0,0,0xffd5e0e3,false);pose.popPose();}
+    }
+
     private static void drawStack(net.minecraft.client.gui.GuiGraphics g, String itemId, int count,
                                   com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation presentation,
                                   HandBarLayout.Rect r, net.minecraft.client.Minecraft mc) {
-        var stack = ItemUiRenderer.stack(itemId, count, presentation);
-        float scale = Math.min(1f, Math.min((r.width() - 2) / 16f, (r.height() - 2) / 16f));
-        if (scale > 0) {
-            var pose = g.pose();
-            pose.pushPose();
-            pose.translate(r.x() + r.width() / 2f, r.y() + r.height() / 2f, 0);
-            pose.scale(scale, scale, 1);
-            ItemUiRenderer.render(g, stack, -8, -8);
-            pose.popPose();
-        }
-        if (count > 1) {
-            String label = Integer.toString(count);
-            var pose = g.pose();
-            pose.pushPose();
-            pose.translate(r.x() + r.width() - 2, r.y() + r.height() - mc.font.lineHeight * 0.62f, 0);
-            pose.scale(0.62f, 0.62f, 1);
-            g.drawString(mc.font, label, -mc.font.width(label), 0, 0xffffffff, true);
-            pose.popPose();
-        }
+        ItemUiRenderer.renderIntoSlot(g,ItemUiRenderer.stack(itemId,count,presentation),count,r.x(),r.y(),r.width(),r.height(),mc.font);
     }
 
     /** Recessed SS14-style hand-bar tile, kept local to client-owned presentation code. */

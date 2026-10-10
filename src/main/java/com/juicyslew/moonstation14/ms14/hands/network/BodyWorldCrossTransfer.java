@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyEquipmentTransfer;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 import net.minecraft.server.level.ServerLevel;
@@ -53,7 +54,8 @@ final class BodyWorldCrossTransfer {
         var equipment = LiveHands.equipmentSnapshot(body);
         if (equipment.isEmpty() || !equipment.orElseThrow().persisted()) return Outcome.DENIED;
         List<String> declared = equipment.orElseThrow().slots().stream().map(LiveHands.EquipmentSlot::id).toList();
-        var host = new LiveHands.GridHost(action.worn(), action.bodyHostId(), action.bodyHostToken());
+        var host = action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT ? null
+                : new LiveHands.GridHost(action.worn(), action.bodyHostId(), action.bodyHostToken());
         var oldCell = new GridGeometry.Cell(action.oldX(), action.oldY());
         var newCell = new GridGeometry.Cell(action.newX(), action.newY());
         var oldRotation = rotation(action.oldRotation());
@@ -63,13 +65,30 @@ final class BodyWorldCrossTransfer {
         var entries = new ArrayList<>(grid.orElseThrow().entries());
         ItemStack child;
         LiveHands next;
-        if (action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_BODY) {
+        LiveHands.ExternalEquipmentRemoval equipmentRemoval = null;
+        if (action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_BODY
+                || action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT) {
             var found = entries.stream().filter(e -> e.token().equals(action.childToken())
                     && e.x() == oldCell.x() && e.y() == oldCell.y() && e.rotation() == oldRotation).findFirst();
             if (found.isEmpty()) return Outcome.DENIED;
             child = found.orElseThrow().stack();
-            next = before.addGridChild(before.revision(), declared, host, action.childToken(), child, newCell, newRotation).orElse(null);
+            next = action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT
+                    ? before.insertEquipment(before.revision(), declared, action.bodyHostId(), action.childToken(), child).orElse(null)
+                    : before.addGridChild(before.revision(), declared, host, action.childToken(), child, newCell, newRotation).orElse(null);
             entries.remove(found.orElseThrow());
+        } else if (action.direction() == BodyWorldCrossAction.Direction.EQUIPMENT_TO_WORLD) {
+            if (!action.bodyHostToken().equals(action.childToken())
+                    || entries.stream().anyMatch(e -> e.token().equals(action.childToken()))) return Outcome.DENIED;
+            var template = BodyEquipmentTransfer.templateForTransfer(body);
+            if (template == null) return Outcome.DENIED;
+            equipmentRemoval = before.removeEquipmentToExternal(before.revision(), declared, template,
+                    action.bodyHostId(), action.childToken()).orElse(null);
+            if (equipmentRemoval == null) return Outcome.DENIED;
+            child = equipmentRemoval.moved().stack();
+            next = equipmentRemoval.state();
+            try { entries.add(new GridContents.Entry(equipmentRemoval.moved().token(), child,
+                    newCell.x(), newCell.y(), newRotation)); }
+            catch (IllegalArgumentException invalid) { return Outcome.DENIED; }
         } else {
             if (entries.stream().anyMatch(e -> e.token().equals(action.childToken()))) return Outcome.DENIED;
             ItemStack bodyHost = action.worn()
@@ -93,7 +112,15 @@ final class BodyWorldCrossTransfer {
         if (next == null || nextWorld == null || !BodyHandStateService.representable(next, body)
                 || !ready(body, world, level, before, reference, copy, position, authorityValid)) return Outcome.DENIED;
 
-        if (action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_BODY) {
+        BodyEquipmentTransfer.DropStage drops = null;
+        if (equipmentRemoval != null) {
+            drops = BodyEquipmentTransfer.stageDependentDrops(body, equipmentRemoval.drops());
+            if (drops.result() == BodyEquipmentTransfer.Result.RECOVERY_REQUIRED) return Outcome.RECOVERY_REQUIRED;
+            if (drops.result() == BodyEquipmentTransfer.Result.DENIED) return Outcome.DENIED;
+        }
+
+        if (action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_BODY
+                || action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT) {
             try { publishWorld.accept(world, nextWorld); }
             catch (RuntimeException failure) {
                 if (unchangedWorld(world, level, reference, copy, position) && current(body) == before) return Outcome.DENIED;
@@ -118,23 +145,24 @@ final class BodyWorldCrossTransfer {
         }
         try { publishBody.accept(body, next); }
         catch (RuntimeException failure) {
-            if (current(body) == before && unchangedWorld(world, level, reference, copy, position)) return Outcome.DENIED;
+            if (current(body) == before && unchangedWorld(world, level, reference, copy, position)) return cleanup(drops, Outcome.DENIED);
             // As above, a throwing callback is not a successful publication, even when
             // it appears to have installed the staged body state.
             return Outcome.RECOVERY_REQUIRED;
         }
         if (current(body) != next || !unchangedWorld(world, level, reference, copy, position)) return Outcome.RECOVERY_REQUIRED;
         if (!safe(body, world, level, next, position, authorityValid))
-            return restoreBody(body, world, level, before, next, host, declared, action, child, reference, copy, position, publishBody);
+            return cleanup(drops, restoreBody(body, world, level, before, next, host, declared, action, child, reference, copy, position, publishBody));
         try { publishWorld.accept(world, nextWorld); }
         catch (RuntimeException failure) {
             if (unchangedWorld(world, level, reference, copy, position))
-                return restoreBody(body, world, level, before, next, host, declared, action, child, reference, copy, position, publishBody);
+                return cleanup(drops, restoreBody(body, world, level, before, next, host, declared, action, child, reference, copy, position, publishBody));
             return Outcome.RECOVERY_REQUIRED;
         }
         ItemStack published = world.getItem();
-        return worldStaged(world, level, published, nextWorld, position) && current(body) == next && next.compatible(body)
+        Outcome result = worldStaged(world, level, published, nextWorld, position) && current(body) == next && next.compatible(body)
                 && authorityValid.getAsBoolean() ? Outcome.SUCCESS : Outcome.RECOVERY_REQUIRED;
+        return cleanup(drops, result);
     }
 
     private static Outcome restoreWorld(ItemEntity world, ServerLevel level, ItemStack staged, ItemStack expected,
@@ -152,13 +180,20 @@ final class BodyWorldCrossTransfer {
             ItemStack reference, ItemStack copy, Vec3 position, BiConsumer<LivingEntity, LiveHands> publish) {
         if (current(body) != staged || !staged.compatible(body) || !unchangedWorld(world, level, reference, copy, position))
             return Outcome.RECOVERY_REQUIRED;
-        var restored = staged.addGridChild(staged.revision(), declared, host, action.childToken(), child,
-                new GridGeometry.Cell(action.oldX(), action.oldY()), rotation(action.oldRotation()));
+        var restored = action.direction() == BodyWorldCrossAction.Direction.EQUIPMENT_TO_WORLD
+                ? staged.restoreContents(staged.revision(), before)
+                : staged.addGridChild(staged.revision(), declared, host, action.childToken(), child,
+                    new GridGeometry.Cell(action.oldX(), action.oldY()), rotation(action.oldRotation()));
         if (restored.isEmpty() || restored.orElseThrow().revision() <= before.revision()) return Outcome.RECOVERY_REQUIRED;
         try { publish.accept(body, restored.orElseThrow()); }
         catch (RuntimeException failure) { return Outcome.RECOVERY_REQUIRED; }
         return current(body) == restored.orElseThrow() && restored.orElseThrow().compatible(body)
                 && unchangedWorld(world, level, reference, copy, position) ? Outcome.DENIED : Outcome.RECOVERY_REQUIRED;
+    }
+
+    private static Outcome cleanup(BodyEquipmentTransfer.DropStage drops, Outcome outcome) {
+        if (drops == null || outcome == Outcome.SUCCESS || outcome == Outcome.RECOVERY_REQUIRED) return outcome;
+        return drops.cleanup() ? outcome : Outcome.RECOVERY_REQUIRED;
     }
 
     private static LiveHands current(LivingEntity body) { return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()); }

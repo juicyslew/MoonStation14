@@ -21,12 +21,14 @@ public final class BodyWorldCrossGameTests {
         // Entity join enrollment binds the human prototype on the next tick.
         helper.runAfterDelay(1, () -> {
         var initial = LiveHands.initialize(body).orElseThrow();
+        var declaredSlots = LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
+                .map(LiveHands.EquipmentSlot::id).toList();
         var bag = new ItemStack(ModItems.BAG.get());
         bag.set(ModDataComponents.GRID_CONTENTS.get(), GridContents.empty());
         var belt = new ItemStack(ModItems.BELT.get());
         belt.set(ModDataComponents.GRID_CONTENTS.get(), GridContents.empty());
         var state = initial.putWhole(initial.revision(), "left", new ItemToken("worn"), bag).state()
-                .equip(initial.revision() + 1, List.of("belt", "back"), "left", "back", "worn").orElseThrow();
+                .equip(initial.revision() + 1, declaredSlots, "left", "back", "worn").orElseThrow();
         state = state.putWhole(state.revision(), "left", new ItemToken("held"), belt).state();
         state = state.putWhole(state.revision(), "right", new ItemToken("other"), new ItemStack(Items.STICK)).state();
         var worn = new LiveHands.GridHost(true, "back", "worn");
@@ -34,17 +36,17 @@ public final class BodyWorldCrossGameTests {
         var zero = new GridGeometry.Cell(0, 0);
         var flat = GridGeometry.Rotation.DEG_0;
         var item = new ItemStack(Items.APPLE, 4);
-        var wornAdded = state.addGridChild(state.revision(), List.of("belt", "back"), worn, "child", item, zero, flat).orElseThrow();
+        var wornAdded = state.addGridChild(state.revision(), declaredSlots, worn, "child", item, zero, flat).orElseThrow();
         require(wornAdded.activeHand().equals(state.activeHand()) && wornAdded.token("right").equals(state.token("right")), "hands untouched");
-        require(wornAdded.addGridChild(wornAdded.revision(), List.of("belt", "back"), held, "child", item, zero, flat).isEmpty(), "duplicate token");
-        var wornRemoved = wornAdded.removeGridChild(wornAdded.revision(), List.of("belt", "back"), worn, "child", zero, flat).orElseThrow();
-        require(wornRemoved.removeGridChild(wornRemoved.revision(), List.of("belt", "back"), worn, "child", zero, flat).isEmpty(), "stale child");
-        var heldAdded = wornRemoved.addGridChild(wornRemoved.revision(), List.of("belt", "back"), held, "child", item, zero, flat).orElseThrow();
-        require(heldAdded.removeGridChild(heldAdded.revision(), List.of("belt", "back"), held, "child", zero, flat).isPresent(), "held removal");
-        require(heldAdded.addGridChild(heldAdded.revision() - 1, List.of("belt", "back"), worn, "other-child", item, zero, flat).isEmpty(), "stale revision");
-        require(heldAdded.removeGridChild(heldAdded.revision(), List.of("belt", "back"),
+        require(wornAdded.addGridChild(wornAdded.revision(), declaredSlots, held, "child", item, zero, flat).isEmpty(), "duplicate token");
+        var wornRemoved = wornAdded.removeGridChild(wornAdded.revision(), declaredSlots, worn, "child", zero, flat).orElseThrow();
+        require(wornRemoved.removeGridChild(wornRemoved.revision(), declaredSlots, worn, "child", zero, flat).isEmpty(), "stale child");
+        var heldAdded = wornRemoved.addGridChild(wornRemoved.revision(), declaredSlots, held, "child", item, zero, flat).orElseThrow();
+        require(heldAdded.removeGridChild(heldAdded.revision(), declaredSlots, held, "child", zero, flat).isPresent(), "held removal");
+        require(heldAdded.addGridChild(heldAdded.revision() - 1, declaredSlots, worn, "other-child", item, zero, flat).isEmpty(), "stale revision");
+        require(heldAdded.removeGridChild(heldAdded.revision(), declaredSlots,
                 new LiveHands.GridHost(false, "left", "wrong"), "child", zero, flat).isEmpty(), "changed host");
-        require(heldAdded.addGridChild(heldAdded.revision(), List.of("belt", "back"), held, "overlap", item, zero, flat).isEmpty(), "full cell");
+        require(heldAdded.addGridChild(heldAdded.revision(), declaredSlots, held, "overlap", item, zero, flat).isEmpty(), "full cell");
         var stack = heldAdded.stackCopy("left").orElseThrow();
         require(GridContents.read(stack).orElseThrow().entries().getFirst().stack().getCount() == 4, "child conserved");
         helper.succeed();

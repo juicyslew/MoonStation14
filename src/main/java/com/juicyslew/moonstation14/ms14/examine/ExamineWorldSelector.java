@@ -40,7 +40,7 @@ public final class ExamineWorldSelector {
             var facing = rootState.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING);
             AABB result = null;
             for (AABB part : com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root, facing,
-                    airlockOpenness(level, root, rootState))) result = result == null ? part : result.minmax(part);
+                    airlockOpenness(level, root, rootState), airlockPanelOpen(level,root))) result = result == null ? part : result.minmax(part);
             return result;
         }
         var shape = visualShape(state, level, pos);
@@ -77,7 +77,7 @@ public final class ExamineWorldSelector {
                     var facing=state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING);
                     double openness=airlockOpenness(level,root,state);
                     Candidate nearest=null;
-                    List<AABB> pieces=com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root,facing,openness);
+                    List<AABB> pieces=com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root,facing,openness,airlockPanelOpen(level,root));
                     AABB bounds=null;
                     for(AABB piece:pieces) bounds=bounds==null?piece:bounds.minmax(piece);
                     for(AABB box:pieces) {
@@ -150,6 +150,13 @@ public final class ExamineWorldSelector {
                     data==null?.4:data.door().closeTimeOneSeconds(),data==null?.2:data.door().closeTimeTwoSeconds());
         }
         return fallback.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.OPEN)?1:0;
+    }
+    private static boolean airlockPanelOpen(Level level,BlockPos root) {
+        if(level.getBlockEntity(root) instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity door) {
+            var view=door.clientView();
+            return view.panelVisible()&&view.panelOpen()&&view.phase()!=com.juicyslew.moonstation14.ms14.doors.AirlockState.DoorPhase.OPEN;
+        }
+        return false;
     }
     private static net.minecraft.world.phys.shapes.VoxelShape visualShape(BlockState state, Level level, BlockPos pos) {
         if (state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock) {

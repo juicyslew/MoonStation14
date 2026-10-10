@@ -1,5 +1,23 @@
 # Airlock client rendering
 
+## Current exported-model replacement
+
+The subsequent model mini-sprint replaces the procedural mesh below with the
+modeler's exported Java component models. Current architecture, validation and
+manual checks are indexed in `../airlock-model-mini-sprint/IMPLEMENTATION.md` and
+`../airlock-model-mini-sprint/MANUAL.md`. Asset provenance is recorded in
+`NEW-MODEL-ASSETS.md` and packaged alongside the new model resources.
+
+Rendering uses baked components, existing synchronized appearance and resolved
+controller timings. Geometry/UVs are clipped to the root's 1×2×1 block volume;
+shared authored geometry supplies examination hits and outlines. No door collision,
+power, atmosphere, controller, or wire behavior is changed. The static item uses
+the same exported closed model. Client and server must both receive the new jar.
+
+## Historical procedural renderer
+
+The following records the preceding accepted renderer, not the current mesh.
+
 The lower/root block entity renderer consumes its synchronized `clientView()` DTO
 and resolved client `AirlockData` timings. `onDataPacket` routes render-only
 `View*` tags through `handleUpdateTag`; persistent `Airlock*` NBT is not loaded

@@ -90,4 +90,24 @@ class AirAlarmDeviceLinksTest {
         links.load(tagged(wrongType), 32);
         assertFalse(links.valid());
     }
+
+    @Test void deviceListViewUsesResolvedPolicyAndCanonicalMembership() {
+        ListTag stored = new ListTag();
+        stored.add(item(4));
+        AirAlarmDeviceLinks links = new AirAlarmDeviceLinks();
+        links.load(tagged(stored), 32);
+        String id = stored.getCompound(0).getUUID("DeviceId").toString();
+
+        var defaults = links.deviceList(new com.juicyslew.moonstation14.ms14.devicenet.DeviceList.Config(32, true, false));
+        assertEquals(java.util.List.of(id), defaults.addresses());
+        assertTrue(defaults.permits(id, false));
+        assertTrue(defaults.permits("other", true));
+
+        var denyIncoming = links.deviceList(new com.juicyslew.moonstation14.ms14.devicenet.DeviceList.Config(32, false, true));
+        assertFalse(denyIncoming.allowList());
+        assertTrue(denyIncoming.filterIncoming());
+        assertFalse(denyIncoming.permits(id, true));
+        assertTrue(denyIncoming.permits("other", true));
+        assertFalse(denyIncoming.permits(id, false));
+    }
 }

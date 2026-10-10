@@ -1,0 +1,157 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/airlock/default/closed",
+    "particle": "moonstation14:block/airlock/default/closed"
+  },
+  "elements": [
+    {
+      "name": "service_wires",
+      "from": [
+        3.5,
+        12.5,
+        6.245
+      ],
+      "to": [
+        5.5,
+        16.75,
+        6.395
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.0625,
+            8.8125,
+            4.3125,
+            9.3125
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            4.4375,
+            8.8125,
+            4.5,
+            9.3125
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.625,
+            8.8125,
+            4.875,
+            9.3125
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            5.0,
+            8.8125,
+            5.0625,
+            9.3125
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            5.1875,
+            8.8125,
+            5.4375,
+            8.875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            5.5625,
+            8.8125,
+            5.8125,
+            8.875
+          ]
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    }
+  },
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

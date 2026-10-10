@@ -188,7 +188,9 @@ public final class TimedConstructionDisposalLifecycleGameTests {
     private static Villager body(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 2, 2));
         body.setNoAi(true); body.setNoGravity(true);
-        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.INITIALIZED, "LIVE_HANDS bootstrap");
+        require(BodyHandBootstrap.ensure(body) == BodyHandBootstrap.Result.PRESERVED
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).compatible(body),
+                "joined body already has compatible LIVE_HANDS");
         return body;
     }
     /** Fixture-only trusted reservation seam: apply the immutable stack replacement before timer admission. */

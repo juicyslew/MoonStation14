@@ -1,0 +1,7 @@
+Source: Space Station 14, Space Wizards Federation
+Source asset: Resources/Textures/Interface/VerbIcons/information.svg.192dpi.png (64x64)
+Pinned source revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+License: CC BY-SA 3.0 (https://github.com/space-wizards/RobustToolbox/blob/master/LICENSE-ASSETS.TXT)
+Source license reference: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Textures/Interface/VerbIcons/information.svg
+Individual author: not identified in SVG metadata.
+SHA-256: e3302307901508f4bd55594d384ee523e624a29e245cb970d3721ff7d0001036

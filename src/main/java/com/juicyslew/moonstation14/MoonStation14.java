@@ -121,10 +121,13 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.interaction.ChemMasterDumpNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical.MedicalNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.ingestion.IngestionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.examine.ExamineNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.stripping.StripNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical_observer.ObserverNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.standing.PostureNetworking::registerPayloadHandlers);
         com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualServerHooks.install();
@@ -215,6 +218,9 @@ public class MoonStation14 {
 
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
+        com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.clearAll();
+        com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.clearAll();
+        com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.serverStopped(event);
         com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireMenuService.onServerStopped();
         com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService.onServerStopped();
         com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeAll();
@@ -224,7 +230,11 @@ public class MoonStation14 {
 
     private void onPlayerLoggedOut(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer actor)
+        {
+            com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.clear(actor);
+            com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.clear(actor);
             com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService.playerLoggedOut(actor);
+        }
     }
 
     @SubscribeEvent

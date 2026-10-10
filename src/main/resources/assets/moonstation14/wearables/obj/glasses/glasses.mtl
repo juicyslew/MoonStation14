@@ -1,0 +1,4 @@
+newmtl glasses
+Kd 1 1 1
+d 1
+map_Kd ../../../../textures/entity/equipment/glasses.png

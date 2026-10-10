@@ -20,7 +20,7 @@ class NormalWorldActivationGestureTest {
                 BodyInputGesturePolicy.normalWorldRoute(false, false, false));
         assertEquals(BodyInputGesturePolicy.NormalWorldRoute.TARGET_USE,
                 BodyInputGesturePolicy.normalWorldRoute(false, true, true));
-        assertEquals(BodyInputGesturePolicy.NormalWorldRoute.NONE,
+        assertEquals(BodyInputGesturePolicy.NormalWorldRoute.ACTIVATE_TARGET,
                 BodyInputGesturePolicy.normalWorldRoute(false, true, false));
         assertEquals(BodyInputGesturePolicy.NormalWorldRoute.STORAGE,
                 BodyInputGesturePolicy.normalWorldRoute(true, true, true));

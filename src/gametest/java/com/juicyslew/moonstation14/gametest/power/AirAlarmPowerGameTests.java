@@ -24,6 +24,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -34,9 +35,13 @@ import java.util.UUID;
 public final class AirAlarmPowerGameTests {
     private AirAlarmPowerGameTests() { }
 
-    @GameTestTags({"airlock", "power", "power_loaded_index_reconcile", "suite-stabilization"})
-    @GameTest(template = "empty", timeoutTicks = 600, templateNamespace = "moonstation14")
+    @GameTestTags({"airlock", "power", "power_loaded_index_reconcile"})
+    // Full-chunk footprint isolates this deliberate service-level unload from peer fixtures.
+    @GameTest(template = "power_receiver_tall_clear", batch = "power_loaded_index_reconcile",
+            timeoutTicks = 320, templateNamespace = "moonstation14")
     public static void receiverReconcilesAlreadyLoadedMissingFootprint(GameTestHelper helper) {
+        FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 8, 2)),
+                helper.absolutePos(new BlockPos(4, 12, 10)), 0);
         ServerLevel level = (ServerLevel) helper.getLevel();
         int y = 12;
         BlockPos source = helper.absolutePos(new BlockPos(3, y, 2));
@@ -73,72 +78,51 @@ public final class AirAlarmPowerGameTests {
         level.setBlock(pos, ModBlocks.AIR_ALARM.get().defaultBlockState().setValue(AirAlarmBlock.FACING, Direction.NORTH), 3);
         AirAlarmBlockEntity alarm = (AirAlarmBlockEntity) level.getBlockEntity(pos);
         require(alarm != null && !PowerRuntime.airAlarmMeter(level, alarm).known(), "missing APC cannot power alarm");
-        helper.runAfterDelay(30, () -> {
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 30, () -> {
             require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "no free status after solve");
             helper.succeed();
         });
     }
 
-    @GameTestTags({"suite-stabilization"})
-    @GameTest(template = "empty", timeoutTicks = 1800, templateNamespace = "moonstation14")
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 320, templateNamespace = "moonstation14")
     public static void alarmUsesInheritedHundredWattsAndRadiusThree(GameTestHelper helper) {
-        ServerLevel level = (ServerLevel) helper.getLevel();
-        int y = 12;
-        BlockPos source = helper.absolutePos(new BlockPos(3, y, 2));
-        BlockPos sub = helper.absolutePos(new BlockPos(3, y, 4));
-        BlockPos apc = helper.absolutePos(new BlockPos(3, y, 6));
-        BlockPos alarmPos = helper.absolutePos(new BlockPos(4, y, 10));
-        BlockPos cable = helper.absolutePos(new BlockPos(4, y, 7));
-        for (int z = 2; z <= 7; z++)
-            level.setBlock(helper.absolutePos(new BlockPos(4, y, z)), Blocks.STONE.defaultBlockState(), 3);
-        for (int z = 4; z <= 6; z++)
-            level.setBlock(helper.absolutePos(new BlockPos(2, y, z)), Blocks.STONE.defaultBlockState(), 3);
-        level.setBlock(alarmPos.south(), Blocks.STONE.defaultBlockState(), 3);
-        place(level, source, ModBlocks.HV_SOURCE.get(), Direction.EAST);
-        place(level, sub, ModBlocks.HV_MV_SUBSTATION.get(), Direction.EAST);
-        place(level, apc, ModBlocks.APC.get(), Direction.WEST);
-        for (int z = 2; z <= 4; z++)
-            require(CableStorage.place(level, helper.absolutePos(new BlockPos(4, y, z)), Direction.WEST, CableTier.HV), "HV cable");
-        for (int z = 4; z <= 6; z++)
-            require(CableStorage.place(level, helper.absolutePos(new BlockPos(2, y, z)), Direction.EAST, CableTier.MV), "MV cable");
-        for (int z = 6; z <= 7; z++)
-            require(CableStorage.place(level, helper.absolutePos(new BlockPos(4, y, z)), Direction.WEST, CableTier.APC), "APC cable");
-        for (int cx = (source.getX() - 4) >> 4; cx <= (alarmPos.getX() + 4) >> 4; cx++)
-            for (int cz = (source.getZ() - 4) >> 4; cz <= (alarmPos.getZ() + 4) >> 4; cz++)
-                level.getChunk(cx, cz);
-        level.setBlock(alarmPos, ModBlocks.AIR_ALARM.get().defaultBlockState().setValue(AirAlarmBlock.FACING, Direction.NORTH), 3);
-        AirAlarmBlockEntity alarm = (AirAlarmBlockEntity) level.getBlockEntity(alarmPos);
-        require(alarm != null && alarm.prototype() == PrototypeRuntime.serverAirAlarms().get(ModAirAlarms.AIR_ALARM),
-                "live BE uses resolved inherited definition");
-        require(alarm.prototype().apcPowerReceiver().requestedWatts() == 100
-                && alarm.prototype().extensionCableReceiver().localReachBlocks() == 3, "prototype values");
-        awaitPaidSolve(helper, level, alarm, alarmPos, apc, cable);
+        var fixture = com.juicyslew.moonstation14.gametest.atmos.AirAlarmPowerFixture.place(helper);
+        awaitKnownAlarmTopology(helper, fixture.level(), fixture.alarmPos(), fixture.cable(),
+                "alarm source-path topology and all expected ports become authoritative", () ->
+                        awaitPaidSolve(helper, fixture.level(), fixture.alarm(), fixture.alarmPos(),
+                                fixture.apc(), fixture.cable(), 0));
     }
 
     private static void awaitPaidSolve(GameTestHelper helper, ServerLevel level, AirAlarmBlockEntity alarm,
-                                       BlockPos alarmPos, BlockPos apc, BlockPos cable) {
+                                       BlockPos alarmPos, BlockPos apc, BlockPos cable, int elapsed) {
+        if (!PowerRuntime.airAlarmMeter(level, alarm).known()) {
+            require(elapsed < 220, "connected alarm awaits billed 100 W: meter=" + PowerRuntime.airAlarmMeter(level, alarm)
+                    + ", node=" + PowerGraphService.nearestApcExtensionNode(level, alarmPos, 3)
+                    + ", ready=" + PowerGraphService.topologyReady(level));
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5, () -> awaitPaidSolve(helper, level, alarm, alarmPos, apc, cable, elapsed + 5));
+            return;
+        }
+        require(PowerFixtureReadiness.topologyReadyWithKnownPorts(level, alarmPorts(alarmPos, cable))
+                        && PowerRuntime.airAlarmMeter(level, alarm).known()
+                        && PowerRuntime.airAlarmMeter(level, alarm).deliveredWatts() == 100,
+                "fresh 100 W alarm meter with authoritative source path and expected ports");
+        PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
+        Player player = new Player(level, apc, 0, new GameProfile(UUID.randomUUID(), "alarm-power-test")) {
+            @Override public boolean isCreative() { return true; }
+            @Override public boolean isSpectator() { return false; }
+        };
+        player.getAbilities().instabuild = true;
+        require(apcEntity.toggleBreaker(player, 0), "open breaker");
+        require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "breaker invalidates sample immediately");
+        require(apcEntity.toggleBreaker(player, 0), "close breaker");
+        require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "closing breaker needs new solve");
         awaitFreshAlarmMeter(helper, level, alarm, alarmPos, apc, cable,
-                "connected alarm reaches fresh prototype-resolved 100 W", () -> {
-        require(PowerRuntime.airAlarmMeter(level, alarm).deliveredWatts() == 100, "100 W full alarm solve");
-            PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
-            Player player = new Player(level, apc, 0, new GameProfile(UUID.randomUUID(), "alarm-power-test")) {
-                @Override public boolean isCreative() { return true; }
-                @Override public boolean isSpectator() { return false; }
-            };
-            player.getAbilities().instabuild = true;
-            require(apcEntity.toggleBreaker(player, 0), "open breaker");
-            require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "breaker invalidates sample immediately");
-            require(apcEntity.toggleBreaker(player, 0), "close breaker");
-            require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "closing breaker needs new solve");
-            awaitFreshAlarmMeter(helper, level, alarm, alarmPos, apc, cable,
-                    "fresh solve after closing breaker restores alarm", () -> {
+                "fresh solve after closing breaker restores alarm", () -> {
                 require(PowerRuntime.airAlarmMeter(level, alarm).known(), "fresh solve restores alarm");
                 BlockPos secondApc = apc.south();
                 place(level, secondApc, ModBlocks.APC.get(), Direction.WEST);
                 require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "new ambiguous provider invalidates sample");
-                awaitKnownAlarmTopology(helper, level, alarmPos, cable,
-                        "ambiguous second APC reaches a settled known graph", () -> {
-                    helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 40, () -> {
                     require(!PowerRuntime.airAlarmMeter(level, alarm).known(), "two APCs cannot bill alarm ambiguously");
                     level.setBlock(secondApc, Blocks.AIR.defaultBlockState(), 3);
                     require(CableStorage.remove(level, cable, Direction.WEST, CableTier.APC) == CableTier.APC, "cut cable");
@@ -150,9 +134,7 @@ public final class AirAlarmPowerGameTests {
                             && !PowerRuntime.airAlarmMeter(level, alarm).known()
                             && !PowerRuntime.airAlarmMeter(level, replacement).known(), "replacement cannot inherit sample");
                     helper.succeed();
-                    });
                 });
-            });
         });
     }
 

@@ -14,6 +14,10 @@ import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseTargetProbe;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceIdentity;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkPacket;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosDevicePayload;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -41,7 +45,7 @@ import java.util.UUID;
 public final class AirAlarmMenuService {
     enum Validity { VALID, AUTHORITY, ALARM, POWER_UNKNOWN, POWER_INCOMPLETE, OUT_OF_REACH, PATH_UNLOADED, LOS_BLOCKED }
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(AirAlarmMenuService.class);
-    private record Session(long lastRequest, java.util.Set<UUID> advertised) { }
+    private record Session(long lastRequest) { }
     private static final Map<AirAlarmMenu, Session> SESSIONS = new java.util.WeakHashMap<>();
     private AirAlarmMenuService() { }
     static void closed(AirAlarmMenu menu) { SESSIONS.remove(menu); }
@@ -69,6 +73,7 @@ public final class AirAlarmMenuService {
                  || !alarm.deviceLinksValid() || !HandActorAuthority.revalidate(actor, authority)) return false;
         Validity validity = persistentValidity(actor, level, alarm, authority);
         if (validity != Validity.VALID) { actor.sendSystemMessage(Component.literal("Air alarm closed: " + reason(validity))); return false; }
+        alarm.requestDeviceSync();
         UUID session = UUID.randomUUID();
         actor.openMenu(new SimpleMenuProvider((id, inv, player) -> new AirAlarmMenu(id, pos, session,
                 level, alarm, authority, request), Component.literal("Air Alarm")),
@@ -81,39 +86,17 @@ public final class AirAlarmMenuService {
         Session previous = SESSIONS.get(menu);
         if (!admit(menu.containerId, menu.session(), previous == null ? -1 : previous.lastRequest(), request))
             return denied(request);
-        // Consume once, including rejected actions. Only a QUERY advertises pairing choices.
-        SESSIONS.put(menu, new Session(request.requestId(), previous == null ? java.util.Set.of() : previous.advertised()));
+        // Consume each correlated action once, including rejected setup requests.
+        SESSIONS.put(menu, new Session(request.requestId()));
         var level = menu.serverLevel(); var alarm = menu.alarm();
-        var candidates = AirAlarmCandidates.query(level, alarm);
+        if (request.operation() == AirAlarmControlRequest.Operation.QUERY) alarm.requestDeviceSync();
         boolean powered = powered(level, alarm);
         if (request.operation() == AirAlarmControlRequest.Operation.QUERY) {
-            var response = snapshot(request, true, powered, level, alarm, candidates);
-            SESSIONS.put(menu, new Session(request.requestId(), response.devices().stream()
-                    .filter(d -> !d.linked() && d.online()).map(AirAlarmControlSnapshot.Device::id)
-                    .collect(java.util.stream.Collectors.toUnmodifiableSet())));
-            return response;
+            return snapshot(request, true, powered, level, alarm);
         }
         if (powered && menu.stillValid(actor)) {
             switch (request.operation()) {
-                case PAIR -> {
-                    if (SESSIONS.get(menu).advertised().contains(request.deviceId())
-                            && alarm.deviceLinks().stream().noneMatch(link -> link.deviceId().equals(request.deviceId()))) {
-                        if (candidates.stream().filter(c -> c.deviceId().equals(request.deviceId())).count() != 1) break;
-                        for (var candidate : candidates) {
-                            if (!candidate.linked() && candidate.deviceId().equals(request.deviceId())) {
-                                var device = liveCandidate(level, candidate);
-                                if (device != null && powered(level, alarm) && menu.stillValid(actor))
-                                    alarm.addDeviceLink(device);
-                                break;
-                            }
-                        }
-                    }
-                }
-                case UNPAIR -> {
-                    if (alarm.deviceLinks().stream().filter(link -> link.deviceId().equals(request.deviceId())).count() == 1
-                            && powered(level, alarm) && menu.stillValid(actor))
-                        alarm.removeDeviceLink(request.deviceId());
-                }
+                case PAIR, UNPAIR -> { /* Membership is configured only by the Network Configurator. */ }
                 case SET_ENABLED, SET_SCRUBBER_MODE, SET_FILTER_GAS, SET_EXTERNAL_PRESSURE_BOUND, SET_VOLUME_RATE -> {
                     if (alarm.deviceLinks().stream().filter(link -> link.deviceId().equals(request.deviceId())).count() != 1) break;
                     for (var link : alarm.deviceLinks()) {
@@ -133,21 +116,42 @@ public final class AirAlarmMenuService {
                                     current.targetPressureKPa(), vent ? current.volumeRateM3PerSecond() : value,
                                     current.scrubberMode(), current.filteredGases(), current.selectedLayer());
                             if (powered(level, alarm) && menu.stillValid(actor) && alarm.resolveDeviceLink(link) == device)
-                                device.compareAndSetSettings(request.expectedRevision(), proposed);
+                                enqueueControl(level, alarm, device, proposed);
                             break;
                         }
                         var desired = propose(current, device.kind(), request);
                         if (desired.isPresent() && powered(level, alarm) && menu.stillValid(actor)
                                 && alarm.resolveDeviceLink(link) == device)
-                            device.compareAndSetSettings(request.expectedRevision(), desired.get());
+                            enqueueControl(level, alarm, device, desired.get());
                         break;
                     }
                 }
                 case QUERY -> { }
             }
         }
-        return menu.stillValid(actor) ? snapshot(request, true, powered(level, alarm), level, alarm,
-                AirAlarmCandidates.query(level, alarm)) : denied(request);
+        return menu.stillValid(actor) ? snapshot(request, true, powered(level, alarm), level, alarm) : denied(request);
+    }
+
+    private static boolean enqueueControl(ServerLevel level, AirAlarmBlockEntity alarm,
+            com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity device,
+            VentilationDeviceConfig.Settings proposed) {
+        var runtime = DeviceNetworkRuntime.forLevel(level);
+        var sender = runtime.transport().lookup(new DeviceIdentity(alarm.controllerId()));
+        if (sender == null || !sender.available()) return false;
+        var source = sender.composition().network().orElse(null);
+        var target = runtime.transport().lookup(new DeviceIdentity(device.deviceId()));
+        var destination = target == null ? null : target.composition().network().orElse(null);
+        if (source == null || !source.transmit() || destination == null || destination.address().isBlank()) return false;
+        var command = new AtmosDevicePayload.SetState(proposed.revision(), proposed.configuredEnabled(),
+                proposed.externalPressureBoundKPa(), proposed.targetPressureChangeKPaPerSecond(),
+                proposed.targetPressureKPa(), proposed.volumeRateM3PerSecond(), proposed.scrubberMode(),
+                proposed.filteredGases(), proposed.selectedLayer());
+        return runtime.transport().enqueue(new DeviceNetworkPacket(sender.identity(), source.networkId(),
+                source.transmitFrequency(), source.address(), destination.address(), false, command,
+                source.networkId(), source.transmitFrequency()))
+                && runtime.transport().enqueue(new DeviceNetworkPacket(sender.identity(), source.networkId(),
+                source.transmitFrequency(), source.address(), destination.address(), false, new AtmosDevicePayload.Sync(),
+                source.networkId(), source.transmitFrequency()));
     }
 
     /** Pure capability/replay gate, separate from the pre-consumed block-use sequence. */
@@ -168,12 +172,6 @@ public final class AirAlarmMenuService {
         };
         return operation == null ? Optional.empty() : VentilationControlIntentPolicy.apply(current, kind,
                 operation, request.desired(), request.enumIndex());
-    }
-
-    private static com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity liveCandidate(
-            ServerLevel level, AirAlarmCandidates.Candidate candidate) {
-        var link = new AirAlarmDeviceLinks.Link(level.dimension(), candidate.pos(), candidate.kind(), candidate.deviceId());
-        return AirAlarmDeviceLinks.resolve(level, link);
     }
 
     static boolean localLink(ServerLevel level, AirAlarmBlockEntity alarm, AirAlarmDeviceLinks.Link link) {
@@ -263,21 +261,16 @@ public final class AirAlarmMenuService {
     }
 
     private static AirAlarmControlSnapshot snapshot(AirAlarmControlRequest r, boolean accepted, boolean powered,
-                                                    ServerLevel level, AirAlarmBlockEntity alarm,
-                                                    List<AirAlarmCandidates.Candidate> candidates) {
+                                                    ServerLevel level, AirAlarmBlockEntity alarm) {
         var devices = new ArrayList<AirAlarmControlSnapshot.Device>();
         var seen = new HashSet<UUID>();
         // Persisted links take precedence so offline links remain removable within the 32-entry cap.
+        var observations = alarm.observedStates();
         for (var link : alarm.deviceLinks()) {
             if (devices.size() == 32) break;
             var live = localLink(level, alarm, link) ? alarm.resolveDeviceLink(link) : null;
-            devices.add(describe(link.deviceId(), link.kind(), link.pos(), true, live));
+            devices.add(describe(link.deviceId(), link.kind(), link.pos(), true, live, observations));
             seen.add(link.deviceId());
-        }
-        for (var candidate : candidates) {
-            if (devices.size() == 32) break;
-            if (seen.add(candidate.deviceId())) devices.add(describe(candidate.deviceId(), candidate.kind(),
-                    candidate.pos(), candidate.linked(), liveCandidate(level, candidate)));
         }
         return new AirAlarmControlSnapshot(r.containerId(), r.session(), r.requestId(), accepted, powered, devices);
     }
@@ -285,12 +278,20 @@ public final class AirAlarmMenuService {
     private static AirAlarmControlSnapshot.Device describe(UUID id,
             com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Kind kind,
             net.minecraft.core.BlockPos pos, boolean linked,
-            com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity device) {
+            com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity device,
+            Map<String, AtmosDevicePayload.State> observations) {
         if (device == null || !device.settingsValid())
             return new AirAlarmControlSnapshot.Device(id, kind, pos, linked, false, false, 0, 0, 0, 0, 0);
-        var s = device.config().settings(); int bits = 0, index = 0;
-        for (GasType gas : GasType.values()) { if (s.filteredGases().contains(gas)) bits |= 1 << index; index++; }
-        return new AirAlarmControlSnapshot.Device(id, kind, pos, linked, true, s.configuredEnabled(),
-                s.scrubberMode().ordinal(), bits, s.revision(), s.externalPressureBoundKPa(), s.volumeRateM3PerSecond());
+        var endpoint = DeviceNetworkRuntime.forLevel((ServerLevel) device.getLevel()).transport()
+                .lookup(new DeviceIdentity(device.deviceId()));
+        String address = endpoint == null ? "" : endpoint.composition().network()
+                .map(com.juicyslew.moonstation14.ms14.devicenet.DeviceComposition.NetworkInterface::address).orElse("");
+        var observed = observations.get(address);
+        if (address.isBlank() || observed == null)
+            return new AirAlarmControlSnapshot.Device(id, kind, pos, linked, false, false, 0, 0, 0, 0, 0);
+        int bits = 0, index = 0;
+        for (GasType gas : GasType.values()) { if (observed.filteredGases().contains(gas)) bits |= 1 << index; index++; }
+        return new AirAlarmControlSnapshot.Device(id, kind, pos, linked, true, observed.enabled(),
+                observed.mode().ordinal(), bits, observed.revision(), observed.externalPressureBoundKPa(), observed.volumeRateM3PerSecond());
     }
 }

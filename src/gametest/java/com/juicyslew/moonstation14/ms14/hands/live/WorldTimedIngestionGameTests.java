@@ -60,7 +60,7 @@ public final class WorldTimedIngestionGameTests {
                     + !f.source.isRemoved() + ", sourcePos=" + f.source.position());
             require(f.level.getEntity(f.sourceId) == f.source && !f.source.isRemoved(), "source remains same world entity");
             require(ItemStack.matches(ordinary, hands(f.body).stackCopy("left").orElseThrow()), "active hand unchanged");
-            h.runAfterDelay(21, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 21, () -> {
                 requireOwnedTicking(h, f, "at second timed dose");
                 require(source(f) == 0, "second dose empties source; source=" + source(f)
                         + ", stomach=" + stomach(f.body) + ", bodyTick=" + f.body.tickCount + ", gameTime="
@@ -88,7 +88,7 @@ public final class WorldTimedIngestionGameTests {
         h.runAfterDelay(2, () -> {
             require(cancelled(f.body), "removed admitted identity cancels operation");
             require(water(replacement) == 1000 && stomach(f.body) == 0, "replacement receives no dose");
-            h.runAfterDelay(21, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 21, () -> {
                 require(!hasPhase(f.body, TimedOperation.Phase.CANCELLED), "cancelled operation is pruned after terminal retention");
                 require(water(replacement) == 1000 && stomach(f.body) == 0, "pruned operation never doses replacement");
                 h.succeed();

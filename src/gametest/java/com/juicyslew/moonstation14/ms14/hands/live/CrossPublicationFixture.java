@@ -21,7 +21,9 @@ public final class CrossPublicationFixture {
         ItemStack belt = new ItemStack(ModItems.BELT.get());
         belt.set(ModDataComponents.GRID_CONTENTS.get(), GridContents.empty());
         state = state.putWhole(state.revision(), "left", new ItemToken("bag"), bag).state();
-        state = state.equip(state.revision(), List.of("belt", "back"), "left", "back", "bag").orElseThrow();
+        List<String> declaredSlots = LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
+                .map(LiveHands.EquipmentSlot::id).toList();
+        state = state.equip(state.revision(), declaredSlots, "left", "back", "bag").orElseThrow();
         state = state.putWhole(state.revision(), "left", new ItemToken("belt"), belt).state();
         state = state.putWhole(state.revision(), "right", new ItemToken("stick"), new ItemStack(Items.STICK)).state();
         body.setData(ModDataAttachments.LIVE_HANDS.get(), state);

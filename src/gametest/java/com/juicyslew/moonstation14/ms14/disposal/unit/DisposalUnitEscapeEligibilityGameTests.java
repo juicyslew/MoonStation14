@@ -65,7 +65,7 @@ public final class DisposalUnitEscapeEligibilityGameTests {
             second.stopSleeping();
             require(!unit.tryEscape(second), "failed eligible attempt before boundary remains blocked");
             require(!unit.tryEscape(first), "re-entered first body cannot bypass cooldown");
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 require(level.getGameTime() - firstAttemptTick == 10, "exactly ten actual world ticks elapsed");
                 require(unit.tryEscape(second), "another body may exit at the ten-tick boundary");
                 require(unit.bodyIds().contains(first.getUUID()), "successful second exit leaves re-entered first body contained");

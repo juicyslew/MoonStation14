@@ -9,6 +9,9 @@ import net.minecraft.world.entity.LivingEntity;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 
 /** Read-only runtime view of the hand capability declared by a body's bound character prototype. */
 public final class HandCapability {
@@ -27,6 +30,18 @@ public final class HandCapability {
     /** Read-only server actor prototype; never treats a carrier or a bare HUMAN key as a body. */
     public static Optional<CharacterData> resolveCharacter(Entity body) {
         return body instanceof LivingEntity living ? CharacterIdentitySystem.resolveForActor(living) : Optional.empty();
+    }
+
+    /** Resolve the body's equipment layout from its immutable character/template prototype bindings. */
+    public static Optional<List<String>> resolveEquipmentSlots(Entity body) {
+        return resolveCharacter(body).flatMap(character -> character.component(EquipmentSlotsPrototypeComponent.class)).flatMap(component -> {
+            if (component.template().isEmpty()) return Optional.of(component.slots());
+            var catalog = body.level().isClientSide() ? PrototypeRuntime.clientInventoryTemplates()
+                    : PrototypeRuntime.serverInventoryTemplates();
+            InventoryTemplateData template = catalog.get(component.template().orElseThrow());
+            if (template == null) return Optional.empty();
+            return Optional.of(template.slots().stream().map(InventoryTemplateData.Slot::id).toList());
+        });
     }
 
     /**

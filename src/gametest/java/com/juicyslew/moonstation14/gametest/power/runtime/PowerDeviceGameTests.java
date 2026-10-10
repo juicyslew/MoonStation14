@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
+import com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
@@ -79,8 +80,7 @@ public final class PowerDeviceGameTests {
         helper.succeed();
     }
 
-    @GameTestTags({"suite-stabilization"})
-    @GameTest(template = "empty", timeoutTicks = 1400, templateNamespace = "moonstation14")
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 1200, templateNamespace = "moonstation14")
     public static void lampExtensionReceiverUsesNearestKnownLvCableWithinThreeBlocks(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos apc = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -108,23 +108,25 @@ public final class PowerDeviceGameTests {
         require(CableStorage.place(level, wrongTierHost, Direction.UP, CableTier.MV), "place wrong-tier cable");
 
         awaitLampExtensionPath(helper, level, apcOutputHost, closeLamp, nearbyLamp, farLamp, wrongTierHost, () -> {
-            helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
-            require(graphState(level, apcOutputHost, Direction.WEST, CableTier.APC).knowledge()
-                            == LoadedPowerGraph.Knowledge.KNOWN,
-                    "APC output cable component is known before checking lamp receivers");
-            assertLamp(level, closeLamp, true, "lamp directly above powered floor cable is powered without facing it");
-            assertLamp(level, nearbyLamp, true, "lamp within three blocks receives nearby LV power");
-            assertLamp(level, farLamp, false, "lamp beyond three blocks remains dark");
-            assertLamp(level, wrongTierLamp, false, "MV cable cannot power an LV lamp");
+            var output = new CableFaceNode(apcOutputHost, Direction.WEST, CableTier.APC);
+            PowerFixtureReadiness.await(helper, level, 500,
+                    () -> PowerGraphService.state(level, output).knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                            && level.getBlockState(closeLamp).getValue(PowerDeviceBlock.LIT)
+                            && level.getBlockState(nearbyLamp).getValue(PowerDeviceBlock.LIT),
+                    () -> "APCout=" + PowerGraphService.state(level, output) + ", topologyReady="
+                            + PowerGraphService.topologyReady(level) + ", indexedDevices="
+                            + PowerRuntime.indexedDeviceCount(level) + ", " + PowerRuntime.lastSolveDiagnostic(level), () -> {
+                assertLamp(level, closeLamp, true, "lamp directly above powered floor cable is powered without facing it");
+                assertLamp(level, nearbyLamp, true, "lamp within three blocks receives nearby LV power");
+                assertLamp(level, farLamp, false, "lamp beyond three blocks remains dark");
+                assertLamp(level, wrongTierLamp, false, "MV cable cannot power an LV lamp");
 
-            level.setBlock(closeLamp, Blocks.AIR.defaultBlockState(), 3);
-            placeDevice(level, closeLamp, PowerDeviceKind.LAMP, Direction.NORTH);
-            awaitLampExtensionPath(helper, level, apcOutputHost, closeLamp, nearbyLamp, farLamp, wrongTierHost, () -> {
-                helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
-                assertLamp(level, closeLamp, true, "replacement lamp resolves its LV extension receiver");
-                helper.succeed();
-            });
-            });
+                level.setBlock(closeLamp, Blocks.AIR.defaultBlockState(), 3);
+                placeDevice(level, closeLamp, PowerDeviceKind.LAMP, Direction.NORTH);
+                BoundedGameTestWait.safeDelay(helper, 60, () -> {
+                    assertLamp(level, closeLamp, true, "replacement lamp resolves its LV extension receiver");
+                    helper.succeed();
+                });
             });
         });
     }
@@ -235,7 +237,7 @@ public final class PowerDeviceGameTests {
             require(CableStorage.place(level, helper.absolutePos(new BlockPos(4, 1, z)), Direction.WEST, CableTier.APC), "place APC cable");
 
         // Let chunk refresh, incremental graph indexing, and the 20-tick runtime solve settle.
-        helper.runAfterDelay(100, () -> {
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 100, () -> {
             assertLamp(level, lamp, true, "source powers lamp through HV, MV, and APC");
 
             // Removing HV isolates the source, but the precharged APC battery supplies the lamp.
@@ -261,11 +263,11 @@ public final class PowerDeviceGameTests {
                 };
                 player.getAbilities().instabuild = true;
                 require(apcEntity.toggleBreaker(player, 0), "authorized nearby player opens APC breaker");
-                helper.runAfterDelay(40, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 40, () -> {
                     assertLamp(level, lamp, false, "open breaker disconnects battery output");
                     apcEntity.setEnergyJoules(0);
                     require(apcEntity.toggleBreaker(player, 0), "authorized nearby player closes APC breaker");
-                    helper.runAfterDelay(40, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 40, () -> {
                         assertLamp(level, lamp, false, "empty battery and absent source leave lamp dark");
 
                         // Restore the source, but substitute an HV cable on the MV host face.
@@ -274,7 +276,7 @@ public final class PowerDeviceGameTests {
                                 "remove MV cable for wrong-tier isolation check");
                         require(CableStorage.place(level, helper.absolutePos(new BlockPos(2, 1, 4)), Direction.EAST, CableTier.HV),
                                 "install wrong-tier HV cable on MV link");
-                        helper.runAfterDelay(80, () -> {
+                        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 80, () -> {
                             assertLamp(level, lamp, false, "wrong tier cannot energize the downstream lamp");
                             helper.succeed();
                         });
@@ -313,7 +315,7 @@ public final class PowerDeviceGameTests {
                     "place APC cable at z=" + z);
 
         awaitArbitraryHostPath(helper, level, source, substation, apc, outputHost, lamp, () -> {
-            helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
+            BoundedGameTestWait.safeDelay(helper, PowerRuntime.TICKS_PER_SOLVE, () -> {
             assertLamp(level, lamp, true, "stone-host cable powers lamp before replacement");
             // Remove the charged backup before testing that the cable path itself
             // loses power; otherwise the APC correctly keeps the lamp energized.
@@ -321,13 +323,11 @@ public final class PowerDeviceGameTests {
             level.setBlock(changedHost, Blocks.DIRT.defaultBlockState(), 3);
             // setBlock(..., 3) is not assumed to emit NeighborNotify; indexed chunks
             // are lazily revalidated under the graph refresh budget.
-            awaitArbitraryHostPath(helper, level, source, substation, apc, outputHost, lamp, () -> {
-                helper.runAfterDelay(PowerRuntime.TICKS_PER_SOLVE, () -> {
+            BoundedGameTestWait.safeDelay(helper, 100, () -> {
                 assertLamp(level, lamp, false, "replaced arbitrary host cannot leave a stale energized path");
                 require(CableStorage.get(level, changedHost, Direction.WEST) == null,
                         "changed host record was pruned after bounded refresh");
                 helper.succeed();
-            });
             });
             });
         });

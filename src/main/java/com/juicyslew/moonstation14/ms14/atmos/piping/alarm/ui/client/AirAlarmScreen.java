@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlReq
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlSnapshot;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenu;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNumericBounds;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmResponseQueryPolicy;
 import com.juicyslew.moonstation14.ms14.ui.client.MachineWindowRenderer;
 import com.juicyslew.moonstation14.ms14.ui.client.navigation.MachineDraftField;
 import com.juicyslew.moonstation14.ms14.ui.client.navigation.MachineSearchList;
@@ -46,11 +47,12 @@ public final class AirAlarmScreen extends AbstractContainerScreen<AirAlarmMenu> 
     private int page, winX, winY, winW, winH;
     private MachineTabs tabs;
     private MachineSearchList deviceList;
-    private Button pair, enabled, mode, submitNumeric, configure, back;
+    private Button enabled, mode, submitNumeric, configure, back;
     private MachineDraftField numeric;
     private DraftFieldModel.Intent draftIntent;
     private UUID draftTarget;
     private long draftProtocolRequest = -1;
+    private long latestQueryRequest = -1;
     private boolean viewportTooSmall;
     private boolean detail;
     private AirAlarmLayout layout;
@@ -84,8 +86,6 @@ public final class AirAlarmScreen extends AbstractContainerScreen<AirAlarmMenu> 
         Button refresh = Button.builder(Component.literal("Refresh"), b -> send(AirAlarmControlRequest.Operation.QUERY, false, 0))
                 .bounds(refreshBounds.x(), refreshBounds.y(), refreshBounds.width(), refreshBounds.height()).build();
         devicesWidgets.add(addRenderableWidget(refresh));
-        var pairBounds = layout.pair();
-        pair = addRenderableWidget(Button.builder(Component.literal("Pair / Unpair"), b -> { var d = selectedDevice(); if (d != null) send(d.linked() ? AirAlarmControlRequest.Operation.UNPAIR : AirAlarmControlRequest.Operation.PAIR, false, 0); }).bounds(pairBounds.x(), pairBounds.y(), pairBounds.width(), pairBounds.height()).build()); devicesWidgets.add(pair);
         var cr = layout.configure(); configure = addRenderableWidget(Button.builder(Component.literal("Configure"), b -> { if (selectedDevice() != null) { detail = true; showPage(); } }).bounds(cr.x(), cr.y(), cr.width(), cr.height()).build()); devicesWidgets.add(configure);
         var tr = layout.detailTabs(); tabs = addRenderableWidget(new MachineTabs(tr.x(), tr.y(), tr.width(), tr.height(), Component.literal("Device configuration"), tabModel, ignored -> showPage())); tabs.snapshot(0, TABS); tabs.visible = false;
         var enabledBounds = layout.enabled(); var modeBounds = layout.mode();
@@ -158,25 +158,49 @@ public final class AirAlarmScreen extends AbstractContainerScreen<AirAlarmMenu> 
     }
     private void send(AirAlarmControlRequest.Operation op, boolean desired, int index) { send(op, desired, index, 0); }
     private void send(AirAlarmControlRequest.Operation op, boolean desired, int index, double value) {
-        var d = selectedDevice(); if (pending >= 0 || (op != AirAlarmControlRequest.Operation.QUERY && d == null)) return;
-        pending = nextRequest++; pendingTicks = 0; pendingOperation = op;
-        PacketDistributor.sendToServer(new AirAlarmControlRequest(menu.containerId, menu.session(), pending, d == null ? QUERY_ID : d.id(), d == null ? 0 : d.revision(), op, desired, index, value)); refresh();
+        var d = selectedDevice(); if ((pending >= 0 && !(op == AirAlarmControlRequest.Operation.QUERY && draftIntent != null)) || (op != AirAlarmControlRequest.Operation.QUERY && d == null)) return;
+        long requestId = nextRequest++;
+        if (op == AirAlarmControlRequest.Operation.QUERY) latestQueryRequest = requestId;
+        if (draftIntent == null || op != AirAlarmControlRequest.Operation.QUERY) { pending = requestId; pendingTicks = 0; pendingOperation = op; }
+        PacketDistributor.sendToServer(new AirAlarmControlRequest(menu.containerId, menu.session(), requestId, d == null ? QUERY_ID : d.id(), d == null ? 0 : d.revision(), op, desired, index, value)); refresh();
     }
     public void handleResponse(AirAlarmControlSnapshot response) {
-        if (response.containerId() != menu.containerId || !response.session().equals(menu.session()) || response.requestId() != pending) return;
-        pending = -1; pendingTicks = 0;
-        if (!response.accepted() && response.devices().isEmpty()) { state = null; refresh(); return; }
+        boolean commandResponse = draftIntent != null && response.requestId() == draftProtocolRequest;
+        boolean currentQuery = response.requestId() == latestQueryRequest;
+        boolean matchedPendingCommand = response.requestId() == pending && pendingOperation != null
+                && pendingOperation != AirAlarmControlRequest.Operation.QUERY;
+        if (response.containerId() != menu.containerId || !response.session().equals(menu.session())
+                || (response.requestId() != pending && !commandResponse && !currentQuery)) return;
+        boolean commandPending = draftIntent != null && response.requestId() == draftProtocolRequest
+                && response.accepted();
+        if (!commandPending && response.requestId() == pending) { pending = -1; pendingTicks = 0; }
+        if (!response.accepted() && response.devices().isEmpty()) {
+            state = null; refresh();
+            if (AirAlarmResponseQueryPolicy.shouldQuery(currentQuery, matchedPendingCommand)) send(AirAlarmControlRequest.Operation.QUERY, false, 0);
+            return;
+        }
         state = response; listRevision++; localMessage = null;
         if (selected != null && selectedDevice() == null) { selected = null; detail = false; localMessage = "Selected device is no longer available"; }
-        if (draftIntent != null && response.requestId() == draftProtocolRequest) {
+        if (draftIntent != null) {
             var intended = response.devices().stream().filter(d -> d.id().equals(draftTarget)).findFirst().orElse(null);
             DraftFieldModel model = numericModels.get(draftTarget);
-            if (intended != null && model != null && !model.resolve(draftIntent.requestId(), intended.revision(), numericText(intended), response.accepted())) model.cancelPending(draftIntent.requestId());
-            else if (model != null) model.cancelPending(draftIntent.requestId());
-            draftIntent = null; draftTarget = null; draftProtocolRequest = -1;
+            boolean rejected = commandResponse && !response.accepted();
+            boolean observed = intended != null && intended.revision() > draftIntent.baseRevision();
+            if (model != null && (rejected || observed)) {
+                boolean fulfilled = observed && matchesDraft(draftIntent, intended);
+                model.resolve(draftIntent.requestId(), intended == null ? model.revision() : intended.revision(),
+                        intended == null ? model.authority() : numericText(intended), fulfilled);
+                draftIntent = null; draftTarget = null; draftProtocolRequest = -1;
+                pending = -1; pendingTicks = 0;
+            }
         }
         if (numeric != null) { var device = selectedDevice(); if (device != null && device.linked()) numericModel(device).snapshot(device.revision(), numericText(device)); }
-        refresh(); if (pendingOperation != AirAlarmControlRequest.Operation.QUERY) send(AirAlarmControlRequest.Operation.QUERY, false, 0);
+        refresh(); if (AirAlarmResponseQueryPolicy.shouldQuery(currentQuery, matchedPendingCommand)) send(AirAlarmControlRequest.Operation.QUERY, false, 0);
+    }
+    private static boolean matchesDraft(DraftFieldModel.Intent intent, AirAlarmControlSnapshot.Device device) {
+        try {
+            return new BigDecimal(intent.value()).compareTo(new BigDecimal(numericText(device))) == 0;
+        } catch (NumberFormatException ex) { return false; }
     }
     private void refresh() {
         if (tabs == null) return; boolean ready = state != null && pending < 0; refreshList(); var d = selectedDevice();
@@ -184,7 +208,6 @@ public final class AirAlarmScreen extends AbstractContainerScreen<AirAlarmMenu> 
         for (AbstractWidget w : devicesWidgets) { w.visible = devicesPage; w.active = devicesPage && ready; }
         for (AbstractWidget w : settingsWidgets) { w.visible = settingsPage; w.active = settingsPage && ready; }
         for (AbstractWidget w : filterWidgets) { w.visible = filtersPage; w.active = filtersPage && ready; }
-        pair.active = devicesPage && ready && state.powered() && d != null && (d.linked() || d.online());
         configure.active = devicesPage && ready && d != null;
         enabled.visible = settingsPage && d != null; enabled.active = settingsPage && ready && state.powered() && d != null && d.linked() && d.online();
         if (d != null) enabled.setMessage(Component.literal("Enabled: " + (d.enabled() ? "Yes" : "No")));
@@ -208,7 +231,7 @@ public final class AirAlarmScreen extends AbstractContainerScreen<AirAlarmMenu> 
         var inset = layout.inset(); MachineWindowRenderer.insetPanel(g, inset.x(), inset.y(), inset.width(), inset.height());
         String pageId = tabModel.selectedId();
         if (detail) { var d = selectedDevice(); String identity = d == null ? "Device unavailable" : d.kind().name() + " — " + d.pos().toShortString() + (!d.online() ? " (offline)" : !d.linked() ? " (unlinked; pair first)" : ""); g.enableScissor(winX+96,winY+30,winX+winW-8,winY+52); try { g.drawString(font, identity, winX+96,winY+34,MachineWindowRenderer.TEXT,true); } finally { g.disableScissor(); } if ("controls".equals(pageId)) g.drawString(font,d != null && d.kind()==VentilationDeviceConfig.Kind.VENT ? "Pressure bound (kPa)" : "Volume rate (m³/s)",winX+8,winY+130,MachineWindowRenderer.MUTED_TEXT,true); }
-        String message = viewportTooSmall ? "Viewport too small — resize to use controls" : localMessage != null ? localMessage : state == null ? "Waiting for alarm" : state.powered() ? "Power: 100 W" : "Power unavailable (read-only)";
+        String message = viewportTooSmall ? "Viewport too small — resize to use controls" : localMessage != null ? localMessage : !detail ? "Configure device list with a Network Configurator." : state == null ? "Waiting for alarm" : state.powered() ? "Power: 100 W" : "Power unavailable (read-only)";
         var footer = viewportTooSmall ? layout.fallback() : layout.footer();
         g.enableScissor(footer.x(), footer.y(), footer.x() + footer.width(), footer.y() + footer.height());
         try { MachineWindowRenderer.footer(g, font, footer.x(), footer.y(), footer.width(), footer.height(), Component.literal(message)); }

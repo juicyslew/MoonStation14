@@ -1,0 +1,6 @@
+Source: SS14 pinned c9df5ef5d675b0d1d226828bddf6b78c28502d91
+RSI: Clothing/Neck/Ties/redtie.rsi
+State: icon
+License: CC-BY-SA-3.0
+Copyright: Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/5a73e8f825ff279e82949b9329783a9e3070e2da, edited by Flareguy for Space Station 14 | In hand sprites sprited by PuroSlavKing (Github) for Space Station 14. Storage by TiniestShark (Github)
+

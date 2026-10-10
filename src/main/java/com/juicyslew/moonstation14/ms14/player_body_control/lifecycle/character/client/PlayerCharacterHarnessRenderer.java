@@ -9,9 +9,13 @@ import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
+import com.juicyslew.moonstation14.ms14.equipment.client.BodyAppearanceItemLayer;
+import com.juicyslew.moonstation14.ms14.equipment.client.BodyAppearanceClothingLayer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
@@ -43,6 +47,8 @@ public final class PlayerCharacterHarnessRenderer
         super(context, new PlayerModel<>(context.bakeLayer(ModelLayers.PLAYER), false), 0.5f);
         wideModel = model;
         slimModel = new PlayerModel<>(context.bakeLayer(ModelLayers.PLAYER_SLIM), true);
+        addLayer(new BodyAppearanceItemLayer(this, context.getItemInHandRenderer()));
+        addLayer(new BodyAppearanceClothingLayer(this, context.getItemInHandRenderer()));
     }
 
     @Override
@@ -55,11 +61,22 @@ public final class PlayerCharacterHarnessRenderer
     @Override
     public void render(PlayerCharacterHarnessEntity entity, float entityYaw, float partialTick,
                        PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        boolean ownedCameraBody = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient
+                .ownedCharacterForPresentation() == entity && mc.getCameraEntity() == entity;
+        if (!com.juicyslew.moonstation14.ms14.equipment.client.BodyWorldRenderPolicy.allowOrdinaryPass(
+                ownedCameraBody, mc.getCameraEntity() == entity, mc.options.getCameraType().isFirstPerson())) return;
         PlayerModel<PlayerCharacterHarnessEntity> previousModel = model;
         model = entity.bodyShape() == PlayerCharacterBodyShape.SLIM ? slimModel : wideModel;
+        PlayerModel<PlayerCharacterHarnessEntity> active = model;
+        boolean[] visible = {active.head.visible, active.hat.visible, active.leftArm.visible, active.rightArm.visible,
+                active.leftSleeve.visible, active.rightSleeve.visible};
         try {
             super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
         } finally {
+            active.head.visible = visible[0]; active.hat.visible = visible[1];
+            active.leftArm.visible = visible[2]; active.rightArm.visible = visible[3];
+            active.leftSleeve.visible = visible[4]; active.rightSleeve.visible = visible[5];
             model = previousModel;
         }
     }

@@ -38,6 +38,8 @@ public class PowerDeviceBlockEntity extends BlockEntity {
     public boolean breakerClosed() { return breakerClosed; }
     public long breakerRevision() { return breakerRevision; }
     public boolean tripLatched() { return tripLatched; }
+    /** Read-only transient protection observation for diagnostics and GameTests. */
+    public PowerDeviceRules.ApcProtectionState protectionState() { return protectionState; }
 
     /** Server-only interaction; player permissions and range are checked before changing state. */
     public boolean toggleBreaker(Player player, double distanceSquared) {

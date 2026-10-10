@@ -1,0 +1,367 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/airlock/vertical_all/standard_basic/atlas",
+    "particle": "moonstation14:block/airlock/vertical_all/standard_basic/atlas"
+  },
+  "elements": [
+    {
+      "name": "lamp_0_front",
+      "from": [
+        10.0,
+        31.0,
+        4.720000000000001
+      ],
+      "to": [
+        14.0,
+        31.5,
+        4.74
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            15.28125,
+            2.5625,
+            15.53125,
+            2.59375
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            15.59375,
+            2.5625,
+            15.625,
+            2.59375
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            15.6875,
+            2.5625,
+            15.9375,
+            2.59375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            0.03125,
+            3.0,
+            0.0625,
+            3.03125
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            3.0,
+            0.375,
+            3.03125
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            0.4375,
+            3.0,
+            0.6875,
+            3.03125
+          ]
+        }
+      }
+    },
+    {
+      "name": "lamp_0_back",
+      "from": [
+        10.0,
+        31.0,
+        11.26
+      ],
+      "to": [
+        14.0,
+        31.5,
+        11.28
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            0.75,
+            3.0,
+            1.0,
+            3.03125
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            1.0625,
+            3.0,
+            1.09375,
+            3.03125
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            1.15625,
+            3.0,
+            1.40625,
+            3.03125
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            1.46875,
+            3.0,
+            1.5,
+            3.03125
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            1.5625,
+            3.0,
+            1.8125,
+            3.03125
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            1.875,
+            3.0,
+            2.125,
+            3.03125
+          ]
+        }
+      }
+    },
+    {
+      "name": "lamp_1_front",
+      "from": [
+        2.0,
+        31.0,
+        4.720000000000001
+      ],
+      "to": [
+        6.0,
+        31.5,
+        4.74
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            2.1875,
+            3.0,
+            2.4375,
+            3.03125
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            2.5,
+            3.0,
+            2.53125,
+            3.03125
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            2.59375,
+            3.0,
+            2.84375,
+            3.03125
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            2.90625,
+            3.0,
+            2.9375,
+            3.03125
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.0,
+            3.0,
+            3.25,
+            3.03125
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.3125,
+            3.0,
+            3.5625,
+            3.03125
+          ]
+        }
+      }
+    },
+    {
+      "name": "lamp_1_back",
+      "from": [
+        2.0,
+        31.0,
+        11.26
+      ],
+      "to": [
+        6.0,
+        31.5,
+        11.28
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            3.625,
+            3.0,
+            3.875,
+            3.03125
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.9375,
+            3.0,
+            3.96875,
+            3.03125
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.03125,
+            3.0,
+            4.28125,
+            3.03125
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.34375,
+            3.0,
+            4.375,
+            3.03125
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            4.4375,
+            3.0,
+            4.6875,
+            3.03125
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            3.0,
+            5.0,
+            3.03125
+          ]
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    }
+  },
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

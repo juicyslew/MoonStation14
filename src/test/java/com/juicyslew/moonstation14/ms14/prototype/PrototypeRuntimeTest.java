@@ -74,6 +74,8 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
         expectedTypes.add(ModAirlocks.TYPE);
         expectedTypes.add(ModToolProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE);
         expectedTypes.add(ModPuddles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE);
@@ -83,6 +85,11 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -188,7 +195,7 @@ class PrototypeRuntimeTest {
                 fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
         server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
                 id("wirecutter"), fixture("tool_profile", "wirecutter"), id("screwdriver"), fixture("tool_profile", "screwdriver"),
-                id("multitool"), fixture("tool_profile", "multitool"), id("airlock_screwdriver"), fixture("tool_profile", "airlock_screwdriver"), id("base_item"), fixture("tool_profile", "base_item"),
+                id("multitool"), fixture("tool_profile", "multitool"), id("base_item"), fixture("tool_profile", "base_item"),
                 id("base_crowbar"), fixture("tool_profile", "base_crowbar")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
@@ -210,7 +217,18 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.SUBSTATION,
                 new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("hv_mv_substation","dead","on","charging","full","lack",0,appearanceShape),
                 com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.APC,
-                new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("apc","off","on","charging","full","lack",3,appearanceShape)));
+                new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("apc","off","on","charging","full","lack",5,appearanceShape)));
+        server.reload(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE,
+                Map.of(
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.BASE_WALLMOUNT, fixture("signal_control", "base_wallmount"),
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.BASE_WALLMOUNT_METALLIC, fixture("signal_control", "base_wallmount_metallic"),
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_BUTTON, fixture("signal_control", "signal_button"),
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_SWITCH, fixture("signal_control", "signal_switch")));
+        server.reload(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE,
+                Map.of(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("localbase"), fixture("network_device_item", "localbase"),
+                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("standardwireless15"), fixture("network_device_item", "standardwireless15"),
+                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("configurator"), fixture("network_device_item", "configurator"),
+                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -231,7 +249,14 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId()), exported.keySet());
+                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);

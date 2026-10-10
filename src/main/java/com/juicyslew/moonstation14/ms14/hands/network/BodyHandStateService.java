@@ -53,6 +53,10 @@ public final class BodyHandStateService {
 
     /** Publishes a committed full body snapshot on the authenticated owner's connection. */
     public static void publishCommitted(ServerPlayer actor, HandActorAuthority.Snapshot authority) {
+        if (authority != null) BodyHandNetworking.publish(authority.body(), authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()));
+        publishOwnerCommitted(actor, authority);
+    }
+    public static void publishOwnerCommitted(ServerPlayer actor, HandActorAuthority.Snapshot authority) {
         if (actor == null || authority == null) return;
         if (!HandActorAuthority.revalidate(actor, authority)) {
             var current = HandActorAuthority.resolve(actor).orElse(null);
@@ -124,7 +128,8 @@ public final class BodyHandStateService {
             if (equipment == null) return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
             grids = grids(hands, authority.body());
             summary = new BodyHandStateSnapshot(query.epoch(), query.sequence(), BodyHandStateSnapshot.Reason.OK,
-                    actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(), slots, equipment, grids);
+                    actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(), slots, equipment, grids, false,
+                    templateId(authority.body()));
         } catch (RuntimeException invalidSummary) {
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
         }
@@ -133,6 +138,13 @@ public final class BodyHandStateService {
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NO_AUTHORITY);
         gate.issue(authority.body(), authority.epoch());
         return summary;
+    }
+
+    private static net.minecraft.resources.ResourceLocation templateId(LivingEntity body) {
+        return com.juicyslew.moonstation14.ms14.hands.HandCapability.resolveCharacter(body)
+                .flatMap(character -> character.component(com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent.class))
+                .flatMap(com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent::template)
+                .orElse(null);
     }
 
     /** Read-only, bounded admission for a prospective body owner. Also applies to loaded evidence at query time. */
@@ -239,21 +251,39 @@ public final class BodyHandStateService {
         // compatible() already rejects a persisted equipment layout without a matching prototype.
         if (snapshot.isEmpty()) return hands.compatible(body) ? List.of() : null;
         var result = new ArrayList<BodyHandStateSnapshot.EquipmentSlot>();
-        for (var slot : snapshot.orElseThrow().slots()) {
+        var resolvedEquipment = snapshot.orElseThrow();
+        var templateId = templateId(body);
+        var template = templateId == null ? null : com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates
+                .catalog(body.level()).get(templateId);
+        if (template == null) return null;
+        var occupied = resolvedEquipment.slots().stream().filter(value -> value.stack().isPresent())
+                .map(LiveHands.EquipmentSlot::id).collect(java.util.stream.Collectors.toSet());
+        var itemCatalog = com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.catalog(body.level());
+        var outerAllows = resolvedEquipment.slots().stream().filter(value -> value.id().equals("outerClothing"))
+                .flatMap(value -> value.stack().stream())
+                .map(value -> itemCatalog.get(BuiltInRegistries.ITEM.getKey(value.getItem())))
+                .anyMatch(value -> value != null && value.allowSuitStorage().isPresent());
+        for (var slot : resolvedEquipment.slots()) {
             if (slot.token().isPresent() != slot.stack().isPresent()) return null;
             if (slot.token().isEmpty()) {
                 result.add(new BodyHandStateSnapshot.EquipmentSlot(slot.id(), null, null, 0, null, null, 0));
                 continue;
             }
             var stack = slot.stack().orElseThrow();
-            if (!("belt".equals(slot.id()) && stack.is(ModItems.BELT)
-                    || "back".equals(slot.id()) && stack.is(ModItems.BAG))) return null;
+            var fit = "pocket1".equals(slot.id()) || "pocket2".equals(slot.id())
+                    ? com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(
+                            body.level(), template, slot.id(), stack, occupied)
+                    : com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(template, slot.id(),
+                            itemCatalog.get(BuiltInRegistries.ITEM.getKey(stack.getItem())), occupied, outerAllows);
+            if (!fit || !("pocket1".equals(slot.id()) || "pocket2".equals(slot.id())) && stack.getCount() != 1)
+                return null;
             if (!tokens.add(slot.token().orElseThrow())) return null;
             String childToken = null, childId = null;
             int childCount = 0;
             if (stack.has(ModDataComponents.GRID_CONTENTS.get())) {
+                if (!(stack.is(ModItems.BAG) || stack.is(ModItems.BELT))) return null;
                 if (GridContents.read(stack).isEmpty()) return null;
-            } else {
+            } else if (stack.is(ModItems.BAG) || stack.is(ModItems.BELT)) {
                 var legacy = PouchContents.read(stack);
                 if (legacy.isEmpty()) return null;
                 var childContents = legacy.orElseThrow().child();

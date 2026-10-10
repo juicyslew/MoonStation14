@@ -83,7 +83,7 @@ public final class ExamineSelectionGameTests {
                     +", elapsedTestTicks="+waited);
             // runAfterDelay is relative to this fixture's current test tick.
             // runAtTickTime takes a test-relative tick, not the world's absolute time.
-            helper.runAfterDelay(1,()->awaitOpenThenProbe(helper,door,root,wall,origin,direction,facing,index,waited+1));
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->awaitOpenThenProbe(helper,door,root,wall,origin,direction,facing,index,waited+1));
             return;
         }
         ServerLevel level=helper.getLevel();

@@ -1,0 +1,10 @@
+{
+  "parent":"base_wallmount_metallic",
+  "deviceComponents":{
+    "deviceNetwork":{"network":"moonstation14:wireless","transmitFrequency":"moonstation14:basic_device","receiveFrequency":"moonstation14:basic_device"},
+    "deviceConnection":{"wireless":true,"wirelessRange":200},
+    "deviceLinkSource":{"ports":["moonstation14:pressed"]}
+  },
+  "onOutputs":[{"port":"Pressed","signal":"MOMENTARY"}],
+  "offOutputs":[{"port":"Pressed","signal":"MOMENTARY"}]
+}

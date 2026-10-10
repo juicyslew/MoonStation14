@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.UUID;
 
 public final class BodyWorldCrossPublicationGameTests {
-    private static final List<String> SLOTS = List.of("belt", "back");
     private static final GridGeometry.Cell ZERO = new GridGeometry.Cell(0, 0);
     private static final GridGeometry.Rotation FLAT = GridGeometry.Rotation.DEG_0;
     private BodyWorldCrossPublicationGameTests() { }
@@ -32,7 +31,7 @@ public final class BodyWorldCrossPublicationGameTests {
             ItemStack reference = world.getItem();
             ItemStack copy = reference.copy();
             LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-            BodyWorldCrossAction toBody = action(BodyWorldCrossAction.Direction.WORLD_TO_BODY, world, before, 1, 0);
+            BodyWorldCrossAction toBody = action(BodyWorldCrossAction.Direction.WORLD_TO_BODY, world, before, body, 1, 0);
             var outcome = BodyWorldCrossTransfer.applyTrusted(body, world, reference, copy, toBody,
                     (b, next) -> b.setData(ModDataAttachments.LIVE_HANDS.get(), next), ItemEntity::setItem, () -> true);
             require(outcome == BodyWorldCrossTransfer.Outcome.SUCCESS, "world to body succeeds");
@@ -44,7 +43,7 @@ public final class BodyWorldCrossPublicationGameTests {
                             && Component.literal("cross-child").equals(e.stack().get(DataComponents.CUSTOM_NAME))), "worn bag receives exact child");
             require(GridContents.read(world.getItem()).orElseThrow().entries().isEmpty(), "world grid emptied");
 
-            BodyWorldCrossAction toWorld = action(BodyWorldCrossAction.Direction.BODY_TO_WORLD, world, transferred, 2, 0);
+            BodyWorldCrossAction toWorld = action(BodyWorldCrossAction.Direction.BODY_TO_WORLD, world, transferred, body, 2, 0);
             outcome = BodyWorldCrossTransfer.applyTrusted(body, world, world.getItem(), world.getItem().copy(), toWorld,
                     (b, next) -> b.setData(ModDataAttachments.LIVE_HANDS.get(), next), ItemEntity::setItem, () -> true);
             require(outcome == BodyWorldCrossTransfer.Outcome.SUCCESS, "body to world succeeds");
@@ -61,12 +60,12 @@ public final class BodyWorldCrossPublicationGameTests {
             ItemStack reference = world.getItem();
             ItemStack copy = reference.copy();
             LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-            BodyWorldCrossAction invalid = action(BodyWorldCrossAction.Direction.WORLD_TO_BODY, world, before, 1, 7);
+            BodyWorldCrossAction invalid = action(BodyWorldCrossAction.Direction.WORLD_TO_BODY, world, before, body, 1, 7);
             var outcome = BodyWorldCrossTransfer.applyTrusted(body, world, reference, copy, invalid,
                     (b, next) -> b.setData(ModDataAttachments.LIVE_HANDS.get(), next), ItemEntity::setItem, () -> true);
             require(outcome == BodyWorldCrossTransfer.Outcome.DENIED, "out of bounds placement denied");
             require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before && world.getItem() == reference, "fit denial leaves owners unchanged");
-            BodyWorldCrossAction valid = action(BodyWorldCrossAction.Direction.WORLD_TO_BODY, world, before, 1, 0);
+            BodyWorldCrossAction valid = action(BodyWorldCrossAction.Direction.WORLD_TO_BODY, world, before, body, 1, 0);
             outcome = BodyWorldCrossTransfer.applyTrusted(body, world, reference, copy, valid,
                     (b, next) -> { throw new IllegalStateException("publisher failed before write"); },
                     ItemEntity::setItem, () -> true);
@@ -101,8 +100,11 @@ public final class BodyWorldCrossPublicationGameTests {
     }
 
     private static BodyWorldCrossAction action(BodyWorldCrossAction.Direction direction, ItemEntity world,
-            LiveHands state, long sequence, int newX) {
-        return new BodyWorldCrossAction(direction, 1, sequence, world.getUUID(), UUID.randomUUID(), 0,
+            LiveHands state, Villager body, long sequence, int newX) {
+        var layout = LiveHands.equipmentSnapshot(body, state).orElseThrow().slots();
+        int backIndex = java.util.stream.IntStream.range(0, layout.size())
+                .filter(i -> layout.get(i).id().equals("back")).findFirst().orElseThrow();
+        return new BodyWorldCrossAction(direction, backIndex, sequence, world.getUUID(), UUID.randomUUID(), 0,
                 state.revision(), true, "back", "bag", "child", 0, 0, 0, newX, 0, 0);
     }
 

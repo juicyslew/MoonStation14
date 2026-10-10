@@ -299,7 +299,7 @@ public final class AtmosphereReactionGameTests {
                     "saved gas must retain the reactive inventory needed for a fresh fire candidate");
             // A GameTest cannot restart the server or trigger an isolated service's private
             // chunk-load hook. Advance real game time by one due step; no synthetic downtime ticks.
-            helper.runAfterDelay(AtmosphereService.TICK_CADENCE, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, AtmosphereService.TICK_CADENCE, () -> {
                 require(f.level().getGameTime() % AtmosphereService.TICK_CADENCE == 0,
                         "follow-up must be a fresh due step");
                 GasMixture before = loadedService.sample(f.level(), f.cell()).orElseThrow();
@@ -366,7 +366,7 @@ public final class AtmosphereReactionGameTests {
         private void onDue(Runnable assertion, int waited) {
             require(waited <= 8, "explicit reaction did not reach an even due game tick");
             if (level.getGameTime() % AtmosphereService.TICK_CADENCE == 0) assertion.run();
-            else helper.runAfterDelay(1, () -> onDue(assertion, waited + 1));
+            else com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> onDue(assertion, waited + 1));
         }
 
         Step commit(String name) {

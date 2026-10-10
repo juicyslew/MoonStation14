@@ -45,6 +45,7 @@ import com.juicyslew.moonstation14.ms14.medical.ModInjectorModes;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
+import com.juicyslew.moonstation14.ms14.equipment.*;
 import com.juicyslew.moonstation14.ms14.puddle.PuddleData;
 import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
 import com.juicyslew.moonstation14.ms14.examine.scene.CelestialSceneData;
@@ -57,6 +58,14 @@ import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterData;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters;
 import com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances;
 import com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceFrequency;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkPrototype;
+import com.juicyslew.moonstation14.ms14.devicenet.DevicePortPrototype;
+import com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks;
+import com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls;
+import com.juicyslew.moonstation14.ms14.devicenet.control.SignalControlData;
+import com.juicyslew.moonstation14.ms14.devicenet.NetworkDeviceItemData;
+import com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -176,6 +185,10 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<InjectorModeData> clientInjectorModes() { return CLIENT_MANAGER.snapshot(ModInjectorModes.TYPE); }
     public static PrototypeCatalog<AirlockData> serverAirlocks() { return SERVER_MANAGER.snapshot(ModAirlocks.TYPE); }
     public static PrototypeCatalog<AirlockData> clientAirlocks() { return CLIENT_MANAGER.snapshot(ModAirlocks.TYPE); }
+    public static PrototypeCatalog<InventoryTemplateData> serverInventoryTemplates() { return SERVER_MANAGER.snapshot(ModInventoryTemplates.TYPE); }
+    public static PrototypeCatalog<InventoryTemplateData> clientInventoryTemplates() { return CLIENT_MANAGER.snapshot(ModInventoryTemplates.TYPE); }
+    public static PrototypeCatalog<EquipmentItemData> serverEquipmentItems() { return SERVER_MANAGER.snapshot(ModEquipmentItems.TYPE); }
+    public static PrototypeCatalog<EquipmentItemData> clientEquipmentItems() { return CLIENT_MANAGER.snapshot(ModEquipmentItems.TYPE); }
     public static PrototypeCatalog<PuddleData> serverPuddles() { return SERVER_MANAGER.snapshot(ModPuddles.TYPE); }
     public static PrototypeCatalog<PuddleData> clientPuddles() { return CLIENT_MANAGER.snapshot(ModPuddles.TYPE); }
     public static PrototypeCatalog<CelestialSceneData> serverCelestialScenes() { return SERVER_MANAGER.snapshot(ModCelestialScenes.TYPE); }
@@ -188,6 +201,16 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<ChemMasterData> clientChemMasters() { return CLIENT_MANAGER.snapshot(ModChemMasters.TYPE); }
     public static PrototypeCatalog<PowerAppearanceData> serverPowerAppearances() { return SERVER_MANAGER.snapshot(ModPowerAppearances.TYPE); }
     public static PrototypeCatalog<PowerAppearanceData> clientPowerAppearances() { return CLIENT_MANAGER.snapshot(ModPowerAppearances.TYPE); }
+    public static PrototypeCatalog<DeviceFrequency> serverDeviceFrequencies() { return SERVER_MANAGER.snapshot(ModDeviceNetworks.FREQUENCY_TYPE); }
+    public static PrototypeCatalog<DeviceFrequency> clientDeviceFrequencies() { return CLIENT_MANAGER.snapshot(ModDeviceNetworks.FREQUENCY_TYPE); }
+    public static PrototypeCatalog<DeviceNetworkPrototype> serverDeviceNetworks() { return SERVER_MANAGER.snapshot(ModDeviceNetworks.NETWORK_TYPE); }
+    public static PrototypeCatalog<DeviceNetworkPrototype> clientDeviceNetworks() { return CLIENT_MANAGER.snapshot(ModDeviceNetworks.NETWORK_TYPE); }
+    public static PrototypeCatalog<DevicePortPrototype> serverDevicePorts() { return SERVER_MANAGER.snapshot(ModDeviceNetworks.PORT_TYPE); }
+    public static PrototypeCatalog<DevicePortPrototype> clientDevicePorts() { return CLIENT_MANAGER.snapshot(ModDeviceNetworks.PORT_TYPE); }
+    public static PrototypeCatalog<SignalControlData> serverSignalControls() { return SERVER_MANAGER.snapshot(ModSignalControls.TYPE); }
+    public static PrototypeCatalog<SignalControlData> clientSignalControls() { return CLIENT_MANAGER.snapshot(ModSignalControls.TYPE); }
+    public static PrototypeCatalog<NetworkDeviceItemData> serverNetworkDeviceItems() { return SERVER_MANAGER.snapshot(ModNetworkDeviceItems.TYPE); }
+    public static PrototypeCatalog<NetworkDeviceItemData> clientNetworkDeviceItems() { return CLIENT_MANAGER.snapshot(ModNetworkDeviceItems.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -215,12 +238,19 @@ public final class PrototypeRuntime {
         manager.register(ModInjectorModes.TYPE);
         manager.register(ModAirlocks.TYPE);
         manager.register(ModToolProfiles.TYPE);
+        manager.register(ModInventoryTemplates.TYPE);
+        manager.register(ModEquipmentItems.TYPE);
         manager.register(ModPuddles.TYPE);
         manager.register(ModCelestialScenes.TYPE);
         manager.register(ModJugs.TYPE);
         manager.register(ModBeakers.TYPE);
         manager.register(ModChemMasters.TYPE);
         manager.register(ModPowerAppearances.TYPE);
+        manager.register(ModDeviceNetworks.FREQUENCY_TYPE);
+        manager.register(ModDeviceNetworks.NETWORK_TYPE);
+        manager.register(ModDeviceNetworks.PORT_TYPE);
+        manager.register(ModSignalControls.TYPE);
+        manager.register(ModNetworkDeviceItems.TYPE);
         return manager;
     }
 }

@@ -1,0 +1,10 @@
+{
+  "parent": "localbase",
+  "deviceComponents": {
+    "deviceNetwork": { "network": "moonstation14:wireless", "transmit": true, "receive": true, "receiveFrequency": "moonstation14:basic_device" },
+    "deviceLinkSource": { "ports": ["moonstation14:pressed"] },
+    "deviceConnection": { "wireless": true, "wirelessRange": 15 }
+  },
+  "use_delay_seconds": 1,
+  "signaller_port": "Pressed"
+}

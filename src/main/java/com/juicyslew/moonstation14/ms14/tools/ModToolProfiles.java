@@ -14,7 +14,6 @@ public final class ModToolProfiles {
     public static final ResourceLocation CROWBAR = id("crowbar");
     public static final ResourceLocation WIRECUTTER = id("wirecutter");
     public static final ResourceLocation SCREWDRIVER = id("screwdriver");
-    public static final ResourceLocation AIRLOCK_SCREWDRIVER = id("airlock_screwdriver");
     public static final ResourceLocation MULTITOOL = id("multitool");
     public static final PrototypeType<ToolProfile> TYPE = new PrototypeType<>(id("tool_profile"),
             "moonstation14/tool_profile", ToolProfile.CODEC,
@@ -28,7 +27,7 @@ public final class ModToolProfiles {
 
     private static void validateCatalog(PrototypeCatalog<ToolProfile> catalog) {
         for (ToolProfile profile : catalog.asMap().values()) profile.validate();
-        for (ResourceLocation item : Set.of(CROWBAR, WIRECUTTER, SCREWDRIVER, AIRLOCK_SCREWDRIVER, MULTITOOL)) {
+        for (ResourceLocation item : Set.of(CROWBAR, WIRECUTTER, SCREWDRIVER, MULTITOOL)) {
             ToolProfile profile = catalog.get(item);
             if (profile == null || profile.tool() == null || profile.tool().qualities().isEmpty())
                 throw new IllegalArgumentException("missing concrete tool profile: " + item);
@@ -43,14 +42,11 @@ public final class ModToolProfiles {
         requireAbstract(raw.get(BASE_CROWBAR), BASE_CROWBAR, Set.of("abstract", "parent", "prying"));
         if (!BASE_ITEM.getPath().equals(raw.get(BASE_CROWBAR).get("parent").getAsString()))
             throw new IllegalArgumentException("base_crowbar must inherit base_item");
-        for (ResourceLocation id : Set.of(CROWBAR, WIRECUTTER, SCREWDRIVER, AIRLOCK_SCREWDRIVER, MULTITOOL)) {
+        for (ResourceLocation id : Set.of(CROWBAR, WIRECUTTER, SCREWDRIVER, MULTITOOL)) {
             JsonObject child = raw.get(id);
-            boolean alias = id.equals(AIRLOCK_SCREWDRIVER);
-            if (child == null || child.has("abstract") || (!alias && !child.has("tool"))
-                    || (alias && child.has("tool")) || child.has("prying"))
+            if (child == null || child.has("abstract") || !child.has("tool") || child.has("prying"))
                 throw new IllegalArgumentException(id + " must define its tool quality and inherit prying where applicable");
-            String expected = id.equals(CROWBAR) ? BASE_CROWBAR.getPath()
-                    : id.equals(AIRLOCK_SCREWDRIVER) ? SCREWDRIVER.getPath() : BASE_ITEM.getPath();
+            String expected = id.equals(CROWBAR) ? BASE_CROWBAR.getPath() : BASE_ITEM.getPath();
             if (!child.has("parent") || !expected.equals(child.get("parent").getAsString()))
                 throw new IllegalArgumentException(id + " has an invalid profile parent");
             if (child.has("metadata")) {

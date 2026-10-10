@@ -36,17 +36,19 @@ public final class LiveGridStateGameTests {
                     ? body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) : null;
             require(worn != null, "bag equipped");
 
+            List<String> declaredSlots = LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
+                    .map(LiveHands.EquipmentSlot::id).toList();
             LiveHands withTwoSources = worn.putWhole(2, "left", new ItemToken("first"),
                     new ItemStack(Items.APPLE)).state().putWhole(3, "right", new ItemToken("second"),
                     new ItemStack(Items.STICK)).state();
             GridGeometry.Cell firstAnchor = new GridGeometry.Cell(0, 0);
-            LiveHands first = withTwoSources.insertEquippedGrid(4, List.of("belt", "back"), "back", "bag",
+            LiveHands first = withTwoSources.insertEquippedGrid(4, declaredSlots, "back", "bag",
                     "left", "first", firstAnchor, GridGeometry.Rotation.DEG_0).orElseThrow();
-            LiveHands second = first.insertEquippedGrid(5, List.of("belt", "back"), "back", "bag",
+            LiveHands second = first.insertEquippedGrid(5, declaredSlots, "back", "bag",
                     "right", "second", new GridGeometry.Cell(1, 0), GridGeometry.Rotation.DEG_0).orElseThrow();
             require(second.revision() == 6 && second.token("left").isEmpty()
                     && withTwoSources.token("left").orElseThrow().equals("first"), "pure inputs unchanged");
-            LiveHands extracted = second.extractEquippedGrid(6, List.of("belt", "back"), "back", "bag",
+            LiveHands extracted = second.extractEquippedGrid(6, declaredSlots, "back", "bag",
                     "left", "first", firstAnchor).orElseThrow();
             require(extracted.token("left").orElseThrow().equals("first")
                     && extracted.stackCopy("left").orElseThrow().is(Items.APPLE), "exact child extracted");

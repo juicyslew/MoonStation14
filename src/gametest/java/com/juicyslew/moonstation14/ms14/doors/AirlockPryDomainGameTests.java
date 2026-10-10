@@ -46,9 +46,9 @@ public final class AirlockPryDomainGameTests {
                              +" upperBE="+level.getBlockEntity(root.above())+" removed="+door.isRemoved()
                              +" state="+door.state());
             require(door.pry()&&door.state().phase()==AirlockState.DoorPhase.CLOSING,"second crowbar domain action starts closing");
-            helper.runAfterDelay(9,()->{
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
                 require(door.state().phase()==AirlockState.DoorPhase.CLOSING_PASSABLE&&!door.state().doorPassable(),"pry close becomes solid at partial close");
-                helper.runAfterDelay(5,()->{
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5,()->{
                     require(door.state().phase()==AirlockState.DoorPhase.CLOSED,"pry close finishes its second transition");
                     helper.succeed();
                 });
