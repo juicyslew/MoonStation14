@@ -277,7 +277,7 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(33, data.components().size(), "merged Human composition retains both sprint component families");
+        assertEquals(35, data.components().size(), "merged Human composition retains stripping policy alongside existing component families");
         assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());
@@ -383,7 +383,7 @@ class CharacterPrototypeTest {
         assertEquals(Optional.of("Biological"), pig.component(DamageableComponent.class).orElseThrow().damageContainer());
         assertTrue(pig.component(HumanoidProfileComponent.class).isEmpty(), "Pig has no humanoid profile and scans as unknown species");
         assertEquals(4.0, pig.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).orElseThrow().walkSpeed());
-        assertEquals(4.0, com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy
+        assertEquals(5.0, com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy
                 .fromCharacterData(pig).sprintSpeedPerSecond());
         assertNotEquals(2.5, pig.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).orElseThrow().walkSpeed());
         assertEquals(List.of(ResourceLocation.parse("minecraft:pig")), pig.hostEntityTypes());
@@ -1058,7 +1058,7 @@ class CharacterPrototypeTest {
     void movementComponentRejectsLegacyRootAndIncompleteFragments() throws IOException {
         JsonObject valid = readResource(RESOURCE);
         var human = CharacterData.CODEC.parse(JsonOps.INSTANCE, valid).getOrThrow();
-        assertEquals(4.5, com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy
+        assertEquals(5.625, com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy
                 .fromCharacterData(human).sprintSpeedPerSecond());
         for (String value : List.of("null", "{}", "{\"mode\":\"grounded\"}")) {
             JsonObject legacy = valid.deepCopy();

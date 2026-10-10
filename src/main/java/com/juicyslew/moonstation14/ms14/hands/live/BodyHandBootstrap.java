@@ -8,7 +8,7 @@ import net.minecraft.world.entity.Mob;
 
 import java.util.List;
 
-/** Called only at an eligible CHARACTER Ready commit, never during offer or read-only authority lookup. */
+/** Reconciles composed Mob hand capability at an existing CHARACTER ready boundary, never during read-only lookup. */
 public final class BodyHandBootstrap {
     private BodyHandBootstrap() { }
 

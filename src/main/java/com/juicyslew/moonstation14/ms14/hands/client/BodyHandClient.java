@@ -31,6 +31,8 @@ import java.util.UUID;
 
 /** Client presentation and intent only; all hand occupancy and transfer remain server-owned. */
 public final class BodyHandClient {
+    /** Existing normal E activation ray ceiling, shared with client-only body nomination. */
+    public static final double NORMAL_WORLD_AIM_REACH = 6.0;
     private static final com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelState EQUIPMENT_PANEL_STATE = new com.juicyslew.moonstation14.ms14.equipment.client.EquipmentPanelState();
     private static int suppressExaminePauseTicks;
     private static final net.minecraft.client.KeyMapping DROP = new net.minecraft.client.KeyMapping("key.moonstation14.body_drop",
@@ -159,6 +161,7 @@ public final class BodyHandClient {
     }
 
     public static void reset() {
+        com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
         EQUIPMENT_PANEL_STATE.beginBody(Long.MIN_VALUE);
         com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.clear();
         var mc = net.minecraft.client.Minecraft.getInstance();
@@ -217,6 +220,7 @@ public final class BodyHandClient {
             connection = mc.getConnection();
         }
         if (level != mc.level || player != mc.player) {
+            com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
             com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
             pendingWorldObservations.clear();
@@ -242,6 +246,7 @@ public final class BodyHandClient {
         wasContained = contained;
         long epoch = GhostControlClient.committedCharacterEpoch();
         if (cameraBody != body || cameraEpoch != epoch) {
+            com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
         }
         if (deferredPlacement.pending()) {
@@ -279,6 +284,7 @@ public final class BodyHandClient {
         if (suppressExaminePauseTicks > 0) suppressExaminePauseTicks--;
         clock++;
         reconcile();
+        com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().tick(clock);
         com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.tick();
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (PointerModePolicy.shouldRestoreHost(POPUPS.pointerMode(), mc.screen == null, currentBody() != null))
@@ -501,7 +507,7 @@ public final class BodyHandClient {
         var ownerTarget = containedWorldTarget();
         if (contained && ownerTarget.isEmpty()) return false;
         var start = cameraBody.getEyePosition();
-        var end = start.add(cameraBody.getLookAngle().scale(6.0));
+        var end = start.add(cameraBody.getLookAngle().scale(NORMAL_WORLD_AIM_REACH));
         var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
         if (contained) hit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(ownerTarget.orElseThrow()).add(0, .5, 0), net.minecraft.core.Direction.UP, ownerTarget.orElseThrow(), true);
         if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return false;
@@ -522,8 +528,9 @@ public final class BodyHandClient {
             requestBlockUse(BodyBlockUseRequest.Intent.ACTIVATE_WORLD);
             return true;
         }
+        if (com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().openAimed()) return true;
         var start = cameraBody.getEyePosition();
-        var end = start.add(cameraBody.getLookAngle().scale(6.0));
+        var end = start.add(cameraBody.getLookAngle().scale(NORMAL_WORLD_AIM_REACH));
         var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE,
                 ClipContext.Fluid.NONE, cameraBody));
         if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return false;
@@ -941,6 +948,16 @@ public final class BodyHandClient {
         return cameraBody == null ? null : POLICY.inventoryView();
     }
 
+    /** Settled authenticated owner proof; deliberately exposes no mutable inventory authority. */
+    public record OwnerProof(Mob body, long epoch, long revision) { }
+    public static OwnerProof ownerProof() {
+        reconcile(); var proof=POLICY.snapshot();
+        return cameraBody==null||proof==null||proof.reason()!=BodyHandStateSnapshot.Reason.OK
+                ||!cameraBody.getUUID().equals(proof.bodyId())||proof.epoch()!=GhostControlClient.committedCharacterEpoch()
+                ?null:new OwnerProof(cameraBody,proof.epoch(),proof.revision());
+    }
+    public static Mob currentControlledBody() { reconcile(); return cameraBody; }
+
     private static boolean deferPlacementPress() {
         if (com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained()) return false;
         if (deferredPlacement.pending()) return true;
@@ -1164,6 +1181,7 @@ public final class BodyHandClient {
         if (cameraBody == null) reconcile();
         if (cameraBody != null && !POPUPS.pointerMode()) { POINTER.manualOpen(); pointerMode(true); }
     }
+    public static void openSharedPointerWorkspace() { openConstructionPointerWorkspace(); }
     public static boolean constructionSearchFocused() {
         return com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused();
     }
@@ -2499,28 +2517,18 @@ public final class BodyHandClient {
         }
     }
 
+    /** Reuse the existing hand glyph for remote empty hand cells; identity stays presentation-only. */
+    public static void drawStripHandPlaceholder(net.minecraft.client.gui.GuiGraphics g, HandBarLayout.Rect r, String handId) {
+        drawPlaceholder(g,r,false);
+        String label=handId!=null&&handId.toLowerCase(java.util.Locale.ROOT).contains("left")?"L":
+                handId!=null&&handId.toLowerCase(java.util.Locale.ROOT).contains("right")?"R":"";
+        if(!label.isEmpty()){var pose=g.pose();pose.pushPose();pose.translate(r.x()+r.width()-4,r.y()+2,0);pose.scale(.45f,.45f,1);g.drawString(net.minecraft.client.Minecraft.getInstance().font,label,0,0,0xffd5e0e3,false);pose.popPose();}
+    }
+
     private static void drawStack(net.minecraft.client.gui.GuiGraphics g, String itemId, int count,
                                   com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation presentation,
                                   HandBarLayout.Rect r, net.minecraft.client.Minecraft mc) {
-        var stack = ItemUiRenderer.stack(itemId, count, presentation);
-        float scale = Math.min(1f, Math.min((r.width() - 2) / 16f, (r.height() - 2) / 16f));
-        if (scale > 0) {
-            var pose = g.pose();
-            pose.pushPose();
-            pose.translate(r.x() + r.width() / 2f, r.y() + r.height() / 2f, 0);
-            pose.scale(scale, scale, 1);
-            ItemUiRenderer.render(g, stack, -8, -8);
-            pose.popPose();
-        }
-        if (count > 1) {
-            String label = Integer.toString(count);
-            var pose = g.pose();
-            pose.pushPose();
-            pose.translate(r.x() + r.width() - 2, r.y() + r.height() - mc.font.lineHeight * 0.62f, 0);
-            pose.scale(0.62f, 0.62f, 1);
-            g.drawString(mc.font, label, -mc.font.width(label), 0, 0xffffffff, true);
-            pose.popPose();
-        }
+        ItemUiRenderer.renderIntoSlot(g,ItemUiRenderer.stack(itemId,count,presentation),count,r.x(),r.y(),r.width(),r.height(),mc.font);
     }
 
     /** Recessed SS14-style hand-bar tile, kept local to client-owned presentation code. */

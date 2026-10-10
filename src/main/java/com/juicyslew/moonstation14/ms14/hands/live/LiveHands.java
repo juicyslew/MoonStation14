@@ -104,8 +104,14 @@ public final class LiveHands {
         if (!ids.contains(active)) throw new IllegalArgumentException("unknown active hand");
     }
 
-    /** Explicit initialization only; never uses a human default for an unbound body or pig. */
+    /**
+     * Explicit initialization only; never uses a human default for an unbound body or pig.
+     * Repeated explicit initialization is idempotent for a compatible live state and never
+     * replaces existing ownership or revisions.
+     */
     public static Optional<LiveHands> initialize(Entity body) {
+        LiveHands existing = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (existing != null) return existing.compatible(body) ? Optional.of(existing) : Optional.empty();
         if (body.hasData(ModDataAttachments.LIVE_HANDS.get())) return Optional.empty();
         Optional<List<String>> prototype = hostHandIds(body);
         if (prototype.isEmpty() || prototype.orElseThrow().isEmpty()) return Optional.empty();

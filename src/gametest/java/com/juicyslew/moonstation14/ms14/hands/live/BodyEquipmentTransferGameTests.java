@@ -78,6 +78,42 @@ public final class BodyEquipmentTransferGameTests {
         });
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTestTags({"equipment", "equipment-quick-equip"})
+    public static void quickEquipPrefersIdOverEmptyPockets(GameTestHelper helper) {
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        helper.runAfterDelay(1, () -> {
+            LiveHands.initialize(body).orElseThrow();
+            equipFixture(body, "left", "uniform", new ItemStack(ModEquipmentItems.GREY_JUMPSUIT.get()), "jumpsuit");
+
+            put(body, "left", "id-card", new ItemStack(ModEquipmentItems.BLANK_ID_CARD.get()));
+            LiveHands held = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(BodyEquipmentTransfer.quickEquipOwned(body, "left", "id-card", held.revision(), () -> true)
+                            == BodyEquipmentTransfer.Result.SUCCESS,
+                    "Z quick-equip puts ID card in its preferred ID slot");
+            var slots = LiveHands.equipmentSnapshot(body).orElseThrow().slots();
+            require(slots.stream().filter(slot -> slot.id().equals("id"))
+                            .anyMatch(slot -> slot.token().filter("id-card"::equals).isPresent()
+                                    && slot.stack().filter(stack -> stack.is(ModEquipmentItems.BLANK_ID_CARD.get())).isPresent()),
+                    "ID card token and stack are conserved in ID slot");
+            require(slots.stream().filter(slot -> slot.id().equals("pocket1") || slot.id().equals("pocket2"))
+                            .allMatch(slot -> slot.stack().isEmpty()), "Z leaves both pockets empty");
+            LiveHands afterQuickEquip = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(afterQuickEquip.token("left").isEmpty(), "source hand is cleared");
+
+            put(body, "right", "manual-card", new ItemStack(ModEquipmentItems.BLANK_ID_CARD.get()));
+            LiveHands manual = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(BodyEquipmentTransfer.transferOwned(body, "right", "pocket1", "manual-card",
+                            manual.revision(), true, () -> true) == BodyEquipmentTransfer.Result.SUCCESS,
+                    "explicit manual equip remains allowed to put an ID card in a pocket");
+            require(LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
+                            .filter(slot -> slot.id().equals("pocket1"))
+                            .anyMatch(slot -> slot.token().filter("manual-card"::equals).isPresent()),
+                    "manual pocket transfer preserves ownership");
+            helper.succeed();
+        });
+    }
+
     private static void put(Villager body,String hand,String token,ItemStack stack) {
         LiveHands before=body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         LiveHands next=before.putWhole(before.revision(),hand,new ItemToken(token),stack).state();
@@ -295,6 +331,31 @@ public final class BodyEquipmentTransferGameTests {
                             && after.stackCopy("left").filter(stack -> stack.is(ModEquipmentItems.UTILITY_CASE.get())).isPresent()
                             && after.token("right").filter("coat"::equals).isPresent(),
                     "case and removed coat remain owned by their respective hands");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTestTags({"equipment-transfer", "equipment-regression"})
+    public static void ginormousUtilityCaseCannotEnterPocket(GameTestHelper helper) {
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
+        helper.runAfterDelay(1, () -> {
+            LiveHands.initialize(body).orElseThrow();
+            equipFixture(body, "left", "uniform", new ItemStack(ModEquipmentItems.GREY_JUMPSUIT.get()), "jumpsuit");
+            equipFixture(body, "left", "small-med", new ItemStack(ModItems.BRUTEPACK.get(), 10), "pocket1");
+            put(body, "right", "case", new ItemStack(ModEquipmentItems.UTILITY_CASE.get()));
+            LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(BodyEquipmentTransfer.transferOwned(body, "right", "pocket1", "case",
+                    before.revision(), true, () -> true) == BodyEquipmentTransfer.Result.DENIED,
+                    "ginormous case denied despite satisfied pocket dependency");
+            LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(after.token("right").filter("case"::equals).isPresent()
+                            && after.stackCopy("right").filter(stack -> stack.is(ModEquipmentItems.UTILITY_CASE.get())
+                            && stack.getCount() == 1).isPresent(), "denial preserves case source stack");
+            require(LiveHands.equipmentSnapshot(body).orElseThrow().slots().stream()
+                    .filter(slot -> slot.id().equals("pocket1"))
+                    .anyMatch(slot -> slot.stack().filter(stack -> stack.is(ModItems.BRUTEPACK.get())
+                            && stack.getCount() == 10).isPresent()), "existing small medical stack remains intact");
             helper.succeed();
         });
     }

@@ -26,6 +26,15 @@ public final class ItemUiRenderer {
         }
     }
 
+    /** Draw one sanitized stack fully contained by a shared inventory tile. */
+    public static void renderIntoSlot(GuiGraphics graphics, ItemStack stack, int count,
+                                      int x, int y, int width, int height, net.minecraft.client.gui.Font font) {
+        if (stack == null || stack.isEmpty() || width < 3 || height < 3) return;
+        float scale=Math.min(1f,Math.min((width-2)/16f,(height-2)/16f));
+        if(scale>0){var pose=graphics.pose();pose.pushPose();pose.translate(x+width/2f,y+height/2f,0);pose.scale(scale,scale,1);render(graphics,stack,-8,-8);pose.popPose();}
+        if(count>1&&font!=null){String label=Integer.toString(count);var pose=graphics.pose();pose.pushPose();pose.translate(x+width-2,y+height-font.lineHeight*.62f,0);pose.scale(.62f,.62f,1);graphics.drawString(font,label,-font.width(label),0,0xffffffff,true);pose.popPose();}
+    }
+
     public static ItemStack stack(String itemId, int count, ItemPresentation presentation) {
         if (presentation != null) return presentation.stack();
         var id = ResourceLocation.tryParse(itemId == null ? "" : itemId);

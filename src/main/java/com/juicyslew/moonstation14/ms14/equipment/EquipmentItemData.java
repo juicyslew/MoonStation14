@@ -4,7 +4,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape;
 
@@ -39,7 +38,9 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             Codec.STRING.optionalFieldOf("equip_sound").forGetter(Clothing::equipSound),
             Codec.STRING.optionalFieldOf("unequip_sound").forGetter(Clothing::unequipSound)
              , Codec.BOOL.optionalFieldOf("quick_equip", true).forGetter(Clothing::quickEquip),
-             WORN_MODEL_CODEC.optionalFieldOf("worn_model").forGetter(Clothing::wornModel)
+             WORN_MODEL_CODEC.optionalFieldOf("worn_model").forGetter(Clothing::wornModel),
+              Codec.DOUBLE.optionalFieldOf("strip_delay", 0.0).forGetter(Clothing::stripDelay),
+              InventoryTemplateData.SLOT_FLAG_CODEC.listOf().optionalFieldOf("quick_equip_preferred_slot_flags", List.of()).forGetter(Clothing::quickEquipPreferredSlotFlags)
     ).apply(instance, Clothing::new));
     public static final Codec<AllowSuitStorage> SUIT_STORAGE_CODEC = Codec.BOOL.xmap(
             AllowSuitStorage::new, AllowSuitStorage::enabled);
@@ -58,31 +59,45 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
 
     public record Item(String size) {
         public Item {
-            if (!Set.of("Tiny", "Small", "Normal", "Large", "Huge").contains(size))
+            try {
+                if (size == null) throw new IllegalArgumentException();
+                com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile.ItemSize.valueOf(size);
+            } catch (IllegalArgumentException exception) {
                 throw new IllegalArgumentException("invalid equipment size");
+            }
         }
     }
 
     /** Stable renderer projection: region and packed ARGB tint. */
     public record Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region,
                            int color, int equipDelay, Optional<String> equipSound,
-                            Optional<String> unequipSound, boolean quickEquip, Optional<WornModel> wornModel) {
+                            Optional<String> unequipSound, boolean quickEquip, Optional<WornModel> wornModel, double stripDelay,
+                            List<InventoryTemplateData.SlotFlag> quickEquipPreferredSlotFlags) {
         public Clothing {
             slotFlags = List.copyOf(slotFlags);
-            if (slotFlags.isEmpty() || region == null || equipDelay < 0)
+            quickEquipPreferredSlotFlags = List.copyOf(quickEquipPreferredSlotFlags);
+            if (slotFlags.isEmpty() || region == null || equipDelay < 0 || !Double.isFinite(stripDelay)
+                    || new java.util.HashSet<>(quickEquipPreferredSlotFlags).size() != quickEquipPreferredSlotFlags.size()
+                    || !slotFlags.containsAll(quickEquipPreferredSlotFlags))
                 throw new IllegalArgumentException("invalid clothing");
             equipSound = equipSound == null ? Optional.empty() : equipSound;
             unequipSound = unequipSound == null ? Optional.empty() : unequipSound;
             wornModel = wornModel == null ? Optional.empty() : wornModel;
         }
         public Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region, int color, int equipDelay,
+                        Optional<String> equipSound, Optional<String> unequipSound, boolean quickEquip,
+                        Optional<WornModel> wornModel, double stripDelay) {
+            this(slotFlags, region, color, equipDelay, equipSound, unequipSound, quickEquip, wornModel, stripDelay, List.of());
+        }
+        public Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region, int color, int equipDelay,
                         Optional<String> equipSound, Optional<String> unequipSound, boolean quickEquip) {
-            this(slotFlags, region, color, equipDelay, equipSound, unequipSound, quickEquip, Optional.empty());
+            this(slotFlags, region, color, equipDelay, equipSound, unequipSound, quickEquip, Optional.empty(), 0.0);
         }
         public Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region, int color,
                         int equipDelay, Optional<String> equipSound, Optional<String> unequipSound) {
             this(slotFlags, region, color, equipDelay, equipSound, unequipSound, true);
         }
+        public Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region, int color, int equipDelay, Optional<String> equipSound, Optional<String> unequipSound, boolean quickEquip, Optional<WornModel> wornModel) { this(slotFlags,region,color,equipDelay,equipSound,unequipSound,quickEquip,wornModel,0.0); }
     }
 
     public record WornModel(ResourceLocation mesh, PlayerCharacterBodyShape bodyShape) {

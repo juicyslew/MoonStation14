@@ -34,7 +34,6 @@ import java.util.function.BooleanSupplier;
 /** Server-only authoritative timed topical treatment. */
 public final class MedicalTreatmentService {
     private static final String KIND = "medical-treatment";
-    private static final double TARGET_REACH = 1.5;
     private MedicalTreatmentService() { }
 
     /** Starts treatment using the authenticated actor's controlled body and exact active held source. */
@@ -128,20 +127,9 @@ public final class MedicalTreatmentService {
                 .map(s -> s.initialized() && s.bleedRate() > 0).orElse(false);
     }
 
-    private static boolean inRange(LivingEntity actor, LivingEntity target) {
-        if (actor.level() != target.level() || actor.distanceToSqr(target) > TARGET_REACH * TARGET_REACH) return false;
-        if (!(actor.level() instanceof ServerLevel level)) return false;
-        Vec3 from = actor.getEyePosition(), to = target.getEyePosition();
-        if (!loadedRay(level, from, to)) return false;
-        return level.clip(new net.minecraft.world.level.ClipContext(from, to,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, actor)).getType() == HitResult.Type.MISS;
-    }
-
-    private static boolean loadedRay(ServerLevel level, Vec3 from, Vec3 to) {
-        int steps = Math.max(1, (int) Math.ceil(from.distanceTo(to) * 4));
-        if (steps > 32) return false;
-        for (int i = 0; i <= steps; i++) if (!level.hasChunkAt(net.minecraft.core.BlockPos.containing(from.lerp(to, (double) i / steps)))) return false;
-        return true;
+    static boolean inRange(LivingEntity actor, LivingEntity target) {
+        return com.juicyslew.moonstation14.ms14.hands.live.BodyInteractionAccess.inRange(actor,target,
+                com.juicyslew.moonstation14.ms14.interaction.InteractionReach.DEFAULT_BLOCKS);
     }
 
     private static LivingEntity resolveTarget(LivingEntity actor, UUID id) {

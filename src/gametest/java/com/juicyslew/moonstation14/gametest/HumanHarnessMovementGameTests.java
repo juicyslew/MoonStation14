@@ -162,8 +162,8 @@ public final class HumanHarnessMovementGameTests {
                     "forward movement must remain at floor height at tick " + tick);
             require(villager.position().z() > startZ, "forward input must move the real Villager");
             require(Math.hypot(villager.getDeltaMovement().x(), villager.getDeltaMovement().z())
-                            <= 2.5d + 1e-9d,
-                    "observed horizontal speed must remain bounded by HUMAN speed");
+                            <= 3.125d + 1e-9d,
+                    "observed horizontal speed must remain bounded by resolved HUMAN walk speed");
         }
 
         double beforeJumpY = villager.position().y();
@@ -201,10 +201,27 @@ public final class HumanHarnessMovementGameTests {
             require(sharedStep.step(pig, 0, 1000, false, false, 0f).isPresent(),
                     "same shared world step accepts owned Pig");
         }
-        require(Math.abs(human.getDeltaMovement().z * 20d - 2.5d) < 1e-8,
-                "shared adapter resolves HUMAN walk policy at 2.5 blocks/second");
-        require(Math.abs(pig.getDeltaMovement().z * 20d - 4d) < .02d,
-                "shared adapter resolves Pig walk policy at 4 blocks/second; actual="
+        var resolvedHuman = ModCharacters.require(helper.getLevel(), ModCharacters.HUMAN_ID);
+        var humanPolicy = com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy.fromCharacterData(resolvedHuman);
+        require(resolvedHuman.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class)
+                        .orElseThrow().walkSpeed() == 2.5d
+                        && resolvedHuman.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class)
+                        .orElseThrow().sprintSpeed() == 4.5d,
+                "resolved prototype retains the raw SS14 human walk/sprint values");
+        require(humanPolicy.walkSpeedPerSecond() == 3.125d && humanPolicy.sprintSpeedPerSecond() == 5.625d,
+                "shared live policy applies the grounded Minecraft speed scale once to both speeds");
+        require(Math.abs(human.getDeltaMovement().z * 20d - 3.125d) < 1e-8,
+                "shared world step resolves HUMAN walk policy at 3.125 blocks/second");
+        // Exercise the production world step's sprint cap using the same enrolled human and lease.
+        human.setDeltaMovement(Vec3.ZERO);
+        for (int tick = 0; tick < 8; tick++) {
+            require(sharedStep.step(human, 0, 1000, false, true, 0f).isPresent(),
+                    "shared world step accepts sprinting owned HUMAN Villager");
+        }
+        require(Math.abs(human.getDeltaMovement().z * 20d - 5.625d) < 1e-8,
+                "shared world step applies converted HUMAN sprint cap without repeated scaling");
+        require(Math.abs(pig.getDeltaMovement().z * 20d - 5d) < .02d,
+                "shared adapter resolves Pig walk policy at 5 blocks/second; actual="
                         + pig.getDeltaMovement().z * 20d + ", position=" + pig.position()
                         + ", grounded=" + pig.onGround());
         humanLease.close();

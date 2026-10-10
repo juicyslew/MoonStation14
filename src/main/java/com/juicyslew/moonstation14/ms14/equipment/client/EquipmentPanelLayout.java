@@ -7,10 +7,21 @@ import java.util.List;
 
 /** SS14-style split HUD: clothing at bottom left, other equipment on the hotbar. */
 public final class EquipmentPanelLayout {
-    private static final int GAP = 1;
+    public static final int GRID_GAP = 1;
     private EquipmentPanelLayout() { }
 
     public record SlotRect(String slotId, HandBarLayout.Rect rect) { }
+    /** Shared wearable tile size used by the HUD and compact strip panel. */
+    public static int cellSizeForViewport(int screenWidth, int screenHeight) {
+        int width = Math.max(1, screenWidth), height = Math.max(1, screenHeight);
+        var bar = HandBarLayout.calculate(width, height);
+        return bar != null ? bar.back().width() : Math.max(1, Math.min(15, (width - 17) / 6));
+    }
+
+    /** Template coordinates are bottom-up from the shoes/toggle baseline. */
+    public static HandBarLayout.Rect clothingRect(int originX, int baselineY, int col, int row, int cell) {
+        return new HandBarLayout.Rect(originX + col * (cell + GRID_GAP), baselineY - row * (cell + GRID_GAP), cell, cell);
+    }
     public record Layout(HandBarLayout.Rect toggleRect, HandBarLayout.Rect expandedBounds,
                          List<SlotRect> slots, int cellSize, boolean expanded) {
         public Layout { slots = List.copyOf(slots); }
@@ -24,7 +35,7 @@ public final class EquipmentPanelLayout {
                                    boolean expanded) {
         int width = Math.max(1, screenWidth), height = Math.max(1, screenHeight);
         var bar = HandBarLayout.calculate(width, height);
-        int cell = bar != null ? bar.back().width() : Math.max(1, Math.min(15, (width - 17) / 6));
+        int cell = cellSizeForViewport(width, height);
         int x0 = Math.max(0, Math.min(4, width - cell));
         int toggleY = Math.max(0, height - cell - 2);
         HandBarLayout.Rect toggle = new HandBarLayout.Rect(x0, toggleY, cell, cell);
@@ -35,9 +46,10 @@ public final class EquipmentPanelLayout {
                 int col = slot.x(), row = slot.y();
                 // Shoes share the toggle baseline; the remaining clothing follows the
                 // resolved template's bottom-up coordinates, without a spacer row.
-                int sx = Math.max(0, Math.min(width-cell, x0 + col*(cell+GAP)));
-                int sy = Math.max(0, Math.min(height-cell, toggleY - row*(cell+GAP)));
-                target = new HandBarLayout.Rect(sx,sy,cell,cell);
+                var rect = clothingRect(x0, toggleY, col, row, cell);
+                int sx = Math.max(0, Math.min(width-cell, rect.x()));
+                int sy = Math.max(0, Math.min(height-cell, rect.y()));
+                target = new HandBarLayout.Rect(sx, sy, cell, cell);
             } else if (bar != null) {
                 target = switch (slot.id()) {
                     case "back" -> bar.back(); case "belt" -> bar.belt();

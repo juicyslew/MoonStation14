@@ -111,8 +111,9 @@ public final class BodyEquipmentTransfer {
             if (incoming == null || !EquipmentFitPolicy.quickEquip(level, incoming) || template == null || snapshot == null)
                 return Result.DENIED;
             var catalog = com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.catalog(level);
-            for (var definition : template.slots()) {
-                String slot = definition.id();
+            var occupiedAtStart = snapshot.slots().stream().filter(value -> value.stack().isPresent())
+                    .map(LiveHands.EquipmentSlot::id).collect(java.util.stream.Collectors.toSet());
+            for (String slot : EquipmentFitPolicy.quickEquipSlots(level, template, incoming, occupiedAtStart, null)) {
                 var current = snapshot.slots().stream().filter(value -> value.id().equals(slot)).findFirst().orElse(null);
                 if (current == null) continue;
                 var occupied = snapshot.slots().stream().filter(value -> value.stack().isPresent())

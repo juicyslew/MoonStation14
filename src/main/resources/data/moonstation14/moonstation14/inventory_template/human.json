@@ -1,17 +1,17 @@
 {"slots":[
-{"id":"shoes","display_name":"Shoes","icon":"moonstation14:textures/gui/equipment/shoes.png","group":"Default","x":1,"y":0,"flags":["FEET"]},
-{"id":"jumpsuit","display_name":"Jumpsuit","icon":"moonstation14:textures/gui/equipment/uniform.png","group":"Default","x":0,"y":1,"flags":["INNERCLOTHING"]},
-{"id":"outerClothing","display_name":"Suit","icon":"moonstation14:textures/gui/equipment/suit.png","group":"Default","x":1,"y":1,"flags":["OUTERCLOTHING"]},
+{"id":"shoes","display_name":"Shoes","icon":"moonstation14:textures/gui/equipment/shoes.png","group":"Default","x":1,"y":0,"flags":["FEET"],"strip_time":3.0},
+{"id":"jumpsuit","display_name":"Jumpsuit","icon":"moonstation14:textures/gui/equipment/uniform.png","group":"Default","x":0,"y":1,"flags":["INNERCLOTHING"],"strip_time":6.0},
+{"id":"outerClothing","display_name":"Suit","icon":"moonstation14:textures/gui/equipment/suit.png","group":"Default","x":1,"y":1,"flags":["OUTERCLOTHING"],"strip_time":6.0},
 {"id":"gloves","display_name":"Gloves","icon":"moonstation14:textures/gui/equipment/gloves.png","group":"Default","x":2,"y":1,"flags":["GLOVES"]},
 {"id":"neck","display_name":"Neck","icon":"moonstation14:textures/gui/equipment/neck.png","group":"Default","x":0,"y":2,"flags":["NECK"]},
 {"id":"mask","display_name":"Mask","icon":"moonstation14:textures/gui/equipment/mask.png","group":"Default","x":1,"y":2,"flags":["MASK"]},
-{"id":"eyes","display_name":"Eyes","icon":"moonstation14:textures/gui/equipment/glasses.png","group":"Default","x":0,"y":3,"flags":["EYES"]},
-{"id":"ears","display_name":"Ears","icon":"moonstation14:textures/gui/equipment/ears.png","group":"Default","x":2,"y":2,"flags":["EARS"]},
+{"id":"eyes","display_name":"Eyes","icon":"moonstation14:textures/gui/equipment/glasses.png","group":"Default","x":0,"y":3,"flags":["EYES"],"strip_time":3.0},
+{"id":"ears","display_name":"Ears","icon":"moonstation14:textures/gui/equipment/ears.png","group":"Default","x":2,"y":2,"flags":["EARS"],"strip_time":3.0},
 {"id":"head","display_name":"Head","icon":"moonstation14:textures/gui/equipment/head.png","group":"Default","x":1,"y":3,"flags":["HEAD"]},
-{"id":"pocket1","display_name":"Pocket 1","icon":"moonstation14:textures/gui/equipment/pocket.png","group":"MainHotbar","x":0,"y":3,"flags":["POCKET"],"depends_on":["jumpsuit"]},
-{"id":"pocket2","display_name":"Pocket 2","icon":"moonstation14:textures/gui/equipment/pocket.png","group":"MainHotbar","x":2,"y":3,"flags":["POCKET"],"depends_on":["jumpsuit"]},
-{"id":"suitstorage","display_name":"Suit Storage","icon":"moonstation14:textures/gui/equipment/suit_storage.png","group":"MainHotbar","x":2,"y":0,"flags":["SUITSTORAGE"],"depends_on":["outerClothing"],"allow_suit_storage":true},
-{"id":"id","display_name":"ID","icon":"moonstation14:textures/gui/equipment/id.png","group":"SecondHotbar","x":2,"y":1,"flags":["IDCARD"],"depends_on":["jumpsuit"]},
-{"id":"belt","display_name":"Belt","icon":"moonstation14:textures/gui/equipment/belt.png","group":"SecondHotbar","x":3,"y":1,"flags":["BELT"]},
-{"id":"back","display_name":"Back","icon":"moonstation14:textures/gui/equipment/back.png","group":"SecondHotbar","x":3,"y":0,"flags":["BACK"],"blacklist":["PetOnly"]}
+{"id":"pocket1","display_name":"Pocket 1","icon":"moonstation14:textures/gui/equipment/pocket.png","group":"MainHotbar","x":0,"y":3,"flags":["POCKET"],"depends_on":["jumpsuit"],"strip_time":3.0,"strip_hidden":true},
+{"id":"pocket2","display_name":"Pocket 2","icon":"moonstation14:textures/gui/equipment/pocket.png","group":"MainHotbar","x":2,"y":3,"flags":["POCKET"],"depends_on":["jumpsuit"],"strip_time":3.0,"strip_hidden":true},
+{"id":"suitstorage","display_name":"Suit Storage","icon":"moonstation14:textures/gui/equipment/suit_storage.png","group":"MainHotbar","x":2,"y":0,"flags":["SUITSTORAGE"],"depends_on":["outerClothing"],"allow_suit_storage":true,"strip_time":3.0},
+{"id":"id","display_name":"ID","icon":"moonstation14:textures/gui/equipment/id.png","group":"SecondHotbar","x":2,"y":1,"flags":["IDCARD"],"depends_on":["jumpsuit"],"strip_time":6.0},
+{"id":"belt","display_name":"Belt","icon":"moonstation14:textures/gui/equipment/belt.png","group":"SecondHotbar","x":3,"y":1,"flags":["BELT"],"strip_time":6.0},
+{"id":"back","display_name":"Back","icon":"moonstation14:textures/gui/equipment/back.png","group":"SecondHotbar","x":3,"y":0,"flags":["BACK"],"blacklist":["PetOnly"],"strip_time":6.0}
 ]}

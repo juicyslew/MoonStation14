@@ -104,8 +104,10 @@
     },
     {
       "type": "Hands",
-      "hands": ["left", "right"]
+      "hands": ["left", "right"], "can_be_stripped": true
     },
+    {"type": "Stripping"},
+    {"type": "Strippable", "hand_strip_delay": 4.0},
     {"type": "Pullable"},
     {"type": "Puller", "walk_modifier": 0.95, "sprint_modifier": 0.95,
       "tether": {"stiffness": 60.0, "progressive_stiffness": 40.0, "damping": 6.0, "maximum_acceleration": 160.0, "slackAllowance": 1.5}},
