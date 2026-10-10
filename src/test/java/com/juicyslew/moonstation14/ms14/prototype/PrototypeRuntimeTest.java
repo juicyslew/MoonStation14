@@ -80,6 +80,11 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -200,6 +205,17 @@ class PrototypeRuntimeTest {
                         new com.juicyslew.moonstation14.ms14.medical.MedicalItemData.Item("Small"),
                         java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
                         java.util.Optional.empty(), java.util.Optional.empty())));
+        server.reload(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE,
+                Map.of(
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.BASE_WALLMOUNT, fixture("signal_control", "base_wallmount"),
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.BASE_WALLMOUNT_METALLIC, fixture("signal_control", "base_wallmount_metallic"),
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_BUTTON, fixture("signal_control", "signal_button"),
+                        com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_SWITCH, fixture("signal_control", "signal_switch")));
+        server.reload(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE,
+                Map.of(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("localbase"), fixture("network_device_item", "localbase"),
+                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("standardwireless15"), fixture("network_device_item", "standardwireless15"),
+                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("configurator"), fixture("network_device_item", "configurator"),
+                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -217,7 +233,12 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()), exported.keySet());
+                com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE.typeId(),
+                com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);

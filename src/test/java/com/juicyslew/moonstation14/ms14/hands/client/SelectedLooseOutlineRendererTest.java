@@ -2,12 +2,28 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class SelectedLooseOutlineRendererTest {
     private static final AABB BOX = new AABB(-.5, 0, -.5, .5, 1, .5);
+
+    @Test
+    void foregroundPriorityIsSharedByItemAndBlockOutlines() {
+        Vec3 start = Vec3.ZERO, end = new Vec3(0, 0, 6);
+        // The item is centered at z=2, so a farther block loses and a nearer one wins.
+        AABB item = new AABB(-.5, -.5, 1.5, .5, .5, 2.5);
+        assertTrue(OutlinePriority.showItem(item, start, end, null));
+        assertTrue(OutlinePriority.showItem(item, start, end,
+                new BlockHitResult(new Vec3(0, 0, 4), net.minecraft.core.Direction.NORTH, BlockPos.ZERO, false)));
+        assertFalse(OutlinePriority.showItem(item, start, end,
+                new BlockHitResult(new Vec3(0, 0, 1), net.minecraft.core.Direction.NORTH, BlockPos.ZERO, false)));
+    }
 
     @Test
     void alignsStationaryAndMovingBoundsWithRenderedPositionAndCamera() {

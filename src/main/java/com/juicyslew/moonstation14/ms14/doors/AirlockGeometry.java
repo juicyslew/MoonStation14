@@ -13,7 +13,8 @@ import net.minecraft.world.phys.AABB;
 
 /** Pure local-space geometry/motion shared by rendering and focused unit tests. */
 public final class AirlockGeometry {
-    public static final double HALF_TRAVEL = 6.5 / 16.0;
+    public static final double UPPER_TRAVEL = 21.5 / 16.0;
+    public static final double LOWER_TRAVEL = 9.5 / 16.0;
     private static final double CONTACT_EPSILON=1.0E-5;
     private AirlockGeometry() { }
 
@@ -33,28 +34,36 @@ public final class AirlockGeometry {
     public static double openness(AirlockState.DoorPhase phase,double elapsed,double openOne,double openTwo,double closeOne,double closeTwo) {
         return switch(phase) {
             case OPEN -> 1; case CLOSED,DENYING -> 0;
-            case OPENING -> .5*progress(elapsed,openOne);
-            case OPENING_PASSABLE -> .5+.5*progress(elapsed,openTwo);
-            case CLOSING -> 1-.5*progress(elapsed,closeOne);
-            case CLOSING_PASSABLE -> .5-.5*progress(elapsed,closeTwo);
+            case OPENING -> progress(elapsed,openOne);
+            case OPENING_PASSABLE -> 1;
+            case CLOSING -> 1-progress(elapsed,closeOne);
+            case CLOSING_PASSABLE -> 0;
         };
     }
     private static double progress(double elapsed,double duration) { return duration<=0?1:Math.max(0,Math.min(1,elapsed/duration)); }
-    public enum Part { FRAME, LEAF_LEFT, LEAF_RIGHT, MAINTENANCE_COVER, MAINTENANCE_WIRES }
+    public enum Part { FIXED, HEADER_LAMPS, UPPER_LEAF, LOWER_LEAF, UPPER_INFILL, READER_COVER, READER_HOUSING, MAINTENANCE_WIRES }
     private static final Map<Part,List<Box>> MODELS = loadModels();
     /** Source-authored cuboids after the canonical 180-degree clip pose; coordinates are Minecraft block units. */
     public static List<Box> model(Part part) { return MODELS.get(part); }
+    /** Canonical authored movement, shared by visible bounds and the baked renderer. */
+    public static double movementY(Part part,double openness) {
+        double q=Math.max(0,Math.min(1,openness));
+        return switch(part) {
+            case UPPER_LEAF,UPPER_INFILL,READER_COVER,READER_HOUSING,MAINTENANCE_WIRES -> UPPER_TRAVEL*q;
+            case LOWER_LEAF -> -LOWER_TRAVEL*q;
+            default -> 0;
+        };
+    }
     public static List<Box> leaves(double openness) {
-        double travel=HALF_TRAVEL*Math.max(0,Math.min(1,openness));
-        return concat(clip(translate(model(Part.LEAF_LEFT),-travel,0,0)),clip(translate(model(Part.LEAF_RIGHT),travel,0,0)));
+        return concat(clip(translate(model(Part.UPPER_LEAF),0,movementY(Part.UPPER_LEAF,openness),0)),clip(translate(model(Part.LOWER_LEAF),0,movementY(Part.LOWER_LEAF,openness),0)));
     }
     private static List<Box> concat(List<Box> a,List<Box> b) { java.util.ArrayList<Box> out=new java.util.ArrayList<>(a);out.addAll(b);return List.copyOf(out); }
     private static List<Box> translate(List<Box> boxes,double x,double y,double z) { return boxes.stream().map(b->new Box(b.x0()+x,b.y0()+y,b.z0()+z,b.x1()+x,b.y1()+y,b.z1()+z)).toList(); }
     private static Map<Part,List<Box>> loadModels() {
         EnumMap<Part,List<Box>> result=new EnumMap<>(Part.class);
         for(Part part:Part.values()) {
-            String filename=switch(part) { case FRAME->"frame";case LEAF_LEFT->"leaf_left";case LEAF_RIGHT->"leaf_right";case MAINTENANCE_COVER->"maintenance_cover";case MAINTENANCE_WIRES->"maintenance_wires"; };
-            String path="/assets/moonstation14/models/block/airlock/default/components/"+filename+".json";
+            String filename=part.name().toLowerCase(java.util.Locale.ROOT);
+            String path="/assets/moonstation14/models/block/airlock/vertical_all/standard_basic/components/"+filename+".json";
             try(var stream=AirlockGeometry.class.getResourceAsStream(path)) {
                 if(stream==null) throw new IllegalStateException("Missing airlock geometry resource "+path);
                 var root=JsonParser.parseReader(new InputStreamReader(stream,StandardCharsets.UTF_8)).getAsJsonObject();
@@ -75,17 +84,19 @@ public final class AirlockGeometry {
         return Map.copyOf(result);
     }
     private static List<Box> clip(List<Box> boxes) { return boxes.stream().map(b->new Box(Math.max(0,b.x0()),Math.max(0,b.y0()),Math.max(0,b.z0()),Math.min(1,b.x1()),Math.min(2,b.y1()),Math.min(1,b.z1()))).filter(b->b.x0()<b.x1()&&b.y0()<b.y1()&&b.z0()<b.z1()).toList(); }
-    /** Cuboids emitted by renderer's neutral frame geometry. */
-    public static List<Box> frame() { return clip(model(Part.FRAME)); }
-    /** World-space bounds of visible authored solids; panel contents follow the mirrored right leaf. */
+    /** Fixed cuboids emitted independently of door motion. */
+    public static List<Box> frame() { return concat(clip(model(Part.FIXED)),clip(model(Part.HEADER_LAMPS))); }
+    /** World-space bounds of visible authored solids; upper-mounted parts follow the upper leaf. */
     public static List<AABB> worldBounds(BlockPos root, Direction facing, double openness) {
         return worldBounds(root,facing,openness,false);
     }
     public static List<AABB> worldBounds(BlockPos root, Direction facing, double openness, boolean panelOpen) {
         java.util.ArrayList<AABB> bounds=new java.util.ArrayList<>();
-        double travel=HALF_TRAVEL*Math.max(0,Math.min(1,openness));
         java.util.ArrayList<Box> parts=new java.util.ArrayList<>(frame()); parts.addAll(leaves(openness));
-        parts.addAll(clip(translate(model(panelOpen?Part.MAINTENANCE_WIRES:Part.MAINTENANCE_COVER),travel,0,0)));
+        parts.addAll(clip(translate(model(Part.READER_HOUSING),0,movementY(Part.READER_HOUSING,openness),0)));
+        parts.addAll(clip(translate(model(Part.UPPER_INFILL),0,movementY(Part.UPPER_INFILL,openness),0)));
+        Part panelPart=panelOpen?Part.MAINTENANCE_WIRES:Part.READER_COVER;
+        parts.addAll(clip(translate(model(panelPart),0,movementY(panelPart,openness),0)));
         int rx=facing.getCounterClockWise().getStepX(), rz=facing.getCounterClockWise().getStepZ();
         int fx=facing.getStepX(), fz=facing.getStepZ();
         for(Box b:parts) {

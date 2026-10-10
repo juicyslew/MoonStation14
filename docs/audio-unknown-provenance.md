@@ -101,3 +101,9 @@ provenance.
 from pinned SS14 `Resources/Audio/Machines/`. The pinned machines attribution
 file identifies them as CC0-1.0 by ScarKy0, source
 [PR #32012](https://github.com/space-wizards/space-station-14/pull/32012).
+## Defibrillator overload audio
+
+- Device light-switch audio is **resolved**, not unknown: pinned `Resources/Audio/Machines/attributions.yml:106–109` credits Skyrat-SS13 under CC-BY-SA-3.0. The source URL, revision and hash are retained in `sounds/device_lightswitch.ogg.license.txt`.
+- `src/main/resources/assets/moonstation14/sounds/device/defib_zap.ogg` was copied byte-for-byte from pinned SS14 `Resources/Audio/Items/Defib/defib_zap.ogg` (revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`). SHA-256: `CC851D025345F472C05682372C17AFA7D0C0AFB7D6F1D606855C952A76BB56EE`. Asset-specific upstream credit/license metadata was not located; provenance remains unknown. Do not infer a license or attribution from the repository-level license. Resolve rights/credit before redistribution beyond this repository.
+
+The upstream `SoundOnOverloadComponent` defaults to `/Audio/Items/Defib/defib_zap.ogg` and `VolumeModifier = 0`; `base_structureairlocks.yml` composes it for base airlocks. This asset is imported for that parity mapping.

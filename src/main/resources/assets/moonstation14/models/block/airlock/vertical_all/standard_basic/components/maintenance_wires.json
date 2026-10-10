@@ -1,0 +1,137 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/airlock/vertical_all/standard_basic/atlas",
+    "particle": "moonstation14:block/airlock/vertical_all/standard_basic/atlas"
+  },
+  "elements": [
+    {
+      "name": "wires_front",
+      "from": [
+        1.5,
+        15.5,
+        6.6
+      ],
+      "to": [
+        4.0,
+        19.0,
+        6.62
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            0.25,
+            7.53125,
+            0.40625,
+            7.75
+          ]
+        }
+      }
+    },
+    {
+      "name": "wires_back",
+      "from": [
+        1.5,
+        15.5,
+        9.379999999999999
+      ],
+      "to": [
+        4.0,
+        19.0,
+        9.4
+      ],
+      "shade": true,
+      "faces": {
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            0.6875,
+            7.53125,
+            0.84375,
+            7.75
+          ]
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    }
+  },
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

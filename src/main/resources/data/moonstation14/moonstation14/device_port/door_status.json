@@ -1,0 +1,1 @@
+{"portId":"DoorStatus","name":"device-port.door-status.name","description":"device-port.door-status.description","direction":"SOURCE","defaultLinks":["DoorBolt"]}

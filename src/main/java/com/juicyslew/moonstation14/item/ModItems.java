@@ -127,6 +127,15 @@ public class ModItems {
     public static final DeferredItem<Item> BRUTEPACK = ITEMS.register("brutepack", () -> new Item(new Item.Properties().stacksTo(10)));
     public static final DeferredItem<Item> GAUZE = ITEMS.register("gauze", () -> new Item(new Item.Properties().stacksTo(10)));
     public static final DeferredItem<Item> HANDHELD_HEALTH_ANALYZER = ITEMS.register("handheld_health_analyzer", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> NETWORK_CONFIGURATOR = ITEMS.register("network_configurator", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "network_configurator"))
+            .component(ModDataComponents.NETWORK_DEVICE_ITEM_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "configurator"))));
+    public static final DeferredItem<Item> REMOTE_SIGNALLER = ITEMS.register("remote_signaller", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "remote_signaller"))
+            .component(ModDataComponents.NETWORK_DEVICE_ITEM_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "standardwireless15"))));
+    public static final DeferredItem<Item> REMOTE_SIGNALLER_ADVANCED = ITEMS.register("remote_signaller_advanced", () -> new Item(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "remote_signaller_advanced"))
+            .component(ModDataComponents.NETWORK_DEVICE_ITEM_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "advancedwireless50"))));
     public static final DeferredItem<BlockItem> DISPOSAL_UNIT = ITEMS.register("disposal_unit",
             () -> new BlockItem(ModBlocks.DISPOSAL_UNIT.get(), new Item.Properties().stacksTo(1)));
 

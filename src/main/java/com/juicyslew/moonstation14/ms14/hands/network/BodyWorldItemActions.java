@@ -20,6 +20,67 @@ import net.minecraft.world.item.ItemStack;
 public final class BodyWorldItemActions {
     private BodyWorldItemActions() { }
 
+    private record ConfiguratorProof(com.juicyslew.moonstation14.ms14.hands.live.LiveHands hands,
+                                    String token, long revision,
+                                    com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData data) { }
+
+    /** Shared fresh-proof initialization used by both block-use and nominated loose-item use. */
+    private static ConfiguratorProof configuratorProof(ServerPlayer actor, HandActorAuthority.Snapshot authority,
+            com.juicyslew.moonstation14.ms14.hands.live.LiveHands hands, String handId, String token, long revision) {
+        var body = authority.body();
+        var type = com.juicyslew.moonstation14.component.ModDataComponents.NETWORK_CONFIGURATOR.get();
+        ItemStack stack = hands.stackCopy(handId).orElse(ItemStack.EMPTY);
+        if (stack.get(type) == null) {
+            ItemStack initialized = stack.copy();
+            initialized.set(type, com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData.create());
+            if (com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation.commit(actor, authority, hands,
+                    handId, token, revision, stack, initialized)
+                    != com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation.Result.SUCCESS) return null;
+            hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            if (hands == null || !HandActorAuthority.revalidate(actor, authority)
+                    || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                    || !hands.compatible(body)) return null;
+            token = hands.token(handId).orElse(null); revision = hands.revision();
+            if (token == null) return null;
+            BodyHandStateService.publishCommitted(actor, authority);
+        }
+        var data = hands.stackCopy(handId).orElse(ItemStack.EMPTY).get(type);
+        return data == null ? null : new ConfiguratorProof(hands, token, revision, data);
+    }
+
+    /** Authenticated USE_TARGET adapter for the exact loose item nominated by the client. */
+    public static BodyBlockUseResult.Outcome useLooseConfigurator(ServerPlayer actor, HandActorAuthority.Snapshot authority,
+            com.juicyslew.moonstation14.ms14.hands.live.LiveHands hands, BodyHandActionRequest request,
+            com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
+        if (!HandActorAuthority.revalidate(actor, authority) || !hands.compatible(authority.body())
+                || hands.revision() != request.expectedRevision()
+                || !expectedTokenMatches(request.expectedToken(), hands.token(request.handId()))
+                || loose.isRemoved() || loose.level() != authority.body().level()
+                || !com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.isConfigurator(
+                        hands.stackCopy(request.handId()).orElse(ItemStack.EMPTY))) return BodyBlockUseResult.Outcome.DENIED;
+        var proof = configuratorProof(actor, authority, hands, request.handId(), request.expectedToken(), request.expectedRevision());
+        if (proof == null || !com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.prepareLooseEndpoint(loose))
+            return BodyBlockUseResult.Outcome.DENIED;
+        hands = proof.hands(); String token = proof.token(); long revision = proof.revision();
+        var data = proof.data();
+        var signaller = loose.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.REMOTE_SIGNALLER.get());
+        if (signaller == null) return BodyBlockUseResult.Outcome.DENIED;
+        boolean list = data.mode() == com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData.Mode.LIST;
+        boolean selected = list
+                ? com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.selectOrStageAdmittedDevice(actor, authority, request.handId(), token, revision, signaller.identity())
+                : com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.selectAdmittedDevice(actor, authority, request.handId(), token, revision, signaller.identity());
+        if (!selected) return BodyBlockUseResult.Outcome.DENIED;
+        if (list) com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorNetworking.sendListSnapshot(actor,
+                com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.currentSnapshot(actor));
+        else {
+            com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorNetworking.sendSnapshot(actor,
+                    com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.currentSnapshot(actor));
+            actor.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.selectionFeedback(actor)), true);
+        }
+        return list ? BodyBlockUseResult.Outcome.HAND_CHANGED : BodyBlockUseResult.Outcome.NO_CHANGE;
+    }
+
     public static BodyBlockUseResult.Outcome use(ServerPlayer actor, BodyBlockUseRequest request,
                                                    BodyHandRequestService.BlockUseAdmission admission) {
         if (actor == null || request == null || admission == null
@@ -38,6 +99,65 @@ public final class BodyWorldItemActions {
                 || !level.mayInteract(actor, admission.hit().pos())) return BodyBlockUseResult.Outcome.DENIED;
         ItemStack stack = hands.stackCopy(request.handId()).orElse(null);
         if (stack == null || stack.isEmpty()) return BodyBlockUseResult.Outcome.DENIED;
+        if (com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.isConfigurator(stack)) {
+            var dataType = com.juicyslew.moonstation14.component.ModDataComponents.NETWORK_CONFIGURATOR.get();
+            var configurator = stack.get(dataType);
+            String toolToken = request.expectedToken();
+            long toolRevision = request.expectedRevision();
+            var proof = configuratorProof(actor, authority, hands, request.handId(), toolToken, toolRevision);
+            if (proof == null) return BodyBlockUseResult.Outcome.DENIED;
+            hands = proof.hands(); toolToken = proof.token(); toolRevision = proof.revision();
+            var data = proof.data();
+            if (data.mode() == com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData.Mode.LIST)
+                actor.displayClientMessage(net.minecraft.network.chat.Component.literal("Network Configurator: LIST mode"), true);
+            long revision = toolRevision;
+            var visible = com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.visibleCandidates(
+                    level, body, com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.MAX_REACH);
+            if (!visible.isEmpty()) {
+                var entity = level.getEntity(visible.getFirst().itemId());
+                if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                        && com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.prepareLooseEndpoint(loose)) {
+                    var signaller = loose.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.REMOTE_SIGNALLER.get());
+                    boolean selected = signaller != null && (data.mode() == com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData.Mode.LIST
+                            ? com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.selectOrStageAdmittedDevice(
+                                    actor, authority, request.handId(), toolToken, revision, signaller.identity())
+                            : com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.selectAdmittedDevice(
+                                    actor, authority, request.handId(), toolToken, revision, signaller.identity()));
+                    if (selected) {
+                        if (data.mode() == com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData.Mode.LIST) {
+                            com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorNetworking.sendListSnapshot(actor,
+                                    com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.currentSnapshot(actor));
+                            return BodyBlockUseResult.Outcome.HAND_CHANGED;
+                        }
+                        com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorNetworking.sendSnapshot(actor,
+                                com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.currentSnapshot(actor));
+                        actor.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                                com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.selectionFeedback(actor)), true);
+                        return BodyBlockUseResult.Outcome.NO_CHANGE;
+                    }
+                }
+            }
+            if (data.mode() == com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData.Mode.LIST) {
+                var endpoint=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(level).transport().lookupAt(admission.hit().pos());
+                if(endpoint.size()==1 && endpoint.getFirst().deviceList()!=null) {
+                    var session=com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.openList(actor,authority,request.handId(),toolToken,revision);
+                    if(session==null || !com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.openConfigure(actor,session,endpoint.getFirst().identity())) return BodyBlockUseResult.Outcome.DENIED;
+                } else if(!com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.selectOrStageEndpoint(actor,authority,request.handId(),toolToken,revision,admission.hit().pos())) return BodyBlockUseResult.Outcome.DENIED;
+                else return BodyBlockUseResult.Outcome.HAND_CHANGED;
+                com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorNetworking.sendListSnapshot(actor,com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorListServer.currentSnapshot(actor));
+                return BodyBlockUseResult.Outcome.HAND_CHANGED;
+            }
+            if (!com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.selectTarget(
+                    actor, authority, request.handId(), toolToken, revision, admission.hit().pos())) {
+                actor.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "Network Configurator: no linkable source/receiver selected; check reach and endpoint roles"), true);
+                return BodyBlockUseResult.Outcome.DENIED;
+            }
+            com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorNetworking.sendSnapshot(actor,com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.currentSnapshot(actor));
+            actor.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorServer.selectionFeedback(actor)), true);
+            return BodyBlockUseResult.Outcome.NO_CHANGE;
+        }
         if (com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireMenuService
                 .dispatchToolMenu(actor, request, admission, stack)) return BodyBlockUseResult.Outcome.NO_CHANGE;
         if (com.juicyslew.moonstation14.ms14.doors.AirlockToolInteraction.use(actor, request, admission, stack))
@@ -79,6 +199,10 @@ public final class BodyWorldItemActions {
                 return BodyBlockUseResult.Outcome.NO_CHANGE;
             if (com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService
                     .open(actor, request, admission)) return BodyBlockUseResult.Outcome.NO_CHANGE;
+            var level=admission.authority().body().level();
+            if(level instanceof net.minecraft.server.level.ServerLevel server
+                    && server.getBlockEntity(admission.hit().pos()) instanceof com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlockEntity control
+                    && control.activate(actor)) return BodyBlockUseResult.Outcome.NO_CHANGE;
             return com.juicyslew.moonstation14.ms14.power.ui.ApcMenuService.openForBody(actor, request, admission)
                     ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
         }

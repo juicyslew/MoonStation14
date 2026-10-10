@@ -26,7 +26,6 @@ public record AirAlarmLayout(int viewportWidth, int viewportHeight, int x, int y
     public Rect configure() { return rect(200,180,96,20); }
     public Rect search() { return rect(8,60,288,18); }
     public Rect deviceRows() { return rect(8,82,288,72); }
-    public Rect pair() { return rect(104,180,88,20); }
     public Rect enabled() { return rect(8,82,288,20); }
     public Rect mode() { return rect(8,106,288,20); }
     public Rect numericEdit() { return rect(8,150,202,20); }

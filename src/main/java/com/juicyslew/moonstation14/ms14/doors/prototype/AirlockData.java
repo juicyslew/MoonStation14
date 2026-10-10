@@ -11,19 +11,20 @@ import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.juicyslew.moonstation14.ms14.tools.ToolProfile;
 import com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceComponents;
 import java.util.Set;
 
 /** Resolved local subset of SS14 Airlock -> Door/Airlock/DoorBolt/ApcPowerReceiver/WiresPanel. */
 public record AirlockData(Door door, Airlock airlock, DoorBolt doorBolt,
                           ApcPowerReceiver apcPowerReceiver, ExtensionCableReceiver extensionCableReceiver,
                            WiresPanel wiresPanel,WiresPanelSecurity wiresPanelSecurity,Wires wires, ElectrifiedData electrified,
-                           ExamineMetadata metadata) {
-    public AirlockData { if (metadata == null) throw new IllegalArgumentException("missing airlock metadata"); }
+                            ExamineMetadata metadata, DeviceComponents deviceComponents) {
+    public AirlockData { if (metadata == null) throw new IllegalArgumentException("missing airlock metadata"); if (deviceComponents == null) throw new IllegalArgumentException("missing device components"); }
     public AirlockData(Door door, Airlock airlock, DoorBolt doorBolt, ApcPowerReceiver apcPowerReceiver,
                        ExtensionCableReceiver extensionCableReceiver, WiresPanel wiresPanel,
                        WiresPanelSecurity wiresPanelSecurity, Wires wires, ElectrifiedData electrified) {
         this(door, airlock, doorBolt, apcPowerReceiver, extensionCableReceiver, wiresPanel, wiresPanelSecurity,
-                wires, electrified, ExamineMetadata.EMPTY);
+                 wires, electrified, ExamineMetadata.EMPTY, DeviceComponents.empty());
     }
     public record Door(double openTimeOneSeconds, double openTimeTwoSeconds,
                         double closeTimeOneSeconds, double closeTimeTwoSeconds,
@@ -102,7 +103,8 @@ public record AirlockData(Door door, Airlock airlock, DoorBolt doorBolt,
              WiresPanel.CODEC.fieldOf("wiresPanel").forGetter(AirlockData::wiresPanel),WiresPanelSecurity.CODEC.fieldOf("wiresPanelSecurity").forGetter(AirlockData::wiresPanelSecurity),
              Wires.CODEC.fieldOf("wires").forGetter(AirlockData::wires),
              ElectrifiedData.CODEC.optionalFieldOf("electrified", ElectrifiedData.AIRLOCK_DEFAULTS).forGetter(AirlockData::electrified),
-             ExamineMetadata.CODEC.optionalFieldOf("metadata", ExamineMetadata.EMPTY).forGetter(AirlockData::metadata)
+              ExamineMetadata.CODEC.optionalFieldOf("metadata", ExamineMetadata.EMPTY).forGetter(AirlockData::metadata),
+              DeviceComponents.CODEC.optionalFieldOf("deviceComponents", DeviceComponents.empty()).forGetter(AirlockData::deviceComponents)
      ).apply(i, AirlockData::new));
     public static final Codec<AirlockData> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
         @Override public <T> DataResult<Pair<AirlockData,T>> decode(DynamicOps<T> ops, T input) {
@@ -135,13 +137,14 @@ public record AirlockData(Door door, Airlock airlock, DoorBolt doorBolt,
     private static void positive(double d,String field) { if(!Double.isFinite(d)||d<=0) throw new IllegalArgumentException(field+" must be finite and positive"); }
     private static void audit(JsonElement json) {
         if (!json.isJsonObject()) throw new IllegalArgumentException("expected object"); JsonObject o=json.getAsJsonObject();
-          fields(o,Set.of("id","parent","abstract","door","airlock","doorBolt","apcPowerReceiver","extensionCableReceiver","wiresPanel","wiresPanelSecurity","wires","electrified","metadata"));
+           fields(o,Set.of("id","parent","abstract","door","airlock","doorBolt","apcPowerReceiver","extensionCableReceiver","wiresPanel","wiresPanelSecurity","wires","electrified","metadata","deviceComponents"));
           if(o.has("metadata")) nested(o,"metadata",Set.of("name","description"));
         nested(o,"door",Set.of("openTimeOneSeconds","openTimeTwoSeconds","closeTimeOneSeconds","closeTimeTwoSeconds","denyDurationSeconds","crushDamageBlunt","crushStunSeconds","bumpOpen"));
         nested(o,"airlock",Set.of("safety","autoClose","autoCloseSeconds","unboltedPryModifier","boltedPryMultiplier","openPanelVisible"));
          nested(o,"doorBolt",Set.of("boltLightsEnabled")); nested(o,"apcPowerReceiver",Set.of("requestedWatts")); nested(o,"extensionCableReceiver",Set.of("localReachBlocks"));
           nested(o,"wiresPanel",Set.of("openingToolQuality","toggleDelaySeconds","openSound","closeSound"));nested(o,"wiresPanelSecurity",Set.of("wiresAccessible")); nested(o,"wires",Set.of("layoutId","supportedActions","powerOnePulseSeconds","powerTwoPulseSeconds","timingCutModifier","timingPulseModifier","timingPulseSeconds","safetyPulseSeconds","logPulseSeconds"));
-          if(o.has("electrified"))nested(o,"electrified",Set.of("enabled","usesApcPower","requirePower","shockDamage","shockSeconds","electrificationCancelSeconds","probability","siemensCoefficient","onTouch","onBump","onUsing","onAttacked"));
+           if(o.has("electrified"))nested(o,"electrified",Set.of("enabled","usesApcPower","requirePower","shockDamage","shockSeconds","electrificationCancelSeconds","probability","siemensCoefficient","onTouch","onBump","onUsing","onAttacked"));
+            if(o.has("deviceComponents")){ JsonObject d=o.getAsJsonObject("deviceComponents"); fields(d,Set.of("deviceNetwork","deviceConnection","deviceLinkSource","deviceLinkSink","deviceList","soundOnOverload")); }
     }
     private static void nested(JsonObject o,String name,Set<String> allowed) { if(!o.has(name)||!o.get(name).isJsonObject()) throw new IllegalArgumentException("missing/invalid "+name); fields(o.getAsJsonObject(name),allowed); }
     private static void fields(JsonObject o,Set<String> allowed) { for(String k:o.keySet()) if(!allowed.contains(k)||o.get(k).isJsonNull()) throw new IllegalArgumentException("unknown or null airlock field: "+k); }

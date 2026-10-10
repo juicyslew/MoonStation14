@@ -106,10 +106,10 @@ public final class DisposalUnitFlushGameTests {
         awaitWorldItemReady(helper, item, "missing-trunk item admission");
         require(unit.acceptWorldItem(item), "world item admitted");
         unit.engage();
-        helper.runAtTickTime(45, () -> {
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeAtTickTime(helper, 45, () -> {
             require(unit.contents().snapshot().size() == 1, "missing same-floor trunk preserves payload");
             unit.setGameTestPowerOverride(false); unit.engage();
-            helper.runAtTickTime(70, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeAtTickTime(helper, 70, () -> {
                 require(unit.contents().snapshot().size() == 1, "power loss preserves payload");
                 helper.succeed();
             });
@@ -136,7 +136,7 @@ public final class DisposalUnitFlushGameTests {
         awaitWorldItemReady(helper, item, "flush item admission");
         require(unit.acceptWorldItem(item), "whole stack admitted");
         unit.engage();
-        helper.runAtTickTime(75, () -> {
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeAtTickTime(helper, 75, () -> {
             require(unit.contents().snapshot().isEmpty(), "unit clears only after holder payload admission");
             require(unit.bodyIds().isEmpty() && !body.isRemoved(), "contained body ownership transferred without discarding body");
             helper.succeed();
@@ -199,7 +199,7 @@ public final class DisposalUnitFlushGameTests {
         boolean full = chunk != null && chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL);
         boolean exact = level.getEntity(item.getUUID()) == item;
         if (item.isAlive() && !item.isRemoved() && item.isAddedToLevel() && exact && full) { ready.run(); return; }
-        if (waited < 10) { helper.runAfterDelay(1, () -> awaitWorldItemReady(helper, item, operation, waited + 1, ready)); return; }
+        if (waited < 10) { com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> awaitWorldItemReady(helper, item, operation, waited + 1, ready)); return; }
         throw new GameTestAssertException(operation + " prerequisites failed after 10 ticks: alive=" + item.isAlive()
                 + ", removed=" + item.isRemoved() + ", added=" + item.isAddedToLevel()
                 + ", chunk=" + item.chunkPosition() + ", chunkStatus="
@@ -213,7 +213,7 @@ public final class DisposalUnitFlushGameTests {
         boolean full = chunk != null && chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL);
         boolean exact = level.getEntity(body.getUUID()) == body;
         if (body.isAddedToLevel() && body.isAlive() && !body.isRemoved() && exact && full) { ready.run(); return; }
-        if (waited < 10) { helper.runAfterDelay(1, () -> awaitBodyReady(helper, body, waited + 1, ready)); return; }
+        if (waited < 10) { com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> awaitBodyReady(helper, body, waited + 1, ready)); return; }
         throw new GameTestAssertException("failed-reserve body readiness timeout: added=" + body.isAddedToLevel()
                 + ", alive=" + body.isAlive() + ", removed=" + body.isRemoved() + ", exactUuidLookup=" + exact
                 + ", chunk=" + body.chunkPosition() + ", chunkStatus=" + (chunk == null ? "missing" : chunk.getFullStatus()));

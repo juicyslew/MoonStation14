@@ -9,21 +9,18 @@ import net.minecraft.core.BlockPos;
 
 class AirlockFramePlannerTest {
 
-    @Test void exportedAtlasAndPanelSelectionUsesOnlyExistingViewTruth() {
-        assertEquals(new AirlockFramePlanner.Plan("unpowered", false), plan(AirlockState.DoorPhase.CLOSED, false, false, false, false, false));
-        assertEquals(new AirlockFramePlanner.Plan("unpowered", true), plan(AirlockState.DoorPhase.DENYING, false, false, false, true, true));
-        assertEquals(new AirlockFramePlanner.Plan("denied", false), plan(AirlockState.DoorPhase.DENYING, true, false, true, false, false));
-        assertEquals(new AirlockFramePlanner.Plan("bolted", false), plan(AirlockState.DoorPhase.CLOSED, true, true, true, false, false));
-        assertEquals(new AirlockFramePlanner.Plan("bolted", false), plan(AirlockState.DoorPhase.DENYING, true, true, true, false, false));
-        assertEquals(new AirlockFramePlanner.Plan("open", false), plan(AirlockState.DoorPhase.OPEN, true, false, true, false, false));
-        assertEquals(new AirlockFramePlanner.Plan("open", false), plan(AirlockState.DoorPhase.CLOSING, true, false, true, false, false));
-        assertEquals(new AirlockFramePlanner.Plan("closed", false), plan(AirlockState.DoorPhase.CLOSED, true, false, true, false, false));
-        assertEquals(new AirlockFramePlanner.Plan("open_panel", true), plan(AirlockState.DoorPhase.OPENING, true, false, true, true, true));
-        assertEquals(new AirlockFramePlanner.Plan("bolted_panel", true), plan(AirlockState.DoorPhase.CLOSED, true, true, true, true, true));
-        assertEquals(new AirlockFramePlanner.Plan("panel_open", true), plan(AirlockState.DoorPhase.CLOSED, true, false, true, true, true));
-        assertEquals(new AirlockFramePlanner.Plan("denied", true), plan(AirlockState.DoorPhase.DENYING, true, false, true, true, true));
-        assertEquals(new AirlockFramePlanner.Plan("open", false), plan(AirlockState.DoorPhase.OPEN, true, false, true, true, true));
-        assertEquals(new AirlockFramePlanner.Plan("closed", false), plan(AirlockState.DoorPhase.CLOSED, true, false, true, true, false));
+    @Test void nativeStaticOverlaysFollowPoweredDoorAndBoltPresentation() {
+        assertEquals("closed_unlit", plan(AirlockState.DoorPhase.CLOSED, true, false, true, false, false).headerOverlay());
+        assertEquals("opening_unlit", plan(AirlockState.DoorPhase.OPENING, true, false, true, false, false).headerOverlay());
+        assertNull(plan(AirlockState.DoorPhase.CLOSED, false, false, false, false, false).headerOverlay());
+        assertEquals("bolted_unlit", plan(AirlockState.DoorPhase.CLOSED, true, true, true, false, false).headerOverlay());
+        assertEquals("closed_unlit", plan(AirlockState.DoorPhase.CLOSED, true, true, false, false, false).headerOverlay());
+        assertEquals("deny_unlit", plan(AirlockState.DoorPhase.DENYING, true, false, true, false, false).readerOverlay());
+        assertNull(plan(AirlockState.DoorPhase.CLOSED, true, false, true, false, false).readerOverlay());
+        assertEquals("opening_unlit", plan(AirlockState.DoorPhase.OPEN, true, false, true, false, false).headerOverlay());
+        assertEquals("bolted_unlit", plan(AirlockState.DoorPhase.DENYING, true, true, true, false, false).headerOverlay());
+        assertTrue(plan(AirlockState.DoorPhase.OPEN, true, false, false, true, true).maintenanceWires());
+        assertFalse(plan(AirlockState.DoorPhase.OPENING, true, false, false, true, false).maintenanceWires());
     }
 
     @Test void normalizedAtlasUvsRebaseAtSpriteBoundsAndMidpoint() {
@@ -33,7 +30,7 @@ class AirlockFramePlannerTest {
         assertEquals(high, AirlockBlockEntityRenderer.remapAtlasCoordinate(1, low, high), 1e-6);
     }
 
-    @Test void onlyPoweredAuthoredUnshadedLampQuadsAreFullBright() {
+    @Test void onlyPoweredAuthoredUnshadedOverlayQuadsAreFullBright() {
         int darkness = 0;
         assertEquals(0x00F000F0, AirlockBlockEntityRenderer.quadLight(false, true, darkness));
         assertEquals(darkness, AirlockBlockEntityRenderer.quadLight(false, false, darkness));
@@ -42,13 +39,13 @@ class AirlockFramePlannerTest {
 
     @Test void allRuntimeComponentModelsAreRegisteredAsAdditionalModels() {
         var ids = AirlockBlockEntityRenderer.additionalModels().stream().map(Object::toString).toList();
-        assertTrue(ids.stream().anyMatch(id -> id.contains("components/frame")));
-        assertTrue(ids.stream().anyMatch(id -> id.contains("components/leaf_left")));
-        assertTrue(ids.stream().anyMatch(id -> id.contains("components/leaf_right")));
-        assertTrue(ids.stream().anyMatch(id -> id.contains("components/maintenance_cover")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/fixed")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/upper_leaf")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/lower_leaf")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("components/reader_cover")));
         assertTrue(ids.stream().anyMatch(id -> id.contains("components/maintenance_wires")));
-        assertTrue(ids.stream().anyMatch(id -> id.contains("/denied")));
-        assertTrue(ids.stream().anyMatch(id -> id.contains("/unpowered")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("overlays/deny_unlit_00_header")));
+        assertTrue(ids.stream().anyMatch(id -> id.contains("overlays/bolted_unlit_00_header")));
     }
 
     private static AirlockFramePlanner.Plan plan(AirlockState.DoorPhase phase, boolean powered,
@@ -82,41 +79,37 @@ class AirlockFramePlannerTest {
         }
     }
 
-    @Test void authoredLeavesTranslateOutwardAndRemainClippedToTheRootVolume() {
+    @Test void importedVerticalLeavesStayClippedToTwoBlockRootForEveryFacing() {
         var closed=AirlockGeometry.leaves(0);
         var open=AirlockGeometry.leaves(1);
-        assertEquals(11,closed.size());
-        assertEquals(-.125,open.get(0).x0()-closed.get(0).x0(),1e-9);
-        assertEquals(AirlockGeometry.HALF_TRAVEL,open.get(5).x0()-closed.get(5).x0(),1e-9);
+        assertFalse(closed.isEmpty());
+        assertNotEquals(closed,open);
         for(var box:open) assertTrue(box.x0()>=0&&box.x1()<=1&&box.y0()>=0&&box.y1()<=2&&box.z0()>=0&&box.z1()<=1);
         for(Direction facing:Direction.Plane.HORIZONTAL) {
             var bounds=AirlockGeometry.worldBounds(new BlockPos(0,0,0),facing,.5,true);
             for(var box:bounds) assertTrue(box.minY>=0&&box.maxY<=2);
-            var leaf=AirlockGeometry.model(AirlockGeometry.Part.LEAF_RIGHT).get(0);
-            assertTrue(bounds.contains(worldBox(new BlockPos(0,0,0),facing,
-                    new AirlockGeometry.Box(leaf.x0()+AirlockGeometry.HALF_TRAVEL*.5,leaf.y0(),leaf.z0(),
-                            Math.min(1,leaf.x1()+AirlockGeometry.HALF_TRAVEL*.5),leaf.y1(),leaf.z1()))));
         }
-        assertEquals(6,AirlockGeometry.model(AirlockGeometry.Part.FRAME).size());
-        assertEquals(5,AirlockGeometry.model(AirlockGeometry.Part.LEAF_LEFT).size());
-        assertEquals(6,AirlockGeometry.model(AirlockGeometry.Part.LEAF_RIGHT).size());
-        assertEquals(1,AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_COVER).size());
-        assertEquals(1,AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_WIRES).size());
-        assertEquals(AirlockGeometry.model(AirlockGeometry.Part.FRAME).size()+closed.size()+1,
-                AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,0,false).size());
-        assertEquals(AirlockGeometry.model(AirlockGeometry.Part.FRAME).size()+closed.size()+1,
-                AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,0,true).size());
-        double halfTravel=AirlockGeometry.HALF_TRAVEL*.5;
-        var cover=AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_COVER).get(0);
-        var wires=AirlockGeometry.model(AirlockGeometry.Part.MAINTENANCE_WIRES).get(0);
-        var coverExpected=worldBox(new BlockPos(0,0,0),Direction.NORTH,new AirlockGeometry.Box(
-                cover.x0()+halfTravel,cover.y0(),cover.z0(),cover.x1()+halfTravel,cover.y1(),cover.z1()));
-        var wiresExpected=worldBox(new BlockPos(0,0,0),Direction.NORTH,new AirlockGeometry.Box(
-                wires.x0()+halfTravel,wires.y0(),wires.z0(),wires.x1()+halfTravel,wires.y1(),wires.z1()));
-        assertTrue(AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,.5,false).contains(coverExpected));
-        assertTrue(AirlockGeometry.worldBounds(new BlockPos(0,0,0),Direction.NORTH,.5,true).contains(wiresExpected));
-        assertNotEquals(coverExpected.minX,worldBox(new BlockPos(0,0,0),Direction.NORTH,new AirlockGeometry.Box(
-                cover.x0()-halfTravel,cover.y0(),cover.z0(),cover.x1()-halfTravel,cover.y1(),cover.z1())).minX);
+        for(var part:AirlockGeometry.Part.values()) assertFalse(AirlockGeometry.model(part).isEmpty(),part.name());
+        assertEquals(AirlockGeometry.UPPER_TRAVEL,AirlockGeometry.movementY(AirlockGeometry.Part.READER_HOUSING,1),1e-12);
+        assertEquals(0,AirlockGeometry.movementY(AirlockGeometry.Part.READER_HOUSING,0),1e-12);
+        assertEquals(AirlockGeometry.model(AirlockGeometry.Part.FIXED).size()
+                        +AirlockGeometry.model(AirlockGeometry.Part.HEADER_LAMPS).size(),AirlockGeometry.frame().size());
+        for(double q:new double[]{0,.25,.5,.75,1}) {
+            for(var box:AirlockGeometry.leaves(q))
+                assertTrue(box.x0()>=0&&box.x1()<=1&&box.y0()>=0&&box.y1()<=2&&box.z0()>=0&&box.z1()<=1);
+            assertEquals(AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,q),
+                    AirlockGeometry.movementY(AirlockGeometry.Part.READER_COVER,q));
+            assertEquals(AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,q),
+                    AirlockGeometry.movementY(AirlockGeometry.Part.MAINTENANCE_WIRES,q));
+            assertEquals(AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,q),
+                    AirlockGeometry.movementY(AirlockGeometry.Part.READER_HOUSING,q));
+            for(Direction facing:Direction.Plane.HORIZONTAL)
+                for(var bounds:AirlockGeometry.worldBounds(new BlockPos(3,4,5),facing,q,true)) {
+                    assertTrue(bounds.minX>=3&&bounds.maxX<=4);
+                    assertTrue(bounds.minY>=4&&bounds.maxY<=6);
+                    assertTrue(bounds.minZ>=5&&bounds.maxZ<=6);
+                }
+        }
     }
 
     private static net.minecraft.world.phys.AABB worldBox(BlockPos root,Direction facing,AirlockGeometry.Box b) {
@@ -133,18 +126,25 @@ class AirlockFramePlannerTest {
     @Test void actualMotionUsesPhaseDurationsAndIndependentElapsedTime() {
         assertEquals(0,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSED,0,.4,.2,.3,.1),1e-9);
         assertEquals(1,AirlockGeometry.openness(AirlockState.DoorPhase.OPEN,0,.4,.2,.3,.1),1e-9);
-        assertEquals(.5,AirlockGeometry.openness(AirlockState.DoorPhase.OPENING_PASSABLE,0,.4,.2,.3,.1),1e-9);
-        assertEquals(.5,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSING,.3,.4,.2,.3,.1),1e-9);
-        assertEquals(.25,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSING_PASSABLE,.05,.4,.2,.3,.1),1e-9);
-        assertEquals(.375,AirlockGeometry.openness(AirlockState.DoorPhase.OPENING,.3,.4,.2,.3,.1),1e-9);
+        assertEquals(1,AirlockGeometry.openness(AirlockState.DoorPhase.OPENING_PASSABLE,0,.4,.2,.3,.1),1e-9);
+        assertEquals(0,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSING_PASSABLE,.05,.4,.2,.3,.1),1e-9);
+        assertEquals(1,AirlockGeometry.openness(AirlockState.DoorPhase.OPENING,.4,.4,.2,.3,.1),1e-9);
+        assertEquals(0,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSING,.4,.4,.2,.3,.1),1e-9);
+        assertEquals(.25,AirlockGeometry.openness(AirlockState.DoorPhase.OPENING,.1,.4,.2,.3,.1),1e-9);
+        assertEquals(.5,AirlockGeometry.openness(AirlockState.DoorPhase.OPENING,.6,1.2,.2,.8,.1),1e-9);
+        assertEquals(1,AirlockGeometry.openness(AirlockState.DoorPhase.OPENING_PASSABLE,99,1.2,.2,.8,.1),1e-9);
+        assertEquals(.5,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSING,.4,1.2,.2,.8,.1),1e-9);
+        assertEquals(0,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSING_PASSABLE,99,1.2,.2,.8,.1),1e-9);
+        assertEquals(1,AirlockGeometry.openness(AirlockState.DoorPhase.OPEN,0,1.2,.2,.8,.1),1e-9);
+        assertEquals(0,AirlockGeometry.openness(AirlockState.DoorPhase.CLOSED,0,1.2,.2,.8,.1),1e-9);
+        assertEquals(0,AirlockGeometry.openness(AirlockState.DoorPhase.DENYING,0,1.2,.2,.8,.1),1e-9);
         assertNotEquals(AirlockGeometry.openness(AirlockState.DoorPhase.OPENING,.1,.4,.2,.3,.1),
                 AirlockGeometry.openness(AirlockState.DoorPhase.OPENING,.2,.4,.2,.3,.1));
     }
 
     @Test void apertureHasNoCenteredLeafAtFullOpenAndGeometryHasAuthoredDepth() {
-        for(var leaf:AirlockGeometry.leaves(1)) assertTrue(leaf.x1()<=.5||leaf.x0()>=.5);
-        assertTrue(AirlockGeometry.model(AirlockGeometry.Part.LEAF_LEFT).stream().anyMatch(b->b.z1()-b.z0()<.5));
-        assertEquals(6.5/16,AirlockGeometry.HALF_TRAVEL,1e-12);
+        assertEquals(21.5/16,AirlockGeometry.UPPER_TRAVEL,1e-12);
+        assertEquals(9.5/16,AirlockGeometry.LOWER_TRAVEL,1e-12);
     }
 
 }

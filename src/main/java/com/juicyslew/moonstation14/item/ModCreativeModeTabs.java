@@ -25,7 +25,8 @@ public class ModCreativeModeTabs {
             ModItems.GAS_VENT, ModItems.GAS_SCRUBBER, ModItems.AIR_ALARM,
             ModItems.DISPOSAL_UNIT,
             ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER,
-            ModItems.OINTMENT, ModItems.BRUTEPACK, ModItems.GAUZE, ModItems.HANDHELD_HEALTH_ANALYZER);
+             ModItems.OINTMENT, ModItems.BRUTEPACK, ModItems.GAUZE, ModItems.HANDHELD_HEALTH_ANALYZER,
+             ModItems.NETWORK_CONFIGURATOR, ModItems.REMOTE_SIGNALLER, ModItems.REMOTE_SIGNALLER_ADVANCED);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
             ModBlocks.STEEL_WALL_BLOCK, ModBlocks.PLASTIC_WALL, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR, ModBlocks.AIRLOCK,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,
@@ -37,7 +38,7 @@ public class ModCreativeModeTabs {
             ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER, ModBlocks.ATMOS_FREZON_PRODUCER,
             ModBlocks.ATMOS_GAS_SINK, ModBlocks.ATMOS_HEATER, ModBlocks.ATMOS_COOLER,
             ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY, ModItems.GAS_PIPE_VISUAL_TERTIARY,
-             ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE);
+              ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE, ModBlocks.SIGNAL_BUTTON, ModBlocks.SIGNAL_SWITCH);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TAB =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MoonStation14.MOD_ID);
 

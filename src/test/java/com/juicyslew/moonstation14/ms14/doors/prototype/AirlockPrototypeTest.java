@@ -49,6 +49,16 @@ class AirlockPrototypeTest {
         assertEquals(ToolProfile.Quality.SCREWING,resolved.wiresPanel().openingToolQuality());
         assertFalse(resolved.airlock().openPanelVisible());
         assertEquals(1, resolved.wiresPanel().toggleDelaySeconds());
+        var devices = resolved.deviceComponents();
+        var overload=devices.soundOnOverload().orElseThrow();
+        assertEquals(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14","device/defib_zap"),overload.sound().orElseThrow());
+        assertEquals(0f,overload.volumeModifier());
+        assertEquals(200, devices.connection().orElseThrow().wirelessRange());
+        assertEquals(java.util.Set.of("moonstation14:open", "moonstation14:close", "moonstation14:toggle", "moonstation14:auto_close", "moonstation14:door_bolt"), devices.sink().orElseThrow().ports().stream().map(Object::toString).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(java.util.Set.of("moonstation14:door_status"), devices.source().orElseThrow().ports().stream().map(Object::toString).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.LOW, devices.source().orElseThrow().lastSignals().get(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "door_status")));
+        assertEquals(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "wireless"), devices.network().orElseThrow().networkPrototypeId());
+        assertEquals(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "basic_device"), devices.network().orElseThrow().transmitFrequencyPrototypeId().orElseThrow());
         var noWireUi=new AirlockData(resolved.door(),resolved.airlock(),resolved.doorBolt(),resolved.apcPowerReceiver(),resolved.extensionCableReceiver(),resolved.wiresPanel(),new AirlockData.WiresPanelSecurity(false),resolved.wires(),resolved.electrified());
         assertTrue(com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity.resolvesPanelVisible(true,AirlockState.DoorPhase.CLOSED,noWireUi),"wire UI accessibility does not hide the physical panel");
         assertTrue(resolved.wires().supportedActions().contains("bolt"));

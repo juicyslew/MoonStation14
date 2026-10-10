@@ -14,6 +14,7 @@ import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.LevelChunk;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceList;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -38,11 +39,44 @@ public final class AirAlarmDeviceLinks {
     public List<Link> snapshot() { return List.copyOf(links); }
     public boolean valid() { return valid; }
 
+    /** Generic routing view over this canonical persisted membership; link identity/position/kind remain stored once. */
+    public DeviceList deviceList(DeviceList.Config config) {
+        if (config == null) return null;
+        if (!valid || config.capacity() < links.size())
+            return new DeviceList(List.of(), config.capacity(), config.allowList(), config.filterIncoming());
+        return new DeviceList(links.stream().map(link -> link.deviceId().toString()).toList(),
+                config.capacity(), config.allowList(), config.filterIncoming());
+    }
+
     /** Removal uses the persisted identity, including offline devices; no chunk is loaded. */
     public boolean remove(UUID deviceId) {
         if (!valid || deviceId == null || links.stream().filter(link -> link.deviceId().equals(deviceId)).count() != 1)
             return false;
         return links.removeIf(link -> link.deviceId().equals(deviceId));
+    }
+
+    /** Atomic owner-list replacement; each supplied identity is revalidated as a live endpoint. */
+    public boolean replace(ServerLevel level, List<VentilationDeviceBlockEntity> devices, int capacity) {
+        if (!valid || level == null || devices == null || capacity < 0 || devices.size() > capacity) return false;
+        List<Link> replacement = new ArrayList<>();
+        for (var device : devices) {
+            if (device == null || !addCandidate(level, device, replacement)) return false;
+        }
+        links.clear(); links.addAll(replacement); return true;
+    }
+    public boolean replaceLinks(List<Link> replacement, int capacity) {
+        if(!valid||replacement==null||capacity<0||replacement.size()>capacity||replacement.stream().anyMatch(java.util.Objects::isNull)
+                ||replacement.stream().map(Link::deviceId).distinct().count()!=replacement.size()
+                ||replacement.stream().map(link->List.of(link.dimension(),link.pos())).distinct().count()!=replacement.size())return false;
+        links.clear();links.addAll(replacement);return true;
+    }
+    private static boolean addCandidate(ServerLevel level, VentilationDeviceBlockEntity device, List<Link> target) {
+        if (device.getLevel()!=level || device.isRemoved() || device.deviceId()==null) return false;
+        BlockPos pos=device.getBlockPos(); LevelChunk chunk=loadedChunk(level,pos);
+        if(chunk==null||chunk.getBlockEntity(pos)!=device||!(chunk.getBlockState(pos).getBlock() instanceof VentilationDeviceBlock block)||block.kind()!=device.kind())return false;
+        Link link=new Link(level.dimension(),pos,block.kind(),device.deviceId());
+        if(target.stream().anyMatch(existing->existing.deviceId().equals(link.deviceId())||existing.pos().equals(link.pos())))return false;
+        target.add(link);return true;
     }
 
     /** Only the authoritative server can append an already-live, matching device. */

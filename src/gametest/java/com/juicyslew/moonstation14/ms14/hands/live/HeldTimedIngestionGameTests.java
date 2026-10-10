@@ -43,8 +43,8 @@ public final class HeldTimedIngestionGameTests {
         h.runAfterDelay(10, () -> { require(source(f) == 1000, "no dose before profile deadline"); });
         h.runAfterDelay(23, () -> {
             require(source(f) == 500, "first 500-cent dose");
-            h.runAfterDelay(15, () -> { require(source(f) == 500, "repeat waits complete interval"); });
-            h.runAfterDelay(23, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 15, () -> { require(source(f) == 500, "repeat waits complete interval"); });
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 23, () -> {
                 require(source(f) == 0, "second exact source dose");
                 LiveHands now = hands(f); require(now.revision() == f.revision + 2, "one owner revision per dose");
                 require(now.token("left").filter(f.token::equals).isPresent(), "empty container remains held");

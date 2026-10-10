@@ -70,7 +70,9 @@ public final class BodyHandSelectionGateGameTests {
                             && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                             && before.revision() == 0 && before.activeHand().equals("left"),
                     "stun rejects final selection gate and retains the exact hand snapshot");
-            helper.runAfterDelay(101, () -> {
+            // Paralyze is five seconds (100 logical server ticks); wait past the
+            // resolved status end tick rather than relying on callback phase ordering.
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 105, () -> {
                 require(CharacterControlSystem.canAct(body), "expired paralyze restores action admission");
                 LiveHands recovered = before.selectActive(before.revision(), "right").orElseThrow();
                 require(BodyHandRequestService.selectionAllowed(body, before, recovered, 0),

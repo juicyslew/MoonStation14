@@ -43,9 +43,13 @@ public final class BodyBlockUseTargetProbeGameTests {
             var result = BodyBlockUseTargetProbe.probe(helper.getLevel(), body, target, Direction.NORTH);
             require(result != null && result.pos().equals(target) && result.face() == Direction.NORTH,
                     "ray admits exact block and face; eye=" + eye + ", look=" + look
-                            + ", currentBlock=" + body.blockPosition() + ", target=" + target + ", result=" + result);
+                             + ", currentBlock=" + body.blockPosition() + ", target=" + target + ", result=" + result);
+            require(BodyBlockUseTargetProbe.lineOfSight(helper.getLevel(), body, target),
+                    "clear line to nominated block remains visible");
             require(BodyBlockUseTargetProbe.probe(helper.getLevel(), body, target, Direction.SOUTH) == null, "wrong face denied");
             helper.getLevel().setBlock(target.north(), Blocks.STONE.defaultBlockState(), 3);
+            require(!BodyBlockUseTargetProbe.lineOfSight(helper.getLevel(), body, target),
+                    "intervening wall blocks UI continuation");
             require(BodyBlockUseTargetProbe.probe(helper.getLevel(), body, target, Direction.NORTH) == null, "obstruction denied");
             helper.getLevel().setBlock(target.north(), Blocks.AIR.defaultBlockState(), 3);
             BlockPos far = body.blockPosition().above(1).south(8);

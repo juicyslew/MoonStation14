@@ -166,6 +166,7 @@ public final class BodyHandClient {
         if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
         POPUPS.clear();
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
         POLICY.reset();
         placementProof = null; deferredPlacement.clear();
         WORLD.clear();
@@ -227,6 +228,7 @@ public final class BodyHandClient {
             if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
             POPUPS.clear();
             com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+            com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
             POINTER.authorityClear();
             level = mc.level;
             player = mc.player;
@@ -261,6 +263,7 @@ public final class BodyHandClient {
             if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
             POPUPS.clear();
             com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+            com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
             POINTER.authorityClear();
             cameraBody = body;
             cameraEpoch = epoch;
@@ -661,6 +664,14 @@ public final class BodyHandClient {
         UUID target = lookTarget(cameraBody);
         var route = BodyInputGesturePolicy.normalWorldRoute(false, target != null,
                 active != null && active.token() != null);
+        if (route == BodyInputGesturePolicy.NormalWorldRoute.ACTIVATE_TARGET) {
+            var loose = findAimedLoose(target);
+            if (loose != null
+                    && com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.resolve(loose.getItem(), true)
+                    .filter(profile -> profile.signallerPort().isPresent()).isPresent())
+                request(BodyHandActionRequest.Action.ACTIVATE_TARGET);
+            return;
+        }
         if (route == BodyInputGesturePolicy.NormalWorldRoute.TARGET_USE) {
             request(BodyHandActionRequest.Action.USE_TARGET);
         } else if (route == BodyInputGesturePolicy.NormalWorldRoute.BLOCK_ACTIVATE) {
@@ -1008,6 +1019,12 @@ public final class BodyHandClient {
         return POLICY.inventoryView() == null ? null : POLICY.snapshot();
     }
 
+    /** Read-only latest confirmed body-hand proof for authenticated tool workspaces. */
+    public static BodyHandStateSnapshot networkConfiguratorProof() {
+        reconcile();
+        return cameraBody == null ? null : POLICY.confirmedSnapshot();
+    }
+
     /** Browser craft intent uses the same private current-body proof as other hand actions. */
     public static void requestConstructionCraft(String recipe, int quantity, boolean cancel) {
         var proof = inventoryProof();
@@ -1113,11 +1130,12 @@ public final class BodyHandClient {
         var active=view.first().id().equals(view.activeHand())?view.first():view.second();
         var kind=medicalKind(active.itemId());
         if((modifiers&GLFW.GLFW_MOD_ALT)!=0) { if(kind==MedicalUseGesturePolicy.Kind.SYRINGE) request(BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT); return true; }
-        var inHand=MedicalUseGesturePolicy.inHand(kind,(modifiers&GLFW.GLFW_MOD_SHIFT)!=0,true);
-        if(inHand==MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE || inHand==MedicalUseGesturePolicy.InHand.SELF_SCAN)
-            request(BodyHandActionRequest.Action.USE_BODY,cameraBody==null?null:cameraBody.getUUID());
-        else if(inHand==MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE || inHand==MedicalUseGesturePolicy.InHand.TOGGLE_ANALYZER)
-            request(BodyHandActionRequest.Action.USE_IN_HAND);
+            var inHand=MedicalUseGesturePolicy.inHand(kind,(modifiers&GLFW.GLFW_MOD_SHIFT)!=0,true);
+            if(inHand==MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE || inHand==MedicalUseGesturePolicy.InHand.SELF_SCAN)
+                request(BodyHandActionRequest.Action.USE_BODY,cameraBody==null?null:cameraBody.getUUID());
+            else if(inHand==MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE || inHand==MedicalUseGesturePolicy.InHand.TOGGLE_ANALYZER)
+                request(BodyHandActionRequest.Action.USE_IN_HAND);
+            else request(BodyHandActionRequest.Action.USE_IN_HAND);
         return true;
     }
 
@@ -1209,7 +1227,8 @@ public final class BodyHandClient {
                 .windows().stream().anyMatch(w -> w.visible());
         if (POPUPS.windows().stream().noneMatch(StoragePopupWorkspace.Window::visible)
                 && !analyzerOpen
-                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()) {
+                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()
+                && !com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorWindows.anyVisible()) {
             if (POINTER.closeWhenEmpty()) pointerMode(false);
         }
         boolean wireOpen = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active() != null;
@@ -1817,6 +1836,11 @@ public final class BodyHandClient {
                 if (active.token() == null || !BodyHandClientPolicy.handAvailableForItemAction(active)) return false;
                 target = lookTarget(cameraBody);
             }
+            case ACTIVATE_TARGET -> {
+                if (active.token() != null || !BodyHandClientPolicy.handAvailableForItemAction(active)) return false;
+                target = lookTarget(cameraBody);
+                expectedToken = null;
+            }
             case USE_BODY -> {
                 if (active.token() == null || !BodyHandClientPolicy.handAvailableForItemAction(active)
                         || nominatedBody == null) return false;
@@ -1840,7 +1864,7 @@ public final class BodyHandClient {
         }
         if ((action == BodyHandActionRequest.Action.PICKUP || action == BodyHandActionRequest.Action.PICKUP_SELECTED
                 || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
-                || action == BodyHandActionRequest.Action.USE_BODY)
+                || action == BodyHandActionRequest.Action.USE_BODY || action == BodyHandActionRequest.Action.ACTIVATE_TARGET)
                 && target == null) { POLICY.noItemUnderCursor(clock); return false; }
         long sequence = POLICY.action(clock);
         if (sequence == 0) return false;
@@ -1874,6 +1898,16 @@ public final class BodyHandClient {
         if (body == null) return null;
         refreshPile(body);
         return PILE.update(pileItems.stream().map(ItemEntity::getUUID).toList());
+    }
+
+    /** Resolve the UUID only from the existing bounded client pile nomination. */
+    private static com.juicyslew.moonstation14.entities.LooseItemEntity findAimedLoose(UUID target) {
+        if (target == null || cameraBody == null) return null;
+        refreshPile(cameraBody);
+        return pileItems.stream().filter(item -> target.equals(item.getUUID()))
+                .filter(com.juicyslew.moonstation14.entities.LooseItemEntity.class::isInstance)
+                .map(com.juicyslew.moonstation14.entities.LooseItemEntity.class::cast)
+                .findFirst().orElse(null);
     }
     public static void analyzerWindowClosed() {
         if (POPUPS.windows().stream().anyMatch(StoragePopupWorkspace.Window::visible)
@@ -2012,15 +2046,12 @@ public final class BodyHandClient {
                 new AABB(start, end).inflate(BodyItemTargetProbe.TARGET_MARGIN),
                 entity -> entity.isAlive() && !entity.getItem().isEmpty())) {
             var box = item.getBoundingBox();
-            var expanded = box.inflate(BodyItemTargetProbe.TARGET_MARGIN);
-            var hit = expanded.contains(start) ? java.util.Optional.of(start) : expanded.clip(start, end);
-            if (hit.isEmpty()) continue;
+            Vec3 hit = LooseItemRayGeometry.entry(box, start, end);
+            if (hit == null) continue;
             Vec3 look = body.getLookAngle();
-            double nearFace = (look.x >= 0 ? box.minX : box.maxX) * look.x
-                    + (look.y >= 0 ? box.minY : box.maxY) * look.y
-                    + (look.z >= 0 ? box.minZ : box.maxZ) * look.z - start.dot(look);
+            double nearFace = LooseItemRayGeometry.physicalNearFace(box, start, look);
             if (nearFace >= blockerDistance) continue;
-            double distance = hit.orElseThrow().distanceToSqr(start);
+            double distance = hit.distanceToSqr(start);
             if (distance <= maxDistance) { candidates.add(item); distances.put(item.getUUID(), distance); }
         }
         candidates.sort(java.util.Comparator.comparingDouble((ItemEntity i) -> distances.get(i.getUUID()))

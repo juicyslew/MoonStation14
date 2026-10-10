@@ -51,6 +51,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 
 @PrefixGameTestTemplate(false)
 @GameTestTags({"chemistry", "slip", "damage"})
@@ -179,7 +180,7 @@ public final class PuddleReactiveTouchGameTests {
                             SlipSystem.onAcceptedPlayerMovement((ServerPlayer) player, acceptedDisplacement);
                         }
                     }
-                    helper.runAfterDelay(1, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                         try {
                             for (Trial trial : trials) {
                                 long events = observed.stream().filter(event -> event.target() == trial.target).count();
@@ -223,17 +224,25 @@ public final class PuddleReactiveTouchGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
-    @GameTestTags({"medical-corrections-regression"})
+    @GameTestTags({"medical-corrections-regression", "full-suite-movement-regression"})
     public static void slidingSuperSlipperySlipDoesNotSpendReactiveTouchDose(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos firstPosition = new BlockPos(2, 1, 2);
-        BlockPos secondPosition = new BlockPos(7, 1, 2);
+        // Keep the independent source far enough to leave the first contact, but
+        // close enough that the real one-block move ends with positive body-footprint overlap.
+        BlockPos secondPosition = new BlockPos(6, 1, 2);
+        BlockPos actorStart = helper.absolutePos(firstPosition.offset(-1, 0, 0));
+        BlockPos firstAbsolute = helper.absolutePos(firstPosition);
+        BlockPos secondAbsolute = helper.absolutePos(secondPosition);
+        var ticket = FixtureChunkTickets.acquire(helper, new net.minecraft.world.phys.AABB(
+                Math.min(actorStart.getX(), firstAbsolute.getX()), actorStart.getY(), actorStart.getZ(),
+                secondAbsolute.getX() + 1, secondAbsolute.getY() + 1, secondAbsolute.getZ() + 1).inflate(1));
         // Place the actor outside both sources before either puddle is populated.
         Villager villager = helper.spawn(EntityType.VILLAGER, firstPosition.offset(-1, 0, 0));
         villager.setNoAi(true);
         villager.getAttribute(Attributes.ARMOR).setBaseValue(0f);
         putAt(villager, helper, firstPosition.offset(-1, 0, 0));
-        require(CharacterIdentitySystem.resolve(villager).isPresent(), "villager must be bound to human");
+            require(CharacterIdentitySystem.resolve(villager).isPresent(), "villager must be bound to human");
 
         Trial first = makePuddleTrial(helper, firstPosition, villager, "sliding-first-source");
         Trial second = makePuddleTrial(helper, secondPosition, villager, "sliding-second-source");
@@ -255,11 +264,15 @@ public final class PuddleReactiveTouchGameTests {
             }
             // Failsafe cleanup also covers GameTest timeout while the delayed assertions are pending.
             helper.runAfterDelay(55, () -> cleanup(trials, observer, helper));
-            helper.runAfterDelay(2, () -> {
+            FixtureChunkTickets.awaitEntityTicking(helper, ticket, 20, () -> true, "slip fixture resident",
+                    () -> {
                 try {
+                    require(ticket.entityTicking(villager.blockPosition()), "actor entity-ticking before movement");
+                    require(ticket.entityTicking(firstAbsolute) && ticket.entityTicking(secondAbsolute),
+                            "both puddle source cells entity-ticking before movement");
                     villager.setDeltaMovement(.12, 0, 0);
                     villager.move(MoverType.SELF, new Vec3(1, 0, 0));
-                    helper.runAfterDelay(1, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                         try {
                             require(observed.size() == 1, "actual first Entity.move must admit exactly one source event");
                             SlipEvent firstEvent = observed.get(0);
@@ -273,16 +286,36 @@ public final class PuddleReactiveTouchGameTests {
                             require(Math.abs(caustic(villager) - .3f) < .0001f,
                                     "first accepted Touch must apply .30 caustic");
 
-                            // Leave the first contact and make a real move into the distinct second source.
-                            putAt(villager, helper, secondPosition.offset(-1, 0, 0));
-                            villager.setDeltaMovement(.12, 0, 0);
-                            villager.move(MoverType.SELF, new Vec3(1, 0, 0));
-                            require(observed.size() == 2,
-                                    "actual second Entity.move must emit an event while knockdown is active: events="
-                                            + observed.size() + " position=" + villager.position() + " alive="
-                                            + villager.isAlive() + " dead=" + villager.isDeadOrDying() + " prone="
-                                            + villager.hasData(ModDataAttachments.STATUS_EFFECT.get()) + " delta="
-                                            + villager.getDeltaMovement());
+                             // Leave the first contact and make a real move into the distinct second source.
+                             putAt(villager, helper, secondPosition.offset(-1, 0, 0));
+                             Vec3 secondMoveBefore = villager.position();
+                             villager.setDeltaMovement(.12, 0, 0);
+                             villager.move(MoverType.SELF, new Vec3(1, 0, 0));
+                             Vec3 secondMoveAfter = villager.position();
+                             BlockPos absoluteFirst = helper.absolutePos(firstPosition);
+                             BlockPos absoluteSecond = helper.absolutePos(secondPosition);
+                             var firstShape = helper.getLevel().getBlockState(absoluteFirst)
+                                     .getShape(helper.getLevel(), absoluteFirst, net.minecraft.world.phys.shapes.CollisionContext.empty())
+                                     .bounds().move(absoluteFirst);
+                             var secondShape = helper.getLevel().getBlockState(absoluteSecond)
+                                     .getShape(helper.getLevel(), absoluteSecond, net.minecraft.world.phys.shapes.CollisionContext.empty())
+                                     .bounds().move(absoluteSecond);
+                             String secondMoveDiagnostic = "before=" + secondMoveBefore + " after=" + secondMoveAfter
+                                     + " displacement=" + secondMoveAfter.subtract(secondMoveBefore)
+                                     + " alive=" + villager.isAlive() + " dead=" + villager.isDeadOrDying()
+                                     + " health=" + villager.getHealth() + " prone="
+                                     + villager.hasData(ModDataAttachments.STATUS_EFFECT.get()) + " sliding="
+                                     + SlipSystem.isSliding(villager) + " qualifyingContact="
+                                     + com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem.hasQualifyingContact(villager)
+                                     + " sourcePositions=[" + absoluteFirst + "," + absoluteSecond + "]"
+                                     + " candidateRatios=[" + SlipSystem.intersectionRatio(villager.getBoundingBox(), firstShape, absoluteFirst)
+                                     + "," + SlipSystem.intersectionRatio(villager.getBoundingBox(), secondShape, absoluteSecond) + "]";
+                             require(observed.size() == 2,
+                                     "actual second Entity.move must emit an event while knockdown is active: events="
+                                             + observed.size() + " position=" + villager.position() + " alive="
+                                             + villager.isAlive() + " dead=" + villager.isDeadOrDying() + " prone="
+                                             + villager.hasData(ModDataAttachments.STATUS_EFFECT.get()) + " delta="
+                                             + villager.getDeltaMovement() + "; " + secondMoveDiagnostic);
                             SlipEvent secondEvent = observed.get(1);
                             require(secondEvent.sourcePosition().equals(helper.absolutePos(secondPosition))
                                             && secondEvent.source() == second.puddle,
@@ -297,8 +330,9 @@ public final class PuddleReactiveTouchGameTests {
                                             + villager.getDeltaMovement() + " events=" + observed.size());
                             require(Math.abs(caustic(villager) - .3f) < .0001f,
                                     "already-sliding slip must not apply a second Touch or additional caustic");
-                            cleanup(trials, observer, helper);
-                            helper.succeed();
+                             cleanup(trials, observer, helper);
+                             ticket.close();
+                             helper.succeed();
                         } catch (RuntimeException | Error exception) {
                             cleanup(trials, observer, helper);
                             throw exception;
@@ -308,7 +342,7 @@ public final class PuddleReactiveTouchGameTests {
                     cleanup(trials, observer, helper);
                     throw exception;
                 }
-            });
+            }, actorStart, firstAbsolute, secondAbsolute);
         } catch (RuntimeException | Error exception) {
             cleanup(trials, observer, helper);
             throw exception;
@@ -381,7 +415,7 @@ public final class PuddleReactiveTouchGameTests {
                     require(Math.abs(caustic(villager) - 1.875f) < .001f,
                             "first accepted Touch must apply approximately 1.875 typed caustic; got " + caustic(villager));
 
-                    helper.runAfterDelay(1, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                         try {
                             // Move directly from the first puddle into an adjacent independent source, without
                             // ending either contact or clearing the sliding attachment between entries.
@@ -398,7 +432,7 @@ public final class PuddleReactiveTouchGameTests {
                             require(Math.abs(caustic(villager) - 1.875f) < .001f,
                                     "already-sliding event must not apply another Touch dose");
 
-                            helper.runAfterDelay(1, () -> {
+                            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                                 try {
                                     // Exit beyond both adjacent qualifying sources. Contact exit clears Sliding
                                     // independently of knockdown, which is checked before the status is cleared.

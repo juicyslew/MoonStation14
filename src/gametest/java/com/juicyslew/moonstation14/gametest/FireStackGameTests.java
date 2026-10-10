@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.EffectCommonData;
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
@@ -229,8 +230,13 @@ public final class FireStackGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
+    @GameTestTags({"repair-native-residency"})
     public static void negativeStacksDryOnePerDueIntervalAndCleanUp(GameTestHelper helper) {
         Villager zombie = spawn(helper, 1);
+        BlockPos actorPosition = zombie.blockPosition();
+        var ticket = FixtureChunkTickets.around(helper, actorPosition, actorPosition, 1);
+        FixtureChunkTickets.awaitEntityTicking(helper, ticket, 20,
+                () -> zombie.tickCount > 0, "actor native tick advanced", () -> {
         EffectSystem effects = EffectSystem.withDefaults();
         require(apply(effects, helper, zombie,
                 new EffectData.Flammable(EffectCommonData.DEFAULT, -2f, null), 1f)
@@ -251,7 +257,8 @@ public final class FireStackGameTests {
                     // thenWaitUntil retries assertion failures. Keep waiting while the
                     // staggered activity has not yet reached its first due tick.
                     if (state == null || state.stacks() != -1f) {
-                        if (elapsed <= 20) return;
+                        if (elapsed <= 20) throw new GameTestAssertException("waiting for first due drying interval; actualStack="
+                                + (state == null ? "absent" : state.stacks()) + ", elapsedTicks=" + elapsed);
                         require(false, "first due drying interval must add exactly one stack; actualStack="
                                 + (state == null ? "absent" : state.stacks()) + ", elapsedTicks=" + elapsed
                                 + ", gameTimeElapsed=" + gameTimeElapsed + ", entityTickElapsed="
@@ -267,7 +274,10 @@ public final class FireStackGameTests {
                     FireStackComponent state = state(zombie);
                     long elapsed = helper.getTick() - firstDry[0];
                     long gameTimeElapsed = zombie.level().getGameTime() - startGameTime;
-                    if (state != null && state.stacks() == -1f && elapsed <= 20) return;
+                    if (state != null && state.stacks() == -1f && elapsed <= 20) {
+                        throw new GameTestAssertException("waiting for second due drying interval; actualStack=-1, elapsedTicks="
+                                + elapsed);
+                    }
                     require(!zombie.hasData(ModDataAttachments.FIRE_STACK.get()),
                             "second due interval must clean up at zero; actualStack="
                                     + (state == null ? "absent" : state.stacks()) + ", elapsedTicks=" + elapsed
@@ -280,7 +290,8 @@ public final class FireStackGameTests {
                     require(elapsed <= 20,
                             "second drying update must occur within one 20-tick interval; actualStack=0, elapsedTicks=" + elapsed);
                 })
-                .thenExecute(helper::succeed);
+                .thenExecute(() -> { ticket.close(); helper.succeed(); });
+        }, actorPosition);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)

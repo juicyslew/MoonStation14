@@ -60,7 +60,7 @@ public final class BodyGrenadeHeldFuseGameTests {
                     "repeat same tick does not duplicate update or beep state");
             // GameTest scheduling may run the callback on the boundary tick itself. Wait
             // beyond the deadline and still guard against server-time scheduling drift.
-            helper.runAfterDelay(25, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 25, () -> {
                 require(body.blockPosition().equals(bodyPosition), "body moved before detonation: "
                         + body.blockPosition() + " expected " + bodyPosition);
                 long now = level.getGameTime();

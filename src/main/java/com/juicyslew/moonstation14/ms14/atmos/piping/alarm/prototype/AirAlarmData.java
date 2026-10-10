@@ -10,10 +10,12 @@ import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Set;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceComponents;
 
 /** Resolved definition, not a live alarm or a functioning device network. */
 public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceiver,
-                           ExtensionCableReceiver extensionCableReceiver, DeviceList deviceList) {
+                           ExtensionCableReceiver extensionCableReceiver, DeviceList deviceList,
+                           DeviceComponents deviceComponents) {
     public record WallMount(boolean anchored, boolean nonColliding, boolean allowVerticalMounts) {
         static final Codec<WallMount> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.BOOL.fieldOf("anchored").forGetter(WallMount::anchored),
@@ -45,7 +47,8 @@ public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceive
             WallMount.CODEC.fieldOf("wallMount").forGetter(AirAlarmData::wallMount),
             ApcPowerReceiver.CODEC.fieldOf("apcPowerReceiver").forGetter(AirAlarmData::apcPowerReceiver),
             ExtensionCableReceiver.CODEC.fieldOf("extensionCableReceiver").forGetter(AirAlarmData::extensionCableReceiver),
-            DeviceList.CODEC.fieldOf("deviceList").forGetter(AirAlarmData::deviceList)
+            DeviceList.CODEC.fieldOf("deviceList").forGetter(AirAlarmData::deviceList),
+            DeviceComponents.CODEC.optionalFieldOf("deviceComponents", DeviceComponents.empty()).forGetter(AirAlarmData::deviceComponents)
     ).apply(i, AirAlarmData::new));
 
     public static final Codec<AirAlarmData> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
@@ -81,11 +84,20 @@ public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceive
     private static void audit(JsonElement json) {
         if (!json.isJsonObject()) throw new IllegalArgumentException("expected object");
         JsonObject object = json.getAsJsonObject();
-        fields(object, Set.of("wallMount", "apcPowerReceiver", "extensionCableReceiver", "deviceList"));
+        fields(object, Set.of("wallMount", "apcPowerReceiver", "extensionCableReceiver", "deviceList", "deviceComponents"));
         nested(object, "wallMount", Set.of("anchored", "nonColliding", "allowVerticalMounts"));
         nested(object, "apcPowerReceiver", Set.of("requestedWatts"));
         nested(object, "extensionCableReceiver", Set.of("localReachBlocks"));
         nested(object, "deviceList", Set.of("maxDevices"));
+        if (object.has("deviceComponents")) {
+            nested(object, "deviceComponents", Set.of("deviceNetwork", "deviceConnection", "deviceLinkSource", "deviceLinkSink", "deviceList"));
+            JsonObject components = object.getAsJsonObject("deviceComponents");
+            nested(components, "deviceNetwork", Set.of("network", "transmit", "receive", "transmitFrequency", "receiveFrequency", "addressPrefix", "autoConnect", "savableAddress", "customAddress", "receiveAll", "broadcastHook", "requiresPower"));
+            nested(components, "deviceConnection", Set.of("wired", "wireless", "wirelessRange"));
+            nested(components, "deviceLinkSource", Set.of("ports", "range", "lastSignals"));
+            nested(components, "deviceLinkSink", Set.of("ports", "limit"));
+            nested(components, "deviceList", Set.of("capacity", "allowList", "filterIncoming"));
+        }
     }
 
     private static void nested(JsonObject object, String name, Set<String> allowed) {

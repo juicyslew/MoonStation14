@@ -50,7 +50,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     static void drawWindows(net.minecraft.client.gui.GuiGraphics g, StoragePopupWorkspace workspace, int width, int height,
-                            float partialTick) {
+                             float partialTick) {
         var mc = net.minecraft.client.Minecraft.getInstance();
         workspace.resize(Math.max(1, width), Math.max(1, height));
         var view = BodyHandClient.inventoryPresentation();
@@ -92,6 +92,15 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                 }
             } finally { g.pose().popPose();g.flush(); }
         }
+        var linkPane = com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE;
+        var listPane = com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE;
+        linkPane.window().resize(width,height); listPane.window().resize(width,height);
+        if (linkPane.window().visible()) {
+            int mouseX = (int)(mc.mouseHandler.xpos() * width / mc.getWindow().getScreenWidth());
+            int mouseY = (int)(mc.mouseHandler.ypos() * height / mc.getWindow().getScreenHeight());
+            linkPane.draw(g,width,height,mouseX,mouseY);
+        }
+        if (listPane.window().visible()) listPane.draw(g,width,height);
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
         if (wire != null) {
             g.flush();g.pose().pushPose();
@@ -536,9 +545,16 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     boolean pointerUiHit(double x,double y) {
-        if (hit(x,y)!=null || menuTile!=null&&x>=menuX&&x<menuX+MENU_WIDTH&&y>=menuY&&y<menuY+MENU_ROW*2+4) return true;
+        if (configuratorHit(x,y) || hit(x,y)!=null || menuTile!=null&&x>=menuX&&x<menuX+MENU_WIDTH&&y>=menuY&&y<menuY+MENU_ROW*2+4) return true;
         var bar=HandBarLayout.calculate(width,height);
         return bar!=null&&bar.tileAt((int)x,(int)y)!=null;
+    }
+
+    private boolean configuratorHit(double x,double y) {
+        var l=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.window();
+        var p=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.window();
+        return l.visible()&&x>=l.x()&&x<l.x()+l.width()&&y>=l.y()&&y<l.y()+l.height()
+                ||p.visible()&&x>=p.x()&&x<p.x()+p.width()&&y>=p.y()&&y<p.y()+p.height();
     }
 
     /** Whether the current pointer is over a storage-workspace control. */
@@ -558,6 +574,22 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseClick(mouseX, mouseY, button)) return true;
+        var listPane=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE;
+        var listWindow=listPane.window();
+        if(listWindow.visible()&&mouseX>=listWindow.x()&&mouseX<listWindow.x()+listWindow.width()&&mouseY>=listWindow.y()&&mouseY<listWindow.y()+listWindow.height()) {
+            if(listPane.beginDrag(mouseX,mouseY,button))return true;
+            boolean handled=listPane.click(mouseX,mouseY,button);
+            if(handled&&!com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorWindows.anyVisible()) BodyHandClient.pointerOverlayClosed();
+            return handled;
+        }
+        var linkPane=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE;
+        var linkWindow=linkPane.window();
+        if(linkWindow.visible()&&mouseX>=linkWindow.x()&&mouseX<linkWindow.x()+linkWindow.width()&&mouseY>=linkWindow.y()&&mouseY<linkWindow.y()+linkWindow.height()) {
+            if(linkPane.beginDrag(mouseX,mouseY,button))return true;
+            boolean handled=linkPane.click(mouseX,mouseY,button);
+            if(handled&&!com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorWindows.anyVisible()) BodyHandClient.pointerOverlayClosed();
+            return handled;
+        }
         var medical=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         var sw=workspace.topmost(mouseX,mouseY); var mw=medical.topmost(mouseX,mouseY);
         var popupAtPress=hit(mouseX,mouseY);
@@ -735,6 +767,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        if(com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.drag(x,y)
+                || com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.drag(x,y)) return true;
         if (com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.drag(x, y, width, height)) return true;
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
         if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
@@ -782,6 +816,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseReleased(double x, double y, int button) {
+        com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.endDrag();
+        com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.endDrag();
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.endDrag();
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
         if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
@@ -952,6 +988,14 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         boolean overlayFront = com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront();
         if (overlayFront && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.key(key, scan, modifiers)) return true;
         if (!BodyHandClient.hasCommittedBody()) { clearMovement(); return true; }
+        if (key == GLFW.GLFW_KEY_ESCAPE) {
+            var list=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE;
+            var lw=list.window();
+            if(lw.visible()) return list.click(lw.x()+210,lw.y()+com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindow.HEIGHT-12,0);
+            var link=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE;
+            var nw=link.window();
+            if(nw.visible()) return link.click(nw.x()+200,nw.y()+230,0);
+        }
         boolean firstPress = actionKeys.add(scan != 0 ? -scan : key);
         if (key == GLFW.GLFW_KEY_Z && (modifiers & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SUPER)) == 0) {
             if (!firstPress) return true;
@@ -1006,6 +1050,10 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        var listWindow=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.window();
+        if(listWindow.visible()&&mouseX>=listWindow.x()&&mouseX<listWindow.x()+listWindow.width()&&(mouseY-listWindow.y())/listWindow.displayScale()>=50&&(mouseY-listWindow.y())/listWindow.displayScale()<230){listWindow.scroll(deltaY);return true;}
+        var linkWindow=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.window();
+        if(linkWindow.visible()&&mouseX>=linkWindow.x()&&mouseX<linkWindow.x()+linkWindow.width()&&(mouseY-linkWindow.y())/linkWindow.displayScale()>=58&&(mouseY-linkWindow.y())/linkWindow.displayScale()<210){linkWindow.scrollPorts(deltaY);return true;}
         if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseScroll(mouseX, mouseY, deltaY)) return true;
         var medical = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         var medicalWindow = medical.topmost(mouseX, mouseY);

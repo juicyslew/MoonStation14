@@ -126,7 +126,7 @@ public final class DisposalLiveIntakeGameTests {
             var endpoint = atmos.finiteCellEndpointForImmediateTransfer(level, unitPos.above()).orElseThrow();
             GasMixture sourceBefore = atmos.sample(level, unitPos.above()).orElseThrow();
             callbackScheduled = true;
-            helper.runAfterDelay(1, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
                 try {
                     require(!endpoint.eligible(), "endpoint from previous game tick is ineligible");
                     require(endpoint.snapshot() == null, "stale endpoint has no valid snapshot");
