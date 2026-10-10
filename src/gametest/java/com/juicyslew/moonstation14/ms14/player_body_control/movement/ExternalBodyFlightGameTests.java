@@ -48,7 +48,7 @@ public final class ExternalBodyFlightGameTests {
             require(body.getUUID().equals(id) && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands,
                     "flight preserves body identity and hands");
             require(!body.isInvisible() && !body.noPhysics, "flight body remains an ordinary collidable visible entity");
-            helper.runAfterDelay(6, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 6, () -> {
                 require(!ExternalBodyFlight.active(body) && ExternalBodyFlight.remainingTicks(body) == 0,
                         "flight lease expires on native world clock");
                 require(body.getX() < before.x - 2.3, "body traveled through passive flight ticks");
@@ -96,7 +96,7 @@ public final class ExternalBodyFlightGameTests {
         helper.runAfterDelay(6, () -> {
             require(ExternalBodyFlight.remainingTicks(body) == 0, "bounded flight expires after six world ticks");
             double yAtExpiry = body.getY();
-            helper.runAfterDelay(2, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                 require(body.getY() < yAtExpiry - .05 && body.getDeltaMovement().y < 0,
                         "ordinary passive gravity continues after the flight lease expires");
                 pollForLanding(helper, body, id, binding, hands, 0);

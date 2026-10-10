@@ -76,7 +76,7 @@ public final class PowerDeviceGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 320, templateNamespace = "moonstation14")
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 320, templateNamespace = "moonstation14")
     public static void lampExtensionReceiverUsesNearestKnownLvCableWithinThreeBlocks(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos apc = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -114,7 +114,7 @@ public final class PowerDeviceGameTests {
 
             level.setBlock(closeLamp, Blocks.AIR.defaultBlockState(), 3);
             placeDevice(level, closeLamp, PowerDeviceKind.LAMP, Direction.NORTH);
-            helper.runAfterDelay(60, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 60, () -> {
                 assertLamp(level, closeLamp, true, "replacement lamp resolves its LV extension receiver");
                 helper.succeed();
             });
@@ -153,7 +153,7 @@ public final class PowerDeviceGameTests {
 
             // Removing HV isolates the source, but the precharged APC battery supplies the lamp.
             level.setBlock(source, Blocks.AIR.defaultBlockState(), 3);
-            helper.runAfterDelay(60, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 60, () -> {
                 assertLamp(level, lamp, true, "precharged battery keeps lamp lit after HV break");
                 PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
                 Player player = new Player(level, apc, 0, new GameProfile(UUID.randomUUID(), "power-test")) {
@@ -162,11 +162,11 @@ public final class PowerDeviceGameTests {
                 };
                 player.getAbilities().instabuild = true;
                 require(apcEntity.toggleBreaker(player, 0), "authorized nearby player opens APC breaker");
-                helper.runAfterDelay(40, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 40, () -> {
                     assertLamp(level, lamp, false, "open breaker disconnects battery output");
                     apcEntity.setEnergyJoules(0);
                     require(apcEntity.toggleBreaker(player, 0), "authorized nearby player closes APC breaker");
-                    helper.runAfterDelay(40, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 40, () -> {
                         assertLamp(level, lamp, false, "empty battery and absent source leave lamp dark");
 
                         // Restore the source, but substitute an HV cable on the MV host face.
@@ -175,7 +175,7 @@ public final class PowerDeviceGameTests {
                                 "remove MV cable for wrong-tier isolation check");
                         require(CableStorage.place(level, helper.absolutePos(new BlockPos(2, 1, 4)), Direction.EAST, CableTier.HV),
                                 "install wrong-tier HV cable on MV link");
-                        helper.runAfterDelay(80, () -> {
+                        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 80, () -> {
                             assertLamp(level, lamp, false, "wrong tier cannot energize the downstream lamp");
                             helper.succeed();
                         });
@@ -219,7 +219,7 @@ public final class PowerDeviceGameTests {
             level.setBlock(changedHost, Blocks.DIRT.defaultBlockState(), 3);
             // setBlock(..., 3) is not assumed to emit NeighborNotify; indexed chunks
             // are lazily revalidated under the graph refresh budget.
-            helper.runAfterDelay(100, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 100, () -> {
                 assertLamp(level, lamp, false, "replaced arbitrary host cannot leave a stale energized path");
                 require(CableStorage.get(level, changedHost, Direction.WEST) == null,
                         "changed host record was pruned after bounded refresh");

@@ -12,6 +12,14 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PipeGasInventoryTest {
+    @Test void floatAwareConservationComparisonFailsClosedOutsideItsRepresentableDomain() {
+        assertTrue(PipeGasTransfer.close(1.0e40, 1.0e40), "matching large finite doubles retain strict equality");
+        assertFalse(PipeGasTransfer.close(1.0e40, 2.0e40), "material large finite changes are rejected");
+        assertFalse(PipeGasTransfer.close(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY));
+        assertFalse(PipeGasTransfer.close(Double.NaN, 1.0));
+        assertTrue(PipeGasTransfer.close(0.4f, 0.4f + Math.ulp(0.4f) * 8.0), "ordinary float-backed shares retain the established bound");
+    }
+
     @Test void detachedSnapshotsPersistVacuumAndDormantGasWithoutReplayingUpdates() {
         var node = new PipeTopology.NodeKey(new BlockPos(4, 5, 6), PipeTopology.Layer.SECONDARY);
         UUID id = UUID.randomUUID();
@@ -148,5 +156,53 @@ class PipeGasInventoryTest {
                 source.get(a).orElseThrow().version(), plan.get(a).gasAfter()));
         assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(partial));
         assertEquals(before, result.snapshot());
+    }
+
+    @Test void elevenNodeFloatSplitConservesAndRejectsMaterialSpeciesOrEnergyChanges() {
+        PipeGasInventory source = new PipeGasInventory();
+        var nodes = new java.util.ArrayList<PipeComponentEqualization.Node>();
+        var keys = new java.util.ArrayList<PipeTopology.NodeKey>();
+        var identities = new java.util.ArrayList<UUID>();
+        for (int i = 0; i < 11; i++) {
+            var key = new PipeTopology.NodeKey(new BlockPos(100 + i, 20, 30), PipeTopology.Layer.PRIMARY);
+            var id = UUID.randomUUID();
+            identities.add(id);
+            keys.add(key);
+            source = source.admit(key, id, 0.2);
+            var entry = source.get(key).orElseThrow();
+            GasMixture mixture = i == 0
+                    ? new GasMixture(Map.of(GasType.PLASMA, (double) 0.4f), 300)
+                    : GasMixture.vacuum();
+            if (i == 0) source = source.withMixture(key, id, entry.version(), mixture);
+            entry = source.get(key).orElseThrow();
+            nodes.add(new PipeComponentEqualization.Node(key, id, entry.version(), entry.volume(), entry.mixture()));
+        }
+
+        var initial = source;
+        var plan = PipeComponentEqualization.plan(nodes);
+        var distributed = source.withBatchMixtures(plan);
+        var port = distributed.get(keys.get(10)).orElseThrow().mixture();
+        assertTrue(port.moles(GasType.PLASMA) > 0.0, "remote vent-side node receives its float-backed share");
+        double plasmaAfter = keys.stream().mapToDouble(key -> distributed.get(key).orElseThrow().mixture().moles(GasType.PLASMA)).sum();
+        double energyBefore = nodes.stream().mapToDouble(node -> node.mixture().thermalEnergy()).sum();
+        double energyAfter = keys.stream().mapToDouble(key -> distributed.get(key).orElseThrow().mixture().thermalEnergy()).sum();
+        assertTrue(PipeGasTransfer.close(0.4f, plasmaAfter));
+        assertTrue(PipeGasTransfer.close(energyBefore, energyAfter));
+
+        var speciesCorruption = new java.util.LinkedHashMap<>(plan);
+        var firstExpected = plan.get(keys.get(0));
+        var alteredGas = new java.util.EnumMap<GasType, Double>(GasType.class);
+        alteredGas.putAll(firstExpected.gasAfter().gasMoles());
+        alteredGas.merge(GasType.PLASMA, 0.1, Double::sum);
+        speciesCorruption.put(keys.get(0), new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(
+                identities.get(0), firstExpected.expectedVersion(), new GasMixture(alteredGas, firstExpected.gasAfter().temperatureKelvin())));
+        assertThrows(IllegalArgumentException.class, () -> initial.withBatchMixtures(speciesCorruption));
+
+        var energyCorruption = new java.util.LinkedHashMap<>(plan);
+        var energyExpected = plan.get(keys.get(0));
+        energyCorruption.put(keys.get(0), new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(
+                identities.get(0), energyExpected.expectedVersion(), energyExpected.gasAfter().withThermalEnergy(
+                        energyExpected.gasAfter().thermalEnergy() + 1000.0)));
+        assertThrows(IllegalArgumentException.class, () -> initial.withBatchMixtures(energyCorruption));
     }
 }

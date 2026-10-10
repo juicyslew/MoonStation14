@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.standing.PostureSystem;
 import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -31,7 +32,7 @@ import java.util.UUID;
 public final class OwnedCorpsePhysicsGameTests {
     private OwnedCorpsePhysicsGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
+    @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 80)
     public static void ownedMedicalCorpseFallsAndSettlesWithNativeTicks(GameTestHelper helper) {
         BlockPos floor = helper.absolutePos(new BlockPos(1, 0, 1));
         for (int x = 0; x < 5; x++) for (int z = 0; z < 5; z++)
@@ -39,6 +40,9 @@ public final class OwnedCorpsePhysicsGameTests {
                     Blocks.STONE.defaultBlockState(), 3);
 
         BlockPos spawn = helper.absolutePos(new BlockPos(3, 7, 3));
+        var tickets = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(0, 0, 0)),
+                helper.absolutePos(new BlockPos(15, 12, 15)), 0);
+        FixtureChunkTickets.awaitEntityTicking(helper, tickets, 8, () -> {
         PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
         require(body != null, "registered harness is created");
         body.setPos(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5);
@@ -59,23 +63,28 @@ public final class OwnedCorpsePhysicsGameTests {
         require(((MindControlledMob) (Object) body).moonstation14$isMovementOwned() && body.isNoAi(),
                 "death retains movement ownership and disabled AI");
 
+        int startingTick = body.tickCount;
         double initialY = body.getY();
         helper.runAfterDelay(30, () -> {
             require(helper.getLevel().getEntity(id) == body && !body.isRemoved(),
                     "same corpse remains registered");
             require(body.getY() < initialY - 4d, "normal server ticks move the corpse down from midair");
             require(body.onGround(), "corpse settles on supporting floor");
+            require(body.tickCount - startingTick >= 30, "native actor ticks advance throughout fall");
             require(body.getItemBySlot(EquipmentSlot.HEAD).getItem() == Items.LEATHER_HELMET,
                     "corpse retains worn equipment");
             require(((MindControlledMob) (Object) body).moonstation14$isMovementOwned() && body.isNoAi(),
                     "settled corpse remains owned with AI disabled");
+            tickets.close();
             helper.succeed();
         });
+        }, spawn, helper.absolutePos(new BlockPos(3, 0, 3)));
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
     public static void ownedCriticalBodyFallsOnNativeTicks(GameTestHelper helper) {
         BlockPos spawn = helper.absolutePos(new BlockPos(3, 9, 3));
+        var tickets = FixtureChunkTickets.around(helper, spawn, spawn.below(9), 1);
         PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
         require(body != null, "registered harness is created");
         body.setPos(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5);
@@ -87,15 +96,22 @@ public final class OwnedCorpsePhysicsGameTests {
         ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
         require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 100f), 1f, true)
                 == DamageSystem.Result.APPLIED && MobStateSystem.isCritical(body), "body enters typed Critical");
-        double initialY = body.getY();
-        UUID id = body.getUUID();
-        helper.runAfterDelay(12, () -> {
-            require(helper.getLevel().getEntity(id) == body && body.getY() < initialY - .5,
-                    "native ticks passively move the owned Critical body");
-            require(body.isNoAi() && ((MindControlledMob) (Object) body).moonstation14$isMovementOwned(),
-                    "passive motion retains disabled AI and ownership");
-            helper.succeed();
-        });
+        FixtureChunkTickets.awaitEntityTicking(helper, tickets, 8, () -> {
+            require(tickets.entityTicking(body.blockPosition()), "Critical body chunk is entity-ticking before native travel: "
+                    + tickets.diagnostic(body.blockPosition()));
+            double initialY = body.getY();
+            UUID id = body.getUUID();
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 12, () -> {
+                require(tickets.entityTicking(body.blockPosition()), "Critical body remains entity-ticking: "
+                        + tickets.diagnostic(body.blockPosition()));
+                require(helper.getLevel().getEntity(id) == body && body.getY() < initialY - .5,
+                        "native ticks passively move the owned Critical body");
+                require(body.isNoAi() && ((MindControlledMob) (Object) body).moonstation14$isMovementOwned(),
+                        "passive motion retains disabled AI and ownership");
+                tickets.close();
+                helper.succeed();
+            });
+        }, body.blockPosition());
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
@@ -133,7 +149,7 @@ public final class OwnedCorpsePhysicsGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
-    @GameTestTags({"merge-main-regression"})
+    @GameTestTags({"merge-main-regression", "repair-native-residency"})
     public static void containedDeadUnitBodyRemainsPinnedAndResumesCorpsePhysicsOnExit(GameTestHelper helper) {
         containedDeadBodyRetainedAcrossDeath(helper, ContainedBodyOwner.Stage.UNIT, "unit");
     }
@@ -147,6 +163,8 @@ public final class OwnedCorpsePhysicsGameTests {
     private static void containedDeadBodyRetainedAcrossDeath(GameTestHelper helper, ContainedBodyOwner.Stage stage,
                                                               String label) {
         BlockPos spawn = helper.absolutePos(new BlockPos(3, 8, 3));
+        BlockPos exitPosition = spawn.offset(1, 0, 0);
+        var ticket = FixtureChunkTickets.around(helper, spawn, exitPosition, 1);
         PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
         require(body != null, label + " harness is created");
         body.setPos(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5);
@@ -164,7 +182,7 @@ public final class OwnedCorpsePhysicsGameTests {
             public UUID identity() { return id; }
             public net.minecraft.server.level.ServerLevel level() { return helper.getLevel(); }
             public net.minecraft.world.phys.Vec3 position() { return new net.minecraft.world.phys.Vec3(
-                    pin.getX() + .5, pin.getY(), pin.getZ() + .5); }
+                    exitPosition.getX() + .5, exitPosition.getY(), exitPosition.getZ() + .5); }
             public Stage stage() { return stage; }
             public boolean isValid() { return true; }
             public boolean tryEscape(net.minecraft.world.entity.LivingEntity ignored) { return false; }
@@ -177,6 +195,8 @@ public final class OwnedCorpsePhysicsGameTests {
         UUID id = body.getUUID();
         double pinnedY = body.getY();
         double[] beforeFall = new double[1];
+        FixtureChunkTickets.awaitEntityTicking(helper, ticket, 20,
+                () -> body.tickCount > 0, "body native tick advanced", () -> {
         helper.runAfterDelay(8, () -> {
             require(helper.getLevel().getEntity(id) == body && !body.isRemoved(), label + " dead body remains registered");
             require(containment.ownerOf(body).orElse(null) == owner && body.getY() == pinnedY,
@@ -186,16 +206,20 @@ public final class OwnedCorpsePhysicsGameTests {
             require(!body.isNoGravity() && !body.noPhysics && OwnedCorpsePhysics.eligible(body),
                     "uncontained retained corpse returns to passive physics eligibility");
             beforeFall[0] = body.getY();
-        });
-        helper.runAfterDelay(12, () -> {
+            int exitTick = body.tickCount;
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.await(helper, 12,
+                    () -> "native post-exit tick did not advance", () -> body.tickCount > exitTick, () -> {
             require(helper.getLevel().getEntity(id) == body && body.getY() < beforeFall[0],
                     "native world ticks resume corpse physics after exit");
             require(MobStateSystem.isDead(body) && !body.isRemoved()
                             && ((MindControlledMob) (Object) body).moonstation14$isMovementOwned() == initiallyMovementOwned
                             && body.isNoAi(),
                     "native fall preserves retained DEAD identity and initial movement ownership");
+            ticket.close();
             helper.succeed();
+            });
         });
+        }, spawn, exitPosition);
     }
 
     private static void containedCriticalBodyIsNotStepped(GameTestHelper helper, ContainedBodyOwner.Stage stage,

@@ -55,10 +55,10 @@ public final class TimedInteractionDamageGameTests {
             TimedOperation op = operation(body);
             require(op.phase() == TimedOperation.Phase.CANCELLED, "damage event cancels operation despite same-frame healing");
             require(body.getData(ModDataAttachments.LIVE_HANDS.get()).token(liveHands.activeHand()).orElseThrow().equals(source), "source remains unchanged");
-            helper.runAfterDelay(5, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5, () -> {
                 require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream().anyMatch(o -> o.id() == op.id() && o.phase() == TimedOperation.Phase.CANCELLED), "terminal cancellation retained for ten ticks");
                 require(body.getData(ModDataAttachments.LIVE_HANDS.get()).token(liveHands.activeHand()).orElseThrow().equals(source), "cancelled operation produces no dose");
-                helper.runAfterDelay(6, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 6, () -> {
                     require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream().noneMatch(o -> o.id() == op.id()), "terminal record pruned after retention window");
                     helper.succeed();
                 });
@@ -83,7 +83,7 @@ public final class TimedInteractionDamageGameTests {
             require(Math.abs(body.getHealth() - (body.getMaxHealth() - .1f)) < .001f, "actual final health confirms .1 health / .5 typed damage");
             body.heal(1f);
             require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream().anyMatch(o -> o.phase() == TimedOperation.Phase.ACTIVE), "subthreshold damage, rejection, and healing leave timer active");
-            helper.runAfterDelay(19, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 19, () -> {
                 var currentHands = body.getData(ModDataAttachments.LIVE_HANDS.get());
                 var remaining = currentHands.stackCopy(liveHands.activeHand()).orElseThrow().get(ModDataComponents.REAGENT.get());
                 require(remaining != null && remaining.contents().isEmpty(), "dose leaves the retained bottle empty");
@@ -109,12 +109,12 @@ public final class TimedInteractionDamageGameTests {
             var operations = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations();
             require(operations.stream().anyMatch(o -> o.id() == moveId && o.phase() == TimedOperation.Phase.CANCELLED), "move-enabled operation cancels after movement");
             require(breakMoveCalls.get() == 0, "cancelled movement callback does not run");
-            helper.runAfterDelay(18, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 18, () -> {
                 var laterOperations = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations();
                 require(laterOperations.stream().noneMatch(o -> o.id() == moveId), "cancelled movement record prunes after retention");
                 require(laterOperations.stream().anyMatch(o -> o.id() == stillId && o.phase() == TimedOperation.Phase.COMPLETED), "generic callback completes despite movement when breakMove is false");
                 require(breakMoveCalls.get() == 1, "only the still-valid callback runs once");
-                helper.runAfterDelay(11, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 11, () -> {
                     require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream().noneMatch(o -> o.id() == moveId || o.id() == stillId), "both terminal records prune");
                     helper.succeed();
                 });

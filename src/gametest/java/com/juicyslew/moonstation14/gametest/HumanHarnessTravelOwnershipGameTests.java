@@ -15,39 +15,54 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 
 @PrefixGameTestTemplate(false)
 @GameTestTags({"movement", "character", "travel"})
 public final class HumanHarnessTravelOwnershipGameTests {
+    // Minecraft's WalkAnimationState approaches its target with speed += (target - speed) * 0.4 each tick.
+    private static final float WALK_ANIMATION_DECAY_FACTOR = 0.6f;
+    private static final float WALK_ANIMATION_STATIONARY_THRESHOLD = 1e-4f;
     private HumanHarnessTravelOwnershipGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 45)
+    @GameTestTags("repair-walk-animation")
     public static void leasedPigAndVillagerKeepVanillaWalkAnimation(GameTestHelper helper) {
+        var tickets = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(1, 3, 1)),
+                helper.absolutePos(new BlockPos(8, 5, 6)), 1);
         for (int x = 1; x <= 8; x++) {
             for (int z = 1; z <= 6; z++) helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+            for (int y = 4; y <= 7; y++) for (int z = 1; z <= 6; z++) helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
         }
         Villager ownedVillager = spawnWithoutPressureTick(helper, EntityType.VILLAGER, new BlockPos(2, 4, 2));
         var ownedPig = spawnWithoutPressureTick(helper, EntityType.PIG, new BlockPos(5, 4, 2));
         Villager vanillaVillager = spawnWithoutPressureTick(helper, EntityType.VILLAGER, new BlockPos(2, 4, 5));
         var vanillaPig = spawnWithoutPressureTick(helper, EntityType.PIG, new BlockPos(5, 4, 5));
+        for (Mob body : new Mob[]{ownedVillager, ownedPig, vanillaVillager, vanillaPig}) {
+            body.move(MoverType.SELF, new Vec3(0, -1, 0));
+        }
         vanillaVillager.setNoAi(true);
         vanillaPig.setNoAi(true);
         for (var body : new net.minecraft.world.entity.Mob[]{ownedVillager, ownedPig}) {
             body.getPersistentData().putBoolean(GroundedHarnessLease.CONFIGURED_MARKER, true);
         }
-        helper.runAfterDelay(3, () -> {
-            require(ownedVillager.onGround() && ownedPig.onGround(), "bodies must settle on the floor before leasing");
+        FixtureChunkTickets.awaitEntityTicking(helper, tickets, 12,
+                () -> tickets.entityTicking(ownedVillager.blockPosition()) && tickets.entityTicking(ownedPig.blockPosition())
+                        && tickets.entityTicking(vanillaVillager.blockPosition()) && tickets.entityTicking(vanillaPig.blockPosition()), "all subjects entity ticking: villager="
+                        + ownedVillager.position() + "/" + ownedVillager.onGround() + ", pig=" + ownedPig.position()
+                        + "/" + ownedPig.onGround() + ", floor=" + helper.getLevel().getBlockState(ownedPig.blockPosition().below()), () -> {
             GroundedHarnessLease villagerLease = GroundedHarnessLease.tryAcquire(ownedVillager).orElseThrow(
                     () -> new GameTestAssertException("enrolled marked Villager must acquire a real harness lease"));
             GroundedHarnessLease pigLease = GroundedHarnessLease.tryAcquire(ownedPig).orElseThrow(
                     () -> new GameTestAssertException("enrolled marked Pig must acquire a real harness lease"));
-            helper.runAfterDelay(2, () -> {
+             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                 require(ownedVillager.walkAnimation.speed(1f) < 1e-4f
                                 && ownedPig.walkAnimation.speed(1f) < 1e-4f,
                         "stationary leased bodies must have near-zero walk animation speed");
@@ -58,36 +73,69 @@ public final class HumanHarnessTravelOwnershipGameTests {
                 GroundedHarnessWorldStep stepper = new GroundedHarnessWorldStep();
                 double villagerZ = ownedVillager.getZ();
                 double pigZ = ownedPig.getZ();
-                var villagerStep = stepper.step(ownedVillager, 0, 1_000, false, false, 0f);
+                 var villagerStep = stepper.step(ownedVillager, 0, 1_000, false, false, 0f);
                 var pigStep = stepper.step(ownedPig, 0, 1_000, false, false, 0f);
                 require(villagerStep.isPresent() && pigStep.isPresent(),
                         "one grounded harness step must be accepted for each leased character");
                 require(ownedVillager.getZ() > villagerZ && ownedPig.getZ() > pigZ,
                         "both harness steps must produce accepted horizontal displacement");
-                require(ownedVillager.walkAnimation.speed(1f) > 0f,
+                 require(ownedVillager.walkAnimation.speed(1f) > WALK_ANIMATION_STATIONARY_THRESHOLD,
                         "owned Villager must animate immediately after its accepted harness movement");
-                require(ownedPig.walkAnimation.speed(1f) > 0f,
-                        "owned Pig must animate immediately after its accepted harness movement");
+                 require(ownedPig.walkAnimation.speed(1f) > WALK_ANIMATION_STATIONARY_THRESHOLD,
+                         "owned Pig must animate immediately after its accepted harness movement");
                 require(vanillaVillager.walkAnimation.speed(1f) < 1e-4f
                                 && vanillaPig.walkAnimation.speed(1f) < 1e-4f,
                         "unowned stationary controls must not gain walk animation");
-                helper.runAfterDelay(1, () -> {
-                    require(ownedVillager.walkAnimation.speed(1f) > 0f,
-                            "owned Villager walk animation must survive one natural entity tick");
-                    require(ownedPig.walkAnimation.speed(1f) > 0f,
-                            "owned Pig walk animation must survive one natural entity tick");
-                    require(ownedVillager.walkAnimation.speed(1f) > 0f
-                                    && ownedPig.walkAnimation.speed(1f) > 0f,
-                            "both leased bodies must retain animation after natural ticking");
+                  int decayTicks = requiredWalkAnimationDecayTicks(Math.max(
+                         Math.max(ownedVillager.walkAnimation.speed(1f), ownedPig.walkAnimation.speed(1f)),
+                         Math.max(vanillaVillager.walkAnimation.speed(1f), vanillaPig.walkAnimation.speed(1f))));
+                  final int[] observed = {0};
+                  com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeOnEachTick(helper, new Runnable() {
+                      @Override public void run() {
+                          if (!GroundedHarnessLease.isOwnedBodyEligible(ownedVillager)
+                                  || !GroundedHarnessLease.isOwnedBodyEligible(ownedPig)) return;
+                          Vec3 villagerBefore = ownedVillager.position();
+                          Vec3 pigBefore = ownedPig.position();
+                          var stationaryVillager = stepper.step(ownedVillager, 0, 0, false, false, 0f);
+                          var stationaryPig = stepper.step(ownedPig, 0, 0, false, false, 0f);
+                          require(stationaryVillager.isPresent() && stationaryPig.isPresent(), "stationary owned steps accepted");
+                          require(villagerBefore.equals(ownedVillager.position()) && pigBefore.equals(ownedPig.position())
+                                          && ownedVillager.getDeltaMovement().horizontalDistanceSqr() == 0
+                                          && ownedPig.getDeltaMovement().horizontalDistanceSqr() == 0,
+                                  "stationary owned steps must preserve position and zero horizontal velocity");
+                          observed[0]++;
+                          if (observed[0] < decayTicks) return;
+                  require(ownedVillager.walkAnimation.speed(1f) < WALK_ANIMATION_STATIONARY_THRESHOLD
+                                      && ownedPig.walkAnimation.speed(1f) < WALK_ANIMATION_STATIONARY_THRESHOLD,
+                              "stationary leased bodies must decay to near-zero after natural entity ticks; "
+                                       + " observedSteps=" + observed[0]);
                     require(vanillaVillager.walkAnimation.speed(1f) < 1e-4f
                                     && vanillaPig.walkAnimation.speed(1f) < 1e-4f,
                             "stationary unowned controls must remain unanimated after natural ticking");
                     villagerLease.close();
                     pigLease.close();
-                    helper.succeed();
-                });
+                     tickets.close();
+                     helper.succeed();
+                      }
+                  });
             });
-        });
+        }, ownedVillager.blockPosition(), ownedPig.blockPosition(), vanillaVillager.blockPosition(), vanillaPig.blockPosition());
+    }
+
+    private static int requiredWalkAnimationDecayTicks(float startingSpeed) {
+        if (startingSpeed < WALK_ANIMATION_STATIONARY_THRESHOLD) return 1;
+        return (int) Math.ceil(Math.log(WALK_ANIMATION_STATIONARY_THRESHOLD / startingSpeed)
+                / Math.log(WALK_ANIMATION_DECAY_FACTOR));
+    }
+
+    private static String animationDiagnostic(String name, Mob body, double previousX, Vec3 previousPosition,
+                                              int tickBaseline, boolean leaseValid) {
+        return name + "{speed=" + body.walkAnimation.speed(1f) + ",nativeTickDelta="
+                + (body.tickCount - tickBaseline) + ",position=" + body.position() + ",previousBaseline="
+                + previousPosition + ",actualXYZ=" + body.getX() + "," + body.getY() + "," + body.getZ()
+                + ",stepXBaseline=" + previousX + ",deltaMovement=" + body.getDeltaMovement()
+                + ",movementOwned=" + ((MindControlledMob) body).moonstation14$isMovementOwned()
+                + ",noAI=" + body.isNoAi() + ",leaseValid=" + leaseValid + "}";
     }
 
     /** Keep the animation observation independent of the real, staggered pressure hazard. */
@@ -174,7 +222,7 @@ public final class HumanHarnessTravelOwnershipGameTests {
             owned.stopRiding();
 
             double afterAdapter = owned.getX();
-            helper.runAfterDelay(3, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 3, () -> {
                 require(Math.abs(owned.getX() - afterAdapter) < 1e-9d,
                         "marked body must not receive additional vanilla travel between adapter calls");
                 finishOwnershipChecks(helper, owned, vanilla, ownerFlag);

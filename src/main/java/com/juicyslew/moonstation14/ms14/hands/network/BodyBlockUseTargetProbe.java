@@ -87,6 +87,44 @@ public final class BodyBlockUseTargetProbe {
         }
     }
 
+    /** Bounded distance/loading check for block positions already admitted by the body-eye caller. */
+    public static boolean withinReach(ServerLevel level, LivingEntity body, BlockPos pos) {
+        if (level == null || body == null || pos == null || body.level() != level || !level.getServer().isSameThread()
+                || !level.getWorldBorder().isWithinBounds(pos) || level.isOutsideBuildHeight(pos)) return false;
+        var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        return chunk != null && chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL)
+                && body.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos)) <= MAX_REACH * MAX_REACH;
+    }
+
+    /** UI continuation admission: range and visible loaded identity, without requiring current aim. */
+    public static boolean lineOfSight(ServerLevel level, LivingEntity body, BlockPos pos) {
+        if (!withinReach(level, body, pos)) return false;
+        var from = body.getEyePosition(); var to = Vec3.atCenterOf(pos);
+        if (!finite(from) || !finite(to)) return false;
+        int minX = (Math.min(BlockPos.containing(from).getX(), pos.getX()) >> 4) - 1;
+        int maxX = (Math.max(BlockPos.containing(from).getX(), pos.getX()) >> 4) + 1;
+        int minZ = (Math.min(BlockPos.containing(from).getZ(), pos.getZ()) >> 4) - 1;
+        int maxZ = (Math.max(BlockPos.containing(from).getZ(), pos.getZ()) >> 4) + 1;
+        if ((long) (maxX - minX + 1) * (maxZ - minZ + 1) > MAX_CHUNKS) return false;
+        for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++)
+            if (level.getChunkSource().getChunkNow(x, z) == null) return false;
+        try {
+            var getter = new LoadedGetter(level, minX, maxX, minZ, maxZ);
+            var hit = getter.clip(new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, body) {
+                @Override public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(
+                        BlockState state, BlockGetter ignored, BlockPos blockPos) {
+                    return super.getBlockShape(state, level, blockPos);
+                }
+            });
+            return hit.getType() == HitResult.Type.MISS
+                    || hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos);
+        } catch (MissingChunk ignored) {
+            return false;
+        } catch (RuntimeException deniedRead) {
+            return false;
+        }
+    }
+
 
     private static boolean finite(Vec3 v) {
         return Double.isFinite(v.x) && Double.isFinite(v.y) && Double.isFinite(v.z);

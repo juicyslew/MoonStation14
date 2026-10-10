@@ -52,6 +52,19 @@ public final class PowerGraphService {
         return state != null && state.pending.isEmpty() && !state.graph.isDirty();
     }
 
+    /** Compact read-only topology/build state for diagnostics; does not query or load chunks. */
+    public static String diagnosticSnapshot(ServerLevel level) {
+        LevelState state = STATES.get(level);
+        if (state == null) return "powerGraph{uninitialized}";
+        LoadedPowerGraph.BuildProgress progress = state.graph.buildProgress();
+        return "powerGraph{pending=" + state.pending.size() + ",nodes=" + progress.loadedNodes()
+                + ",loadedChunks=" + progress.loadedChunks() + ",dirty=" + progress.dirty()
+                + ",revision=" + progress.revision() + ",indexed=" + progress.indexed()
+                + ",buildChunk=" + progress.chunkCursor() + ",buildNode=" + progress.nodeCursor()
+                + ",indexedNodes=" + progress.indexedNodes() + ",frontier=" + progress.frontierNodes()
+                + ",visited=" + progress.visitedNodes() + "}";
+    }
+
     public static LoadedPowerGraph.NodeState state(ServerLevel level, CableFaceNode node) {
         LevelState state = STATES.get(level);
         return state == null || !state.pending.isEmpty()
@@ -137,13 +150,26 @@ public final class PowerGraphService {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkLoad(ChunkEvent.Load event) {
-        if (event.getLevel() instanceof ServerLevel level) {
-            LevelState state = state(level);
-            state.topologyGeneration++;
-            state.pending.add(event.getChunk().getPos());
-            state.graph.setChunkLoaded(event.getChunk().getPos(), true);
-            state.graph.invalidate();
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        LevelState state = state(level);
+        ChunkPos pos = event.getChunk().getPos();
+        // The load event can precede promotion into the FULL cache. Keep only a bounded
+        // validation marker; it is not loaded-space knowledge or fail-closed mutation work.
+        if (!(event.getChunk() instanceof LevelChunk chunk)
+                || level.getChunkSource().getChunkNow(pos.x, pos.z) != chunk) {
+            deferFullChunkLoad(state, pos);
+            return;
         }
+        resolveFullChunkLoad(state, pos);
+        boolean relevantBoundary = state.graph.setChunkLoaded(pos, true);
+        if (relevantBoundary) state.topologyGeneration++;
+        CableChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get());
+        if (data != null && !data.snapshot().isEmpty() && state.pending.add(pos))
+            state.topologyGeneration++;
+        else
+            // Empty chunks remain in bounded periodic validation so missed direct
+            // cable-record edits are eventually discovered without a global reset.
+            state.validation.schedule(pos);
     }
 
     @net.neoforged.bus.api.SubscribeEvent
@@ -151,22 +177,35 @@ public final class PowerGraphService {
         if (event.getLevel() instanceof ServerLevel level) {
             LevelState state = STATES.get(level);
             if (state != null) {
-                state.topologyGeneration++;
+                resolveFullChunkLoad(state, event.getChunk().getPos());
+                boolean unloadedPowerDevice = event.getChunk() instanceof LevelChunk chunk
+                        && chunk.getBlockEntities().values().stream().anyMatch(be ->
+                        be instanceof com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity
+                                || be instanceof com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity
+                                || be instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity
+                                || be instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity
+                                || be instanceof com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity);
                 state.pending.remove(event.getChunk().getPos());
                 state.validation.remove(event.getChunk().getPos());
                 state.indexed.remove(event.getChunk().getPos());
                 state.lampChoices.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+                long revision = state.graph.revision();
                 state.graph.removeChunk(event.getChunk().getPos());
                 state.graph.setChunkLoaded(event.getChunk().getPos(), false);
+                if (state.graph.revision() != revision || unloadedPowerDevice) state.topologyGeneration++;
             }
         }
     }
 
     @net.neoforged.bus.api.SubscribeEvent
-    public static void onBlockPlaced(BlockEvent.EntityPlaceEvent event) { noteBlockChange(event.getLevel(), event.getPos()); }
+    public static void onBlockPlaced(BlockEvent.EntityPlaceEvent event) {
+        noteBlockChange(event.getLevel(), event.getPos());
+    }
 
     @net.neoforged.bus.api.SubscribeEvent
-    public static void onBlockBroken(BlockEvent.BreakEvent event) { noteBlockChange(event.getLevel(), event.getPos()); }
+    public static void onBlockBroken(BlockEvent.BreakEvent event) {
+        noteBlockChange(event.getLevel(), event.getPos());
+    }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onNeighborNotified(BlockEvent.NeighborNotifyEvent event) {
@@ -182,6 +221,7 @@ public final class PowerGraphService {
             // emit them. Periodic validation rotates independently from fail-closed
             // mutation work, and never marks the graph unknown by itself.
             int refreshed = 0;
+            var deferredRetry = new java.util.ArrayList<ChunkPos>();
             while (refreshed < CHUNK_REFRESHES_PER_TICK
                     && (!state.pending.isEmpty() || !state.validation.isEmpty())) {
                 ChunkPos pos;
@@ -193,16 +233,24 @@ public final class PowerGraphService {
                     pos = state.validation.poll();
                 }
                 if (!(level.getChunkSource().getChunk(pos.x, pos.z, ChunkStatus.FULL, false) instanceof LevelChunk chunk)) {
+                    if (state.deferredLoads.contains(pos)) {
+                        deferredRetry.add(pos);
+                        refreshed++;
+                        continue;
+                    }
                     state.pending.remove(pos);
                     state.validation.remove(pos);
                     state.indexed.remove(pos);
+                    long revision = state.graph.revision();
                     state.graph.removeChunk(pos);
                     state.graph.setChunkLoaded(pos, false);
+                    if (state.graph.revision() != revision) state.topologyGeneration++;
                     refreshed++;
                     continue;
                 }
+                resolveFullChunkLoad(state, pos);
                 state.pending.remove(pos);
-                state.graph.setChunkLoaded(pos, true);
+                if (state.graph.setChunkLoaded(pos, true)) state.topologyGeneration++;
                 CableChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get());
                 var nodes = new java.util.ArrayList<CableFaceNode>();
                 if (data != null) {
@@ -218,11 +266,12 @@ public final class PowerGraphService {
                 if (oldNodes == null || !oldNodes.equals(nodes)) {
                     state.indexed.put(pos, java.util.List.copyOf(nodes));
                     state.graph.replaceChunk(pos, nodes);
-                    state.topologyGeneration++;
+                    if (!nodes.isEmpty() || oldNodes != null) state.topologyGeneration++;
                 }
                 state.validation.schedule(pos);
                 refreshed++;
             }
+            for (ChunkPos pos : deferredRetry) state.validation.schedule(pos);
             state.graph.process(GRAPH_NODES_PER_TICK);
         }
     }
@@ -236,6 +285,13 @@ public final class PowerGraphService {
     public static void onServerStopped(ServerStoppedEvent event) { STATES.clear(); }
 
     private static LevelState state(ServerLevel level) { return STATES.computeIfAbsent(level, ignored -> new LevelState()); }
+
+    static void deferFullChunkLoad(LevelState state, ChunkPos pos) {
+        state.deferredLoads.add(pos);
+        state.validation.schedule(pos);
+    }
+
+    static void resolveFullChunkLoad(LevelState state, ChunkPos pos) { state.deferredLoads.remove(pos); }
 
     private static void noteBlockChange(net.minecraft.world.level.LevelAccessor accessor, BlockPos pos) {
         if (!(accessor instanceof ServerLevel level)) return;
@@ -259,13 +315,16 @@ public final class PowerGraphService {
         return false;
     }
 
-    private static final class LevelState {
+    static final class LevelState {
         final LoadedPowerGraph graph = new LoadedPowerGraph();
         final Set<ChunkPos> pending = new LinkedHashSet<>();
+        final Set<ChunkPos> deferredLoads = new LinkedHashSet<>();
         final ChunkValidationScheduler validation = new ChunkValidationScheduler();
         final Map<ChunkPos, java.util.List<CableFaceNode>> indexed = new java.util.LinkedHashMap<>();
         final Map<BlockPos, CachedLampNode> lampChoices = new java.util.HashMap<>();
         long topologyGeneration;
     }
+
+    /** Diagnostic details are appended to the existing snapshot without forcing world queries. */
     private record CachedLampNode(long revision, int radius, CableFaceNode node) { }
 }

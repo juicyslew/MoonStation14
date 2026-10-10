@@ -30,6 +30,13 @@ class AirAlarmControlProtocolTest {
 
     private static final UUID SESSION = UUID.randomUUID(), DEVICE = UUID.randomUUID();
 
+    @Test void immediateRefreshIsForMatchedCommandResponsesOnly() {
+        assertTrue(AirAlarmResponseQueryPolicy.shouldQuery(false, true));
+        assertFalse(AirAlarmResponseQueryPolicy.shouldQuery(true, false));
+        // A query response never schedules another immediate query; periodic refresh remains external.
+        assertFalse(AirAlarmResponseQueryPolicy.shouldQuery(false, false));
+    }
+
     private static AirAlarmControlRequest request(long id) {
         return new AirAlarmControlRequest(12, SESSION, id, DEVICE, 4,
                 AirAlarmControlRequest.Operation.SET_FILTER_GAS, true, 0);

@@ -61,10 +61,15 @@ public final class BodyDropPlacementGameTests {
         };
         require(com.juicyslew.moonstation14.ms14.containment.BodyContainmentService
                 .forLevel(helper.getLevel()).bind(body, refusingOwner), "fixture owner binds");
+        // The `empty` GameTest template's loaded scene may overlap neighboring fixtures. Count
+        // only entities created by this drop, without hiding duplicate stacks from the operation.
+        var searchBounds = body.getBoundingBox().inflate(5);
+        var preexistingItemIds = helper.getLevel().getEntitiesOfClass(ItemEntity.class, searchBounds,
+                item -> item.getItem().is(Items.DIAMOND)).stream().map(ItemEntity::getUUID).collect(java.util.stream.Collectors.toSet());
         require(BodyHandItemTransfer.dropOwned(body, "left", "contained-refusal", stored.revision(), () -> true)
                 == BodyHandItemTransfer.Result.SUCCESS, "semantic refusal uses contained-owner fallback");
-        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(5),
-                item -> item.getItem().is(Items.DIAMOND));
+        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, searchBounds,
+                item -> item.getItem().is(Items.DIAMOND) && !preexistingItemIds.contains(item.getUUID()));
         require(items.size() == 1 && items.getFirst().getItem().getCount() == 3,
                 "fallback creates one whole-stack world owner: items=" + items.size() + (items.isEmpty() ? "" :
                         " itemUUID=" + items.getFirst().getUUID() + " stack=" + items.getFirst().getItem()

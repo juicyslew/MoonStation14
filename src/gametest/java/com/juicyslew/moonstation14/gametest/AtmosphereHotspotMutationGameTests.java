@@ -86,7 +86,7 @@ public final class AtmosphereHotspotMutationGameTests {
         if (level.getGameTime() % AtmosphereService.TICK_CADENCE == 0) action.run();
         else if (waited >= AtmosphereService.TICK_CADENCE + 1)
             throw new GameTestAssertException("could not reach due atmosphere tick");
-        else helper.runAfterDelay(1, () -> waitForDue(helper, level, waited + 1, action));
+        else com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> waitForDue(helper, level, waited + 1, action));
     }
 
     private static boolean claimed(ServerLevel level, BlockPos pos) {

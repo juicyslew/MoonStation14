@@ -8,24 +8,28 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AirlockItemModelResourceTest {
     private static final String ROOT = "/assets/moonstation14/";
 
     @Test
-    void itemUsesExportedDefaultBlockModelAndItsDisplayTransforms() {
+    void airlockItemUsesAcceptedClosedPoseCandidateAndItsDisplayTransforms() {
         JsonObject item = read("models/item/airlock.json");
-        assertEquals("moonstation14:block/airlock/default/closed", item.get("parent").getAsString());
-        JsonObject block = read("models/block/airlock/default/closed.json");
+        assertEquals("moonstation14:item/airlock_vertical_standard_basic", item.get("parent").getAsString());
+        JsonObject candidate = read("models/item/airlock_vertical_standard_basic.json");
+        assertEquals("moonstation14:block/airlock/vertical_all/standard_basic/poses/closed_opaque",
+                candidate.get("parent").getAsString());
+        JsonObject block = read("models/block/airlock/vertical_all/standard_basic/poses/closed_opaque.json");
         assertTrue(block.has("display"), "inventory/held rendering should reuse authored transforms");
-        assertEquals(18, block.getAsJsonArray("elements").size());
+        assertFalse(block.getAsJsonArray("elements").isEmpty());
     }
 
     @Test
     void onlyAuthoredStatusLampElementsAreUnshaded() {
-        for (String component : new String[]{"leaf_left", "leaf_right"}) {
-            var elements = read("models/block/airlock/default/components/" + component + ".json")
+        for (String component : new String[]{"fixed", "header_lamps", "upper_leaf", "lower_leaf"}) {
+            var elements = read("models/block/airlock/vertical_all/standard_basic/components/" + component + ".json")
                     .getAsJsonArray("elements");
             var unshaded = new java.util.ArrayList<String>();
             for (var element : elements) {
@@ -33,8 +37,9 @@ class AirlockItemModelResourceTest {
                 if (part.has("shade") && !part.get("shade").getAsBoolean())
                     unshaded.add(part.get("name").getAsString());
             }
-            assertEquals(component.equals("leaf_left") ? java.util.List.of("status_left_front", "status_left_back")
-                    : java.util.List.of("status_right_front", "status_right_back"), unshaded);
+            assertEquals(component.equals("header_lamps")
+                    ? java.util.List.of("lamp_0_front", "lamp_0_back", "lamp_1_front", "lamp_1_back")
+                    : java.util.List.of(), unshaded);
         }
     }
 

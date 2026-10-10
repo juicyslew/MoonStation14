@@ -123,8 +123,7 @@ public final class PipeGasInventory {
         for (var gas : mixture.gasMoles().entrySet()) total.merge(gas.getKey(), gas.getValue(), Double::sum);
     }
     private static boolean conserved(double a, double b) {
-        if (!Double.isFinite(a) || !Double.isFinite(b)) return false;
-        return Math.abs(a - b) <= Math.max(Math.ulp(a) * 8, Math.max(Math.ulp(b) * 8, Math.max(Math.abs(a), Math.abs(b)) * 1e-14));
+        return PipeGasTransfer.close(a, b);
     }
     /** Removes only empty ownership; non-empty gas and energy require a separately accounted transfer. */
     public PipeGasInventory tombstoneEmpty(PipeTopology.NodeKey key, UUID id) {

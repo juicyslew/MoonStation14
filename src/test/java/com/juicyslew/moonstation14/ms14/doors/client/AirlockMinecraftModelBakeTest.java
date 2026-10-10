@@ -23,11 +23,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** CPU-only verification through Minecraft's own model JSON deserializer and FaceBakery. */
 class AirlockMinecraftModelBakeTest {
-    private static final String ROOT = "/assets/moonstation14/models/block/airlock/default/";
-    private static final List<String> COMPONENTS = List.of("frame", "leaf_left", "leaf_right",
-            "maintenance_cover", "maintenance_wires");
-    private static final List<String> STATES = List.of("closed", "open", "unpowered", "panel_open",
-            "open_panel", "bolted", "denied", "bolted_panel");
+    private static final String ROOT = "/assets/moonstation14/models/block/airlock/vertical_all/standard_basic/";
+    private static final List<String> COMPONENTS = List.of("fixed", "header_lamps", "upper_leaf", "lower_leaf",
+            "upper_infill", "reader_cover", "reader_housing", "maintenance_wires");
+    private static final List<String> STATES = List.of("overlays/closed_unlit_00_header", "overlays/opening_unlit_00_header",
+            "overlays/opening_unlit_00_reader", "overlays/bolted_unlit_00_header", "overlays/deny_unlit_00_header",
+            "overlays/deny_unlit_00_reader");
 
     @Test
     void allRegisteredComponentsAndLiveStateModelsDeserializeAndBakeAuthoredFaces() throws Exception {

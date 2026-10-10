@@ -24,6 +24,8 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/construction/client/";
     private static final String CLIENT_HANDS_SOURCE_PREFIX =
             "com/juicyslew/moonstation14/ms14/hands/client/";
+    private static final String CLIENT_DEVICE_NET_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/devicenet/item/client/";
     private static final Set<String> CLIENT_ONLY_SOURCES = Set.of(
             "com/juicyslew/moonstation14/MoonStation14Client.java",
             "com/juicyslew/moonstation14/CameraJitterHandler.java",
@@ -115,6 +117,7 @@ class ServerClassloadingTest {
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")
                         || relativePath.startsWith(CLIENT_CONSTRUCTION_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)
+                        || relativePath.startsWith(CLIENT_DEVICE_NET_SOURCE_PREFIX)
                         ) {
                     continue;
                 }

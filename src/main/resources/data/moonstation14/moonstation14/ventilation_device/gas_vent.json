@@ -1,6 +1,7 @@
 {
   "parent": "gas_unary_base",
   "kind": "VENT",
+  "deviceComponents": { "deviceNetwork": { "addressPrefix": "VNT-" } },
   "gasVentPump": {
     "targetPressureChangeKPaPerSecond": 101.325,
     "externalPressureBoundKPa": 101.325

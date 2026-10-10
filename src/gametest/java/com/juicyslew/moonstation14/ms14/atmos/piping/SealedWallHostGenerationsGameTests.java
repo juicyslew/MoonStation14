@@ -70,20 +70,30 @@ public final class SealedWallHostGenerationsGameTests {
         BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
         var chunk = level.getChunkAt(pos);
         level.setBlock(pos, ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState(), 3);
+        var recordsBeforeAdmission = chunk.getExistingDataOrNull(ModDataAttachments.PIPE_CHUNK.get());
+        var priorRecords = recordsBeforeAdmission == null ? java.util.List.<PipeChunkData.Record>of()
+                : recordsBeforeAdmission.snapshot();
         UUID id = UUID.randomUUID();
         var admitted = LoadedSealedWallSegment.prepareOne(level, pos, net.minecraft.core.Direction.EAST,
                 PipeTopology.Layer.PRIMARY, id).orElseThrow();
         require(admitted.id().equals(id), "fresh segment identity persisted");
         require(admitted.ports() == PipeChunkData.Record.portMask(java.util.List.of(net.minecraft.core.Direction.EAST, net.minecraft.core.Direction.WEST)), "only clicked-face opposite ports");
         require(LoadedSealedWallSegment.matchingLive(level, pos, PipeTopology.Layer.PRIMARY).isPresent(), "admission live");
-        require(chunk.getExistingDataOrNull(ModDataAttachments.PIPE_CHUNK.get()).size() == 1, "one clicked record only");
+        var recordsAfterAdmission = chunk.getExistingDataOrNull(ModDataAttachments.PIPE_CHUNK.get()).snapshot();
+        var newlyAdmitted = recordsAfterAdmission.stream().filter(record -> !priorRecords.contains(record)).toList();
+        require(recordsAfterAdmission.containsAll(priorRecords), "admission preserves preexisting sealed records");
+        require(newlyAdmitted.size() == 1 && newlyAdmitted.get(0).equals(admitted)
+                        && newlyAdmitted.get(0).x() == (pos.getX() & 15) && newlyAdmitted.get(0).y() == pos.getY()
+                        && newlyAdmitted.get(0).z() == (pos.getZ() & 15)
+                        && newlyAdmitted.get(0).layer() == PipeTopology.Layer.PRIMARY,
+                "exactly the clicked position/layer is newly admitted");
         require(PipeGasInventorySavedData.existing(level).map(data -> data.snapshot().get(new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY)).isEmpty()).orElse(true), "no gas state created");
         level.setBlock(pos, ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState(), 3);
         require(LoadedSealedWallSegment.matchingLive(level, pos, PipeTopology.Layer.PRIMARY).isEmpty(), "same-type replacement invalidates generation");
-        require(chunk.getExistingDataOrNull(ModDataAttachments.PIPE_CHUNK.get()).size() == 1, "stale record retained for quarantine");
+        require(chunk.getExistingDataOrNull(ModDataAttachments.PIPE_CHUNK.get()).snapshot().contains(admitted), "stale record retained for quarantine");
         require(LoadedSealedWallSegment.prepareOne(level, pos, net.minecraft.core.Direction.EAST,
                 PipeTopology.Layer.PRIMARY, UUID.randomUUID()).isEmpty(), "stale host cannot be readmitted");
-        require(chunk.getExistingDataOrNull(ModDataAttachments.PIPE_CHUNK.get()).size() == 1, "stale readmission adds no record");
+        require(chunk.getExistingDataOrNull(ModDataAttachments.PIPE_CHUNK.get()).snapshot().equals(recordsAfterAdmission), "stale readmission adds no record");
         helper.succeed();
     }
 

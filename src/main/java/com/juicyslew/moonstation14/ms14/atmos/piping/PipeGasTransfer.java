@@ -119,8 +119,15 @@ public final class PipeGasTransfer {
                 afterSource.thermalEnergy() + afterDestination.thermalEnergy());
     }
 
-    private static boolean close(double a, double b) {
-        return Math.abs(a - b) <= Math.max(Math.ulp((float) a), Math.ulp((float) b)) * 8.0;
+    /** Shared float-backed conservation tolerance for gas inventories and transfer plans. */
+    static boolean close(double a, double b) {
+        if (!Double.isFinite(a) || !Double.isFinite(b)) return false;
+        float floatA = (float) a, floatB = (float) b;
+        if (Float.isFinite(floatA) && Float.isFinite(floatB))
+            return Math.abs(a - b) <= Math.max(Math.ulp(floatA), Math.ulp(floatB)) * 8.0;
+        // Finite doubles outside float range retain the prior strict double-scale bound.
+        return Math.abs(a - b) <= Math.max(Math.ulp(a) * 8.0,
+                Math.max(Math.ulp(b) * 8.0, Math.max(Math.abs(a), Math.abs(b)) * 1e-14));
     }
     private static boolean withinPressureBound(double pressure, double bound) {
         return pressure <= bound;

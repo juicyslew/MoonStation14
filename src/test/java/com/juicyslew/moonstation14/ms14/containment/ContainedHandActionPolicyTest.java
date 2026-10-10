@@ -17,6 +17,7 @@ class ContainedHandActionPolicyTest {
                         GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
                         GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD,
                         USE_HELD, USE_IN_HAND, PRIME_GRENADE, CYCLE_SYRINGE_AMOUNT, STOP_PULL, DROP -> true;
+                case ACTIVATE_TARGET -> false;
                 default -> false;
             };
             assertEquals(bodyLocal, DisposalContainedActionPolicy.permitsBodyHandAction(action), action.name());

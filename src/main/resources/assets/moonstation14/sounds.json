@@ -36,6 +36,14 @@
     ],
     "subtitle": "sounds.moonstation14.apc.switch"
   },
+  "device_lightswitch": {
+    "sounds": [
+      "moonstation14:device_lightswitch"
+    ]
+  },
+  "device/defib_zap": {
+    "sounds": ["moonstation14:device/defib_zap"]
+  },
   "ss14/items/drink": {
     "sounds": [
       "moonstation14:ss14/items/drink"

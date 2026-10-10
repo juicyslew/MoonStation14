@@ -32,7 +32,7 @@ import java.util.WeakHashMap;
 
 /** Draws the exported baked component models, clipping animated panels in canonical door space. */
 public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<AirlockBlockEntity> {
-    private static final String BASE = "block/airlock/default/";
+    private static final String BASE = "block/airlock/vertical_all/standard_basic/";
     private static final List<String> COMPONENTS = java.util.Arrays.stream(AirlockGeometry.Part.values())
             .map(part -> part.name().toLowerCase(java.util.Locale.ROOT)).toList();
     private static final ResourceLocation BLOCK_ATLAS = TextureAtlas.LOCATION_BLOCKS;
@@ -40,15 +40,16 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
             Collections.synchronizedMap(new WeakHashMap<>());
 
     private record LocalVertex(float x, float y, float z, float u, float v) { }
-    private record DecodedQuad(List<LocalVertex> vertices, Direction direction, boolean shade) { }
+    private record DecodedQuad(List<LocalVertex> vertices, Direction direction, boolean shade, ResourceLocation sprite) { }
 
     public AirlockBlockEntityRenderer(BlockEntityRendererProvider.Context context) { }
 
     public static List<ModelResourceLocation> additionalModels() {
         ArrayList<ModelResourceLocation> models = new ArrayList<>();
         for (String component : COMPONENTS) models.add(modelLocation(BASE + "components/" + component));
-        for (String state : List.of("closed", "open", "unpowered", "panel_open", "open_panel", "bolted",
-                "denied", "bolted_panel")) models.add(modelLocation(BASE + state));
+        for (String state : List.of("closed_unlit_00_header", "opening_unlit_00_header", "opening_unlit_00_reader",
+                "bolted_unlit_00_header", "deny_unlit_00_header", "deny_unlit_00_reader"))
+            models.add(modelLocation(BASE + "overlays/" + state));
         return List.copyOf(models);
     }
 
@@ -74,8 +75,6 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         double openness = AirlockGeometry.openness(view.phase(), elapsed, openOne, openTwo, closeOne, closeTwo);
         AirlockFramePlanner.Plan presentation = AirlockFramePlanner.plan(view.phase(), view.powered(),
                 view.boltsDown(), view.boltLightsVisible(), view.panelVisible(), view.panelOpen());
-        String atlasState = presentation.atlas();
-
         pose.pushPose();
         pose.translate(.5, 0, .5);
         // Exported components face +Z; the canonical airlock front is -Z, so turn them 180 degrees.
@@ -84,35 +83,44 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-facing.toYRot()));
         pose.translate(-.5, 0, -.5);
         var manager = Minecraft.getInstance().getModelManager();
-        drawComponent(manager.getModel(modelLocation(BASE + "components/frame")), pose, buffers,
-                packedLight, packedOverlay, atlasState, 0, true, view.powered());
-        double travel = openness * AirlockGeometry.HALF_TRAVEL;
-        drawComponent(manager.getModel(modelLocation(BASE + "components/leaf_left")), pose, buffers,
-                packedLight, packedOverlay, atlasState, travel, true, view.powered());
-        drawComponent(manager.getModel(modelLocation(BASE + "components/leaf_right")), pose, buffers,
-                packedLight, packedOverlay, atlasState, -travel, true, view.powered());
-        // Hatch parts are authored on the left leaf and move with the right leaf after mirroring.
+        drawPart(manager,"fixed",pose,buffers,packedLight,packedOverlay,0,0,false);
+        drawPart(manager,"header_lamps",pose,buffers,packedLight,packedOverlay,0,0,false);
+        drawPart(manager,"reader_housing",pose,buffers,packedLight,packedOverlay,0,
+                AirlockGeometry.movementY(AirlockGeometry.Part.READER_HOUSING,openness),false);
+        double upper = AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,openness);
+        double lower = AirlockGeometry.movementY(AirlockGeometry.Part.LOWER_LEAF,openness);
+        drawPart(manager,"upper_leaf",pose,buffers,packedLight,packedOverlay,0,upper,false);
+        drawPart(manager,"lower_leaf",pose,buffers,packedLight,packedOverlay,0,lower,false);
+        drawPart(manager,"upper_infill",pose,buffers,packedLight,packedOverlay,0,AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_INFILL,openness),false);
         if (presentation.maintenanceWires()) {
-            String component = "maintenance_wires";
-            drawComponent(manager.getModel(modelLocation(BASE + "components/" + component)), pose, buffers,
-                    packedLight, packedOverlay, atlasState, -travel, true, view.powered());
+            drawPart(manager,"maintenance_wires",pose,buffers,packedLight,packedOverlay,0,AirlockGeometry.movementY(AirlockGeometry.Part.MAINTENANCE_WIRES,openness),false);
         } else {
-            drawComponent(manager.getModel(modelLocation(BASE + "components/maintenance_cover")), pose, buffers,
-                    packedLight, packedOverlay, atlasState, -travel, true, view.powered());
+            drawPart(manager,"reader_cover",pose,buffers,packedLight,packedOverlay,0,AirlockGeometry.movementY(AirlockGeometry.Part.READER_COVER,openness),false);
         }
+        if (presentation.headerOverlay() != null)
+            drawComponent(manager.getModel(modelLocation(BASE+"overlays/"+presentation.headerOverlay()+"_00_header")),
+                    pose,buffers,packedLight,packedOverlay,0,0,true,view.powered());
+        if (presentation.readerOverlay() != null)
+            drawComponent(manager.getModel(modelLocation(BASE+"overlays/"+presentation.readerOverlay()+"_00_reader")),
+                    pose,buffers,packedLight,packedOverlay,0,
+                    AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,openness),true,view.powered());
         pose.popPose();
     }
 
+    private static void drawPart(net.minecraft.client.resources.model.ModelManager manager,String part,PoseStack pose,
+                                 MultiBufferSource buffers,int light,int overlay,double x,double y,boolean powered) {
+        drawComponent(manager.getModel(modelLocation(BASE+"components/"+part)),pose,buffers,light,overlay,x,y,true,powered);
+    }
+
     private static void drawComponent(BakedModel model, PoseStack pose, MultiBufferSource buffers,
-                                      int light, int overlay, String atlasState, double xTranslation,
+                                       int light, int overlay, double xTranslation, double yTranslation,
                                       boolean clip, boolean powered) {
         if (model == null) return;
-        TextureAtlasSprite target = Minecraft.getInstance().getTextureAtlas(BLOCK_ATLAS)
-                .apply(ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID,
-                        "block/airlock/default/" + atlasState));
-        if (target == null) return;
-        for (DecodedQuad quad : decoded(model))
-            emitQuad(quad, pose, buffers, light, overlay, target, xTranslation, clip, powered);
+        for (DecodedQuad quad : decoded(model)) {
+            TextureAtlasSprite target = Minecraft.getInstance().getTextureAtlas(BLOCK_ATLAS).apply(quad.sprite());
+            if (target == null) continue;
+            emitQuad(quad, pose, buffers, light, overlay, target, xTranslation, yTranslation, clip, powered);
+        }
     }
 
     private static List<DecodedQuad> decoded(BakedModel model) {
@@ -143,16 +151,17 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
                 vertices.add(new LocalVertex(Float.intBitsToFloat(raw[offset]), Float.intBitsToFloat(raw[offset + 1]),
                         Float.intBitsToFloat(raw[offset + 2]), localU, localV));
             }
-            decoded.add(new DecodedQuad(List.copyOf(vertices), quad.getDirection(), quad.isShade()));
+            decoded.add(new DecodedQuad(List.copyOf(vertices), quad.getDirection(), quad.isShade(), source.contents().name()));
         }
     }
 
     private static void emitQuad(DecodedQuad quad, PoseStack pose, MultiBufferSource buffers, int light, int overlay,
-                                 TextureAtlasSprite target, double xTranslation, boolean shouldClip, boolean powered) {
+                                 TextureAtlasSprite target, double xTranslation,double yTranslation, boolean shouldClip, boolean powered) {
         boolean inside = true;
         for (LocalVertex vertex : quad.vertices()) {
             float x = vertex.x() + (float) xTranslation;
-            if (x < 0 || x > 1 || vertex.y() < 0 || vertex.y() > 2 || vertex.z() < 0 || vertex.z() > 1) {
+            float y=vertex.y()+(float)yTranslation;
+            if (x < 0 || x > 1 || y < 0 || y > 2 || vertex.z() < 0 || vertex.z() > 1) {
                 inside = false;
                 break;
             }
@@ -164,13 +173,13 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         int vertexLight = quadLight(quad.shade(), powered, light);
         if (!shouldClip || inside) {
             for (LocalVertex vertex : quad.vertices())
-                vertex(out, matrix, normal, vertex.x() + (float) xTranslation, vertex.y(), vertex.z(),
+                vertex(out, matrix, normal, vertex.x() + (float) xTranslation, vertex.y()+(float)yTranslation, vertex.z(),
                         remapAtlasCoordinate(vertex.u(), target.getU0(), target.getU1()),
                         remapAtlasCoordinate(vertex.v(), target.getV0(), target.getV1()), vertexLight, overlay);
             return;
         }
         ArrayList<AirlockQuadClipper.Vertex> translated = new ArrayList<>(4);
-        for (LocalVertex vertex : quad.vertices()) translated.add(toVertex(vertex, target, xTranslation));
+        for (LocalVertex vertex : quad.vertices()) translated.add(toVertex(vertex, target, xTranslation,yTranslation));
         List<AirlockQuadClipper.Vertex> polygon = AirlockQuadClipper.clip(translated);
         if (polygon.size() < 3) return;
         if (polygon.size() == 4) {
@@ -188,8 +197,8 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         }
     }
 
-    private static AirlockQuadClipper.Vertex toVertex(LocalVertex vertex, TextureAtlasSprite target, double xTranslation) {
-        return new AirlockQuadClipper.Vertex(vertex.x() + (float) xTranslation, vertex.y(), vertex.z(),
+    private static AirlockQuadClipper.Vertex toVertex(LocalVertex vertex, TextureAtlasSprite target, double xTranslation,double yTranslation) {
+        return new AirlockQuadClipper.Vertex(vertex.x() + (float) xTranslation, vertex.y()+(float)yTranslation, vertex.z(),
                 remapAtlasCoordinate(vertex.u(), target.getU0(), target.getU1()),
                 remapAtlasCoordinate(vertex.v(), target.getV0(), target.getV1()));
     }

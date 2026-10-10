@@ -1,0 +1,1 @@
+{"id":"moonstation14:network_configurator","parent":"moonstation14:generic","mass":0.8,"geometry":"item","render_kind":"flat_sprite","physical_width":0.62,"physical_height":0.12,"visual":{"sprite_scale_x":0.62,"sprite_scale_y":0.62,"sprite_offset_x":0.0,"sprite_offset_y":0.0,"model_scale":1.0,"model_floor_offset":0.0}}

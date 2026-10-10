@@ -12,10 +12,6 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 /** Depth-tested physical-bounds marker for the locally nominated visible loose item. */
 public final class SelectedLooseOutlineRenderer {
-    private static final float OUTLINE_RED = .58f;
-    private static final float OUTLINE_GREEN = .72f;
-    private static final float OUTLINE_BLUE = .78f;
-    private static final float OUTLINE_ALPHA = .7f;
 
     private SelectedLooseOutlineRenderer() { }
 
@@ -24,6 +20,14 @@ public final class SelectedLooseOutlineRenderer {
         Minecraft mc = Minecraft.getInstance();
         net.minecraft.world.entity.item.ItemEntity entity = BodyHandClient.selectedItemForOutline();
         if (entity == null || mc.level == null || entity.level() != mc.level || !entity.isAlive()) return;
+        if (!(mc.getCameraEntity() instanceof net.minecraft.world.entity.Mob body)
+                || body != com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForHud()
+                || com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch() <= 0) return;
+        Vec3 start = body.getEyePosition();
+        Vec3 end = start.add(body.getLookAngle().scale(6.0));
+        var blockHit = body.level().clip(new net.minecraft.world.level.ClipContext(start, end,
+                net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, body));
+        if (!OutlinePriority.showItem(entity.getBoundingBox(), start, end, blockHit)) return;
         var camera = event.getCamera().getPosition();
         float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         // Match LevelRenderer's entity rendering history fields rather than getPosition's xo/yo/zo interpolation.
@@ -33,7 +37,7 @@ public final class SelectedLooseOutlineRenderer {
         AABB b = interpolatedBounds(entity.getBoundingBox(), entity.position(), renderPosition, camera);
         PoseStack pose = event.getPoseStack();
         VertexConsumer lines = mc.renderBuffers().bufferSource().getBuffer(RenderType.lines());
-        LevelRenderer.renderLineBox(pose, lines, b, OUTLINE_RED, OUTLINE_GREEN, OUTLINE_BLUE, OUTLINE_ALPHA);
+        LevelRenderer.renderLineBox(pose, lines, b, OutlinePriority.RED, OutlinePriority.GREEN, OutlinePriority.BLUE, OutlinePriority.ALPHA);
         mc.renderBuffers().bufferSource().endBatch(RenderType.lines());
     }
 

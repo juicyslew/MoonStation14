@@ -12,7 +12,7 @@ class AirAlarmLayoutTest {
             assertFalse(l.tooSmall());
             var window = new AirAlarmLayout.Rect(l.x(), l.y(), l.width(), l.height());
             assertTrue(window.inside(0,0,viewport[0],viewport[1]));
-            for (var r : List.of(l.detailBack(), l.detailTabs(), l.configure(), l.close(), l.search(), l.deviceRows(), l.refresh(), l.pair(), l.enabled(), l.mode(),
+            for (var r : List.of(l.detailBack(), l.detailTabs(), l.configure(), l.close(), l.search(), l.deviceRows(), l.refresh(), l.enabled(), l.mode(),
                     l.numericEdit(), l.numericSubmit(), l.inset(), l.footer())) assertTrue(r.inside(l.x(),l.y(),l.width(),l.height()), r.toString());
             assertTrue(l.search().inside(l.x(),l.y(),l.width(),l.height()));
             assertFalse(l.search().overlaps(l.deviceRows())); // MachineSearchList owns rows only; search is 22px above.
@@ -21,8 +21,7 @@ class AirAlarmLayoutTest {
             assertEquals(18, l.close().width()); assertEquals(18, l.close().height());
             assertEquals(18, l.search().height()); // MachineSearchList and its viewport use 18px rows/heights.
             assertEquals(72, l.deviceRows().height()); // Four visible 18px rows.
-            assertFalse(l.refresh().overlaps(l.pair()));
-            assertFalse(l.pair().overlaps(l.configure())); assertFalse(l.refresh().overlaps(l.configure()));
+            assertFalse(l.refresh().overlaps(l.configure()));
             assertFalse(l.detailBack().overlaps(l.detailTabs()));
             assertFalse(l.numericEdit().overlaps(l.numericSubmit()));
             assertFalse(l.enabled().overlaps(l.mode()));

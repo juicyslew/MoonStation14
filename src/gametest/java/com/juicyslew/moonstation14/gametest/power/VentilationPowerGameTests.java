@@ -24,6 +24,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Direction;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
@@ -33,7 +34,7 @@ import java.util.UUID;
 public final class VentilationPowerGameTests {
     private VentilationPowerGameTests() { }
 
-    @GameTest(template = "power_live_chain_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void loadedInheritedDefinitionsDriveDefaultsAndReceiver(GameTestHelper helper) {
         var catalog = PrototypeRuntime.serverVentilationDevices();
         var ventDefinition = catalog.get(ModVentilationDevices.VENT);
@@ -82,31 +83,62 @@ public final class VentilationPowerGameTests {
     @GameTestTags("simulation-defaults")
     public static void poweredVentMeterTracksBreakerAndReplacement(GameTestHelper helper) {
         Fixture fixture = connectVent(helper);
-        helper.runAfterDelay(100, () -> {
-            ServerLevel level = fixture.level();
-            VentilationDeviceBlockEntity vent = fixture.vent();
-            require(PowerRuntime.ventilationMeter(level, vent).known(), "powered vent meter is known after solve");
-            require(PowerRuntime.ventilationMeter(level, vent).deliveredWatts() == 5, "powered vent receives 5 W meter sample");
-            PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(fixture.apc());
-            Player player = creativePlayer(level, fixture.apc());
-            require(apcEntity.toggleBreaker(player, 0), "open APC breaker");
-            require(!PowerRuntime.ventilationMeter(level, vent).known(), "open breaker immediately invalidates meter");
-            require(apcEntity.toggleBreaker(player, 0), "close APC breaker");
-            helper.runAfterDelay(40, () -> {
-                require(PowerRuntime.ventilationMeter(level, vent).known(), "meter returns after fresh solve");
-                level.setBlock(fixture.ventPos(), Blocks.AIR.defaultBlockState(), 3);
-                level.setBlock(fixture.ventPos(), ModBlocks.GAS_VENT.get().defaultBlockState().setValue(com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock.FACING, Direction.NORTH), 3);
-                VentilationDeviceBlockEntity replacement = (VentilationDeviceBlockEntity) level.getBlockEntity(fixture.ventPos());
-                require(replacement != null && replacement != vent, "replacement vent has a fresh block entity");
-                require(!PowerRuntime.ventilationMeter(level, vent).known(), "removed vent meter is unknown");
-                require(!PowerRuntime.ventilationMeter(level, replacement).known(), "replacement awaits fresh solve");
-                helper.succeed();
+        ServerLevel level = fixture.level();
+        VentilationDeviceBlockEntity vent = fixture.vent();
+        PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(fixture.apc());
+        var firstPaidTick = new java.util.concurrent.atomic.AtomicInteger(-1);
+        var recloseTick = new java.util.concurrent.atomic.AtomicInteger(-1);
+        var completed = new java.util.concurrent.atomic.AtomicBoolean();
+        // Prequeue initial admission and post-reclose probes within the existing
+        // 100/40-tick phase budgets; callbacks never append to the running task iterator.
+        for (int tick = 1; tick <= 140; tick++) {
+            int checkTick = tick;
+            helper.runAfterDelay(tick, () -> {
+                if (completed.get()) return;
+                if (firstPaidTick.get() < 0) {
+                    var meter = PowerRuntime.ventilationMeter(level, vent);
+                    if (meter.known() && meter.deliveredWatts() == 5) {
+                        firstPaidTick.set(checkTick);
+                        Player player = creativePlayer(level, fixture.apc());
+                        require(apcEntity.toggleBreaker(player, 0), "open APC breaker");
+                        require(!PowerRuntime.ventilationMeter(level, vent).known(),
+                                "open breaker immediately invalidates meter");
+                        require(apcEntity.toggleBreaker(player, 0), "close APC breaker");
+                        recloseTick.set(checkTick);
+                    } else if (checkTick == 100) {
+                        require(false, "vent has no fresh 5 W paid meter within existing 100-tick admission phase: "
+                                + meter + ", " + ventMeterDiagnostic(level, vent));
+                    }
+                    return;
+                }
+                int closedAt = recloseTick.get();
+                if (closedAt < 0 || checkTick <= closedAt) return;
+                var meter = PowerRuntime.ventilationMeter(level, vent);
+                if (meter.known() && meter.deliveredWatts() == 5) {
+                    if (!completed.compareAndSet(false, true)) return;
+                    level.setBlock(fixture.ventPos(), Blocks.AIR.defaultBlockState(), 3);
+                    level.setBlock(fixture.ventPos(), ModBlocks.GAS_VENT.get().defaultBlockState()
+                            .setValue(com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock.FACING,
+                                    Direction.NORTH), 3);
+                    VentilationDeviceBlockEntity replacement = (VentilationDeviceBlockEntity)
+                            level.getBlockEntity(fixture.ventPos());
+                    require(replacement != null && replacement != vent, "replacement vent has a fresh block entity");
+                    require(!PowerRuntime.ventilationMeter(level, vent).known(), "removed vent meter is unknown");
+                    require(!PowerRuntime.ventilationMeter(level, replacement).known(),
+                            "replacement awaits fresh solve");
+                    helper.succeed();
+                } else if (checkTick == closedAt + 40) {
+                    require(false, "vent meter did not return within existing 40-tick reclose phase: "
+                            + meter + ", " + ventMeterDiagnostic(level, vent));
+                }
             });
-        });
+        }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 240, templateNamespace = "moonstation14")
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 240, templateNamespace = "moonstation14")
     public static void localExtensionReceiverRespectsRadiusAndCableCuts(GameTestHelper helper) {
+        FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 0, 2)),
+                helper.absolutePos(new BlockPos(4, 1, 10)), 0);
         ServerLevel level = (ServerLevel) helper.getLevel();
         // Keep this whole chain above cables in neighboring GameTests' floor-level fixtures.
         int y = 12;
@@ -176,10 +208,13 @@ public final class VentilationPowerGameTests {
                 + ", nearby=" + PowerGraphService.nodesNear(level, scrubber.getBlockPos(), 3, CableTier.APC)
                 + ", nearest=" + selected
                 + ", lastSolve=" + PowerRuntime.lastSolveDiagnostic(level));
-        helper.runAfterDelay(5, () -> awaitExtensionSolve(helper, scrubber, intended, remaining, elapsed + 5));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5,
+                () -> awaitExtensionSolve(helper, scrubber, intended, remaining, elapsed + 5));
     }
 
     private static Fixture connectVent(GameTestHelper helper) {
+        FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 0, 2)),
+                helper.absolutePos(new BlockPos(4, 1, 8)), 0);
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
         BlockPos substation = helper.absolutePos(new BlockPos(3, 1, 4));
@@ -209,6 +244,13 @@ public final class VentilationPowerGameTests {
         VentilationDeviceBlockEntity vent = (VentilationDeviceBlockEntity) level.getBlockEntity(ventPos);
         require(vent != null, "vent block entity exists");
         return new Fixture(level, vent, apc, ventPos);
+    }
+
+    private static String ventMeterDiagnostic(ServerLevel level, VentilationDeviceBlockEntity vent) {
+        return "meterGate=" + PowerRuntime.ventilationMeterDiagnostic(level, vent)
+                + ",topology=" + PowerGraphService.topologyReady(level)
+                + ",graph=" + PowerGraphService.diagnosticSnapshot(level)
+                + ",solve=" + PowerRuntime.lastSolveSummary(level);
     }
 
     private static Player creativePlayer(ServerLevel level, BlockPos pos) {
