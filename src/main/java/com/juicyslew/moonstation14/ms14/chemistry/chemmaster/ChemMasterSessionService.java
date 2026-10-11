@@ -29,8 +29,8 @@ public final class ChemMasterSessionService {
 
     public static boolean opensWorkspace(com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent intent,
             boolean emptyHand, boolean sneaking) {
-        return emptyHand && !sneaking && (intent == com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE
-                || intent == com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.ACTIVATE_WORLD);
+        return intent == com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                || emptyHand && !sneaking && intent == com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE;
     }
 
     public static boolean open(ServerPlayer player, ChemMasterBlockEntity machine) {
@@ -83,6 +83,10 @@ public final class ChemMasterSessionService {
                 && (request.expectedStateRevision() != machine.stateRevision()
                 || request.expectedSlotRevision() != machine.inputSlot().snapshot().revision())) {
             rejection = Optional.of("stale state");
+        } else if (request.operation() != ChemMasterControlRequest.Operation.QUERY
+                && (!CharacterControlSystem.canAct(authority.body())
+                || !BodyActionAuthority.eligibleForComplexInteraction(player, authority))) {
+            rejection = Optional.of("action blocked");
         } else if (request.operation() == ChemMasterControlRequest.Operation.SET_MODE
                 || request.operation() == ChemMasterControlRequest.Operation.SET_SORT) {
             var mode = request.operation() == ChemMasterControlRequest.Operation.SET_MODE ? request.mode() : machine.mode();
@@ -191,7 +195,7 @@ public final class ChemMasterSessionService {
 
     private static boolean validSession(Session s, BodyActionAuthority.Snapshot a, ChemMasterBlockEntity be, boolean allowUnpowered) {
         return a != null && a.body().getUUID().equals(s.body()) && a.identity().epoch() == s.epoch()
-                && BodyActionAuthority.revalidate(s.player(), a) && CharacterControlSystem.canAct(a.body())
+                && BodyActionAuthority.revalidate(s.player(), a)
                 && validMachine(a.body(), be, false)
                 && (allowUnpowered || com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.hasFullFreshChemMasterPower(
                 (ServerLevel) be.getLevel(), be, s.machine()));

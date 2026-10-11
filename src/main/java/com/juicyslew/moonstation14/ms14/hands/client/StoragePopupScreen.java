@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /** Transparent pointer layer. Windows are snapshot presentations, never client inventories. */
 public final class StoragePopupScreen extends net.minecraft.client.gui.screens.Screen implements com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow, com.juicyslew.moonstation14.ms14.player_body_control.client.BodyMovementIntentScreen {
@@ -43,11 +44,16 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     private int menuX, menuY;
     private static final int MENU_WIDTH = 106, MENU_ROW = 19;
     private final PopupMovementIntent movement = new PopupMovementIntent();
+    private final Supplier<PopupMovementIntent.State> movementInput;
     private final Set<Integer> actionKeys = new HashSet<>();
 
     public StoragePopupScreen(StoragePopupWorkspace workspace) {
+        this(workspace,null);
+    }
+    public StoragePopupScreen(StoragePopupWorkspace workspace,Supplier<PopupMovementIntent.State> movementInput) {
         super(Component.translatable("gui.moonstation14.popup.pointer"));
         this.workspace = workspace;
+        this.movementInput=movementInput;
     }
 
     static void drawWindows(net.minecraft.client.gui.GuiGraphics g, StoragePopupWorkspace workspace, int width, int height,
@@ -62,15 +68,20 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         analyzers.resize(width,height);
         analyzers.windows().stream().filter(com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window::visible).forEach(w->entries.add(new Entry(w.z(),null,w)));
         entries.sort(Comparator.comparingLong(Entry::z));
-        int siblingCount=entries.size();
-        boolean storageFront=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()
-                &&!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront();
+        // Match the existing paint hook's shared workspace count (storage, analyzer,
+        // and live Chem windows) so overlay and host ranks use the same resolved base.
+        int siblingCount=entries.size()+com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.windows().size();
+        int browserWindowCount=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.paintOrder().size();
+        int browserFamilySize=browserWindowCount+1; // reserve the wire's place in the same window family
+        boolean pairVisible=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()
+                ||com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active()!=null;
+        boolean storageFront=pairVisible&&!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront();
         for (int rank=0;rank<entries.size();rank++) {
             var entry=entries.get(rank);
             if(entry.analyzer()!=null) {
                 g.flush();g.pose().pushPose();
                 try {
-                    g.pose().translate(0,0,com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers.storageLayer(rank,storageFront,siblingCount));
+                    g.pose().translate(0,0,com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers.storageLayer(rank,storageFront,siblingCount,browserFamilySize));
                     com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerRenderer.drawWindow(g,entry.analyzer());
                 } finally { g.pose().popPose();g.flush(); }
                 continue;
@@ -84,7 +95,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             // this outer clip, including item sprites whose depth could otherwise leak through.
             g.flush();g.pose().pushPose();
             try {
-                int depth=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers.storageLayer(rank,storageFront,siblingCount);
+                int depth=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers.storageLayer(rank,storageFront,siblingCount,browserFamilySize);
                 g.pose().translate(0,0,depth);
                 for (var piece : visiblePieces) {
                     g.enableScissor(piece.x(), piece.y(), piece.x() + piece.width(), piece.y() + piece.height());
@@ -96,18 +107,27 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         var linkPane = com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE;
         var listPane = com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE;
         linkPane.window().resize(width,height); listPane.window().resize(width,height);
+        int fixedPaneLayer=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers.fixedPaneLayer(
+                storageFront,siblingCount,browserFamilySize,browserWindowCount);
         if (linkPane.window().visible()) {
             int mouseX = (int)(mc.mouseHandler.xpos() * width / mc.getWindow().getScreenWidth());
             int mouseY = (int)(mc.mouseHandler.ypos() * height / mc.getWindow().getScreenHeight());
-            linkPane.draw(g,width,height,mouseX,mouseY);
+            g.flush();g.pose().pushPose();
+            try { g.pose().translate(0,0,fixedPaneLayer);linkPane.draw(g,width,height,mouseX,mouseY); }
+            finally { g.pose().popPose();g.flush(); }
         }
-        if (listPane.window().visible()) listPane.draw(g,width,height);
+        if (listPane.window().visible()) {
+            g.flush();g.pose().pushPose();
+            try { g.pose().translate(0,0,fixedPaneLayer+com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers.WINDOW_STRIDE);listPane.draw(g,width,height); }
+            finally { g.pose().popPose();g.flush(); }
+        }
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
         if (wire != null) {
             g.flush();g.pose().pushPose();
             try {
                 g.pose().translate(0, 0, com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers
-                        .wireLayer(storageFront,siblingCount));
+                        .wireLayer(storageFront,siblingCount,browserWindowCount,
+                                com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.wireFront()));
                 wire.workspaceSize(width, height);
                 wire.render(g, -1, -1, partialTick);
             } finally { g.pose().popPose();g.flush(); }
@@ -551,7 +571,9 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     static boolean shouldRouteOutsideClickToGameplay(boolean constructionOverlayVisible, boolean wireActive) {
-        return wireActive && !constructionOverlayVisible;
+        // The press dismissing pointer mode is consumed here; a subsequent press follows
+        // the ordinary global gameplay route. Do not replay the transition press.
+        return false;
     }
 
     boolean pointerUiHit(double x,double y) {
@@ -619,6 +641,10 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // With the native cursor grabbed this host is transparent to world input. Keep
+        // windows painted, but neither hit-test nor dismiss/reopen pointer mode.
+        if(!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hostPointerAvailable(
+                net.minecraft.client.Minecraft.getInstance().mouseHandler.isMouseGrabbed()))return false;
         if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseClick(mouseX, mouseY, button)) return true;
         var listPane=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE;
         var listWindow=listPane.window();
@@ -640,24 +666,22 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         var sw=workspace.topmost(mouseX,mouseY); var mw=medical.topmost(mouseX,mouseY);
         var popupAtPress=hit(mouseX,mouseY);
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
-        boolean overlayHit=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(mouseX,mouseY);
-        if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()) {
-            if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(mouseX,mouseY,button))return true;
-            if (overlayHit) return true;
-            if(popupAtPress!=null)com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront(false);
-        } else if(popupAtPress==null&&overlayHit&&(wire == null || !wire.contains(mouseX, mouseY))) {
-            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront(true);
-            if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(mouseX,mouseY,button))return true;
+        boolean pointerAvailable=!net.minecraft.client.Minecraft.getInstance().mouseHandler.isMouseGrabbed();
+        boolean wireHit=pointerAvailable&&wire!=null&&wire.contains(mouseX,mouseY);
+        // Wire and registered overlays use one click-promoted family z-order, matching paint.
+        boolean storageWins=!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
+                &&(popupAtPress!=null||sw!=null||mw!=null);
+        if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.routeWorkspaceClick(
+                mouseX,mouseY,button,storageWins,wireHit,()->wire!=null&&wire.workspaceMouseClicked(mouseX,mouseY,button))) {
+            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.clearTextFocus();
+            return true;
         }
+        if(popupAtPress!=null)com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront(false);
         if(mw!=null && (sw==null || mw.z()>sw.z())) {
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.clearTextFocus();
             boolean handled=medical.click(mouseX,mouseY,button,width,height);
             BodyHandClient.analyzerWindowClosed();
             return handled;
-        }
-        if (wire != null && wire.contains(mouseX, mouseY)) {
-            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.clearTextFocus();
-            return wire.workspaceMouseClicked(mouseX, mouseY, button);
         }
         if(sw!=null) workspace.raise(sw);
         if (button == 1 && rotateCurrent(mouseX, mouseY)) return true;
@@ -670,10 +694,9 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         boolean idle=moving==null&&dragging==null&&handGridDrag==null&&equipmentDrag==null;
         if(shouldDismissPointerWorkspace(button,idle,knownUiHit)) {
             menuTile=null; menuSource=null;
-            if (shouldRouteOutsideClickToGameplay(
-                    com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible(), wire != null))
-                BodyHandClient.gameplayWindowMouseUse(button);
-            else BodyHandClient.dismissPopupPointerMode();
+            // This press belongs to the workspace transition. Never replay it as a world-use
+            // action: the global mouse hook may observe the same physical press as well.
+            BodyHandClient.dismissPopupPointerMode();
             return true;
         }
         if (menuTile != null) {
@@ -852,22 +875,13 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.capturedDrag(x,y,
+                ()->wire!=null&&wire.workspaceOwnsPointerCapture(),
+                ()->wire!=null&&wire.workspaceMouseDragged(x,y,button,dx,dy)))return true;
         if(com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.drag(x,y)
                 || com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.drag(x,y)) return true;
         if (com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.drag(x, y, width, height)) return true;
-        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
-                && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.drag(x, y)) return true;
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
-                && (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x - dx, y - dy)
-                || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x, y))) return true;
-        if (wire != null) {
-            if (wire.workspaceMouseDragged(x, y, button, dx, dy)) return true;
-            if (wire.contains(x - dx, y - dy) || wire.contains(x, y)) return true;
-        }
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.drag(x, y)) return true;
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x-dx,y-dy)
-                || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x,y)) return true;
         if (dragging != null) updateItemPointer(x, y, leftButtonDown());
         if (button != 0) return true;
         if (moving != null) workspace.place(moving, (int) x - grabX, (int) y - grabY);
@@ -901,20 +915,13 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseReleased(double x, double y, int button) {
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.capturedRelease(button,
+                ()->wire!=null&&wire.workspaceOwnsPointerCapture(),
+                ()->wire!=null&&wire.workspaceMouseReleased(x,y,button)))return true;
         com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.endDrag();
         com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.endDrag();
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.endDrag();
-        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
-                && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(button)) return true;
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
-                && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x, y)) return true;
-        if (wire != null) {
-            if (wire.workspaceMouseReleased(x, y, button)) return true;
-            if (wire.contains(x, y)) return true;
-        }
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(button)) return true;
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x,y)) return true;
         if (button != 0) return true;
         if (inactiveClickHand != null) {
             var selected = inactiveClickHand;
@@ -1218,14 +1225,35 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        if(!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hostPointerAvailable(
+                net.minecraft.client.Minecraft.getInstance().mouseHandler.isMouseGrabbed()))return false;
         var listWindow=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.window();
         if(listWindow.visible()&&mouseX>=listWindow.x()&&mouseX<listWindow.x()+listWindow.width()&&(mouseY-listWindow.y())/listWindow.displayScale()>=50&&(mouseY-listWindow.y())/listWindow.displayScale()<230){listWindow.scroll(deltaY);return true;}
         var linkWindow=com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.window();
         if(linkWindow.visible()&&mouseX>=linkWindow.x()&&mouseX<linkWindow.x()+linkWindow.width()&&(mouseY-linkWindow.y())/linkWindow.displayScale()>=58&&(mouseY-linkWindow.y())/linkWindow.displayScale()<210){linkWindow.scrollPorts(deltaY);return true;}
         if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseScroll(mouseX, mouseY, deltaY)) return true;
+        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
+        boolean pairFront=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront();
+        boolean pairVisible=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()||wire!=null;
+        boolean storageFront=pairVisible&&!pairFront;
+        boolean wireHit=wire!=null&&wire.contains(mouseX,mouseY);
+        boolean browserHit=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(mouseX,mouseY);
         var medical = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         var medicalWindow = medical.topmost(mouseX, mouseY);
         var storageWindow = workspace.topmost(mouseX, mouseY);
+        if(storageFront) {
+            if(medicalWindow!=null&&(storageWindow==null||medicalWindow.z()>storageWindow.z())) {
+                medical.scroll(mouseX,mouseY,deltaY);return true;
+            }
+            if(storageWindow!=null)return true;
+        }
+        if(pairFront) {
+            if(wireHit&&(!browserHit||com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.wireFront()))return true;
+            if(browserHit) {
+                com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.scroll(mouseX,mouseY,deltaY);
+                return true;
+            }
+        }
         if (medicalWindow != null && (storageWindow == null || medicalWindow.z() > storageWindow.z())) {
             medical.scroll(mouseX, mouseY, deltaY);
             return true;
@@ -1238,13 +1266,10 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             }
             return true;
         }
-        var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
-        boolean browserHit = com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(mouseX, mouseY);
-        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront() && browserHit) {
-            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.scroll(mouseX, mouseY, deltaY);
-            return true;
+        if(wireHit&&browserHit&&!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.wireFront()) {
+            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.scroll(mouseX,mouseY,deltaY);return true;
         }
-        if (wire != null && wire.contains(mouseX, mouseY)) return true;
+        if (wireHit) return true;
         if (hit(mouseX, mouseY) != null) return true;
         if (browserHit) {
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.scroll(mouseX, mouseY, deltaY);
@@ -1348,6 +1373,9 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public PopupMovementIntent.State movementIntent() {
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused())
+            return movement.sample(false,false,false,false,false,false,false,false);
+        if(movementInput!=null)return movementInput.get();
         var mc = net.minecraft.client.Minecraft.getInstance();
         long window = mc.getWindow().getWindow();
         if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused())

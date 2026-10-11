@@ -20,6 +20,9 @@ public final class AimReleaseWorldDump {
     private long epoch;
     private boolean aimedElsewhere;
     private boolean modifierUsed;
+
+    /** The live mouse adapter must consume captured presses before examine or vanilla use routing. */
+    public static boolean consumesWorldPress(Press press) { return press == Press.CAPTURE; }
     private boolean consumeMouseUp;
 
     public Press press(boolean alternateAction, boolean pointerOwned, boolean eligibleSource, UUID sourceId,

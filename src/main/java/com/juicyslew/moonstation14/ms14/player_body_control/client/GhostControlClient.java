@@ -17,7 +17,6 @@ import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMoveme
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostPredictionHistory;
-import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyMovementIntentScreen;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import net.minecraft.client.Minecraft;
@@ -155,21 +154,8 @@ public final class GhostControlClient {
             return;
         }
 
-        // A vanilla Screen suppresses LocalPlayer.input; sample only the committed CHARACTER popup.
-        var popup = harnessKind == MobHarnessKind.CHARACTER && minecraft.screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow screen
-                && screen instanceof BodyMovementIntentScreen
-                ? screen.movementIntent() : null;
-        double strafe = popup == null ? player.input.leftImpulse : popup.left();
-        double forward = popup == null ? player.input.forwardImpulse : popup.forward();
-        double length = Math.hypot(strafe, forward);
-        if (length > 1d) { strafe /= length; forward /= length; }
-        short wishX = (short) Math.max(-1000, Math.min(1000, Math.round(strafe * 1000d)));
-        short wishZ = (short) Math.max(-1000, Math.min(1000, Math.round(forward * 1000d)));
-        boolean jumping = popup == null ? player.input.jumping : popup.jump();
-        boolean shifting = popup == null ? player.input.shiftKeyDown : popup.shift();
-        byte verticalWish = (byte) ((jumping ? 1 : 0) - (shifting ? 1 : 0));
-        int buttons = intentButtons(harnessKind, jumping, shifting,
-                popup == null ? player.isSprinting() : popup.sprint());
+        var ordinaryInput=new com.juicyslew.moonstation14.ms14.hands.client.PopupMovementIntent.State(
+                player.input.leftImpulse,player.input.forwardImpulse,player.input.jumping,player.input.shiftKeyDown,player.isSprinting());
         float[] observerLook = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.lookForGhost(ghost);
         float yaw = normalizeYaw(observerLook == null ? player.getYRot() : observerLook[0]);
         float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(observerLook == null ? player.getXRot() : observerLook[1])));
@@ -177,18 +163,14 @@ public final class GhostControlClient {
         // Keep the camera-facing ghost responsive locally while authoritative rotation is in flight.
         if (ghost instanceof GhostMobHarnessEntity ghostBody) setOwnedBodyLook(ghostBody, yaw, pitch);
         else if (ghost instanceof Mob mob) setOwnedBodyLook(mob, yaw, pitch);
-        GhostControlPayloads.Intent intent = new GhostControlPayloads.Intent(activeEpoch, ++sentSequence,
-                wishX, wishZ, verticalWish, buttons, yaw, pitch);
         if (predictionHistory == null) return;
-        if (!medical.recordHistory()) {
-            predictionHistory.skip(intent);
-            GhostControlNetworking.sendToServer(intent);
-            return;
-        }
-        if (predictionHistory.record(intent) != GhostPredictionHistory.RecordResult.RECORDED)
-            return;
-        predict(ghost, intent, true);
-        GhostControlNetworking.sendToServer(intent);
+        long sequence=++sentSequence;
+        GameplayWindowMovementDispatch.dispatch(activeEpoch,sequence,harnessKind,minecraft.screen,ordinaryInput,yaw,pitch,intent->{
+            if (!medical.recordHistory()) { predictionHistory.skip(intent); return true; }
+            if (predictionHistory.record(intent) != GhostPredictionHistory.RecordResult.RECORDED) return false;
+            predict(ghost,intent,true);
+            return true;
+        },GhostControlNetworking::sendToServer);
     }
 
     /** Projects the local spectator's render-frame look onto only its committed ghost camera target. */

@@ -238,6 +238,12 @@ public final class LifecycleCharacterSessionControl {
 
     static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) return;
+        onPayload(payload, player);
+    }
+
+    /** Shared authority owner for the decoded network payload and package-local lifecycle fixtures. */
+    static void onPayload(CustomPacketPayload payload, ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level)) return;
         MinecraftServer server = level.getServer();
         Session session = server == null ? null : session(server, player.getUUID());
         if (session == null || session.player != player || !connectedExact(server, player)) return;
