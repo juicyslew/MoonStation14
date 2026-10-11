@@ -7,6 +7,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.ToIntFunction;
 
 /** Client presentation only: authoritative snapshots are the sole source of chemistry values. */
 public final class ChemMasterWorkspace {
@@ -28,8 +30,17 @@ public final class ChemMasterWorkspace {
     private final Set<UUID> retiredSessions=new HashSet<>();
     private final Map<UUID,Long> dismissedFrames=new HashMap<>();
     private Consumer<ChemMasterControlRequest> sender=ignored->{ };
+    private Runnable lastWindowClosed=()->com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.analyzerWindowClosed();
+    private final ToIntFunction<String> measure;
+    private final BooleanSupplier pointerAvailable;
     private long requestSequence;
+    public ChemMasterWorkspace(){this(text->net.minecraft.client.Minecraft.getInstance().font.width(text),
+            ()->!net.minecraft.client.Minecraft.getInstance().mouseHandler.isMouseGrabbed());}
+    public ChemMasterWorkspace(ToIntFunction<String> measure,BooleanSupplier pointerAvailable){
+        this.measure=Objects.requireNonNull(measure);this.pointerAvailable=Objects.requireNonNull(pointerAvailable);
+    }
     public void sender(Consumer<ChemMasterControlRequest> callback){sender=Objects.requireNonNull(callback);}
+    public void lastWindowClosedHook(Runnable callback){lastWindowClosed=Objects.requireNonNull(callback);}
     public List<Window> windows(){return List.copyOf(windows.values());}
     /**
      * Display ordering only. Pinned SS14 ChemMasterWindow.xaml.cs BuildContainerUI sorts only
@@ -63,13 +74,13 @@ public final class ChemMasterWorkspace {
         if(old!=null&&s.frame()<=old.state.frame())return;
         if(!s.open()){if(old!=null)retire(old);else retiredSessions.add(s.sessionId());dismissedFrames.put(s.sessionId(),s.frame());return;}
         if(old==null){if(windows.size()>=MAX_WINDOWS)return;int ww=Math.min(ChemMasterLayout.WIDTH/2,Math.max(1,sw));int hh=Math.min(ChemMasterLayout.HEIGHT/2,Math.max(1,sh));
-            old=new Window(s,Math.max(0,(sw-ww)/2),Math.max(0,(sh-hh)/2),com.juicyslew.moonstation14.ms14.hands.client.PopupSiblingOrder.front());windows.put(s.machineId(),old);
-            old.overlay=new ChemMasterOverlay(this,old);PointerOverlayRegistry.register(old.overlay);
+             old=new Window(s,Math.max(0,(sw-ww)/2),Math.max(0,(sh-hh)/2),com.juicyslew.moonstation14.ms14.hands.client.PopupSiblingOrder.front());windows.put(s.machineId(),old);
+             old.overlay=new ChemMasterOverlay(this,old,sw,sh,measure,pointerAvailable);PointerOverlayRegistry.register(old.overlay);
         }else old.state=s;
         clamp(old,sw,sh);
     }
     private void retire(Window w){windows.remove(w.state.machineId());if(w.overlay!=null)PointerOverlayRegistry.unregister(w.overlay);retiredSessions.add(w.state.sessionId());dismissedFrames.put(w.state.sessionId(),w.state.frame());
-        if(windows.isEmpty())com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.analyzerWindowClosed();}
+        if(windows.isEmpty())lastWindowClosed.run();}
     public void close(Window w){if(!owns(w))return;send(w,ChemMasterControlRequest.Operation.CLOSE,null,0,w.state.mode());retire(w);}
     public void closeLocal(Window w){if(owns(w))retire(w);}
     public void beginDrag(Window w,int px,int py){w.raise();w.dragging=true;w.grabX=px-w.x;w.grabY=py-w.y;}

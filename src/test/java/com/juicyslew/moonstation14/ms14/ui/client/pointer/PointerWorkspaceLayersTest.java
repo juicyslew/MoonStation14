@@ -34,4 +34,23 @@ class PointerWorkspaceLayersTest {
                 < PointerWorkspaceLayers.storageLayer(0, true));
         assertTrue(PointerWorkspaceLayers.browserLayer(0, false) + PointerWorkspaceLayers.INTERNAL_ITEM_DEPTH < frontWire);
     }
+
+    @Test void mixedWindowRanksKeepStorageChemWireAndFixedConfiguratorPaintHitPriorityAligned() {
+        int storages=4,browsers=3,family=browsers+1; // browser registrations plus reserved wire slot
+        int storageBack=PointerWorkspaceLayers.storageLayer(storages-1,false,storages,family);
+        int browserFront=PointerWorkspaceLayers.browserLayer(0,true,storages,family);
+        int wireFront=PointerWorkspaceLayers.wireLayer(false,storages,browsers,true);
+        int fixedTop=PointerWorkspaceLayers.fixedPaneLayer(false,storages,family,browsers);
+        assertTrue(storageBack<browserFront);
+        assertTrue(browserFront<wireFront); // wire clicked last is above Chem, not above fixed panes
+        assertTrue(wireFront<fixedTop);
+
+        int browserBack=PointerWorkspaceLayers.browserLayer(0,false,storages,family);
+        int wireBack=PointerWorkspaceLayers.wireLayer(true,storages,browsers,false);
+        int storageFront=PointerWorkspaceLayers.storageLayer(0,true,storages,family);
+        int fixedOverFrontStorage=PointerWorkspaceLayers.fixedPaneLayer(true,storages,family,browsers);
+        assertTrue(wireBack<browserBack);
+        assertTrue(browserBack<storageFront);
+        assertTrue(storageFront<fixedOverFrontStorage);
+    }
 }

@@ -1,64 +1,58 @@
-# Feature readiness — delegation handoff
+# Feature readiness — implementation handoff
 
 ## STATUS
 
-**Planning/research package, 2026-10-10. No implementation, builds, screenshots or runtime validation delivered.** The owner requests execution by another agent. Read [Instructions.md](Instructions.md). This is a separate task from Sable/ship feasibility; no particular worktree is assigned automatically.
+Closed by owner on 2026-10-11; delivered on `agent/04`. Owner confirmed connected window/input/render/drinking checks and all six defects found during testing now work correctly. Full native suite is **not green**: two failures remain unattributed. See [ACCEPTANCE.md](ACCEPTANCE.md) for evidence and limitations, [README.md](README.md) for commands and [Instructions.md](Instructions.md) for scope.
 
-Copy the whole directory if uncommitted: a worktree created from HEAD will not inherit working-tree documents. Preserve unrelated changes; no staging/commit/push requested. Coordinate overlapping shared UI/input work with other agents and serialize heavy validation.
+Changes remain uncommitted; no staging, commit, push or merge requested. Preserve unrelated work. A new worktree from HEAD does not inherit these working-tree changes.
 
 ## ARCHITECTURE
 
-Goal: catch recurring window behavior, layout, feature inaccessibility, composition and missing-prediction defects before owner manual testing, without repeatedly launching servers/clients.
-
-Extend existing window geometry/chrome and pointer/workspace owners into a tested default contract. A feature supplies content and session rules; shared behavior supplies drag, title-left/X-right, compact metrics, host/init/paint/input routing and cursor/movement ownership. Keep read-only observation lifetime separate from active-action permission.
-
-Offline previews consume production layout/painting and supported actual text/assets through a narrow shared drawing boundary. CPU renderer produces deterministic full-viewport/cropped PNGs and diagnostics; no independently maintained imitation UI. It cannot claim native GPU/event/cursor proof. Resource/glyph/operation limitations must fail or be labeled, not silently approximated.
-
-Accessibility tests drive actual entry/dispatch/authority/retention/result seams with external input/transport/clock seams only. Use focused platform fixtures for authenticated world boundaries that cannot be honestly tested in a JVM harness. Delay/reorder/rejection tests wrap existing correlation owners, not new networking.
-
-First production consumers: ChemMaster workspace, airlock wire UI; held timed ingestion demonstrates non-window interaction/progress prediction. No new ChemMaster output or ingestion gameplay. Only proven shared behavior is extracted; no universal UI/testing/prediction framework or wholesale screen migration.
+- ChemMaster and airlock wires use existing shared chrome/geometry/title routing and pointer workspace owners. `PointerOverlayRegistry` owns registered-window promotion and capture; `PointerWorkspaceLayers` supplies matching paint/input family ranks. Storage/analyzer family ordering and fixed configurator panes are preserved. Captured drag/release precedes overlap hit testing. Locked cursor mode admits world clicks, not pointer-window hits; the click that dismisses free-cursor mode is consumed rather than replayed as world use.
+- Gameplay keyboard capture emits neutral movement without sampling window movement. Existing epoch/sequence, prediction and server authority remain the owners.
+- Both production UIs invoke `OrderedPaint` painters. `GuiGraphicsPaint` is the native adapter; test CPU rendering uses selected real bitmap-font/resources, transforms and GUI-scale clipping. No independently maintained imitation UI.
+- `BodyHandActionNetworking.handleBlockUse` owns the complete decoded block-use decision/response path for networking and registered-player fixtures. No branch-specific competing admission helpers.
+- ChemMaster observation validity retains identity/epoch, machine identity, range and power checks. Transient stun denies mutations with a correlated snapshot without closing read-only observation. Explicit activation (default **E**) supports occupied hands; ordinary USE remains item-insertion/empty-hand interaction.
+- Existing Shift-left world-container dumping captures before examine and consumes the physical press. BEGIN/ACK/RELEASE and transfer conservation remain in the existing dump owner. The jug remains in the world; dumping is not slot insertion.
+- Timed prediction uses the existing reconciler plus `TimedInteractionClockPolicy`: duplicate same-tick snapshots do not roll back render-clock progress; same-tick state corrections remain eligible. Liquid is not consumed provisionally.
 
 ## IMPORTANT FILES
 
-Read handoff indexes: hands-inventory-program, machine-ui-visual-kit, airlocks, chemmaster-beaker, timed-interactions-ingestion and construction-crafting. Device-ui-platform remains a deferred proposal; historical experimental movement/default gates do not describe every current route.
+Java paths are under `src/main/java/com/juicyslew/moonstation14/ms14/`:
 
-Java paths below are under `src/main/java/com/juicyslew/moonstation14/ms14/`:
-
-- `ui/client/{GameplayWindow,GameplayHudPolicy,MachineWindowRenderer,MachineActionButtonRenderer}`; `window/{WindowGeometryController,WindowChromeButtons,TitlePressRouting}`.
-- `ui/client/pointer/{PointerOverlayWindow,PointerOverlayRegistry,PointerWorkspaceLayers}`; `hands/client/{StoragePopupScreen,PointerModePolicy,StoragePopupWorkspace,StoragePopupLifecycle,PopupMovementIntent}`. Registry host admission currently includes named screen families; registering a window alone does not establish every host/input route.
-- `chemistry/chemmaster/client/{ChemMasterLayout,ChemMasterOverlay,ChemMasterWorkspace}`, `doors/ui/client/{AirlockWireScreen,AirlockWireScreenLayout,WireEmbeddedScreenInitPolicy,AirlockWireLifecycle}` and compact chat renderer.
-- Hands gesture/client/request/access/authority/commit owners; `character/CharacterControlSystem`, current body leases, `timed_interaction/`, `ingestion/`, `prototype/` and typed catalogs.
-
-Existing tests: `TitlePressRoutingTest`, pointer policy/workspace/registry/layers tests, `ChemMasterLayoutTest`, wire/storage layouts, hand-client policy, timed engine, prototype runtime and live hand/menu/ingestion fixtures. `GridEntrySpriteRendererTest` already generates real-resource diagnostic PNGs using `StorageSpriteGeometry`; reuse its conventions, not its limited rendering as a complete UI backend. Other loose-object image diagnostics exist.
+- `ui/client/{paint/,pointer/,window/}`; `hands/client/{StoragePopupScreen,BodyHandClient,AimReleaseWorldDump}`.
+- `chemistry/chemmaster/client/{ChemMasterWorkspace,ChemMasterOverlay,ChemMasterPaint}`; `chemistry/chemmaster/ChemMasterSessionService`; `doors/ui/client/AirlockWireScreen`.
+- `hands/network/BodyHandActionNetworking`; `timed_interaction/client/{TimedInteractionReconciler,TimedInteractionClockPolicy}`.
+- CPU renderer/generator: `src/test/java/.../ms14/ui/preview/`.
+- Registered fixture: `src/gametest/java/.../gametest/support/RegisteredServerPlayerFixture`; lifecycle Ready driver and ChemMaster/wire/dump/ingestion fixtures under corresponding packages.
+- `build.gradle`: single readiness catalog, existing NeoForge test-task reuse, current XML/report/manifest validation. Root `AGENTS.md` links scoped `ui.md`, `interaction.md`, `prediction.md` contracts.
 
 ## SS14 CORRESPONDENCE
 
-Verify external checkout at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`. `FancyWindow` derives from Robust `BaseWindow`; it is not one universal compact-size specification. ChemMaster BUI/client/server sources distinguish local presentation from authoritative machine commands. Shared hands/interaction/DoAfter consumers establish action-specific prediction.
+Reference pin verified: `c9df5ef5d675b0d1d226828bddf6b78c28502d91`. [R0-AUDIT.md](R0-AUDIT.md) indexes resolved prototype inheritance/default/runtime mapping. [chemmaster-session-parity.md](chemmaster-session-parity.md) records BUI lifetime/action separation. Upstream explicit activation is independent of held contents; `InteractUsing` insertion and `SolutionDumpingSystem` fluid drag/drop are separate paths. Jug inherits a drainable drink solution; ChemMaster has an unlimited dumpable buffer.
 
-Before extending feature fields/behavior, resolve relevant full prototype ancestry/defaults/actual consumers and map supported local composition. Existing parity docs are indexes, not proof every new behavior has been audited. Test resolved runtime consumption, not just JSON. Pure harness changes do not require unrelated entity audits but cannot smuggle in new rules.
-
-Retain SS14 asset attribution and per-file licenses. Development use of vanilla font/resources does not authorize checking in redistributed Minecraft assets.
+No new assets/audio were imported. Retain existing attribution; do not check Minecraft resource archives into source control.
 
 ## DECISIONS / WHY
 
-Ordered gates: **R0 audit/baseline → R1 shared window behavior → R2 offline previews → R3 accessibility/latency/composition proof → R4 cheap readiness command/scoped guidance → R5 integrated review**. Split independent implementation after boundaries are established; do not parallel-edit common adapters or run competing game processes.
-
-Make omissions difficult through shared defaults and executable sequence checks. Do not rely on more warnings. Keep root `AGENTS.md` additions short and link focused contracts only after checks exist.
-
-Images must include full viewport to expose excessive footprint, supported real font/text/assets, empty/populated/overflow/pending/error states and GUI-scale variations. Reviewer opens images; merely generating or automatically accepting baselines is insufficient. Geometry/hit/clip checks complement visual judgment.
-
-Prediction matrices explicitly distinguish immediate feedback, predicted state, server commit and correction. Neither predict-all nor visuals-only is universal. Existing ingestion predicts progress without early liquid consumption.
+Reuse existing routing, authority, prototype, transaction and paint owners; no universal window framework or replacement network stack. Visible `Pending...` was removed, not request bookkeeping. Wire X painting and hits share `WindowChromeButtons.closeBounds`, correcting the old asymmetric region. Opt-in checks must use fresh evidence; missing manifest is UNVERIFIED, invalid/incomplete/out-of-root image paths FAIL.
 
 ## KNOWN GAPS
 
-Current policy/layout tests do not prove complete actual user routing or OS mouse behavior. Trusted body fixtures do not prove authenticated admission. No complete production UI offline renderer or reusable fake-packet-clock harness was found; recheck current source before adding one.
-
-Font/provider fidelity, engine-coupled screen initialization and authenticated fixture construction are R0 risks. Report limitations honestly. CPU previews cannot prove GPU/scissor/native input behavior; use one short coordinated boundary comparison when needed. No existing test counts or full-suite green status is claimed by this planning session.
+- Full native failures: `receiverReconcilesAlreadyLoadedMissingFootprint` and `fixtureTicketsKeepBothSidesOfSignedChunkEdgesEntityTicking`. Both pass focused baseline and current runs; baseline full run failed a different APC-light assertion. No cause inferred and no unrelated fixes made.
+- Socket-free NeoForge mock-peer fixtures exercise real player registration/Ready/proof and server services, not real handshake/codec interoperability. Owner connected observation is separate evidence, not exhaustive transport validation.
+- Offline text scope: selected bitmap providers and unstyled LTR; resource-pack overlays, styled/bidi text and universal GPU parity are not supported. Unsupported cases fail explicitly.
+- Water crash was reported separately; owner handled test-world setup. No water fix claimed. Six root `net/` source excerpts remain because cleanup was denied; do not bypass that denial.
 
 ## VALIDATION
 
-Research/read-only source inspection only. Execution uses focused JUnit/image checks for routine iterations. Add tagged authoritative fixtures for missing boundaries; `docs/gametest-tags.md` governs selectors/templates/isolation. One full GameTest run at the broad integrated gate, plus concise connected checks where necessary; not per worker/layout edit. Measure incremental time/memory and demonstrate detection of representative broken states. Preserve useful failures, clean disposable successful worlds, and do not alter owner configuration.
+- Final full JVM: **3,190/3,190 passed**, 610 suites, zero failures/errors/skips, 106.86s.
+- Final readiness: **112/112 passed**, 23 suites, 78.5s; 48 full previews, details/two sheets, 98 PNGs validated. Independent bounded offline review and owner representative connected comparison passed; generated artifacts are not auto-blessed goldens.
+- Final focused native: **10/788 selected, 10 passed**; full native earlier: **785/787 passed**, two failures, zero incomplete. Full run preceded the final narrow corrections; focused current fixtures supplement it.
+- Report negatives: missing crop/out-of-root path FAIL; absent manifest UNVERIFIED. Configuration-cache replay and fresh execution verified.
+- Representative process-tree sampling: 200.92s, maximum sampled working set **1,055.22 MiB**, private bytes at that sample **1,210.37 MiB**. Actual intervals ~1.52s median/3.43s maximum; not absolute peaks or whole-host memory. Build success is from log; sampler exit field null.
+- Logs/reports/previews: `build/reports/feature-readiness/`. Successful disposable worlds removed; useful failure artifacts retained, including full native world. Owner configuration unchanged.
 
 ## NEXT WORK
 
-R0 confirms current service ownership, upstream references, consumer states, fonts/assets access and measurable check budget. R1/R2 prove two real windows before adopting shared preview/golden checks. R3/R4 make normal user-path and prediction evidence discoverable for future features. R5 independently reviews reuse, evidence layers and native limits. Update this handoff on actual owner closure, not when proposed tooling merely compiles.
+Use `featureReadiness -Pms14Readiness=ui,interaction,prediction,preview` selectively for future changes. Read scoped contracts and handoffs before extending owners. Investigate full-suite power/chunk failures separately if requested; do not silently classify them pre-existing. Heavy validation may run concurrently when necessary with isolated worlds and mindful resource use—no mandatory serialization.

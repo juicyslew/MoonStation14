@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
+import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
@@ -123,6 +124,8 @@ public final class FirstCharacterBodyStager {
             mindStaged = context.stageFirstProfile(reservation.accountUUID(), reservation.mindUUID(), reservation.bodyUUID(), harnessId);
             if (!mindStaged) return Result.failed("disconnected Mind could not be staged; PREPARING retained");
         } catch (Exception failure) {
+            MoonStation14.LOGGER.error("Lifecycle first-character staging threw (account={}, body={}, mind={})",
+                    reservation.accountUUID(), reservation.bodyUUID(), reservation.mindUUID(), failure);
             return Result.failed("staging failed; PREPARING retained for operator recovery");
         }
 

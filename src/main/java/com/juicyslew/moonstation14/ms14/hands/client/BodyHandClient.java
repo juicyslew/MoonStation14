@@ -438,9 +438,8 @@ public final class BodyHandClient {
         while (CYCLE_PILE.consumeClick()) cyclePile = true;
         refreshPile(cameraBody);
         if (cyclePile) PILE.cycle(pileItems.stream().map(ItemEntity::getUUID).toList());
-        boolean gameplayWindow = mc.screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow gameplayScreen
-                && !gameplayScreen.capturesKeyboard();
-        if (mc.screen != null && !gameplayWindow || !mc.mouseHandler.isMouseGrabbed() && !gameplayWindow) {
+        if (!com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow.allowsBodyInput(
+                mc.screen,mc.mouseHandler.isMouseGrabbed())) {
             POLICY.cancelThrowIntent();
             return;
         }
@@ -470,19 +469,21 @@ public final class BodyHandClient {
         if (drop && !throwGrenade && !controlDown()) request(BodyHandActionRequest.Action.DROP);
         else if (ctrlV || select && !storage) selectHand();
         if (prime) handUseRequested = request(BodyHandActionRequest.Action.PRIME_GRENADE);
-        else if (useInHand && !controlDown() && !altDown() && !quickEquipInHand()) {
+        else handUseRequested = HeldUseRequestDispatch.routePressed(useInHand, controlDown, altDown,
+                () -> true, () -> {
+            if (quickEquipInHand()) return false;
             var view = POLICY.inventoryView();
             var active = view == null ? null : (view.first().id().equals(view.activeHand()) ? view.first() : view.second());
             var kind = active == null ? MedicalUseGesturePolicy.Kind.NONE : medicalKind(active.itemId());
             var inHand = MedicalUseGesturePolicy.inHand(kind, shiftDown(), true);
             if (inHand == MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE)
-                handUseRequested = request(BodyHandActionRequest.Action.USE_IN_HAND);
+                return request(BodyHandActionRequest.Action.USE_IN_HAND);
             else if (inHand == MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE)
-                handUseRequested = request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
+                return request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
             else if (inHand == MedicalUseGesturePolicy.InHand.SELF_SCAN)
-                handUseRequested = request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
-            else handUseRequested = request(BodyHandActionRequest.Action.USE_IN_HAND);
-        }
+                return request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
+            return request(BodyHandActionRequest.Action.USE_IN_HAND);
+        });
         var proofHand = POLICY.inventoryView();
         var proofActive = proofHand == null ? null : proofHand.first().id().equals(proofHand.activeHand()) ? proofHand.first() : proofHand.second();
         if (altUseInHand && proofActive != null && medicalKind(proofActive.itemId()) == MedicalUseGesturePolicy.Kind.SYRINGE)
@@ -772,27 +773,6 @@ public final class BodyHandClient {
         }
         if (event.getAction() == GLFW.GLFW_PRESS) ALT_TAP.otherPress();
         boolean pointerCanvas = mc.screen instanceof StoragePopupScreen popup;
-        if (!pointerCanvas && mc.screen == null && !mc.mouseHandler.isMouseGrabbed()
-                && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS) {
-            double examineX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
-            double examineY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
-            if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseClick(examineX,examineY,event.getButton())) {
-                event.setCanceled(true);
-                return;
-            }
-        }
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS
-                && shiftDown() && !controlDown() && !altDown() && mc.screen == null
-                && mc.mouseHandler.isMouseGrabbed()
-                && !equipmentPanelHit((int)(mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth()),
-                        (int)(mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight()),
-                        mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())
-                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(
-                        mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth(),
-                        mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight())
-                && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineWorldClick()) {
-            event.setCanceled(true); return;
-        }
         double guiX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
         double guiY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
         boolean overUi=pointerCanvas&&((StoragePopupScreen)mc.screen).pointerUiHit(guiX,guiY)
@@ -854,19 +834,27 @@ public final class BodyHandClient {
             var body = currentBody();
             var capture = DUMP_GESTURE.press(true, false, policy != null && policy.enabled(), source,
                     body == null ? null : body.getUUID(), epoch);
-            if (capture == AimReleaseWorldDump.Press.CAPTURE) {
+            if (AimReleaseWorldDump.consumesWorldPress(capture)) {
                 DUMP_PHYSICAL_INPUT.beginMouse(event.getButton(), event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
                         && AIM_RELEASE_DUMP.getKeyModifier() == net.neoforged.neoforge.client.settings.KeyModifier.ALT);
                 beginDumpRequest(body, source);
+                event.setCanceled(true);
             } else if (capture == AimReleaseWorldDump.Press.ROUTE_ORIGINAL
                     && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && altDown() && !shiftDown() && !controlDown()) {
                 alternateWorldUse(); event.setCanceled(true);
-            } else if (capture == AimReleaseWorldDump.Press.CAPTURE) event.setCanceled(true);
-            else if (capture == AimReleaseWorldDump.Press.ROUTE_ORIGINAL
+            } else if (capture == AimReleaseWorldDump.Press.ROUTE_ORIGINAL
                     && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && shiftDown() && !controlDown() && !altDown()
                     && mc.screen == null && mc.mouseHandler.isMouseGrabbed()
                     && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineWorldClick()) event.setCanceled(true);
             return;
+        }
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS) {
+            double examineX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
+            double examineY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
+            if (mc.screen == null && !mc.mouseHandler.isMouseGrabbed()
+                    && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseClick(examineX,examineY,event.getButton())) {
+                event.setCanceled(true); return;
+            }
         }
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_PRESS
                 && shiftDown() && !controlDown() && !altDown() && mc.screen == null
@@ -2142,6 +2130,15 @@ public final class BodyHandClient {
                 || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
                 || action == BodyHandActionRequest.Action.USE_BODY || action == BodyHandActionRequest.Action.ACTIVATE_TARGET)
                 && target == null) { POLICY.noItemUnderCursor(clock); return false; }
+        if (action == BodyHandActionRequest.Action.USE_IN_HAND) {
+            int duration = predictionDuration(action, active, target);
+            long heldSequence = HeldUseRequestDispatch.dispatch(POLICY, snapshot, active, clock, duration,
+                    PacketDistributor::sendToServer, sequence -> {
+                        if (cameraBody != null) com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient
+                                .predictStart(sequence, cameraBody.getUUID(), duration);
+                    });
+            return heldSequence != 0;
+        }
         long sequence = POLICY.action(clock);
         if (sequence == 0) return false;
         var ingestionDuration = predictionDuration(action, active, target);
@@ -2151,7 +2148,7 @@ public final class BodyHandClient {
         PacketDistributor.sendToServer(new BodyHandActionRequest(action, active.id(), snapshot.epoch(),
                 sequence, snapshot.revision(), target,
                 expectedToken));
-        if (action == BodyHandActionRequest.Action.PRIME_GRENADE || action == BodyHandActionRequest.Action.USE_IN_HAND)
+        if (action == BodyHandActionRequest.Action.PRIME_GRENADE)
             POLICY.markUse(sequence);
         return true;
     }

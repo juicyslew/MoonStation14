@@ -13,7 +13,7 @@ Deliver a small, reusable readiness toolkit using current services, two real pro
 - Features must be reachable through their real user entry path and remain available through subsequent admission/lifecycle checks. Direct helper invocation is not accessibility proof.
 - Resolved prototypes, inherited defaults and supported composition drive runtime behavior. Reuse current owners; do not bypass them to make a test pass.
 - Prediction is considered for every action. Preserve verified action-specific SS14 prediction and server authority; missing prediction cannot be deferred to the owner's manual discovery.
-- **Do not repeatedly launch clients or servers.** Routine iteration must use focused JVM checks and offline images. Schedule the few necessary live checks centrally and sequentially, not once per worker or layout edit. Four agent worktrees can coexist; expensive validation should not.
+- **Use resources only when necessary.** Prefer focused JVM checks and offline images for routine iteration; avoid client/server launches per worker or layout edit when cheaper checks suffice. Heavy validation may run concurrently when justified. Be mindful of CPU/memory contention, but a running server/client or another agent's validation is not an automatic blocker and does not need to stop.
 
 ### Bootstrap
 
@@ -21,7 +21,7 @@ Deliver a small, reusable readiness toolkit using current services, two real pro
 2. Ensure this whole directory is present. Worktrees created from HEAD omit uncommitted documents; copy the package or include it through the owner's documentation workflow.
 3. Read relevant handoffs in the reuse map, then targeted current source. Historical experiments/retired gates are not current authority; especially do not re-enable `ms14/movement` experimental routing.
 4. Record baseline test results and the current paths actually being exercised. Existing failures cannot be declared unrelated without evidence. Reuse existing language services; no duplicate LSP backend.
-5. Coordinate ownership of shared UI/input/hand/prototype files with agents working elsewhere before overlapping integration. Use independent source/build outputs per worktree and serialize heavy runs on this machine.
+5. Coordinate ownership of shared UI/input/hand/prototype files with agents working elsewhere before overlapping integration. Use independent source/build outputs per worktree and isolated validation worlds. Avoid unnecessary resource use; coordinate heavy runs when actual contention warrants it, not as a mandatory prerequisite.
 
 ## 1. Scope and architecture
 
@@ -91,7 +91,7 @@ Use actual immutable view states, production layout and shared painting operatio
 
 The backend covers operations the two selected screens actually use: fills, sprite/UV drawing, text, transforms, clipping, ordering and supported animation time. Use deterministic fonts/metrics from the supported game resources or a verified matching provider, including actual translation/fallback and formatting paths. **Java2D system fonts are not acceptable substitutes for review-critical UI text.** Reuse game resources as development inputs; do not check in/redistribute Minecraft jars or vanilla font assets merely to make previews self-contained. Preserve licenses/attribution on SS14 resources and any imported libraries.
 
-Resource packs, unsupported glyphs/providers, GPU effects, native item/entity rendering and any unimplemented operation must be explicitly identified. Fail or label unsupported output, never silently replace it with a plausible fake. Scope can be narrowed with a concrete limitation, but title/body text, core controls and clipping for the selected UIs must be reliable before adoption. Test graphics/text metric agreement against the supported production path; use one centrally scheduled real-render comparison at the proof gate if necessary.
+Resource packs, unsupported glyphs/providers, GPU effects, native item/entity rendering and any unimplemented operation must be explicitly identified. Fail or label unsupported output, never silently replace it with a plausible fake. Scope can be narrowed with a concrete limitation, but title/body text, core controls and clipping for the selected UIs must be reliable before adoption. Test graphics/text metric agreement against the supported production path; use a representative real-render comparison at the proof gate if necessary.
 
 Produce a full-viewport image plus useful cropped detail/contact sheet for each representative case. Full viewport establishes world-view obstruction; optional world backdrop is a fixed diagnostic reference, not live gameplay evidence. Include empty/populated/overflow, long labels/large values, pending/disabled/rejected, hover/focus, scroll endpoints and moved/clamped windows across supported GUI scales/viewports. Fixed state/clock/seed and explicit resource inputs make output reproducible.
 
@@ -133,7 +133,7 @@ Extend existing chrome/geometry/registration/pointer helpers; integrate ChemMast
 
 ### R2 — Production-driven offline previews and visual review
 
-Extract only the required shared painting boundary, add CPU backend/assets/text support, and generate the selected state/viewport contact sheets with geometry diagnostics. Reuse existing image-test conventions. Independently inspect the images and compare a representative real-render frame at the centralized boundary check if needed. Fix fidelity before relying on new golden outputs.
+Extract only the required shared painting boundary, add CPU backend/assets/text support, and generate the selected state/viewport contact sheets with geometry diagnostics. Reuse existing image-test conventions. Independently inspect the images and compare a representative real-render frame at the boundary check if needed. Fix fidelity before relying on new golden outputs.
 
 **Exit:** a documented lightweight command generates faithful supported previews without a client/server; unsupported cases fail/label clearly; reviewer opens images; footprint/overflow/hit/clip checks catch defects; CPU output is not claimed universal GPU parity.
 
@@ -155,13 +155,13 @@ Feature-ready requires applicable checks plus independent review; justified not-
 
 ### R5 — Integrated validation and delegation handoff
 
-Run applicable focused JVM checks/preview review and the minimum live boundary fixtures; because shared UI/input/lifecycle changes are broad, run/report the full GameTest suite **once at the integrated gate**, sequentially. Perform one short connected window/input/render comparison when needed, rather than repeatedly booting after layout edits. Separate existing failures with baseline evidence; don't fix unrelated systems in this sprint.
+Run applicable focused JVM checks/preview review and the minimum live boundary fixtures; because shared UI/input/lifecycle changes are broad, run/report the full GameTest suite **once at the integrated gate**. Perform a short connected window/input/render comparison when needed, rather than repeatedly booting after layout edits. Use isolated outputs/worlds and consider actual resource contention; concurrency itself is not a validation blocker. Separate existing failures with baseline evidence; don't fix unrelated systems in this sprint.
 
 Demonstrate that ordinary defects cause readiness failure: remove/misplace X, enlarge/overlap a control, omit host/input registration, introduce immediate closure, drop prediction feedback or mishandle a stale reply in isolated test mutations. Use existing parameterized negative cases where practical; no dependency on a heavyweight mutation-testing product. Revert disposable mutations. Measure check time/peak memory honestly on the owner's computer and report whether repeated runs use incremental/cache paths.
 
 **Exit:** acceptance matrix linked to actual evidence; connected/native limitations explicit; useful failure artifacts retained; disposable successful worlds removed. Update handoff only with delivered state, not this proposal's aspirations. Owner closure is separate.
 
-Sequencing: R0 → R1 → R2 → R3 → R4 → R5. After R0/R1 establish boundaries, offline backend and action/packet tests may be delegated in parallel **only if source ownership is disjoint**. A lead owns common adapter changes; serialize resource-intensive validation.
+Sequencing: R0 → R1 → R2 → R3 → R4 → R5. After R0/R1 establish boundaries, offline backend and action/packet tests may be delegated in parallel **only if source ownership is disjoint**. A lead owns common adapter changes. Run resource-intensive validation only when needed; parallel runs are permitted with isolated outputs/worlds and mindful resource use.
 
 ## 6. Validation and acceptance
 
@@ -188,7 +188,7 @@ Report filtered/full, selected/total, pass/fail/incomplete counts and baseline c
 | Composition | Verified relevant ancestry/default/consumer mapping and resolved runtime assertion; no fake unsupported components or private ownership bypass. |
 | Prediction | Action-specific matrix and deterministic delay/rejection/reorder/epoch cases; immediate eligible feedback, correct authority and reconciliation. |
 | Readiness process | Cheap discoverable command/report, tiny root pointer, scoped contracts, negative regression detection and clearly labeled unverified/native boundaries. |
-| Resource discipline | Measured time/memory, routine checks need no Minecraft process, one coordinated integrated native/connected validation rather than repeated boots. |
+| Resource discipline | Measured time/memory, routine checks need no Minecraft process, necessary native/connected checks rather than gratuitous repeated boots; no mandatory serialization or automatic blocking on another running game. |
 
 Manual check, if needed, stays concise: open each selected UI, click/drag/X, toggle cursor and move, check text focus/overlap, compare one preview frame, start/stop ingestion. Native/GPU results require actual observation; mark pending if unavailable, not falsely passed.
 
