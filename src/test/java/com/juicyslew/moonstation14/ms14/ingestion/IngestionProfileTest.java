@@ -21,6 +21,12 @@ class IngestionProfileTest {
         assertEquals(id("ss14/items/drink"), defaults.completionSound());
         assertEquals(-2f, defaults.volumeDb());
         assertEquals(.25f, defaults.pitchVariation());
+        assertEquals(IngestionProfile.Kind.DRINK, defaults.kind());
+        var programmaticFood = new IngestionProfile.Edible(500, 20, true, null, IngestionProfile.Kind.FOOD);
+        assertEquals(id("ss14/items/eat"), programmaticFood.completionSound());
+        assertEquals(-2f, programmaticFood.volumeDb());
+        assertEquals(.25f, programmaticFood.pitchVariation());
+        assertEquals(id("ss14/items/drink"), new IngestionProfile.Edible(500, 20, true).completionSound());
         assertTrue(IngestionProfile.CODEC.parse(JsonOps.INSTANCE, new JsonObject()).error().isPresent());
         JsonObject invalid = new JsonObject();
         JsonObject edible = new JsonObject(); edible.addProperty("dose_cents", 0); invalid.add("edible", edible);
@@ -30,7 +36,8 @@ class IngestionProfileTest {
     @Test void bundledInheritanceResolvesDistinctDrinkAndBottleParents() {
         PrototypeManager manager = new PrototypeManager(); manager.register(ModIngestionProfiles.TYPE);
         Map<ResourceLocation, JsonObject> resources = new LinkedHashMap<>();
-        for (String name : new String[]{"edible_defaults", "drink_base", "jug", "bottle", "puddle", "pill"})
+        for (String name : new String[]{"edible_defaults", "drink_base", "jug", "bottle", "puddle", "pill",
+                "food_base", "food_baking_base", "cheese_slice", "pumpkin_pie_slice"})
             resources.put(id(name), resource(name));
         manager.reload(ModIngestionProfiles.TYPE, resources);
         var catalog = manager.snapshot(ModIngestionProfiles.TYPE);
@@ -41,10 +48,32 @@ class IngestionProfileTest {
         assertEquals(new IngestionProfile.Edible(100, 60, true), catalog.get(id("puddle")).edible());
         assertEquals(500, catalog.get(id("jug")).doseCents());
         var pill = catalog.get(id("pill"));
+        assertEquals(IngestionProfile.Kind.FOOD, pill.edible().kind());
+        assertTrue(pill.consumeSource());
+        assertEquals(2000, pill.doseCents());
+        assertEquals(12, pill.delayTicks());
+        assertEquals(40, pill.forceFeedDelayTicks());
+        assertNull(pill.edible().sourceSolution(), "pill source contents are supplied by ChemMaster");
         assertEquals(id("ss14/items/pill"), pill.completionSound());
         assertEquals(-1f, pill.completionVolumeDb());
         assertEquals(.2f, pill.completionPitchVariation());
         assertEquals(id("ss14/items/drink"), catalog.get(id("bottle")).completionSound());
+        var cheese = catalog.get(id("cheese_slice"));
+        assertEquals(IngestionProfile.Kind.FOOD, cheese.edible().kind());
+        assertEquals(id("ss14/items/eat"), cheese.completionSound());
+        assertEquals(IngestionProfile.Kind.DRINK, catalog.get(id("puddle")).edible().kind());
+        assertEquals(new IngestionProfile.Edible.SourceSolution(600, Map.of(id("nutriment"), 375L)), cheese.edible().sourceSolution());
+        assertEquals(500, cheese.doseCents());
+        assertEquals(20, cheese.delayTicks());
+        assertTrue(cheese.edible().destroyOnEmpty(), "edible_defaults survives child composition");
+        var pie = catalog.get(id("pumpkin_pie_slice"));
+        assertEquals(IngestionProfile.Kind.FOOD, pie.edible().kind());
+        assertEquals(500, pie.doseCents());
+        assertEquals(20, pie.delayTicks());
+        assertTrue(pie.edible().destroyOnEmpty());
+        assertEquals(new IngestionProfile.Edible.SourceSolution(1225,
+                Map.of(id("nutriment"), 750L, id("vitamin"), 350L, id("sugar"), 125L)),
+                pie.edible().sourceSolution());
     }
 
     @Test void lookupsFailClosedAndReadinessRequiresBundledEntries() {

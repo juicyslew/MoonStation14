@@ -75,11 +75,12 @@ class HungerSystemTest {
 
     @Test void ss14LevelsDecayAndInitializationBoundsAreExact() {
         assertEquals(HungerReducer.Level.DEAD, HungerReducer.classify(0f));
+        assertEquals("STARVING", HungerReducer.classify(0f).displayLabel());
         assertEquals(HungerReducer.Level.STARVING, HungerReducer.classify(49.9f));
         assertEquals(HungerReducer.Level.STARVING, HungerReducer.classify(50f));
-        assertEquals(HungerReducer.Level.STARVING, HungerReducer.classify(99.9f));
+        assertEquals(HungerReducer.Level.PECKISH, HungerReducer.classify(50.1f));
         assertEquals(HungerReducer.Level.PECKISH, HungerReducer.classify(100f));
-        assertEquals(HungerReducer.Level.PECKISH, HungerReducer.classify(149.9f));
+        assertEquals(HungerReducer.Level.OKAY, HungerReducer.classify(100.1f));
         assertEquals(HungerReducer.Level.OKAY, HungerReducer.classify(150f));
         assertEquals(HungerReducer.Level.OKAY, HungerReducer.classify(199.9f));
         assertEquals(HungerReducer.Level.OVERFED, HungerReducer.classify(200f));

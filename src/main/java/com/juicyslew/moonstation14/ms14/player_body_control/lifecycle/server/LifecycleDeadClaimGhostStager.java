@@ -9,6 +9,9 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLife
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
 import net.minecraft.core.BlockPos;
@@ -98,10 +101,19 @@ public final class LifecycleDeadClaimGhostStager {
                 Entity corpse = savedLevel.getEntity(saved.bodyId());
                 if (corpse != null) {
                     PlayerCharacterBinding expectedBinding = new PlayerCharacterBinding(saved.accountId(), saved.profileKey(), saved.mindId());
-                    if (corpse.isRemoved() || !(corpse instanceof PlayerCharacterHarnessEntity)
-                            || corpse.getType() != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration.getEntityType()
+                    if (corpse.isRemoved() || !(corpse instanceof net.minecraft.world.entity.Mob mob)
+                            || mob instanceof PlayerCharacterHarnessEntity human && human.hasInvalidSavedBinding()
                             || !expectedBinding.equals(PlayerCharacterHarnessBinder.binding(corpse)))
                         return Result.failed("loaded saved corpse identity is invalid");
+                    var identity = corpse.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+                    if (identity == null || !identity.isBound()
+                            || CharacterIdentitySystem.resolveHost(mob, savedLevel, identity.characterId()).isEmpty())
+                        return Result.failed("loaded saved corpse prototype identity is invalid");
+                    var medical = corpse.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
+                    boolean dead = mob instanceof PlayerCharacterHarnessEntity human ? human.hasConfirmedDeath()
+                            : medical != null && medical.data().state()
+                            == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD;
+                    if (!dead) return Result.failed("loaded saved corpse has no confirmed dead state");
                     targetLevel = savedLevel;
                     x = corpse.getX(); y = corpse.getY(); z = corpse.getZ();
                     exactLoadedCorpse = true;

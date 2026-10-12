@@ -283,19 +283,51 @@ public final class HeldTimedIngestionGameTests {
     }
 
     @GameTestTags({"hands-liquid", "beaker"})
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 80)
     public static void resolvedBeakerDrinkConsumesFiveUnitsAfterTwentyTicks(GameTestHelper h) {
         Fixture f = fixtureWithItem(h, new ItemStack(ModItems.BEAKER.get()), 6);
+        // Keep metabolism from consuming the freshly transferred dose on the same due tick.
+        // The body's deterministic metabolism bucket differs across fixture/entity ordering.
+        waitForBeakerSafeStart(h, f, () -> runResolvedBeakerDrinkAssertions(h, f));
+    }
+
+    private static void runResolvedBeakerDrinkAssertions(GameTestHelper h, Fixture f) {
+        long start = h.getLevel().getGameTime();
+        long sourceBefore = source(f);
+        long stomachBefore = stomachWater(f.body);
+        require(!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM.isDue(start + 20, f.body.getId()),
+                "fixture avoids the body's metabolism bucket at the exact drink completion tick");
         require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 90, () -> true).name().equals("OK"),
                 "resolved drink policy starts the existing timed ingestion operation");
+        var operation = f.body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                .filter(o -> o.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
+        require(operation.durationTicks() == 20 && operation.dueTick() == start + 20,
+                "resolved beaker profile retains its 5u/20-tick source accounting");
         h.runAfterDelay(10, () -> require(source(f) == 600, "beaker remains unchanged before its 20-tick deadline"));
         h.runAfterDelay(23, () -> {
-            require(source(f) == 100, "resolved 5u serving leaves 1u from 6u source");
-            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
-                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) == 500,
-                    "exact serving reaches the actual body stomach");
+            require(sourceBefore - source(f) == 500 && source(f) == 100,
+                    "resolved 5u serving removes exactly 500 cents from the 6u source");
+            long stomachDelta = stomachWater(f.body) - stomachBefore;
+            require(stomachDelta >= 450 && stomachDelta <= 500,
+                    "completed serving reaches actual stomach; up to 50 cents may be metabolized at the adjacent tick; delta="
+                            + stomachDelta + " gameTime=" + h.getLevel().getGameTime());
             h.succeed();
         });
+    }
+
+    private static long stomachWater(Villager body) {
+        return ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
+                .get(body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f));
+    }
+
+    private static void waitForBeakerSafeStart(GameTestHelper helper, Fixture fixture, Runnable action) {
+        long start = helper.getLevel().getGameTime();
+        if (!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM
+                .isDue(start + 20, fixture.body.getId())) {
+            action.run();
+        } else {
+            helper.runAfterDelay(1, () -> waitForBeakerSafeStart(helper, fixture, action));
+        }
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
@@ -340,6 +372,53 @@ public final class HeldTimedIngestionGameTests {
         require(cancelled(f), "duplicate toggle cancellation recorded");
         Fixture lost = fixture(h, 10); AtomicBoolean live = new AtomicBoolean(true); start(lost, 6, live::get); live.set(false);
         h.runAfterDelay(2, () -> { require(source(lost) == 1000 && cancelled(lost), "authority loss cancels without dose"); h.succeed(); });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    public static void humanAtResolvedHydrationCapCannotStartHeldDrink(GameTestHelper h) {
+        Fixture f = fixture(h, 10);
+        var level = (net.minecraft.server.level.ServerLevel) f.body.level();
+        com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(f.body, level);
+        var thirstBridge = com.juicyslew.moonstation14.ms14.MS14Bridges.THIRST;
+        var priorThirst = com.juicyslew.moonstation14.ms14.MS14Provider.get(f.body, thirstBridge).thirst();
+        com.juicyslew.moonstation14.ms14.MS14Provider.updateIfChanged(f.body, thirstBridge,
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(priorThirst),
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment(
+                        new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(600f)));
+        require(com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(f.body),
+                "Human uses resolved 600-unit hydration cap");
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 70, () -> true).name().equals("DENIED"),
+                "resolved DRINK held source is rejected at maximum hydration");
+        require(source(f) == 1000 && state(f) == null,
+                "denied held drink leaves source untouched and creates no operation");
+        h.succeed();
+    }
+
+    @GameTestTags({"chemmaster-output", "ingestion", "timed-interaction"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    public static void wholeDosePillStillCompletesAtResolvedHydrationCap(GameTestHelper h) {
+        Fixture f = fixtureWithItem(h, new ItemStack(ModItems.PILL.get()), 12);
+        var level = (net.minecraft.server.level.ServerLevel) f.body.level();
+        com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(f.body, level);
+        var thirstBridge = com.juicyslew.moonstation14.ms14.MS14Bridges.THIRST;
+        var priorThirst = com.juicyslew.moonstation14.ms14.MS14Provider.get(f.body, thirstBridge).thirst();
+        com.juicyslew.moonstation14.ms14.MS14Provider.updateIfChanged(f.body, thirstBridge,
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(priorThirst),
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment(
+                        new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(600f)));
+        require(com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(f.body),
+                "Human is at resolved hydration cap");
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 71, () -> true).name().equals("OK"),
+                "resolved FOOD-kind whole-dose pill is not blocked by drink hydration policy");
+        h.runAfterDelay(13, () -> {
+            require(hands(f).token("left").isEmpty() && source(f) == 0,
+                    "pill is consumed as one committed whole-source dose at hydration cap");
+            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
+                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) > 0,
+                    "pill solution reaches the stomach");
+            require(!active(f), "single-use pill does not repeat");
+            h.succeed();
+        });
     }
 
     private static Fixture fixture(GameTestHelper h, float units) {

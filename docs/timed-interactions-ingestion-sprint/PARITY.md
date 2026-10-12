@@ -49,8 +49,12 @@ runtime contracts, not newly certified upstream parity.
   control; no universal upstream cancel key was found in `Resources/keybinds.yml`.
 - `OnEatingDoAfter` rechecks consumption, finds stomach admission and clamps the
   transfer. Voluntary `OnEdibleIngested` requests repeat while source remains;
-  repetition stops when desired transfer meets/exceeds available stomach volume,
-  the source empties/is destroyed, completion fails or the action is canceled.
+  an initially full stomach ends completion without repeat. The configured dose
+  is clamped to available volume; `beforeEv.Transfer >= beforeEv.Max` returns
+  before assigning repeat, including a capacity-limited partial dose. Thus a
+  completion which fills the stomach ends the action; digestion before completion
+  can prevent capacity being reached at all. Source exhaustion, failure and
+  cancellation also stop repetition (`IngestionSystem.cs:302–410,501–518`).
   Repeat restarts a full duration on the same DoAfter identity.
 - Active actions belong to the actor's networked DoAfter component; callbacks
   consume authoritatively. Local timed attachment data is transient, with separate
@@ -67,6 +71,27 @@ remains visible. Local actor bars are unshaded,
 remote actor bars are shaded. The port maps 32 pixels to one Minecraft block.
 Minecraft adapts the locally owned active CHARACTER body's bar to a camera-relative world-space billboard in first person (0.25 forward, anchored at 70% of the projection-derived vertical half-extent below center; projection `m11` with a 70-degree-FOV-derived invalid-scale fallback), placing it in the lower view above the hotbar while retaining world-space depth. `ownedCharacterForHud()` only returns the exact committed body while the authenticated active body-view binding is valid; the body view is supplied by the camera mixins, while Minecraft's native camera entity remains the player/ghost (it is reset to the player when the binding clears). Thus native camera-entity identity is not the active-view test. Third-person, remote, and non-owned actors retain the interpolated actor-above-AABB anchor, now with 0.30 world-unit clearance so the frame sits outside the head, and 32 pixels per world unit. First-person scale is 1/12 of normal 1/32, or 1/384 world units per pixel, keeping the 24×7 bar about 0.0625×0.01823 world units. Billboard orientation uses camera rotation without an additional half-turn: camera-local X consequently projects screen-left-to-right, so fill grows naturally from the left. This presentation-only projection never affects authority, and its first-person placement is not claimed to match an SS14 overlay position.
 The imported progress-bar PNG retains its adjacent CC-BY-SA-3.0 attribution.
+
+Current local presentation supersedes the first-person world billboard above:
+owned actions use a screen-space GUI overlay so looking down cannot clip the bar.
+The complete 24×7 source texture is drawn at 48×14 GUI pixels (2×), with source
+and destination rectangles specified separately, near 85% viewport height and
+clamped above the hotbar. Remote world bars retain their existing geometry.
+
+Local adaptation: resolved `Edible.kind` defaults to `DRINK` for existing
+liquid/puddle consumers; the inherited local `food_base` explicitly resolves
+`FOOD`, including cheese. Voluntary drink admission, continued validation, and
+completion repetition stop at the body's resolved `overHydrated` threshold;
+food remains edible at that threshold. This is an explicit local owner behavior,
+not an SS14 admission rule.
+
+Hydration-cap termination also consumes the authoritative state immediately
+after reagent metabolism, before thirst decay in the same 20-tick activity
+bucket. Otherwise hydration can reach its cap and fall below it before timed
+validation ever observes it. The ingestion service selectively cancels only
+that actor's voluntary DRINK operations through the shared timed runtime;
+FOOD and unrelated actions are not canceled. Natural decay does not restart a
+terminated operation: resuming requires another ingestion gesture.
 
 Client prediction is presentation-only. Server snapshots correct progress;
 reagent writes and repeat completion remain server-authoritative. Own first-start
@@ -95,6 +120,28 @@ No force-feeding, utensils, food/trash spawning, clothing blockers or new thirst
 stopping rules are added. `Drink` sound plays only after successful ingestion;
 the existing asset's unresolved individual provenance remains recorded in
 `docs/audio-unknown-provenance.md`.
+
+## Handless oral extension (local behavior, not SS14 gesture parity)
+
+The pinned Mouse composition has a mouth, stomach and body but no `Hands`; the
+local `supported_animal` resolved composition now includes the already-supported
+`Mouth` capability. Handless world and puddle gestures deliberately
+reuse the existing Alt+E / Alt+left-click controls and timed ingestion profiles.
+Eligibility is resolved Mouth + no Hands capability (or zero supported hands),
+eligible Stomach and Body, live/alive/actionable actor. No hand attachment or
+synthetic active hand is created. A Human with a Hands prototype remains on the
+existing empty, unreserved active-hand route; missing live hand state does not
+make it handless. Source identity, reach, stomach capacity, timed dose, and the
+existing conditional reagent transaction remain authoritative.
+
+The world/puddle gesture extension is deliberately unverified upstream; upstream
+ingestion evidence above covers the anatomy/profile composition only. Focused
+`handless-ingestion` GameTests exercise Mouse world-dose and puddle completion
+and reject a Human with absent live hand state. A typed prototype inheritance
+unit fixture exercises the same Mouth/no-Hands predicate for a non-Mouse child
+of `supported_animal`; standalone local Pig remains ineligible because its
+independent resolved composition has neither Mouth nor Stomach. No Pig anatomy
+is invented to make it a test subject.
 
 ## Source index
 

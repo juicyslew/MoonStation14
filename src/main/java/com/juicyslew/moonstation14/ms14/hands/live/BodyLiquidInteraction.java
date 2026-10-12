@@ -16,7 +16,6 @@ import com.juicyslew.moonstation14.ms14.activity.EntityActivity;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem;
 import com.juicyslew.moonstation14.ms14.organ.BodySystem;
 import com.juicyslew.moonstation14.entities.LooseItemEntity;
-import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -187,51 +186,58 @@ public final class BodyLiquidInteraction {
         if (auth.isEmpty()) return Result.DENIED;
         var authority = auth.orElseThrow(); LivingEntity body = authority.body();
         return sipBody(body, worldTargetId, hand, token, revision,
-                () -> HandActorAuthority.revalidate(actor, authority), false, 0, false);
+                () -> HandActorAuthority.revalidate(actor, authority), false, 0, false, false,
+                false, null, -2f, .25f);
     }
 
     /** Body-owned route for trusted callers; world sipping does not require an occupied hand. */
     static Result sipOwned(LivingEntity body, UUID worldTargetId, String hand, String token, long revision,
                            BooleanSupplier authorityValid) {
-        return sipBody(body, worldTargetId, hand, token, revision, authorityValid, false, 0, false);
+        return sipBody(body, worldTargetId, hand, token, revision, authorityValid, false, 0,
+                false, false, false, null, -2f, .25f);
     }
 
     /** Trusted server-thread completion seam for a previously-timed sip. */
     public static Result sipTimedOwned(LivingEntity body, UUID worldTargetId, String hand, String token,
-                                       long currentRevision, int doseCents, BooleanSupplier authorityValid) {
+                                       long currentRevision, int doseCents, boolean destroyOnEmpty, boolean food,
+                                       BooleanSupplier authorityValid) {
+        return sipTimedOwned(body, worldTargetId, hand, token, currentRevision, doseCents, destroyOnEmpty,
+                food, authorityValid, null, -2f, .25f);
+    }
+
+    /** Timed completion with resolved profile audio; source cleanup and transfer share one transaction. */
+    public static Result sipTimedOwned(LivingEntity body, UUID worldTargetId, String hand, String token,
+                                       long revision, int doseCents, boolean destroyOnEmpty, boolean food,
+                                       BooleanSupplier authorityValid, ResourceLocation sound, float volumeDb,
+                                       float pitchVariation) {
         if (doseCents <= 0) return Result.DENIED;
-        return sipBody(body, worldTargetId, hand, token, currentRevision, authorityValid, true, doseCents, false);
+        return sipBody(body, worldTargetId, hand, token, revision, authorityValid, true, doseCents,
+                destroyOnEmpty, food, false, sound, volumeDb, pitchVariation);
     }
 
     /** Timed whole-dose edible completion; source removal joins the staged ownership candidate. */
     public static Result consumeTimedEdibleOwned(LivingEntity body, String hand, String token,
-                                                  long currentRevision, int doseCents, BooleanSupplier authorityValid,
-                                                  net.minecraft.resources.ResourceLocation completionSound, float volumeDb, float pitchVariation) {
+                                                  long revision, int doseCents, BooleanSupplier authorityValid,
+                                                  ResourceLocation completionSound, float volumeDb, float pitchVariation) {
         if (doseCents <= 0 || token == null) return Result.DENIED;
-        return sipBody(body, null, hand, token, currentRevision, authorityValid, true, doseCents, true,
-                completionSound, volumeDb, pitchVariation);
+        return sipBody(body, null, hand, token, revision, authorityValid, true, doseCents,
+                false, true, true, completionSound, volumeDb, pitchVariation);
     }
 
     private static Result sipBody(LivingEntity body, @Nullable UUID worldTargetId, String hand,
-                                    @Nullable String token, long revision, BooleanSupplier authorityValid,
-                                     boolean timed, int doseCents, boolean consumeSource) {
-        return sipBody(body, worldTargetId, hand, token, revision, authorityValid, timed, doseCents, consumeSource,
-                ResourceLocation.fromNamespaceAndPath("moonstation14", "ss14/items/drink"), -2f, .25f);
-    }
-
-    private static Result sipBody(LivingEntity body, @Nullable UUID worldTargetId, String hand,
-                                    @Nullable String token, long revision, BooleanSupplier authorityValid,
-                                     boolean timed, int doseCents, boolean consumeSource,
-                                     ResourceLocation completionSound, float volumeDb, float pitchVariation) {
+                                  @Nullable String token, long revision, BooleanSupplier authorityValid,
+                                  boolean timed, int doseCents, boolean destroyOnEmpty, boolean food,
+                                  boolean consumeSource, ResourceLocation sound, float volumeDb, float pitchVariation) {
         return LiveHandsCommitGateway.batch(() -> sipTransaction(body, worldTargetId, hand, token, revision,
-                authorityValid, timed, doseCents, consumeSource, completionSound, volumeDb, pitchVariation));
+                authorityValid, timed, doseCents, destroyOnEmpty, food, consumeSource, sound, volumeDb, pitchVariation));
     }
 
     private static Result sipTransaction(LivingEntity body, @Nullable UUID worldTargetId, String hand,
-                                   @Nullable String token, long revision, BooleanSupplier authorityValid,
-                                    boolean timed, int doseCents, boolean consumeSource, ResourceLocation completionSound,
-                                    float volumeDb, float pitchVariation) {
-        if (body == null || hand == null || authorityValid == null) return Result.DENIED;
+                                         @Nullable String token, long revision, BooleanSupplier authorityValid,
+                                         boolean timed, int doseCents, boolean destroyOnEmpty, boolean food,
+                                         boolean consumeSource, ResourceLocation completionSound,
+                                         float volumeDb, float pitchVariation) {
+        if (body == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || level.getServer() == null || !level.getServer().isSameThread()
                 || !CharacterControlSystem.canAct(body) || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body || !authorityValid.getAsBoolean()) return Result.DENIED;
@@ -241,13 +247,15 @@ public final class BodyLiquidInteraction {
         long now = level.getServer().overworld().getGameTime();
         if (!timed && now < SIP_COOLDOWN.getOrDefault(body.getUUID(), 0L)) return Result.DENIED;
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        if (before == null || !before.compatible(body) || before.revision() != revision
+        boolean handless = timed && hand == null && revision == 0
+                && com.juicyslew.moonstation14.ms14.ingestion.OralAccess.handless(body);
+        if (handless ? before != null : hand == null || before == null || !before.compatible(body) || before.revision() != revision
                 || !timed && !before.activeHand().equals(hand)) return Result.DENIED;
-        ItemStack held = before.stackCopy(hand).orElse(null);
+        ItemStack held = handless ? null : before.stackCopy(hand).orElse(null);
         boolean worldSource = worldTargetId != null;
         ItemToken ownedToken = null;
         if (worldSource) {
-            if (!timed && (held != null || before.reservation(hand).isPresent())) return Result.DENIED;
+            if (!handless && !timed && (held != null || before.reservation(hand).isPresent())) return Result.DENIED;
             if (timed && held != null) {
                 String currentToken = before.token(hand).orElse(null);
                 if (currentToken == null || token != null && !token.equals(currentToken)) return Result.DENIED;
@@ -339,9 +347,14 @@ public final class BodyLiquidInteraction {
                         : compensateSip(body, level, world, oldWorldStack, stagedSource, before, revision, hand, ownedToken, held, token, stomachAttachment, stomachBefore);
             return Result.RECOVERY_REQUIRED;
         }
+        if (world != null && destroyOnEmpty && plan.sourceAfter().values().stream().mapToLong(Long::longValue).sum() == 0)
+            world.discard();
         EntityActivitySystem.update(body, EntityActivity.REAGENT_METABOLISM, true);
         if (!timed) SIP_COOLDOWN.put(body.getUUID(), now + 20L);
-        var sound = completionSound == null ? null : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(completionSound).orElse(null);
+        ResourceLocation selectedSound = completionSound == null
+                ? ResourceLocation.fromNamespaceAndPath("moonstation14", food ? "ss14/items/eat" : "ss14/items/drink")
+                : completionSound;
+        var sound = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(selectedSound).orElse(null);
         if (sound != null) {
             float pitch = 1f + (body.getRandom().nextFloat() * 2f - 1f) * pitchVariation;
             float gain = (float) Math.pow(10.0, volumeDb / 20.0);
@@ -396,8 +409,10 @@ public final class BodyLiquidInteraction {
                                          String hand, String token, ItemStack held, BooleanSupplier authorityValid, boolean timed) {
         if (authorityValid == null || !authorityValid.getAsBoolean() || body.level() != level || body.isRemoved()
                 || !body.isAlive() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
-                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
-                || !before.compatible(body) || before.revision() != revision || !timed && !before.activeHand().equals(hand)) return false;
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before) return false;
+        if (before == null) return timed && hand == null && revision == 0
+                && com.juicyslew.moonstation14.ms14.ingestion.OralAccess.handless(body);
+        if (!before.compatible(body) || before.revision() != revision || !timed && !before.activeHand().equals(hand)) return false;
         if (token == null) return before.stackCopy(hand).isEmpty() && before.reservation(hand).isEmpty();
         return before.token(hand).filter(token::equals).isPresent() && before.stackCopy(hand).filter(s -> same(held, s)).isPresent();
     }

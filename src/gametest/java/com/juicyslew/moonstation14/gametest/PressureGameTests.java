@@ -45,9 +45,11 @@ public final class PressureGameTests {
         var global = ModCharacters.catalog(level);
         var manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
+        var damageBeforeUnresolvedTick = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
         require(!BarotraumaSystem.tickIfDue(pig, -(long) pig.getId(), vacuum,
-                        manager.snapshot(ModCharacters.CHARACTER_TYPE)) && !pig.hasData(ModDataAttachments.DAMAGE.get()),
-                "bound identity absent from snapshot must remain inert without enrollment");
+                        manager.snapshot(ModCharacters.CHARACTER_TYPE))
+                        && pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == damageBeforeUnresolvedTick,
+                "bound identity absent from snapshot must remain inert without changing damage enrollment");
         ResourceLocation baseId = ResourceLocation.parse("moonstation14:pressure_test_base");
         var inherited = pressureCandidate(baseId, pigId, "", "");
         var initialToken = manager.stage(Map.of(ModCharacters.CHARACTER_TYPE, inherited));
@@ -65,7 +67,6 @@ public final class PressureGameTests {
         require(sample.isPresent() && sample.orElseThrow().pressureKpa(1) == 0,
                 "isolated enabled service must prove strict exterior vacuum");
         long due = -(long) pig.getId();
-        require(!pig.hasData(ModDataAttachments.DAMAGE.get()), "initial pressure read must not enroll damage");
         require(BarotraumaSystem.tickIfDue(pig, due, vacuum, first), "inherited pressure hit must apply");
         require(typedBlunt(pig) == 0.6f, "inherited .15 spec must produce one .6 typed hit");
 
@@ -147,8 +148,6 @@ public final class PressureGameTests {
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
         pig.setNoAi(true);
-        pig.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100);
-        pig.setHealth(100);
         BlockPos sky = new BlockPos(2, level.getMaxBuildHeight() - 10, 2);
         level.getChunk(sky);
         pig.setPos(sky.getX() + 0.5, sky.getY() - pig.getEyeHeight(), sky.getZ() + 0.5);
@@ -185,6 +184,10 @@ public final class PressureGameTests {
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
         pig.setNoAi(true);
+        // This fixture explicitly exercises the one-time legacy import path.
+        // Clear the lifecycle-published known-zero ledger before restoring the
+        // old native-health-only save state.
+        pig.removeData(ModDataAttachments.DAMAGE.get());
         pig.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100);
         pig.setHealth(59); // 41 missing health = 205 typed blunt, above the 200 ceiling.
         BlockPos sky = new BlockPos(2, level.getMaxBuildHeight() - 10, 2);
@@ -193,10 +196,11 @@ public final class PressureGameTests {
         require(vacuum.sample(level, BlockPos.containing(pig.getEyePosition())).isPresent()
                         && vacuum.sample(level, BlockPos.containing(pig.getEyePosition())).orElseThrow().pressureKpa(1) == 0,
                 "ceiling check requires strict known vacuum");
-        require(!pig.hasData(ModDataAttachments.DAMAGE.get()), "vanilla injury must not already have a ledger");
+        require(pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == null,
+                "legacy native injury must have no typed ledger before the pressure precheck");
         require(!BarotraumaSystem.tickIfDue(pig, -pig.getId(), vacuum),
                 "missing-health blunt baseline above ceiling must prevent pressure hit");
-        require(pig.getHealth() == 59f && !pig.hasData(ModDataAttachments.DAMAGE.get()),
+        require(pig.getHealth() == 59f && pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == null,
                 "precheck must neither damage host nor materialize missing ledger");
         helper.succeed();
     }
@@ -207,6 +211,9 @@ public final class PressureGameTests {
         var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
         Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
         pig.setNoAi(true);
+        // Legacy save compatibility case: this old actor has native damage but
+        // no typed ledger. The import happens once when pressure applies.
+        pig.removeData(ModDataAttachments.DAMAGE.get());
         pig.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100);
         pig.setHealth(61); // 39 missing health = 195 typed blunt, below the 200 ceiling.
         BlockPos sky = new BlockPos(2, level.getMaxBuildHeight() - 10, 2);
@@ -215,7 +222,8 @@ public final class PressureGameTests {
         require(vacuum.sample(level, BlockPos.containing(pig.getEyePosition())).isPresent()
                         && vacuum.sample(level, BlockPos.containing(pig.getEyePosition())).orElseThrow().pressureKpa(1) == 0,
                 "below-ceiling check requires strict known vacuum");
-        require(!pig.hasData(ModDataAttachments.DAMAGE.get()), "vanilla injury must not already have a ledger");
+        require(pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == null,
+                "legacy native injury must have no typed ledger before baseline import");
         require(BarotraumaSystem.tickIfDue(pig, -pig.getId(), vacuum), "vacuum must apply full pressure hit");
         var first = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap();
         require(first.size() == 1 && Math.abs(first.getOrDefault("blunt", 0f) - 195.6f) < 0.001f,
@@ -249,8 +257,10 @@ public final class PressureGameTests {
         require(vacuum.sample(level, eye).isEmpty(), "unclaimed covered cell must be unknown");
         float baseline = pig.getHealth();
         require(!BarotraumaSystem.tickIfDue(pig, -pig.getId(), vacuum), "unknown must not damage");
-        require(pig.getHealth() == baseline && !pig.hasData(ModDataAttachments.DAMAGE.get()),
-                "unknown read must not materialize damage state");
+        var damageBeforeUnknown = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        require(pig.getHealth() == baseline
+                        && pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == damageBeforeUnknown,
+                "unknown read must not alter damage state");
         require(!BarotraumaSystem.tickIfDue(pig, 1L - pig.getId(), vacuum),
                 "stagger must reject an off-cadence tick");
 

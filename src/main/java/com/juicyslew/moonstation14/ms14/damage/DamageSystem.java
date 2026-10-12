@@ -162,7 +162,7 @@ public final class DamageSystem {
         }
         com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.ensureProjection(entity);
         DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
-        if (stored != null && !stored.isEmpty()) {
+        if (stored != null) {
             project(entity, stored.getMap());
         } else {
             ensureBaseline(entity);
@@ -175,11 +175,8 @@ public final class DamageSystem {
             return false;
         }
         DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
-        if (stored != null && !stored.isEmpty()) {
-            return false;
-        }
         if (stored != null) {
-            entity.removeData(ModDataAttachments.DAMAGE.get());
+            return false;
         }
         Map<String, Float> baseline = missingVanillaBaseline(entity);
         if (baseline.isEmpty()) {
@@ -189,13 +186,26 @@ public final class DamageSystem {
         return true;
     }
 
+    /** Publishes the server-owned typed health ledger to the entity's current tracking clients. */
+    public static boolean publishHealthState(LivingEntity entity) {
+        if (entity == null || entity.level().isClientSide() || entity.isRemoved() || !entity.isAlive()) return false;
+        // A present empty ledger is authoritative known-zero, not a cue to import vanilla health.
+        if (entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == null) {
+            ensureBaseline(entity);
+        }
+        if (entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == null)
+            entity.setData(ModDataAttachments.DAMAGE.get(), new DamageData());
+        entity.syncData(ModDataAttachments.DAMAGE.get());
+        return true;
+    }
+
     /** Previews the ledger a health change would start from, without creating damage state. */
     public static Map<String, Float> existingOrVanillaBaseline(LivingEntity entity) {
         if (entity == null || entity.level().isClientSide() || !entity.isAlive()) {
             return Map.of();
         }
         DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
-        return stored != null && !stored.isEmpty() ? stored.getMap() : missingVanillaBaseline(entity);
+        return stored != null ? stored.getMap() : missingVanillaBaseline(entity);
     }
 
     private static Map<String, Float> missingVanillaBaseline(LivingEntity entity) {
@@ -297,12 +307,16 @@ public final class DamageSystem {
             return;
         }
         if (clean.isEmpty()) {
-            if (before != null) entity.removeData(ModDataAttachments.DAMAGE.get());
-            if (before != null) project(entity, clean);
+            if (before != null) {
+                entity.setData(ModDataAttachments.DAMAGE.get(), new DamageData(new DamageMap(clean)));
+                entity.syncData(ModDataAttachments.DAMAGE.get());
+                project(entity, clean);
+            }
             com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.reconcile(entity);
             return;
         }
         entity.setData(ModDataAttachments.DAMAGE.get(), new DamageData(new DamageMap(clean)));
+        entity.syncData(ModDataAttachments.DAMAGE.get());
         project(entity, clean);
         com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.reconcile(entity);
     }

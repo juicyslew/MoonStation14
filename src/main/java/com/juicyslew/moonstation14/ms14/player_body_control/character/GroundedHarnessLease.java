@@ -18,17 +18,38 @@ public final class GroundedHarnessLease implements AutoCloseable {
     private final Mob body;
     private final MindControlledMob owner;
     private final boolean priorNoAi;
+    private final boolean priorConfigured;
     private boolean closed;
 
-    private GroundedHarnessLease(Mob body, MindControlledMob owner, boolean priorNoAi) {
+    private GroundedHarnessLease(Mob body, MindControlledMob owner, boolean priorNoAi, boolean priorConfigured) {
         this.body = body;
         this.owner = owner;
         this.priorNoAi = priorNoAi;
+        this.priorConfigured = priorConfigured;
     }
 
     /** Attempts to acquire this body on the server. No Mind transfer or other session state is created. */
     public static Optional<GroundedHarnessLease> tryAcquire(Mob body) {
         if (!isEligible(body)) return Optional.empty();
+        return acquire(body, body.getPersistentData().getBoolean(CONFIGURED_MARKER));
+    }
+
+    /** Role bodies may acquire the same lease from resolved grounded role composition without admin marker setup. */
+    public static Optional<GroundedHarnessLease> tryAcquireRoleTarget(Mob body) {
+        if (!isEligible(body, false, false)) return Optional.empty();
+        boolean configured = body.getPersistentData().getBoolean(CONFIGURED_MARKER);
+        try {
+            body.getPersistentData().putBoolean(CONFIGURED_MARKER, true);
+            Optional<GroundedHarnessLease> lease = acquire(body, configured);
+            if (lease.isEmpty() && !configured) body.getPersistentData().remove(CONFIGURED_MARKER);
+            return lease;
+        } catch (RuntimeException | Error failure) {
+            if (!configured) body.getPersistentData().remove(CONFIGURED_MARKER);
+            throw failure;
+        }
+    }
+
+    private static Optional<GroundedHarnessLease> acquire(Mob body, boolean priorConfigured) {
 
         MindControlledMob owner = (MindControlledMob) body;
         boolean priorNoAi = body.isNoAi();
@@ -36,7 +57,7 @@ public final class GroundedHarnessLease implements AutoCloseable {
             body.getNavigation().stop();
             body.setNoAi(true);
             owner.moonstation14$setMovementOwned(true);
-            return Optional.of(new GroundedHarnessLease(body, owner, priorNoAi));
+            return Optional.of(new GroundedHarnessLease(body, owner, priorNoAi, priorConfigured));
         } catch (RuntimeException | Error failure) {
             try {
                 restore(body, owner, priorNoAi);
@@ -53,25 +74,30 @@ public final class GroundedHarnessLease implements AutoCloseable {
     @Override
     public void close() {
         if (closed) return;
-        restore(body, owner, priorNoAi);
-        closed = true;
+        try { restore(body, owner, priorNoAi); }
+        finally {
+            if (!priorConfigured) body.getPersistentData().remove(CONFIGURED_MARKER);
+            closed = true;
+        }
     }
 
     static boolean isEligible(Mob body) {
-        return isEligible(body, false);
+        return isEligible(body, false, true);
     }
 
     /** Read-only revalidation for a body whose movement ownership lease is already held. */
     public static boolean isOwnedBodyEligible(Mob body) {
-        return isEligible(body, true);
+        return isEligible(body, true, true);
     }
 
-    private static boolean isEligible(Mob body, boolean allowOwned) {
+    public static boolean isOwnedRoleTargetEligible(Mob body) { return isEligible(body, true, false); }
+
+    private static boolean isEligible(Mob body, boolean allowOwned, boolean requireConfigured) {
         if (body == null || body.isRemoved() || !body.isAlive() || body.level().isClientSide
                 || !(body.level() instanceof ServerLevel level) || level.getServer() == null
                 || level.getEntity(body.getUUID()) != body || body.isPassenger()
                 || body.isInWaterOrBubble() || body.isInLava()
-                || !body.getPersistentData().getBoolean(CONFIGURED_MARKER)
+                || requireConfigured && !body.getPersistentData().getBoolean(CONFIGURED_MARKER)
                 || !(body instanceof MindControlledMob owner)
                 || (!allowOwned && owner.moonstation14$isMovementOwned())) {
             return false;
