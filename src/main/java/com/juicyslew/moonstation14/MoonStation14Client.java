@@ -149,6 +149,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::registerJugModels);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::registerLayer);
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
         modEventBus.addListener(LocalSpeechReviewKey::register);
         modEventBus.addListener(BodyHandClient::registerKeys);
@@ -192,6 +193,20 @@ public class MoonStation14Client {
         TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
         NeoForge.EVENT_BUS.addListener(MachineUiGalleryCommands::register);
+        com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleNetworking.installDefaultSnapshotRequester();
+        com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleNetworking.installClientHandler(
+                com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleNetworking::handleClientPayload);
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.RegisterClientCommandsEvent event) ->
+                event.getDispatcher().register(com.mojang.brigadier.builder.LiteralArgumentBuilder.<net.minecraft.commands.CommandSourceStack>literal("ghostroles")
+                        .executes(ctx -> {
+                            var credential = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedGhostContext();
+                            if (credential == null) {
+                                ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("Only a committed ghost can view available roles."));
+                                return 0;
+                            }
+                            com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleMenuWindow.open(credential);
+                            return 1;
+                        })));
     }
 
     static void onClientSetup(FMLClientSetupEvent event) {
@@ -630,10 +645,18 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderAlerts(RenderGuiEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (GhostControlClient.isLocalGhostControl()) {
+            BODY_HEALTH_HUD.reset();
+            return;
+        }
+        var canonicalCharacter = GhostControlClient.ownedCharacterForPresentation();
+        var observation = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();
+        var observedBody = observation == null ? null
+                : com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.statusBody();
         var body = GhostControlClient.isLocalMindCarrier()
-                ? (com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current() != null
-                    ? com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.statusBody()
-                    : GhostControlClient.ownedCharacterForPresentation()) : null;
+                ? com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHudSourcePolicy.select(
+                        canonicalCharacter, observedBody, GhostControlClient.isLocalCharacterControl(),
+                        GhostControlClient.isLocalGhostControl()) : null;
         if (body == null || minecraft.player == null || minecraft.level == null) BODY_HEALTH_HUD.reset();
         if (minecraft.options.hideGui) {
             BODY_HEALTH_HUD.reset();
@@ -646,6 +669,9 @@ public class MoonStation14Client {
         }
 
         boolean mindCarrier = GhostControlClient.isLocalMindCarrier();
+        // During any owned Mind session the carrier is only a camera/transport shell. Never
+        // project its physiology when the committed body is a ghost or is not yet available.
+        if (mindCarrier && body == null) return;
         net.minecraft.world.entity.LivingEntity source = mindCarrier ? body : minecraft.player;
         if (source == null) return;
 
@@ -677,9 +703,9 @@ public class MoonStation14Client {
         }
         if (body != null) {
             var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(body);
-            var observation = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();
-            long epoch = observation != null && observation.body().equals(body.getUUID())
-                    ? observation.epoch() : GhostControlClient.ownedCharacterForPresentation() == body
+            var bodyObservation = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();
+            long epoch = bodyObservation != null && bodyObservation.body().equals(body.getUUID())
+                    ? bodyObservation.epoch() : GhostControlClient.ownedCharacterForPresentation() == body
                     ? GhostControlClient.presentationCharacterEpoch() : 0;
             // MobStateSystem.policy is server-authority-only; HUD thresholds use the synced read-only client projection.
             var medicalPolicy = character.flatMap(com.juicyslew.moonstation14.ms14.mobs.MobStatePolicy::from).orElse(null);
@@ -694,9 +720,18 @@ public class MoonStation14Client {
                     .mapToDouble(java.util.Map.Entry::getKey).min().orElse(Double.NaN);
             var observedState = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
             BodyHealthHudPolicy.View healthView = epoch > 0
-                    ? BodyHealthHudPolicy.medical(typedDamage, critical, dead,
+                    ? BodyHealthHudPolicy.medicalIfAvailable(damageLedger != null, typedDamage, critical, dead,
                     observedState == null ? com.juicyslew.moonstation14.ms14.mobs.MobStateData.DEFAULT.state()
                             : observedState.data().state()) : null;
+            boolean incorporeal = character.flatMap(data -> data.component(
+                    com.juicyslew.moonstation14.ms14.character.components.IncorporealComponent.class)).isPresent();
+            if (healthView == null && epoch > 0 && !incorporeal && Float.isFinite(body.getHealth())
+                    && Float.isFinite(body.getMaxHealth()) && body.getMaxHealth() > 0) {
+                var carrier = minecraft.player.getUUID();
+                var key = new BodyHealthHudPolicy.Key(carrier, epoch, body.level(), body.getUUID(), body.getId());
+                healthView = BODY_HEALTH_HUD.observe(key, body.getHealth(), body.getMaxHealth(),
+                        body.level().getGameTime());
+            }
             if (healthView != null) {
                 rows.add(0, new HudStatus(healthView.label(),
                         healthView.damageFlash() ? 0xffef2727 : 0xffa83232));
@@ -704,16 +739,18 @@ public class MoonStation14Client {
                     rows.add(1, new HudStatus(healthView.debugLabel(), 0xffa83232));
             }
 
-            var hunger = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent.class)).isPresent()
-                    ? body.getExistingDataOrNull(ModDataAttachments.HUNGER.get()) : null;
+            var hungerPolicy = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent.class)).orElse(null);
+            var hunger = hungerPolicy != null ? body.getExistingDataOrNull(ModDataAttachments.HUNGER.get()) : null;
             if (hunger != null && Float.isFinite(hunger.hunger())) {
-                rows.add(new HudStatus("BODY HUNGER " + Math.round(hunger.hunger()), 0xffa86b16));
+                var level = com.juicyslew.moonstation14.ms14.hunger.HungerReducer.classify(hunger.hunger(), hungerPolicy);
+                rows.add(new HudStatus("BODY HUNGER " + level.displayLabel() + " " + Math.round(hunger.hunger()), 0xffa86b16));
             }
 
-            var thirst = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.class)).isPresent()
-                    ? body.getExistingDataOrNull(ModDataAttachments.THIRST.get()) : null;
+            var thirstPolicy = character.flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.class)).orElse(null);
+            var thirst = thirstPolicy != null ? body.getExistingDataOrNull(ModDataAttachments.THIRST.get()) : null;
             if (thirst != null && Float.isFinite(thirst.thirst())) {
-                rows.add(new HudStatus("BODY THIRST " + Math.round(thirst.thirst()), 0xff3186a8));
+                var level = com.juicyslew.moonstation14.ms14.thirst.ThirstReducer.classify(thirst.thirst(), thirstPolicy);
+                rows.add(new HudStatus("BODY THIRST " + level.displayLabel() + " " + Math.round(thirst.thirst()), 0xff3186a8));
             }
         }
         int guiWidth = event.getGuiGraphics().guiWidth();
@@ -876,6 +913,7 @@ public class MoonStation14Client {
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
+        event.registerEntityRenderer(ModEntities.MOUSE.get(), com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::new);
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.VISUAL_PIPE.get(), VisualPipeBlockEntityRenderer::new);

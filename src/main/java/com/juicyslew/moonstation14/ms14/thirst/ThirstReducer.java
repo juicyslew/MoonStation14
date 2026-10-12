@@ -8,40 +8,55 @@ public final class ThirstReducer {
 
     private ThirstReducer() { }
 
-    public enum Level { OVER_HYDRATED, OKAY, THIRSTY, PARCHED, DEAD }
+    public enum Level {
+        OVER_HYDRATED, OKAY, THIRSTY, PARCHED, DEAD;
+
+        /** Zero hydration remains the thirst system's terminal band, but is presented as parched. */
+        public String displayLabel() { return this == DEAD ? PARCHED.name() : name(); }
+    }
 
     /** The upstream threshold chooses the smallest threshold value greater than or equal to current. */
     public static Level classify(float thirst) {
+        return classify(thirst, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.DEFAULT);
+    }
+    public static Level classify(float thirst, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent policy) {
         requireValid(thirst);
-        if (thirst == 0f) return Level.DEAD;
-        if (thirst <= 150f) return Level.PARCHED;
-        if (thirst <= 300f) return Level.THIRSTY;
-        if (thirst <= 450f) return Level.OKAY;
+        if (thirst <= policy.dead()) return Level.DEAD;
+        if (thirst <= policy.parched()) return Level.PARCHED;
+        if (thirst <= policy.thirsty()) return Level.THIRSTY;
+        if (thirst <= policy.okay()) return Level.OKAY;
         return Level.OVER_HYDRATED;
     }
 
     /** Clamp a finite effect delta to the finite thirst range; malformed arithmetic fails without mutation. */
     public static Result satiate(float current, float factor, float scale) {
+        return satiate(current, factor, scale, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.DEFAULT);
+    }
+    public static Result satiate(float current, float factor, float scale,
+            com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent policy) {
         if (!valid(current) || !Float.isFinite(factor) || !Float.isFinite(scale)) return Result.failed();
         float delta = factor * scale;
         float sum = current + delta;
         if (!Float.isFinite(delta) || !Float.isFinite(sum)) return Result.failed();
-        float next = Math.max(ThirstComponent.MIN_THIRST, Math.min(ThirstComponent.MAX_THIRST, sum));
+        float next = Math.max(policy.dead(), Math.min(policy.overHydrated(), sum));
         return new Result(true, next, Float.compare(current, next) != 0);
     }
 
     /** Applies one elapsed second, using the level before decay exactly as upstream does. */
     public static Result decayOneSecond(float current) {
+        return decayOneSecond(current, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.DEFAULT);
+    }
+    public static Result decayOneSecond(float current, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent policy) {
         if (!valid(current)) return Result.failed();
-        float multiplier = switch (classify(current)) {
+        float multiplier = switch (classify(current, policy)) {
             case OVER_HYDRATED -> 1.2f;
             case OKAY -> 1f;
             case THIRSTY -> 0.8f;
             case PARCHED -> 0.6f;
             case DEAD -> 0f;
         };
-        float next = Math.max(ThirstComponent.MIN_THIRST,
-                current - BASE_DECAY_PER_SECOND * multiplier);
+        float next = Math.max(policy.dead(), Math.min(policy.overHydrated(),
+                current - policy.decay() * multiplier));
         return new Result(true, next, Float.compare(current, next) != 0);
     }
 

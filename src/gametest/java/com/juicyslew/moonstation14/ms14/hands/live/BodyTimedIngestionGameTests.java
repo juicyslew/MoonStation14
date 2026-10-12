@@ -39,6 +39,8 @@ import java.util.Map;
 public final class BodyTimedIngestionGameTests {
     private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> WATER =
             ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "water"));
+    private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> NUTRIENT =
+            ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "nutriment"));
 
     private BodyTimedIngestionGameTests() { }
 
@@ -146,6 +148,229 @@ public final class BodyTimedIngestionGameTests {
         });
     }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 1400)
+    public static void finalPartialCapacityDoseStopsTimedPuddleOperation(GameTestHelper helper) {
+        Villager body = makeBody(helper, new BlockPos(2, 1, 2));
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        BlockPos pos = puddle(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 2)), 5f);
+        aimAtPuddle(body, pos);
+        long capacity = LiquidInteractionCapability.STOMACH_CAPACITY_CENTS;
+        com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(body, helper.getLevel());
+        waitForCapacitySafeStart(helper, body, () -> runPartialCapacityDoseFixture(helper, body, hands, pos, capacity));
+    }
+
+    private static void runPartialCapacityDoseFixture(GameTestHelper helper, Villager body, LiveHands hands,
+                                                       BlockPos pos, long capacity) {
+        long startTime = helper.getLevel().getGameTime();
+        require(!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM
+                        .isDue(startTime, body.getId()), "capacity fixture starts outside the body's metabolism bucket");
+        setThirst(body, 0f);
+        MS14Provider.update(body, MS14Bridges.STOMACH,
+                new ReagentAttachment(Map.of(WATER, (capacity - 50) / 100f)));
+        require(!com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(body),
+                "partial-capacity drink fixture starts below resolved hydration cap");
+        require(BodyTimedIngestionService.startPuddleOwned(body, pos, hands.activeHand(), hands.revision(), 31, () -> true)
+                == BodyHandActionResult.Reason.OK, "operation starts with less room than one configured dose");
+        TimedOperation started = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                .filter(o -> o.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
+        require(started.dueTick() == startTime + 60, "the fixture aligns against the resolved 60-tick puddle dose");
+        waitForGameTime(helper, started.dueTick() - 1, () -> {
+            require(water((PuddleBlockEntity) helper.getLevel().getBlockEntity(pos)) == 500,
+                    "source remains untouched until the actual timed completion edge");
+            MS14Provider.update(body, MS14Bridges.STOMACH,
+                    new ReagentAttachment(Map.of(WATER, (capacity - 50) / 100f)));
+            waitForGameTime(helper, started.dueTick() + 1, () -> {
+                require(!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM
+                                .isDue(started.dueTick() - 1, body.getId())
+                                && !com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM
+                                .isDue(started.dueTick(), body.getId())
+                                && !com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM
+                                .isDue(started.dueTick() + 1, body.getId()),
+                        "the capacity setup and completion window avoids this body's metabolism bucket");
+                TimedOperation operation = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .filter(o -> o.id() == started.id()).findFirst().orElse(null);
+                require(operation != null && operation.phase() == TimedOperation.Phase.COMPLETED,
+                        "timed operation completed at the due edge; state="
+                                + body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations());
+                require(water(body) == capacity
+                                && water((PuddleBlockEntity) helper.getLevel().getBlockEntity(pos)) == 450,
+                        "exact final 50-cent capacity slice moves; stomach=" + water(body)
+                                + " source=" + water((PuddleBlockEntity) helper.getLevel().getBlockEntity(pos)));
+                require(!active(body, operation.id()), "capacity-limited operation does not repeat");
+                waitForGameTime(helper, started.dueTick() + 70, () -> {
+                    require(water((PuddleBlockEntity) helper.getLevel().getBlockEntity(pos)) == 450
+                                    && !active(body, operation.id()),
+                            "a later natural tick does not restart the completed operation or consume source");
+                    MS14Provider.update(body, MS14Bridges.STOMACH, new ReagentAttachment(Map.of()));
+                    setThirst(body, 0f);
+                    require(BodyTimedIngestionService.startPuddleOwned(body, pos, hands.activeHand(), hands.revision(), 32, () -> true)
+                                    == BodyHandActionResult.Reason.OK,
+                            "a distinct new gesture can start a fresh operation after capacity is available");
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    private static void waitForCapacitySafeStart(GameTestHelper helper, Villager body, Runnable action) {
+        long now = helper.getLevel().getGameTime();
+        long start = now;
+        var metabolism = com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM;
+        while (metabolism.isDue(start, body.getId())
+                || metabolism.isDue(start + 59, body.getId())
+                || metabolism.isDue(start + 60, body.getId())
+                || metabolism.isDue(start + 61, body.getId())) start++;
+        if (start <= now) action.run();
+        else helper.runAfterDelay(1, () -> waitForCapacitySafeStart(helper, body, action));
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    public static void hydrationCapReachedInMetabolismBucketStopsDrinkBeforeThirstDecay(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var body = makeBody(helper, new BlockPos(2, 1, 2));
+        var hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        BlockPos pos = puddle(level, helper.absolutePos(new BlockPos(3, 1, 2)), 5f);
+        aimAtPuddle(body, pos);
+        require(BodyTimedIngestionService.startPuddleOwned(body, pos, hands.activeHand(), hands.revision(), 41, () -> true)
+                == BodyHandActionResult.Reason.OK, "human voluntary drink starts");
+        com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(body, level);
+        setThirst(body, 599.99f);
+        MS14Provider.update(body, MS14Bridges.STOMACH, new ReagentAttachment(Map.of(WATER, 1f)));
+        var due = java.util.EnumSet.of(com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM,
+                com.juicyslew.moonstation14.ms14.activity.EntityActivity.THIRST);
+        require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .anyMatch(o -> o.phase() == TimedOperation.Phase.ACTIVE),
+                "human drink is active immediately before the metabolism edge");
+        require(!com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(body),
+                "human begins metabolism below the resolved hydration cap");
+        com.juicyslew.moonstation14.eventhooks.TickHooks.runDueActivities(body, level, due);
+        require(!com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(body),
+                "same-bucket thirst decay follows metabolism that reached the hydration cap");
+        require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .anyMatch(o -> o.phase() == TimedOperation.Phase.CANCELLED),
+                "drink is terminally cancelled before same-bucket thirst decay");
+        long remaining = water((PuddleBlockEntity) level.getBlockEntity(pos));
+        helper.runAfterDelay(65, () -> {
+            require(water((PuddleBlockEntity) level.getBlockEntity(pos)) == remaining,
+                    "natural hydration decay below cap does not restart the cancelled drink");
+            require(BodyTimedIngestionService.startPuddleOwned(body, pos, hands.activeHand(), hands.revision(), 43, () -> true)
+                            == BodyHandActionResult.Reason.OK,
+                    "new human gesture can start drinking after natural hydration decay");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    public static void mouseHydrationCapBucketStopsHandlessPuddleDrink(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos bodyPos = helper.absolutePos(new BlockPos(2, 1, 2));
+        level.setBlock(bodyPos.below(), Blocks.STONE.defaultBlockState(), 3);
+        var mouse = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(mouse != null, "mouse created");
+        mouse.setNoAi(true); mouse.setNoGravity(true); mouse.setPos(bodyPos.getX() + .5, bodyPos.getY(), bodyPos.getZ() + .5);
+        require(level.addFreshEntity(mouse) && CharacterIdentitySystem.enroll(mouse, level,
+                ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse")) && BodySystem.reconcile(mouse),
+                "mouse enrolled with inherited stomach and thirst");
+        BlockPos pos = puddle(level, helper.absolutePos(new BlockPos(3, 1, 2)), 5f);
+        aimAtPuddle(mouse, pos);
+        require(BodyTimedIngestionService.startPuddleOwned(mouse, pos, null, 0, 42, () -> true)
+                == BodyHandActionResult.Reason.OK, "handless mouse voluntary drink starts");
+        com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(mouse, level);
+        setThirst(mouse, 34.99f);
+        BlockPos foodPos = helper.absolutePos(new BlockPos(5, 1, 2));
+        level.setBlock(foodPos.below(), Blocks.STONE.defaultBlockState(), 3);
+        var cheese = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level,
+                new Vec3(foodPos.getX() + .5, foodPos.getY(), foodPos.getZ() + .5),
+                new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.CHEESE_SLICE.get()));
+        require(level.addFreshEntity(cheese), "resolved cheese food source spawned");
+        com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(cheese.getItem(), level);
+        Vec3 foodDelta = cheese.position().subtract(mouse.getEyePosition());
+        mouse.setYRot((float) (Math.toDegrees(Math.atan2(foodDelta.z, foodDelta.x)) - 90));
+        mouse.setXRot((float) -Math.toDegrees(Math.atan2(foodDelta.y, Math.hypot(foodDelta.x, foodDelta.z))));
+        mouse.setYHeadRot(mouse.getYRot());
+        require(BodyTimedIngestionService.startWorldOwned(mouse, cheese.getUUID(), null, 0, 45, () -> true)
+                        == BodyHandActionResult.Reason.OK,
+                "voluntary food ingestion remains startable alongside the drink");
+        MS14Provider.update(mouse, MS14Bridges.STOMACH, new ReagentAttachment(Map.of(WATER, 1f)));
+        require(mouse.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .anyMatch(o -> o.phase() == TimedOperation.Phase.ACTIVE),
+                "mouse drink is active immediately before the metabolism edge");
+        require(!com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(mouse),
+                "mouse begins metabolism below the resolved hydration cap");
+        com.juicyslew.moonstation14.eventhooks.TickHooks.runDueActivities(mouse, level,
+                java.util.EnumSet.of(com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM,
+                        com.juicyslew.moonstation14.ms14.activity.EntityActivity.THIRST));
+        require(!com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(mouse),
+                "mouse water metabolism reaches 35-unit cap before same-bucket thirst decay");
+        require(mouse.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .anyMatch(o -> o.phase() == TimedOperation.Phase.CANCELLED),
+                "mouse drink is cancelled before same-bucket thirst decay");
+        require(mouse.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .anyMatch(o -> o.kind().equals("ingestion") && o.sourceKey().startsWith("world:")
+                                && o.phase() == TimedOperation.Phase.ACTIVE),
+                "hydration-cap drink cancellation preserves a concurrent voluntary FOOD operation");
+        long remaining = water((PuddleBlockEntity) level.getBlockEntity(pos));
+        helper.runAfterDelay(65, () -> {
+            require(water((PuddleBlockEntity) level.getBlockEntity(pos)) == remaining,
+                    "mouse hydration decay cannot restart a stopped drink");
+            require(BodyTimedIngestionService.startPuddleOwned(mouse, pos, null, 0, 44, () -> true)
+                            == BodyHandActionResult.Reason.OK,
+                    "new mouse gesture can start drinking after natural hydration decay");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 90)
+    public static void foodItemOnThinPuddleIsSelectedAndStartsAsWorldFood(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos bodyPos = helper.absolutePos(new BlockPos(2, 1, 2));
+        level.setBlock(bodyPos.below(), Blocks.STONE.defaultBlockState(), 3);
+        var mouse = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(mouse != null, "mouse created");
+        mouse.setNoAi(true); mouse.setNoGravity(true); mouse.setPos(bodyPos.getX() + .5, bodyPos.getY(), bodyPos.getZ() + .5);
+        require(level.addFreshEntity(mouse) && CharacterIdentitySystem.enroll(mouse, level,
+                ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse")) && BodySystem.reconcile(mouse),
+                "mouse enrolled with oral capability");
+        BlockPos puddlePos = helper.absolutePos(new BlockPos(5, 1, 2));
+        BlockPos puddle = puddle(level, puddlePos, 5f);
+        var cheese = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level,
+                new Vec3(puddlePos.getX() + .5, puddlePos.getY() + .25, puddlePos.getZ() + .5),
+                new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.CHEESE_SLICE.get()));
+        require(level.addFreshEntity(cheese), "food item placed over puddle");
+        com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(cheese.getItem(), level);
+        Vec3 delta = cheese.position().subtract(mouse.getEyePosition());
+        mouse.setYRot((float) (Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90));
+        mouse.setXRot((float) -Math.toDegrees(Math.atan2(delta.y, Math.hypot(delta.x, delta.z))));
+        mouse.setYHeadRot(mouse.getYRot());
+        var eye = mouse.getEyePosition();
+        var colliderHit = level.clip(new net.minecraft.world.level.ClipContext(eye,
+                eye.add(mouse.getLookAngle().scale(BodyItemTargetProbe.MAX_REACH)),
+                net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE, mouse));
+        require(colliderHit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK
+                        || !colliderHit.getBlockPos().equals(puddle),
+                "noCollission puddle shape does not occlude authoritative item collider ray");
+        require(BodyItemTargetProbe.probeSelected(level, mouse, cheese.getUUID(), BodyItemTargetProbe.MAX_REACH) != null,
+                "loaded item ray accepts food above the non-colliding puddle");
+        long puddleBefore = water((PuddleBlockEntity) level.getBlockEntity(puddle));
+        require(BodyTimedIngestionService.startWorldOwned(mouse, cheese.getUUID(), null, 0, 87, () -> true)
+                        == BodyHandActionResult.Reason.OK,
+                "world item admission starts for the ray-selected food");
+        require(water((PuddleBlockEntity) level.getBlockEntity(puddle)) == puddleBefore,
+                "food selection does not consume the underlying puddle");
+        require(mouse.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .anyMatch(op -> op.sourceKey().equals("world:" + cheese.getUUID()) && op.phase() == TimedOperation.Phase.ACTIVE),
+                "active operation retains selected world-food identity");
+        helper.runAfterDelay(22, () -> {
+            require(ReagentUnits.fromFloat(MS14Provider.get(mouse, MS14Bridges.STOMACH).getMap()
+                            .getOrDefault(NUTRIENT, 0f)) > 0,
+                    "timed world FOOD completion transfers nutriment to stomach");
+            require(water((PuddleBlockEntity) level.getBlockEntity(puddle)) == puddleBefore,
+                    "food completion leaves colocated water puddle unchanged");
+            helper.succeed();
+        });
+    }
+
     private static Villager makeBody(GameTestHelper helper, BlockPos pos) {
         pos = helper.absolutePos(pos);
         var level=helper.getLevel(); level.setBlock(pos.below(),Blocks.STONE.defaultBlockState(),3);
@@ -162,7 +387,7 @@ public final class BodyTimedIngestionGameTests {
         return pos;
     }
 
-    private static void aimAtPuddle(Villager body, BlockPos pos) {
+    private static void aimAtPuddle(net.minecraft.world.entity.LivingEntity body, BlockPos pos) {
         var level=body.level();
         var bounds=level.getBlockState(pos).getShape(level,pos,CollisionContext.of(body)).bounds();
         Vec3 target=new Vec3(pos.getX()+(bounds.minX+bounds.maxX)/2,
@@ -184,6 +409,22 @@ public final class BodyTimedIngestionGameTests {
 
     private static long water(PuddleBlockEntity entity) {
         return ReagentUnits.fromFloat(MS14Provider.get(entity, MS14Bridges.REAGENT).getMap().getOrDefault(WATER, 0f));
+    }
+
+    private static void setThirst(net.minecraft.world.entity.LivingEntity entity, float value) {
+        float before = MS14Provider.get(entity, com.juicyslew.moonstation14.ms14.MS14Bridges.THIRST).thirst();
+        MS14Provider.updateIfChanged(entity, com.juicyslew.moonstation14.ms14.MS14Bridges.THIRST,
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(before),
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment(
+                        new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(value)));
+    }
+
+    private static void waitForGameTime(GameTestHelper helper, long target, Runnable action) {
+        if (helper.getLevel().getGameTime() >= target) {
+            action.run();
+        } else {
+            helper.runAfterDelay(1, () -> waitForGameTime(helper, target, action));
+        }
     }
 
     private static long water(Villager entity) {

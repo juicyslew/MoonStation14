@@ -20,6 +20,13 @@ public final class BodyTimedIngestionService {
 
     private BodyTimedIngestionService() { }
 
+    /** Ends only already-running voluntary drinks when metabolism reaches the resolved hydration cap. */
+    public static void stopDrinksAtHydrationCap(LivingEntity body) {
+        if (body == null || !com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(body)) return;
+        TimedInteractionSystem.cancelMatching(body, operation -> operation.kind().equals(KIND)
+                && TimedIngestionAccess.isDrinkOperation(body, operation.sourceKey()));
+    }
+
     public static BodyHandActionResult.Reason startHeld(ServerPlayer actor, String hand, String token,
                                                          long revision, long sequence) {
         var snapshot = HandActorAuthority.resolve(actor).orElse(null);
@@ -32,6 +39,14 @@ public final class BodyTimedIngestionService {
 
     public static BodyHandActionResult.Reason startWorld(ServerPlayer actor, UUID target, String hand,
                                                           long revision, long sequence) {
+        if(hand==null) {
+            var bodyAuthority=com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionAuthority.resolve(actor).orElse(null);
+            if(bodyAuthority==null)return BodyHandActionResult.Reason.NO_AUTHORITY;
+            BooleanSupplier bodyValid=()->com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionAuthority.revalidate(actor,bodyAuthority);
+            return start(bodyAuthority.body(),actor,sequence,bodyValid,
+                    ()->TimedIngestionAccess.admitWorld(bodyAuthority.body(),target,null,0,bodyValid),"world:"+target,
+                    ()->bodyValid.getAsBoolean()&&target!=null&&OralAccess.handless(bodyAuthority.body()));
+        }
         var snapshot = HandActorAuthority.resolve(actor).orElse(null);
         if (snapshot == null) return BodyHandActionResult.Reason.NO_AUTHORITY;
         BooleanSupplier authority = () -> HandActorAuthority.revalidate(actor, snapshot);
@@ -42,6 +57,15 @@ public final class BodyTimedIngestionService {
 
     public static BodyHandActionResult.Reason startPuddle(ServerPlayer actor, BlockPos pos, String hand,
                                                             long revision, long sequence) {
+        if(hand==null) {
+            var bodyAuthority=com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionAuthority.resolve(actor).orElse(null);
+            if(bodyAuthority==null)return BodyHandActionResult.Reason.NO_AUTHORITY;
+            BooleanSupplier bodyValid=()->com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionAuthority.revalidate(actor,bodyAuthority);
+            String key=puddleKey(bodyAuthority.body(),pos);
+            return start(bodyAuthority.body(),actor,sequence,bodyValid,
+                    ()->TimedIngestionAccess.admitPuddle(bodyAuthority.body(),pos,null,0,bodyValid),key,
+                    ()->bodyValid.getAsBoolean()&&pos!=null&&OralAccess.handless(bodyAuthority.body()));
+        }
         var snapshot = HandActorAuthority.resolve(actor).orElse(null);
         if (snapshot == null) return BodyHandActionResult.Reason.NO_AUTHORITY;
         BooleanSupplier authority = () -> HandActorAuthority.revalidate(actor, snapshot);
@@ -90,7 +114,8 @@ public final class BodyTimedIngestionService {
         var result = TimedInteractionSystem.start(body, owner, sequence, KIND, admitted.sourceKey(),
                 profile.delayTicks(), true, false,
                 () -> TimedIngestionAccess.valid(body, admitted, authority),
-                () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(), authority)) {
+                 () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(),
+                         profile.edible().kind() == IngestionProfile.Kind.FOOD, authority)) {
                     case COMMITTED_REPEAT -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.REPEAT; }
                     case COMMITTED_STOP -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.STOP; }
                     case DENIED -> TimedInteractionSystem.Completion.DENIED;
@@ -105,6 +130,15 @@ public final class BodyTimedIngestionService {
 
     private static boolean intentValid(LivingEntity body, BooleanSupplier authority, String hand, long revision,
                                        String token, boolean held, boolean sourceIdentityValid) {
+        if (body != null && hand == null) return revision==0 && !held && sourceIdentityValid && OralAccess.handless(body)
+                && authority!=null && authority.getAsBoolean()
+                && body.level() instanceof net.minecraft.server.level.ServerLevel oralLevel
+                && oralLevel.getServer()!=null && oralLevel.getServer().isSameThread()
+                && !body.isRemoved() && body.isAlive() && body.isAddedToLevel()
+                && oralLevel.getEntity(body.getUUID())==body
+                && com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body)
+                && com.juicyslew.moonstation14.ms14.stomach.StomachSystem.isEligible(body)
+                && com.juicyslew.moonstation14.ms14.organ.BodySystem.current(body).isPresent();
         if (body == null || authority == null || hand == null || hand.isBlank() || revision < 0
                 || held && token == null || !held && !sourceIdentityValid
                 || !(body.level() instanceof net.minecraft.server.level.ServerLevel level)

@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.TargetEligibility;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -39,25 +40,26 @@ final class LifecycleMedicalObserverBridge implements BoundObserverAuthority {
     }
 
     static boolean beginConnectedCorpse(MinecraftServer server, ServerPlayer owner,
-            PlayerCharacterHarnessEntity body, long deathEpoch, UUID account, String profile, com.juicyslew.moonstation14.ms14.player_body_control.MindId mind,
+            net.minecraft.world.entity.Mob body, long deathEpoch, UUID account, String profile, com.juicyslew.moonstation14.ms14.player_body_control.MindId mind,
             MobHarnessId bodyId) {
         LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
         if (context == null || owner == null || body == null) {
             MoonStation14.LOGGER.info("[lifecycle observer] bound CORPSE bridge denied owner={} body={} epoch={} state={} confirmedDeath={} reason={}",
                     owner == null ? null : owner.getUUID(), body == null ? bodyId : body.getUUID(),
                     deathEpoch, medicalState(body),
-                    body != null && body.hasConfirmedDeath(), context == null ? "lifecycle-context-missing"
+                    deathConfirmed(body), context == null ? "lifecycle-context-missing"
                             : owner == null ? "owner-missing" : "body-missing");
             return false;
         }
         try {
             var state = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
-            if (!body.hasConfirmedDeath() || state == null
+            boolean confirmedDeath = deathConfirmed(body);
+            if (!confirmedDeath || state == null
                     || state.data().state() != MobStateComponent.State.DEAD) {
                 MoonStation14.LOGGER.info("[lifecycle observer] bound CORPSE bridge denied owner={} body={} epoch={} authorityGeneration={} state={} nativeHealth={}/{} confirmedDeath={} reason={}",
                         owner.getUUID(), body.getUUID(), deathEpoch, deathEpoch, state == null ? null : state.data().state(),
-                        body.getHealth(), body.getMaxHealth(), body.hasConfirmedDeath(),
-                        !body.hasConfirmedDeath() ? "native-death-unconfirmed"
+                        body.getHealth(), body.getMaxHealth(), deathConfirmed(body),
+                        !deathConfirmed(body) ? "native-death-unconfirmed"
                                 : state == null ? "medical-state-missing" : "medical-state-not-dead");
                 return false;
             }
@@ -66,26 +68,31 @@ final class LifecycleMedicalObserverBridge implements BoundObserverAuthority {
                     || !saved.bodyId().equals(bodyId.value())) {
                 MoonStation14.LOGGER.info("[lifecycle observer] bound CORPSE bridge denied owner={} body={} epoch={} authorityGeneration={} state={} confirmedDeath={} reason=dead-claim-mismatch",
                         owner.getUUID(), body.getUUID(), deathEpoch, deathEpoch,
-                        state.data().state(), body.hasConfirmedDeath());
+                        state.data().state(), deathConfirmed(body));
                 return false;
             }
             var bridge = new LifecycleMedicalObserverBridge(server, context, saved);
             boolean admitted = ObserverSystem.beginBoundCorpse(owner, body, saved.connectionGeneration(), bridge);
             MoonStation14.LOGGER.info("[lifecycle observer] bound CORPSE bridge result owner={} body={} epoch={} authorityGeneration={} state={} confirmedDeath={} admitted={}",
                     owner.getUUID(), body.getUUID(), deathEpoch, saved.connectionGeneration(),
-                    state.data().state(), body.hasConfirmedDeath(), admitted);
+                    state.data().state(), deathConfirmed(body), admitted);
             return admitted;
         } catch (Exception failure) {
             MoonStation14.LOGGER.warn("[lifecycle observer] bound CORPSE bridge failed owner={} body={} authorityGeneration={} state={} confirmedDeath={} cause={}",
                     owner.getUUID(), body.getUUID(), deathEpoch,
-                    medicalState(body), body.hasConfirmedDeath(), failure.toString());
+                    medicalState(body), deathConfirmed(body), failure.toString());
             return false;
         }
     }
 
-    private static MobStateComponent.State medicalState(PlayerCharacterHarnessEntity body) {
+    private static MobStateComponent.State medicalState(net.minecraft.world.entity.Mob body) {
         var state = body == null ? null : body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
         return state == null ? null : state.data().state();
+    }
+
+    private static boolean deathConfirmed(net.minecraft.world.entity.Mob body) {
+        if (body instanceof PlayerCharacterHarnessEntity human) return human.hasConfirmedDeath();
+        return medicalState(body) == MobStateComponent.State.DEAD && (body.isDeadOrDying() || body.getHealth() <= 0);
     }
 
     @Override public boolean valid(ServerPlayer owner, LivingEntity body, ObserverSession session) {
@@ -93,10 +100,10 @@ final class LifecycleMedicalObserverBridge implements BoundObserverAuthority {
                 || !account.equals(owner.getUUID())
                 || !corpse.equals(body.getUUID()) || !session.ownerId().equals(account)
                 || !session.corpseBodyId().equals(corpse) || session.epoch() != generation
-                || !(body instanceof PlayerCharacterHarnessEntity character) || body.isRemoved()
+                || !(body instanceof net.minecraft.world.entity.Mob character) || body.isRemoved()
                 || !(body.level() instanceof ServerLevel level) || level.getServer() != server
                 || level.getEntity(corpse) != body) return false;
-        var binding = character.playerCharacterBinding();
+        var binding = PlayerCharacterHarnessBinder.binding(character);
         if (binding == null || !binding.accountId().equals(account) || !binding.profileKey().equals(profile)
                 || !binding.mindId().equals(mind)) return false;
         var memory = context.lifecycle().profile(account).orElse(null);

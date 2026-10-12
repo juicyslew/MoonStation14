@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.ui.window;
 
 import com.juicyslew.moonstation14.ms14.ui.client.window.WindowGeometryController;
+import com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleMenuPresentation;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -87,6 +88,39 @@ class WindowGeometryControllerTest {
         assertEquals(100, window.height());
         assertEquals(0, window.x());
         assertEquals(0, window.y());
+    }
+
+    @Test
+    void productionGhostMenuLayoutKeepsCaptureAcrossRenderAndPositionAcrossContentRelayout() {
+        int width = GhostRoleMenuPresentation.width(640);
+        WindowGeometryController window = new WindowGeometryController(640, 400, 571, 5,
+                width, 80, Math.min(64, 640), 32, false);
+        assertEquals(64, width);
+        assertTrue(window.beginPointer(580, 10, 0, 13, 13));
+        GhostRoleMenuPresentation.relayout(window, 640, 400, width, 80, false);
+        assertTrue(window.isPointerCaptured(), "a same-size render must not cancel title capture");
+        assertTrue(window.dragPointer(500, 50));
+        assertTrue(window.releasePointer(0));
+        int draggedX = window.x(), draggedY = window.y();
+
+        GhostRoleMenuPresentation.relayout(window, 640, 400, width, 110, false);
+        assertEquals(draggedX, window.x());
+        assertEquals(draggedY, window.y());
+        GhostRoleMenuPresentation.relayout(window, 800, 500, width, 110, true);
+        assertEquals(draggedX, window.x());
+        assertEquals(draggedY, window.y());
+    }
+
+    @Test
+    void closingDuringDragCancelsCaptureSoReopenedMenuCanCaptureAgain() {
+        int width = GhostRoleMenuPresentation.width(640);
+        WindowGeometryController window = new WindowGeometryController(640, 400, 571, 5,
+                width, 80, 64, 32, false);
+        assertTrue(window.beginPointer(580, 10, 0, 13, 13));
+        window.cancelPointer(); // Production close() also clears the window's captured flag.
+        GhostRoleMenuPresentation.relayout(window, 640, 400, width, 80, false);
+        assertFalse(window.isPointerCaptured());
+        assertTrue(window.beginPointer(window.x() + 8, window.y() + 5, 0, 13, 13));
     }
 
     @Test

@@ -11,8 +11,19 @@ import com.juicyslew.moonstation14.ms14.activity.EntityActivity;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ThirstReducerTest {
+    @Test void policiesDriveInitialValuesThresholdsAndDecay() {
+        var mouse = new com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent(
+                35f, 25f, 15f, 10f, 0f, .04f, 25f);
+        assertEquals(ThirstReducer.Level.OKAY, ThirstReducer.classify(25f, mouse));
+        assertEquals(ThirstReducer.Level.THIRSTY, ThirstReducer.classify(15f, mouse));
+        assertEquals(24.96f, ThirstReducer.decayOneSecond(25f, mouse).after(), .0001f);
+        assertEquals(25f, mouse.startingThirst());
+        assertEquals(ThirstReducer.Level.OKAY, ThirstReducer.classify(450f,
+                com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.DEFAULT));
+    }
     @Test void thresholdBoundariesUseInclusiveUpstreamClassification() {
         assertEquals(ThirstReducer.Level.DEAD, ThirstReducer.classify(0f));
+        assertEquals("PARCHED", ThirstReducer.classify(0f).displayLabel());
         assertEquals(ThirstReducer.Level.PARCHED, ThirstReducer.classify(.01f));
         assertEquals(ThirstReducer.Level.PARCHED, ThirstReducer.classify(150f));
         assertEquals(ThirstReducer.Level.THIRSTY, ThirstReducer.classify(150.01f));

@@ -19,6 +19,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifecycleCharacterSessionControlTest {
+    @Test
+    void roleMovementCapabilityOnlyRestrictsAdoptedRoleSessions() {
+        assertFalse(LifecycleCharacterSessionControl.roleMovementAllowed(true, true, false));
+        assertTrue(LifecycleCharacterSessionControl.roleMovementAllowed(true, true, true));
+        assertFalse(LifecycleCharacterSessionControl.roleMovementAllowed(true, false, false));
+        assertTrue(LifecycleCharacterSessionControl.roleMovementAllowed(false, false, false));
+    }
+
+    @Test
+    void reconnectRestoresOnlyExactlyBoundOrdinaryRoleBodies() {
+        assertTrue(LifecycleCharacterSessionControl.reconnectRoleDecision(false, true, true));
+        assertFalse(LifecycleCharacterSessionControl.reconnectRoleDecision(false, true, false));
+        assertFalse(LifecycleCharacterSessionControl.reconnectRoleDecision(false, false, true));
+        assertFalse(LifecycleCharacterSessionControl.reconnectRoleDecision(true, true, true));
+    }
     @Test void connectedDeathRequiresExactHumanBindingSessionActiveEpochOwnerAndServerThread() {
         assertTrue(LifecycleCharacterSessionControl.connectedDeathDecision(true, true, true, true, true));
         assertFalse(LifecycleCharacterSessionControl.connectedDeathDecision(false, true, true, true, true));

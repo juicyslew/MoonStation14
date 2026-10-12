@@ -13,6 +13,152 @@ class PlayerLifecycleRegistryTest {
     @TempDir Path directory;
     private int restoreStoreNumber;
 
+    @Test void ghostRoleTakeoverDurablyReplacesCurrentBodyAndForfeitsGhost() throws Exception {
+        UUID account = uuid(9000), mindId = uuid(9001), epoch = uuid(9002);
+        MobHarnessId corpse = harnessId(9003), ghost = harnessId(9004), target = harnessId(9005);
+        SavedLifecycleProfile dead = saved(account, "role", mindId, corpse.value(), epoch, 2,
+                SavedLifecycleProfile.State.DEAD_CLAIM);
+        LifecycleProfileStore store = new LifecycleProfileStore(directory.resolve("role-takeover.json"));
+        store.compareAndSwap(-1, epoch, 3, java.util.List.of(dead));
+        BodyControlRegistry ownership = new BodyControlRegistry();
+        PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(ownership);
+        harness(ownership, 9004, MobHarnessKind.GHOST);
+        harness(ownership, 9005, MobHarnessKind.CHARACTER);
+        var staged = store.withCurrentPrimary(p -> lifecycle.stageDeadClaimGhost(p, dead, ghost, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var activeGhost = store.withCurrentPrimary(p -> lifecycle.activateDeadClaimGhostDurably(
+                p, dead, ghost, true, ELIGIBLE)).orElseThrow().orElseThrow();
+        SavedLifecycleProfile activeGhostRow = store.read().orElseThrow().profiles().get(0);
+        var bodyData = new SavedLifecycleProfile.Location(10, 20, 30);
+        var descriptorAppearance = java.util.Map.of("prototype", "ms14:mouse");
+        var result = store.withCurrentPrimary(p -> lifecycle.takeOverGhostRoleDurably(p, activeGhostRow, ghost, target,
+                "moonstation:station", bodyData, descriptorAppearance, activeGhost.connectionGeneration(), ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        assertEquals(target, result.bodyId());
+        assertEquals(PlayerLifecycleRegistry.LifecycleState.ACTIVE, result.state());
+        assertTrue(result.connectionGeneration() > activeGhost.connectionGeneration());
+        var row = store.read().orElseThrow().profiles().get(0);
+        assertEquals(target.value(), row.bodyId());
+        assertEquals("moonstation:station", row.dimension());
+        assertEquals(bodyData, row.location());
+        assertEquals(descriptorAppearance, row.appearance());
+        assertEquals(SavedLifecycleProfile.State.ACTIVE, row.state());
+        assertNull(row.offlineSinceMillis());
+        assertTrue(row.revision() > dead.revision());
+        assertTrue(lifecycle.authorizes(account, result.connectionGeneration(), target, ELIGIBLE));
+        assertFalse(lifecycle.authorizes(account, activeGhost.connectionGeneration(), ghost, ELIGIBLE));
+        assertTrue(ownership.registeredHarness(ghost).isEmpty());
+        assertFalse(lifecycle.authorizes(account, staged.connectionGeneration(), ghost, ELIGIBLE));
+    }
+
+    @Test void ghostRoleTakeoverRejectsStaleEpochAndClaimedOrIneligibleTargetWithoutMutation() throws Exception {
+        UUID account = uuid(9010), mindId = uuid(9011), epoch = uuid(9012);
+        MobHarnessId corpse = harnessId(9013), ghost = harnessId(9014), target = harnessId(9015);
+        SavedLifecycleProfile dead = saved(account, "role-reject", mindId, corpse.value(), epoch, 0,
+                SavedLifecycleProfile.State.DEAD_CLAIM);
+        LifecycleProfileStore store = new LifecycleProfileStore(directory.resolve("role-takeover-reject.json"));
+        store.compareAndSwap(-1, epoch, 1, java.util.List.of(dead));
+        BodyControlRegistry ownership = new BodyControlRegistry();
+        PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(ownership);
+        harness(ownership, 9014, MobHarnessKind.GHOST);
+        harness(ownership, 9015, MobHarnessKind.CHARACTER);
+        var staged = store.withCurrentPrimary(p -> lifecycle.stageDeadClaimGhost(p, dead, ghost, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var active = store.withCurrentPrimary(p -> lifecycle.activateDeadClaimGhostDurably(p, dead, ghost, true, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        SavedLifecycleProfile activeGhostRow = store.read().orElseThrow().profiles().get(0);
+        assertTrue(store.withCurrentPrimary(p -> lifecycle.takeOverGhostRoleDurably(p, activeGhostRow, ghost, target,
+                "overworld", new SavedLifecycleProfile.Location(1, 2, 3), java.util.Map.of(),
+                active.connectionGeneration() - 1, ELIGIBLE)).orElseThrow().isEmpty());
+        assertTrue(store.withCurrentPrimary(p -> lifecycle.takeOverGhostRoleDurably(p, activeGhostRow, ghost, target,
+                "overworld", new SavedLifecycleProfile.Location(1, 2, 3), java.util.Map.of(),
+                active.connectionGeneration(), mob -> false)).orElseThrow().isEmpty());
+        assertEquals(activeGhostRow, store.read().orElseThrow().profiles().get(0));
+        assertEquals(ghost, ownership.mind(account).orElseThrow().harnessId());
+        assertTrue(lifecycle.authorizes(account, active.connectionGeneration(), ghost, ELIGIBLE));
+    }
+
+    @Test void ghostRoleTakeoverCasFailurePreservesDurableRowGhostAndClaims() throws Exception {
+        UUID account = uuid(9020), mindId = uuid(9021), epoch = uuid(9022);
+        MobHarnessId corpse = harnessId(9023), ghost = harnessId(9024), target = harnessId(9025);
+        SavedLifecycleProfile dead = saved(account, "role-cas", mindId, corpse.value(), epoch, 0,
+                SavedLifecycleProfile.State.DEAD_CLAIM);
+        Path storePath = directory.resolve("role-takeover-cas-failure.json");
+        LifecycleProfileStore store = new LifecycleProfileStore(storePath);
+        store.compareAndSwap(-1, epoch, 1, java.util.List.of(dead));
+        BodyControlRegistry ownership = new BodyControlRegistry();
+        PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(ownership);
+        harness(ownership, 9024, MobHarnessKind.GHOST);
+        harness(ownership, 9025, MobHarnessKind.CHARACTER);
+        var staged = store.withCurrentPrimary(p -> lifecycle.stageDeadClaimGhost(p, dead, ghost, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var active = store.withCurrentPrimary(p -> lifecycle.activateDeadClaimGhostDurably(p, dead, ghost, true, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        SavedLifecycleProfile before = store.read().orElseThrow().profiles().get(0);
+        Path orphanTemp = storePath.resolveSibling(storePath.getFileName() + ".tmp");
+        try {
+            store.withCurrentPrimary(primary -> {
+                java.nio.file.Files.createFile(orphanTemp); // deterministic store-CAS rejection
+                assertThrows(java.io.IOException.class, () -> lifecycle.takeOverGhostRoleDurably(primary,
+                        before, ghost, target, "overworld", new SavedLifecycleProfile.Location(4, 5, 6),
+                        java.util.Map.of("prototype", "ms14:pig"), active.connectionGeneration(), ELIGIBLE));
+                return null;
+            });
+        } finally { java.nio.file.Files.deleteIfExists(orphanTemp); }
+        assertEquals(before, store.read().orElseThrow().profiles().get(0));
+        assertEquals(ghost, ownership.mind(account).orElseThrow().harnessId());
+        assertEquals(active.connectionGeneration(), ownership.mind(account).orElseThrow().epoch());
+        assertTrue(lifecycle.authorizesGhostReadOnly(account, new MindId(mindId),
+                active.connectionGeneration(), ghost));
+        assertTrue(ownership.registeredHarness(ghost).isPresent());
+        assertTrue(lifecycle.profile(account).orElseThrow().deadClaim()); // retained corpse/death claim
+        assertFalse(ownership.mind(account).orElseThrow().harnessId().equals(target));
+        assertTrue(staged.connectionGeneration() < active.connectionGeneration());
+    }
+
+    @Test void competingActiveGhostClaimsForOneRoleBodyHaveExactlyOneWinner() throws Exception {
+        UUID epoch = uuid(9030), a = uuid(9031), b = uuid(9032);
+        MobHarnessId corpseA = harnessId(9033), corpseB = harnessId(9034);
+        MobHarnessId ghostA = harnessId(9035), ghostB = harnessId(9036), target = harnessId(9037);
+        SavedLifecycleProfile rowA = saved(a, "role-a", uuid(9038), corpseA.value(), epoch, 0,
+                SavedLifecycleProfile.State.DEAD_CLAIM);
+        SavedLifecycleProfile rowB = saved(b, "role-b", uuid(9039), corpseB.value(), epoch, 0,
+                SavedLifecycleProfile.State.DEAD_CLAIM);
+        LifecycleProfileStore store = new LifecycleProfileStore(directory.resolve("role-takeover-race.json"));
+        store.compareAndSwap(-1, epoch, 1, java.util.List.of(rowA, rowB));
+        BodyControlRegistry ownership = new BodyControlRegistry();
+        PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(ownership);
+        harness(ownership, 9035, MobHarnessKind.GHOST); harness(ownership, 9036, MobHarnessKind.GHOST);
+        harness(ownership, 9037, MobHarnessKind.CHARACTER);
+        var stagedA = store.withCurrentPrimary(p -> lifecycle.stageDeadClaimGhost(p, rowA, ghostA, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var stagedB = store.withCurrentPrimary(p -> lifecycle.stageDeadClaimGhost(p, rowB, ghostB, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var activeA = store.withCurrentPrimary(p -> lifecycle.activateDeadClaimGhostDurably(p, rowA, ghostA, true, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var activeB = store.withCurrentPrimary(p -> lifecycle.activateDeadClaimGhostDurably(p, rowB, ghostB, true, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        SavedLifecycleProfile activeRowA = store.read().orElseThrow().profiles().stream()
+                .filter(row -> row.accountId().equals(a)).findFirst().orElseThrow();
+        SavedLifecycleProfile activeRowB = store.read().orElseThrow().profiles().stream()
+                .filter(row -> row.accountId().equals(b)).findFirst().orElseThrow();
+        var resultA = store.withCurrentPrimary(p -> lifecycle.takeOverGhostRoleDurably(p, activeRowA, ghostA,
+                target, "overworld", new SavedLifecycleProfile.Location(1, 1, 1), java.util.Map.of(),
+                activeA.connectionGeneration(), ELIGIBLE)).orElseThrow();
+        var resultB = store.withCurrentPrimary(p -> lifecycle.takeOverGhostRoleDurably(p, activeRowB, ghostB,
+                target, "overworld", new SavedLifecycleProfile.Location(2, 2, 2), java.util.Map.of(),
+                activeB.connectionGeneration(), ELIGIBLE)).orElseThrow();
+        assertEquals(1, (resultA.isPresent() ? 1 : 0) + (resultB.isPresent() ? 1 : 0));
+        UUID winner = resultA.isPresent() ? a : b;
+        UUID loser = resultA.isPresent() ? b : a;
+        assertEquals(target, lifecycle.profile(winner).orElseThrow().bodyId());
+        assertTrue(lifecycle.authorizes(winner, lifecycle.profile(winner).orElseThrow().connectionGeneration(), target, ELIGIBLE));
+        var loserSnapshot = lifecycle.profile(loser).orElseThrow();
+        assertTrue(lifecycle.authorizes(loser, loserSnapshot.connectionGeneration(),
+                loser.equals(a) ? ghostA : ghostB, ELIGIBLE));
+        assertNotEquals(stagedA.connectionGeneration(), stagedB.connectionGeneration());
+    }
+
     @Test void activeCharacterReadOnlyAuthorizationRequiresExactActiveCharacterAndPreservesState() {
         BodyControlRegistry ownership = new BodyControlRegistry();
         PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(ownership);

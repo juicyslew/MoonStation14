@@ -79,7 +79,8 @@ public final class HumanHarnessVacuumGameTests {
                         && !LungSystem.tickIfDue(body, -body.getId(), vacuum)
                         && body.getHealth() == initialHealth
                         && BodySystem.current(body).orElseThrow().equals(beforeUnknown)
-                        && !body.hasData(ModDataAttachments.DAMAGE.get()),
+                        && body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) != null
+                        && body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().isEmpty(),
                 "unknown atmosphere must not be interpreted as damaging vacuum");
 
         BlockPos sky = new BlockPos(2, level.getMaxBuildHeight() - 10, 2);

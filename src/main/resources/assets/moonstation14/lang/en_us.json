@@ -1,4 +1,7 @@
 {
+  "entity.moonstation14.mouse": "Mouse",
+  "item.moonstation14.cheese_slice": "Cheese Slice",
+  "item.moonstation14.pumpkin_pie_slice": "Pumpkin Pie Slice",
   "item.moonstation14.ointment": "Ointment",
   "item.moonstation14.brutepack": "Brutepack",
   "item.moonstation14.gauze": "Gauze",
@@ -479,6 +482,8 @@
   "moonstation14.hud.movement.slipped": "Slipped",
   "moonstation14.hud.movement.knocked_down": "Knocked Down",
   "key.categories.moonstation14": "Moon Station 14",
+  "key.moonstation14.dev_creative": "Development: Creative",
+  "key.moonstation14.dev_return": "Development: Return to character",
   "key.moonstation14.speech_review": "Toggle speech review HUD",
   "key.moonstation14.speech_review_older": "Speech review: previous page",
   "key.moonstation14.speech_review_newer": "Speech review: next page",

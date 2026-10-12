@@ -1,11 +1,22 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character;
 
 import net.minecraft.nbt.CompoundTag;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Objects;
 import java.util.UUID;
 
 /** Immutable per-body account/profile/Mind identity, deliberately separate from its character prototype. */
 public record PlayerCharacterBinding(UUID accountId, String profileKey, UUID mindId) {
+    private static final Codec<UUID> UUID_CODEC = Codec.STRING.comapFlatMap(value -> {
+        try { return com.mojang.serialization.DataResult.success(UUID.fromString(value)); }
+        catch (IllegalArgumentException invalid) { return com.mojang.serialization.DataResult.error(() -> "invalid UUID"); }
+    }, UUID::toString);
+    public static final Codec<PlayerCharacterBinding> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            UUID_CODEC.fieldOf("account").forGetter(PlayerCharacterBinding::accountId),
+            Codec.STRING.fieldOf("profile").forGetter(PlayerCharacterBinding::profileKey),
+            UUID_CODEC.fieldOf("mind").forGetter(PlayerCharacterBinding::mindId)
+    ).apply(instance, PlayerCharacterBinding::new));
     private static final int MAX_PROFILE_KEY_LENGTH = 64;
     private static final String PROFILE_KEY_PATTERN = "[A-Za-z0-9_-]{1,64}";
     private static final String ACCOUNT = "Account";

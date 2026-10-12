@@ -39,6 +39,15 @@ class CommittedSpectatorGuardTest {
     }
 
     @Test
+    void carrierImmunityRequiresOneCommittedDistinctOwnedBody() {
+        assertTrue(CommittedSpectatorGuard.isTransportCarrier(1, true, false));
+        assertFalse(CommittedSpectatorGuard.isTransportCarrier(0, false, false));
+        assertFalse(CommittedSpectatorGuard.isTransportCarrier(1, true, true));
+        assertFalse(CommittedSpectatorGuard.isTransportCarrier(2, true, false));
+        assertFalse(CommittedSpectatorGuard.isTransportCarrier(1, false, false));
+    }
+
+    @Test
     void diagnosticThrottleAllowsFirstAttemptAndOnePerIntervalWithClockRewind() {
         assertTrue(CommittedSpectatorGuard.logDue(100, null));
         assertFalse(CommittedSpectatorGuard.logDue(100, 100L));

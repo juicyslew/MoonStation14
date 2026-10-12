@@ -1,0 +1,8 @@
+{
+  "abstract": true,
+  "components": [
+    {"type": "Damageable", "damage_container": "Biological"},
+    {"type": "MobState"},
+    {"type": "GhostOnMove", "must_be_dead": true, "can_return": true}
+  ]
+}

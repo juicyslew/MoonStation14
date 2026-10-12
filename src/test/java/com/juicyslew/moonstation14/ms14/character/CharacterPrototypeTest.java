@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.ms14.character.components.MetabolizerPrototyp
 import com.juicyslew.moonstation14.ms14.character.components.DamageableComponent;
 import com.juicyslew.moonstation14.ms14.character.components.HumanoidProfileComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ExaminerComponent;
+import com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import com.mojang.serialization.JsonOps;
@@ -53,6 +54,45 @@ class CharacterPrototypeTest {
         assertThrows(IllegalArgumentException.class, () -> CharacterSchemaAudit.audit(ResourceLocation.parse("moonstation14:bad_sound"), invalid));
     }
     private static final String RESOURCE = "data/moonstation14/moonstation14/character/human.json";
+
+    @Test
+    void ghostRoleEligibilityAndMetadataResolveByInheritanceWithoutImplyingMobEligibility() throws IOException {
+        JsonObject human = readResource(RESOURCE);
+        CharacterData humanData = CharacterData.CODEC.parse(JsonOps.INSTANCE, human).getOrThrow();
+        GhostRoleComponent role = humanData.component(GhostRoleComponent.class).orElseThrow();
+        assertEquals("Human", role.name());
+        assertTrue(role.takeover());
+        assertTrue(role.allowMovement());
+        assertTrue(role.allowSpeech());
+        assertTrue(role.description().length() > 0);
+
+        JsonObject parent = JsonParser.parseString("""
+                {"abstract":true,"components":[{"type":"GhostRole","name":"Mouse","description":"Tiny role","rules":"Be nice."}]}
+                """).getAsJsonObject();
+        JsonObject child = JsonParser.parseString("""
+                {"parent":"role_parent","components":[{"type":"GhostRole","name":"Mouse variant"}]}
+                """).getAsJsonObject();
+        ResourceLocation parentId = ResourceLocation.parse("moonstation14:role_parent");
+        ResourceLocation childId = ResourceLocation.parse("moonstation14:role_child");
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(parentId, parent, childId, child));
+        GhostRoleComponent inherited = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(childId)
+                .component(GhostRoleComponent.class).orElseThrow();
+        assertEquals("Mouse variant", inherited.name());
+        assertEquals("Tiny role", inherited.description());
+        assertEquals("Be nice.", inherited.rules());
+        assertTrue(inherited.takeover());
+        assertTrue(inherited.allowMovement());
+        assertTrue(inherited.allowSpeech());
+
+        CharacterData pig = CharacterData.CODEC.parse(JsonOps.INSTANCE,
+                readResource("data/moonstation14/moonstation14/character/pig.json")).getOrThrow();
+        assertTrue(pig.component(GhostRoleComponent.class).isPresent());
+        assertTrue(pig.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class).isEmpty());
+        assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE, new JsonObject()).getOrThrow()
+                .component(GhostRoleComponent.class).isEmpty(), "Mob composition alone does not imply eligibility");
+    }
 
     @Test
     void observerMovementComesFromResolvedObserverCompositionNotHumanCorpse() throws IOException {
@@ -121,6 +161,31 @@ class CharacterPrototypeTest {
         var failure = assertThrows(IllegalArgumentException.class,
                 () -> CharacterSchemaAudit.auditComponentFragment(invalid, "$.components[0]"));
         assertTrue(failure.getMessage().contains("unexpected"), failure.getMessage());
+    }
+
+    @Test
+    void oralHandlessCapabilityComesFromResolvedMouthAndHandsCompositionNotMouseType() throws IOException {
+        ResourceLocation simple = ResourceLocation.parse("moonstation14:supported_simple_mob");
+        ResourceLocation animal = ResourceLocation.parse("moonstation14:supported_animal");
+        ResourceLocation fixture = ResourceLocation.parse("moonstation14:oral_test_animal");
+        JsonObject fixtureJson = JsonParser.parseString("""
+                {"parent":"supported_animal","host_entity_types":["minecraft:cow"]}
+                """).getAsJsonObject();
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(simple,
+                readResource("data/moonstation14/moonstation14/character/supported_simple_mob.json"), animal,
+                readResource("data/moonstation14/moonstation14/character/supported_animal.json"), fixture, fixtureJson));
+        CharacterData resolved = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(fixture);
+        assertTrue(com.juicyslew.moonstation14.ms14.ingestion.OralAccess.supportsHandlessOralAccess(resolved),
+                "resolved child gets oral/no-hands capability from typed parent composition");
+        CharacterData pig = CharacterData.CODEC.parse(JsonOps.INSTANCE,
+                readResource("data/moonstation14/moonstation14/character/pig.json")).getOrThrow();
+        assertFalse(com.juicyslew.moonstation14.ms14.ingestion.OralAccess.supportsHandlessOralAccess(pig),
+                "standalone Pig has no Mouth and does not inherit supported-animal anatomy");
+        CharacterData human = CharacterData.CODEC.parse(JsonOps.INSTANCE, readResource(RESOURCE)).getOrThrow();
+        assertFalse(com.juicyslew.moonstation14.ms14.ingestion.OralAccess.supportsHandlessOralAccess(human),
+                "Human's resolved hands prevent handless classification");
     }
 
     @Test
@@ -277,7 +342,7 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(35, data.components().size(), "merged Human composition retains stripping policy alongside existing component families");
+        assertEquals(36, data.components().size(), "merged Human composition retains role metadata and stripping policy alongside existing component families");
         assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());

@@ -26,6 +26,17 @@ public final class BodyHealthHudPolicy {
         return medical(damage, criticalThreshold, deadThreshold, null);
     }
 
+    /** A missing synchronized ledger is unknown, not native health or known zero damage. */
+    public static View medicalIfAvailable(boolean ledgerAvailable, float damage, float criticalThreshold,
+                                          float deadThreshold,
+                                          com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State state) {
+        if (ledgerAvailable) return medical(damage, criticalThreshold, deadThreshold, state);
+        if (!Float.isFinite(deadThreshold) || deadThreshold <= 0) return null;
+        float maximum = Float.isFinite(criticalThreshold) && criticalThreshold > 0
+                && criticalThreshold < deadThreshold ? criticalThreshold : deadThreshold;
+        return new View("BODY HEALTH …/" + number(maximum, maximum), null, false);
+    }
+
     /** Observed state wins over damage inference (notably, DEAD persists through healing). */
     public static View medical(float damage, float criticalThreshold, float deadThreshold,
                                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State state) {
@@ -37,20 +48,25 @@ public final class BodyHealthHudPolicy {
             return new View("BODY HEALTH DEAD", null, false);
         float value = Math.max(0, damage);
         if (state == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL)
-            return criticalDebug(value, deadThreshold);
+            return criticalView(value, criticalThreshold, deadThreshold);
         // With a synchronized state, thresholds describe transitions, not state authority:
         // rejected transitions must not be rendered as if they had occurred.
         if (!stateAuthoritative && value >= deadThreshold) return new View("BODY HEALTH DEAD", null, false);
-        // Species without a critical threshold still get a meaningful 0–100 healthy bar up to death.
+        // Species without a critical threshold use the death threshold as their maximum.
         if (!Float.isFinite(criticalThreshold)) criticalThreshold = deadThreshold;
-        if (!stateAuthoritative && value >= criticalThreshold) return criticalDebug(value, deadThreshold);
-        float percent = (criticalThreshold - value) * (100f / criticalThreshold);
-        percent = Math.max(0f, Math.min(100f, percent));
-        return new View("BODY HEALTH " + number(percent, 100f) + "/100", null, false);
+        return new View("BODY HEALTH " + number(Math.max(0, criticalThreshold - value), criticalThreshold)
+                + "/" + number(criticalThreshold, criticalThreshold), null, false);
+    }
+
+    private static View criticalView(float damage, float criticalThreshold, float deathThreshold) {
+        if (!Float.isFinite(criticalThreshold)) criticalThreshold = deathThreshold;
+        return new View("BODY HEALTH CRITICAL", "DEBUG Critical " + number(damage, deathThreshold)
+                + "/" + number(deathThreshold, deathThreshold) + " damage · "
+                + number(Math.max(0, deathThreshold - damage), deathThreshold) + " to death", false);
     }
 
     private static View criticalDebug(float damage, float deathThreshold) {
-        return new View("BODY HEALTH CRITICAL 0/100", "DEBUG Critical " + number(damage, deathThreshold)
+        return new View("CLINICAL HEALTH CRITICAL", "DEBUG Critical " + number(damage, deathThreshold)
                 + "/" + number(deathThreshold, deathThreshold) + " damage · "
                 + number(Math.max(0, deathThreshold - damage), deathThreshold) + " to death", false);
     }

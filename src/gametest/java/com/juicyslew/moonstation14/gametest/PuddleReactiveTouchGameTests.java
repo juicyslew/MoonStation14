@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
+import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.effect.ConditionContext;
 import com.juicyslew.moonstation14.ms14.effect.EffectCause;
 import com.juicyslew.moonstation14.ms14.effect.EffectContext;
@@ -90,10 +91,12 @@ public final class PuddleReactiveTouchGameTests {
         player.getAbilities().invulnerable = false;
         player.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
         villager.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
-        player.setHealth(30f);
-        villager.setHealth(20f);
         putAt(player, helper, new BlockPos(2, 1, 2));
         require(level.addFreshEntity(player), "direct-control FakePlayer must join the GameTest level");
+        float playerHealthBefore = player.getHealth();
+        require(DamageSystem.applyHealthChange(villager, java.util.Map.of(DamageKeys.BLUNT, 100f),
+                        1f, true) == DamageSystem.Result.APPLIED,
+                "damageable Villager must receive its pre-existing typed baseline through DamageSystem");
         player.invulnerableTime = 0;
         villager.invulnerableTime = 0;
 
@@ -121,9 +124,9 @@ public final class PuddleReactiveTouchGameTests {
                         + ", villager=" + villagerResult);
         require(player.isInvulnerableTo(level.damageSources().generic()),
                 "NeoForge FakePlayer is inherently invulnerable; it cannot prove the connected-player damage path");
-        require(playerCaustic == 0f && player.getHealth() == 30f,
+        require(playerCaustic == 0f && player.getHealth() == playerHealthBefore,
                 "FakePlayer's invulnerability must prevent direct typed damage; caustic=" + playerCaustic
-                        + ", health=" + player.getHealth());
+                        + ", health=" + player.getHealth() + " before=" + playerHealthBefore);
         require(Math.abs(villagerCaustic - .3f) < .0001f,
                 "direct resolved acid HealthChange must record .30 caustic on damageable Villager; got "
                         + villagerCaustic);
