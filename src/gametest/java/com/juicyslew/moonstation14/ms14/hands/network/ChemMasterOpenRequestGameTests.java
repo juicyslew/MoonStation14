@@ -25,7 +25,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class ChemMasterOpenRequestGameTests {
     private ChemMasterOpenRequestGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 600)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", batch = "chemmaster_workspace_retention", timeoutTicks = 600)
     public static void ordinaryAdmittedUseOpensAndRefreshesChemMasterWorkspace(GameTestHelper helper) {
         RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(
                 helper.getLevel(), "readiness-chem-open");
@@ -48,7 +48,11 @@ public final class ChemMasterOpenRequestGameTests {
                                 // and intervening APC out of the actual body-to-machine ray.
                                  // Stay on the fixture's clear south approach but within the
                                  // resolved ChemMaster's two-block body interaction range.
-                                 body.setPos(machinePos.getX() + 0.5, machinePos.getY() + 1, machinePos.getZ() - 1.25);
+                                 // The platform floor is one block below the machine. Keep the
+                                 // controlled body on that floor instead of floating above it;
+                                 // otherwise gravity carries it out of the machine's UI range
+                                 // during the retained-session ticks below.
+                                 body.setPos(machinePos.getX() + 0.5, origin.getY() + 1, machinePos.getZ() - 0.5);
                                  var bodyHit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
                                  require(bodyHit.getBlockPos().equals(machinePos)
                                                  && level.getBlockEntity(bodyHit.getBlockPos()) instanceof ChemMasterBlockEntity,
@@ -153,12 +157,13 @@ public final class ChemMasterOpenRequestGameTests {
                                          var stunnedQuery = request(refreshed.state(), 2,
                                                  ChemMasterControlRequest.Operation.QUERY, refreshed.state().mode());
                                          ChemMasterSessionService.handle(fixture.player(), stunnedQuery);
-                                         ChemMasterWindowUpdate retained = takeWindowUpdate(fixture);
-                                         require(retained.state().open()
-                                                         && retained.state().sessionId().equals(opened.state().sessionId())
-                                                         && retained.state().acknowledgedRequestId() == 2
-                                                         && retained.state().closeReason().isEmpty(),
-                                                 "server ticks and QUERY retain the same session while stunned");
+                                          ChemMasterWindowUpdate retained = takeWindowUpdateForRequest(fixture, 2);
+                                          require(retained.state().open()
+                                                  && retained.state().sessionId().equals(opened.state().sessionId())
+                                                  && retained.state().acknowledgedRequestId() == 2
+                                                  && retained.state().closeReason().isEmpty(),
+                                                  "server ticks and QUERY retain the same session while stunned: "
+                                                          + retained.state());
 
                                          var unchangedMode = retained.state().mode();
                                          var requestedMode = unchangedMode == ChemMasterControlRequest.Mode.TRANSFER
@@ -244,6 +249,22 @@ public final class ChemMasterOpenRequestGameTests {
             if (update != null) return update;
         }
         throw new GameTestAssertException("no ChemMasterWindowUpdate outbound; packet types=" + packetTypes);
+    }
+
+    private static ChemMasterWindowUpdate takeWindowUpdateForRequest(RegisteredServerPlayerFixture fixture, long requestId) {
+        Object outbound;
+        java.util.ArrayList<String> packetTypes = new java.util.ArrayList<>();
+        ChemMasterWindowUpdate latest = null;
+        while ((outbound = fixture.pollOutbound()) != null) {
+            ChemMasterWindowUpdate update = findWindowUpdate(outbound, packetTypes);
+            if (update != null) {
+                latest = update;
+                if (update.state().acknowledgedRequestId() == requestId) return update;
+            }
+        }
+        if (latest != null) return latest;
+        throw new GameTestAssertException("no ChemMasterWindowUpdate outbound for request " + requestId
+                + "; packet types=" + packetTypes);
     }
 
     private static ChemMasterWindowUpdate takeOptionalWindowUpdate(RegisteredServerPlayerFixture fixture) {

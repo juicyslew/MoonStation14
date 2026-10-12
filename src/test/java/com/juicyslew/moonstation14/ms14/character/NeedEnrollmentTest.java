@@ -137,9 +137,9 @@ class NeedEnrollmentTest {
         assertTrue(tooMany.error().isPresent());
         assertTrue(tooMany.error().orElseThrow().message().contains("at most 64"));
         assertThrows(IllegalArgumentException.class, () -> new CharacterData(List.of(),
-                java.util.Collections.<CharacterComponent>nCopies(65, new HungerPrototypeComponent())));
+                java.util.Collections.<CharacterComponent>nCopies(65, HungerPrototypeComponent.DEFAULT)));
         assertThrows(IllegalArgumentException.class, () -> new CharacterData(List.of(),
-                List.of(new HungerPrototypeComponent(), new HungerPrototypeComponent())));
+                List.of(HungerPrototypeComponent.DEFAULT, HungerPrototypeComponent.DEFAULT)));
         String hosts = String.join(",", java.util.Collections.nCopies(17, "\"minecraft:player\""));
         assertTrue(CharacterData.CODEC.parse(JsonOps.INSTANCE,
                 JsonParser.parseString("{\"host_entity_types\":[" + hosts + "]}")).error().isPresent());

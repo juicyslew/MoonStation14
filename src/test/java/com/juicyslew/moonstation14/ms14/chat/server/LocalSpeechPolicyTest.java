@@ -38,7 +38,7 @@ class LocalSpeechPolicyTest {
         LocalSpeechPayload payload = new LocalSpeechPayload(17, "Ada Alder", 0xFFFFFF, raw, 1, 2, 3, dimension);
         assertEquals(raw, payload.text());
         assertEquals("Ada Alder", payload.actualName());
-        assertEquals(13, LocalSpeechPayload.class.getRecordComponents().length);
+        assertEquals(14, LocalSpeechPayload.class.getRecordComponents().length);
         assertEquals(dimension, payload.dimension());
         assertThrows(IllegalArgumentException.class,
                 () -> new LocalSpeechPayload(17, "account-name", 0xFFFFFF, raw, 1, 2, 3, dimension));

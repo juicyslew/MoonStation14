@@ -13,6 +13,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MouseHandlerMindGhostLookMixin {
     @Redirect(method = "turnPlayer(D)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"), require = 1)
     private void moonstation14$turnObserverCamera(net.minecraft.client.player.LocalPlayer player, double yaw, double pitch) {
+        if (com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()) {
+            player.turn(yaw, pitch);
+            return;
+        }
         var observation = ObserverClient.current();
         if (ObserverClient.usesMedicalCamera() || observation != null
                 && observation.mode() == com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Mode.GHOST)

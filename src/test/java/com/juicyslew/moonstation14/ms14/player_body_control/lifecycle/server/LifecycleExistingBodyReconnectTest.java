@@ -115,6 +115,26 @@ class LifecycleExistingBodyReconnectTest {
                         LoadedBodyResolver.Outcome.RECOVERY_REQUIRED, true, false));
     }
 
+    @Test void returnTickContinuationRequiresPositiveExactBodyProofAndUsesOneHandoff() {
+        AtomicInteger loads = new AtomicInteger(1);
+        AtomicInteger handoffs = new AtomicInteger();
+        AtomicInteger cancels = new AtomicInteger();
+        LoadedBodyResolver.Outcome[] observations = {
+                LoadedBodyResolver.Outcome.RECOVERY_REQUIRED,
+                LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
+        };
+        AtomicInteger index = new AtomicInteger();
+        for (int tick = 1; tick <= observations.length; tick++) {
+            LifecycleExistingBodyReconnect.advanceReturnWait(tick, 200, () -> true,
+                    () -> new LifecycleExistingBodyReconnect.ReturnTickObservation(
+                            observations[index.getAndIncrement()], false), handoffs::incrementAndGet,
+                    cancels::incrementAndGet, () -> { });
+        }
+        assertEquals(1, handoffs.get());
+        assertEquals(0, cancels.get());
+        assertEquals(1, loads.get(), "tick continuation does not force another chunk load");
+    }
+
     @Test void staleOwnerLogoutAndPositiveConflictFailClosedImmediately() {
         assertEquals(LifecycleExistingBodyReconnect.PendingDecision.FAIL_CLOSED,
                 LifecycleExistingBodyReconnect.pendingDecision(1,

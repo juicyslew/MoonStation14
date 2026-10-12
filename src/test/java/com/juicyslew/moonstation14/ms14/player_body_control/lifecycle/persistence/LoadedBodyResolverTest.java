@@ -85,11 +85,13 @@ class LoadedBodyResolverTest {
         assertRecovery(candidate(BODY, id(3), "minecraft:overworld", ACCOUNT, "main", true, null), c -> true);
     }
 
-    @Test void ambiguousResultsAndOrdinaryMobWithoutCustomValidatorFailClosed() {
+    @Test void ambiguousResultsFailClosedAndBoundRoleMobCanResolveWhenPrototypeValidated() {
         Candidate candidate = candidate(BODY, id(3), "minecraft:overworld", ACCOUNT, "main", true, new Object());
         var ambiguous = resolve(ignored -> LookupResult.ambiguous(List.of(candidate, candidate)), c -> true);
         assertEquals(Outcome.RECOVERY_REQUIRED, ambiguous.outcome());
-        assertRecovery(candidate, c -> false); // Vanilla Mob is not custom-character evidence by default.
+        assertRecovery(candidate, c -> false);
+        assertEquals(Outcome.SAME_BODY_AVAILABLE,
+                resolve(ignored -> LookupResult.loaded(candidate), c -> c.entity() != null).outcome());
     }
 
     @Test void missingIsExplicitAndNullLookupEvidenceIsNotInterpretedAsMissing() {

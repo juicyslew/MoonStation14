@@ -13,6 +13,19 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void noCharacterReconciliationPreservesOnlyExactCommittedGhostPointerOwner() {
+        var ghost = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 12);
+        var otherEpoch = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 13);
+        var otherGhost = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(UUID.randomUUID(), 12);
+        // Exercise the same reconciliation gate on consecutive ticks: it must not consume
+        // the committed ghost owner after the first no-character pass.
+        assertTrue(PointerModePolicy.preserveForGhostContext(ghost, ghost));
+        assertTrue(PointerModePolicy.preserveForGhostContext(ghost, ghost));
+        assertFalse(PointerModePolicy.preserveForGhostContext(ghost, otherEpoch));
+        assertFalse(PointerModePolicy.preserveForGhostContext(ghost, otherGhost));
+        assertFalse(PointerModePolicy.preserveForGhostContext(null, ghost)); // logout/context loss
+        assertFalse(PointerModePolicy.preserveForGhostContext(ghost, null)); // character/no owner
+    }
     @Test void medicalPocketCountUsesDeclaredCapNotOnlyNativeItemCap() {
         assertTrue(BodyHandClientPolicy.equipmentCountFits(10, 64, true));
         assertFalse(BodyHandClientPolicy.equipmentCountFits(11, 10, true));

@@ -849,6 +849,46 @@ public final class BodyControlRegistry {
         return Optional.of(mind.snapshot());
     }
 
+    /** Preview an active lifecycle ghost taking an unclaimed registered character body. */
+    public synchronized Optional<ReconnectPreview> previewGhostRoleTakeover(UUID accountId, MindId mindId,
+            MobHarnessId ghostId, MobHarnessId targetId, long expectedEpoch, long generationFloor,
+            TargetEligibility eligibility, LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || generationFloor < 0 || ghostId.equals(targetId)) return Optional.empty();
+        MindState mind = mindFor(Objects.requireNonNull(accountId));
+        MobHarness ghost = harnesses.get(ghostId), target = harnesses.get(targetId);
+        if (mind == null || !mind.lifecycleOwned || !mind.connected || mind.epoch != expectedEpoch
+                || !mind.id.equals(mindId) || !ghostId.equals(mind.harnessId)
+                || !mind.id.equals(ownersByHarness.get(ghostId)) || ghost == null
+                || ghost.kind() != MobHarnessKind.GHOST || target == null
+                || target.kind() != MobHarnessKind.CHARACTER || !eligibility.isEligible(target)
+                || ownersByHarness.containsKey(targetId)) return Optional.empty();
+        try { return Optional.of(new ReconnectPreview(accountId, mindId, targetId, expectedEpoch,
+                Math.incrementExact(Math.max(generation, generationFloor)))); }
+        catch (ArithmeticException overflow) { return Optional.empty(); }
+    }
+
+    /** Commit after durable profile CAS; consumes the ghost claim and invalidates its epoch. */
+    public synchronized Optional<MindSnapshot> commitGhostRoleTakeover(ReconnectPreview preview,
+            MobHarnessId ghostId, TargetEligibility eligibility, LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || preview == null) return Optional.empty();
+        MindState mind = mindFor(preview.sessionId);
+        MobHarness ghost = harnesses.get(ghostId), target = harnesses.get(preview.bodyId);
+        if (mind == null || !mind.lifecycleOwned || !mind.connected || !mind.id.equals(preview.mindId)
+                || mind.epoch != preview.expectedEpoch || !ghostId.equals(mind.harnessId)
+                || !mind.id.equals(ownersByHarness.get(ghostId)) || ghost == null
+                || ghost.kind() != MobHarnessKind.GHOST || target == null
+                || target.kind() != MobHarnessKind.CHARACTER || !eligibility.isEligible(target)
+                || ownersByHarness.containsKey(preview.bodyId) || preview.nextEpoch <= generation) return Optional.empty();
+        ownersByHarness.remove(ghostId);
+        harnesses.remove(ghostId);
+        ownersByHarness.put(preview.bodyId, mind.id);
+        mind.harnessId = preview.bodyId;
+        mind.deadClaim = false;
+        mind.epoch = preview.nextEpoch;
+        generation = preview.nextEpoch;
+        return Optional.of(mind.snapshot());
+    }
+
     /** Preview returning this exact lifecycle Mind from its ghost/dead claim to its retained character. */
     public synchronized Optional<ReconnectPreview> previewRevivedDeadClaim(UUID accountId, MindId mindId,
             MobHarnessId currentBodyId, MobHarnessId corpseId, long expectedEpoch, long generationFloor,

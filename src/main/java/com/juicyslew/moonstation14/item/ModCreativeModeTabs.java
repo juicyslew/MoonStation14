@@ -17,6 +17,7 @@ import java.util.List;
 public class ModCreativeModeTabs {
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_ITEM_ENTRIES = List.of(
             ModItems.STEEL, ModItems.METAL_ROD, ModItems.WOOD, ModItems.CLOTH, ModItems.GLASS, ModItems.PAPER, ModItems.PLASTIC,
+            ModItems.CHEESE_SLICE, ModItems.PUMPKIN_PIE_SLICE,
             ModItems.CROWBAR, ModItems.AIRLOCK_MULTITOOL, ModItems.PILL, ModItems.PILL_CANISTER, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
             ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE, ModItems.SYRINGE,

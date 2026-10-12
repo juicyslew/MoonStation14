@@ -68,39 +68,46 @@ public final class TimedIngestionAccess {
         if (!reagent(stack) || !positive(stack, level) || !stomachRoom(body, level)) return Optional.empty();
         try { new ItemToken(token); } catch (RuntimeException ex) { return Optional.empty(); }
         ResourceLocation type=BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (blockedByHydration(body, type)) return Optional.empty();
         return Optional.of(new Admission("held:"+token,type,Kind.HELD,body,level,token,hand,revision,type,null,null,null));
     }
 
     public static Optional<Admission> admitWorld(LivingEntity body, UUID target, String hand, long revision, BooleanSupplier authority) {
         ServerLevel level=server(body,authority);
         LiveHands hands=level==null?null:liveHands(body);
-        if(level==null||target==null||hand==null||hands==null||hands.revision()!=revision
-                ||!hands.activeHand().equals(hand)||hands.stackCopy(hand).isPresent()||hands.reservation(hand).isPresent()
+        boolean handless=level!=null&&OralAccess.handless(body);
+        if(level==null||target==null||(!handless&&(hand==null||hands==null||hands.revision()!=revision
+                ||!hands.activeHand().equals(hand)||hands.stackCopy(hand).isPresent()||hands.reservation(hand).isPresent()))
                 ||BodyItemTargetProbe.probeSelected(level,body,target,BodyItemTargetProbe.MAX_REACH)==null) return Optional.empty();
         Entity entity=level.getEntity(target);
         if(!(entity instanceof ItemEntity item)||!(item instanceof LooseItemEntity)||item.getTarget()!=null
                 ||item.hasPickUpDelay()||!reagent(item.getItem())||!positive(item.getItem(),level)||!stomachRoom(body,level)) return Optional.empty();
         ResourceLocation type=BuiltInRegistries.ITEM.getKey(item.getItem().getItem());
+        if (blockedByHydration(body, type)) return Optional.empty();
         return Optional.of(new Admission("world:"+target,type,Kind.WORLD,body,level,null,hand,revision,type,item,null,null));
     }
 
     public static Optional<Admission> admitPuddle(LivingEntity body, BlockPos pos, String hand, long revision, BooleanSupplier authority) {
         ServerLevel level=server(body,authority);
         LiveHands hands=level==null?null:liveHands(body);
-        if(level==null||pos==null||hand==null||hands==null||hands.revision()!=revision||!hands.activeHand().equals(hand)
-                ||hands.stackCopy(hand).isPresent()||hands.reservation(hand).isPresent()||!level.hasChunkAt(pos)
+        boolean handless=level!=null&&OralAccess.handless(body);
+        if(level==null||pos==null||(!handless&&(hand==null||hands==null||hands.revision()!=revision||!hands.activeHand().equals(hand)
+                ||hands.stackCopy(hand).isPresent()||hands.reservation(hand).isPresent()))||!level.hasChunkAt(pos)
                 ||!PuddleTargetProbe.selected(level,body,pos)||!stomachRoom(body,level)) return Optional.empty();
         if(!(level.getBlockEntity(pos) instanceof PuddleBlockEntity puddle)||!positive(puddle,level)) return Optional.empty();
         BlockPos fixed=pos.immutable();
+        if (blockedByHydration(body, PUDDLE_PROFILE)) return Optional.empty();
         return Optional.of(new Admission("puddle:"+level.dimension().location()+":"+fixed.getX()+","+fixed.getY()+","+fixed.getZ(),
                 PUDDLE_PROFILE,Kind.PUDDLE,body,level,null,hand,revision,null,null,fixed,puddle));
     }
 
     public static boolean valid(LivingEntity body, Admission admission, BooleanSupplier authority) {
-        if(admission==null||body==null||admission.body!=body||server(body,authority)!=admission.level
-                ||!body.getUUID().equals(admission.bodyId)||!stomachRoom(body,admission.level)) return false;
+        if(admission==null||body==null) return false;
+        if(admission.body!=body||server(body,authority)!=admission.level
+                ||!body.getUUID().equals(admission.bodyId)||!stomachRoom(body,admission.level)
+                ||blockedByHydration(body, admission.profileId)) return false;
         LiveHands hands=liveHands(body);
-        if(hands==null) return false;
+        if(hands==null&&(admission.kind==Kind.HELD||!OralAccess.handless(body))) return false;
         return switch(admission.kind) {
             case HELD -> findToken(hands,admission.token,admission.itemType,admission.level);
             case WORLD -> {
@@ -116,14 +123,17 @@ public final class TimedIngestionAccess {
         };
     }
 
-    public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty, BooleanSupplier authority) {
+    public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty,
+                                      boolean food, BooleanSupplier authority) {
         if(doseCents<=0||!valid(body,admission,authority)) return Completion.DENIED;
-        LiveHands hands=liveHands(body); String hand=admission.kind==Kind.HELD?findTokenHand(hands,admission.token):hands.activeHand();
-        if(hand==null)return Completion.DENIED;
-        long revision=hands.revision(); long available=availableStomach(body,admission.level);
         IngestionProfile resolvedProfile = ModIngestionProfiles.serverLookup(admission.profileId);
-        if (available <= 0 && (resolvedProfile == null || !resolvedProfile.consumeSource())) return Completion.DENIED;
+        LiveHands hands=liveHands(body);
+        String hand=admission.kind==Kind.HELD?findTokenHand(hands,admission.token):hands==null?null:hands.activeHand();
+        if(admission.kind==Kind.HELD&&hand==null || hands==null&&!OralAccess.handless(body))return Completion.DENIED;
+        long revision=hands==null?0:hands.revision(); long available=availableStomach(body,admission.level);
         if (resolvedProfile != null && resolvedProfile.consumeSource()) {
+            // Whole-source ingestion is only supported for an authenticated held source.
+            if (admission.kind != Kind.HELD || hands == null || hand == null) return Completion.DENIED;
             ItemStack pill = hands.stackCopy(hand).orElse(null);
             long fullDose = sourceCents(pill, admission.level);
             if (fullDose <= 0 || fullDose > Integer.MAX_VALUE) return Completion.DENIED;
@@ -134,15 +144,25 @@ public final class TimedIngestionAccess {
                     : consumed == BodyLiquidInteraction.Result.CANNOT_INGEST ? Completion.CANNOT_INGEST
                     : consumed == BodyLiquidInteraction.Result.RECOVERY_REQUIRED ? Completion.RECOVERY_REQUIRED : Completion.DENIED;
         }
+        if(available<=0)return Completion.DENIED;
         BodyLiquidInteraction.Result result;
         if(admission.kind==Kind.PUDDLE) result=BodyPuddleDrinkService.finishTimed(body,admission.pos,admission.puddle,doseCents,destroyOnEmpty,authority);
         else result=BodyLiquidInteraction.sipTimedOwned(body,admission.kind==Kind.WORLD?admission.worldId:null,
-                hand,admission.kind==Kind.HELD?admission.token:null,revision,doseCents,authority);
+                hand,admission.kind==Kind.HELD?admission.token:null,revision,doseCents,destroyOnEmpty,food,authority,
+                resolvedProfile == null ? null : resolvedProfile.completionSound(),
+                resolvedProfile == null ? -2f : resolvedProfile.completionVolumeDb(),
+                resolvedProfile == null ? .25f : resolvedProfile.completionPitchVariation());
         return switch(result) {
             case DENIED -> Completion.DENIED;
             case CANNOT_INGEST -> Completion.CANNOT_INGEST;
             case RECOVERY_REQUIRED -> Completion.RECOVERY_REQUIRED;
-            case SUCCESS -> validSourceAfter(body,admission,authority)&&doseCents<available
+            // Decide repetition from the state produced by this committed dose, not just
+            // the pre-transaction room. A drink that reaches max hydration is a terminal
+            // voluntary operation even if metabolism later opens room again.
+            case SUCCESS -> validSourceAfter(body,admission,authority)
+                    && acceptedStomachCents(body, admission.level, available) == doseCents
+                    && stomachRoom(body, admission.level)
+                    && !blockedByHydration(body, admission.profileId)
                     ?Completion.COMMITTED_REPEAT:Completion.COMMITTED_STOP;
         };
     }
@@ -156,6 +176,33 @@ public final class TimedIngestionAccess {
             if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(component.getMap(), level, "whole-dose pill")) return 0;
             return ReagentUnits.fromMap(component.getMap()).values().stream().mapToLong(Long::longValue).sum();
         } catch (RuntimeException invalid) { return 0; }
+    }
+
+    /** Identifies an active ingestion journal entry as a voluntary drink from its live source. */
+    public static boolean isDrinkOperation(LivingEntity body, String sourceKey) {
+        if (body == null || sourceKey == null) return false;
+        ResourceLocation profileId = null;
+        if (sourceKey.startsWith("puddle:")) profileId = PUDDLE_PROFILE;
+        else if (sourceKey.startsWith("held:")) {
+            LiveHands hands = liveHands(body);
+            String token = sourceKey.substring("held:".length());
+            if (hands != null) for (String hand : hands.handIds())
+                if (hands.token(hand).filter(token::equals).isPresent()) {
+                    var stack = hands.stackCopy(hand).orElse(null);
+                    if (stack != null && !stack.isEmpty()) profileId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                    break;
+                }
+        } else if (sourceKey.startsWith("world:")) {
+            try {
+                if (body.level() instanceof ServerLevel level) {
+                    Entity source = level.getEntity(UUID.fromString(sourceKey.substring("world:".length())));
+                    if (source instanceof ItemEntity item && !item.getItem().isEmpty())
+                        profileId = BuiltInRegistries.ITEM.getKey(item.getItem().getItem());
+                }
+            } catch (IllegalArgumentException ignored) { return false; }
+        }
+        IngestionProfile profile = profileId == null ? null : ModIngestionProfiles.serverLookup(profileId);
+        return profile != null && profile.edible().kind() == IngestionProfile.Kind.DRINK;
     }
 
     private static boolean validSourceAfter(LivingEntity body,Admission a,BooleanSupplier auth) {
@@ -188,6 +235,8 @@ public final class TimedIngestionAccess {
     private static boolean sameType(ItemStack s,ResourceLocation id){return id.equals(BuiltInRegistries.ITEM.getKey(s.getItem()));}
     private static boolean positive(Object holder,ServerLevel l){
         try {
+            if (holder instanceof ItemStack stack) com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(stack, l);
+            else if (holder instanceof ItemEntity item) com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(item.getItem(), l);
             var bridge=ReagentSystem.bridgeForHolder(holder);
             if(bridge==null)return false;
             var map=MS14Provider.getDetached(holder,bridge).getMap();
@@ -202,9 +251,19 @@ public final class TimedIngestionAccess {
             return availableStomach(body,l)>0;
         } catch(RuntimeException ex){return false;}
     }
+    private static boolean blockedByHydration(LivingEntity body, ResourceLocation profileId) {
+        IngestionProfile profile = ModIngestionProfiles.serverLookup(profileId);
+        boolean drink = PUDDLE_PROFILE.equals(profileId) || profile != null && profile.edible().kind() == IngestionProfile.Kind.DRINK;
+        return drink && com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(body);
+    }
     private static long availableStomach(LivingEntity body,ServerLevel l){
         var map=MS14Provider.getDetached(body,MS14Bridges.STOMACH).getMap();
         long used=ReagentUnits.fromMap(map).values().stream().mapToLong(Long::longValue).sum();
         return Math.max(0,(long)com.juicyslew.moonstation14.ms14.loose_objects.interaction.LiquidInteractionCapability.STOMACH_CAPACITY_CENTS-used);
+    }
+    /** Returns the committed increase in stomach cents from the completion just performed. */
+    private static long acceptedStomachCents(LivingEntity body, ServerLevel level, long roomBefore) {
+        long roomAfter = availableStomach(body, level);
+        return Math.max(0, roomBefore - roomAfter);
     }
 }

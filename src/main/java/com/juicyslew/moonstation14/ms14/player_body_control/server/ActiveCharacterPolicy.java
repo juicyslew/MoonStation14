@@ -15,7 +15,8 @@ public final class ActiveCharacterPolicy {
 
     /** True for the exact connected player object participating in an experimental session. */
     public static boolean isCarrier(Entity entity) {
-        return entity instanceof ServerPlayer player && GhostMobHarnessControl.isExperimentalCarrier(player);
+        return entity instanceof ServerPlayer player && (GhostMobHarnessControl.isExperimentalCarrier(player)
+                || CommittedSpectatorGuard.isTransportCarrier(player));
     }
 
     /** Active carriers do not act as character-profile actors; explicit bodies require live bindings. */

@@ -61,4 +61,39 @@ class PointerModePolicyTest {
         assertFalse(PointerModePolicy.shouldRestoreHost(true, false, true));
         assertFalse(PointerModePolicy.shouldRestoreHost(true, true, false));
     }
+
+    @Test void committedGhostOwnerIsContextBoundAndManualIntentNeedsNoWindow() {
+        var policy = new PointerModePolicy();
+        policy.manualOpen();
+        assertTrue(policy.open());
+        assertFalse(policy.closeWhenEmpty());
+        assertTrue(PointerModePolicy.shouldRestoreHost(policy.open(), true, true));
+        assertFalse(PointerModePolicy.shouldRestoreHost(policy.open(), true, false));
+        // Authority replacement is a hard barrier, not a reopen-on-next-tick condition.
+        policy.authorityClear();
+        assertFalse(policy.open());
+        assertFalse(PointerModePolicy.shouldRestoreHost(policy.open(), true, true));
+    }
+
+    @Test void openingSharedWorkspaceCreatesAutomaticIntentButPreservesManualIntent() {
+        var automatic = new PointerModePolicy();
+        automatic.workspaceOpen(); // production openSharedPointerWorkspace policy path
+        assertEquals(PointerModePolicy.Origin.POPUP_AUTOMATIC, automatic.origin());
+        assertTrue(automatic.open());
+        var ghost = java.util.UUID.randomUUID();
+        assertTrue(PointerModePolicy.preserveForGhostContext(
+                new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(ghost, 12),
+                new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(ghost, 12)));
+        assertTrue(PointerModePolicy.keepOpenForWindow(false, true)); // visible overlay prevents empty cleanup
+        assertTrue(automatic.closeWhenEmpty()); // cleanup after the final window closes clears automatic intent
+        assertFalse(automatic.closeWhenEmpty()); // cleanup is idempotent after automatic intent is cleared
+        assertFalse(automatic.open());
+
+        var manual = new PointerModePolicy();
+        manual.manualOpen();
+        manual.workspaceOpen();
+        assertEquals(PointerModePolicy.Origin.MANUAL, manual.origin());
+        assertFalse(manual.closeWhenEmpty()); // L-Alt/manual intent survives window closure
+        assertTrue(manual.open());
+    }
 }

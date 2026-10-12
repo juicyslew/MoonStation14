@@ -8,6 +8,8 @@ import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
+import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
@@ -18,6 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
@@ -29,6 +32,41 @@ import java.util.UUID;
 @GameTestTags({"character", "prototype"})
 public final class CharacterIdentityGameTests {
     private CharacterIdentityGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"character", "prototype", "medical-state"})
+    public static void mappedMouseEnrollmentProjectsKnownZeroAndPreservesDamage(GameTestHelper helper) {
+        Mob mouse = ModEntities.MOUSE.get().create(helper.getLevel());
+        require(mouse != null, "Mouse fixture must construct");
+        mouse.setPos(1.5, 1, 1.5);
+        require(helper.getLevel().addFreshEntity(mouse), "Mouse fixture must enter level");
+        var mouseId = ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse");
+        require(CharacterIdentitySystem.enroll(mouse, helper.getLevel(), mouseId), "resolved Mouse enrolls");
+        var zero = mouse.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        require(zero != null && zero.getMap().isEmpty(), "enrollment publishes a known-zero medical ledger");
+        require(DamageSystem.applyHealthChange(mouse, java.util.Map.of("blunt", 5f), 1f, true)
+                        == DamageSystem.Result.APPLIED,
+                "canonical damage path updates Mouse medical state");
+        require(CharacterIdentitySystem.enroll(mouse, helper.getLevel(), mouseId), "same resolved role can reconcile");
+            var damaged = mouse.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+            require(damaged != null && damaged.getMap().getOrDefault("blunt", 0f) == 5f,
+                    "idempotent enrollment preserves the authoritative damage ledger");
+            mouse.setHealth(mouse.getMaxHealth() / 2f);
+            require(DamageSystem.publishHealthState(mouse), "server can republish the current health ledger");
+            require(mouse.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap()
+                            .getOrDefault("blunt", 0f) == 5f,
+                    "publishing does not rewrite an existing typed ledger from vanilla health");
+            require(DamageSystem.applyHealthChange(mouse, java.util.Map.of("blunt", -5f), 1f, true)
+                            == DamageSystem.Result.APPLIED,
+                    "canonical healing path returns Mouse to known zero");
+            var healed = mouse.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+            require(healed != null && healed.isEmpty(),
+                    "healing synchronizes a present empty ledger rather than reverting to unknown");
+            require(DamageSystem.publishHealthState(mouse), "known-zero state can be republished");
+            require(mouse.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().isEmpty(),
+                    "publishing known-zero must not import native vanilla health as blunt damage");
+            helper.succeed();
+    }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void villagerJoinBindsHumanPolicyAndDanglingKeyRemainsInert(GameTestHelper helper) {

@@ -1,0 +1,37 @@
+Starting a Gradle Daemon, 2 busy and 22 stopped Daemons could not be reused, use --status for details
+Reusing configuration cache.
+> Task :createMinecraftArtifacts UP-TO-DATE
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :generateModMetadata UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes
+> Task :jarJar NO-SOURCE
+> Task :jar
+> Task :assemble
+
+> Task :compileGametestJava
+Note: C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\src\gametest\java\com\juicyslew\moonstation14\ms14\loose_objects\pulling\ElasticBodyPullGameTests.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :gametestClasses
+> Task :compileTestJava
+> Task :downloadAssets UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses
+> Task :test
+> Task :check
+> Task :build
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 8s
+14 actionable tasks: 5 executed, 9 up-to-date
+Configuration cache entry reused.

@@ -958,6 +958,75 @@ public final class PlayerLifecycleRegistry {
     }
 
     /**
+     * Durably transfers an active ghost Mind to an eligible ordinary CHARACTER body. Target metadata
+     * is supplied by the trusted runtime adapter; this method validates identity and ownership only.
+     */
+    public synchronized Optional<Snapshot> takeOverGhostRoleDurably(
+            LifecycleProfileStore.CurrentPrimary primary, SavedLifecycleProfile savedGhost,
+            MobHarnessId ghostId, MobHarnessId targetId, String targetDimension,
+            SavedLifecycleProfile.Location targetLocation, Map<String, String> targetAppearance,
+            long expectedGeneration, TargetEligibility eligibleTarget) throws IOException {
+        synchronized (ownership) {
+            Objects.requireNonNull(primary); Objects.requireNonNull(savedGhost); Objects.requireNonNull(ghostId);
+            Objects.requireNonNull(targetId); Objects.requireNonNull(targetDimension);
+            Objects.requireNonNull(targetLocation); Objects.requireNonNull(targetAppearance);
+            Objects.requireNonNull(eligibleTarget);
+            if (!primary.isActive() || savedGhost.schemaVersion() != SavedLifecycleProfile.CURRENT_SCHEMA
+                    || (savedGhost.state() != SavedLifecycleProfile.State.DEAD_CLAIM
+                        && savedGhost.state() != SavedLifecycleProfile.State.GHOST)
+                    || !savedGhost.connectionEpoch().equals(primary.envelope().epochToken())) return Optional.empty();
+            LifecycleStoreEnvelope envelope = primary.envelope();
+            if (envelope.schemaVersion() != LifecycleStoreEnvelope.CURRENT_SCHEMA
+                    || envelope.profiles().stream().filter(savedGhost::equals).count() != 1
+                    || savedGhost.connectionGeneration() > envelope.generationCounter()) return Optional.empty();
+            ProfileRecord record = byAccount.get(savedGhost.accountId());
+            MindId mindId = new MindId(savedGhost.mindId());
+            var mind = ownership.mind(savedGhost.accountId()).orElse(null);
+            if (record == null || !record.active || !record.deadClaim || record.state != LifecycleState.GHOST
+                    || record.generation != expectedGeneration || !record.mindId.equals(mindId)
+                    || !record.profileId.equals(savedGhost.profileKey()) || !record.bodyId.equals(ghostId)
+                    || !savedGhost.bodyId().equals(record.corpseBodyId.value())
+                    || savedGhost.connectionGeneration() > expectedGeneration || mind == null
+                    || !mindId.equals(mind.id()) || !ghostId.equals(mind.harnessId())
+                    || mind.epoch() != expectedGeneration) return Optional.empty();
+            var preview = ownership.previewGhostRoleTakeover(savedGhost.accountId(), mindId, ghostId, targetId,
+                    expectedGeneration, envelope.generationCounter(), eligibleTarget, capability);
+            if (preview.isEmpty()) return Optional.empty();
+            long next = preview.orElseThrow().nextEpoch();
+            final long revision;
+            try { revision = Math.incrementExact(savedGhost.revision()); }
+            catch (ArithmeticException overflow) { return Optional.empty(); }
+            MobHarness target = ownership.registeredHarness(targetId).orElse(null);
+            if (target == null || target.kind() != MobHarnessKind.CHARACTER || !eligibleTarget.isEligible(target))
+                return Optional.empty();
+            SavedLifecycleProfile active = new SavedLifecycleProfile(savedGhost.schemaVersion(),
+                    savedGhost.accountId(), savedGhost.profileKey(), savedGhost.mindId(), targetId.value(),
+                    targetDimension, targetLocation, targetAppearance, savedGhost.connectionEpoch(), next,
+                    SavedLifecycleProfile.State.ACTIVE, revision, null);
+            ArrayList<SavedLifecycleProfile> profiles = new ArrayList<>(envelope.profiles().size());
+            boolean replaced = false;
+            for (SavedLifecycleProfile row : envelope.profiles()) {
+                if (row.equals(savedGhost)) { if (replaced) return Optional.empty(); profiles.add(active); replaced = true; }
+                else profiles.add(row);
+            }
+            if (!replaced) return Optional.empty();
+            primary.compareAndSwap(Math.max(envelope.generationCounter(), next), profiles);
+            var committed = ownership.commitGhostRoleTakeover(preview.orElseThrow(), ghostId, eligibleTarget, capability);
+            if (committed.isEmpty()) {
+                ownership.suspendLifecycleForRecovery(savedGhost.accountId(), mindId, capability);
+                byBody.remove(ghostId); record.bodyId = targetId; record.generation = next;
+                record.active = false; record.deadClaim = false; record.state = LifecycleState.RECOVERY_REQUIRED;
+                record.durableActive = false; record.corpseBodyId = null; byBody.put(targetId, record);
+                return Optional.empty();
+            }
+            byBody.remove(ghostId); record.bodyId = targetId; record.generation = committed.orElseThrow().epoch();
+            record.active = true; record.deadClaim = false; record.state = LifecycleState.ACTIVE;
+            record.durableActive = true; record.corpseBodyId = null; byBody.put(targetId, record);
+            return Optional.of(record.snapshot());
+        }
+    }
+
+    /**
      * Durably returns a revived corpse to its original character body. The caller must already have
      * authenticated this account and provide a world-backed eligibility predicate (including alive).
      */

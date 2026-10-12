@@ -29,6 +29,7 @@ public final class CharacterComponentRegistry {
     private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
             Map.entry(DamageableComponent.TYPE, new Entry<>(DamageableComponent.class, DamageableComponent.CODEC)),
             Map.entry(HumanoidProfileComponent.TYPE, new Entry<>(HumanoidProfileComponent.class, HumanoidProfileComponent.CODEC)),
+            Map.entry(GhostRoleComponent.TYPE, new Entry<>(GhostRoleComponent.class, GhostRoleComponent.CODEC)),
             Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),
             Map.entry(ExaminerComponent.TYPE, new Entry<>(ExaminerComponent.class, ExaminerComponent.CODEC)),
             Map.entry(ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC)),
@@ -51,6 +52,7 @@ public final class CharacterComponentRegistry {
             Map.entry(MovementSpeedModifierComponent.TYPE, new Entry<>(MovementSpeedModifierComponent.class, MovementSpeedModifierComponent.CODEC)),
             Map.entry(MobStateComponent.TYPE, new Entry<>(MobStateComponent.class, MobStateComponent.CODEC)),
             Map.entry(MobThresholdsComponent.TYPE, new Entry<>(MobThresholdsComponent.class, MobThresholdsComponent.CODEC)),
+            Map.entry(MouseAppearanceComponent.TYPE, new Entry<>(MouseAppearanceComponent.class, MouseAppearanceComponent.CODEC)),
             Map.entry(CrawlerComponent.TYPE, new Entry<>(CrawlerComponent.class, CrawlerComponent.CODEC)),
             Map.entry(GhostOnMoveComponent.TYPE, new Entry<>(GhostOnMoveComponent.class, GhostOnMoveComponent.CODEC)),
             Map.entry(MouthComponent.TYPE, new Entry<>(MouthComponent.class, MouthComponent.CODEC)),

@@ -58,7 +58,9 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/LivingEntityDisposalContainmentRenderMixin.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java",
-            "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
+             "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
+             "com/juicyslew/moonstation14/ms14/player_body_control/client/DevelopmentModeHotkeys.java",
+             "com/juicyslew/moonstation14/ms14/player_body_control/client/DevelopmentModeHotkeyRegistration.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCameraPolicy.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCharacterClientView.java",
             "com/juicyslew/moonstation14/ms14/power/cable/client/CableVisualRenderer.java",
@@ -131,7 +133,12 @@ class ServerClassloadingTest {
                         || relativePath.startsWith(CLIENT_CHEMMASTER_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_DEVICE_NET_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_STRIPPING_SOURCE_PREFIX)
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/equipment/client/")) {
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/equipment/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/ghost_roles/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/mixin/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")) {
                     continue;
                 }
 

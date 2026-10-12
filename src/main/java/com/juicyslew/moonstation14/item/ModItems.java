@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.item.custom.AtmosphereAnalyzerItem;
 import com.juicyslew.moonstation14.item.custom.CrowbarItem;
 import com.juicyslew.moonstation14.item.custom.JugItem;
 import com.juicyslew.moonstation14.item.custom.SteelItem;
+import com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTileItem;
 import com.juicyslew.moonstation14.item.custom.StationFloorTilePryItem;
 import com.juicyslew.moonstation14.item.custom.CableSpoolItem;
@@ -66,6 +67,10 @@ public class ModItems {
     public static final DeferredItem<Item> WAFFLE = ITEMS.register("waffle",
             () -> new Item(new Item.Properties().food(ModFoodProperties.WAFFLE))
     );
+    public static final DeferredItem<PrototypeEdibleItem> CHEESE_SLICE = ITEMS.register("cheese_slice",
+            () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<PrototypeEdibleItem> PUMPKIN_PIE_SLICE = ITEMS.register("pumpkin_pie_slice",
+            () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
 
     // CUSTOM ITEMS
     // TODO: If I start having dependency issues with what needs to be defined before what, consider a lazy-initialized static map pattern for these item's construction result maps.

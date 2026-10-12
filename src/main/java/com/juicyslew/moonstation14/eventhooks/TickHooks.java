@@ -130,6 +130,9 @@ public class TickHooks {
     /** Narrow scheduler seam used by server tests and the entity tick hook. */
     public static void runDueActivities(LivingEntity livingEntity, ServerLevel serverLevel,
                                         Set<EntityActivity> due) {
+        if (livingEntity instanceof net.minecraft.server.level.ServerPlayer player
+                && com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard
+                        .isTransportCarrier(player)) return;
         boolean activeCarrier = ActiveCharacterPolicy.isCarrier(livingEntity);
         if (due.contains(EntityActivity.STATUS_EFFECT)
                 && CarrierActivityPolicy.shouldRun(EntityActivity.STATUS_EFFECT, activeCarrier)) {
@@ -142,6 +145,10 @@ public class TickHooks {
         if (due.contains(EntityActivity.REAGENT_METABOLISM)
                 && CarrierActivityPolicy.shouldRun(EntityActivity.REAGENT_METABOLISM, activeCarrier)) {
             ReagentUpdate(livingEntity, serverLevel);
+            // Water metabolism may bring hydration exactly to its cap. Stop voluntary
+            // drinks before the same-bucket thirst decay makes that cap unobservable.
+            com.juicyslew.moonstation14.ms14.ingestion.BodyTimedIngestionService
+                    .stopDrinksAtHydrationCap(livingEntity);
         }
         if (due.contains(EntityActivity.FIRE_DRYING)
                 && CarrierActivityPolicy.shouldRun(EntityActivity.FIRE_DRYING, activeCarrier)) {
