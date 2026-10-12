@@ -23,6 +23,14 @@ and its panel open/close completion sounds are separate WiresPanel feedback. Loc
 tool consumers use the resolved catalog; unknown item
 IDs must fail closed.
 
+The ordinary `screwdriver` is the single registered screwdriver item. The former
+`airlock_screwdriver` registration and catalog aliases were redundant and removed
+during manual-test follow-up. Airlocks consume the ordinary item's resolved
+`SCREWING` quality; disposal's existing ordinary-item consumers are unchanged.
+The tools tab and ordinary loose-object profile provide its shared presentation.
+Its retained `airlock_screwdriver.png` filename is generic SS14 screwdriver art
+composed with screw bits, not a second tool or an airlock-specific capability.
+
 The pinned standard Crowbar chain is `Crowbar -> BaseCrowbar -> BaseItem`; its
 Tool quality is Prying, base prying speed is 1, and `Tool.useSound` is
 `/Audio/Items/crowbar.ogg`. Wirecutter and Screwdriver each directly inherit

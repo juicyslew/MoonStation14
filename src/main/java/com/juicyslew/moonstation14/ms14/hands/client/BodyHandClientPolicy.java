@@ -154,6 +154,11 @@ public final class BodyHandClientPolicy {
     }
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
+    /** Confirmed read-only authority state; unlike inventoryView this remains usable while input is barred. */
+    public BodyHandStateSnapshot confirmedSnapshot() {
+        return inputEnabled && snapshot != null && snapshot.reason() == BodyHandStateSnapshot.Reason.OK
+                && snapshot.epoch() == epoch ? snapshot : null;
+    }
     /** Screen presentation requires a settled, validated pair; never display stale state during a query. */
     public record InventoryView(BodyHandStateSnapshot.Hand first, BodyHandStateSnapshot.Hand second,
                                  String activeHand, EquipmentView belt, EquipmentView back,

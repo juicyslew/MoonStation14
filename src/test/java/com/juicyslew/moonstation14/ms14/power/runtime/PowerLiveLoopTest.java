@@ -8,6 +8,36 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PowerLiveLoopTest {
+    @Test void chemMasterUsesResolvedDemandAndActualApcAllocation() {
+        var source = List.of(new PowerLiveLoop.Source("source", 1, true, 1_000));
+        var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));
+        var apc = List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 0));
+        var machine = new PowerLiveLoop.ChemMasterLoad("chem", 3, true, 250);
+        var full = PowerLiveLoop.solve(new PowerLiveLoop.Input(source, sub, apc, List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(machine), 20));
+        assertEquals(250, full.chemMasterWatts().get("chem"), 1e-9);
+        var unknown = PowerLiveLoop.solve(new PowerLiveLoop.Input(source, sub, apc, List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(new PowerLiveLoop.ChemMasterLoad("chem", 3, false, 250)), 20));
+        assertEquals(0, unknown.chemMasterWatts().get("chem"), 1e-9);
+        var partial = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("small", 1, true, 20)),
+                sub, apc, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(machine), 20));
+        assertTrue(partial.chemMasterWatts().get("chem") < 250);
+        var battery = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(),
+                List.of(new PowerLiveLoop.Apc("battery-apc", 2, true, 3, true, true, 20_000)), List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(new PowerLiveLoop.ChemMasterLoad("battery-chem", 3, true, 250)), 20));
+        assertEquals(250, battery.chemMasterWatts().get("battery-chem"), 1e-9);
+        assertEquals(20_000 - 250 * 20 / 20.0, battery.batteryEnergyJoules().get("battery-apc"), 1e-9,
+                "250 W for the solver's one-second (20 tick) interval withdraws 250 J");
+        for (int elapsedTicks : List.of(0, 20, 40)) {
+            var elapsed = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(),
+                    List.of(new PowerLiveLoop.Apc("elapsed-apc", 2, true, 3, true, true, 20_000)),
+                    List.of(), List.of(), List.of(), List.of(), List.of(),
+                    List.of(new PowerLiveLoop.ChemMasterLoad("elapsed-chem", 3, true, 250)), elapsedTicks));
+            assertEquals(20_000 - 250 * (elapsedTicks / 20.0),
+                    elapsed.batteryEnergyJoules().get("elapsed-apc"), 1e-9,
+                    elapsedTicks + " ticks bill demand only for elapsed seconds");
+        }
+    }
     @Test void disposalUnitsAreActualFullDemandApcLoads() {
         var src = List.of(new PowerLiveLoop.Source("src", 1, true, 2_000));
         var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));

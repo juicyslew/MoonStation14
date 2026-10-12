@@ -78,7 +78,7 @@ public final class BodyTimedIngestionGameTests {
         });
         helper.runAfterDelay(63, () -> {
             require(water(puddle) == 900, "first timed 100-cent dose committed");
-            helper.runAfterDelay(60, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 60, () -> {
                 require(water(puddle) == 800, "repeat waits one full resolved interval and commits once");
                 helper.succeed();
             });
@@ -111,9 +111,9 @@ public final class BodyTimedIngestionGameTests {
             TimedOperation repeat = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
                     .filter(o -> o.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
             require(repeat.id() != id && repeat.startTick() > state.operations().get(0).startTick(), "restart creates a fresh repeat operation");
-            helper.runAfterDelay(30, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 30, () -> {
                 require(water((PuddleBlockEntity)level.getBlockEntity(pos))==1000 && active(body, repeat.id()), "fresh repeat remains active before its full interval");
-                helper.runAfterDelay(31, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 31, () -> {
                     TimedOperation current = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
                             .filter(o -> o.id() == repeat.id()).findFirst().orElseThrow();
                     require(water((PuddleBlockEntity)level.getBlockEntity(pos))==900 && current.phase() == TimedOperation.Phase.ACTIVE

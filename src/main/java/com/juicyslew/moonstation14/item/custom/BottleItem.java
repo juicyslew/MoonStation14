@@ -39,6 +39,18 @@ public class BottleItem extends Item implements IReagentTrait {
 
     @Override public float getCapacity() { return capacity; }
 
+    // Legacy bottle composition predates resolved liquid policies; preserve its established
+    // live-hand transfer capability without enabling arbitrary IReagentTrait implementations.
+    @Override public com.juicyslew.moonstation14.ms14.reagent.DrainableSolutionPolicy drainableSolution(ItemStack stack, Level level) {
+        return new com.juicyslew.moonstation14.ms14.reagent.DrainableSolutionPolicy(true, "default");
+    }
+    @Override public com.juicyslew.moonstation14.ms14.reagent.RefillableSolutionPolicy refillableSolution(ItemStack stack, Level level) {
+        return new com.juicyslew.moonstation14.ms14.reagent.RefillableSolutionPolicy(true, "default", java.util.Optional.empty());
+    }
+    @Override public com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy solutionTransfer(ItemStack stack, Level level) {
+        return new com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy(true, 5f, true, true);
+    }
+
     @Override
     public UseAnim getUseAnimation(ItemStack stack) { return UseAnim.DRINK; }
 

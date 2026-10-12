@@ -1,0 +1,7 @@
+{
+  "parent": "base_power_appearance",
+  "kind": "hv_source",
+  "inactive": "unpowered",
+  "active": "fixed_on",
+  "charging": "charging"
+}

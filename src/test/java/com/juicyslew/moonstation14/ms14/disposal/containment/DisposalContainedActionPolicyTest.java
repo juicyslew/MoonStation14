@@ -13,6 +13,7 @@ class DisposalContainedActionPolicyTest {
         assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.THROW_ITEM));
         assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.THROW_GRENADE));
         assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.USE_TARGET));
+        assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.ACTIVATE_TARGET));
         assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.TOGGLE_PULL));
         assertFalse(DisposalContainedActionPolicy.permitsBodyHandAction(BodyHandActionRequest.Action.PICKUP));
     }

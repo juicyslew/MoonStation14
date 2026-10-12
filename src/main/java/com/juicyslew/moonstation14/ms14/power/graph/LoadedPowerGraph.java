@@ -22,6 +22,7 @@ public final class LoadedPowerGraph {
     private final Set<CableFaceNode> queued = new HashSet<>();
     private final Set<CableFaceNode> visited = new HashSet<>();
     private final Set<Long> loadedChunks = new HashSet<>();
+    private final Set<Long> potentialNeighborChunks = new HashSet<>();
     private final Map<Integer, ComponentInfo> componentInfo = new HashMap<>();
     private List<CableFaceNode> ordered = List.of();
     private Set<CableFaceNode> nodeIndex = Set.of();
@@ -39,11 +40,27 @@ public final class LoadedPowerGraph {
 
     public enum Knowledge { UNKNOWN, KNOWN }
     public record NodeState(Knowledge knowledge, int componentId) { }
+    public record BuildProgress(boolean dirty, long revision, boolean indexed, int chunkCursor,
+                                int nodeCursor, int indexedNodes, int frontierNodes, int visitedNodes,
+                                int loadedNodes, int loadedChunks) { }
+
+    /** Compact, read-only progress snapshot for diagnostics. */
+    public BuildProgress buildProgress() {
+        return new BuildProgress(dirty, revision, indexed, buildChunkCursor, buildNodeCursor,
+                buildingIndex.size(), frontier.size(), visited.size(), loadedNodeCount(), loadedChunks.size());
+    }
 
     /** Chunk keys are opaque so the geometry core remains independent of a world. */
     public void replaceChunk(Object chunkKey, Collection<CableFaceNode> nodes) {
         List<CableFaceNode> replacement = List.copyOf(nodes);
-        if (replacement.equals(chunks.get(chunkKey))) return;
+        List<CableFaceNode> previous = chunks.get(chunkKey);
+        if (replacement.equals(previous)) return;
+        // Empty space is represented by loadedChunks, not by an empty cable chunk.
+        // Preserve replaceChunk's loaded-space contract for Minecraft chunk keys.
+        if (previous == null && replacement.isEmpty()) {
+            if (chunkKey instanceof net.minecraft.world.level.ChunkPos pos) setChunkLoaded(pos, true);
+            return;
+        }
         chunks.put(chunkKey, replacement);
         if (chunkKey instanceof net.minecraft.world.level.ChunkPos pos) loadedChunks.add(pos.toLong());
         else for (CableFaceNode node : nodes) loadedChunks.add(chunkKey(node.host().getX() >> 4, node.host().getZ() >> 4));
@@ -52,6 +69,10 @@ public final class LoadedPowerGraph {
 
     public void removeChunk(Object chunkKey) {
         List<CableFaceNode> removed = chunks.remove(chunkKey);
+        if (removed == null) {
+            if (chunkKey instanceof net.minecraft.world.level.ChunkPos pos) setChunkLoaded(pos, false);
+            return;
+        }
         if (chunkKey instanceof net.minecraft.world.level.ChunkPos pos) loadedChunks.remove(pos.toLong());
         else if (removed != null) for (CableFaceNode node : removed)
             loadedChunks.remove(chunkKey(node.host().getX() >> 4, node.host().getZ() >> 4));
@@ -59,9 +80,14 @@ public final class LoadedPowerGraph {
     }
 
     /** Tracks loaded space independently from cable-bearing chunks. */
-    public void setChunkLoaded(net.minecraft.world.level.ChunkPos pos, boolean loaded) {
+    /** Updates loaded-space knowledge without restarting connectivity work. Returns true if a
+     * currently-built cable component references this chunk as a possible geometric neighbor. */
+    public boolean setChunkLoaded(net.minecraft.world.level.ChunkPos pos, boolean loaded) {
         boolean changed = loaded ? loadedChunks.add(pos.toLong()) : loadedChunks.remove(pos.toLong());
-        if (changed) invalidate();
+        if (!changed) return false;
+        boolean relevant = potentialNeighborChunks.contains(pos.toLong());
+        if (relevant) revision++;
+        return relevant;
     }
 
     public void invalidate() {
@@ -80,6 +106,7 @@ public final class LoadedPowerGraph {
         queued.clear();
         visited.clear();
         componentInfo.clear();
+        potentialNeighborChunks.clear();
         componentId = 0;
         seedCursor = 0;
         queueHighWater = 0;
@@ -106,7 +133,12 @@ public final class LoadedPowerGraph {
                     continue;
                 }
                 CableFaceNode builtNode = buildChunks.get(buildChunkCursor).get(buildNodeCursor++);
-                if (buildingIndex.add(builtNode)) buildingNodes.add(builtNode);
+                if (buildingIndex.add(builtNode)) {
+                    buildingNodes.add(builtNode);
+                    for (CableFaceNode candidate : potentialNeighbors(builtNode))
+                        potentialNeighborChunks.add(chunkKey(candidate.host().getX() >> 4,
+                                candidate.host().getZ() >> 4));
+                }
                 processed++;
                 continue;
             }
@@ -129,7 +161,7 @@ public final class LoadedPowerGraph {
             info.loadedChunks.add(chunkKey(current.host().getX() >> 4, current.host().getZ() >> 4));
             for (CableFaceNode candidate : potentialNeighbors(current)) {
                 long key = chunkKey(candidate.host().getX() >> 4, candidate.host().getZ() >> 4);
-                if (!loadedChunks.contains(key)) info.unknownFrontier.add(key);
+                info.potentialNeighborChunks.add(key);
             }
             for (CableFaceNode candidate : nearby(current))
                 if (!visited.contains(candidate) && queued.add(candidate)) {
@@ -145,7 +177,7 @@ public final class LoadedPowerGraph {
         Integer id = dirty ? null : components.get(node);
         if (id == null) return new NodeState(Knowledge.UNKNOWN, -1);
         ComponentInfo info = componentInfo.get(id);
-        return info == null || !info.unknownFrontier.isEmpty()
+        return info == null || info.potentialNeighborChunks.stream().anyMatch(key -> !loadedChunks.contains(key))
                 ? new NodeState(Knowledge.UNKNOWN, id) : new NodeState(Knowledge.KNOWN, id);
     }
 
@@ -219,7 +251,7 @@ public final class LoadedPowerGraph {
 
     private static final class ComponentInfo {
         final Set<Long> loadedChunks = new HashSet<>();
-        final Set<Long> unknownFrontier = new HashSet<>();
+        final Set<Long> potentialNeighborChunks = new HashSet<>();
     }
 
 }

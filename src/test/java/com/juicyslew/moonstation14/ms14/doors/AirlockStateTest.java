@@ -5,6 +5,30 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AirlockStateTest {
+    @Test void deviceSignalAutoCloseHoldKeepsArmedDeadlineUntilClosedThenResets() {
+        var open=AirlockState.initial(UUID.randomUUID(),true,true).withPower(true)
+                .open(0,false,.4).tick(8,.2,.2).tick(12,.2,.2,5);
+        long armed=open.autoCloseAt();
+        var held=open.receiveSignal("AutoClose",com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.LOW);
+        assertFalse(held.autoClose());assertEquals(armed,held.autoCloseAt(),"signal does not cancel an armed upstream timer");
+        var stillHeld=held.receiveSignal("AutoClose",com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.UNKNOWN);
+        assertFalse(stillHeld.autoClose());
+        var closed=stillHeld.close(armed,false,.4).tick(armed+8,.2,.2).tick(armed+12,.2,.2,5);
+        assertEquals(AirlockState.DoorPhase.CLOSED,closed.phase());assertTrue(closed.autoClose());
+    }
+    @Test void deviceSignalDoorBoltUsesPowerGateAndHighLowMomentarySemantics() {
+        var unpowered=AirlockState.initial(UUID.randomUUID(),true,true);
+        assertSame(unpowered,unpowered.receiveSignal("DoorBolt",com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.HIGH));
+        var state=unpowered.withPower(true).receiveSignal("DoorBolt",com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.HIGH);
+        assertTrue(state.boltsDown());assertFalse(state.canOpenOrClose());
+        assertFalse(state.canOpenOrClose());
+        state=state.receiveSignal("DoorBolt",com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.MOMENTARY);
+        assertFalse(state.boltsDown());
+        state=state.receiveSignal("DoorBolt",com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.LOW);
+        assertFalse(state.boltsDown());
+        state=state.receiveSignal("DoorBolt",com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal.MOMENTARY);
+        assertTrue(state.boltsDown());
+    }
     @Test void logPulseTimesOutWithoutExtensionAndPowerLossCancelsIntoDisabledLatch() {
         var state=AirlockState.initial(UUID.randomUUID(),true,true).withPower(true);
         state=state.applyWire(AirlockState.Wire.LOG,AirlockState.WireAction.PULSE,10,30,15,.01,.5,30,30,30);
@@ -45,11 +69,11 @@ class AirlockStateTest {
         assertFalse(bolted.canOpenOrClose());
         assertTrue(bolted.revision() > open.revision());
     }
-    @Test void safetyRejectsObstructedTransitionAndClosingBecomesAirtightAtFirstPhase() {
+    @Test void safetyDoesNotBlockOpeningAndClosingBecomesAirtightAtFirstPhase() {
         var state=AirlockState.initial(UUID.randomUUID(),true,false).withPower(true)
                 .applyWire(AirlockState.Wire.BOLT,AirlockState.WireAction.PULSE,0)
                 .applyWire(AirlockState.Wire.BOLT,AirlockState.WireAction.PULSE,1);
-        assertSame(state,state.open(10,true,.4));
+        assertEquals(AirlockState.DoorPhase.OPENING,state.open(10,true,.4).phase(),"safety does not deny opening around an obstruction");
         var opening=state.open(10,false,.4).tick(18,.2,.2).tick(22,.2,.2);
         var closing=opening.close(30,false,.4);
         assertTrue(closing.doorPassable());

@@ -1,1 +1,61 @@
-{"variants":{"facing=north":{"model":"moonstation14:block/apc"},"facing=east":{"model":"moonstation14:block/apc","y":90},"facing=south":{"model":"moonstation14:block/apc","y":180},"facing=west":{"model":"moonstation14:block/apc","y":270}}}
+{
+  "variants": {
+    "facing=north,display=full": {
+      "model": "moonstation14:block/apc"
+    },
+    "facing=east,display=full": {
+      "model": "moonstation14:block/apc",
+      "y": 90
+    },
+    "facing=south,display=full": {
+      "model": "moonstation14:block/apc",
+      "y": 180
+    },
+    "facing=west,display=full": {
+      "model": "moonstation14:block/apc",
+      "y": 270
+    },
+    "facing=north,display=charging": {"model":"moonstation14:block/apc_charging"},
+    "facing=east,display=charging": {"model":"moonstation14:block/apc_charging","y":90},
+    "facing=south,display=charging": {"model":"moonstation14:block/apc_charging","y":180},
+    "facing=west,display=charging": {"model":"moonstation14:block/apc_charging","y":270},
+    "facing=north,display=lack": {"model":"moonstation14:block/apc_lack"},
+    "facing=east,display=lack": {"model":"moonstation14:block/apc_lack","y":90},
+    "facing=south,display=lack": {"model":"moonstation14:block/apc_lack","y":180},
+    "facing=west,display=lack": {"model":"moonstation14:block/apc_lack","y":270},
+    "facing=north,display=off": {"model":"moonstation14:block/apc_lack"},
+    "facing=east,display=off": {"model":"moonstation14:block/apc_lack","y":90},
+    "facing=south,display=off": {"model":"moonstation14:block/apc_lack","y":180},
+    "facing=west,display=off": {"model":"moonstation14:block/apc_lack","y":270},
+    "facing=north,display=unpowered": {"model":"moonstation14:block/apc_lack"},
+    "facing=east,display=unpowered": {"model":"moonstation14:block/apc_lack","y":90},
+    "facing=south,display=unpowered": {"model":"moonstation14:block/apc_lack","y":180},
+    "facing=west,display=unpowered": {"model":"moonstation14:block/apc_lack","y":270},
+    "facing=north,display=dead": {"model":"moonstation14:block/apc_lack"},
+    "facing=east,display=dead": {"model":"moonstation14:block/apc_lack","y":90},
+    "facing=south,display=dead": {"model":"moonstation14:block/apc_lack","y":180},
+    "facing=west,display=dead": {"model":"moonstation14:block/apc_lack","y":270},
+    "facing=north,display=on": {"model":"moonstation14:block/apc"},
+    "facing=east,display=on": {"model":"moonstation14:block/apc","y":90},
+    "facing=south,display=on": {"model":"moonstation14:block/apc","y":180},
+    "facing=west,display=on": {"model":"moonstation14:block/apc","y":270},
+    "facing=north,display=fixed_on": {"model":"moonstation14:block/apc"},
+    "facing=east,display=fixed_on": {"model":"moonstation14:block/apc","y":90},
+    "facing=south,display=fixed_on": {"model":"moonstation14:block/apc","y":180},
+    "facing=west,display=fixed_on": {"model":"moonstation14:block/apc","y":270}
+  },
+  "multipart": [
+    {"when":{"display":"full,on,fixed_on","facing":"north"},"apply":{"model":"moonstation14:block/apc_screen_glow"}},
+    {"when":{"display":"full,on,fixed_on","facing":"east"},"apply":{"model":"moonstation14:block/apc_screen_glow","y":90}},
+    {"when":{"display":"full,on,fixed_on","facing":"south"},"apply":{"model":"moonstation14:block/apc_screen_glow","y":180}},
+    {"when":{"display":"full,on,fixed_on","facing":"west"},"apply":{"model":"moonstation14:block/apc_screen_glow","y":270}},
+    {"when":{"display":"charging","facing":"north"},"apply":{"model":"moonstation14:block/apc_charging_screen_glow"}},
+    {"when":{"display":"charging","facing":"east"},"apply":{"model":"moonstation14:block/apc_charging_screen_glow","y":90}},
+    {"when":{"display":"charging","facing":"south"},"apply":{"model":"moonstation14:block/apc_charging_screen_glow","y":180}},
+    {"when":{"display":"charging","facing":"west"},"apply":{"model":"moonstation14:block/apc_charging_screen_glow","y":270}},
+    {"when":{"glow":"true","display":"lack,off,unpowered,dead","facing":"north"},"apply":{"model":"moonstation14:block/apc_lack_screen_glow"}},
+    {"when":{"glow":"true","display":"lack,off,unpowered,dead","facing":"east"},"apply":{"model":"moonstation14:block/apc_lack_screen_glow","y":90}},
+    {"when":{"glow":"true","display":"lack,off,unpowered,dead","facing":"south"},"apply":{"model":"moonstation14:block/apc_lack_screen_glow","y":180}},
+    {"when":{"glow":"true","display":"lack,off,unpowered,dead","facing":"west"},"apply":{"model":"moonstation14:block/apc_lack_screen_glow","y":270}}
+  ]
+}

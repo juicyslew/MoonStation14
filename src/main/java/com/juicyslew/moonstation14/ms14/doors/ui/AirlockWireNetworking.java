@@ -29,7 +29,7 @@ public final class AirlockWireNetworking {
         event.registrar("1").executesOn(HandlerThread.MAIN)
                 .playToServer(AirlockWireRequest.TYPE, AirlockWireRequest.STREAM_CODEC, (request, context) -> {
                     if (context.player() instanceof ServerPlayer actor) {
-                        var result = AirlockWireMenuService.apply(actor, request);
+                        var result = handleRequest(actor, request);
                         if (result != null) PacketDistributor.sendToPlayer(actor, result);
                     }
                 })
@@ -46,5 +46,9 @@ public final class AirlockWireNetworking {
                 .playToClient(AirlockWireClosed.TYPE, AirlockWireClosed.STREAM_CODEC, (close, context) -> {
                     var handler=closeHandler; if(handler!=null) handler.accept(close,context);
                 });
+    }
+    /** Shared authenticated request owner for transport and package-local GameTest bridge. */
+    static AirlockWireSnapshot handleRequest(ServerPlayer actor, AirlockWireRequest request) {
+        return AirlockWireMenuService.apply(actor, request);
     }
 }

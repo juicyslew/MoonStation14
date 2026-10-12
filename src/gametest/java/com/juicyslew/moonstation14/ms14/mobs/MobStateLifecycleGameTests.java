@@ -95,7 +95,7 @@ public final class MobStateLifecycleGameTests {
             require(MobStateSystem.explicitRevive(body), "explicit revive succeeds after late healing");
             require(MobStateSystem.isCritical(body) && body.getHealth() == 20f,
                     "revive restores Critical at native health 20");
-            helper.runAfterDelay(5, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5, () -> {
                 require(body.getUUID().equals(id) && helper.getLevel().getEntity(id) == body,
                         "revived body remains the same world-registered entity after 5 ticks");
                 require(body.isAlive() && MobStateSystem.isCritical(body),

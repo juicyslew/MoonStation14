@@ -28,15 +28,18 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(43, raw.size());
+        assertEquals(50, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(38, resolved.size());
+        assertEquals(45, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
-                "apc_cable_spool", "bag", "belt", "pickaxe", "syringe", "metal_rod", "screwdriver",
-                "airlock_screwdriver", "multitool"};
+                "apc_cable_spool", "bag", "belt", "pickaxe", "syringe", "metal_rod", "screwdriver", "multitool",
+                "network_configurator", "remote_signaller", "remote_signaller_advanced", "signal_button", "signal_switch",
+                "beaker", "beaker_large", "chem_master", "black_bandana", "black_gloves", "black_shoes",
+                "blank_id_card", "earpieces", "glasses", "grey_cap", "grey_jumpsuit", "red_tie", "simple_coat",
+                "utility_case"};
         for (String name : coreItems) assertTrue(resolved.get(id(name)) != null, "missing profile " + name);
 
         assertCounts(resolved, 4, "steel", "glass", "plastic", "cloth", "wood", "jug",
@@ -49,9 +52,9 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(38, catalog.size());
-        assertEquals(catalog.get(id("screwdriver")).cells(), catalog.get(id("airlock_screwdriver")).cells());
-        for (String item : new String[]{"screwdriver", "airlock_screwdriver", "crowbar", "wirecutter", "multitool", "atmosphere_analyzer"})
+        assertEquals(45, catalog.size());
+        assertEquals(catalog.get(id("wirecutter")).cells(), catalog.get(id("screwdriver")).cells());
+        for (String item : new String[]{"screwdriver", "crowbar", "wirecutter", "multitool", "atmosphere_analyzer"})
             assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(item)).itemSize(), item);
         assertTrue(raw.get(id("small")).get("item_size") == null,
                 "abstract geometry templates do not invent/inherit a physical size");
@@ -59,6 +62,14 @@ class ItemFootprintResourceTest {
         assertEquals(36, catalog.get(id("belt")).cells().size());
         assertEquals(5, catalog.get(id("pickaxe")).cells().size());
         assertEquals(4, catalog.get(id("metal_rod")).cells().size());
+        assertEquals(2, catalog.get(id("beaker")).cells().size());
+        assertEquals(4, catalog.get(id("beaker_large")).cells().size());
+        assertEquals(4, catalog.get(id("chem_master")).cells().size());
+        assertEquals(2, catalog.get(id("network_configurator")).cells().size());
+        assertEquals(catalog.get(id("remote_signaller")).cells(), catalog.get(id("remote_signaller_advanced")).cells());
+        assertEquals(2, catalog.get(id("remote_signaller_advanced")).cells().size());
+        assertEquals(1, catalog.get(id("signal_button")).cells().size());
+        assertEquals(1, catalog.get(id("signal_switch")).cells().size());
         assertTrue(catalog.get(id("bag")).cells().contains(new GridGeometry.Cell(3, 3)));
     }
 

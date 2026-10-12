@@ -43,14 +43,62 @@ public final class HeldTimedIngestionGameTests {
         h.runAfterDelay(10, () -> { require(source(f) == 1000, "no dose before profile deadline"); });
         h.runAfterDelay(23, () -> {
             require(source(f) == 500, "first 500-cent dose");
-            h.runAfterDelay(15, () -> { require(source(f) == 500, "repeat waits complete interval"); });
-            h.runAfterDelay(23, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 15, () -> { require(source(f) == 500, "repeat waits complete interval"); });
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 23, () -> {
                 require(source(f) == 0, "second exact source dose");
                 LiveHands now = hands(f); require(now.revision() == f.revision + 2, "one owner revision per dose");
                 require(now.token("left").filter(f.token::equals).isPresent(), "empty container remains held");
                 require(!active(f), "empty source operation completed without another empty cycle"); h.succeed();
             });
         });
+    }
+
+    @GameTestTags({"hands-liquid", "beaker"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 80)
+    public static void resolvedBeakerDrinkConsumesFiveUnitsAfterTwentyTicks(GameTestHelper h) {
+        Fixture f = fixtureWithItem(h, new ItemStack(ModItems.BEAKER.get()), 6);
+        // Keep metabolism from consuming the freshly transferred dose on the same due tick.
+        // The body's deterministic metabolism bucket differs across fixture/entity ordering.
+        waitForBeakerSafeStart(h, f, () -> runResolvedBeakerDrinkAssertions(h, f));
+    }
+
+    private static void runResolvedBeakerDrinkAssertions(GameTestHelper h, Fixture f) {
+        long start = h.getLevel().getGameTime();
+        long sourceBefore = source(f);
+        long stomachBefore = stomachWater(f.body);
+        require(!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM.isDue(start + 20, f.body.getId()),
+                "fixture avoids the body's metabolism bucket at the exact drink completion tick");
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 90, () -> true).name().equals("OK"),
+                "resolved drink policy starts the existing timed ingestion operation");
+        var operation = f.body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                .filter(o -> o.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
+        require(operation.durationTicks() == 20 && operation.dueTick() == start + 20,
+                "resolved beaker profile retains its 5u/20-tick source accounting");
+        h.runAfterDelay(10, () -> require(source(f) == 600, "beaker remains unchanged before its 20-tick deadline"));
+        h.runAfterDelay(23, () -> {
+            require(sourceBefore - source(f) == 500 && source(f) == 100,
+                    "resolved 5u serving removes exactly 500 cents from the 6u source");
+            long stomachDelta = stomachWater(f.body) - stomachBefore;
+            require(stomachDelta >= 450 && stomachDelta <= 500,
+                    "completed serving reaches actual stomach; up to 50 cents may be metabolized at the adjacent tick; delta="
+                            + stomachDelta + " gameTime=" + h.getLevel().getGameTime());
+            h.succeed();
+        });
+    }
+
+    private static long stomachWater(Villager body) {
+        return ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
+                .get(body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f));
+    }
+
+    private static void waitForBeakerSafeStart(GameTestHelper helper, Fixture fixture, Runnable action) {
+        long start = helper.getLevel().getGameTime();
+        if (!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM
+                .isDue(start + 20, fixture.body.getId())) {
+            action.run();
+        } else {
+            helper.runAfterDelay(1, () -> waitForBeakerSafeStart(helper, fixture, action));
+        }
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
@@ -118,13 +166,16 @@ public final class HeldTimedIngestionGameTests {
     }
 
     private static Fixture fixture(GameTestHelper h, float units) {
+        return fixtureWithItem(h, new ItemStack(ModItems.BOTTLE.get()), units);
+    }
+    private static Fixture fixtureWithItem(GameTestHelper h, ItemStack source, float units) {
         var level = h.getLevel(); BlockPos p = h.absolutePos(new BlockPos(2, 1, 2));
         Villager body = EntityType.VILLAGER.create(level); require(body != null, "body created"); body.setNoAi(true); body.setNoGravity(true); body.setPos(p.getX()+.5,p.getY(),p.getZ()+.5);
         require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level, ModCharacters.HUMAN_ID), "human body enrolled");
         require(LiveHands.initialize(body).isPresent() && BodySystem.reconcile(body), "eligible body initialized");
-        LiveHands initial = hands(body); ItemStack bottle = new ItemStack(ModItems.BOTTLE.get());
-        bottle.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, units)));
-        var put = initial.putWhole(initial.revision(), "left", new ItemToken("bottle"), bottle); require(put.succeeded(), "filled source inserted");
+        LiveHands initial = hands(body);
+        source.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, units)));
+        var put = initial.putWhole(initial.revision(), "left", new ItemToken("bottle"), source); require(put.succeeded(), "filled source inserted");
         body.setData(ModDataAttachments.LIVE_HANDS.get(), put.state());
         return new Fixture(body, put.state().token("left").orElseThrow(), put.state().revision());
     }

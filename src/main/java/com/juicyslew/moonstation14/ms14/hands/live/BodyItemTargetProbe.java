@@ -355,6 +355,17 @@ public final class BodyItemTargetProbe {
         } catch (MissingChunk ignored) { return false; }
     }
 
+    /** Reach against the nearest point of an interaction target's bounds; independent of current gaze. */
+    public static boolean withinInteractionReach(LivingEntity body, AABB targetBounds) {
+        if (body == null || targetBounds == null || !Double.isFinite(targetBounds.minX) || !Double.isFinite(targetBounds.maxX)
+                || !Double.isFinite(targetBounds.minY) || !Double.isFinite(targetBounds.maxY)
+                || !Double.isFinite(targetBounds.minZ) || !Double.isFinite(targetBounds.maxZ)) return false;
+        Vec3 eye = body.getEyePosition();
+        Vec3 closest = new Vec3(Mth.clamp(eye.x, targetBounds.minX, targetBounds.maxX),
+                Mth.clamp(eye.y, targetBounds.minY, targetBounds.maxY), Mth.clamp(eye.z, targetBounds.minZ, targetBounds.maxZ));
+        return finite(eye) && finite(closest) && eye.distanceToSqr(closest) <= MAX_REACH * MAX_REACH;
+    }
+
     /** Loaded-only validation for a previously nominated item target; does not require the current view ray. */
     public static boolean loadedReachableItem(ServerLevel level, LivingEntity body, UUID targetId, double reach) {
         if (level == null || targetId == null || level.getServer() == null || !level.getServer().isSameThread()) return false;

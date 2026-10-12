@@ -49,11 +49,19 @@ class ModAirAlarmsTest {
         assertEquals(100, alarm.apcPowerReceiver().requestedWatts());
         assertEquals(3, alarm.extensionCableReceiver().localReachBlocks());
         assertEquals(32, alarm.deviceList().maxDevices());
+        var composition = alarm.deviceComponents();
+        assertEquals("AIR-", composition.network().orElseThrow().addressPrefix());
+        assertEquals("moonstation14:atmos_devices", composition.network().orElseThrow().networkPrototypeId().toString());
+        assertEquals("moonstation14:atmos_monitor", composition.network().orElseThrow().transmitFrequencyPrototypeId().orElseThrow().toString());
+        assertTrue(composition.network().orElseThrow().broadcastHook());
+        assertTrue(composition.network().orElseThrow().requiresPower());
+        assertEquals(new com.juicyslew.moonstation14.ms14.devicenet.DeviceComponents.Connection(true, true, 200), composition.connection().orElseThrow());
+        assertEquals(new com.juicyslew.moonstation14.ms14.devicenet.DeviceComponents.DeviceListConfig(32, true, false), composition.list().orElseThrow());
         JsonObject encoded = manager.encodePublishedCatalogs().get(ModAirAlarms.AIR_ALARM_TYPE.typeId())
                 .get(ModAirAlarms.AIR_ALARM);
         assertEquals(alarm, AirAlarmData.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
         assertFalse(encoded.has("parent"));
-        assertFalse(encoded.has("deviceNetwork"));
+        assertTrue(encoded.has("deviceComponents"));
     }
 
     @Test void rejectsMissingEntryParentAndMalformedDefaultsWithoutReplacingPublishedCatalog() {
@@ -70,7 +78,7 @@ class ModAirAlarmsTest {
         malformed.get(ModAirAlarms.MACHINE).getAsJsonObject("apcPowerReceiver").addProperty("requestedWatts", 5);
         assertThrows(PrototypeLoadException.class, () -> manager.reload(ModAirAlarms.AIR_ALARM_TYPE, malformed));
         Map<ResourceLocation, JsonObject> unsupported = definitions();
-        unsupported.get(ModAirAlarms.AIR_ALARM).add("deviceNetwork", new JsonObject());
+        unsupported.get(ModAirAlarms.AIR_ALARM).getAsJsonObject("deviceComponents").add("deviceNetwork", new JsonObject());
         assertThrows(PrototypeLoadException.class, () -> manager.reload(ModAirAlarms.AIR_ALARM_TYPE, unsupported));
         assertEquals(original.asMap(), manager.snapshot(ModAirAlarms.AIR_ALARM_TYPE).asMap());
     }

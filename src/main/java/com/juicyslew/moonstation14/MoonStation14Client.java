@@ -130,6 +130,22 @@ public class MoonStation14Client {
     public MoonStation14Client(IEventBus modEventBus, ModContainer container) {
         var analyzerWorkspace = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         analyzerWorkspace.closeSender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
+        var chemMasterWorkspace = com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE;
+        chemMasterWorkspace.sender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
+        com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterClientReceiver.install(state -> {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            mc.execute(() -> {
+                if (mc.player == null || !com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.isCurrentMedicalBody(state.bodyId())) return;
+                boolean newWindow=state.open()&&chemMasterWorkspace.get(state.machineId())==null;
+                chemMasterWorkspace.accept(state,mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight());
+                if(newWindow&&chemMasterWorkspace.get(state.machineId())!=null)
+                    com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.openChemMasterPointerWorkspace();
+            });
+        });
+        com.juicyslew.moonstation14.ms14.chemistry.chemmaster.interaction.ChemMasterDumpClientReceiver.install(result -> {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            mc.execute(() -> BodyHandClient.dumpResult(result));
+        });
         com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerClientReceiver.install(state -> {
             var mc = net.minecraft.client.Minecraft.getInstance();
             mc.execute(() -> {
@@ -176,7 +192,7 @@ public class MoonStation14Client {
             if (camera == null || camera.isRemoved() || camera.level() != minecraft.level) return;
             var sound = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(payload.sound()).orElse(null);
             if (sound != null) minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), sound,
-                    net.minecraft.sounds.SoundSource.PLAYERS, 1f, 1f, false);
+                    net.minecraft.sounds.SoundSource.PLAYERS, payload.volume(), 1f, false);
         });
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
@@ -888,6 +904,14 @@ public class MoonStation14Client {
             }
             return -1; // Default (no tint)
         }, ModItems.JUG.get());
+        net.minecraft.client.color.item.ItemColor beakerColor = (stack, tintIndex) -> {
+            if (tintIndex != 1 || !(stack.getItem() instanceof com.juicyslew.moonstation14.item.custom.BeakerItem item)) return -1;
+            var data = com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.resolved(Minecraft.getInstance().level, item.prototypeId());
+            if (!com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerItemAppearance.supported(data)) return -1;
+            ReagentComponent reagent = stack.get(ModDataComponents.REAGENT.get());
+            return com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerItemAppearance.color(reagent, data, Minecraft.getInstance().level);
+        };
+        event.register(beakerColor, ModItems.BEAKER.get(), ModItems.BEAKER_LARGE.get());
     }
 
     public static void registerBlockColors(RegisterColorHandlersEvent.Block event) {
@@ -908,6 +932,8 @@ public class MoonStation14Client {
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
                             MoonStation14.MOD_ID, "block/jug_" + fill)));
         }
+        com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer.additionalModels()
+                .forEach(event::register);
     }
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {

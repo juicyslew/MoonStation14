@@ -96,12 +96,20 @@ public final class BodyLiquidInteraction {
                                                 LiveHands before, String hand, ItemToken itemToken, String token,
                                                  long revision, boolean reverse, BooleanSupplier valid, int doseCents, double reach) {
         ItemStack originalWorld = world.getItem().copy();
-        ItemStack source = reverse ? originalWorld : held, destination = reverse ? held : originalWorld;
+        boolean heldToWorld = doseCents > 0 ? !reverse
+                : eligibleTransfer(held, originalWorld, level) || !eligibleTransfer(originalWorld, held, level);
+        if (doseCents <= 0 && !eligibleTransfer(heldToWorld ? held : originalWorld, heldToWorld ? originalWorld : held, level)) return Result.DENIED;
+        ItemStack source = heldToWorld ? held : originalWorld, destination = heldToWorld ? originalWorld : held;
         IReagentTrait sourceTrait = (IReagentTrait) source.getItem(), destinationTrait = (IReagentTrait) destination.getItem();
         Object sourceHolder = source, destinationHolder = destination;
         var sourceBridge = ReagentSystem.bridgeForHolder(sourceHolder);
         var destinationBridge = ReagentSystem.bridgeForHolder(destinationHolder);
         if (sourceBridge == null || destinationBridge == null) return Result.DENIED;
+        IReagentTrait sourcePolicy = sourceTrait, destinationPolicy = destinationTrait;
+        var drain = sourcePolicy.drainableSolution(source, level);
+        var sourceTransfer = sourcePolicy.solutionTransfer(source, level);
+        var refill = destinationPolicy.refillableSolution(destination, level);
+        var destinationTransfer = destinationPolicy.solutionTransfer(destination, level);
         ReagentAttachment src = MS14Provider.getDetached(sourceHolder, sourceBridge), dst = MS14Provider.getDetached(destinationHolder, destinationBridge);
         if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(src.getMap(), level, "liquid source")
                 || !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(dst.getMap(), level, "liquid destination")) return Result.DENIED;
@@ -110,13 +118,15 @@ public final class BodyLiquidInteraction {
                 ? LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(dst.getMap()),
                     ReagentUnits.fromFloat(destinationTrait.getCapacity(destination, level)), doseCents)
                 : LiquidInteractionCapability.plan(ReagentUnits.fromMap(src.getMap()), ReagentUnits.fromMap(dst.getMap()),
-                    ReagentUnits.fromFloat(destinationTrait.getCapacity(destination, level))); } catch (RuntimeException ex) { return Result.DENIED; }
+                    ReagentUnits.fromFloat(destinationTrait.getCapacity(destination, level)), transferLimit(sourceTransfer.transferAmount(), refill)); } catch (RuntimeException ex) { return Result.DENIED; }
         if (plan.transferredCents() <= 0) return Result.DENIED;
         ItemStack stagedHeld = held.copy(), stagedWorld = originalWorld.copy();
-        ItemStack stagedSource = reverse ? stagedWorld : stagedHeld, stagedDestination = reverse ? stagedHeld : stagedWorld;
+        ItemStack stagedSource = heldToWorld ? stagedHeld : stagedWorld, stagedDestination = heldToWorld ? stagedWorld : stagedHeld;
+        ReagentAttachment reactedDestination = new ReagentAttachment(toFloat(plan.destinationAfter()));
         try {
-            if (!publishStackReagents(stagedSource, stagedSource, plan.sourceAfter())
-                    || !publishStackReagents(stagedDestination, stagedDestination, plan.destinationAfter())
+            if (!publishStackReagents(stagedSource, stagedSource, plan.sourceAfter())) return Result.DENIED;
+            reactedDestination.recursiveReaction(level, destinationTrait.getCapacity(destination, level));
+            if (!publishStackReagents(stagedDestination, stagedDestination, reactedDestination)
                     || !com.juicyslew.moonstation14.ms14.medical.syringe.SyringeTransferModeTransition.apply(stagedHeld, level))
                 return Result.DENIED;
         } catch (RuntimeException ex) { return Result.DENIED; }
@@ -128,7 +138,7 @@ public final class BodyLiquidInteraction {
                     ? BodyItemTargetProbe.probeSelected(level, body, world.getUUID(), reach) == null
                     : !BodyItemTargetProbe.loadedReachableItem(level, body, world.getUUID(), reach))
                 || level.getEntity(world.getUUID()) != world || !same(originalWorld, world.getItem())) return Result.RECOVERY_REQUIRED;
-        boolean heldFirst = !reverse;
+        boolean heldFirst = heldToWorld;
         if (!valid.getAsBoolean() || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || level.getEntity(world.getUUID()) != world || !same(originalWorld, world.getItem())) return Result.DENIED;
         if (heldFirst) {
@@ -136,7 +146,10 @@ public final class BodyLiquidInteraction {
             LiveHands now = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             if (now != next) return now == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
             try { world.setItem(stagedWorld); } catch (RuntimeException ignored) { }
-            if (same(stagedWorld, world.getItem())) return Result.SUCCESS;
+            if (same(stagedWorld, world.getItem())) {
+                playPourReaction(level, heldToWorld ? world.position() : body.position(), reactedDestination);
+                return Result.SUCCESS;
+            }
             if (same(originalWorld, world.getItem())) {
                 if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next) return Result.RECOVERY_REQUIRED;
                 LiveHands rollback = next.replaceOwnedComponents(next.revision(), hand, itemToken, held).orElse(null);
@@ -154,7 +167,10 @@ public final class BodyLiquidInteraction {
         if (!same(stagedWorld, world.getItem())) return same(originalWorld, world.getItem()) ? Result.DENIED : Result.RECOVERY_REQUIRED;
         try { LiveHandsCommitGateway.commitOwned(body, next); } catch (RuntimeException ignored) { }
         LiveHands now = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        if (now == next) return Result.SUCCESS;
+        if (now == next) {
+            playPourReaction(level, heldToWorld ? world.position() : body.position(), reactedDestination);
+            return Result.SUCCESS;
+        }
         if (now == before) {
             if (level.getEntity(world.getUUID()) != world || !same(stagedWorld, world.getItem())) return Result.RECOVERY_REQUIRED;
             try { world.setItem(originalWorld); } catch (RuntimeException ignored) { }
@@ -357,6 +373,23 @@ public final class BodyLiquidInteraction {
                 && before.stackCopy(hand).filter(s -> same(old,s)).isPresent();
     }
     private static boolean reagentStack(ItemStack s) { return s != null && !s.isEmpty() && s.getItem() instanceof IReagentTrait; }
+    private static boolean eligibleTransfer(ItemStack source, ItemStack destination, ServerLevel level) {
+        if (!reagentStack(source) || !reagentStack(destination)) return false;
+        IReagentTrait s = (IReagentTrait) source.getItem(), d = (IReagentTrait) destination.getItem();
+        var drain = s.drainableSolution(source, level); var send = s.solutionTransfer(source, level);
+        var refill = d.refillableSolution(destination, level); var receive = d.solutionTransfer(destination, level);
+        return drain != null && drain.enabled() && send.enabled() && send.canSend()
+                && refill.enabled() && receive.enabled() && receive.canReceive()
+                && s.solutionName(source, level).equals(drain.solutionName())
+                && d.solutionName(destination, level).equals(refill.solutionName());
+    }
+    private static long transferLimit(float amount, RefillableSolutionPolicy refill) {
+        float limit = refill.maxRefill().map(v -> Math.min(v, amount)).orElse(amount);
+        return ReagentUnits.fromFloat(limit);
+    }
+    private static void playPourReaction(ServerLevel level, net.minecraft.world.phys.Vec3 pos, ReagentAttachment reactedRecipient) {
+        com.juicyslew.moonstation14.ms14.reagent.ReactionAudio.playCommitted(level, pos, reactedRecipient);
+    }
     private static boolean same(ItemStack a, ItemStack b) { return a != null && b != null && a.getCount()==b.getCount() && ItemStack.isSameItemSameComponents(a,b); }
     private static boolean restoreWorld(ItemEntity e, ItemStack s, ServerLevel l) { try { if (l.getEntity(e.getUUID()) != e || !e.getItem().isEmpty()) return false; e.setItem(s.copy()); return same(s,e.getItem()); } catch (RuntimeException ex) { return false; } }
     private static Map<ResourceKey<ReagentData>, Float> toFloat(Map<ResourceKey<ReagentData>, Long> cents) {
@@ -367,6 +400,13 @@ public final class BodyLiquidInteraction {
         var link = ReagentSystem.bridgeForHolder(holder); if (link == null) return false;
         ReagentAttachment before = MS14Provider.getDetached(holder, link);
         MS14Provider.updateIfChanged(holder, link, MS14Provider.snapshot(before), new ReagentAttachment(toFloat(values)));
+        return true;
+    }
+    private static boolean publishStackReagents(Object holder, ItemStack stack, ReagentAttachment staged) {
+        if (!(stack.getItem() instanceof IReagentTrait)) return false;
+        var link = ReagentSystem.bridgeForHolder(holder); if (link == null) return false;
+        ReagentAttachment before = MS14Provider.getDetached(holder, link);
+        MS14Provider.updateIfChanged(holder, link, MS14Provider.snapshot(before), staged);
         return true;
     }
 }

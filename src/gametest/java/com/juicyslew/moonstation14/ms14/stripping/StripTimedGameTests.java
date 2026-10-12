@@ -78,7 +78,7 @@ public final class StripTimedGameTests {
         h.runAfterDelay(62,()->{
             require(hands(target).equipmentStack("shoes").isPresent(),"shoes insertion commits after resolved three-second deadline");
             require(start(actor,null,target,"shoes",false,2,StripSlotRef.Kind.EQUIPMENT),"occupied equipment slot removal starts");
-            h.runAfterDelay(62,()->{
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h,62,()->{
                 require(hands(target).equipmentStack("shoes").isEmpty(),"equipment removal commits whole item");
                 require(hands(actor).handIds().stream().anyMatch(id->hands(actor).token(id).isPresent()),"removed equipment reaches actor hand");h.succeed();
             });
@@ -120,7 +120,7 @@ public final class StripTimedGameTests {
             give(target,Items.APPLE); String targetSlot=hands(target).handIds().stream().filter(id->hands(target).token(id).isPresent()).findFirst().orElseThrow();
             require(start(actor,null,target,targetSlot,false,2),"removal starts for target drift check");
             target.setPos(target.getX()+.31,target.getY(),target.getZ());
-            h.runAfterDelay(1,()->{require(cancelled(actor),"target distance change greater than .3 cancels");h.succeed();});
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h,1,()->{require(cancelled(actor),"target distance change greater than .3 cancels");h.succeed();});
         });
     }
 

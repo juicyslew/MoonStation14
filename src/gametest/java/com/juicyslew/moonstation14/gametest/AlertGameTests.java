@@ -39,7 +39,7 @@ public final class AlertGameTests {
         require(apply(effects, helper, character, true, 1) == EffectResult.APPLIED, "timed clear should show temporarily");
         helper.runAfterDelay(1, () -> {
             require(state(character) != null && !state(character).isEmpty(), "alert must remain before deadline");
-            helper.runAfterDelay(20, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 20, () -> {
                 AlertAttachment current = state(character);
                 require(current == null || current.isEmpty(), "timed alert must expire at its deadline: startTime="
                         + startGameTime + ", now=" + helper.getLevel().getGameTime() + ", startTick="

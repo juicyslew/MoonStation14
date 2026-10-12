@@ -59,7 +59,7 @@ public final class StarterStationLifecycleGameTests {
             throw new GameTestAssertException("new-world starter-station marker did not complete within "
                     + MAX_WAIT_TICKS + " ticks; state=" + (data == null ? "missing" : data.state()));
         }
-        helper.runAfterDelay(1, () -> awaitCompletion(helper, level, waitedTicks + 1));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> awaitCompletion(helper, level, waitedTicks + 1));
     }
 
     private static void awaitLampRuntime(GameTestHelper helper, ServerLevel level,
@@ -74,7 +74,7 @@ public final class StarterStationLifecycleGameTests {
             throw new GameTestAssertException("starter-station lamps did not reach expected runtime state within "
                     + MAX_RUNTIME_SETTLE_TICKS + " additional ticks");
         }
-        helper.runAfterDelay(1, () -> awaitLampRuntime(helper, level, data, waitedTicks + 1));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> awaitLampRuntime(helper, level, data, waitedTicks + 1));
     }
 
     private static boolean lampsMatchExpectedRuntime(ServerLevel level, StarterStationSavedData data) {

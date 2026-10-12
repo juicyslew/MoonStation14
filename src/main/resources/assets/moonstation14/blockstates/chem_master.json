@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north,powered=false,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_empty"},
+    "facing=east,powered=false,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_empty","y":90},
+    "facing=south,powered=false,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_empty","y":180},
+    "facing=west,powered=false,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_empty","y":270},
+    "facing=north,powered=true,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_screens"},
+    "facing=east,powered=true,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_screens","y":90},
+    "facing=south,powered=true,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_screens","y":180},
+    "facing=west,powered=true,loaded=false": {"model":"moonstation14:block/machines/mixer/mixer_screens","y":270},
+    "facing=north,powered=false,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded"},
+    "facing=east,powered=false,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded","y":90},
+    "facing=south,powered=false,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded","y":180},
+    "facing=west,powered=false,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded","y":270},
+    "facing=north,powered=true,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded_screens"},
+    "facing=east,powered=true,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded_screens","y":90},
+    "facing=south,powered=true,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded_screens","y":180},
+    "facing=west,powered=true,loaded=true": {"model":"moonstation14:block/machines/mixer/mixer_loaded_screens","y":270}
+  }
+}

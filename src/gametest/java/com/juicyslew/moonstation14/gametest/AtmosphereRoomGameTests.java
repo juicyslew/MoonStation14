@@ -295,7 +295,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
         };
         if (level.getGameTime() % AtmosphereService.TICK_CADENCE == 0) verifyDuePass.run();
-        else helper.runAfterDelay(1, verifyDuePass);
+        else com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, verifyDuePass);
     }
 
     private static void requireIsolatedReactionFixture() {

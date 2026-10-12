@@ -21,6 +21,13 @@
     "openPanelVisible": false
   },
   "doorBolt": { "boltLightsEnabled": true },
+  "deviceComponents": {
+    "deviceNetwork": { "network": "moonstation14:wireless", "transmitFrequency": "moonstation14:basic_device", "receiveFrequency": "moonstation14:basic_device" },
+    "deviceConnection": { "wireless": true, "wirelessRange": 200 },
+    "deviceLinkSource": { "ports": ["moonstation14:door_status"], "lastSignals": { "moonstation14:door_status": "LOW" } },
+      "deviceLinkSink": { "ports": ["moonstation14:open", "moonstation14:close", "moonstation14:toggle", "moonstation14:auto_close", "moonstation14:door_bolt"] },
+      "soundOnOverload": { "sound": "moonstation14:device/defib_zap", "volumeModifier": 0.0 }
+  },
   "apcPowerReceiver": { "requestedWatts": 20.0 },
   "extensionCableReceiver": { "localReachBlocks": 3 },
   "wiresPanel": { "openingToolQuality": "SCREWING", "toggleDelaySeconds": 1.0 },

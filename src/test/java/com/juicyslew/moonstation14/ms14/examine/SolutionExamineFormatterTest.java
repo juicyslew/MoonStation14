@@ -6,6 +6,18 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SolutionExamineFormatterTest {
+    @Test void centsFormatWithoutLossOrInsignificantDecimals() {
+        assertEquals("0", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(0));
+        assertEquals("0.01", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(1));
+        assertEquals("0.1", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(10));
+        assertEquals("0.25", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(25));
+        assertEquals("1", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(100));
+        assertEquals("200", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(20000));
+        assertEquals("123.45", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(12345));
+        assertEquals("21474836.47", com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(
+                com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.MAX_CENTS));
+        assertThrows(IllegalArgumentException.class, () -> com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(-1));
+    }
     @Test void emptySolutionFormatsOnlyVolumeWithCallerSuppliedGenericTemplates() {
         var output = SolutionExamineFormatter.format(new ReagentAttachment(), null, 500f, false,
                 SolutionExamineFormatter.Templates.GENERIC, ignored -> null);

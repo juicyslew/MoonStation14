@@ -47,7 +47,7 @@ public final class DisposalContainedActionPolicy {
                     USE_HELD, USE_IN_HAND, PRIME_GRENADE, STOP_PULL, DROP, CYCLE_SYRINGE_AMOUNT -> true;
             // World targets, external throws/pickups, pouch legacy actions and unknown
             // future actions fail closed while the body's world position is owner-locked.
-            case PICKUP, PICKUP_SELECTED, THROW_GRENADE, THROW_ITEM, USE_TARGET,
+            case PICKUP, PICKUP_SELECTED, THROW_GRENADE, THROW_ITEM, USE_TARGET, ACTIVATE_TARGET,
                     ALTERNATE_TARGET, TOGGLE_PULL, SIP_PUDDLE, INSERT_POUCH, EXTRACT_POUCH, USE_BODY -> false;
         };
     }

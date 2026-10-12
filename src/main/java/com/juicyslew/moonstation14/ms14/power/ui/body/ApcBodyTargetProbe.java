@@ -81,6 +81,8 @@ public final class ApcBodyTargetProbe {
         } catch (MissingChunk ignored) {
             // Shape/interaction callbacks can read beyond the ray rectangle; never substitute air.
             return null;
+        } catch (com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasTransaction.RecoveryRequiredException recoveryRequired) {
+            throw recoveryRequired;
         }
     }
 
@@ -110,7 +112,7 @@ public final class ApcBodyTargetProbe {
 
         private LevelChunk chunk(BlockPos pos) {
             int x = pos.getX() >> 4, z = pos.getZ() >> 4;
-            if (x < minX || x > maxX || z < minZ || z > maxZ) throw new MissingChunk();
+            if (x < minX || x > maxX || z < minZ || z > maxZ || level.isOutsideBuildHeight(pos)) throw new MissingChunk();
             LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
             if (chunk == null || level.isOutsideBuildHeight(pos)) throw new MissingChunk();
             return chunk;

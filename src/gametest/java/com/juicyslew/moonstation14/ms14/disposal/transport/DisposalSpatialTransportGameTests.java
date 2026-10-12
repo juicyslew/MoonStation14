@@ -129,15 +129,15 @@ public final class DisposalSpatialTransportGameTests {
                                       LivingEntity body, ItemToken token) {
         helper.runAfterDelay(2, () -> {
             require(holder.currentPos().equals(vertical), "holder selected vertical cell after natural first interval");
-            helper.runAfterDelay(2, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                 require(holder.currentPos().equals(bend), "holder reached vertical bend in two ticks");
                 require(atBlockCenter(holder, vertical), "holder arrived at vertical segment block center");
                 require(Math.abs(body.getEyeY() - holder.position().y) < .15, "contained camera eye tracks vertical bore center");
-                helper.runAfterDelay(2, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                     require(holder.currentPos().equals(outlet), "holder naturally traverses bend to outlet");
                     require(atBlockCenter(holder, bend), "holder arrived at bend block center");
                     require(Math.abs(body.getEyeY() - holder.position().y) < .15, "contained camera eye tracks bend bore center");
-                    helper.runAfterDelay(5, () -> {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5, () -> {
                         require(holder.isRemoved(), "open outlet released holder");
                         require(level.getEntity(body.getUUID()) == body, "same body entity retained");
                         require(com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)

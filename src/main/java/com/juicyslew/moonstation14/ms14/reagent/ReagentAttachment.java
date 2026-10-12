@@ -18,6 +18,8 @@ import java.util.*;
 /** Runtime reagent storage. The sole authoritative representation is integer hundredths. */
 public final class ReagentAttachment implements IMS14Attachment<ReagentAttachment, ReagentComponent> {
     private final Map<ResourceKey<ReagentData>, Long> cents;
+    // Transient staging-only effects: deliberately absent from component codecs and copies.
+    private final List<net.minecraft.resources.ResourceLocation> reactionSounds = new ArrayList<>();
 
     public ReagentAttachment(ReagentComponent data) {
         this.cents = new HashMap<>(Objects.requireNonNull(data, "data").centContents());
@@ -159,6 +161,32 @@ public final class ReagentAttachment implements IMS14Attachment<ReagentAttachmen
         return admitted;
     }
 
+    /** Conserved transfer of one selected species; unlike transferUnits this never proportionally splits. */
+    public static long transferSelectedUnits(ReagentAttachment source, ReagentAttachment target,
+                                             ResourceKey<ReagentData> reagent, long requestedCents,
+                                             long capacityCents) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(reagent, "reagent");
+        ReagentUnits.validateCents(requestedCents, "requestedCents");
+        ReagentUnits.validateCents(capacityCents, "capacityCents");
+        if (source == target) return 0;
+        long sourceTotal = total(source.cents), targetTotal = total(target.cents);
+        if (targetTotal > capacityCents) throw new IllegalArgumentException("stored total exceeds capacity");
+        long moved = Math.min(Math.min(requestedCents, source.cents.getOrDefault(reagent, 0L)), capacityCents - targetTotal);
+        if (moved == 0) return 0;
+        Map<ResourceKey<ReagentData>, Long> stagedSource = new HashMap<>(source.cents);
+        Map<ResourceKey<ReagentData>, Long> stagedTarget = new HashMap<>(target.cents);
+        long left = stagedSource.get(reagent) - moved;
+        if (left == 0) stagedSource.remove(reagent); else stagedSource.put(reagent, left);
+        stagedTarget.put(reagent, checkedAdd(stagedTarget.getOrDefault(reagent, 0L), moved));
+        if (total(stagedSource) != sourceTotal - moved || total(stagedTarget) != targetTotal + moved)
+            throw new IllegalStateException("conserved selected reagent transfer preflight failed");
+        source.replace(stagedSource);
+        target.replace(stagedTarget);
+        return moved;
+    }
+
     public record CapacityAddResult<T>(Map<T, Float> requested, Map<T, Float> retained, Map<T, Float> excess) {
         public CapacityAddResult {
             requested = immutableFiniteMap(requested, "requested");
@@ -236,7 +264,16 @@ public final class ReagentAttachment implements IMS14Attachment<ReagentAttachmen
             Map<ResourceKey<ReagentData>, Long> before = new HashMap<>(cents);
             resolveReaction(found.get().value(), capacity);
             if (before.equals(cents)) return;
+            found.get().value().sound().ifPresent(reactionSounds::add);
         }
+    }
+
+    /** Returns and clears effects from accepted recipe occurrences; never serialized. */
+    public List<net.minecraft.resources.ResourceLocation> drainReactionSounds() {
+        if (reactionSounds.isEmpty()) return List.of();
+        List<net.minecraft.resources.ResourceLocation> result = List.copyOf(reactionSounds);
+        reactionSounds.clear();
+        return result;
     }
 
     public void resolveReaction(ReactionRecipe recipe, float capacity) {

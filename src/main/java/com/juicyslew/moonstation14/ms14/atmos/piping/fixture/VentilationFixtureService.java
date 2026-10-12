@@ -12,6 +12,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
@@ -77,6 +78,9 @@ public final class VentilationFixtureService {
                 default -> throw new IllegalArgumentException("Unsupported fixture power device kind: " + device.kind());
             };
             BlockPos pos = origin.offset(device.position());
+            if (device.kind() == PowerDeviceKind.APC
+                    && !PowerDeviceFixturePlacement.ensureApcSupport(level, pos, device.facing()))
+                return "Partial placement: APC support unavailable; manual recovery required.";
             level.setBlock(pos, block.defaultBlockState().setValue(PowerDeviceBlock.FACING, device.facing()), 3);
             if (level.getBlockState(pos).getBlock() != block) return "Partial placement: power device failed; manual recovery required.";
         }
@@ -114,11 +118,11 @@ public final class VentilationFixtureService {
          for (BlockPos p : PLAN.recipientCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
          for (BlockPos p : PLAN.sourceCells()) if (AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isEmpty()) return "Source room is not fully finite/owned; no gas written.";
         for (BlockPos p : PLAN.recipientCells()) if (AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isEmpty()) return "Recipient room is not fully finite/owned; no gas written.";
-         if (!VentilationFixtureSavedData.forMutation(level).markInitialized(origin, e.scrubberUUID(), e.ventUUID(), e.fixtureUUID())) return "Initialization guard changed; refusing gas write.";
-         Map<GasType, Double> mix = new EnumMap<>(GasType.class); mix.put(GasType.OXYGEN, 8.0); mix.put(GasType.NITROGEN, 30.0); mix.put(PLAN.testGas(), PLAN.testGasMolesPerCell());
-        GasMixture fill = new GasMixture(mix, 300.0);
-        for (BlockPos p : PLAN.sourceCells()) if (!AtmosphereService.INSTANCE.initializeFiniteMixtureForTrustedSetup(level, origin.offset(p), fill)) return "Partial initialization failure; guard retained, manual rebuild required.";
-        for (BlockPos p : PLAN.recipientCells()) if (!AtmosphereService.INSTANCE.initializeFiniteMixtureForTrustedSetup(level, origin.offset(p), GasMixture.vacuum())) return "Partial initialization failure; guard retained, manual rebuild required.";
+          if (!VentilationFixtureSavedData.forMutation(level).markInitialized(origin, e.scrubberUUID(), e.ventUUID(), e.fixtureUUID())) return "Initialization guard changed; refusing gas write.";
+          Map<GasType, Double> mix = new EnumMap<>(GasType.class); mix.put(GasType.OXYGEN, 8.0); mix.put(GasType.NITROGEN, 30.0); mix.put(PLAN.testGas(), PLAN.testGasMolesPerCell());
+         GasMixture fill = new GasMixture(mix, 300.0);
+         for (BlockPos p : PLAN.sourceCells()) if (!AtmosphereService.INSTANCE.initializeFiniteMixtureForTrustedSetup(level, origin.offset(p), fill)) return "Partial initialization failure; guard retained, manual rebuild required.";
+         for (BlockPos p : PLAN.recipientCells()) if (!AtmosphereService.INSTANCE.initializeFiniteMixtureForTrustedSetup(level, origin.offset(p), GasMixture.vacuum())) return "Partial initialization failure; guard retained, manual rebuild required.";
         if (!configureFixtureDevice(s, true) || !configureFixtureDevice(v, false))
             return "Gas initialized but device configuration failed; manual recovery required.";
          return "Initialized 18 finite room cells per side at absolute origin " + origin.getX()+" "+origin.getY()+" "+origin.getZ()+"; source contains 8 mol O2, 30 mol N2 and 2 mol Plasma per cell.";

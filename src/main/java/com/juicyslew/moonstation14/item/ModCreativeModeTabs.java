@@ -17,15 +17,17 @@ import java.util.List;
 public class ModCreativeModeTabs {
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_ITEM_ENTRIES = List.of(
             ModItems.STEEL, ModItems.METAL_ROD, ModItems.WOOD, ModItems.CLOTH, ModItems.GLASS, ModItems.PAPER, ModItems.PLASTIC,
-            ModItems.CHEESE_SLICE, ModItems.PUMPKIN_PIE_SLICE, ModItems.CROWBAR, ModItems.AIRLOCK_SCREWDRIVER, ModItems.AIRLOCK_MULTITOOL, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
+            ModItems.CHEESE_SLICE, ModItems.PUMPKIN_PIE_SLICE,
+            ModItems.CROWBAR, ModItems.AIRLOCK_MULTITOOL, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
             ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE, ModItems.SYRINGE,
             ModItems.ATMOSPHERE_ANALYZER, ModItems.GRENADE, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE,
-            ModItems.JUG, ModItems.GAS_PIPE_SEGMENT, ModItems.GAS_PIPE_SEGMENT_SECONDARY, ModItems.GAS_PIPE_SEGMENT_TERTIARY,
+            ModItems.JUG, ModItems.BEAKER, ModItems.BEAKER_LARGE, ModItems.CHEM_MASTER, ModItems.GAS_PIPE_SEGMENT, ModItems.GAS_PIPE_SEGMENT_SECONDARY, ModItems.GAS_PIPE_SEGMENT_TERTIARY,
             ModItems.GAS_VENT, ModItems.GAS_SCRUBBER, ModItems.AIR_ALARM,
             ModItems.DISPOSAL_UNIT,
             ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER,
             ModItems.OINTMENT, ModItems.BRUTEPACK, ModItems.GAUZE, ModItems.HANDHELD_HEALTH_ANALYZER,
+            ModItems.NETWORK_CONFIGURATOR, ModItems.REMOTE_SIGNALLER, ModItems.REMOTE_SIGNALLER_ADVANCED,
             ModEquipmentItems.GREY_CAP, ModEquipmentItems.GREY_JUMPSUIT, ModEquipmentItems.SIMPLE_COAT,
             ModEquipmentItems.BLACK_GLOVES, ModEquipmentItems.BLACK_SHOES, ModEquipmentItems.GLASSES,
             ModEquipmentItems.RED_TIE, ModEquipmentItems.BLACK_BANDANA, ModEquipmentItems.EARPIECES,
@@ -41,7 +43,8 @@ public class ModCreativeModeTabs {
             ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER, ModBlocks.ATMOS_FREZON_PRODUCER,
             ModBlocks.ATMOS_GAS_SINK, ModBlocks.ATMOS_HEATER, ModBlocks.ATMOS_COOLER,
             ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY, ModItems.GAS_PIPE_VISUAL_TERTIARY,
-             ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE);
+            ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE, ModBlocks.CHEM_MASTER,
+            ModBlocks.SIGNAL_BUTTON, ModBlocks.SIGNAL_SWITCH);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TAB =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MoonStation14.MOD_ID);
 

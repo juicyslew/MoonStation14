@@ -1,0 +1,13 @@
+ChemMaster mixer artwork provenance
+
+Source: SS14 c9df5ef5d675b0d1d226828bddf6b78c28502d91,
+Resources/Textures/Structures/Machines/mixer.rsi/meta.json.
+Original attribution: CC-BY-SA-3.0; taken from
+https://github.com/discordia-space/CEV-Eris/blob/2b969adc2dfd3e9621bf3597c5cbffeb3ac8c9f0/icons/obj/chemical.dmi
+and modified by Will-Oliver-Br. Preserve this notice and license for derivatives.
+
+Exported model geometry, atlas textures, and mixer_screens.png.mcmeta were imported
+from Asset Building Workspace/assets/Structures/Machines/collection/export.
+Powered + empty uses the imported animated screen atlas. The Minecraft loaded flag
+comes from the existing ChemMaster input slot; it is not a process/working timer.
+Power appearance is the existing fresh, complete delivery predicate, not UI state.

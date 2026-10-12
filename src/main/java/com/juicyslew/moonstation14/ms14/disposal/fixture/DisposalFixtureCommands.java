@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.ms14.disposal.unit.*;
 import com.juicyslew.moonstation14.ms14.disposal.world.*;
 import com.juicyslew.moonstation14.ms14.power.cable.*;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
@@ -93,12 +94,13 @@ public final class DisposalFixtureCommands {
          for(BlockPos p:tour().obstacleFootprint())l.setBlock(o.offset(p),ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState(),3);
         for(int x=ROOM_MIN_X;x<=ROOM_MAX_X;x++)for(int y=ROOM_MIN_Y;y<=ROOM_MAX_Y;y++)for(int z=ROOM_MIN_Z;z<=ROOM_MAX_Z;z++)
             l.setBlock(o.offset(x,y,z),Blocks.AIR.defaultBlockState(),3);
-        putPower(l,o.offset(3,1,2),PowerDeviceKind.HV_SOURCE,Direction.EAST);putPower(l,o.offset(3,1,4),PowerDeviceKind.HV_MV_SUBSTATION,Direction.EAST);putPower(l,o.offset(3,1,6),PowerDeviceKind.APC,Direction.WEST);
+         putPower(l,o.offset(3,1,2),PowerDeviceKind.HV_SOURCE,Direction.EAST);putPower(l,o.offset(3,1,4),PowerDeviceKind.HV_MV_SUBSTATION,Direction.EAST);
         // Cables are face-mounted records on solid hosts, matching DisposalPowerGameTests.
         for(int z=2;z<=8;z++)l.setBlock(o.offset(4,1,z),Blocks.STONE.defaultBlockState(),3);
         // APC-tier drop on the existing post row feeds a real 100 W lamp above the unit.
         for(int y=2;y<=3;y++)l.setBlock(o.offset(4,y,7),Blocks.STONE.defaultBlockState(),3);
-        for(int z=4;z<=6;z++)l.setBlock(o.offset(2,1,z),Blocks.STONE.defaultBlockState(),3);
+         for(int z=4;z<=6;z++)l.setBlock(o.offset(2,1,z),Blocks.STONE.defaultBlockState(),3);
+         if(!PowerDeviceFixturePlacement.placeApc(l,o.offset(3,1,6),Direction.WEST))return partial(o,"APC sturdy support/placement");
         for(int z=2;z<=4;z++)if(!CableStorage.place(l,o.offset(4,1,z),Direction.WEST,CableTier.HV))return partial(o,"HV cable");
         for(int z=4;z<=6;z++)if(!CableStorage.place(l,o.offset(2,1,z),Direction.EAST,CableTier.MV))return partial(o,"MV cable");
         for(int z=6;z<=8;z++)if(!CableStorage.place(l,o.offset(4,1,z),Direction.WEST,CableTier.APC))return partial(o,"APC cable");
@@ -206,7 +208,7 @@ public final class DisposalFixtureCommands {
         return true;
     }
     private static Direction direction(BlockPos a,BlockPos b){return Direction.fromDelta(b.getX()-a.getX(),b.getY()-a.getY(),b.getZ()-a.getZ());}
-    private static void putPower(ServerLevel l,BlockPos p,PowerDeviceKind kind,Direction face){var b=switch(kind){case HV_SOURCE->ModBlocks.HV_SOURCE.get();case HV_MV_SUBSTATION->ModBlocks.HV_MV_SUBSTATION.get();case APC->ModBlocks.APC.get();case LAMP->ModBlocks.POWER_LAMP.get();default->throw new IllegalArgumentException();};l.setBlock(p,b.defaultBlockState().setValue(PowerDeviceBlock.FACING,face),3);}
+     private static void putPower(ServerLevel l,BlockPos p,PowerDeviceKind kind,Direction face){if(kind==PowerDeviceKind.APC){if(!PowerDeviceFixturePlacement.placeApc(l,p,face))throw new IllegalStateException("APC support/placement failed at "+p);return;}var b=switch(kind){case HV_SOURCE->ModBlocks.HV_SOURCE.get();case HV_MV_SUBSTATION->ModBlocks.HV_MV_SUBSTATION.get();case LAMP->ModBlocks.POWER_LAMP.get();default->throw new IllegalArgumentException();};l.setBlock(p,b.defaultBlockState().setValue(PowerDeviceBlock.FACING,face),3);}
     private static String partial(BlockPos o,String what){return "Partial build failed at "+what+"; inspect/repair bounded area "+bounds(o)+".";}
     private static String bounds(BlockPos o){return "["+o.getX()+","+o.getY()+","+o.getZ()+"]..["+(o.getX()+W-1)+","+(o.getY()+H-1)+","+(o.getZ()+D-1)+"]";}
 }

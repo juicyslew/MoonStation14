@@ -53,7 +53,7 @@ public final class JugExamineGameTests {
         var volume = rows.stream().filter(e -> e.text().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
                 && t.getKey().equals("examine.solution.volume.exact")).findFirst().orElseThrow();
         var args = ((net.minecraft.network.chat.contents.TranslatableContents) volume.text().getContents()).getArgs();
-        require("60.00".equals(args[0]) && "200.00".equals(args[1]), "resolved jug exact volume/capacity used");
+        require("60".equals(args[0]) && "200".equals(args[1]), "resolved jug exact volume/capacity used");
         var recognized = rows.stream().filter(e -> e.text().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
                 && t.getKey().equals("examine.solution.recognized")).findFirst().orElseThrow();
         var keys = translationKeys(recognized.text());

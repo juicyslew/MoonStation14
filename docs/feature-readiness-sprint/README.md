@@ -1,0 +1,13 @@
+# Feature readiness (R4)
+
+Run selected current JVM checks without starting Minecraft:
+
+```powershell
+./gradlew featureReadiness -Pms14Readiness=ui,interaction
+```
+
+Allowed selectors are `ui`, `interaction`, `prediction`, `preview`; missing, blank, repeated, or unknown selectors fail rather than running all tests. The single bounded catalog lives in `build.gradle`. Output is `build/reports/feature-readiness/readiness.md`; focused JUnit XML is isolated under `build/test-results/featureReadiness` and cleared before execution. Checks disable up-to-date/build-cache reuse. Failure still finalizes the report; a pass requires current XML, no skips/errors/failures, and expected class coverage. UI checks cover both layout consumers, shared chrome/geometry/title routing, keyboard-capture movement dispatch, wire lifecycle, pointer workspace/routing/mode, and bitmap-font/CPU paint behavior. Interaction includes the ChemMaster workspace, selected prototype/inheritance checks, and held-use request dispatch. Prediction includes timed packet scheduling and held-use dispatch. Preview includes bitmap-font, CPU ordered-paint checks and production-generated images/manifest. Evidence is focused JVM/layout or composition-unit evidence; it does not establish authenticated server admission, native cursor/GPU behavior, visual acceptance, or a live runtime consumer. The report labels those boundaries separately.
+
+The preview selector includes `ProductionUiPreviewTest`. It uses `build/moddev/artifacts/neoforge-21.1.224-client-extra-aka-minecraft-resources.jar` by default; override with `-Pmoonstation14.gameResourcesJar=<path>` or `-Dmoonstation14.gameResourcesJar=<path>`. At report time, its current manifest is checked for both production painters, 48 full cases covering both screens × two viewports × scales 1–3 × four states, two contact sheets, and listed PNG paths confined to preview output that exist, are nonempty, and decode. The generated cases were independently reviewed; generation/report checks do not self-certify visual acceptance. Attempt wall-clock elapsed time is reported. The preview manifest records elapsed generation/check time, JVM heap-pool peak usage (pool peaks may be noncontemporaneous), and configured max-memory limit. These do not measure whole-process RSS, whole-Gradle peak, or native peak heap. Native cursor/GPU behavior remains outside scope; **ready for owner review** is not owner acceptance. See [ui](ui.md), [interaction](interaction.md), and [prediction](prediction.md).
+
+Report example: `./gradlew featureReadiness -Pms14Readiness=prediction` → consult that invocation's readiness report and XML; record its result, latency cases, limitations, and reviewer separately. Do not copy a prior report as current evidence.

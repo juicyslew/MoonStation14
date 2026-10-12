@@ -1,0 +1,1 @@
+{"textures":{"front":"moonstation14:block/signal_button_east","case":"minecraft:block/iron_block"},"elements":[{"from":[4,4,13],"to":[12,12,16],"faces":{"north":{"texture":"#front","uv":[10.5,6.5,14,9.5]},"south":{"texture":"#case"},"east":{"texture":"#case"},"west":{"texture":"#case"},"up":{"texture":"#case"},"down":{"texture":"#case"}}}]}

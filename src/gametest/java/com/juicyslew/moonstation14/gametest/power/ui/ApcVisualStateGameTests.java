@@ -30,7 +30,7 @@ public final class ApcVisualStateGameTests {
     public static void visualSlotIsIndependentOfBreakerCommitAndUnsolvedDevicesStayUnknown(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(pos, ModBlocks.APC.get().defaultBlockState(), 3);
+        if (!com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, net.minecraft.core.Direction.NORTH)) throw new IllegalStateException("supported APC fixture placement failed");
         PowerDeviceBlockEntity device = (PowerDeviceBlockEntity) level.getBlockEntity(pos);
         FakePlayer player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "visual-slot"));
         UUID session = UUID.randomUUID();

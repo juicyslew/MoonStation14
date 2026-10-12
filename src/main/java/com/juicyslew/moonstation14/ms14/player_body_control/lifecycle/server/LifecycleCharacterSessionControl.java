@@ -400,6 +400,12 @@ public final class LifecycleCharacterSessionControl {
 
     static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) return;
+        onPayload(payload, player);
+    }
+
+    /** Shared authority owner for the decoded network payload and package-local lifecycle fixtures. */
+    static void onPayload(CustomPacketPayload payload, ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level)) return;
         MinecraftServer server = level.getServer();
         Session session = server == null ? null : session(server, player.getUUID());
         if (session == null || session.player != player || !connectedExact(server, player)) return;
@@ -587,7 +593,21 @@ public final class LifecycleCharacterSessionControl {
                 }
             } else if (timeoutDecision(session.beginSent, session.committed,
                     session.player.level().getGameTime() - session.startedTick, READY_TIMEOUT_TICKS)) {
-                fail(server, session, FailureReason.READY_TIMEOUT);
+                boolean exactTimeoutOwner = !session.committed && sessions.get(session.accountId) == session
+                        && connectedExact(server, session.player) && authorized(session)
+                        && session.player.level() instanceof ServerLevel currentLevel
+                        && live(session.body, currentLevel) && session.body.isNoAi();
+                if (exactTimeoutOwner) com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Lifecycle CHARACTER terminal failure reason={} phase=HANDSHAKE epoch={} expectedBodyEntityId={} cameraEntityId={} exactConnection=true authorized=true bodyLive=true",
+                        FailureReason.READY_TIMEOUT, session.epoch, session.body.getId(),
+                        session.player.getCamera() == null ? -1 : session.player.getCamera().getId());
+                timeoutCleanupDecision(exactTimeoutOwner, () -> cleanLogout(server, session),
+                        () -> fail(server, session, FailureReason.READY_TIMEOUT), parked -> {
+                    if (connectedExact(server, session.player)) session.player.connection.disconnect(
+                            net.minecraft.network.chat.Component.literal(parked
+                                    ? "Timed out waiting for character readiness. Please reconnect."
+                                    : "Character session requires explicit recovery (READY_TIMEOUT)."));
+                });
             }
         }
     }
@@ -609,9 +629,9 @@ public final class LifecycleCharacterSessionControl {
             for (Session session : sessions.values().toArray(Session[]::new)) cleanLogout(server, session);
     }
 
-    private static void cleanLogout(MinecraftServer server, Session session) {
+    private static boolean cleanLogout(MinecraftServer server, Session session) {
         Map<UUID, Session> sessions = SERVERS.get(server);
-        if (sessions == null || sessions.get(session.accountId) != session) return;
+        if (sessions == null || sessions.get(session.accountId) != session) return false;
         ServerLevel level = session.body.level() instanceof ServerLevel serverLevel ? serverLevel : null;
         var binding = PlayerCharacterHarnessBinder.binding(session.body);
         boolean exactBody = level != null && live(session.body, level) && session.body.isNoAi()
@@ -649,11 +669,12 @@ public final class LifecycleCharacterSessionControl {
                 disconnectAfterDeathClaim(server, session.player,
                         "Your character died, but movement authority could not be released safely. Reconnect for recovery.");
                 clearOwnedMarkerForSession(session);
-                return;
+                return false;
             }
         }
         clearOwnedMarkerForSession(session);
         if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearCharacterHandler();
+        return offline;
     }
 
     /** Durably detach an exact live CHARACTER session before allowing an operator into vanilla Creative. */
@@ -1029,6 +1050,18 @@ public final class LifecycleCharacterSessionControl {
 
     static boolean timeoutDecision(boolean beginSent, boolean committed, long elapsedTicks, long timeoutTicks) {
         return beginSent && !committed && elapsedTicks >= timeoutTicks;
+    }
+
+    /** Shared timeout transition: only a proven current owner may invoke the existing durable clean-logout path. */
+    static boolean timeoutCleanupDecision(boolean exactCurrentOwner, java.util.function.BooleanSupplier cleanLogout,
+                                          Runnable failClosed, java.util.function.Consumer<Boolean> disconnect) {
+        if (!exactCurrentOwner) {
+            failClosed.run();
+            return false;
+        }
+        boolean parked = cleanLogout.getAsBoolean();
+        disconnect.accept(parked);
+        return true;
     }
 
     private static final class Session {

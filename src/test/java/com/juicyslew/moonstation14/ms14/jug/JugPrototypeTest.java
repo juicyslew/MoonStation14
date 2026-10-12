@@ -5,7 +5,6 @@ import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.item.custom.JugItem;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStreamReader;
@@ -36,6 +35,11 @@ class JugPrototypeTest {
         var root = catalog.get(ModJugs.JUG_ID);
         assertEquals(200f, root.solutionContainer().maxVolume());
         assertEquals("drink", root.solutionContainer().solutionName());
+        assertTrue(root.drainableSolution().enabled());
+        assertEquals("drink", root.drainableSolution().solutionName());
+        var policy = JugItem.drainableSolutionFromResolved(root);
+        assertTrue(policy.enabled()); assertEquals("drink", policy.solutionName());
+        assertEquals("drink", JugItem.primarySolutionNameFromResolved(root));
         assertTrue(root.examinableSolution().exactVolume());
         assertFalse(root.examinableSolution().heldOnly());
         assertTrue(root.examinableSolution().examinableWhileClosed());
@@ -47,5 +51,12 @@ class JugPrototypeTest {
                 "resolved nondefault child capacity uses the same projection as JugItem getters");
         assertEquals(200f, JugItem.capacityFromResolved(root),
                 "root prototype capacity uses the same runtime projection");
+        var disabledId = ResourceLocation.fromNamespaceAndPath("moonstation14", "fixture_jug_drain_disabled");
+        var disabled = new JsonObject(); disabled.addProperty("id", "fixture_jug_drain_disabled");
+        disabled.addProperty("parent", "jug");
+        disabled.add("drainableSolution", JsonParser.parseString("{\"enabled\":false}"));
+        raw.put(disabledId, disabled);
+        manager.reload(ModJugs.TYPE, raw);
+        assertFalse(manager.snapshot(ModJugs.TYPE).get(disabledId).drainableSolution().enabled());
     }
 }

@@ -152,6 +152,20 @@ final class StarterStationPowerPlanTest {
         }
     }
 
+    @Test void apcBackIsAnExistingPlannedSteelWallAndPortsKeepTheAuthoredFacing() {
+        StarterStationPowerPlan.Device apc = plan.devices().stream()
+                .filter(device -> device.kind() == PowerDeviceKind.APC).findFirst().orElseThrow();
+        BlockPos support = apc.position().relative(apc.facing().getOpposite());
+        assertEquals(StarterStationLayout.Material.STEEL,
+                StarterStationLayout.standard().materialAt(support.getX(), support.getY(), support.getZ()),
+                "station structure supplies the sturdy back wall; placement does not create/overwrite one");
+        assertEquals(PowerDeviceKind.APC.ports(apc.position(), apc.facing()), apc.ports(),
+                "mount planning retains the existing electrical-facing port identities");
+        assertTrue(plan.cables().stream().anyMatch(cable -> apc.ports().stream()
+                .anyMatch(port -> com.juicyslew.moonstation14.ms14.power.topology.PowerTopology.deviceAdjacent(port, cable))),
+                "planned APC ports remain wired after mounting");
+    }
+
     @Test void retryAcceptanceUsesDeviceKindAndFacingRatherThanMutableLampLitState() {
         var lamp = plan.devices().stream().filter(device -> device.kind() == PowerDeviceKind.LAMP).findFirst().orElseThrow();
         assertTrue(StarterStationService.acceptsExpectedDevice(PowerDeviceKind.LAMP, lamp.facing(),
