@@ -25,6 +25,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.gametest.support.AtmospherePrecisionBudget;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
+import com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
@@ -40,7 +42,7 @@ public final class PaidVentilationFlowGameTests {
     @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void onlyCompletedPaidSolveMovesConservedGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        Fixture f = fixture(helper);
+        fixture(helper, f -> {
         var countersBefore = f.atmosphere.diagnosticRuntime(level);
         var totalBefore = totalInventory(f);
         GasMixture pipeBefore = pipe(f);
@@ -67,19 +69,20 @@ public final class PaidVentilationFlowGameTests {
             GasMixture stoppedPipe = pipe(f);
             var stoppedTotal = totalInventory(f);
             var stoppedCounters = f.atmosphere.diagnosticRuntime(level);
-            helper.runAfterDelay(40, () -> {
+        BoundedGameTestWait.safeDelay(helper, 40, () -> {
                 require(same(stoppedPipe, pipe(f)), "breaker prevents additional pipe transfer");
                 conserve(stoppedTotal, totalInventory(f), operationCount(stoppedCounters,
                         f.atmosphere.diagnosticRuntime(level), 1, 0));
                 helper.succeed();
             });
         });
+        });
     }
 
     @GameTestTags({"simulation-defaults", "suite-stabilization"})
     @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void disabledDeviceDoesNotMoveGas(GameTestHelper helper) {
-        Fixture f = fixture(helper);
+        fixture(helper, f -> {
         var settings = f.vent.config().settings();
         require(f.vent.config().compareAndSet(settings.revision(), new VentilationDeviceConfig.Settings(
                 settings.revision(), false, settings.externalPressureBoundKPa(), settings.targetPressureKPa(),
@@ -98,13 +101,14 @@ public final class PaidVentilationFlowGameTests {
             conserve(before, totalInventory(f), operations);
             helper.succeed();
         });
+        });
     }
 
     @GameTestTags({"simulation-defaults", "suite-stabilization"})
     @GameTest(template = "atmos_large_empty", batch = "paid_ventilation_flow", timeoutTicks = 300, templateNamespace = "moonstation14")
     public static void poweredScrubberCapturesOnlySelectedGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        Fixture f = fixture(helper, true);
+        fixture(helper, true, f -> {
         var countersBefore = f.atmosphere.diagnosticRuntime(level);
         var totalBefore = totalInventory(f);
         GasMixture pipeBefore = pipe(f);
@@ -139,23 +143,24 @@ public final class PaidVentilationFlowGameTests {
             GasMixture stoppedPipe = pipe(f);
             var stoppedTotal = totalInventory(f);
             var stoppedCounters = f.atmosphere.diagnosticRuntime(level);
-            helper.runAfterDelay(40, () -> {
+        BoundedGameTestWait.safeDelay(helper, 40, () -> {
                 require(same(stoppedPipe, pipe(f)), "breaker prevents further scrubber transfer");
                 conserve(stoppedTotal, totalInventory(f), operationCount(stoppedCounters,
                         f.atmosphere.diagnosticRuntime(level), 1, 0));
                 helper.succeed();
             });
         });
+        });
     }
 
     private static void awaitPaidInterval(GameTestHelper helper, ServerLevel level,
                                           VentilationDeviceBlockEntity vent, Runnable onPaidInterval) {
-        awaitPaidInterval(helper, level, vent, onPaidInterval, 1, -1, -1);
+        awaitPaidInterval(helper, level, vent, onPaidInterval, 1, -1, -1, Math.toIntExact(helper.getTick()));
     }
 
     private static void awaitPaidInterval(GameTestHelper helper, ServerLevel level,
             VentilationDeviceBlockEntity vent, Runnable onPaidInterval, int elapsed,
-            int stableSince, long stableGeneration) {
+            int stableSince, long stableGeneration, int admissionTick) {
         var meter = PowerRuntime.ventilationMeter(level, vent);
         long generation = PowerGraphService.topologyGeneration(level);
         double requested = vent.prototype().apcPowerReceiver().requestedWatts();
@@ -173,29 +178,30 @@ public final class PaidVentilationFlowGameTests {
                 return;
             }
         }
-        if (elapsed >= 260)
+        int budget = Math.toIntExact(Math.min(260L, 300L - admissionTick - 45L));
+        if (elapsed >= budget || budget <= 0)
             throw new GameTestAssertException("no stable fully paid interval before deadline; elapsed=" + elapsed
                     + " stableSince=" + stableSince + " stableTicks=" + (stableSince < 0 ? 0 : elapsed - stableSince)
                     + " topologyGeneration=" + generation + " stableGeneration=" + stableGeneration
                     + " meter=" + meter + " solve=" + PowerRuntime.lastSolveDiagnostic(level));
-        int next = elapsed + 1;
         int nextStableSince = stableSince;
         long nextStableGeneration = stableGeneration;
-        helper.runAtTickTime(next, () -> awaitPaidInterval(helper, level, vent, onPaidInterval,
-                next, nextStableSince, nextStableGeneration));
+        BoundedGameTestWait.safeDelay(helper, 1, () -> awaitPaidInterval(helper, level, vent, onPaidInterval,
+                elapsed + 1, nextStableSince, nextStableGeneration, admissionTick));
     }
 
-    private static Fixture fixture(GameTestHelper helper) {
-        return fixture(helper, false);
+    private static void fixture(GameTestHelper helper, java.util.function.Consumer<Fixture> onReady) {
+        fixture(helper, false, onReady);
     }
 
-    private static Fixture fixture(GameTestHelper helper, boolean scrubber) {
+    private static void fixture(GameTestHelper helper, boolean scrubber, java.util.function.Consumer<Fixture> onReady) {
         ServerLevel level = helper.getLevel();
         AtmosphereService atmosphere = AtmosphereService.INSTANCE;
         // These tests intentionally keep the fixture's full power/pipe/room neighborhood loaded:
         // production graph discovery must not depend on unrelated, randomly unloaded test chunks.
         BlockPos footprintMin = helper.absolutePos(new BlockPos(2, 0, 1));
         BlockPos footprintMax = helper.absolutePos(new BlockPos(7, 3, 6));
+        FixtureChunkTickets.around(helper, footprintMin, footprintMax, 1);
         for (int cx = (footprintMin.getX() >> 4) - 1; cx <= (footprintMax.getX() >> 4) + 1; cx++)
             for (int cz = (footprintMin.getZ() >> 4) - 1; cz <= (footprintMax.getZ() >> 4) + 1; cz++)
                 level.getChunk(cx, cz);
@@ -260,10 +266,14 @@ public final class PaidVentilationFlowGameTests {
         require(saved.replace(before.revision(), before, after), "seed pipe gas");
         VentilationDeviceBlockEntity vent = (VentilationDeviceBlockEntity) level.getBlockEntity(ventPos);
         require(vent != null, "vent block entity");
-        return new Fixture(level, atmosphere, vent, room, ventPos, pipePos, apc);
+        onReady.accept(new Fixture(level, atmosphere, vent, room, ventPos, pipePos, apc));
     }
 
     private static void place(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {
+        if (kind == PowerDeviceKind.APC) {
+            require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level, pos, facing), "place supported APC");
+            return;
+        }
         var block = switch (kind) {
             case HV_SOURCE -> ModBlocks.HV_SOURCE.get();
             case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION.get();

@@ -1,4 +1,9 @@
 {
   "parent": "base_wallmount_machine",
-  "deviceList": { "maxDevices": 32 }
+  "deviceList": { "maxDevices": 32 },
+  "deviceComponents": {
+    "deviceNetwork": { "network": "moonstation14:atmos_devices", "transmitFrequency": "moonstation14:atmos_monitor", "receiveFrequency": "moonstation14:atmos_monitor", "addressPrefix": "AIR-", "broadcastHook": true, "requiresPower": true },
+    "deviceConnection": { "wired": true, "wireless": true, "wirelessRange": 200 },
+    "deviceList": { "capacity": 32, "allowList": true, "filterIncoming": false }
+  }
 }

@@ -1,0 +1,112 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/airlock/vertical_all/standard_basic/overlays/deny_unlit_00_reader",
+    "particle": "moonstation14:block/airlock/vertical_all/standard_basic/overlays/deny_unlit_00_reader"
+  },
+  "elements": [
+    {
+      "name": "deny_unlit_reader",
+      "from": [
+        1.0,
+        12.5,
+        6.5600000000000005
+      ],
+      "to": [
+        4.5,
+        19.5,
+        6.57
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            11.5,
+            6.25,
+            15.0,
+            9.75
+          ]
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    }
+  },
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

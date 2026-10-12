@@ -12,6 +12,9 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.BeforeBatch;
+import net.minecraft.gametest.framework.AfterBatch;
+import net.minecraft.server.level.ServerLevel;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -22,10 +25,24 @@ import java.util.Set;
 @PrefixGameTestTemplate(false)
 public final class FiniteRoomGasEndpointGameTests {
     private static long syntheticGameTime;
+    private static Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> previousVacuumDimensions;
 
     private FiniteRoomGasEndpointGameTests() { }
 
-@GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
+    @BeforeBatch(batch = "finite_room_endpoint")
+    public static void setupBatch(ServerLevel level) {
+        AtmosphereService service = AtmosphereService.INSTANCE;
+        previousVacuumDimensions = service.vacuumDimensionsForTest();
+        service.configureAtServerStart(Set.of(level.dimension()), service.spaceDimensionsForTest());
+    }
+
+    @AfterBatch(batch = "finite_room_endpoint")
+    public static void teardownBatch(ServerLevel level) {
+        AtmosphereService service = AtmosphereService.INSTANCE;
+        service.configureAtServerStart(previousVacuumDimensions, service.spaceDimensionsForTest());
+    }
+
+@GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void trustedSetupReplacesOnlyLiveFiniteCellMixture(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos room = buildClaimedVacuumRoom(helper, 1);
@@ -60,7 +77,7 @@ public final class FiniteRoomGasEndpointGameTests {
         helper.succeed();
     }
 
-@GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100, templateNamespace = "moonstation14")
+@GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void sealed144CellEndpointAcceptsWithoutCreatingGas(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos room = buildClaimedVacuumRoom(helper, 6);
@@ -94,7 +111,7 @@ public final class FiniteRoomGasEndpointGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint_budget", timeoutTicks = 100, templateNamespace = "moonstation14")
+    @GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void closed168CellRoomExceedsSynchronousEndpointBound(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos room = buildClaimedVacuumRoom(helper, 7);
@@ -139,7 +156,7 @@ public final class FiniteRoomGasEndpointGameTests {
         return helper.absolutePos(new BlockPos(2, 1, 2));
     }
 
-    @GameTest(template = "atmos_large_empty", batch = "atmosphere_pipe_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
+    @GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
     public static void finiteRoomEndpointPublishesAndRollsBackRawTransfer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         for (int x = 1; x <= 5; x++) for (int z = 1; z <= 5; z++) {

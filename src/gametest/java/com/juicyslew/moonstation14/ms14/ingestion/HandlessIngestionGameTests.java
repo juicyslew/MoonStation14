@@ -15,6 +15,7 @@ import com.juicyslew.moonstation14.ms14.hands.live.PuddleTargetProbe;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
+import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -39,6 +40,49 @@ public final class HandlessIngestionGameTests {
             ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "nutriment"));
 
     private HandlessIngestionGameTests() { }
+
+    @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 80)
+    public static void handlessAimedBeakerUsesResolvedDrinkProfile(GameTestHelper h) {
+        var level = h.getLevel();
+        var pos = h.absolutePos(new BlockPos(3, 1, 3));
+        level.setBlock(pos.below(), Blocks.STONE.defaultBlockState(), 3);
+        var mouse = ModEntities.MOUSE.get().create(level);
+        require(mouse != null, "mouse created");
+        mouse.setNoAi(true); mouse.setNoGravity(true); mouse.setPos(pos.getX() + .5, pos.getY(), pos.getZ() + .5);
+        require(level.addFreshEntity(mouse) && CharacterIdentitySystem.enroll(mouse, level,
+                ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse")) && BodySystem.reconcile(mouse),
+                "handless mouth-capable body initialized");
+        Vec3 target = new Vec3(pos.getX() + 2.2, pos.getY(), pos.getZ() + .5);
+        level.setBlock(BlockPos.containing(target).below(), Blocks.STONE.defaultBlockState(), 3);
+        var drink = LooseItemEntity.create(level, target, new ItemStack(ModItems.BEAKER.get()));
+        drink.getItem().set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, 6f)));
+        require(level.addFreshEntity(drink), "beaker source spawned");
+        face(mouse, drink);
+        require(com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.probeSelected(level, mouse,
+                        drink.getUUID(), com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.MAX_REACH) != null,
+                "beaker is selected by the same authoritative item ray required by the world oral request");
+        var admission = TimedIngestionAccess.admitWorld(mouse, drink.getUUID(), null, 0, () -> true);
+        require(admission.isPresent(), "handless world drink admission resolves; noHands="
+                + (mouse.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == null) + " delay=" + drink.hasPickUpDelay()
+                + " source=" + drink.getItem().get(ModDataComponents.REAGENT.get()));
+        var start = BodyTimedIngestionService.startWorldOwned(mouse, drink.getUUID(), null, 0, 120, () -> true);
+        require(start == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK,
+                "handless loose-liquor oral request is admitted; reason=" + start + " resolvedDrink="
+                        + ((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) drink.getItem().getItem())
+                        .drinkSolution(drink.getItem(), level));
+        var operation = mouse.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                .filter(op -> op.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
+        require(operation.durationTicks() == 20 && drink.getItem().get(ModDataComponents.REAGENT.get()) != null
+                        && ReagentUnits.fromFloat(drink.getItem().get(ModDataComponents.REAGENT.get()).contents().get(WATER)) == 600,
+                "world-item drink resolves the beaker's 5u/20-tick policy without synthetic hands");
+        h.runAfterDelay(22, () -> {
+            require(ReagentUnits.fromFloat(drink.getItem().get(ModDataComponents.REAGENT.get()).contents().get(WATER)) == 100,
+                    "timed handless drink consumes the resolved 5u serving");
+            require(mouse.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == null,
+                    "handless oral path never fabricates hands");
+            h.succeed();
+        });
+    }
 
     private static void setThirst(net.minecraft.world.entity.Entity entity, float value) {
         var bridge = com.juicyslew.moonstation14.ms14.MS14Bridges.THIRST;
@@ -69,16 +113,18 @@ public final class HandlessIngestionGameTests {
         var item=LooseItemEntity.create(level,at,new ItemStack(ModItems.CHEESE_SLICE.get()));
         require(level.addFreshEntity(item),"prototype cheese spawned"); face(mouse,item);
         require(item.getItem().get(ModDataComponents.REAGENT.get())==null,"fresh cheese begins without hardcoded reagent data");
-        require(BodyTimedIngestionService.startWorldOwned(mouse,item.getUUID(),null,0,101,()->true).name().equals("OK"),
-                "resolved FOOD remains edible at maximum hydration");
-        require(ReagentUnits.fromFloat(item.getItem().get(ModDataComponents.REAGENT.get()).contents().get(NUTRIMENT))==375,
-                "resolved cheese prototype initializes 3.75 units exactly once");
-        h.runAfterDelay(21,()->{
-            require(item.isRemoved(),"fully consumed cheese is destroyed");
-            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider.get(mouse,
-                    com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(NUTRIMENT,0f))==375,
-                    "timed mouse ingestion transferred the full 3.75-unit source");
-            h.succeed();
+        waitForNonMetabolismCompletionTick(h, mouse, () -> {
+            require(BodyTimedIngestionService.startWorldOwned(mouse,item.getUUID(),null,0,101,()->true).name().equals("OK"),
+                    "resolved FOOD remains edible at maximum hydration");
+            require(ReagentUnits.fromFloat(item.getItem().get(ModDataComponents.REAGENT.get()).contents().get(NUTRIMENT))==375,
+                    "resolved cheese prototype initializes 3.75 units exactly once");
+            h.runAfterDelay(21,()->{
+                require(item.isRemoved(),"fully consumed cheese is destroyed");
+                require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider.get(mouse,
+                        com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(NUTRIMENT,0f))==375,
+                        "timed mouse ingestion transferred the full 3.75-unit source");
+                h.succeed();
+            });
         });
     }
 
@@ -299,6 +345,12 @@ public final class HandlessIngestionGameTests {
         body.setYRot(-90); body.setYHeadRot(-90);
         body.setXRot((float)Math.toDegrees(Math.atan2(body.getEyeY()-item.getBoundingBox().getCenter().y,
                 Math.sqrt(Math.pow(body.getX()-item.getX(),2)+Math.pow(body.getZ()-item.getZ(),2)))));
+    }
+    private static void waitForNonMetabolismCompletionTick(GameTestHelper helper, LivingEntity body, Runnable action) {
+        long start = helper.getLevel().getGameTime();
+        if (!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM.isDue(start + 20, body.getId()))
+            action.run();
+        else helper.runAfterDelay(1, () -> waitForNonMetabolismCompletionTick(helper, body, action));
     }
     private static void facePuddle(LivingEntity body,BlockPos pos) {
         var bounds=body.level().getBlockState(pos).getShape(body.level(),pos,net.minecraft.world.phys.shapes.CollisionContext.of(body)).bounds();

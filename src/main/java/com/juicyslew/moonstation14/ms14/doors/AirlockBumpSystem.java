@@ -14,14 +14,18 @@ public final class AirlockBumpSystem {
     private static final java.util.Map<Entity, java.util.Map<java.util.UUID, ContactMemo>> LAST_CONTACT = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
     private AirlockBumpSystem() { }
 
+    static boolean isBumpOpener(net.minecraft.world.entity.LivingEntity actor){
+        return actor!=null&&CharacterIdentitySystem.resolveForActor(actor)
+                .filter(data->data.component(DoorBumpOpenerComponent.class).isPresent()).isPresent();
+    }
+
     /** Opens only the first blocking collision encountered along this move; never queries unloaded chunks. */
     public static boolean beforeMove(Entity actor, Vec3 requested) {
         if (actor == null || requested == null || !(actor.level() instanceof ServerLevel level)
                 || actor.isRemoved() || actor.noPhysics || !level.getServer().isSameThread()
                 || Math.abs(requested.x) > 4 || Math.abs(requested.y) > 4 || Math.abs(requested.z) > 4
                 || !(actor instanceof net.minecraft.world.entity.LivingEntity living)
-                || CharacterIdentitySystem.resolveForActor(living)
-                .filter(data -> data.component(DoorBumpOpenerComponent.class).isPresent()).isEmpty()) return false;
+                || !isBumpOpener(living)) return false;
 
         // Vanilla resolves vertical motion separately before horizontal collision. Ignore
         // gravity's simultaneous Y component here so a supporting floor cannot mask a door.

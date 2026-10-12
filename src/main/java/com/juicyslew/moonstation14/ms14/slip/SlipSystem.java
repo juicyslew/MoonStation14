@@ -242,7 +242,6 @@ public final class SlipSystem {
             int duration = StatusEffectSystem.secondsToTicks((float) profile.knockdownSeconds());
             StatusEffectSystem.apply(statusTrait.toHandleSelf(), level, KNOCKDOWN,
                     StatusEffectOperation.SET, java.util.OptionalInt.of(duration), 0);
-            com.juicyslew.moonstation14.ms14.standing.PostureSystem.forceDown(target, level.getGameTime() + duration);
         }
     }
 

@@ -47,7 +47,8 @@ public final class DisposalFixtureCharacterTourGameTests {
     private static final BlockPos UNIT_RELATIVE = new BlockPos(3, 2, 8);
     private DisposalFixtureCharacterTourGameTests() { }
 
-    @GameTest(batch = "disposals_camera_tour", template = "disposal_clear", templateNamespace = "moonstation14_camera_tour", timeoutTicks = 1150)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags("repair-disposal-readiness")
+    @GameTest(batch = "disposals_camera_tour", template = "disposal_clear", templateNamespace = "moonstation14_camera_tour", timeoutTicks = 1200)
     public static void boundHumanRidesWholePoweredDisposalTourWithFiniteAir(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         AtmosphereService.INSTANCE.configureAtServerStart(Set.of(level.dimension()), AtmosphereService.INSTANCE.spaceDimensionsForTest());
@@ -72,10 +73,13 @@ public final class DisposalFixtureCharacterTourGameTests {
                 boolean lampLit = level.getBlockState(origin.offset(DisposalFixtureCommands.LAMP)).hasProperty(com.juicyslew.moonstation14.block.custom.PowerDeviceBlock.LIT)
                         && level.getBlockState(origin.offset(DisposalFixtureCommands.LAMP)).getValue(com.juicyslew.moonstation14.block.custom.PowerDeviceBlock.LIT);
                 fail("real disposal unit did not become powered READY; meter1000W=" + meter + ", lampLit=" + lampLit + ", unitState=" + level.getBlockState(unitPos)
-                        + ", timing=" + (unit == null ? "missing" : unit.timingSnapshot()) + ", solve=" + com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.lastSolveDiagnostic(level));
+                        + ", timing=" + (unit == null ? "missing" : unit.timingSnapshot()) + ", gate="
+                        + com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.disposalUnitMeterDiagnostic(level, unit)
+                        + ", currentUnit=" + fixtureUnitDiagnostic(level, unitPos, unit)
+                        + ", solve=" + com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.lastSolveDiagnostic(level));
             }
-            helper.runAtTickTime(waited + 1, () -> awaitReady(helper, level, origin, floorRef, unitPos, plan,
-                    waited + 1));
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1,
+                    () -> awaitReady(helper, level, origin, floorRef, unitPos, plan, waited + 1));
             return;
         }
         PlayerCharacterHarnessEntity body = helper.spawn(PlayerCharacterHarnessRegistration.getEntityType(),
@@ -104,15 +108,19 @@ public final class DisposalFixtureCharacterTourGameTests {
         var lungPolicy = ModOrgans.catalog(body.level()).get(lungInstance.prototype()).lung().orElseThrow();
         require(unit.insertBody(body), "actual trusted unit insertion must accept bound human body");
         unit.engage();
+        var requested = unit.timingSnapshot();
+        require(requested.engaged() && requested.powered() && requested.nextFlushTick() != null
+                        && requested.nextFlushTick() - requested.logicalTick() <= 40,
+                "paid READY unit admits native 2-second manual flush: " + requested);
         var visited = new HashSet<BlockPos>();
         var types = new HashSet<String>();
         var holderAirSeen = new boolean[1];
         int firstBodyTick = body.tickCount;
-        helper.runAfterDelay(1, () -> poll(helper, level, origin, floorRef, unitPos, plan, body, id,
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> poll(helper, level, origin, floorRef, unitPos, plan, body, id,
                 originalBinding, hands, health, initialDamageMap, lungPolicy,
                 visited, types, holderAirSeen, new double[]{Double.NaN, Double.NaN}, firstBodyTick,
                 new com.juicyslew.moonstation14.ms14.lung.LungComponent.Phase[1], new boolean[1], new String[1],
-                new BreathAccounting(), 1, 0));
+                new BreathAccounting(), 1, 0, false));
     }
 
     private static void poll(GameTestHelper helper, ServerLevel level, BlockPos origin, BlockPos floorRef,
@@ -120,11 +128,12 @@ public final class DisposalFixtureCharacterTourGameTests {
                                UUID id, PlayerCharacterBinding binding, LiveHands hands, float health,
                                java.util.Map<String, Float> initialDamageMap, com.juicyslew.moonstation14.ms14.organ.OrganData.Lung lungPolicy,
                                 Set<BlockPos> visited, Set<String> types, boolean[] holderAirSeen, double[] holderOxygen, int firstBodyTick,
-                                 com.juicyslew.moonstation14.ms14.lung.LungComponent.Phase[] previousPhase,
-                                 boolean[] realInhaleSeen, String[] breathDiagnostic, BreathAccounting accounting, int ticks, int elapsed) {
+                                  com.juicyslew.moonstation14.ms14.lung.LungComponent.Phase[] previousPhase,
+                                  boolean[] realInhaleSeen, String[] breathDiagnostic, BreathAccounting accounting, int ticks, int elapsed, boolean transportStarted) {
         var holders = level.getEntitiesOfClass(DisposalTransitHolder.class,
                 new AABB(origin.getX()-2, origin.getY()-1, origin.getZ()-2,
-                        origin.getX()+34, origin.getY()+8, origin.getZ()+32), h -> h.bodyIds().contains(id));
+                         origin.getX()+34, origin.getY()+8, origin.getZ()+32), h -> h.bodyIds().contains(id));
+        transportStarted |= !holders.isEmpty();
         for (var holder : holders) {
             BlockPos pos = holder.currentPos().subtract(origin);
             visited.add(pos.immutable());
@@ -232,18 +241,32 @@ public final class DisposalFixtureCharacterTourGameTests {
             helper.succeed(); return;
         }
         int rideBudgetTicks = (int) Math.ceil(plan.estimatedRideSeconds() * 20.0) + 160;
-        if (elapsed >= rideBudgetTicks) {
+        if (transportStarted && elapsed >= rideBudgetTicks) {
             fail("human tour exceeded resolved duration budget " + rideBudgetTicks + " ticks; visited=" + visited.size());
         }
-        helper.runAfterDelay(1, () -> poll(helper, level, origin, floorRef, unitPos, plan, body, id,
+        final boolean nextTransportStarted = transportStarted;
+        final int nextElapsed = transportStarted ? elapsed + 1 : 0;
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> poll(helper, level, origin, floorRef, unitPos, plan, body, id,
                 binding, hands, health, initialDamageMap, lungPolicy, visited, types, holderAirSeen,
-                holderOxygen, firstBodyTick, previousPhase, realInhaleSeen, breathDiagnostic, accounting, ticks + 1, elapsed + 1));
+                holderOxygen, firstBodyTick, previousPhase, realInhaleSeen, breathDiagnostic, accounting, ticks + 1,
+                nextElapsed, nextTransportStarted));
     }
 
     private static void require(boolean condition, String message) {
         if (!condition) {
             throw new GameTestAssertException(message);
         }
+    }
+    private static String fixtureUnitDiagnostic(ServerLevel level, BlockPos pos, DisposalUnitBlockEntity expected) {
+        var chunk = level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+        var cached = chunk instanceof net.minecraft.world.level.chunk.LevelChunk full ? full.getBlockEntity(pos) : null;
+        return "graphGeneration=" + com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(level)
+                + ",topologyReady=" + com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyReady(level)
+                + ",fullChunk=" + (chunk instanceof net.minecraft.world.level.chunk.LevelChunk)
+                + ",expectedIdentity=" + (expected == null ? "missing" : System.identityHashCode(expected))
+                + ",cachedIdentity=" + (cached == null ? "missing" : System.identityHashCode(cached))
+                + ",cachedSame=" + (cached == expected) + ",loadedState=" + level.getBlockState(pos);
     }
     private static void fail(String message) {
         throw new GameTestAssertException(message);

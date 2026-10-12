@@ -46,6 +46,15 @@ public final class BodyHandItemTransfer {
         } catch (RuntimeException failure) { return null; }
     }
 
+    /** Shared package-local detached drop stage for other exact-source ownership transfers. */
+    static LooseItemEntity createStagedDrop(LivingEntity body, ItemStack stack) {
+        return createStagedDrop(body, stack, null);
+    }
+
+    private static LooseItemEntity createStagedDrop(LivingEntity body, ItemStack stack, Entity excludedCarrier) {
+        return createTrustedDropEntity(body, stack, excludedCarrier);
+    }
+
     private static LooseItemEntity createTrustedDropEntity(LivingEntity body, ItemStack stack, Entity excludedCarrier) {
         if (body == null || stack == null || stack.isEmpty() || !(body.level() instanceof ServerLevel level)) return null;
         try {
@@ -357,7 +366,7 @@ public final class BodyHandItemTransfer {
                     before, cleared, hand, token, stack, ownerPosition, committedWorldEntity);
         }
         Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
-        LooseItemEntity dropped = createTrustedDropEntity(body, stack, excludedCarrier);
+        LooseItemEntity dropped = createStagedDrop(body, stack, excludedCarrier);
         if (dropped == null || !sourceEye.equals(body.getEyePosition())
                 || !sourceLook.equals(body.getLookAngle()) || !authorityValid.getAsBoolean()
                 || (!forced && !CharacterControlSystem.canAct(body)) || body.level() != level || body.isRemoved()

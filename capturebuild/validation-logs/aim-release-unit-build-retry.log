@@ -1,0 +1,33 @@
+Reusing configuration cache.
+> Task :jarJar NO-SOURCE
+> Task :generateModMetadata UP-TO-DATE
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :cleanTest
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :classes
+> Task :compileGametestJava
+> Task :gametestClasses
+> Task :compileTestJava UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :jar
+> Task :assemble
+> Task :test
+> Task :check
+> Task :build
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-01/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 46s
+15 actionable tasks: 5 executed, 10 up-to-date
+Configuration cache entry reused.

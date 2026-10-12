@@ -1,0 +1,4 @@
+{
+  "parent": "standardwireless15",
+  "deviceComponents": { "deviceConnection": { "wirelessRange": 50 } }
+}

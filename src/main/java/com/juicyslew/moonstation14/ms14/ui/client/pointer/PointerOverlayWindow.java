@@ -6,6 +6,10 @@ import net.minecraft.client.gui.GuiGraphics;
 public interface PointerOverlayWindow {
     boolean visible();
     boolean contains(double x, double y);
+    /** Whether pointer input is currently available; painting remains independent of this. */
+    default boolean pointerAvailable() { return true; }
+    /** True only while this window owns an active captured gesture. */
+    default boolean ownsPointerCapture() { return false; }
     void renderIntoGui(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, int width, int height);
     boolean mouseClicked(double x, double y, int button);
     boolean mouseDragged(double x, double y);

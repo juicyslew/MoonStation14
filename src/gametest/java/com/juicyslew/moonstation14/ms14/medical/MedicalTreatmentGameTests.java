@@ -108,8 +108,8 @@ public final class MedicalTreatmentGameTests {
             var active = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
                     .filter(o -> o.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
             require(active.durationTicks() == 4, "repeat uses newly calculated duration");
-            helper.runAfterDelay(1, () -> body.setPos(body.getX() + .5, body.getY(), body.getZ()));
-            helper.runAfterDelay(3, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> body.setPos(body.getX() + .5, body.getY(), body.getZ()));
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 3, () -> {
                 require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
                         .anyMatch(o -> o.id() == active.id() && o.phase() == TimedOperation.Phase.CANCELLED),
                         "movement after repeat is measured from the new repeat origin");

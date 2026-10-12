@@ -38,6 +38,7 @@ public final class DisposalFixtureGameTests {
     private static final BlockPos UNIT=new BlockPos(3,2,8);
     private DisposalFixtureGameTests() { }
 
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags("repair-disposal-readiness")
     @GameTest(batch="disposals_camera_tour",template="disposal_power_clear",templateNamespace="moonstation14_camera_tour",timeoutTicks=900)
     public static void fixtureBuildsInitializesPowersAndFlushesWholeStack(GameTestHelper helper) {
         ServerLevel level=(ServerLevel)helper.getLevel();
@@ -86,7 +87,7 @@ public final class DisposalFixtureGameTests {
         AtmosphereService.INSTANCE.sample(level,room);
         if(AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level,room).isEmpty()) {
             if(elapsed>=300)restore.fail("normal atmosphere ticks did not claim finite room cell "+room);
-            helper.runAfterDelay(5,()->restore.guard(()->awaitFiniteRoom(helper,level,entry,origin,unitPos,outlet,elapsed+5,restore)));return;
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,5,()->restore.guard(()->awaitFiniteRoom(helper,level,entry,origin,unitPos,outlet,elapsed+5,restore)));return;
         }
         var sample=AtmosphereService.INSTANCE.readAtmosphere(level,room).orElseThrow();
         restore.require(sample.mixture().pressureKpa(1.0)>20&&sample.mixture().gasMoles().getOrDefault(com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN,0.0)>0,
@@ -100,12 +101,12 @@ public final class DisposalFixtureGameTests {
         BlockPos lampPos=origin.offset(DisposalFixtureCommands.LAMP);
         boolean lampLit=level.getBlockState(lampPos).getValue(PowerDeviceBlock.LIT);
         if(!meter.known()||meter.deliveredWatts()!=1000||!level.getBlockState(unitPos).getValue(DisposalUnitBlock.POWERED)||!lampLit) {
-            if(elapsed>=480)restore.fail("real APC did not naturally power both 1000 W disposal unit and 100 W room lamp: unit="+meter+", lampLit="+lampLit+"; "+PowerRuntime.lastSolveDiagnostic(level)+"; unitState="+level.getBlockState(unitPos));
-             helper.runAfterDelay(5,()->restore.guard(()->awaitPaidUnit(helper,level,entry,origin,unitPos,outlet,elapsed+5,0,restore)));return;
+            if(elapsed>=480)restore.fail("real APC did not naturally power both 1000 W disposal unit and 100 W room lamp: unit="+meter+", lampLit="+lampLit+"; gate="+PowerRuntime.disposalUnitMeterDiagnostic(level,unit)+"; "+PowerRuntime.lastSolveDiagnostic(level)+"; "+fixtureUnitDiagnostic(level,unitPos,unit));
+             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,5,()->restore.guard(()->awaitPaidUnit(helper,level,entry,origin,unitPos,outlet,elapsed+5,0,restore)));return;
         }
         if(level.getBlockState(unitPos).getValue(DisposalUnitBlock.VISUAL_STATE)!=DisposalUnitBlock.VisualState.READY) {
-            if(readyElapsed>=10)restore.fail("paid unit did not naturally reach READY phase: meter="+meter+", state="+level.getBlockState(unitPos));
-             helper.runAfterDelay(1,()->restore.guard(()->awaitPaidUnit(helper,level,entry,origin,unitPos,outlet,elapsed,readyElapsed+1,restore)));return;
+            if(readyElapsed>=10)restore.fail("paid unit did not naturally reach READY phase: meter="+meter+", gate="+PowerRuntime.disposalUnitMeterDiagnostic(level,unit)+", state="+level.getBlockState(unitPos)+", "+fixtureUnitDiagnostic(level,unitPos,unit));
+             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->restore.guard(()->awaitPaidUnit(helper,level,entry,origin,unitPos,outlet,elapsed,readyElapsed+1,restore)));return;
         }
         restore.require(unit.prototype()!=null&&unit.prototype().powerWatts()==1000,"resolved static-machine demand remains 1000 W");
         restore.require(level.getBlockState(lampPos).is(ModBlocks.POWER_LAMP.get())&&level.getBlockState(lampPos).getValue(PowerDeviceBlock.LIT),"ordinary APC power loop naturally lights the real 100 W lamp");
@@ -121,16 +122,21 @@ public final class DisposalFixtureGameTests {
         var source=new ItemEntity(level,origin.getX()+6.5,origin.getY()+1.1,origin.getZ()+5.5,item);
         restore.require(level.addFreshEntity(source),"real world item entity admitted to level");
         helper.runAfterDelay(1,()->restore.guard(()->{
-            restore.require(unit.acceptWorldItem(source),"actual world-item ownership transfer to unit");
-            unit.engage();
-         awaitEjected(helper,level,origin,unit,source.getUUID(),outlet,0,false,restore);
+             restore.require(unit.acceptWorldItem(source),"actual world-item ownership transfer to unit");
+             unit.engage();
+             var request=unit.timingSnapshot();
+             restore.require(request.engaged()&&request.powered()&&request.nextFlushTick()!=null
+                             &&request.nextFlushTick()-request.logicalTick()<=40,
+                     "paid READY unit admits native 2-second manual flush: "+request);
+          awaitEjected(helper,level,origin,unit,source.getUUID(),outlet,0,false,restore);
         }));
     }
 
     private static void awaitEjected(GameTestHelper helper,ServerLevel level,BlockPos origin,DisposalUnitBlockEntity unit,
-                                     java.util.UUID sourceId,BlockPos outlet,int elapsed,boolean holderAirObserved,RestoreState restore) {
+                                      java.util.UUID sourceId,BlockPos outlet,int elapsed,boolean holderAirObserved,RestoreState restore) {
         var box=new AABB(origin.getX(),origin.getY(),origin.getZ(),origin.getX()+12,origin.getY()+7,origin.getZ()+12);
         var holders=level.getEntitiesOfClass(DisposalTransitHolder.class,box,h->true);
+        boolean transportStarted=!holders.isEmpty();
         for(var holder:holders)if(holder.finiteAir().flatMap(a->a.sample()).map(a->a.mixture().totalMoles()>0).orElse(false))holderAirObserved=true;
         var outputs=level.getEntitiesOfClass(ItemEntity.class,box,e->e.isAlive()&&e.getItem().getItem()==Items.IRON_INGOT&&Component.literal("fixture stack").equals(e.getItem().get(DataComponents.CUSTOM_NAME)));
         if(outputs.size()==1&&outputs.getFirst().getItem().getCount()==3&&unit.contents().snapshot().isEmpty()) {
@@ -143,9 +149,9 @@ public final class DisposalFixtureGameTests {
                 restore.restore();helper.succeed();
             }));return;
         }
-         if(elapsed>=700)restore.fail("item did not complete powered real route; outputs="+outputs.size()+", unitContents="+unit.contents().snapshot().size()+", holderAirObserved="+holderAirObserved+", timing="+unit.timingSnapshot()+", status="+DisposalFixtureCommands.status(level,origin.offset(DisposalFixtureCommands.ENTRY_CELL.getX(),0,DisposalFixtureCommands.ENTRY_CELL.getZ())));
+          if(transportStarted ? elapsed>=520 : elapsed>=120)restore.fail("item did not complete powered real route; stage="+(transportStarted?"route":"manual-flush admission")+", outputs="+outputs.size()+", unitContents="+unit.contents().snapshot().size()+", holderAirObserved="+holderAirObserved+", timing="+unit.timingSnapshot()+", gate="+PowerRuntime.disposalUnitMeterDiagnostic(level,unit)+", "+fixtureUnitDiagnostic(level,unit.getBlockPos(),unit)+", status="+DisposalFixtureCommands.status(level,origin.offset(DisposalFixtureCommands.ENTRY_CELL.getX(),0,DisposalFixtureCommands.ENTRY_CELL.getZ())));
         boolean observed=holderAirObserved;
-         helper.runAfterDelay(2,()->restore.guard(()->awaitEjected(helper,level,origin,unit,sourceId,outlet,elapsed+2,observed,restore)));
+          com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,2,()->restore.guard(()->awaitEjected(helper,level,origin,unit,sourceId,outlet,transportStarted?elapsed+2:0,observed,restore)));
     }
     private record RestoreState() {
         void require(boolean ok,String message){if(!ok)fail(message);}
@@ -154,4 +160,15 @@ public final class DisposalFixtureGameTests {
         @SuppressWarnings("unchecked") private static <T extends Throwable> void throwUnchecked(Throwable failure) throws T { throw (T)failure; }
         void restore(){ }
     }
+
+    private static String fixtureUnitDiagnostic(ServerLevel level,BlockPos pos,DisposalUnitBlockEntity expected){
+        var chunk=level.getChunkSource().getChunk(pos.getX()>>4,pos.getZ()>>4,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false);
+        var cached=chunk instanceof net.minecraft.world.level.chunk.LevelChunk full?full.getBlockEntity(pos):null;
+        return "graphGeneration="+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(level)
+                +",topologyReady="+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyReady(level)
+                +",fullChunk="+(chunk instanceof net.minecraft.world.level.chunk.LevelChunk)
+                +",expectedIdentity="+System.identityHashCode(expected)+",cachedIdentity="+(cached==null?"missing":System.identityHashCode(cached))
+                +",cachedSame="+(cached==expected)+",loadedState="+level.getBlockState(pos);
+    }
+    private static void require(boolean ok,String message){if(!ok)throw new GameTestAssertException(message);}
 }

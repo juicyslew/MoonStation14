@@ -32,6 +32,30 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class PostureGameTests {
     private PostureGameTests() { }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 35)
+    @GameTestTags({"posture_knockdown"})
+    public static void statusProjectionRefreshesWithoutOverwritingVoluntaryPosture(GameTestHelper helper) {
+        Villager body = human(helper);
+        require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.applyStun(body, 20),
+                "stun-only status applies");
+        require(!PostureSystem.isDown(body), "stun-only status does not force posture");
+        require(PostureSystem.voluntaryToggle(body), "body chooses manual prone posture");
+        require(PostureSystem.voluntaryRoll(body), "body rolls face-up before knockdown refresh");
+        PostureData before = body.getData(ModDataAttachments.POSTURE.get()).data();
+        require(!before.voluntaryAutoStand() && before.faceUp(), "fixture is manual-prone and face-up");
+        require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.applyParalyze(body, 20),
+                "paralyze applies configured knockdown status");
+        PostureData after = body.getData(ModDataAttachments.POSTURE.get()).data();
+        require(after.down() && after.faceUp() && !after.voluntaryAutoStand(),
+                "refresh preserves manual-prone policy and facing");
+        require(!PostureSystem.requestStand(body, null), "active knockdown status gates get-up");
+        helper.runAfterDelay(22, () -> {
+            require(PostureSystem.isDown(body) && body.getData(ModDataAttachments.POSTURE.get()).data().faceUp(),
+                    "status expiry does not force an already-manual body upright or change facing");
+            helper.succeed();
+        });
+    }
+
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 12)
     @GameTestTags({"standing", "audio", "medical-state", "posture-fall-audio"})
     public static void forcedDownEmitsResolvedSoundOnceAndMedicalRepeatIsQuiet(GameTestHelper helper) {
@@ -109,7 +133,7 @@ public final class PostureGameTests {
                             net.minecraft.resources.ResourceLocation.parse("moonstation14:posture_fall_audio_fixture"))
                             && helper.getLevel().addFreshEntity(custom),
                     "entity enrolled through audited GameTest-only inherited sound override");
-            helper.runAfterDelay(2, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
             var customSounds = new ArrayList<net.minecraft.resources.ResourceLocation>();
             PostureSystem.forceDownForTest(custom, 0, (entity, sound) -> customSounds.add(sound));
             require(customSounds.equals(java.util.List.of(net.minecraft.resources.ResourceLocation.parse("moonstation14:ss14/items/drink"))),
@@ -143,9 +167,9 @@ public final class PostureGameTests {
         helper.runAfterDelay(10, () -> {
             require(PostureSystem.voluntaryToggle(body), "stand request is accepted after grace expires");
             require(PostureSystem.isDown(body), "body remains down while get-up timer runs");
-            helper.runAfterDelay(19, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 19, () -> {
                 require(PostureSystem.isDown(body), "body remains down before the one-second deadline");
-                helper.runAfterDelay(2, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                     require(!PostureSystem.isDown(body), "body stands after get-up timer completes");
                     helper.succeed();
                 });
@@ -168,7 +192,7 @@ public final class PostureGameTests {
             require(!PostureSystem.requestStand(body, null), "standing-sized collision denies request after grace expires");
             helper.getLevel().setBlock(above, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
             require(PostureSystem.requestStand(body, null), "request is accepted after clearing standing-space obstruction");
-            helper.runAfterDelay(22, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 22, () -> {
                 require(!PostureSystem.isDown(body), "get-up completes once standing space is clear");
                 helper.succeed();
             });
@@ -204,9 +228,9 @@ public final class PostureGameTests {
             require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
                     .anyMatch(op -> op.kind().equals("standing") && op.phase() == TimedOperation.Phase.CANCELLED),
                     "five damage cancels get-up independently of crawler refresh threshold");
-            helper.runAfterDelay(9, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9, () -> {
                 require(PostureSystem.isDown(body), "body remains down before refreshed deadline");
-                helper.runAfterDelay(2, () -> {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                     require(PostureSystem.isDown(body), "voluntary posture does not auto-stand after refreshed grace");
                     require(!body.getData(ModDataAttachments.POSTURE.get()).data().voluntaryAutoStand(),
                             "damage did not enable automatic standing");
@@ -318,7 +342,7 @@ public final class PostureGameTests {
                             && views.getFirst().durationTicks() == 4
                             && views.getFirst().worldTarget().orElseThrow().equals(target),
                     "repeat uses dynamic duration and retains world target in updated active snapshot");
-            helper.runAfterDelay(5, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5, () -> {
                 var finished = TimedInteractionSystem.snapshot(body).views();
                 require(completions.get() == 2, "second completion callback runs once, not twice");
                 require(finished.size() == 1 && finished.getFirst().phase() == TimedOperation.Phase.COMPLETED,

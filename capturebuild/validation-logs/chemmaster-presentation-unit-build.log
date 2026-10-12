@@ -1,0 +1,76 @@
+Reusing configuration cache.
+> Task :jarJar NO-SOURCE
+> Task :cleanTest UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :classes
+> Task :jar
+> Task :assemble
+
+> Task :compileGametestJava
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:46: error: incompatible types: int cannot be converted to Long
+        h.assertTrue(staged.getOrDefault(sodium, 0) == 2500 && staged.getOrDefault(chlorine, 0) == 2500
+                                                 ^
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:46: error: incompatible types: int cannot be converted to Long
+        h.assertTrue(staged.getOrDefault(sodium, 0) == 2500 && staged.getOrDefault(chlorine, 0) == 2500
+                                                                                             ^
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:50: error: cannot find symbol
+        ItemStack large = new ItemStack(ModItems.LARGE_BEAKER.get());
+                                                ^
+  symbol:   variable LARGE_BEAKER
+  location: class ModItems
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:57: error: incompatible types: int cannot be converted to Long
+        h.assertTrue(result.getOrDefault(salt, 0) == 5000 && !result.containsKey(sodium) && !result.containsKey(chlorine),
+                                               ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
+4 errors
+
+> Task :compileGametestJava FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-01/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileGametestJava'.
+> Compilation failed; see the compiler output below.
+  Note: Recompile with -Xlint:deprecation for details.
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:46: error: incompatible types: int cannot be converted to Long
+          h.assertTrue(staged.getOrDefault(sodium, 0) == 2500 && staged.getOrDefault(chlorine, 0) == 2500
+                                                   ^
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:46: error: incompatible types: int cannot be converted to Long
+          h.assertTrue(staged.getOrDefault(sodium, 0) == 2500 && staged.getOrDefault(chlorine, 0) == 2500
+                                                                                               ^
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:57: error: incompatible types: int cannot be converted to Long
+          h.assertTrue(result.getOrDefault(salt, 0) == 5000 && !result.containsKey(sodium) && !result.containsKey(chlorine),
+                                                 ^
+  C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-01\src\gametest\java\com\juicyslew\moonstation14\ms14\chemistry\chemmaster\ChemMasterReactionDemoGameTests.java:50: error: cannot find symbol
+          ItemStack large = new ItemStack(ModItems.LARGE_BEAKER.get());
+                                                  ^
+    symbol:   variable LARGE_BEAKER
+    location: class ModItems
+  Note: Some input files use or override a deprecated API.
+  Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
+  4 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 9s
+13 actionable tasks: 3 executed, 10 up-to-date
+Configuration cache entry reused.

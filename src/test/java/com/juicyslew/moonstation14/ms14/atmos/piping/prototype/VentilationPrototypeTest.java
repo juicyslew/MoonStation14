@@ -54,14 +54,39 @@ class VentilationPrototypeTest {
         assertEquals(101.325, vent.gasVentPump().targetPressureChangeKPaPerSecond());
         assertEquals(101.325, vent.gasVentPump().externalPressureBoundKPa());
         assertNull(vent.gasVentScrubber());
+        assertEquals("VNT-", vent.deviceComponents().network().orElseThrow().addressPrefix());
+        assertTrue(vent.deviceComponents().network().orElseThrow().broadcastHook());
+        assertFalse(vent.deviceComponents().network().orElseThrow().requiresPower());
+        assertTrue(vent.deviceComponents().connection().orElseThrow().wired());
+        assertFalse(vent.deviceComponents().connection().orElseThrow().wireless());
         var scrubber = catalog.get(ModVentilationDevices.SCRUBBER);
         assertEquals(0.2, scrubber.gasVentScrubber().volumeRateM3PerSecond());
         assertEquals(Ss14VentilationDefaults.DEFAULT_SCRUBBED_GASES,
                 java.util.Set.copyOf(scrubber.gasVentScrubber().filteredGases()));
         assertNull(scrubber.gasVentPump());
+        assertEquals("SCR-", scrubber.deviceComponents().network().orElseThrow().addressPrefix());
         PrototypeManager copy = manager();
         copy.publishEncodedCatalogs(manager.encodePublishedCatalogs());
         assertEquals(catalog.asMap(), copy.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE).asMap());
+    }
+
+    @Test void childAddressPrefixOverridePreservesInheritedNetworkPolicy() {
+        var raw = bundled();
+        var baseNetwork = raw.get(ModVentilationDevices.BASE).getAsJsonObject("deviceComponents")
+                .getAsJsonObject("deviceNetwork");
+        baseNetwork.addProperty("transmitFrequency", "moonstation14:atmos_monitor");
+        baseNetwork.addProperty("receiveFrequency", "moonstation14:atmos_monitor");
+        PrototypeManager manager = manager();
+        manager.reload(ModVentilationDevices.VENTILATION_DEVICE_TYPE, raw);
+        var network = manager.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE)
+                .get(ModVentilationDevices.VENT).deviceComponents().network().orElseThrow();
+        assertEquals("VNT-", network.addressPrefix());
+        assertTrue(network.transmit());
+        assertTrue(network.receive());
+        assertEquals(ResourceLocation.parse("moonstation14:atmos_devices"), network.networkPrototypeId());
+        assertEquals(ResourceLocation.parse("moonstation14:atmos_monitor"), network.transmitFrequencyPrototypeId().orElseThrow());
+        assertEquals(ResourceLocation.parse("moonstation14:atmos_monitor"), network.receiveFrequencyPrototypeId().orElseThrow());
+        assertTrue(network.broadcastHook());
     }
 
     @Test void absentPublishedDefinitionCannotSupplyLiveDefaultsOrReceiverDemand() {

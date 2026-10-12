@@ -39,7 +39,7 @@ public final class ModAirAlarms {
             Set<String> allowed = id.equals(WALLMOUNT) ? Set.of("abstract", "wallMount")
                     : id.equals(METALLIC) ? Set.of("abstract", "parent")
                     : id.equals(MACHINE) ? Set.of("abstract", "parent", "apcPowerReceiver", "extensionCableReceiver")
-                    : Set.of("parent", "deviceList");
+                    : Set.of("parent", "deviceList", "deviceComponents");
             if (!object.keySet().equals(allowed))
                 throw new IllegalArgumentException(id + " has missing or unsupported local fields");
             if (id.equals(AIR_ALARM)) {

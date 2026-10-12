@@ -36,8 +36,9 @@ public final class BodyBlockItemPlacement {
                 || block == ModBlocks.ATMOS_GAS_SINK.get() || block == ModBlocks.ATMOS_HEATER.get()
                 || block == ModBlocks.ATMOS_COOLER.get() || block == ModBlocks.HV_SOURCE.get()
                 || block == ModBlocks.HV_MV_SUBSTATION.get() || block == ModBlocks.APC.get()
-                || block == ModBlocks.POWER_LAMP.get() || block == ModBlocks.HIGH_LOAD_TEST_LAMP.get()
-                || block == ModBlocks.AIRLOCK.get();
+                 || block == ModBlocks.POWER_LAMP.get() || block == ModBlocks.HIGH_LOAD_TEST_LAMP.get()
+                 || block == ModBlocks.AIRLOCK.get() || block == ModBlocks.CHEM_MASTER.get()
+                || block == ModBlocks.SIGNAL_BUTTON.get() || block == ModBlocks.SIGNAL_SWITCH.get();
     }
 
     public static BodyBlockUseResult.Outcome place(ServerPlayer actor, BodyBlockUseRequest request,
@@ -66,14 +67,8 @@ public final class BodyBlockItemPlacement {
         FluidState fluid = level.getFluidState(dest);
         if (!old.canBeReplaced() || !fluid.isEmpty() || level.getBlockEntity(dest) != null) return BodyBlockUseResult.Outcome.DENIED;
         var hit = new BlockHitResult(admission.hit().location(), admission.hit().face(), clicked, false);
-        if (!(body instanceof net.minecraft.world.entity.player.Player bodyPlayer)) return BodyBlockUseResult.Outcome.DENIED;
-        var useContext = new net.minecraft.world.item.context.UseOnContext(level, bodyPlayer,
-                net.minecraft.world.InteractionHand.MAIN_HAND, stack.copy(), hit) {
-            @Override public boolean isSecondaryUseActive() { return request.sneaking(); }
-        };
-        BlockPlaceContext context = new BlockPlaceContext(useContext) {
-            @Override public boolean isSecondaryUseActive() { return request.sneaking(); }
-        };
+        BlockPlaceContext context = placementContext(body, level, stack, hit, clicked, dest,
+                admission.hit().face(), request.sneaking());
         BlockItem item = (BlockItem) stack.getItem();
         BlockState placed = item.getBlock().getStateForPlacement(context);
         if (placed == null || !placed.canSurvive(level, dest) || !level.isUnobstructed(placed, dest,
@@ -84,6 +79,9 @@ public final class BodyBlockItemPlacement {
         if (!level.setBlock(dest, placed, Block.UPDATE_ALL)) return BodyBlockUseResult.Outcome.DENIED;
         var ownedBlockEntity = level.getBlockEntity(dest);
         try {
+            item.updateCustomBlockEntityTag(level, actor, dest, stack.copy());
+            if (ownedBlockEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster)
+                chemMaster.resetPlacementIdentity();
             item.getBlock().setPlacedBy(level, dest, placed, body, stack.copy());
         } catch (RuntimeException failure) {
             return rollbackPlacement(level, dest, placed, ownedBlockEntity, old)
@@ -108,6 +106,42 @@ public final class BodyBlockItemPlacement {
         } catch (RuntimeException failure) {
             return BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
         }
+    }
+
+    static BlockPlaceContext placementContext(net.minecraft.world.entity.LivingEntity body,
+            net.minecraft.server.level.ServerLevel level, ItemStack stack, BlockHitResult hit,
+            BlockPos clicked, BlockPos dest, net.minecraft.core.Direction face, boolean sneaking) {
+        // The carrier is an authenticated spectator, not the placement actor. UseOnContext permits
+        // a null Player for this body-owned route; placement orientation is derived from body eye/yaw.
+        var useContext = new net.minecraft.world.item.context.UseOnContext(level, null,
+                net.minecraft.world.InteractionHand.MAIN_HAND, stack.copy(), hit) {
+            @Override public boolean isSecondaryUseActive() { return sneaking; }
+        };
+        return new BlockPlaceContext(useContext) {
+            @Override public boolean isSecondaryUseActive() { return sneaking; }
+            @Override public BlockPos getClickedPos() { return dest; }
+            @Override public net.minecraft.core.Direction getNearestLookingDirection() {
+                return net.minecraft.core.Direction.orderedByNearest(body)[0];
+            }
+            @Override public net.minecraft.core.Direction getNearestLookingVerticalDirection() {
+                for (var direction : net.minecraft.core.Direction.orderedByNearest(body))
+                    if (direction.getAxis().isVertical()) return direction;
+                return net.minecraft.core.Direction.UP;
+            }
+            @Override public net.minecraft.core.Direction getHorizontalDirection() { return body.getDirection(); }
+            @Override public float getRotation() { return body.getYRot(); }
+            @Override public net.minecraft.core.Direction[] getNearestLookingDirections() {
+                var directions = net.minecraft.core.Direction.orderedByNearest(body);
+                if (dest.equals(clicked)) return directions;
+                // Match vanilla ordering: adjacent placement tries the direction opposite
+                // the clicked face first. Looking-direction methods remain independently body-based.
+                var ordered = new net.minecraft.core.Direction[directions.length];
+                ordered[0] = face.getOpposite();
+                int next = 1;
+                for (var direction : directions) if (direction != ordered[0]) ordered[next++] = direction;
+                return ordered;
+            }
+        };
     }
 
     private static boolean rollbackPlacement(net.minecraft.server.level.ServerLevel level, BlockPos pos,

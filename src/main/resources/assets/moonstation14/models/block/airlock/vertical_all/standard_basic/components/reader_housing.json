@@ -1,0 +1,437 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/airlock/vertical_all/standard_basic/atlas",
+    "particle": "moonstation14:block/airlock/vertical_all/standard_basic/atlas"
+  },
+  "elements": [
+    {
+      "name": "reader_housing_web",
+      "from": [
+        1.75,
+        15.75,
+        7.25
+      ],
+      "to": [
+        3.75,
+        18.75,
+        8.75
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            0.90625,
+            7.53125,
+            1.03125,
+            7.71875
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            1.09375,
+            7.53125,
+            1.1875,
+            7.71875
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            1.25,
+            7.53125,
+            1.375,
+            7.71875
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            1.4375,
+            7.53125,
+            1.53125,
+            7.71875
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            1.59375,
+            7.53125,
+            1.71875,
+            7.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            1.78125,
+            7.53125,
+            1.90625,
+            7.625
+          ]
+        }
+      }
+    },
+    {
+      "name": "reader_housing_left",
+      "from": [
+        1.5,
+        15.5,
+        6.625
+      ],
+      "to": [
+        1.75,
+        19.0,
+        9.375
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            1.96875,
+            7.53125,
+            2.0,
+            7.75
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            2.0625,
+            7.53125,
+            2.25,
+            7.75
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            2.3125,
+            7.53125,
+            2.34375,
+            7.75
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            2.40625,
+            7.53125,
+            2.59375,
+            7.75
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            2.65625,
+            7.53125,
+            2.6875,
+            7.71875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            2.75,
+            7.53125,
+            2.78125,
+            7.71875
+          ]
+        }
+      }
+    },
+    {
+      "name": "reader_housing_right",
+      "from": [
+        3.75,
+        15.5,
+        6.625
+      ],
+      "to": [
+        4.0,
+        19.0,
+        9.375
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            2.84375,
+            7.53125,
+            2.875,
+            7.75
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            2.9375,
+            7.53125,
+            3.125,
+            7.75
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            3.1875,
+            7.53125,
+            3.21875,
+            7.75
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.28125,
+            7.53125,
+            3.46875,
+            7.75
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.53125,
+            7.53125,
+            3.5625,
+            7.71875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.625,
+            7.53125,
+            3.65625,
+            7.71875
+          ]
+        }
+      }
+    },
+    {
+      "name": "reader_housing_bottom",
+      "from": [
+        1.75,
+        15.5,
+        6.625
+      ],
+      "to": [
+        3.75,
+        15.75,
+        9.375
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            3.71875,
+            7.53125,
+            3.84375,
+            7.5625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.90625,
+            7.53125,
+            4.09375,
+            7.5625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.15625,
+            7.53125,
+            4.28125,
+            7.5625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.34375,
+            7.53125,
+            4.53125,
+            7.5625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            4.59375,
+            7.53125,
+            4.71875,
+            7.71875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            4.78125,
+            7.53125,
+            4.90625,
+            7.71875
+          ]
+        }
+      }
+    },
+    {
+      "name": "reader_housing_top",
+      "from": [
+        1.75,
+        18.75,
+        6.625
+      ],
+      "to": [
+        3.75,
+        19.0,
+        9.375
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.96875,
+            7.53125,
+            5.09375,
+            7.5625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            5.15625,
+            7.53125,
+            5.34375,
+            7.5625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            5.40625,
+            7.53125,
+            5.53125,
+            7.5625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            5.59375,
+            7.53125,
+            5.78125,
+            7.5625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            5.84375,
+            7.53125,
+            5.96875,
+            7.71875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            6.03125,
+            7.53125,
+            6.15625,
+            7.71875
+          ]
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    }
+  },
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

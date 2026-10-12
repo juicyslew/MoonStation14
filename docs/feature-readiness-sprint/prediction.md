@@ -1,0 +1,3 @@
+# Prediction readiness contract
+
+`prediction` selects `TimedInteractionPacketScheduleTest`, `TimedInteractionClockPolicyTest`, and `HeldUseRequestDispatchTest` from the one catalog in `build.gradle`. Report only the latency/delay cases asserted in those tests; the readiness report identifies scheduler and held-dispatch evidence. Record outcomes in the current invocation report/log, not as a permanent contract. This is JVM reconciliation/dispatch evidence, not live networking or authenticated server proof. Keep authority, context-reset, transport-failure, and native boundaries explicit. No Minecraft process is needed for the focused task.

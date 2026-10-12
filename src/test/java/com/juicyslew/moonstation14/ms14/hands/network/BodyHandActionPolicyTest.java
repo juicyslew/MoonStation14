@@ -11,6 +11,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Synthetic input/pure sequence policy only; does not claim real ServerPlayer packet authorization. */
 class BodyHandActionPolicyTest {
+    @Test void activateTargetCarriesExactUuidWithoutOccupantToken() {
+        var request = new BodyHandActionRequest(BodyHandActionRequest.Action.ACTIVATE_TARGET,
+                "left", 7, 2, 9, UUID.randomUUID(), null);
+        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        BodyHandActionRequest.STREAM_CODEC.encode(buf, request);
+        assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(buf));
+        assertFalse(buf.isReadable());
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                BodyHandActionRequest.Action.ACTIVATE_TARGET, "left", 7, 2, 9, UUID.randomUUID(), "token"));
+    }
     @Test void directBodyHostActionsAppendLocationsWithoutChangingOldPackets() {
         for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.GRID_BODY_WORN_TO_HELD,
                 BodyHandActionRequest.Action.GRID_BODY_HELD_TO_WORN, BodyHandActionRequest.Action.GRID_BODY_HELD_TO_HELD}) {
@@ -82,7 +92,8 @@ class BodyHandActionPolicyTest {
         for (var action : BodyHandActionRequest.Action.values()) {
             if (action == BodyHandActionRequest.Action.TRANSFER_HAND || action.name().startsWith("GRID_") || action.name().startsWith("HELD_GRID_")
                     || action.name().startsWith("SMART_") || action == BodyHandActionRequest.Action.PICKUP_SELECTED
-                    || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
+                     || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
+                     || action == BodyHandActionRequest.Action.ACTIVATE_TARGET
                     || action == BodyHandActionRequest.Action.TOGGLE_PULL || action == BodyHandActionRequest.Action.STOP_PULL
                      || action == BodyHandActionRequest.Action.SIP_PUDDLE
                      || action == BodyHandActionRequest.Action.USE_BODY

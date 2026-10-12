@@ -1,0 +1,5 @@
+Source: Space Station 14, Resources/Audio/Effects/Fluids/slosh.ogg
+Revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Source: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Effects/Fluids/slosh.ogg
+SHA-256: b1ff48ceb87bd5672f8458680d9cf40aa2afd60bdf46bd91cd65449c12aa8e3c
+The pinned Effects attribution manifest contains no file-specific entry for this file. Author, original source, and license are unresolved; no blanket license is inferred. Do not treat this notice as permission to distribute.

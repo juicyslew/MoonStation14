@@ -1,0 +1,10 @@
+{
+  "abstract": true,
+  "inactive": "off",
+  "active": "on",
+  "charging": "on",
+  "full": "on",
+  "lack": "off",
+  "lightLevel": 0,
+  "shape": { "minX": 0, "minY": 0, "minZ": 0, "maxX": 16, "maxY": 16, "maxZ": 16 }
+}

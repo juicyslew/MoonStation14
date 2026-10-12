@@ -2,5 +2,9 @@
   "id": "jug_base",
   "abstract": true,
   "solutionContainer": { "solutionName": "drink", "maxVolume": 200.0 },
+  "drainableSolution": { "enabled": true, "solutionName": "drink" },
+  "refillableSolution": { "enabled": true, "solutionName": "drink" },
+  "solutionTransfer": { "enabled": true, "transferAmount": 5.0, "canSend": true, "canReceive": true },
+  "drinkSolution": { "enabled": true, "solutionName": "drink", "consumeAmount": 5.0, "personalDelayTicks": 20 },
   "examinableSolution": { "solutionName": "drink", "exactVolume": true, "heldOnly": false, "examinableWhileClosed": true, "maxDetails": 3 }
 }

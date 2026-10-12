@@ -7,6 +7,8 @@ import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement;
 import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import net.minecraft.core.BlockPos;
@@ -212,6 +214,8 @@ public final class StarterStationService {
             var existing = level.getBlockState(pos);
             if (!isExpectedDeviceState(existing, expected)) level.setBlock(pos, expected, 3);
             if (!isExpectedDeviceState(level.getBlockState(pos), expected)) return false;
+            if (device.kind() == PowerDeviceKind.APC
+                    && !PowerDeviceFixturePlacement.hasApcSupport(level, pos, device.facing())) return false;
         }
         for (CableFaceNode cable : power.cables()) {
             BlockPos pos = origin.offset(cable.host());
@@ -235,6 +239,8 @@ public final class StarterStationService {
             var state = level.getBlockState(pos);
             var expected = powerDeviceBlock(device.kind()).get().defaultBlockState()
                     .setValue(PowerDeviceBlock.FACING, device.facing());
+            if (device.kind() == PowerDeviceKind.APC
+                    && !hasPlannedApcSupport(level, origin, pos, device.facing())) return false;
             if (!isExpectedDeviceState(state, expected) && (!state.getFluidState().isEmpty()
                     || (!state.isAir() && !state.canBeReplaced()))) return false;
         }
@@ -261,11 +267,22 @@ public final class StarterStationService {
             if (!level.getBlockState(origin.offset(host.position())).is(ModBlocks.STEEL_WALL_BLOCK.get())) return false;
         for (StarterStationPowerPlan.Device device : power.devices()) {
             var expected = powerDeviceBlock(device.kind()).get().defaultBlockState().setValue(PowerDeviceBlock.FACING, device.facing());
-            if (!isExpectedDeviceState(level.getBlockState(origin.offset(device.position())), expected)) return false;
+            BlockPos pos = origin.offset(device.position());
+            if (!isExpectedDeviceState(level.getBlockState(pos), expected)) return false;
+            if (device.kind() == PowerDeviceKind.APC
+                    && !PowerDeviceFixturePlacement.hasApcSupport(level, pos, device.facing())) return false;
         }
         for (CableFaceNode cable : power.cables())
             if (exactStoredTier(level, origin.offset(cable.host()), cable) != cable.tier()) return false;
         return true;
+    }
+
+    private static boolean hasPlannedApcSupport(ServerLevel level, BlockPos origin, BlockPos apc, Direction facing) {
+        BlockPos support = apc.relative(facing.getOpposite());
+        int x = support.getX() - origin.getX(), y = support.getY() - origin.getY(), z = support.getZ() - origin.getZ();
+        StarterStationLayout.Material planned = LAYOUT.materialAt(x, y, z);
+        return planned == StarterStationLayout.Material.STEEL
+                || PowerDeviceFixturePlacement.hasApcSupport(level, apc, facing);
     }
 
     private static CableTier exactStoredTier(ServerLevel level, BlockPos pos, CableFaceNode cable) {

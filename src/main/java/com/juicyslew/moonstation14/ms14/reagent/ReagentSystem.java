@@ -57,7 +57,13 @@ public class ReagentSystem {
         transfer(level, srcCont, dstCont, amount, targetCapacityCents);
 
         MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
-        MS14Provider.updateIfChanged(target.holder(), targetBridge, dstBefore, dstCont);
+        boolean targetCommitted = MS14Provider.updateIfChanged(target.holder(), targetBridge, dstBefore, dstCont);
+        if (targetCommitted && level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            if (target.holder() instanceof net.minecraft.world.entity.Entity entity)
+                ReactionAudio.playCommitted(serverLevel, entity.position(), dstCont);
+            else if (target.holder() instanceof net.minecraft.world.level.block.entity.BlockEntity blockEntity)
+                ReactionAudio.playCommitted(serverLevel, blockEntity.getBlockPos(), dstCont);
+        }
     }
 
     /** Living reagent traits use only the prototype-enrolled bloodstream compartment. */
@@ -116,7 +122,7 @@ public class ReagentSystem {
                 var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, srcCont, dstCont, amount, target.getCapacity());
                 MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
-                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
+                playPuddleReactionIfCommitted(level, target, dstBefore, dstCont);
             }
         }else if (aboveState.is(ModBlocks.PUDDLE.get())) {
             // for thrown jugs, and also like, if you clicked the block below somehow.
@@ -129,7 +135,7 @@ public class ReagentSystem {
                 var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, srcCont, dstCont, amount, target.getCapacity());
                 MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
-                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
+                playPuddleReactionIfCommitted(level, target, dstBefore, dstCont);
             }
         } else if (aboveState.canBeReplaced()) {
             // Interface Check
@@ -146,7 +152,7 @@ public class ReagentSystem {
                         transfer(level, srcCont, dstCont, amount, target.getCapacity());
 
                         MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
-                        MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
+                        playPuddleReactionIfCommitted(level, target, dstBefore, dstCont);
                     }
                 }
             }
@@ -173,7 +179,7 @@ public class ReagentSystem {
                         "spill solution destination puddle")) return;
                 var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
-                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
+                playPuddleReactionIfCommitted(level, target, dstBefore, dstCont);
             }
         }else if (aboveState.is(ModBlocks.PUDDLE.get())) {
             // for thrown jugs, and also like, if you clicked the block below somehow.
@@ -184,7 +190,7 @@ public class ReagentSystem {
                         "spill solution destination puddle")) return;
                 var dstBefore = MS14Provider.snapshot(dstCont);
                 transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
-                MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
+                playPuddleReactionIfCommitted(level, target, dstBefore, dstCont);
             }
         } else if (aboveState.canBeReplaced()
                 && ModBlocks.PUDDLE.get().defaultBlockState().canSurvive(level, abovePos)) {
@@ -199,12 +205,19 @@ public class ReagentSystem {
                         ReagentAttachment dstCont = MS14Provider.getDetached(target, bridge);
                         var dstBefore = MS14Provider.snapshot(dstCont);
                         transfer(level, solution, dstCont, Float.MAX_VALUE, target.getCapacity());
-                        MS14Provider.updateIfChanged(target, bridge, dstBefore, dstCont);
+                        playPuddleReactionIfCommitted(level, target, dstBefore, dstCont);
                     } else if (level.getBlockState(abovePos).is(ModBlocks.PUDDLE.get())) {
                         level.removeBlock(abovePos, false);
                     }
                 }
             }
         }
+    }
+
+    private static void playPuddleReactionIfCommitted(Level level, PuddleBlockEntity target,
+                                                       ReagentComponent before, ReagentAttachment staged) {
+        boolean committed = MS14Provider.updateIfChanged(target, bridge, before, staged);
+        if (committed && level instanceof net.minecraft.server.level.ServerLevel serverLevel)
+            ReactionAudio.playCommitted(serverLevel, target.getBlockPos(), staged);
     }
 }

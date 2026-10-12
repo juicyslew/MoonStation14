@@ -1,0 +1,4 @@
+{
+  "parent": "localbase",
+  "configurator": { "link_default": true, "settings_frequency": false }
+}

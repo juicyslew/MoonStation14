@@ -49,6 +49,14 @@ class WindowChromeButtonsTest {
         assertThrows(NullPointerException.class, () -> WindowChromeButtons.close(0, 0, 100, null));
     }
 
+    @Test void paintedAndRoutedCloseBoundsShareOneHalfOpenRectangle() {
+        var bounds=WindowChromeButtons.closeBounds(17,23,12,13);
+        assertTrue(WindowChromeButtons.contains(bounds,17,23));
+        assertTrue(WindowChromeButtons.contains(bounds,28.99,35.99));
+        assertFalse(WindowChromeButtons.contains(bounds,29,35));
+        assertFalse(WindowChromeButtons.contains(bounds,28,36));
+    }
+
     private static void assertNarration(Button button, String label) {
         StringBuilder title = new StringBuilder();
         StringBuilder hint = new StringBuilder();

@@ -59,6 +59,8 @@ public final class BodyBlockOutlineRenderer {
         var hit = body.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE,
                 ClipContext.Fluid.NONE, body));
         if (hit.getType() != HitResult.Type.BLOCK) return;
+        var selectedItem = BodyHandClient.selectedItemForOutline();
+        if (selectedItem != null && OutlinePriority.showItem(selectedItem.getBoundingBox(), start, end, hit)) return;
         var pos = ((BlockHitResult) hit).getBlockPos();
         var state = body.level().getBlockState(pos);
         var shape = state.getShape(body.level(), pos, CollisionContext.of(body));
@@ -101,8 +103,8 @@ public final class BodyBlockOutlineRenderer {
         if (length < 1.0E-6F) { nx = 0.0F; ny = -dz; nz = dy; length = (float)Math.sqrt(ny * ny + nz * nz); }
         if (length < 1.0E-6F) return;
         nx /= length; ny /= length; nz /= length;
-        lines.addVertex(pose.last(), (float)x0, (float)y0, (float)z0).setColor(0.82F, 0.98F, 1.0F, 0.95F).setNormal(pose.last(), nx, ny, nz);
-        lines.addVertex(pose.last(), (float)x1, (float)y1, (float)z1).setColor(0.82F, 0.98F, 1.0F, 0.95F).setNormal(pose.last(), nx, ny, nz);
+        lines.addVertex(pose.last(), (float)x0, (float)y0, (float)z0).setColor(OutlinePriority.RED, OutlinePriority.GREEN, OutlinePriority.BLUE, OutlinePriority.ALPHA).setNormal(pose.last(), nx, ny, nz);
+        lines.addVertex(pose.last(), (float)x1, (float)y1, (float)z1).setColor(OutlinePriority.RED, OutlinePriority.GREEN, OutlinePriority.BLUE, OutlinePriority.ALPHA).setNormal(pose.last(), nx, ny, nz);
     }
 
 }

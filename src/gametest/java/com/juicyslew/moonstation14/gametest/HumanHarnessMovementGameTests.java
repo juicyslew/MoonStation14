@@ -459,7 +459,7 @@ public final class HumanHarnessMovementGameTests {
                     + ", exactUuidLookup=" + exact + ", chunk=" + entity.chunkPosition()
                     + ", chunkStatus=" + (chunk == null ? "missing" : chunk.getFullStatus()));
         }
-        helper.runAfterDelay(1, () -> waitForEntity(helper, entity, operation, action, waited + 1));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> waitForEntity(helper, entity, operation, action, waited + 1));
     }
 
     private static MovementVector vector(Vec3 value) {

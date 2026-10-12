@@ -14,10 +14,9 @@ public enum ApcVisualState {
                 || energyBefore > PowerDeviceRules.APC_CAPACITY_JOULES
                 || energyAfter > PowerDeviceRules.APC_CAPACITY_JOULES) return UNKNOWN;
         if (energyAfter > PowerDeviceRules.APC_CAPACITY_JOULES * .9) return FULL;
-        if (inputWatts > outputWatts && energyAfter > energyBefore) return CHARGING;
-        // Input is a measured MV allocation, not a claim inferred from a connected cable.
-        if (inputWatts > 0 && outputWatts >= inputWatts && energyAfter < energyBefore) return LACK;
-        return UNKNOWN;
+        // The exported APC screen follows the battery's actual charge transition,
+        // not breaker state or the mere presence of MV input.
+        return energyAfter > energyBefore ? CHARGING : LACK;
     }
 
     /** ContainerData travels as a signed short; only these exact values are meaningful. */

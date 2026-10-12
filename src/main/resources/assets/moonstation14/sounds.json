@@ -39,6 +39,31 @@
     ],
     "subtitle": "sounds.moonstation14.apc.switch"
   },
+  "chemistry/chemmaster/click": {
+    "sounds": [
+      "moonstation14:apc/machine_switch"
+    ]
+  },
+  "chemistry/chemmaster/insert": {
+    "sounds": [
+      "moonstation14:chemistry/chemmaster/revolver_magin"
+    ]
+  },
+  "chemistry/chemmaster/eject": {
+    "sounds": [
+      "moonstation14:chemistry/chemmaster/revolver_magout"
+    ]
+  },
+  "chemistry/chemmaster/dump": {
+    "sounds": [
+      "moonstation14:chemistry/chemmaster/dump"
+    ]
+  },
+  "chemistry/reaction_bubbles": {
+    "sounds": [
+      "moonstation14:chemistry/reaction_bubbles"
+    ]
+  },
   "ss14/items/drink": {
     "sounds": [
       "moonstation14:ss14/items/drink"
@@ -290,6 +315,16 @@
       "moonstation14:airlock/sparks/sparks2",
       "moonstation14:airlock/sparks/sparks3",
       "moonstation14:airlock/sparks/sparks4"
+    ]
+  },
+  "device_lightswitch": {
+    "sounds": [
+      "moonstation14:device_lightswitch"
+    ]
+  },
+  "device/defib_zap": {
+    "sounds": [
+      "moonstation14:device/defib_zap"
     ]
   }
 }
