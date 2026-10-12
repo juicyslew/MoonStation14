@@ -470,20 +470,20 @@ public final class BodyHandClient {
         else if (ctrlV || select && !storage) selectHand();
         if (prime) handUseRequested = request(BodyHandActionRequest.Action.PRIME_GRENADE);
         else handUseRequested = HeldUseRequestDispatch.routePressed(useInHand, controlDown, altDown,
-                () -> true, () -> {
-            if (quickEquipInHand()) return false;
-            var view = POLICY.inventoryView();
-            var active = view == null ? null : (view.first().id().equals(view.activeHand()) ? view.first() : view.second());
-            var kind = active == null ? MedicalUseGesturePolicy.Kind.NONE : medicalKind(active.itemId());
-            var inHand = MedicalUseGesturePolicy.inHand(kind, shiftDown(), true);
-            if (inHand == MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE)
-                return request(BodyHandActionRequest.Action.USE_IN_HAND);
-            else if (inHand == MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE)
-                return request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
-            else if (inHand == MedicalUseGesturePolicy.InHand.SELF_SCAN)
-                return request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
-            return request(BodyHandActionRequest.Action.USE_IN_HAND);
-        });
+                () -> true, () -> HeldUseRequestDispatch.routeActivation(BodyHandClient::quickEquipInHand,
+                        BodyHandClient::toggleActiveHeldStorage, () -> {
+                    var view = POLICY.inventoryView();
+                    var active = view == null ? null : (view.first().id().equals(view.activeHand()) ? view.first() : view.second());
+                    var kind = active == null ? MedicalUseGesturePolicy.Kind.NONE : medicalKind(active.itemId());
+                    var inHand = MedicalUseGesturePolicy.inHand(kind, shiftDown(), true);
+                    if (inHand == MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE)
+                        return request(BodyHandActionRequest.Action.USE_IN_HAND);
+                    else if (inHand == MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE)
+                        return request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
+                    else if (inHand == MedicalUseGesturePolicy.InHand.SELF_SCAN)
+                        return request(BodyHandActionRequest.Action.USE_BODY, cameraBody == null ? null : cameraBody.getUUID());
+                    return request(BodyHandActionRequest.Action.USE_IN_HAND);
+                }));
         var proofHand = POLICY.inventoryView();
         var proofActive = proofHand == null ? null : proofHand.first().id().equals(proofHand.activeHand()) ? proofHand.first() : proofHand.second();
         if (altUseInHand && proofActive != null && medicalKind(proofActive.itemId()) == MedicalUseGesturePolicy.Kind.SYRINGE)
@@ -643,7 +643,8 @@ public final class BodyHandClient {
         return target != null && cameraBody.level().getEntitiesOfClass(ItemEntity.class,
                 cameraBody.getBoundingBox().inflate(6), item -> item.getUUID().equals(target)
                         && (item.getItem().is(com.juicyslew.moonstation14.item.ModItems.BAG)
-                        || item.getItem().is(com.juicyslew.moonstation14.item.ModItems.BELT))).size() == 1;
+                        || item.getItem().is(com.juicyslew.moonstation14.item.ModItems.BELT)
+                        || item.getItem().is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER))).size() == 1;
     }
 
     private static void contextualKey(net.neoforged.neoforge.client.event.InputEvent.Key event) {
@@ -1199,7 +1200,7 @@ public final class BodyHandClient {
         if (use || prime || throwItem || worldUse || alternateUse || pull) {
             if (firstPress) {
                 if (prime) request(BodyHandActionRequest.Action.PRIME_GRENADE);
-                else if (use) { if (!quickEquipInHand()) request(BodyHandActionRequest.Action.USE_IN_HAND); }
+                else if (use) popupUseInHand(key, scan, modifiers);
                 else if (throwItem) request(BodyHandActionRequest.Action.THROW_ITEM);
                 else if (worldUse) ordinaryWorldUse();
                 else if (alternateUse) alternateWorldUse();
@@ -1241,17 +1242,34 @@ public final class BodyHandClient {
     /** Routes the existing Z gesture through the unlocked popup screen exactly once. */
     static boolean popupUseInHand(int key,int scan,int modifiers) {
         if(!USE_IN_HAND.matches(key,scan) || (modifiers & (GLFW.GLFW_MOD_CONTROL|GLFW.GLFW_MOD_SUPER)) != 0) return false;
-        if ((modifiers & GLFW.GLFW_MOD_ALT) == 0 && quickEquipInHand()) return true;
+        if ((modifiers & GLFW.GLFW_MOD_ALT) == 0)
+            return HeldUseRequestDispatch.routeActivation(BodyHandClient::quickEquipInHand,
+                    BodyHandClient::toggleActiveHeldStorage, () -> ordinaryPopupHeldUse(modifiers));
         var view=POLICY.inventoryView(); if(view==null) return true;
         var active=view.first().id().equals(view.activeHand())?view.first():view.second();
         var kind=medicalKind(active.itemId());
-        if((modifiers&GLFW.GLFW_MOD_ALT)!=0) { if(kind==MedicalUseGesturePolicy.Kind.SYRINGE) request(BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT); return true; }
-            var inHand=MedicalUseGesturePolicy.inHand(kind,(modifiers&GLFW.GLFW_MOD_SHIFT)!=0,true);
-            if(inHand==MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE || inHand==MedicalUseGesturePolicy.InHand.SELF_SCAN)
-                request(BodyHandActionRequest.Action.USE_BODY,cameraBody==null?null:cameraBody.getUUID());
-            else if(inHand==MedicalUseGesturePolicy.InHand.CYCLE_SYRINGE_MODE || inHand==MedicalUseGesturePolicy.InHand.TOGGLE_ANALYZER)
-                request(BodyHandActionRequest.Action.USE_IN_HAND);
-            else request(BodyHandActionRequest.Action.USE_IN_HAND);
+        if(kind==MedicalUseGesturePolicy.Kind.SYRINGE) request(BodyHandActionRequest.Action.CYCLE_SYRINGE_AMOUNT);
+        return true;
+    }
+
+    private static boolean ordinaryPopupHeldUse(int modifiers) {
+        var view=POLICY.inventoryView(); if(view==null) return true;
+        var active=view.first().id().equals(view.activeHand())?view.first():view.second();
+        var kind=medicalKind(active.itemId());
+        var inHand=MedicalUseGesturePolicy.inHand(kind,(modifiers&GLFW.GLFW_MOD_SHIFT)!=0,true);
+        if(inHand==MedicalUseGesturePolicy.InHand.SYRINGE_SELF_USE || inHand==MedicalUseGesturePolicy.InHand.SELF_SCAN)
+            request(BodyHandActionRequest.Action.USE_BODY,cameraBody==null?null:cameraBody.getUUID());
+        else request(BodyHandActionRequest.Action.USE_IN_HAND);
+        return true;
+    }
+
+    private static boolean toggleActiveHeldStorage() {
+        var view=POLICY.inventoryView();
+        if(view==null) return false;
+        var active=view.first().id().equals(view.activeHand())?view.first():view.second();
+        if(active.token()==null || active.count()!=1 || active.pullTarget()!=null
+                || POLICY.heldGrid(active.token(),true)==null) return false;
+        toggleHeldPopup(active.token());
         return true;
     }
 

@@ -196,7 +196,7 @@ public final class BodyHandRequestService {
             boolean storing = request.action() == BodyHandActionRequest.Action.HELD_GRID_STORE;
             boolean moving = request.action() == BodyHandActionRequest.Action.HELD_GRID_MOVE;
             if (hostToken == null || !hostToken.equals(request.expectedToken()) || host == null
-                    || !(host.is(ModItems.BAG) || host.is(ModItems.BELT)) || contents == null
+                    || !GridContents.isHost(host) || contents == null
                     || storing && (!request.expectedChildOrSourceToken().equals(otherToken))
                     || !storing && !request.expectedChildOrSourceToken().equals(moving
                         ? contents.entries().stream().filter(e -> e.token().equals(request.expectedChildOrSourceToken())
@@ -593,7 +593,7 @@ public final class BodyHandRequestService {
                 var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), ownedToken,
                         request.expectedRevision(), true);
                 BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-                if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                if (outcome != BodyLiquidInteraction.Result.DENIED && outcome != BodyLiquidInteraction.Result.CANNOT_INGEST) BodyHandStateService.requireFreshQuery(actor);
                 return response;
             }
             if (hands.reservation(request.handId()).isPresent())
@@ -657,7 +657,7 @@ public final class BodyHandRequestService {
                             var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), request.expectedToken(),
                                     request.expectedRevision(), false);
                             BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-                            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                            if (outcome != BodyLiquidInteraction.Result.DENIED && outcome != BodyLiquidInteraction.Result.CANNOT_INGEST) BodyHandStateService.requireFreshQuery(actor);
                             return response;
                         });
                 if (dispatched != null) return dispatched;
@@ -878,7 +878,7 @@ public final class BodyHandRequestService {
     }
 
     private static BodyHandActionResult.Reason liquidReason(BodyLiquidInteraction.Result outcome) {
-        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
+        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED, CANNOT_INGEST -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
     }
     private static BodyHandActionResult.Reason looseThrowReason(BodyLooseThrow.Result outcome) {
         return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };

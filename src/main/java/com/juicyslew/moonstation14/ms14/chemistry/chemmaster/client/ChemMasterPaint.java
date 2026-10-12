@@ -12,11 +12,29 @@ import java.util.List;
 /** Single production ChemMaster content paint path, parameterized for offline backends. */
 public final class ChemMasterPaint {
     public record DisplayRow(ChemMasterWindowState.ReagentRow row, Component name, int color) { }
+    public record OutputPresentation(ChemMasterOutputForm.State draft,ChemMasterOutputLayout.Geometry geometry,
+                                    ChemMasterTextFieldPaint.Snapshot labelField,ChemMasterTextFieldPaint.Snapshot countField,
+                                    ChemMasterTextFieldPaint.Snapshot pillDoseField,ChemMasterTextFieldPaint.Snapshot bottleDoseField,
+                                    int selectedPillType,ChemMasterControlRequest.DrawSource drawSource,List<DisplayRow> bottleRows) {
+        public OutputPresentation(ChemMasterOutputForm.State draft,ChemMasterOutputLayout.Geometry geometry,
+                                  ChemMasterTextFieldPaint.Snapshot labelField,ChemMasterTextFieldPaint.Snapshot countField,
+                                  ChemMasterTextFieldPaint.Snapshot pillDoseField,ChemMasterTextFieldPaint.Snapshot bottleDoseField,
+                                  int selectedPillType,ChemMasterControlRequest.DrawSource drawSource){
+            this(draft,geometry,labelField,countField,pillDoseField,bottleDoseField,selectedPillType,drawSource,List.of());
+        }
+        public OutputPresentation { bottleRows=List.copyOf(bottleRows); }
+    }
     public record View(ChemMasterWindowState state, String caption, List<DisplayRow> inputRows, List<DisplayRow> bufferRows,
                        ChemMasterLayout.Geometry geometry, int x, int y, int viewportWidth, int viewportHeight,
                        int mouseX, int mouseY, int inputScroll, int bufferScroll, boolean pending, boolean outputTab,
-                       Component containerHeading, String rejectionReason) {
+                       Component containerHeading, String rejectionReason,java.util.Optional<OutputPresentation> outputPresentation) {
         public View { inputRows=List.copyOf(inputRows); bufferRows=List.copyOf(bufferRows); }
+        public View(ChemMasterWindowState state,String caption,List<DisplayRow> inputRows,List<DisplayRow> bufferRows,
+                    ChemMasterLayout.Geometry geometry,int x,int y,int viewportWidth,int viewportHeight,int mouseX,int mouseY,
+                    int inputScroll,int bufferScroll,boolean pending,boolean outputTab,Component containerHeading,String rejectionReason){
+            this(state,caption,inputRows,bufferRows,geometry,x,y,viewportWidth,viewportHeight,mouseX,mouseY,inputScroll,bufferScroll,
+                    pending,outputTab,containerHeading,rejectionReason,java.util.Optional.empty());
+        }
     }
     private static final int MARGIN=ChemMasterLayout.MARGIN;
     private ChemMasterPaint() { }
@@ -32,7 +50,17 @@ public final class ChemMasterPaint {
             p.text(Component.literal("ChemMaster 4000"),MARGIN,8,MachineWindowRenderer.TEXT,true);
             WindowChromeButtons.paintClose(p,WindowChromeButtons.closeBounds(geo.close().x(),geo.close().y(),geo.close().width(),geo.close().height()),v.mouseX(),v.mouseY());
             tab(p,"Input",geo.inputTab(),!v.outputTab());tab(p,"Output",geo.outputTab(),v.outputTab());
-            if(v.outputTab()) { MachineWindowRenderer.insetPanel(p,geo.outputPlaceholder().x(),geo.outputPlaceholder().y(),geo.outputPlaceholder().width(),Math.max(24,h-geo.outputPlaceholder().y()-8));p.text(Component.literal("Pill and bottle production is not implemented."),geo.outputPlaceholder().x()+5,geo.outputPlaceholder().y()+7,MachineWindowRenderer.MUTED_TEXT,true);return; }
+            if(v.outputTab()) {
+                var output=v.outputPresentation().orElseThrow(()->new IllegalArgumentException("Output tab requires its production presentation"));
+                var pane=geo.outputPlaceholder();MachineWindowRenderer.insetPanel(p,pane.x(),pane.y(),pane.width(),pane.height());
+                ChemMasterOutputPaint.paint(p,v.state(),output.draft(),output.geometry(),v.mouseX(),v.mouseY(),v.pending(),
+                        output.selectedPillType(),output.drawSource(),output.bottleRows());
+                ChemMasterTextFieldPaint.paint(p,output.geometry().label(),output.labelField(),v.x(),v.y());
+                ChemMasterTextFieldPaint.paint(p,output.geometry().pillCount(),output.countField(),v.x(),v.y());
+                ChemMasterTextFieldPaint.paint(p,output.geometry().pillDose(),output.pillDoseField(),v.x(),v.y());
+                ChemMasterTextFieldPaint.paint(p,output.geometry().bottleDose(),output.bottleDoseField(),v.x(),v.y());
+                return;
+            }
             p.text(Component.literal(fitText(p,v.caption(),geo.caption().width())),geo.caption().x(),geo.caption().y()+2,MachineWindowRenderer.TEXT,true);
             button(p,"Eject",geo.eject(),v.mouseX(),v.mouseY(),false);
             header(p,v.containerHeading().getString(),geo.inputHeading());
@@ -55,6 +83,7 @@ public final class ChemMasterPaint {
     /** Shared fit policy used by production painting and its offline layout assertions. */
     public static String fitText(OrderedPaint p,String s,int width){return width<=0?"":p.width(s)<=width?s:p.plainSubstrByWidth(s,Math.max(0,width-6))+"…";}
     private static void button(OrderedPaint p,String s,ChemMasterLayout.Rect r,int mx,int my,boolean selected){button(p,s,r,mx,my,selected,.65f);}
+    private static void button(OrderedPaint p,String s,ChemMasterOutputLayout.Rect r,int mx,int my,boolean selected){button(p,s,new ChemMasterLayout.Rect(r.x(),r.y(),r.width(),r.height()),mx,my,selected,.65f);}
     private static void button(OrderedPaint p,String s,ChemMasterLayout.Rect r,int mx,int my,boolean selected,float scale){if(r.width()>=3&&r.height()>=3)MachineActionButtonRenderer.render(p,s,r.x(),r.y(),r.width(),r.height(),r.contains(mx,my),true,selected,scale);}
     private static void tab(OrderedPaint p,String s,ChemMasterLayout.Rect r,boolean selected){MachineWindowRenderer.tabLabel(p,s,r.x(),r.y(),r.width(),r.height(),selected);}
     private static void scrollbar(OrderedPaint p,ChemMasterLayout.Rect track,int count,int scroll){if(count*ChemMasterLayout.ROW_HEIGHT<=track.height()||track.height()<=0)return;p.fill(track.x()+2,track.y(),track.x()+track.width()-2,track.y()+track.height(),0xff182329);var thumb=ChemMasterLayout.scrollbarThumb(track,count,ChemMasterLayout.ROW_HEIGHT,scroll);p.fill(thumb.x()+2,thumb.y(),thumb.x()+thumb.width()-2,thumb.y()+thumb.height(),0xff7c969e);}

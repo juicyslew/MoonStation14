@@ -143,6 +143,49 @@ class BodyHandClientPolicyTest {
         assertFalse(BodyInputGesturePolicy.suppressNativeInventory(false, true));
     }
 
+    @Test void heldPillCanisterUsesTheExistingStorageGridObservation() {
+        var policy = new BodyHandClientPolicy();
+        UUID account = UUID.randomUUID(), body = UUID.randomUUID();
+        policy.bind(account, body, 3);
+        long query = policy.query(1);
+        var snapshot = new BodyHandStateSnapshot(0, query, BodyHandStateSnapshot.Reason.OK, account, body, 3, 1,
+                "left", List.of(
+                new BodyHandStateSnapshot.Hand("left", "canister-token", "moonstation14:pill_canister", 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of(),
+                List.of(new BodyHandStateSnapshot.GridHost("canister-token", "pill", 5, 2, List.of())));
+        assertTrue(policy.accept(snapshot));
+        var view = policy.heldGrid("canister-token", false);
+        assertNotNull(view, "canister is observed by the existing held-grid popup path");
+        assertEquals("pill", view.host().kind());
+        assertEquals(5, view.host().width());
+        assertEquals(2, view.host().height());
+        assertNull(policy.heldGrid(null, false), "missing token cannot identify a storage host");
+        assertNull(policy.heldGrid("not-held", false), "stale token cannot identify a storage host");
+        assertNull(policy.heldGrid("pill-token", false), "ordinary pill has no resolved storage-host observation");
+    }
+
+    @Test void heldStorageActivationUsesResolvedGridCompositionForEverySupportedHost() {
+        assertObservedHeldHost("moonstation14:bag", "bag", 7, 4);
+        assertObservedHeldHost("moonstation14:belt", "belt", 8, 2);
+        assertObservedHeldHost("moonstation14:pill_canister", "pill", 5, 2);
+    }
+
+    private static void assertObservedHeldHost(String itemId, String kind, int width, int height) {
+        var policy = new BodyHandClientPolicy();
+        UUID account = UUID.randomUUID(), body = UUID.randomUUID();
+        policy.bind(account, body, 3);
+        long query = policy.query(1);
+        var snapshot = new BodyHandStateSnapshot(0, query, BodyHandStateSnapshot.Reason.OK, account, body, 3, 1,
+                "left", List.of(new BodyHandStateSnapshot.Hand("left", "host-token", itemId, 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of(),
+                List.of(new BodyHandStateSnapshot.GridHost("host-token", kind, width, height, List.of())));
+        assertTrue(policy.accept(snapshot));
+        var grid = policy.heldGrid("host-token", true);
+        assertNotNull(grid, "supported host activation uses resolved grid observation: " + itemId);
+        assertEquals(width, grid.host().width());
+        assertEquals(height, grid.host().height());
+    }
+
     private static BodyHandStateSnapshot snapshot(long requested, long sequence, UUID account, UUID body, long epoch) {
         return new BodyHandStateSnapshot(requested, sequence, BodyHandStateSnapshot.Reason.OK,
                 account, body, epoch, 3, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)));

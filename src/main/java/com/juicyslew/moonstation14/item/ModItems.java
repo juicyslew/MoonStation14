@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.item.custom.SyringeItem;
 import com.juicyslew.moonstation14.item.custom.BeakerItem;
+import com.juicyslew.moonstation14.item.custom.PillItem;
 import com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
@@ -95,8 +96,12 @@ public class ModItems {
     public static final DeferredItem<Item> AIRLOCK_MULTITOOL = ITEMS.register("multitool",
             () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_multitool"))));
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",
-            () -> new BottleItem(new Item.Properties().stacksTo(1))
+            () -> new BottleItem(new Item.Properties().stacksTo(1).component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()))
     );
+    public static final DeferredItem<PillItem> PILL = ITEMS.register("pill", () -> new PillItem(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.PILL_TYPE.get(), new com.juicyslew.moonstation14.ms14.chemistry.output.PillData(0))
+            .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent())));
+    public static final DeferredItem<Item> PILL_CANISTER = ITEMS.register("pill_canister", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<SyringeItem> SYRINGE = ITEMS.register("syringe",
             () -> new SyringeItem(new Item.Properties().stacksTo(1)
                     .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent())));

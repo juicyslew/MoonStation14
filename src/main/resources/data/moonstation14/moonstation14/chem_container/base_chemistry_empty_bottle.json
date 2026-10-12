@@ -1,0 +1,1 @@
+{"id":"moonstation14:base_chemistry_empty_bottle","abstract":true,"parent":"moonstation14:base_item","solution":{"name":"drink","capacity":30,"can_react":true}}

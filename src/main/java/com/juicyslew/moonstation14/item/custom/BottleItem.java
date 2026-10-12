@@ -30,14 +30,23 @@ import static com.juicyslew.moonstation14.util.Constants.SIP_INTERVAL_TICKS;
 import static com.juicyslew.moonstation14.util.Constants.UNITS_PER_SIP;
 
 public class BottleItem extends Item implements IReagentTrait {
-    private final float capacity;
-
     public BottleItem(Properties properties) {
         super(properties);
-        this.capacity = 30f;
     }
 
-    @Override public float getCapacity() { return capacity; }
+    @Override public float getCapacity() {
+        var data = com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.resolveServer(
+                com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.id("bottle"));
+        return capacityFromResolved(data);
+    }
+    @Override public float getCapacity(ItemStack stack, Level level) {
+        var data = com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.resolve(level,
+                com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.id("bottle"));
+        return capacityFromResolved(data);
+    }
+    public static float capacityFromResolved(com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData data) {
+        return data == null ? 0f : data.solution().map(solution -> (float) solution.capacity()).orElse(0f);
+    }
 
     // Legacy bottle composition predates resolved liquid policies; preserve its established
     // live-hand transfer capability without enabling arbitrary IReagentTrait implementations.

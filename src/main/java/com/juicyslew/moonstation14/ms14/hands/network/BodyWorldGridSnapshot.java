@@ -71,10 +71,12 @@ public record BodyWorldGridSnapshot(long requestedEpoch, long sequence, Reason r
         if(requestedEpoch<=0||sequence<=0||reason==null||entries==null) throw new IllegalArgumentException("Invalid snapshot"); entries=List.copyOf(entries);
         if(reason==Reason.OK) {
             if(accountId==null||bodyId==null||entityId==null||session==null||hostRevision<0||epoch<=0||handRevision<0||entries.size()>32
-                    || !("bag".equals(kind)&&width==7&&height==4 || "belt".equals(kind)&&width==8&&height==2)) throw new IllegalArgumentException("Invalid grid host");
+                    || !("bag".equals(kind)&&width==7&&height==4 || "belt".equals(kind)&&width==8&&height==2
+                    || "pill".equals(kind)&&width==5&&height==2)) throw new IllegalArgumentException("Invalid grid host");
              var tokens=new HashSet<String>();
              for(Entry e:entries) { if(!tokens.add(e.token)) throw new IllegalArgumentException("Duplicate token");
-                 var id=ResourceLocation.tryParse(e.itemId); if(id==null||!BuiltInRegistries.ITEM.containsKey(id)) throw new IllegalArgumentException("Unknown item");
+                  var id=ResourceLocation.tryParse(e.itemId); if(id==null||!BuiltInRegistries.ITEM.containsKey(id)) throw new IllegalArgumentException("Unknown item");
+                  if("pill".equals(kind)&&!e.itemId.equals(com.juicyslew.moonstation14.item.ModItems.PILL.getId().toString())) throw new IllegalArgumentException("Non-pill canister entry");
                  if(e.x >= width || e.y >= height) throw new IllegalArgumentException("Out-of-bounds grid anchor"); }
         } else if(accountId!=null||bodyId!=null||epoch!=0||handRevision!=0||entityId!=null||kind!=null||width!=0||height!=0||!entries.isEmpty()||session!=null||hostRevision!=0) throw new IllegalArgumentException("Invalid rejection");
     }

@@ -15,6 +15,11 @@ public class ModSpecialProperties {
     public static void addCustomItemProperties(FMLClientSetupEvent event) {
         // Now you can pass any item that implements IReagentItem
         registerFillProperty(ModItems.BOTTLE.get());
+        ItemProperties.register(ModItems.PILL.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "pill_type"),
+                (stack, level, entity, seed) -> {
+                    var data = stack.get(ModDataComponents.PILL_TYPE.get());
+                    return data == null ? 0f : data.type();
+                });
         registerFillProperty(ModItems.SYRINGE.get());
         ItemProperties.register(ModItems.SYRINGE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "syringe_mode"),
                 (stack, level, entity, seed) -> {

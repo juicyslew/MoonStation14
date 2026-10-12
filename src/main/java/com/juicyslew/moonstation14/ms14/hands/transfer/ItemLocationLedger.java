@@ -35,6 +35,43 @@ public final class ItemLocationLedger {
         return Result.success(snapshot);
     }
 
+    /** Atomically claims a small set of newly-created storage children at one ledger revision. */
+    public synchronized Result registerBatch(long expectedRevision, Map<ItemToken, ItemLocation> additions) {
+        Objects.requireNonNull(additions, "additions");
+        if (expectedRevision != snapshot.revision()) return Result.rejected(snapshot, Rejection.STALE_REVISION);
+        if (additions.isEmpty()) return Result.success(snapshot);
+        if (snapshot.revision() == Long.MAX_VALUE) return Result.rejected(snapshot, Rejection.REVISION_OVERFLOW);
+        if (snapshot.size() + additions.size() > ItemLocationSnapshot.MAX_ITEMS)
+            return Result.rejected(snapshot, Rejection.ITEM_LIMIT);
+        LinkedHashMap<ItemToken, ItemLocation> next = new LinkedHashMap<>(snapshot.locations());
+        for (var entry : additions.entrySet()) {
+            ItemToken token = Objects.requireNonNull(entry.getKey());
+            ItemLocation location = Objects.requireNonNull(entry.getValue());
+            if (next.containsKey(token)) return Result.rejected(snapshot, Rejection.DUPLICATE_ITEM);
+            if (isOccupied(location, null, next)) return Result.rejected(snapshot, Rejection.DESTINATION_OCCUPIED);
+            if (location instanceof ItemLocation.StorageCell cell && !validStorageEntry(token, cell, next))
+                return Result.rejected(snapshot, Rejection.NESTED_STORAGE);
+            next.put(token, location);
+        }
+        snapshot = new ItemLocationSnapshot(snapshot.revision() + 1, next);
+        return Result.success(snapshot);
+    }
+
+    /** Compensates a just-committed batch only while every new claim is still exact. */
+    public synchronized Result unregisterBatch(long expectedRevision, Map<ItemToken, ItemLocation> removals) {
+        Objects.requireNonNull(removals, "removals");
+        if (expectedRevision != snapshot.revision()) return Result.rejected(snapshot, Rejection.STALE_REVISION);
+        if (removals.isEmpty()) return Result.success(snapshot);
+        if (snapshot.revision() == Long.MAX_VALUE) return Result.rejected(snapshot, Rejection.REVISION_OVERFLOW);
+        for (var entry : removals.entrySet())
+            if (!Objects.equals(snapshot.locations().get(entry.getKey()), entry.getValue()))
+                return Result.rejected(snapshot, Rejection.SOURCE_MISMATCH);
+        LinkedHashMap<ItemToken, ItemLocation> next = new LinkedHashMap<>(snapshot.locations());
+        removals.keySet().forEach(next::remove);
+        snapshot = new ItemLocationSnapshot(snapshot.revision() + 1, next);
+        return Result.success(snapshot);
+    }
+
     /** Compare-and-move: both revision and exact source must match; failures preserve state. */
     public synchronized Result compareAndMove(long expectedRevision, ItemToken token,
             ItemLocation expectedSource, ItemLocation destination) {

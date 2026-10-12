@@ -83,6 +83,7 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE);
@@ -247,7 +248,8 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE.typeId(),

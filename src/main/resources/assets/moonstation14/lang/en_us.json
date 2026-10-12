@@ -6,6 +6,10 @@
   "item.moonstation14.beaker": "Beaker",
   "item.moonstation14.beaker_large": "Large Beaker",
   "item.moonstation14.chem_master": "ChemMaster 4000",
+  "ingestion-you-cannot-ingest-any-more": "You can't %s any more!",
+  "ingestion-verb-swallow": "swallow",
+  "item.moonstation14.pill": "Pill",
+  "item.moonstation14.pill_canister": "Pill Canister",
   "message.moonstation14.observer_return_available": "You can return to your body with R.",
   "item.moonstation14.steel": "Steel",
   "item.moonstation14.metal_rod": "Metal Rod",
@@ -1039,5 +1043,6 @@
   "device-port.off.description": "Report or command the Off state",
   "device-port.off-receiver.description": "Set the receiver Off",
   "device-port.status.name": "Status",
-  "device-port.status.description": "Report the maintained status"
+  "device-port.status.description": "Report the maintained status",
+  "item.moonstation14.chemistry.output_label": "%1$s (%2$s)"
 }
