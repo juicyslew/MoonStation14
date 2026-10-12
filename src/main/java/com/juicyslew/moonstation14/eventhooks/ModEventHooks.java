@@ -28,7 +28,7 @@ public class ModEventHooks {
     public static void register(IEventBus eventBus){
         com.juicyslew.moonstation14.ms14.slip.ReactiveTouchSystem.registerOnce();
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingDamagePost);
-        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingIncomingDamage);
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, DamageHooks::onLivingIncomingDamage);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, DamageHooks::onLivingHeal);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onAppliedTypedDamage);
         NeoForge.EVENT_BUS.addListener(TickHooks::onLivingEntityTick);

@@ -99,6 +99,8 @@ public class MoonStation14 {
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking::registerPayloadHandlers);
+        com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking.installDefaultServerHandler();
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.damage.DamageFeedbackNetworking::registerPayloadHandlers);
         modEventBus.addListener(LocalSpeechNetworking::registerPayloadHandlers);
         modEventBus.addListener(GrenadeSoundNetworking::registerPayloadHandlers);
@@ -148,6 +150,7 @@ public class MoonStation14 {
             event.accept(ModItems.SCREWDRIVER);
             event.accept(ModItems.WELDER);
             event.accept(ModItems.WAFFLE);
+            event.accept(ModItems.CHEESE_SLICE);
             event.accept(ModItems.BOTTLE);
             event.accept(ModItems.ATMOSPHERE_ANALYZER);
         }

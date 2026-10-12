@@ -97,6 +97,26 @@ public final class HeldTimedIngestionGameTests {
         h.runAfterDelay(2, () -> { require(source(lost) == 1000 && cancelled(lost), "authority loss cancels without dose"); h.succeed(); });
     }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    public static void humanAtResolvedHydrationCapCannotStartHeldDrink(GameTestHelper h) {
+        Fixture f = fixture(h, 10);
+        var level = (net.minecraft.server.level.ServerLevel) f.body.level();
+        com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.initializeIfEligible(f.body, level);
+        var thirstBridge = com.juicyslew.moonstation14.ms14.MS14Bridges.THIRST;
+        var priorThirst = com.juicyslew.moonstation14.ms14.MS14Provider.get(f.body, thirstBridge).thirst();
+        com.juicyslew.moonstation14.ms14.MS14Provider.updateIfChanged(f.body, thirstBridge,
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(priorThirst),
+                new com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment(
+                        new com.juicyslew.moonstation14.ms14.thirst.ThirstComponent(600f)));
+        require(com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(f.body),
+                "Human uses resolved 600-unit hydration cap");
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 70, () -> true).name().equals("DENIED"),
+                "resolved DRINK held source is rejected at maximum hydration");
+        require(source(f) == 1000 && state(f) == null,
+                "denied held drink leaves source untouched and creates no operation");
+        h.succeed();
+    }
+
     private static Fixture fixture(GameTestHelper h, float units) {
         var level = h.getLevel(); BlockPos p = h.absolutePos(new BlockPos(2, 1, 2));
         Villager body = EntityType.VILLAGER.create(level); require(body != null, "body created"); body.setNoAi(true); body.setNoGravity(true); body.setPos(p.getX()+.5,p.getY(),p.getZ()+.5);

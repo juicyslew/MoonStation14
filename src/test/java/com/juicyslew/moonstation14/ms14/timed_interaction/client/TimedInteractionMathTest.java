@@ -47,6 +47,22 @@ class TimedInteractionMathTest {
     }
 
     @Test
+    void localHudLayoutIsViewportAnchoredAndStacks() {
+        assertEquals(48,TimedInteractionMath.WIDTH*TimedInteractionMath.LOCAL_HUD_SCALE);
+        assertEquals(14,TimedInteractionMath.HEIGHT*TimedInteractionMath.LOCAL_HUD_SCALE);
+        assertEquals(376,TimedInteractionMath.layoutLocalHud(800,600,0)[0]);
+        assertEquals(510,TimedInteractionMath.layoutLocalHud(800,600,0)[1]);
+        assertEquals(528,TimedInteractionMath.layoutLocalHud(800,600,1)[1]);
+        assertEquals(0,TimedInteractionMath.layoutLocalHud(10,10,0)[0]);
+        for (int[] viewport : new int[][]{{1920,1080},{854,480},{320,180},{128,96}}) {
+            int[] pos=TimedInteractionMath.layoutLocalHud(viewport[0],viewport[1],0);
+            assertTrue(pos[0]>=0 && pos[0]+TimedInteractionMath.WIDTH*TimedInteractionMath.LOCAL_HUD_SCALE<=viewport[0]);
+            assertTrue(pos[1]>=0 && pos[1]+TimedInteractionMath.HEIGHT*TimedInteractionMath.LOCAL_HUD_SCALE<=viewport[1]);
+        }
+        assertEquals(306,TimedInteractionMath.layoutLocalHud(1920,360,0)[1]);
+    }
+
+    @Test
     void cancelledFillFlashesStartingVisible() {
         assertEquals(1f, TimedInteractionMath.cancellationFillAlpha(10, 9));
         assertEquals(1f, TimedInteractionMath.cancellationFillAlpha(10, 10));
@@ -85,6 +101,17 @@ class TimedInteractionMathTest {
     }
 
     @Test
+    void firstPersonPresentationUsesViewAnchorRatherThanLowActorsGroundHeight() {
+        var lowMouseEye=new net.minecraft.world.phys.Vec3(0,.379,0);
+        var anchor=TimedInteractionMath.firstPersonAnchor(lowMouseEye,new net.minecraft.world.phys.Vec3(0,0,-1),
+                new net.minecraft.world.phys.Vec3(0,1,0),0,1.0/Math.tan(Math.toRadians(35)));
+        assertTrue(anchor.y>0);
+        assertEquals(lowMouseEye.y+TimedInteractionMath.firstPersonVerticalOffset(1.0/Math.tan(Math.toRadians(35))),anchor.y,1e-9);
+        var remoteActorAnchor=lowMouseEye.add(0,.379+TimedInteractionMath.ACTOR_BAR_CLEARANCE,0);
+        assertEquals(1.058,remoteActorAnchor.y,1e-9);
+    }
+
+    @Test
     void progressAssetAndFillRectangleFitExpectedBounds() throws IOException {
         Path asset = projectRoot().resolve("src/main/resources/assets/moonstation14/textures/gui/timed_interaction_progress.png");
         var image=ImageIO.read(asset.toFile());
@@ -97,6 +124,15 @@ class TimedInteractionMathTest {
         assertEquals(3, TimedInteractionMath.FILL_TOP - (-3));
         assertEquals(24, 12-(-12));
         assertEquals(7, 4-(-3));
+    }
+
+    @Test
+    void localFrameBlitSeparatesScaledDestinationFromAuthoredSourceCrop() throws IOException {
+        Path renderer=projectRoot().resolve("src/main/java/com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java");
+        String source=java.nio.file.Files.readString(renderer);
+        assertTrue(source.contains("gui.blit(FRAME,x,y,TimedInteractionMath.WIDTH*scale,TimedInteractionMath.HEIGHT*scale,\n"
+                + "                0f,0f,TimedInteractionMath.WIDTH,TimedInteractionMath.HEIGHT,\n"
+                + "                TimedInteractionMath.WIDTH,TimedInteractionMath.HEIGHT);"));
     }
 
     private static Path projectRoot() {

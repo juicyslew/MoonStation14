@@ -1,4 +1,7 @@
 {
+  "mouse_squeak": {
+    "sounds": ["moonstation14:mouse_squeak"]
+  },
   "crowbar_use": {
     "sounds": [
       "moonstation14:crowbar_use"
@@ -39,6 +42,13 @@
   "ss14/items/drink": {
     "sounds": [
       "moonstation14:ss14/items/drink"
+    ]
+  },
+  "ss14/items/eat": {
+    "sounds": [
+      { "name": "moonstation14:ss14/items/eating_1", "weight": 1 },
+      { "name": "moonstation14:ss14/items/eating_2", "weight": 1 },
+      { "name": "moonstation14:ss14/items/eating_3", "weight": 1 }
     ]
   },
   "body_fall": {

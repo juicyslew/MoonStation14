@@ -1119,7 +1119,14 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     @Override public boolean keyPressed(int key, int scan, int modifiers) {
         boolean overlayFront = com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront();
         if (overlayFront && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.key(key, scan, modifiers)) return true;
-        if (!BodyHandClient.hasCommittedBody()) { clearMovement(); return true; }
+        if (!BodyHandClient.hasCommittedBody()) {
+            if (com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedGhostContext() != null) {
+                if (key == GLFW.GLFW_KEY_ESCAPE) { BodyHandClient.dismissPopupPointerMode(); return true; }
+                // Cursor mode must not suppress the authenticated ghost movement/flight keys.
+                return false;
+            }
+            clearMovement(); return true;
+        }
         boolean firstPress = actionKeys.add(scan != 0 ? -scan : key);
         if (key == GLFW.GLFW_KEY_Z && (modifiers & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SUPER)) == 0) {
             if (!firstPress) return true;

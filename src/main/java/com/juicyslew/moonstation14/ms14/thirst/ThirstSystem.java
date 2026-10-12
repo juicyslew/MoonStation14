@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.ms14.alert.AlertSystem;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
+import com.juicyslew.moonstation14.ms14.movement.NutritionMovementFactor;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -34,6 +35,23 @@ public final class ThirstSystem {
         return ActiveCharacterPolicy.resolveActor(entity)
                 .flatMap(character -> character.component(ThirstPrototypeComponent.class)).isPresent();
     }
+    private static ThirstPrototypeComponent policy(LivingEntity entity) {
+        return ActiveCharacterPolicy.resolveActor(entity)
+                .flatMap(character -> character.component(ThirstPrototypeComponent.class))
+                .orElse(ThirstPrototypeComponent.DEFAULT);
+    }
+
+    public static boolean isParched(LivingEntity entity) {
+        if (!isEligible(entity) || !entity.hasData(ModDataAttachments.THIRST.get())) return false;
+        return ThirstReducer.classify(MS14Provider.get(entity, MS14Bridges.THIRST).thirst(), policy(entity)).ordinal()
+                >= ThirstReducer.Level.PARCHED.ordinal();
+    }
+
+    /** True only for enrolled, initialized bodies whose resolved hydration cap is reached. */
+    public static boolean isOverHydrated(LivingEntity entity) {
+        if (!isEligible(entity) || !entity.hasData(ModDataAttachments.THIRST.get())) return false;
+        return MS14Provider.get(entity, MS14Bridges.THIRST).thirst() >= policy(entity).overHydrated();
+    }
 
     public static boolean needsTicking(ThirstAttachment thirst) {
         return thirst.thirst() > ThirstComponent.MIN_THIRST;
@@ -48,9 +66,10 @@ public final class ThirstSystem {
             reconcile(entity, level);
             return false;
         }
-        int randomValue = ThirstReducer.initialValue(level.getRandom().nextInt(
-                ThirstReducer.INITIAL_MIN_INCLUSIVE, ThirstReducer.INITIAL_MAX_EXCLUSIVE));
-        ThirstAttachment initial = new ThirstAttachment(new ThirstComponent(randomValue));
+        ThirstPrototypeComponent policy = policy(entity);
+        float initialValue = policy.startingThirst() >= 0f ? policy.startingThirst()
+                : level.getRandom().nextInt((int) policy.thirsty() + 10, (int) policy.okay() - 1);
+        ThirstAttachment initial = new ThirstAttachment(new ThirstComponent(initialValue));
         boolean changed = MS14Provider.updateIfChanged(entity, MS14Bridges.THIRST,
                 new ThirstComponent(ThirstComponent.MIN_THIRST), initial);
         reconcile(entity, level);
@@ -62,7 +81,7 @@ public final class ThirstSystem {
         if (!isEligible(entity) || !entity.hasData(ModDataAttachments.THIRST.get())) return false;
         ThirstAttachment thirst = MS14Provider.getDetached(entity, MS14Bridges.THIRST);
         ThirstComponent before = MS14Provider.snapshot(thirst);
-        ThirstReducer.Result result = ThirstReducer.decayOneSecond(thirst.thirst());
+        ThirstReducer.Result result = ThirstReducer.decayOneSecond(thirst.thirst(), policy(entity));
         if (result.changed()) thirst.setThirst(result.after());
         boolean changed = MS14Provider.updateIfChanged(entity, MS14Bridges.THIRST, before, thirst);
         // The caller is the scheduled server tick path; entity.level is server-owned here.
@@ -80,7 +99,7 @@ public final class ThirstSystem {
         if (!isEligible(entity) || !entity.hasData(ModDataAttachments.THIRST.get())) return Outcome.SKIPPED_UNSUPPORTED;
         ThirstAttachment thirst = MS14Provider.getDetached(entity, MS14Bridges.THIRST);
         ThirstComponent before = MS14Provider.snapshot(thirst);
-        ThirstReducer.Result result = ThirstReducer.satiate(thirst.thirst(), factor, scale);
+        ThirstReducer.Result result = ThirstReducer.satiate(thirst.thirst(), factor, scale, policy(entity));
         if (!result.valid()) return Outcome.FAILED;
         if (result.changed()) thirst.setThirst(result.after());
         MS14Provider.updateIfChanged(entity, MS14Bridges.THIRST, before, thirst);
@@ -99,7 +118,7 @@ public final class ThirstSystem {
             }
         }
         float value = MS14Provider.get(entity, MS14Bridges.THIRST).thirst();
-        ThirstReducer.Level status = ThirstReducer.classify(value);
+        ThirstReducer.Level status = ThirstReducer.classify(value, policy(entity));
         boolean parched = status == ThirstReducer.Level.PARCHED || status == ThirstReducer.Level.DEAD;
         boolean thirsty = status == ThirstReducer.Level.THIRSTY;
         try {
@@ -134,7 +153,7 @@ public final class ThirstSystem {
             if (current != null) attribute.removeModifier(id);
             return;
         }
-        double amount = -0.25d;
+        double amount = NutritionMovementFactor.ATTRIBUTE_MODIFIER_AMOUNT;
         if (current != null && Double.compare(current.amount(), amount) == 0
                 && current.operation() == AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL) return;
         if (current != null) attribute.removeModifier(id);

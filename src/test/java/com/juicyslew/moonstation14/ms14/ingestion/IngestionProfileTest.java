@@ -18,6 +18,7 @@ class IngestionProfileTest {
     @Test void codecRequiresComposedEdibleAndAppliesEdibleDefaults() {
         var defaults = IngestionProfile.Edible.CODEC.parse(JsonOps.INSTANCE, new JsonObject()).getOrThrow();
         assertEquals(new IngestionProfile.Edible(500, 20, true), defaults);
+        assertEquals(IngestionProfile.Kind.DRINK, defaults.kind());
         assertTrue(IngestionProfile.CODEC.parse(JsonOps.INSTANCE, new JsonObject()).error().isPresent());
         JsonObject invalid = new JsonObject();
         JsonObject edible = new JsonObject(); edible.addProperty("dose_cents", 0); invalid.add("edible", edible);
@@ -27,7 +28,7 @@ class IngestionProfileTest {
     @Test void bundledInheritanceResolvesDistinctDrinkAndBottleParents() {
         PrototypeManager manager = new PrototypeManager(); manager.register(ModIngestionProfiles.TYPE);
         Map<ResourceLocation, JsonObject> resources = new LinkedHashMap<>();
-        for (String name : new String[]{"edible_defaults", "drink_base", "jug", "bottle", "puddle"})
+        for (String name : new String[]{"edible_defaults", "drink_base", "jug", "bottle", "puddle", "food_base", "food_baking_base", "cheese_slice", "pumpkin_pie_slice"})
             resources.put(id(name), resource(name));
         manager.reload(ModIngestionProfiles.TYPE, resources);
         var catalog = manager.snapshot(ModIngestionProfiles.TYPE);
@@ -37,6 +38,21 @@ class IngestionProfileTest {
         assertEquals(id("edible_defaults").toString(), resources.get(id("bottle")).get("parent").getAsString());
         assertEquals(new IngestionProfile.Edible(100, 60, true), catalog.get(id("puddle")).edible());
         assertEquals(500, catalog.get(id("jug")).doseCents());
+        var cheese = catalog.get(id("cheese_slice"));
+        assertEquals(IngestionProfile.Kind.FOOD, cheese.edible().kind());
+        assertEquals(IngestionProfile.Kind.DRINK, catalog.get(id("puddle")).edible().kind());
+        assertEquals(new IngestionProfile.Edible.SourceSolution(600, Map.of(id("nutriment"), 375L)), cheese.edible().sourceSolution());
+        assertEquals(500, cheese.doseCents());
+        assertEquals(20, cheese.delayTicks());
+        assertTrue(cheese.edible().destroyOnEmpty(), "edible_defaults survives child composition");
+        var pie = catalog.get(id("pumpkin_pie_slice"));
+        assertEquals(IngestionProfile.Kind.FOOD, pie.edible().kind());
+        assertEquals(500, pie.doseCents());
+        assertEquals(20, pie.delayTicks());
+        assertTrue(pie.edible().destroyOnEmpty());
+        assertEquals(new IngestionProfile.Edible.SourceSolution(1225,
+                Map.of(id("nutriment"), 750L, id("vitamin"), 350L, id("sugar"), 125L)),
+                pie.edible().sourceSolution());
     }
 
     @Test void lookupsFailClosedAndReadinessRequiresBundledEntries() {

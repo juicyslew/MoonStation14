@@ -25,6 +25,12 @@ public final class GhostMobHarnessEntity extends Mob {
         return Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 1.0);
     }
 
+    /** Ghost lifetime belongs to its owning lifecycle session, not vanilla mob distance despawning. */
+    @Override
+    public boolean requiresCustomPersistence() {
+        return true;
+    }
+
     /** Observer bodies do not take ordinary or environmental damage. Session owners
      * still end them explicitly by discarding the transient entity. */
     @Override

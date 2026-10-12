@@ -83,6 +83,7 @@ public final class BodyHandClient {
     private static Mob cameraBody;
     private static boolean wasContained;
     private static long cameraEpoch;
+    private static long bodyOralSequence;
     private static long clock;
     private static long pullActionSequence;
     private static boolean pullProjectionRefreshPending;
@@ -93,6 +94,7 @@ public final class BodyHandClient {
     private static final java.util.Set<UUID> pendingWorldObservations = new java.util.HashSet<>();
     private static final java.util.Map<UUID, Long> worldObservationRetryAt = new java.util.HashMap<>();
     private static final PointerModePolicy POINTER = new PointerModePolicy();
+    private static com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context pointerGhostOwner;
     private record PlacementProof(UUID body, long epoch, long handsRevision, String hand, String token, String itemId, int heldCount, int requiredCount,
                                   long planRevision, String prototype, int rotation) { }
     private record ConstructionUsePlan(UUID body, long epoch, long revision, String prototype, int rotation, int required) { }
@@ -181,6 +183,7 @@ public final class BodyHandClient {
         pendingWorldObservations.clear();
         worldObservationRetryAt.clear();
         POINTER.authorityClear();
+        pointerGhostOwner = null;
         ALT_TAP.clear();
         connection = level = player = null;
         cameraBody = null;
@@ -248,6 +251,7 @@ public final class BodyHandClient {
         if (cameraBody != body || cameraEpoch != epoch) {
             com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
+            POINTER.authorityClear();
         }
         if (deferredPlacement.pending()) {
             var queued = deferredPlacement.intent();
@@ -256,7 +260,20 @@ public final class BodyHandClient {
                     || plan.revision() != queued.planRevision() || !queued.recipe().equals(plan.prototype())
                     || queued.rotation() != plan.rotation()) deferredPlacement.clear();
         }
-        if (cameraBody != body || cameraEpoch != epoch || body == null || epoch == 0) {
+        if (body == null || epoch == 0) {
+            clearCharacterCaches(mc);
+            var ghostContext = GhostControlClient.committedGhostContext();
+            if (!PointerModePolicy.preserveForGhostContext(ghostContext, pointerGhostOwner)) {
+                pointerGhostOwner = null;
+                POINTER.authorityClear();
+                POPUPS.clear();
+                if (mc.screen instanceof StoragePopupScreen) mc.setScreen(null);
+            }
+            cameraBody = null;
+            cameraEpoch = 0;
+            return;
+        }
+        if (cameraBody != body || cameraEpoch != epoch) {
             com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
             pendingWorldObservations.clear();
             worldObservationRetryAt.clear();
@@ -268,10 +285,8 @@ public final class BodyHandClient {
             if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
             POPUPS.clear();
             com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
-            POINTER.authorityClear();
             cameraBody = body;
             cameraEpoch = epoch;
-            if (body == null || epoch == 0) return;
         }
         POLICY.bind(mc.player.getUUID(), body.getUUID(), epoch);
         WORLD.bind(mc.player.getUUID(), body.getUUID(), epoch);
@@ -287,11 +302,18 @@ public final class BodyHandClient {
         com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().tick(clock);
         com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.tick();
         var mc = net.minecraft.client.Minecraft.getInstance();
-        if (PointerModePolicy.shouldRestoreHost(POPUPS.pointerMode(), mc.screen == null, currentBody() != null))
+        if (PointerModePolicy.shouldRestoreHost(POPUPS.pointerMode(), mc.screen == null, pointerOwnerAuthorized()))
             mc.setScreen(new StoragePopupScreen(POPUPS));
         var activeWire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
         if (activeWire != null) activeWire.tick();
         if (cameraBody == null) {
+            var ghostContext = GhostControlClient.committedGhostContext();
+            if (ghostContext != null && pointerGhostOwner != null && !ghostContext.equals(pointerGhostOwner)) {
+                pointerGhostOwner = null; POINTER.authorityClear(); POPUPS.clear();
+                if (mc.screen instanceof StoragePopupScreen) mc.setScreen(null);
+            }
+            if (ghostContext != null && POPUPS.pointerMode() && mc.screen == null && pointerOwnerAuthorized())
+                mc.setScreen(new StoragePopupScreen(POPUPS));
             pullProjectionRefreshPending = false;
             altWorldStoragePressed = false;
             altSyringeDosePressed = false;
@@ -632,6 +654,10 @@ public final class BodyHandClient {
                     boolean open = POPUPS.pointerMode();
                     if (open) dismissPointerMode();
                     else { POINTER.manualOpen(); pointerMode(true); }
+                } else if (GhostControlClient.committedGhostContext() != null) {
+                    var context = GhostControlClient.committedGhostContext();
+                    if (context.equals(pointerGhostOwner) && POPUPS.pointerMode()) dismissPointerMode();
+                    else { pointerGhostOwner = context; POINTER.manualOpen(); pointerMode(true); }
                 }
             }
             return;
@@ -680,11 +706,34 @@ public final class BodyHandClient {
     private static boolean alternateWorldUse() {
         reconcile();
         var view = POLICY.inventoryView();
-        if (cameraBody == null || view == null) return false;
+        if (cameraBody == null) return false;
+        if (view == null) {
+            var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(cameraBody).orElse(null);
+            if (!com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.mayUseHandlessAlternate(
+                    cameraBody == currentBody() && cameraEpoch > 0 && cameraEpoch == GhostControlClient.committedCharacterEpoch(),
+                    character != null && character.component(com.juicyslew.moonstation14.ms14.character.components.MouthComponent.class).isPresent(),
+                    character != null && character.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class)
+                            .map(h -> !h.hands().isEmpty()).orElse(false), false)
+                    || cameraEpoch <= 0 || cameraEpoch != GhostControlClient.committedCharacterEpoch()) return false;
+            UUID aimed = lookTarget(cameraBody);
+            var puddle = aimedPuddle(cameraBody);
+            var source = com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.alternateTarget(
+                    aimedIngestibleItem(aimed), puddle != null);
+            if (source == com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.AlternateTarget.ITEM)
+                return requestBodyOral(aimed, null);
+            if (source == com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.AlternateTarget.PUDDLE)
+                return requestBodyOral(null, puddle);
+            return aimedLooseLiquid(aimed) && requestBodyOral(aimed, null);
+        }
         var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
         UUID aimed = lookTarget(cameraBody);
         var puddle = aimedPuddle(cameraBody);
-        if (active.token() == null && puddle != null) return requestPuddleSip(puddle);
+        var source = com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.alternateTarget(
+                aimedIngestibleItem(aimed), puddle != null);
+        if (active.token() == null && source == com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.AlternateTarget.ITEM)
+            return requestBodyOral(aimed, null);
+        if (active.token() == null && source == com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.AlternateTarget.PUDDLE)
+            return requestPuddleSip(puddle);
         if ((active.token() != null && liquidItem(active.itemId())) || aimedLooseLiquid(aimed))
             return request(BodyHandActionRequest.Action.ALTERNATE_TARGET);
         return false;
@@ -948,6 +997,28 @@ public final class BodyHandClient {
         return cameraBody == null ? null : POLICY.inventoryView();
     }
 
+    /** Clears character-only authority/state without deciding shared pointer ownership. */
+    private static void clearCharacterCaches(net.minecraft.client.Minecraft mc) {
+        com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.authorityLost();
+        pendingWorldObservations.clear();
+        worldObservationRetryAt.clear();
+        closeWorldWindows();
+        WORLD.clear();
+        worldCrossPendingTarget = null;
+        POLICY.suspend();
+        com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.clearPredictions();
+        if (mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
+        com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+        placementProof = null;
+        deferredPlacement.clear();
+        pullProjectionRefreshPending = false;
+        worldResultHandRefreshPending = false;
+        altWorldStoragePressed = false;
+        altSyringeDosePressed = false;
+        worldCrossPendingTarget = null;
+        PILE.clear(); pileItems = java.util.List.of(); pileFrame = -1; pileEpoch = 0;
+    }
+
     /** Settled authenticated owner proof; deliberately exposes no mutable inventory authority. */
     public record OwnerProof(Mob body, long epoch, long revision) { }
     public static OwnerProof ownerProof() {
@@ -1140,9 +1211,21 @@ public final class BodyHandClient {
         return currentBody() != null && GhostControlClient.committedCharacterEpoch() > 0;
     }
 
+    private static boolean pointerOwnerAuthorized() {
+        if (currentBody() != null) return true;
+        var current = GhostControlClient.committedGhostContext();
+        if (current != null && current.equals(pointerGhostOwner)) return true;
+        if (pointerGhostOwner != null) {
+            pointerGhostOwner = null; POINTER.authorityClear(); POPUPS.clear();
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.screen instanceof StoragePopupScreen) mc.setScreen(null);
+        }
+        return false;
+    }
+
     static void pointerMode(boolean enabled) {
         var mc = net.minecraft.client.Minecraft.getInstance();
-        if (enabled && mc.screen == null && cameraBody != null) {
+        if (enabled && mc.screen == null && (cameraBody != null || pointerOwnerAuthorized())) {
             POPUPS.pointerMode(true);
             mc.setScreen(new StoragePopupScreen(POPUPS));
         } else if (!enabled && mc.screen instanceof StoragePopupScreen) {
@@ -1180,8 +1263,26 @@ public final class BodyHandClient {
         if (mc.screen != null && !(mc.screen instanceof StoragePopupScreen)) return;
         if (cameraBody == null) reconcile();
         if (cameraBody != null && !POPUPS.pointerMode()) { POINTER.manualOpen(); pointerMode(true); }
+        else if (GhostControlClient.committedGhostContext() != null && !POPUPS.pointerMode()) {
+            pointerGhostOwner = GhostControlClient.committedGhostContext();
+            POINTER.manualOpen(); pointerMode(true);
+        }
     }
-    public static void openSharedPointerWorkspace() { openConstructionPointerWorkspace(); }
+    public static void openSharedPointerWorkspace() {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.screen != null && !(mc.screen instanceof StoragePopupScreen)) return;
+        if (cameraBody == null) reconcile();
+        if (cameraBody != null) {
+            POINTER.workspaceOpen();
+            pointerMode(true);
+        } else {
+            var context = GhostControlClient.committedGhostContext();
+            if (context == null) return;
+            pointerGhostOwner = context;
+            POINTER.workspaceOpen();
+            pointerMode(true);
+        }
+    }
     public static boolean constructionSearchFocused() {
         return com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused();
     }
@@ -2515,6 +2616,35 @@ public final class BodyHandClient {
             g.fill(cx - 4, cy - 1, cx + 5, cy + 2, color);
             g.fill(cx - 3, cy + 2, cx + 4, cy + 4, color);
         }
+    }
+
+    /** Only resolved Edible prototypes may outrank a puddle in the shared alternate-use gesture. */
+    private static boolean aimedIngestibleItem(UUID target) {
+        if (target == null || cameraBody == null) return false;
+        var item = cameraBody.level().getEntitiesOfClass(ItemEntity.class, cameraBody.getBoundingBox().inflate(6),
+                candidate -> candidate.getUUID().equals(target)).stream().findFirst().orElse(null);
+        if (item == null || item.getItem().isEmpty()) return false;
+        var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item.getItem().getItem());
+        var profile = com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.clientLookup(id);
+        return profile != null;
+    }
+
+    private static boolean requestBodyOral(UUID item, net.minecraft.core.BlockPos puddle) {
+        if (cameraBody == null || cameraEpoch <= 0 || GhostControlClient.committedCharacterEpoch() != cameraEpoch
+                || (item == null) == (puddle == null)) return false;
+        if (bodyOralSequence == Long.MAX_VALUE) bodyOralSequence = 0;
+        long sequence = ++bodyOralSequence;
+        var source = puddle == null
+                ? com.juicyslew.moonstation14.ms14.ingestion.BodyOralIngestionRequest.Source.WORLD_ITEM
+                : com.juicyslew.moonstation14.ms14.ingestion.BodyOralIngestionRequest.Source.PUDDLE;
+        PacketDistributor.sendToServer(new com.juicyslew.moonstation14.ms14.ingestion.BodyOralIngestionRequest(
+                cameraBody.getUUID(), cameraEpoch, sequence, source, item, puddle));
+        var profile = com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.clientLookup(
+                puddle != null ? net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "puddle")
+                        : net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "world"));
+        if (profile != null) com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient
+                .predictStart(sequence, cameraBody.getUUID(), profile.delayTicks());
+        return true;
     }
 
     /** Reuse the existing hand glyph for remote empty hand cells; identity stays presentation-only. */

@@ -97,6 +97,16 @@ class CharacterMovementMotorTest {
         assertEquals(20d, human.groundFrictionNoInputPerSecond());
         assertEquals(3.125d, human.walkSpeedPerSecond());
         assertEquals(5.625d, human.sprintSpeedPerSecond());
+        // The shared accepted-displacement walk animation scales native gait without
+        // multiplying an already-normalized vanilla limb-swing value a second time.
+        var humanWalkStep = com.juicyslew.moonstation14.ms14.player_body_control.movement.OwnedHarnessWalkAnimation
+                .vanillaWalkSpeed(human.walkSpeedPerSecond() / 20d);
+        var humanSprintStep = com.juicyslew.moonstation14.ms14.player_body_control.movement.OwnedHarnessWalkAnimation
+                .vanillaWalkSpeed(human.sprintSpeedPerSecond() / 20d);
+        assertTrue(humanSprintStep > humanWalkStep);
+        assertEquals(1d, humanSprintStep, .0001d);
+        assertTrue(com.juicyslew.moonstation14.ms14.player_body_control.movement.OwnedHarnessWalkAnimation
+                .cadenceScale(human.sprintSpeedPerSecond() / 20d, 0, human.walkSpeedPerSecond()) > 1f);
     }
 
     private static CharacterData readCharacter(String name) throws IOException {

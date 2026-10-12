@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.ms14.character.CharacterIdentityAttachment;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration;
 import net.minecraft.resources.ResourceLocation;
@@ -12,6 +13,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +27,7 @@ public final class MinecraftLoadedBodyAdapter {
     public static LoadedBodyResolver.Resolution observe(MinecraftServer server, SavedLifecycleProfile profile) {
         if (server == null || profile == null) return recovery();
         return observe(profile, server.isSameThread(),
-                id -> find(server, profile, id), MinecraftLoadedBodyAdapter::eligible);
+                id -> find(server, profile, id), candidate -> eligible(candidate, profile));
     }
 
     static LoadedBodyResolver.Resolution observe(SavedLifecycleProfile profile, boolean mainThread,
@@ -93,22 +95,24 @@ public final class MinecraftLoadedBodyAdapter {
     }
 
     private static LoadedBodyResolver.Candidate candidate(Entity entity, SavedLifecycleProfile profile) {
-        PlayerCharacterBinding binding = entity instanceof PlayerCharacterHarnessEntity harness
-                && !harness.hasInvalidSavedBinding() ? harness.playerCharacterBinding() : null;
+        PlayerCharacterBinding binding = PlayerCharacterHarnessBinder.binding(entity);
+        if (entity instanceof PlayerCharacterHarnessEntity harness && harness.hasInvalidSavedBinding()) binding = null;
         return new LoadedBodyResolver.Candidate(entity.getUUID(), binding == null ? null : binding.mindId(),
                 entity.level().dimension().location().toString(), binding == null ? null : binding.accountId(),
                 binding == null ? null : binding.profileKey(), entity instanceof LivingEntity living && living.isAlive()
                 && !living.isDeadOrDying() && !entity.isRemoved(), entity);
     }
 
-    private static boolean eligible(LoadedBodyResolver.Candidate candidate) {
-        if (!(candidate.entity() instanceof PlayerCharacterHarnessEntity harness)
-                || harness.getType() != PlayerCharacterHarnessRegistration.getEntityType()
-                || harness.hasInvalidSavedBinding() || harness.playerCharacterBinding() == null
-                || harness.isRemoved() || !harness.isAlive() || harness.isDeadOrDying()) return false;
-        CharacterIdentityAttachment attachment = harness.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
-        return attachment != null && attachment.isBound()
-                && ModCharacters.HUMAN_ID.equals(attachment.characterId())
-                && CharacterIdentitySystem.resolve(harness).isPresent();
+    private static boolean eligible(LoadedBodyResolver.Candidate candidate, SavedLifecycleProfile saved) {
+        if (!(candidate.entity() instanceof Mob mob)
+                || mob instanceof PlayerCharacterHarnessEntity harness && harness.hasInvalidSavedBinding()
+                || PlayerCharacterHarnessBinder.binding(mob) == null
+                || mob.isRemoved() || !mob.isAlive() || mob.isDeadOrDying()) return false;
+        CharacterIdentityAttachment attachment = mob.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        if (attachment == null || !attachment.isBound()) return false;
+        boolean resolved = CharacterIdentitySystem.resolveHost(mob, (ServerLevel) mob.level(), attachment.characterId()).isPresent();
+        if (!resolved) return false;
+        if (mob instanceof PlayerCharacterHarnessEntity) return true;
+        return attachment.characterId().toString().equals(saved.appearance().get("prototype"));
     }
 }

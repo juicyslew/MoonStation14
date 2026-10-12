@@ -31,6 +31,7 @@ public class ModSounds {
     public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
     public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
+    public static final Supplier<SoundEvent> EAT = registerSoundEvent("ss14/items/eat");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
@@ -42,6 +43,7 @@ public class ModSounds {
     // registered for a later supported voice-profile consumer.
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
     public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
+    public static final Supplier<SoundEvent> MOUSE_SQUEAK = registerSoundEvent("mouse_squeak");
     // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     public static final Supplier<SoundEvent> DISPOSAL_FLUSH = registerSoundEvent("disposal/flush");
     public static final Supplier<SoundEvent> DISPOSAL_PIPE_CLANG = registerSoundEvent("disposal/pipe_clang");

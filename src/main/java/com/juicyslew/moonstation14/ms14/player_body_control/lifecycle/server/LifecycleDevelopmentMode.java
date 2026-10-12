@@ -333,9 +333,7 @@ public final class LifecycleDevelopmentMode {
             return 0;
         }
         var result = LifecycleExistingBodyReconnect.returnDevelopmentDetached(player, server);
-        if (result == LifecycleExistingBodyReconnect.ReturnResult.CHUNK_LOADING)
-            player.sendSystemMessage(Component.literal("Saved body chunk loading; you remain in Creative with your inventory unchanged. Retry /ms14dev return shortly."));
-        else if (result == LifecycleExistingBodyReconnect.ReturnResult.BLOCKED
+        if (result == LifecycleExistingBodyReconnect.ReturnResult.BLOCKED
                 && player.connection != null && player.connection.isAcceptingMessages())
             player.sendSystemMessage(Component.literal("The exact saved character body could not be proven safe. You remain in Creative; inspect recovery or reconnect."));
         return 1;

@@ -4,7 +4,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
-import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.character.components.SpeechComponent;
 import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry;
 import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData;
 import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
@@ -85,9 +85,14 @@ public final class LocalSpeechServerHooks {
             case WHISPER -> LocalSpeechPayload.Mode.WHISPER;
             default -> throw new IllegalStateException("Unroutable speech mode");
         };
+        var speech = body instanceof net.minecraft.world.entity.LivingEntity living
+                ? CharacterIdentitySystem.resolveForActor(living).flatMap(data -> data.component(SpeechComponent.class)).orElse(null)
+                : null;
+        String spokenText = speech == null ? parsed.body() : SpeechAccentPolicy.replace(speech.accent(), parsed.body());
+        String soundCue = speech != null && "mouse_squeak".equals(speech.speechSound()) ? "mouse_squeak" : "";
         LocalSpeechPayload clear = new LocalSpeechPayload(body.getId(), speakerUuid, speaker.name(), speaker.rgb(),
-                parsed.body(), position.x, position.y, position.z, body.level().dimension().location(), mode,
-                LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.DistanceTier.NONE);
+                spokenText, position.x, position.y, position.z, body.level().dimension().location(), mode,
+                LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.DistanceTier.NONE, soundCue);
         String masked = null;
         for (ServerPlayer recipient : level.getServer().getPlayerList().getPlayers()) {
             if (recipient.isRemoved() || recipient instanceof FakePlayer) continue;
@@ -135,12 +140,13 @@ public final class LocalSpeechServerHooks {
                                    CommittedSpectatorGuard.Ownership debug) {
         if (ghost.committed() || character.committed() == debug.committed()) return null;
         if (character.committed()) {
-            if (!(character.owned() instanceof com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity body)
+            if (!(character.owned() instanceof Mob body)
                     || body.level() != level || !body.isAlive() || body.isRemoved() || player.getCamera() != body)
                 return null;
             var snapshot = LifecycleCharacterSessionControl.activeCharacterBody(player).orElse(null);
-            if (snapshot == null || snapshot.body() != body) return null;
-            var binding = body.playerCharacterBinding();
+            if (snapshot == null || snapshot.body() != body
+                    || !LifecycleCharacterSessionControl.roleSpeechAllowed(player, body, snapshot.epoch())) return null;
+            var binding = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder.binding(body);
             if (binding == null || !binding.accountId().equals(player.getUUID())) return null;
             var boundIdentity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
             if (boundIdentity == null || !boundIdentity.isBound()
@@ -165,8 +171,8 @@ public final class LocalSpeechServerHooks {
         return identity == null ? null : new Speaker(body, identity.name(), identity.rgb());
     }
 
-    /** Lifecycle-only exception: no global host mapping (and thus no physiology enrollment). */
+    /** Lifecycle-only admission: use the bound character prototype, without global host mapping. */
     static boolean lifecycleSpeechAllowed(ResourceLocation boundId, Optional<CharacterData> current) {
-        return ModCharacters.HUMAN_ID.equals(boundId) && current.filter(CharacterData::canSpeakText).isPresent();
+        return boundId != null && current.filter(CharacterData::canSpeakText).isPresent();
     }
 }
