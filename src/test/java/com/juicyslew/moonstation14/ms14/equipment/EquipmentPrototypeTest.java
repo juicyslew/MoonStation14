@@ -53,6 +53,10 @@ class EquipmentPrototypeTest {
                 resolved.get(ModInventoryTemplates.id("blank_id_card")).clothing().orElseThrow().quickEquipPreferredSlotFlags());
         assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().quickEquipPreferredSlotFlags().isEmpty());
         assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().quickEquip());
+        assertFalse(resolved.get(ModInventoryTemplates.id("bag")).clothing().orElseThrow().quickEquip(),
+                "storage backpack falls through Z quick-equip to its held-storage popup");
+        assertFalse(resolved.get(ModInventoryTemplates.id("belt")).clothing().orElseThrow().quickEquip(),
+                "storage belt falls through Z quick-equip to its held-storage popup");
         assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().equipSound().isEmpty());
         assertTrue(resolved.get(ModInventoryTemplates.id("simple_coat")).allowSuitStorage().isEmpty());
         assertTrue(resolved.get(ModInventoryTemplates.id("utility_case")).allowSuitStorage().isEmpty());

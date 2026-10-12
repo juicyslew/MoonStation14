@@ -35,8 +35,11 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class HeldTimedIngestionGameTests {
     private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> WATER =
             ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "water"));
+    private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> ACETONE =
+            ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "acetone"));
     private HeldTimedIngestionGameTests() { }
 
+    @GameTestTags({"chemmaster-output"})
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 110)
     public static void heldDoseWaitsRepeatsAndStopsAtEmpty(GameTestHelper h) {
         Fixture f = fixture(h, 10); start(f, 1, () -> true);
@@ -51,6 +54,232 @@ public final class HeldTimedIngestionGameTests {
                 require(!active(f), "empty source operation completed without another empty cycle"); h.succeed();
             });
         });
+    }
+
+    @GameTestTags({"chemmaster-output"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 45)
+    public static void pillTransfersWholeContentsAfterTwelveTicksAndConsumesOwnerTokenOnce(GameTestHelper h) {
+        ItemStack pill = new ItemStack(ModItems.PILL.get());
+        Fixture f = fixtureWithItem(h, pill, 12);
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 700, () -> true).name().equals("OK"),
+                "resolved pill profile starts ordinary timed ingestion");
+        h.runAfterDelay(11, () -> {
+            require(hands(f).token("left").filter(f.token::equals).isPresent()
+                    && source(f) == 1200, "pill and full source amount remain unchanged before the 12-tick deadline");
+        });
+        h.runAfterDelay(15, () -> {
+            require(hands(f).token("left").isEmpty() && hands(f).revision() == f.revision + 1,
+                    "committed whole-dose pill is removed once through the hand owner revision");
+            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
+                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) == 1200,
+                    "all pill contents transfer together");
+            require(!active(f), "single-use pill operation stops rather than repeating");
+            h.succeed();
+        });
+    }
+
+    @GameTestTags({"chemmaster-output"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 35)
+    public static void canceledPillIngestionDoesNotTransferOrConsume(GameTestHelper h) {
+        Fixture f = fixtureWithItem(h, new ItemStack(ModItems.PILL.get()), 8);
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 701, () -> true).name().equals("OK"),
+                "timed pill operation starts");
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 702, () -> true).name().equals("OK"),
+                "same valid action cancels");
+        h.runAfterDelay(14, () -> {
+            require(hands(f).token("left").filter(f.token::equals).isPresent() && source(f) == 800,
+                    "canceled pill remains untouched");
+            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
+                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) == 0,
+                    "cancellation admits no early dose");
+            h.succeed();
+        });
+    }
+
+    @GameTestTags({"chemmaster-output"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 35)
+    public static void pillTooLargeForRemainingStomachRoomDoesNotTransferAnyPillMixture(GameTestHelper h) {
+        Fixture f = fixtureWithItem(h, new ItemStack(ModItems.PILL.get()), 12);
+        com.juicyslew.moonstation14.ms14.MS14Provider.update(f.body,
+                com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH,
+                new com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment(Map.of(ACETONE, 49f)));
+        require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 703, () -> true).name().equals("OK"),
+                "resolved whole-dose pill starts at insufficient remaining stomach capacity");
+        h.runAfterDelay(13, () -> {
+            require(hands(f).token("left").filter(f.token::equals).isPresent() && source(f) == 1200,
+                    "capacity rejection preserves exact pill contents and owner token");
+            var stomachAfter = com.juicyslew.moonstation14.ms14.MS14Provider
+                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap();
+            require(stomachAfter.getOrDefault(ACETONE, 0f) > 0f && !stomachAfter.containsKey(WATER),
+                    "capacity rejection admits none of the pill mixture; existing acetone may independently digest");
+            require(!active(f), "capacity failure stops the completion without retrying or consuming");
+            h.succeed();
+        });
+    }
+
+    @GameTestTags({"chemmaster-output"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 60)
+    public static void registeredActorGetsOnePillCapacityActionbarOnlyAtTimedCompletion(GameTestHelper h) {
+        var fixture = com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture
+                .register((net.minecraft.server.level.ServerLevel) h.getLevel(), "pill-capacity");
+        h.runAtTickTime(2, () -> {
+            try {
+                var activeBody = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver
+                        .readyAndQuery(fixture);
+                var body = activeBody.body();
+                ItemStack pill = new ItemStack(ModItems.PILL.get());
+                pill.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(WATER, 12f)));
+                var handsBefore = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                String hand = handsBefore.activeHand();
+                String token = "ready-pill-capacity";
+                require(LiveHandsFixtureTransfer.put(fixture.player(), body, hand, token, pill),
+                        "registered Ready actor owns pill through normal hands commit owner");
+                com.juicyslew.moonstation14.ms14.MS14Provider.update(body,
+                        com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH,
+                        new com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment(Map.of(ACETONE, 49f)));
+                var issued = com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.query(
+                        fixture.player(), new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery(activeBody.epoch(), 2));
+                require(issued.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Reason.OK,
+                        "fresh full inventory proof issued for the actual Ready actor");
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.requireFreshQuery(fixture.player());
+                var held = issued.hands().stream().filter(slot -> slot.id().equals(hand)).findFirst().orElseThrow();
+                require(token.equals(held.token()), "request uses the token from the issued full inventory state");
+                while (fixture.pollOutbound() != null) { }
+                var request = new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(
+                        com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.USE_IN_HAND,
+                        hand, activeBody.epoch(), 3, issued.revision(), null, token);
+                var ack = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(fixture.player(), request);
+                require(ack.accepted(), "normal authenticated USE_IN_HAND request starts pill ingestion");
+                h.runAfterDelay(11, () -> {
+                    require(capacityMessages(fixture) == 0, "no capacity feedback before the 12-tick completion deadline");
+                    h.runAfterDelay(2, () -> {
+                        try {
+                            var messages = capacityActionbars(fixture);
+                            require(messages.size() == 1, "exactly one capacity actionbar reaches the registered actor");
+                            var translatable = (net.minecraft.network.chat.contents.TranslatableContents) messages.getFirst().content().getContents();
+                            require(translatable.getKey().equals("ingestion-you-cannot-ingest-any-more"),
+                                    "actionbar carries the exact SS14-compatible localized capacity key");
+                            require(((net.minecraft.network.chat.contents.TranslatableContents) ((net.minecraft.network.chat.Component) translatable.getArgs()[0])
+                                    .getContents()).getKey().equals("ingestion-verb-swallow"), "localized verb is swallow");
+                            require(messages.getFirst().overlay(), "feedback uses the actionbar channel");
+                            var after = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                            var afterPill = after.stackCopy(hand).orElse(null);
+                            require(after.token(hand).filter(token::equals).isPresent() && afterPill != null
+                                            && ReagentUnits.fromFloat(afterPill.get(ModDataComponents.REAGENT.get()).contents().getOrDefault(WATER, 0f)) == 1200,
+                                    "capacity rejection preserves the pill and exact owner token");
+                            var stomachAfter = com.juicyslew.moonstation14.ms14.MS14Provider
+                                    .get(body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap();
+                            require(stomachAfter.getOrDefault(ACETONE, 0f) > 0f && !stomachAfter.containsKey(WATER),
+                                    "capacity rejection admits none of the pill mixture; existing acetone may independently digest");
+                            require(capacityMessages(fixture) == 0, "no duplicate capacity actionbar follows completion");
+                            h.succeed();
+                        } finally { fixture.close(); }
+                    });
+                });
+            } catch (RuntimeException | Error failure) {
+                fixture.close();
+                throw failure;
+            }
+        });
+    }
+
+    private static java.util.List<net.minecraft.network.protocol.game.ClientboundSystemChatPacket> capacityActionbars(
+            com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture fixture) {
+        var result = new java.util.ArrayList<net.minecraft.network.protocol.game.ClientboundSystemChatPacket>();
+        Object outbound;
+        while ((outbound = fixture.pollOutbound()) != null) {
+            if (outbound instanceof net.minecraft.network.protocol.game.ClientboundSystemChatPacket packet
+                    && packet.content().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents translated
+                    && translated.getKey().equals("ingestion-you-cannot-ingest-any-more")) result.add(packet);
+            if (outbound instanceof net.minecraft.network.protocol.game.ClientboundBundlePacket bundle)
+                for (var nested : bundle.subPackets())
+                    if (nested instanceof net.minecraft.network.protocol.game.ClientboundSystemChatPacket packet
+                            && packet.content().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents translated
+                            && translated.getKey().equals("ingestion-you-cannot-ingest-any-more")) result.add(packet);
+        }
+        return result;
+    }
+
+    private static int capacityMessages(com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture fixture) {
+        return capacityActionbars(fixture).size();
+    }
+
+    @GameTestTags({"chemmaster-output"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 25)
+    public static void registeredChemistryOutputItemsResolveCapacityTypeAndCanisterAdmission(GameTestHelper h) {
+        ItemStack pill = new ItemStack(ModItems.PILL.get());
+        require(((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) pill.getItem()).getCapacity(pill, h.getLevel()) == 20f,
+                "live pill capacity comes from resolved local container composition");
+        require(!((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) pill.getItem()).canReact(pill, h.getLevel()),
+                "resolved pill food solution suppresses container reactions");
+        ItemStack bottle = new ItemStack(ModItems.BOTTLE.get());
+        require(((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) bottle.getItem()).getCapacity(bottle, h.getLevel()) == 30f,
+                "existing canonical BottleItem keeps its resolved 30u capacity");
+        require(pill.get(ModDataComponents.PILL_TYPE.get()).type() == 0
+                && pill.copy().get(ModDataComponents.PILL_TYPE.get()).type() == 0,
+                "registered pill type is stable on copied serialized item state");
+        ItemStack canister = new ItemStack(ModItems.PILL_CANISTER.get());
+        var empty = com.juicyslew.moonstation14.ms14.storage.grid.GridContents.read(canister).orElseThrow();
+        require(com.juicyslew.moonstation14.ms14.storage.grid.GridContents.width(canister) == 5
+                && com.juicyslew.moonstation14.ms14.storage.grid.GridContents.height(canister) == 2,
+                "canister dimensions are resolved from inherited Storage prototype");
+        var packed = com.juicyslew.moonstation14.ms14.storage.grid.GridContents.of(java.util.List.of(
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridContents.Entry("pill-child", pill, 0, 0,
+                        com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0)));
+        require(com.juicyslew.moonstation14.ms14.storage.grid.GridContents.applyCopyWithGrid(canister, packed).isPresent(),
+                "canister accepts registered pill with persistent item token");
+        var forbidden = com.juicyslew.moonstation14.ms14.storage.grid.GridContents.of(java.util.List.of(
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridContents.Entry("not-pill", new ItemStack(net.minecraft.world.item.Items.STICK), 0, 0,
+                        com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0)));
+        require(com.juicyslew.moonstation14.ms14.storage.grid.GridContents.applyCopyWithGrid(canister, forbidden).isEmpty(),
+                "canister whitelist rejects non-pill items");
+        h.succeed();
+    }
+
+    @GameTestTags({"chemmaster-output"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 30)
+    public static void canisterStoresAndReturnsPillsThroughExistingOwnedGridTransactions(GameTestHelper h) {
+        Fixture f = fixtureWithItem(h, new ItemStack(ModItems.BOTTLE.get()), 1);
+        LiveHands state = hands(f);
+        var oldBottle = state.takeWhole(state.revision(), "left", new ItemToken(f.token));
+        require(oldBottle.succeeded(), "fixture bottle removed using pure whole-stack transition");
+        state = oldBottle.state();
+        String hostToken = "pill-canister-host";
+        String pillToken = "stored-pill-token";
+        var withHost = state.putWhole(state.revision(), "left", new ItemToken(hostToken), new ItemStack(ModItems.PILL_CANISTER.get()));
+        require(withHost.succeeded(), "canister assigned an owned stack token");
+        state = withHost.state();
+        var withPill = state.putWhole(state.revision(), "right", new ItemToken(pillToken), new ItemStack(ModItems.PILL.get()));
+        require(withPill.succeeded(), "pill assigned its own hand token");
+        f.body.setData(ModDataAttachments.LIVE_HANDS.get(), withPill.state());
+        int anchorX = 2;
+        LiveHands stagedGrid = withPill.state().insertHeldGrid(withPill.state().revision(), "left", hostToken, "right", pillToken,
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(anchorX, 0),
+                com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0).orElseThrow();
+        require(com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.representable(stagedGrid, f.body),
+                "candidate canister state is representable by normal hand inventory snapshots");
+        require(withPill.state().insertHeldGrid(withPill.state().revision(), "left", hostToken, "right", pillToken,
+                new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(anchorX, 0),
+                com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0).isPresent(),
+                "resolved canister grid accepts pill in pure candidate");
+        var stored = BodyHeldGridTransfer.transferOwned(f.body, "left", hostToken, "right", pillToken,
+                withPill.state().revision(), new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(anchorX, 0),
+                com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0, null, null, true, () -> true);
+        require(stored == BodyHeldGridTransfer.Result.SUCCESS, "existing hand-to-grid owner transaction stores pill: " + stored);
+        LiveHands afterStore = hands(f);
+        var grid = com.juicyslew.moonstation14.ms14.storage.grid.GridContents.read(afterStore.stackCopy("left").orElseThrow()).orElseThrow();
+        require(grid.entries().size() == 1 && grid.entries().getFirst().token().equals(pillToken)
+                && afterStore.token("right").isEmpty(), "one pill token now belongs to the canister cell");
+        var taken = BodyHeldGridTransfer.transferOwned(f.body, "left", hostToken, "right", pillToken,
+                afterStore.revision(), new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(anchorX, 0),
+                null, null, null, false, () -> true);
+        require(taken == BodyHeldGridTransfer.Result.SUCCESS, "existing grid-to-hand owner transaction extracts pill");
+        LiveHands finalState = hands(f);
+        require(finalState.token("right").filter(pillToken::equals).isPresent()
+                && finalState.stackCopy("right").orElseThrow().is(ModItems.PILL)
+                && com.juicyslew.moonstation14.ms14.storage.grid.GridContents.read(finalState.stackCopy("left").orElseThrow()).orElseThrow().entries().isEmpty(),
+                "retrieved pill retains its exact token and can be used normally");
+        h.succeed();
     }
 
     @GameTestTags({"hands-liquid", "beaker"})

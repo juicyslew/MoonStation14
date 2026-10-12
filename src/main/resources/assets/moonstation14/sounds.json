@@ -66,6 +66,11 @@
       "moonstation14:ss14/items/drink"
     ]
   },
+  "ss14/items/pill": {
+    "sounds": [
+      "moonstation14:ss14/items/pill"
+    ]
+  },
   "body_fall": {
     "sounds": [
       {

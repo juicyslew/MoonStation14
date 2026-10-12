@@ -197,6 +197,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<JugData> clientJugs() { return CLIENT_MANAGER.snapshot(ModJugs.TYPE); }
     public static PrototypeCatalog<BeakerData> serverBeakers() { return SERVER_MANAGER.snapshot(ModBeakers.TYPE); }
     public static PrototypeCatalog<BeakerData> clientBeakers() { return CLIENT_MANAGER.snapshot(ModBeakers.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData> serverChemContainers() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData> clientChemContainers() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE); }
     public static PrototypeCatalog<ChemMasterData> serverChemMasters() { return SERVER_MANAGER.snapshot(ModChemMasters.TYPE); }
     public static PrototypeCatalog<ChemMasterData> clientChemMasters() { return CLIENT_MANAGER.snapshot(ModChemMasters.TYPE); }
     public static PrototypeCatalog<PowerAppearanceData> serverPowerAppearances() { return SERVER_MANAGER.snapshot(ModPowerAppearances.TYPE); }
@@ -244,6 +246,7 @@ public final class PrototypeRuntime {
         manager.register(ModCelestialScenes.TYPE);
         manager.register(ModJugs.TYPE);
         manager.register(ModBeakers.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE);
         manager.register(ModChemMasters.TYPE);
         manager.register(ModPowerAppearances.TYPE);
         manager.register(ModDeviceNetworks.FREQUENCY_TYPE);

@@ -98,6 +98,12 @@ public final class BodyTimedIngestionService {
                 () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(), authority)) {
                     case COMMITTED_REPEAT -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.REPEAT; }
                     case COMMITTED_STOP -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.STOP; }
+                    case CANNOT_INGEST -> {
+                        if (owner != null && profile.consumeSource()) owner.displayClientMessage(
+                                net.minecraft.network.chat.Component.translatable("ingestion-you-cannot-ingest-any-more",
+                                        net.minecraft.network.chat.Component.translatable("ingestion-verb-swallow")), true);
+                        yield TimedInteractionSystem.Completion.DENIED;
+                    }
                     case DENIED -> TimedInteractionSystem.Completion.DENIED;
                     case RECOVERY_REQUIRED -> TimedInteractionSystem.Completion.RECOVERY_REQUIRED;
                 });

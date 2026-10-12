@@ -68,8 +68,9 @@ public final class BodyWorldStorageView {
                 || level.getEntity(target) != item || !position.equals(item.position())
                 || item.getTarget() != null || !ItemStack.matches(source, item.getItem())) return Optional.empty();
         boolean bag = source.is(com.juicyslew.moonstation14.item.ModItems.BAG);
+        boolean canister = source.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER);
         return Optional.of(new Summary(target, BuiltInRegistries.ITEM.getKey(source.getItem()),
-                bag ? "bag" : "belt", bag ? 7 : 8, bag ? 4 : 2,
+                canister ? "pill" : bag ? "bag" : "belt", canister ? 5 : bag ? 7 : 8, canister ? 2 : bag ? 4 : 2,
                 contents.orElseThrow().entries(), epoch, expectedHandRevision));
     }
 }

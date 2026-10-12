@@ -38,6 +38,7 @@ public class ModSounds {
     public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
     public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
+    public static final Supplier<SoundEvent> PILL = registerSoundEvent("ss14/items/pill");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");

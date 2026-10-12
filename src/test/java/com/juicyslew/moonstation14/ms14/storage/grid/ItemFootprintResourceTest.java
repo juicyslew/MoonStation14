@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(50, raw.size());
+        assertEquals(52, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(45, resolved.size());
+        assertEquals(47, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -39,7 +39,7 @@ class ItemFootprintResourceTest {
                 "network_configurator", "remote_signaller", "remote_signaller_advanced", "signal_button", "signal_switch",
                 "beaker", "beaker_large", "chem_master", "black_bandana", "black_gloves", "black_shoes",
                 "blank_id_card", "earpieces", "glasses", "grey_cap", "grey_jumpsuit", "red_tie", "simple_coat",
-                "utility_case"};
+                "utility_case", "pill", "pill_canister"};
         for (String name : coreItems) assertTrue(resolved.get(id(name)) != null, "missing profile " + name);
 
         assertCounts(resolved, 4, "steel", "glass", "plastic", "cloth", "wood", "jug",
@@ -52,7 +52,12 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(45, catalog.size());
+        assertEquals(47, catalog.size());
+        for (String item : new String[]{"pill", "pill_canister"}) {
+            assertEquals(java.util.List.of(new GridGeometry.Cell(0, 0)), catalog.get(id(item)).cells(),
+                    item + " resolves inherited tiny footprint");
+            assertFalse(catalog.get(id(item)).cells().isEmpty(), item + " must have a usable footprint");
+        }
         assertEquals(catalog.get(id("wirecutter")).cells(), catalog.get(id("screwdriver")).cells());
         for (String item : new String[]{"screwdriver", "crowbar", "wirecutter", "multitool", "atmosphere_analyzer"})
             assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(item)).itemSize(), item);

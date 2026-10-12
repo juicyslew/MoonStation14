@@ -17,6 +17,12 @@ public final class ChemMasterWorkspace {
     public static final class Window {
         private ChemMasterWindowState state; private int x,y,inputScroll,bufferScroll,grabX,grabY;
         private long z,lastRequest=-1; private boolean dragging; private ChemMasterOverlay overlay;
+        final ChemMasterOutputForm outputForm=new ChemMasterOutputForm();
+        ChemMasterOutputEditors outputEditors;
+        long outputFormFrame=-1;
+        long outputPreviewFrame=-1;
+        Integer pillTypePreview;
+        ChemMasterControlRequest.DrawSource drawSourcePreview;
         private Window(ChemMasterWindowState s,int x,int y,long z){state=s;this.x=x;this.y=y;this.z=z;}
         public ChemMasterWindowState state(){return state;} public int x(){return x;} public int y(){return y;} public long z(){return z;}
         public int inputScroll(){return inputScroll;} public int bufferScroll(){return bufferScroll;}
@@ -88,13 +94,26 @@ public final class ChemMasterWorkspace {
     public void endDrag(){windows.values().forEach(w->w.dragging=false);}
     public void send(Window w,ChemMasterControlRequest.Operation op,ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> reagent,long amount){send(w,op,reagent,amount,w.state.mode());}
     public void mode(Window w,ChemMasterControlRequest.Mode mode){send(w,ChemMasterControlRequest.Operation.SET_MODE,null,0,mode);}
-    public void nextSort(Window w){if(!owns(w))return;var s=w.state;var sorts=ChemMasterControlRequest.Sort.values();var next=sorts[(s.sort().ordinal()+1)%sorts.length];
-        long id=++requestSequence;sender.accept(new ChemMasterControlRequest(s.sessionId(),s.machineId(),s.dimension(),new BlockPos(s.x(),s.y(),s.z()),id,s.stateRevision(),s.slotRevision(),ChemMasterControlRequest.Operation.SET_SORT,s.mode(),next,Optional.empty(),0));w.lastRequest=id;}
+    public boolean drawSource(Window w,ChemMasterControlRequest.DrawSource source){return sendRequest(w,ChemMasterControlRequest.Operation.SET_DRAW_SOURCE,w.state.mode(),w.state.sort(),null,0,Optional.of(Objects.requireNonNull(source)),-1,null);}
+    public boolean pillType(Window w,int type){if(type<0||type>19||!owns(w))return false;return sendRequest(w,ChemMasterControlRequest.Operation.SET_PILL_TYPE,w.state.mode(),w.state.sort(),null,0,Optional.empty(),type,null);}
+    public boolean createPills(Window w,int count,int dose,String label){if(!validPackage(count,dose,label)||!owns(w))return false;return sendRequest(w,ChemMasterControlRequest.Operation.CREATE_PILLS,w.state.mode(),w.state.sort(),null,0,Optional.empty(),-1,new ChemMasterControlRequest.OutputRequest(count,dose,label));}
+    public boolean fillBottle(Window w,int dose,String label){if(dose<1||dose>21474836||!validLabel(label)||!owns(w))return false;return sendRequest(w,ChemMasterControlRequest.Operation.OUTPUT_TO_BOTTLE,w.state.mode(),w.state.sort(),null,0,Optional.empty(),-1,new ChemMasterControlRequest.OutputRequest(0,dose,label));}
+    public boolean ejectOutput(Window w){return sendRequest(w,ChemMasterControlRequest.Operation.EJECT_OUTPUT,w.state.mode(),w.state.sort(),null,0,Optional.empty(),-1,null);}
+    public void nextSort(Window w){if(!owns(w))return;var s=w.state;var sorts=ChemMasterControlRequest.Sort.values();var next=sorts[(s.sort().ordinal()+1)%sorts.length];sendRequest(w,ChemMasterControlRequest.Operation.SET_SORT,s.mode(),next,null,0,Optional.empty(),-1,null);}
     private void send(Window w,ChemMasterControlRequest.Operation op,ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> reagent,long amount,ChemMasterControlRequest.Mode mode){
-        if(!owns(w))return;var s=w.state;long id=++requestSequence;
-        var request=new ChemMasterControlRequest(s.sessionId(),s.machineId(),s.dimension(),new BlockPos(s.x(),s.y(),s.z()),id,s.stateRevision(),s.slotRevision(),op,mode,s.sort(),Optional.ofNullable(reagent),amount);
-        w.lastRequest=id;sender.accept(request);
+        sendRequest(w,op,mode,w.state.sort(),reagent,amount,Optional.empty(),-1,null);
     }
+    private boolean sendRequest(Window w,ChemMasterControlRequest.Operation op,ChemMasterControlRequest.Mode mode,ChemMasterControlRequest.Sort sort,
+            ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> reagent,long amount,Optional<ChemMasterControlRequest.DrawSource> source,
+            int pillType,ChemMasterControlRequest.OutputRequest output){
+        if(!owns(w))return false;var s=w.state;boolean packages=op==ChemMasterControlRequest.Operation.CREATE_PILLS||op==ChemMasterControlRequest.Operation.OUTPUT_TO_BOTTLE;
+        boolean usesOutput=packages||op==ChemMasterControlRequest.Operation.EJECT_OUTPUT;long id=++requestSequence;
+        var request=new ChemMasterControlRequest(s.sessionId(),s.machineId(),s.dimension(),new BlockPos(s.x(),s.y(),s.z()),id,s.stateRevision(),s.slotRevision(),op,mode,sort,
+                Optional.ofNullable(reagent),amount,usesOutput?s.outputSlot().revision():0,packages?s.bufferRevision():0,source,pillType,Optional.ofNullable(output));
+        w.lastRequest=id;sender.accept(request);return true;
+    }
+    private static boolean validPackage(int count,int dose,String label){return count>=1&&count<=64&&dose>=1&&dose<=21474836&&validLabel(label);}
+    private static boolean validLabel(String label){return label!=null&&label.length()<=ChemMasterControlRequest.OutputRequest.MAX_LABEL_LENGTH;}
     public void contextChanged(UUID body,long epoch,ResourceLocation dimension){for(Window w:List.copyOf(windows.values()))if(!w.state.bodyId().equals(body)||w.state.bodyEpoch()!=epoch||!w.state.dimension().equals(dimension))retire(w);}
     public void clear(){for(Window w:windows.values())if(w.overlay!=null)PointerOverlayRegistry.unregister(w.overlay);windows.clear();retiredSessions.clear();dismissedFrames.clear();requestSequence=0;}
     private static void clamp(Window w,int sw,int sh){int ww=Math.min(ChemMasterLayout.WIDTH/2,Math.max(1,sw)),hh=Math.min(ChemMasterLayout.HEIGHT/2,Math.max(1,sh));w.x=Math.max(0,Math.min(w.x,sw-ww));w.y=Math.max(0,Math.min(w.y,sh-hh));}

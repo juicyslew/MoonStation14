@@ -176,7 +176,27 @@ public final class BodyHandActionNetworking {
                                       outcome = BodyBlockUseResult.Outcome.HAND_CHANGED;
                                   } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
                                       outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
-                              } else if (held != null && held.getItem() instanceof com.juicyslew.moonstation14.ms14.chemistry.DispenserCompatibleItem compatible
+                               } else if (held != null && (held.is(com.juicyslew.moonstation14.item.ModItems.BOTTLE)
+                                       || held.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER))) {
+                                   var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                   var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                   var slot = chemMaster.outputSlot(); var token = admission.hands().token(request.handId()).orElse(null);
+                                   var slotState = slot == null ? null : slot.snapshot();
+                                   var result = token == null || slotState == null || !slot.canAccept(slotState.revision(), held)
+                                           ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                           : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.insert(
+                                               admission.authority(), request.handId(), token, admission.hands().revision(),
+                                               slot, slotState.revision(), ledger.snapshot().revision(), ledger,
+                                               () -> chemMaster.isLoadedValid());
+                                   if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
+                                       chemMaster.slotChanged();
+                                       com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playInsert(level,
+                                               chemMaster.getBlockPos(), chemMaster.prototype());
+                                       com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
+                                       outcome = BodyBlockUseResult.Outcome.PLACED;
+                                   } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
+                                       outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                               } else if (held != null && held.getItem() instanceof com.juicyslew.moonstation14.ms14.chemistry.DispenserCompatibleItem compatible
                                       && chemMaster.isLoadedValid() && compatible.fitsInDispenser(body.level())) {
                                   var level = (net.minecraft.server.level.ServerLevel) body.level();
                                   var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);

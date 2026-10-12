@@ -44,6 +44,7 @@
     "ChunkMapObserverCenterMixin"
   ],
   "client": [
+    "client.EditBoxDisplayAccessor",
     "client.MinecraftStunInputMixin",
     "client.ChatComponentUnifiedViewMixin",
     "client.ChatScreenReviewPagingMixin",

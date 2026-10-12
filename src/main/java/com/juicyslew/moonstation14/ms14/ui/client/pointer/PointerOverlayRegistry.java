@@ -52,6 +52,8 @@ public final class PointerOverlayRegistry {
     /** Existing storage host's mixed wire/overlay click owner; same front choice drives paint layers. */
     public static boolean routeWorkspaceClick(double x,double y,int button,boolean storageWins,
                                               boolean wireHit,java.util.function.BooleanSupplier wireClick) {
+        // A physical pointer click ends the previous text target; a clicked field can reclaim it.
+        clearTextFocus();
         boolean overlayHit=hit(x,y);
         if(!storageWins&&wireHit&&(!overlayHit||wireFront)) {
             bringWireToFront();overlayFront(true);wireClick.getAsBoolean();return true;

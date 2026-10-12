@@ -16,6 +16,35 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HeldUseRequestDispatchTest {
+    @Test void normalAndPopupZActivationShareQuickEquipThenHeldStorageTogglePrecedence() {
+        var popup = new StoragePopupWorkspace(320, 240);
+        var host = StoragePopupWorkspace.HostKey.held("same-host-token");
+        int[] storageActivations = {0}, ordinaryUses = {0}, quickEquips = {0};
+        java.util.function.BooleanSupplier toggle = () -> {
+            storageActivations[0]++;
+            popup.toggle(host, true, 0, 0, 100, 80);
+            return true;
+        };
+        assertTrue(HeldUseRequestDispatch.routeActivation(() -> false, toggle,
+                () -> { ordinaryUses[0]++; return true; })); // normal body Z opens
+        assertTrue(popup.window(host).visible());
+        assertTrue(HeldUseRequestDispatch.routeActivation(() -> false, toggle,
+                () -> { ordinaryUses[0]++; return true; })); // popup-screen Z closes same host
+        assertNull(popup.window(host));
+        assertEquals(2, storageActivations[0]);
+        assertEquals(0, ordinaryUses[0]);
+
+        assertTrue(HeldUseRequestDispatch.routeActivation(() -> { quickEquips[0]++; return true; }, toggle,
+                () -> { ordinaryUses[0]++; return true; }));
+        assertEquals(1, quickEquips[0]);
+        assertEquals(2, storageActivations[0], "quick-equip retains precedence over storage activation");
+        assertEquals(0, ordinaryUses[0]);
+
+        assertTrue(HeldUseRequestDispatch.routeActivation(() -> false, () -> false,
+                () -> { ordinaryUses[0]++; return true; }), "ordinary pill/beaker use remains the fallback");
+        assertEquals(1, ordinaryUses[0]);
+    }
+
     @Test void admittedHeldUseBuildsNormalPacketAndPredictsThroughProductionOwners() {
         UUID account = UUID.randomUUID(), body = UUID.randomUUID();
         var policy = new BodyHandClientPolicy();

@@ -18,6 +18,14 @@ public final class HeldUseRequestDispatch {
                 && dispatch != null && dispatch.getAsBoolean();
     }
 
+    /** Keep Z's established quick-equip priority, then activate a confirmed held-storage host, then use normally. */
+    public static boolean routeActivation(BooleanSupplier quickEquip, BooleanSupplier toggleHeldStorage,
+                                          BooleanSupplier ordinaryUse) {
+        if (quickEquip != null && quickEquip.getAsBoolean()) return true;
+        if (toggleHeldStorage != null && toggleHeldStorage.getAsBoolean()) return true;
+        return ordinaryUse != null && ordinaryUse.getAsBoolean();
+    }
+
     public static long dispatch(BodyHandClientPolicy policy, BodyHandStateSnapshot snapshot,
                                 BodyHandStateSnapshot.Hand active, long tick, int durationTicks,
                                 Consumer<BodyHandActionRequest> sender, LongConsumer predictionStart) {

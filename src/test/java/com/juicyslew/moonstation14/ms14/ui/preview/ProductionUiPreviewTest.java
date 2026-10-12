@@ -5,6 +5,9 @@ import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterControlRe
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterWindowState;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayout;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaint;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterOutputForm;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterOutputLayout;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterTextFieldPaint;
 import com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireIndicators;
 import com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireSnapshot;
 import com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWirePaint;
@@ -101,10 +104,12 @@ class ProductionUiPreviewTest {
     private static void renderChem(Path root,Path out,List<Map<String,Object>> manifest,MinecraftBitmapFont font,
             PreviewEnglishLanguage language,int vw,int vh,int scale) throws Exception {
         var geometry=ChemMasterLayout.geometry(vw,vh);
+        var outputPixels=new LinkedHashMap<String,BufferedImage>();
         var rows=new ArrayList<ChemMasterWindowState.ReagentRow>();
         for(int i=0;i<15;i++) rows.add(new ChemMasterWindowState.ReagentRow(
                 ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,ResourceLocation.fromNamespaceAndPath("moonstation14", "preview_reagent_"+i)), (long)(i+1)*123456));
-        for(String stateName:List.of("empty","populated-overflow","pending-disabled","rejected-hover-moved-clamped")) {
+        for(String stateName:List.of("empty","populated-overflow","pending-disabled","rejected-hover-moved-clamped",
+                "output-empty","output-bottle","output-pill-canister","output-focused-label-numeric")) {
             boolean populated=!stateName.equals("empty");
             List<ChemMasterWindowState.ReagentRow> input=populated?rows:List.of();
             List<ChemMasterWindowState.ReagentRow> buffer=populated?rows:List.of();
@@ -115,6 +120,7 @@ class ProductionUiPreviewTest {
                     ResourceLocation.withDefaultNamespace("overworld"),0,64,0,true,Optional.empty(),
                     Optional.of(language.component("item.minecraft.glass_bottle", "Glass Bottle %s", "Fixture")),com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.MAX_CENTS,inputVolume,input,buffer,
                     ChemMasterControlRequest.Mode.TRANSFER,ChemMasterControlRequest.Sort.OLDEST_FIRST);
+            state=withOutputFixture(state,stateName);
             int x=Math.max(0,Math.min(vw-geometry.width()/2,20)),y=Math.max(0,Math.min(vh-geometry.height()/2,18));
             if(stateName.contains("moved")){x=Math.max(0,vw-geometry.width()/2);y=Math.max(0,vh-geometry.height()/2);}
             List<ChemMasterPaint.DisplayRow> inputDisplay=display(input,language),bufferDisplay=display(buffer,language);
@@ -122,18 +128,45 @@ class ProductionUiPreviewTest {
             String loaded=state.loadedItemName().map(Component::getString).orElse("No container");
             String caption=loaded+"  "+com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(state.inputVolumeCents())+" / "+
                     com.juicyslew.moonstation14.ms14.reagent.ReagentUnits.formatCents(state.inputCapacityCents())+"u";
+            var outputPresentation=stateName.startsWith("output-")?Optional.of(outputPresentation(state,geometry,font,language,stateName)):Optional.<ChemMasterPaint.OutputPresentation>empty();
+            boolean expectedOutputTab=stateName.startsWith("output-");
             var view=new ChemMasterPaint.View(state,caption,inputDisplay,bufferDisplay,geometry,x,y,vw,vh,
                     stateName.contains("hover")?geometry.close().x()+1:Integer.MIN_VALUE,
                     stateName.contains("hover")?geometry.close().y()+1:Integer.MIN_VALUE,scroll,
                     stateName.contains("overflow")?ChemMasterLayout.maxScroll(bufferDisplay.size(),ChemMasterLayout.ROW_HEIGHT,geometry.bufferViewport().height()):0,
-                    stateName.equals("pending-disabled"),false,language.component("gui.moonstation14.chemmaster.container","Container"),
-                    stateName.startsWith("rejected")?"Cannot interact while stunned":null);
+                    stateName.equals("pending-disabled"),expectedOutputTab,language.component("gui.moonstation14.chemmaster.container","Container"),
+                    stateName.startsWith("rejected")?"Cannot interact while stunned":null,outputPresentation);
+            assertEquals(expectedOutputTab,view.outputTab(),"catalog state must select its intended production tab: "+stateName);
+            assertEquals(expectedOutputTab,view.outputPresentation().isPresent(),"output tab and typed presentation must be paired: "+stateName);
             var paint=new CpuOrderedPaint(vw*scale,vh*scale,font,scale); paint.fill(0,0,vw*scale,vh*scale,0xff5a1b7c);
             countPaint(vw*scale,vh*scale);
             paint.push();paint.scale(scale,scale,1);ChemMasterPaint.paint(new ClipAuditOrderedPaint(paint,scale),view);paint.pop();
             BufferedImage image=paint.image();
+            var paintedCommands=paint.paintedText();
+            var pillSprites=paint.paintedSprites().stream().map(ResourceLocation::getPath)
+                    .filter(path->path.matches("textures/item/pill/pill(?:[1-9]|1[0-9]|20)\\.png")).toList();
+            if(expectedOutputTab){
+                assertTrue(paintedCommands.stream().anyMatch(text->text.startsWith("Draw from:")),"Output tab must paint its draw-source caption: "+stateName);
+                assertTrue(paintedCommands.contains("Create")&&paintedCommands.contains("Count")&&paintedCommands.contains("Bottle"),
+                        "Output tab must paint production pill/bottle controls: "+stateName);
+                assertEquals(20,pillSprites.stream().distinct().count(),"Output tab must paint the actual 20-icon pill palette: "+stateName);
+                assertFalse(paintedCommands.contains("Sort: Oldest")||paintedCommands.contains("Transfer")||paintedCommands.contains("Discard"),
+                        "Output tab must not paint the distinct input controls: "+stateName);
+                if(stateName.equals("output-focused-label-numeric")){
+                    assertTrue(paintedCommands.stream().anyMatch(text->text.startsWith("c mixture label")),"focused scrolled label snapshot must reach production text painting");
+                    assertTrue(outputPresentation.orElseThrow().labelField().focused());
+                    assertTrue(outputPresentation.orElseThrow().labelField().anchor()<outputPresentation.orElseThrow().labelField().cursor(),
+                            "focus fixture must carry a selected label range");
+                }
+            }else{
+                assertFalse(paintedCommands.stream().anyMatch(text->text.startsWith("Draw from:")),"Input tab must not paint output source controls: "+stateName);
+                assertFalse(paintedCommands.contains("Create")||!pillSprites.isEmpty(),"Input tab must not paint output pill controls or palette: "+stateName);
+                assertTrue(paintedCommands.contains("Sort: Oldest")&&paintedCommands.contains("Transfer")&&paintedCommands.contains("Discard"),
+                        "Input tab must retain its distinct controls: "+stateName);
+            }
             var repeated=new CpuOrderedPaint(vw*scale,vh*scale,font,scale);repeated.fill(0,0,vw*scale,vh*scale,0xff5a1b7c);countPaint(vw*scale,vh*scale);repeated.push();repeated.scale(scale,scale,1);ChemMasterPaint.paint(new ClipAuditOrderedPaint(repeated,scale),view);repeated.pop();
             assertPixelsEqual(image,repeated.image(),"ChemMaster rerender must be pixel deterministic");
+            if(stateName.startsWith("output-"))outputPixels.put(stateName,image);
             assertOutsideWindowUnchanged(image,0xff5a1b7c,x*scale,y*scale,geometry.width()*scale/2,geometry.height()*scale/2);
             if(stateName.contains("hover")){
                 var idle=new ChemMasterPaint.View(state,caption,inputDisplay,bufferDisplay,geometry,x,y,vw,vh,Integer.MIN_VALUE,Integer.MIN_VALUE,scroll,view.bufferScroll(),view.pending(),false,view.containerHeading(),view.rejectionReason());
@@ -143,6 +176,53 @@ class ProductionUiPreviewTest {
             assertChemGeometry(geometry,inputDisplay,stateName,view,font,caption);
             writeCase(root,out,manifest,"chemmaster",stateName,vw,vh,scale,image,font,Map.of("window",List.of(x,y,geometry.width()/2,geometry.height()/2),"close",rect(geometry.close()),"inputViewport",rect(geometry.inputViewport()),"bufferViewport",rect(geometry.bufferViewport()),"scroll",List.of(view.inputScroll(),view.bufferScroll())));
         }
+        assertPixelsDifferIn(outputPixels.get("output-empty"),outputPixels.get("output-bottle"),0,0,vw*scale,vh*scale,"bottle output case must differ from empty output");
+        assertPixelsDifferIn(outputPixels.get("output-bottle"),outputPixels.get("output-pill-canister"),0,0,vw*scale,vh*scale,"pill canister output case must differ from bottle output");
+        assertPixelsDifferIn(outputPixels.get("output-pill-canister"),outputPixels.get("output-focused-label-numeric"),0,0,vw*scale,vh*scale,"focused label/numeric case must differ from neutral canister output");
+    }
+
+    private static ChemMasterWindowState withOutputFixture(ChemMasterWindowState base,String name) {
+        ChemMasterWindowState.OutputSlot slot=base.outputSlot();
+        if(name.equals("output-bottle")) slot=new ChemMasterWindowState.OutputSlot(2,ChemMasterWindowState.OutputKind.BOTTLE,
+                Optional.of(Component.literal("Fixture bottle")),10000,3750,base.inputReagents().isEmpty()?List.of():List.of(base.inputReagents().get(0)),0,0,0,Optional.empty(),List.of());
+        else if(name.equals("output-pill-canister")||name.equals("output-focused-label-numeric")) {
+            var cells=new ArrayList<ChemMasterWindowState.PillDescriptor>();
+            var rows=base.inputReagents().isEmpty()?List.<ChemMasterWindowState.ReagentRow>of():List.of(base.inputReagents().get(0));
+            for(int i=0;i<5;i++)cells.add(new ChemMasterWindowState.PillDescriptor(i%5,i/5,i*3,Optional.of(i==0?"Pain relief":"Pill "+(i+1)),rows));
+            slot=new ChemMasterWindowState.OutputSlot(3,ChemMasterWindowState.OutputKind.PILL_CANISTER,
+                    Optional.of(Component.literal("Pill canister")),0,0,List.of(),5,2,5,Optional.empty(),cells);
+        }
+        return new ChemMasterWindowState(base.frame(),base.stateRevision(),base.slotRevision(),base.bufferRevision(),base.acknowledgedRequestId(),
+                base.rejectionReason(),base.sessionId(),base.machineId(),base.bodyId(),base.bodyEpoch(),base.dimension(),base.x(),base.y(),base.z(),
+                base.open(),base.closeReason(),base.loadedItemName(),base.inputCapacityCents(),base.inputVolumeCents(),base.inputReagents(),base.bufferReagents(),
+                base.mode(),base.sort(),slot,name.equals("output-pill-canister")?ChemMasterControlRequest.DrawSource.INPUT:base.drawSource(),
+                7,250,true);
+    }
+
+    private static ChemMasterPaint.OutputPresentation outputPresentation(ChemMasterWindowState state,ChemMasterLayout.Geometry window,
+                                                                         MinecraftBitmapFont font,PreviewEnglishLanguage language,String name) {
+        var pane=window.outputPlaceholder();
+        var g=ChemMasterOutputLayout.geometry(new ChemMasterOutputLayout.Rect(pane.x(),pane.y(),pane.width(),pane.height()),
+                new CpuOrderedPaint(1,1,font).lineHeight());
+        boolean focused=name.equals("output-focused-label-numeric");
+        String label=focused?"Analgesic mixture label with scrolled text for focus verification":state.outputSlot().label().orElse("Pain relief");
+        if(label.length()>ChemMasterOutputForm.LABEL_LIMIT)label=label.substring(0,ChemMasterOutputForm.LABEL_LIMIT);
+        String count=focused?"12":"5",pillDose=focused?"25":"10",bottleDose=focused?"45":"20";
+        int cursor=focused?22:label.length(),anchor=focused?14:cursor,displayStart=focused?8:0;
+        var form=new ChemMasterOutputForm.State(label,count,pillDose,bottleDose,true,
+                (int)Math.min(Integer.MAX_VALUE,state.inputVolumeCents()/100),state.outputSlot().freeCells(),state.pillDosageLimit(),
+                (int)Math.min(Integer.MAX_VALUE,Math.max(0,state.outputSlot().capacityCents()-state.outputSlot().volumeCents())/100));
+        var labelSnapshot=new ChemMasterTextFieldPaint.Snapshot(label,cursor,anchor,displayStart,focused,
+                state.outputSlot().kind()!=ChemMasterWindowState.OutputKind.EMPTY,true,120);
+        var countSnapshot=new ChemMasterTextFieldPaint.Snapshot(count,count.length(),count.length(),0,false,
+                state.outputSlot().kind()==ChemMasterWindowState.OutputKind.PILL_CANISTER,true,120);
+        var doseSnapshot=new ChemMasterTextFieldPaint.Snapshot(pillDose,pillDose.length(),pillDose.length(),0,false,
+                state.outputSlot().kind()==ChemMasterWindowState.OutputKind.PILL_CANISTER,true,120);
+        var bottleSnapshot=new ChemMasterTextFieldPaint.Snapshot(bottleDose,bottleDose.length(),bottleDose.length(),0,false,
+                state.outputSlot().kind()==ChemMasterWindowState.OutputKind.BOTTLE,true,120);
+        var bottleRows=display(state.outputSlot().reagents(),language);
+        return new ChemMasterPaint.OutputPresentation(form,g,labelSnapshot,countSnapshot,doseSnapshot,bottleSnapshot,
+                state.pillType(),state.drawSource(),bottleRows);
     }
 
     private static List<ChemMasterPaint.DisplayRow> display(List<ChemMasterWindowState.ReagentRow> rows,PreviewEnglishLanguage language){
@@ -238,6 +318,7 @@ class ProductionUiPreviewTest {
         Path sourceJar=root.resolve("build/moddev/artifacts/neoforge-21.1.224-sources.jar");if(Files.isRegularFile(sourceJar))hashes.put(root.relativize(sourceJar).toString(),sha256(sourceJar));
         Path translations=root.resolve("src/main/resources/assets/moonstation14/lang/en_us.json");if(Files.isRegularFile(translations))hashes.put(root.relativize(translations).toString(),sha256(translations));
         for(String texture:List.of("wire_1","wire_1_cut","wire_2","wire_2_cut")){Path asset=root.resolve("src/main/resources/assets/moonstation14/textures/gui/airlock/"+texture+".png");if(Files.isRegularFile(asset))hashes.put(root.relativize(asset).toString(),sha256(asset));}
+        for(int i=1;i<=20;i++){Path asset=root.resolve("src/main/resources/assets/moonstation14/textures/item/pill/pill"+i+".png");if(Files.isRegularFile(asset))hashes.put(root.relativize(asset).toString(),sha256(asset));}
         return hashes;
     }
     private static String sha256(Path path) throws Exception {var digest=MessageDigest.getInstance("SHA-256");try(InputStream input=Files.newInputStream(path)){byte[] buffer=new byte[65536];int read;while((read=input.read(buffer))>=0)digest.update(buffer,0,read);}return HexFormat.of().formatHex(digest.digest());}

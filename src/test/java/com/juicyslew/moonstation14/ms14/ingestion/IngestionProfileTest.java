@@ -18,6 +18,9 @@ class IngestionProfileTest {
     @Test void codecRequiresComposedEdibleAndAppliesEdibleDefaults() {
         var defaults = IngestionProfile.Edible.CODEC.parse(JsonOps.INSTANCE, new JsonObject()).getOrThrow();
         assertEquals(new IngestionProfile.Edible(500, 20, true), defaults);
+        assertEquals(id("ss14/items/drink"), defaults.completionSound());
+        assertEquals(-2f, defaults.volumeDb());
+        assertEquals(.25f, defaults.pitchVariation());
         assertTrue(IngestionProfile.CODEC.parse(JsonOps.INSTANCE, new JsonObject()).error().isPresent());
         JsonObject invalid = new JsonObject();
         JsonObject edible = new JsonObject(); edible.addProperty("dose_cents", 0); invalid.add("edible", edible);
@@ -27,7 +30,7 @@ class IngestionProfileTest {
     @Test void bundledInheritanceResolvesDistinctDrinkAndBottleParents() {
         PrototypeManager manager = new PrototypeManager(); manager.register(ModIngestionProfiles.TYPE);
         Map<ResourceLocation, JsonObject> resources = new LinkedHashMap<>();
-        for (String name : new String[]{"edible_defaults", "drink_base", "jug", "bottle", "puddle"})
+        for (String name : new String[]{"edible_defaults", "drink_base", "jug", "bottle", "puddle", "pill"})
             resources.put(id(name), resource(name));
         manager.reload(ModIngestionProfiles.TYPE, resources);
         var catalog = manager.snapshot(ModIngestionProfiles.TYPE);
@@ -37,6 +40,11 @@ class IngestionProfileTest {
         assertEquals(id("edible_defaults").toString(), resources.get(id("bottle")).get("parent").getAsString());
         assertEquals(new IngestionProfile.Edible(100, 60, true), catalog.get(id("puddle")).edible());
         assertEquals(500, catalog.get(id("jug")).doseCents());
+        var pill = catalog.get(id("pill"));
+        assertEquals(id("ss14/items/pill"), pill.completionSound());
+        assertEquals(-1f, pill.completionVolumeDb());
+        assertEquals(.2f, pill.completionPitchVariation());
+        assertEquals(id("ss14/items/drink"), catalog.get(id("bottle")).completionSound());
     }
 
     @Test void lookupsFailClosedAndReadinessRequiresBundledEntries() {

@@ -269,9 +269,8 @@ public final class BodyWorldGridService {
                         BodyItemTargetProbe.MAX_REACH);
                 if (!allowed) state.postDrop = null;
                 observed = allowed ? GridContents.read(copy).map(contents -> new BodyWorldStorageView.Summary(
-                        q.target(), BuiltInRegistries.ITEM.getKey(copy.getItem()), copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? "bag" : "belt",
-                        copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? 7 : 8,
-                        copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? 4 : 2,
+                        q.target(), BuiltInRegistries.ITEM.getKey(copy.getItem()), copy.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER) ? "pill" : copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? "bag" : "belt",
+                        GridContents.width(copy), GridContents.height(copy),
                         contents.entries(), q.epoch(), q.handRevision())) : java.util.Optional.empty();
             } else observed = BodyWorldStorageView.inspect(actor, q.target(), q.epoch(), q.handRevision());
         } catch (RuntimeException callbackFailure) {
@@ -323,13 +322,13 @@ public final class BodyWorldGridService {
     }
 
     private static boolean storageHost(ItemStack stack) {
-        return stack.is(com.juicyslew.moonstation14.item.ModItems.BAG)
-                || stack.is(com.juicyslew.moonstation14.item.ModItems.BELT);
+        return GridContents.isHost(stack);
     }
 
     private static boolean sameStorageHost(ItemStack original, ItemStack current) {
         return original.is(com.juicyslew.moonstation14.item.ModItems.BAG) == current.is(com.juicyslew.moonstation14.item.ModItems.BAG)
-                && original.is(com.juicyslew.moonstation14.item.ModItems.BELT) == current.is(com.juicyslew.moonstation14.item.ModItems.BELT);
+                && original.is(com.juicyslew.moonstation14.item.ModItems.BELT) == current.is(com.juicyslew.moonstation14.item.ModItems.BELT)
+                && original.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER) == current.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER);
     }
 
     private static void revoke(ActorState state, UUID nonce) {

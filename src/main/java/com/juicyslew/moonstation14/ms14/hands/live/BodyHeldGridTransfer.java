@@ -65,7 +65,7 @@ public final class BodyHeldGridTransfer {
         if (before == null || before.revision() != revision || !before.compatible(body)) return Result.DENIED;
         var host = before.stackCopy(hostHand);
         if (host.isEmpty() || !before.token(hostHand).filter(hostToken::equals).isPresent()
-                || !(host.orElseThrow().is(ModItems.BAG) || host.orElseThrow().is(ModItems.BELT))
+                || !GridContents.isHost(host.orElseThrow())
                 || newAnchor != null && !host.orElseThrow().has(ModDataComponents.GRID_CONTENTS.get())
                 || GridContents.read(host.orElseThrow()).isEmpty()) return Result.DENIED;
         Optional<LiveHands> next;
@@ -90,7 +90,7 @@ public final class BodyHeldGridTransfer {
     private static boolean hostStillMatches(LiveHands state, String hand, String token, boolean moving) {
         var stack = state.stackCopy(hand);
         return state.token(hand).filter(token::equals).isPresent() && stack.isPresent()
-                && (stack.orElseThrow().is(ModItems.BAG) || stack.orElseThrow().is(ModItems.BELT))
+                && GridContents.isHost(stack.orElseThrow())
                 && (!moving || stack.orElseThrow().has(ModDataComponents.GRID_CONTENTS.get()))
                 && GridContents.read(stack.orElseThrow()).isPresent();
     }
