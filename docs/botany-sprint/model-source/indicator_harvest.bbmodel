@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "java_block",
+    "box_uv": false
+  },
+  "name": "hydroponics_tray_indicator_harvest",
+  "model_identifier": "hydroponics_tray_indicator_harvest",
+  "resolution": {
+    "width": 8,
+    "height": 8
+  },
+  "elements": [
+    {
+      "name": "status_harvest_display",
+      "uuid": "a2c7501d-e2a2-5417-8b71-8f3162a5a976",
+      "type": "cube",
+      "from": [
+        11.8,
+        1.3,
+        2.4800000000000004
+      ],
+      "to": [
+        13.8,
+        2.8,
+        2.4800000000000004
+      ],
+      "origin": [
+        8,
+        0,
+        8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        }
+      },
+      "rescale": false
+    }
+  ],
+  "outliner": [
+    {
+      "name": "hydroponics_tray_indicator_harvest",
+      "uuid": "507e4e65-9eca-5a2a-a0f3-f526713e5b6d",
+      "origin": [
+        8,
+        0,
+        8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "children": [
+        {
+          "name": "indicator",
+          "uuid": "c8d467d6-82dd-576b-bdf2-c887f0701242",
+          "origin": [
+            8,
+            0,
+            8
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "children": [
+            "a2c7501d-e2a2-5417-8b71-8f3162a5a976"
+          ],
+          "visibility": true,
+          "export": true
+        }
+      ],
+      "visibility": true,
+      "export": true
+    }
+  ],
+  "textures": [
+    {
+      "uuid": "a94d1071-0793-5c19-887d-252390d2a573",
+      "name": "harvest.png",
+      "id": "0",
+      "mode": "bitmap",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAPUlEQVR4nGPUOM7wnwEKrltAmJonGGFCDExwFg5AUAHj////4VY0MkCMrkfYysACEwSBFSegDAtquoGgAgCXLw0mV04+XwAAAABJRU5ErkJggg==",
+      "relative_path": "../../textures/indicators/harvest_frame0.png",
+      "internal": true,
+      "width": 8,
+      "height": 8,
+      "uv_width": 8,
+      "uv_height": 8
+    }
+  ],
+  "animations": [],
+  "ambientocclusion": true
+}

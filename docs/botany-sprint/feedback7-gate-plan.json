@@ -1,0 +1,44 @@
+{
+  "title": "Botany feedback 7: reliable wall-adjacent harvest placement",
+  "kind": "bugfix",
+  "acceptance_criteria": [
+    "Valid preferred harvest scatter is preserved; obstructed scatter uses finite collision-checked fallback within the existing plus/minus 0.25 horizontal footprint and unchanged feet height.",
+    "Authenticated wheat and tomato harvest succeeds on the first request beside a wall or corner, preserving yield and repeat/non-repeat lifecycle rules.",
+    "Exhausted placement candidates deny publication before source commit and leak no outputs; existing publication compensation and authority remain intact.",
+    "A mod jar bound to the corrected candidate is available for owner retesting."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/BotanyHarvestAuthenticatedGameTests.java",
+  "manual_steps": [
+    "Restart with the candidate jar and run /ms14 botany_fixture. With an empty hand, stand against a wall, then in a corner, and harvest ready wheat and tomato with one click each. Confirm produce appears near your feet without entering the wall. No sound retest is needed."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile bounded placement changes and new native fixtures and force candidate jar production.",
+      "covers": ["A mod jar bound to the corrected candidate is available for owner retesting."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Resolved produce composition, generated yield/content, and repeat/non-repeat lifecycle regressions; native checks establish changed placement behavior.",
+      "covers": ["Authenticated wheat and tomato harvest succeeds on the first request beside a wall or corner, preserving yield and repeat/non-repeat lifecycle rules."]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Affected world-use admission category only; no UI or client prediction changes in this revision.",
+      "covers": ["Exhausted placement candidates deny publication before source commit and leak no outputs; existing publication compensation and authority remain intact."],
+      "selectors": ["interaction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "$fixture='build/gametest-botany-feedback7-'+[guid]::NewGuid().ToString('N'); ./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,harvest-placement' \"-Pms14GameTestDir=$fixture\" --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "New deterministic placement/exhaustion fixtures and authenticated wall/corner harvest requests plus existing botany regressions. Fresh world avoids ACTIVE lifecycle recovery state; preserve failed artifacts.",
+      "covers": ["Valid preferred harvest scatter is preserved; obstructed scatter uses finite collision-checked fallback within the existing plus/minus 0.25 horizontal footprint and unchanged feet height.", "Authenticated wheat and tomato harvest succeeds on the first request beside a wall or corner, preserving yield and repeat/non-repeat lifecycle rules.", "Exhausted placement candidates deny publication before source commit and leak no outputs; existing publication compensation and authority remain intact."],
+      "selectors": ["botany", "harvest-placement"],
+      "log": "build/reports/botany/feedback7-gate-native.log"
+    }
+  ]
+}
