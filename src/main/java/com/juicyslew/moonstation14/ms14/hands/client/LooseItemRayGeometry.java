@@ -23,3 +23,4 @@ final class LooseItemRayGeometry {
                 + (look.z >= 0 ? box.minZ : box.maxZ) * look.z - start.dot(look);
     }
 }
+

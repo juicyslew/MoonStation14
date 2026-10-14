@@ -100,3 +100,4 @@ public final class LifecycleAppearanceCommands {
         return 0;
     }
 }
+

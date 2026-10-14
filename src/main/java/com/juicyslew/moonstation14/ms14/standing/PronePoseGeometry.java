@@ -62,3 +62,4 @@ public final class PronePoseGeometry {
                 zSign * NATIVE_HALF_DEPTH), modelScale, entityScale, yaw, faceUp);
     }
 }
+

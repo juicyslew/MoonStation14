@@ -9,3 +9,4 @@ public final class CableFacePresentation {
         return !(stationFloor && steelTileFinish && face == Direction.UP);
     }
 }
+

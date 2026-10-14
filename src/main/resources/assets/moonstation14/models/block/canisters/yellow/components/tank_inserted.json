@@ -1,0 +1,157 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/canisters/yellow",
+    "particle": "moonstation14:block/canisters/yellow"
+  },
+  "elements": [
+    {
+      "name": "inserted_tank",
+      "from": [
+        9.0,
+        1.85,
+        2.63
+      ],
+      "to": [
+        10.65,
+        7.6,
+        2.8
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            6.0,
+            2.1875,
+            6.1875,
+            2.9375
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            6.3125,
+            2.1875,
+            6.375,
+            2.9375
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            6.0,
+            2.1875,
+            6.1875,
+            2.9375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            6.3125,
+            2.1875,
+            6.375,
+            2.9375
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            6.5,
+            2.1875,
+            6.6875,
+            2.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            6.5,
+            2.1875,
+            6.6875,
+            2.25
+          ]
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    }
+  },
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

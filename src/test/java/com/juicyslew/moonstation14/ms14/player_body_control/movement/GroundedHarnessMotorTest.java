@@ -61,10 +61,10 @@ class GroundedHarnessMotorTest {
     }
 
     @Test
-    void neutralGroundFrictionStopsHumanMomentumInOneTick() {
+    void neutralGroundFrictionStopsHumanMomentumAtTwentyHertz() {
         CharacterMovementState result = tick(state(new MovementVector(2.5d, 0d, 0d), true),
                 0, 0, false, false, 0d, env(0d, 0d, GROUNDED), false);
-        assertEquals(MovementVector.ZERO, result.velocity());
+        assertEquals(.740740740740741d, result.velocity().x(), 1e-12);
     }
 
     @Test
@@ -73,7 +73,7 @@ class GroundedHarnessMotorTest {
                 MovementVector.ZERO, 0d, 0d, GROUNDED, .05d, 1d);
         CharacterMovementState onLube = tick(state(MovementVector.ZERO, true), 0, 1000,
                 false, false, 0d, lube, false);
-        assertEquals(.125d, onLube.velocity().z(), 1e-12);
+        assertEquals(.12292824074074071d, onLube.velocity().z(), 1e-12);
 
         CharacterMovementEnvironment knockdown = new CharacterMovementEnvironment(DT, 0d, 0d, .98d,
                 MovementVector.ZERO, 0d, 0d, GROUNDED, 1d,

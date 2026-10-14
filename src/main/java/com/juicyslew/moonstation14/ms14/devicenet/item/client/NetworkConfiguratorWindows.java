@@ -8,3 +8,4 @@ public final class NetworkConfiguratorWindows {
                 || NetworkConfiguratorListWindowState.INSTANCE.window().visible();
     }
 }
+

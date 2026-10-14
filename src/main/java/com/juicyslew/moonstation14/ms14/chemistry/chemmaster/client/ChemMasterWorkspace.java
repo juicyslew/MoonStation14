@@ -88,3 +88,4 @@ public final class ChemMasterWorkspace {
     public void clear(){for(Window w:windows.values())if(w.overlay!=null)PointerOverlayRegistry.unregister(w.overlay);windows.clear();retiredSessions.clear();dismissedFrames.clear();requestSequence=0;}
     private static void clamp(Window w,int sw,int sh){int ww=Math.min(ChemMasterLayout.WIDTH/2,Math.max(1,sw)),hh=Math.min(ChemMasterLayout.HEIGHT/2,Math.max(1,sh));w.x=Math.max(0,Math.min(w.x,sw-ww));w.y=Math.max(0,Math.min(w.y,sh-hh));}
 }
+

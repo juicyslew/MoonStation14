@@ -55,3 +55,4 @@ public final class BarotraumaSystem {
                 == DamageSystem.Result.APPLIED;
     }
 }
+

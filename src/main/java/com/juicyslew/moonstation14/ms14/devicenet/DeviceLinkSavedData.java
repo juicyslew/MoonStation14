@@ -53,3 +53,4 @@ public final class DeviceLinkSavedData extends SavedData {
         tag.putInt("schema",1); return tag;
     }
 }
+

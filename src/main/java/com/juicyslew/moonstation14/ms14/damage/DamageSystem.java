@@ -45,16 +45,27 @@ public final class DamageSystem {
     }
 
     public static Result applyHealthChange(LivingEntity entity, Map<String, Float> rawDelta,
-                                            float scale, boolean ignoreResistances, Cause cause) {
+                                             float scale, boolean ignoreResistances, Cause cause) {
+        return applyHealthChangeWithAdmission(entity, rawDelta, scale, ignoreResistances, cause).status();
+    }
+
+    /**
+     * Applies the canonical typed-damage transaction and reports native positive-damage admission.
+     * APPLIED remains a processing receipt; positiveDamageAdmitted is true only when this
+     * transaction claimed its native post-damage commit. Pure healing and valid zero deltas
+     * therefore report APPLIED with positiveDamageAdmitted false.
+     */
+    public static DamageApplication applyHealthChangeWithAdmission(LivingEntity entity, Map<String, Float> rawDelta,
+                                             float scale, boolean ignoreResistances, Cause cause) {
         if (entity == null || entity.level().isClientSide()) {
-            return Result.SKIPPED_UNSUPPORTED;
+            return new DamageApplication(Result.SKIPPED_UNSUPPORTED, false);
         }
         if (!Float.isFinite(scale) || scale < 0f) {
-            return Result.FAILED;
+            return new DamageApplication(Result.FAILED, false);
         }
         Map<String, Float> delta = scaleDelta(rawDelta, scale);
         if (delta.isEmpty()) {
-            return Result.APPLIED;
+            return new DamageApplication(Result.APPLIED, false);
         }
         ensureBaseline(entity);
 
@@ -69,6 +80,11 @@ public final class DamageSystem {
         }
 
         if (!positives.isEmpty()) {
+            if (!ignoreResistances) positives = new LinkedHashMap<>(EquippedArmor.modify(entity, positives));
+            if (positives.isEmpty()) {
+                if (!negatives.isEmpty()) commit(entity, DamageReducer.applyDelta(existing(entity), negatives));
+                return new DamageApplication(Result.APPLIED, false);
+            }
             DamageSource source = ignoreResistances
                     ? reagentBypassSource(entity.level())
                     : reagentSource(entity.level());
@@ -83,11 +99,11 @@ public final class DamageSystem {
             }
             // A canceled/rejected mixed mutation is canceled as a whole. The
             // negative-only path below remains direct and authoritative.
-            return Result.APPLIED;
+            return new DamageApplication(Result.APPLIED, transaction.committed);
         }
 
         commit(entity, DamageReducer.applyDelta(existing(entity), delta));
-        return Result.APPLIED;
+        return new DamageApplication(Result.APPLIED, false);
     }
 
     /** Applies EvenHealthChange's stable, group-sequential healing policy. */
@@ -362,7 +378,8 @@ public final class DamageSystem {
         FIRE(ModDamageFeedback.id("fire")),
         ELECTRICAL(ModDamageFeedback.id("electrical")),
         EXPLOSION(ModDamageFeedback.id("explosion")),
-        COMBAT(ModDamageFeedback.id("combat"));
+        COMBAT(ModDamageFeedback.id("combat")),
+        RADIATION(ModDamageFeedback.id("radiation"));
         private final net.minecraft.resources.ResourceLocation profile;
         Cause(net.minecraft.resources.ResourceLocation profile) { this.profile = profile; }
         public net.minecraft.resources.ResourceLocation profileId() { return profile; }
@@ -412,4 +429,7 @@ public final class DamageSystem {
         SKIPPED_UNSUPPORTED,
         FAILED
     }
+
+    public record DamageApplication(Result status, boolean positiveDamageAdmitted) { }
 }
+

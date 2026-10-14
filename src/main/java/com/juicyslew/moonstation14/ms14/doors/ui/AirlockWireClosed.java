@@ -21,3 +21,4 @@ public record AirlockWireClosed(int windowId, UUID session) implements CustomPac
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

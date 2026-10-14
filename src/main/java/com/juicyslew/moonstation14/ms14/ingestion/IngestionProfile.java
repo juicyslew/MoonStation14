@@ -23,3 +23,4 @@ public record IngestionProfile(Edible edible) {
     public int delayTicks() { return edible.delayTicks(); }
     public boolean destroyOnEmpty() { return edible.destroyOnEmpty(); }
 }
+

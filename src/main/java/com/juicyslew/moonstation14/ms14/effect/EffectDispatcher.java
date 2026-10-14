@@ -114,3 +114,4 @@ public final class EffectDispatcher {
         return ((EffectHandler<T>) handler).apply((T) effect, context);
     }
 }
+

@@ -143,3 +143,4 @@ public final class HungerSystem {
         return satiate(entity, factor, scale);
     }
 }
+

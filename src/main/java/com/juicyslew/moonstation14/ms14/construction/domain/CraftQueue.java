@@ -29,3 +29,4 @@ public final class CraftQueue {
     /** Any failed validation/transaction stops the queue without reserving future materials. */
     public void stop() { stopped = true; }
 }
+

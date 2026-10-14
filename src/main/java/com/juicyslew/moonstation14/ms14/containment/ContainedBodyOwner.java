@@ -44,3 +44,4 @@ public interface ContainedBodyOwner {
     /** Called for a voluntary movement escape request; timing and eligibility belong to the owner. */
     boolean tryEscape(LivingEntity body);
 }
+

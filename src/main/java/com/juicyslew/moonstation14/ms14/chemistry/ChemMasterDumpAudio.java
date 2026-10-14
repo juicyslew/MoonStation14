@@ -19,3 +19,4 @@ public final class ChemMasterDumpAudio {
         ControlledSoundDispatch.emit(level, SOUND, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, GAIN);
     }
 }
+

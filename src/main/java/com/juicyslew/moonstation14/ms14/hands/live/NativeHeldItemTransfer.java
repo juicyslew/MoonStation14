@@ -81,3 +81,4 @@ public final class NativeHeldItemTransfer {
         return slot >= 0 && !player.getInventory().getItem(slot).isEmpty();
     }
 }
+

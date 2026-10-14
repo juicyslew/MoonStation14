@@ -19,3 +19,4 @@ public abstract class ContainedBodyCameraMixin {
         if (requested == 4.0F && ContainedCharacterClientView.shouldUnclip(entity)) cir.setReturnValue(4.0F);
     }
 }
+

@@ -55,3 +55,4 @@ public final class DisposalTubeBlock extends Block {
         super.onRemove(state,level,pos,newState,movedByPiston);
     }
 }
+

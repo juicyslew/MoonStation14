@@ -16,3 +16,4 @@ public record NetworkConfiguratorListSnapshot(UUID session, long requestId, long
         memberDisplayRows = List.copyOf(memberDisplayRows); positions = List.copyOf(positions);
     }
 }
+

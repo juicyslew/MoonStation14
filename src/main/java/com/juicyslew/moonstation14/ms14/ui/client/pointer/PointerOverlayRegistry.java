@@ -35,21 +35,23 @@ public final class PointerOverlayRegistry {
     public static void register(PointerOverlayWindow window) { if (!WINDOWS.contains(window)) WINDOWS.add(window); }
     public static void unregister(PointerOverlayWindow window) { WINDOWS.remove(window); }
     public static void bringToFront(PointerOverlayWindow window) { if(WINDOWS.remove(window)) WINDOWS.add(window); }
-    public static boolean anyVisible() { return WINDOWS.stream().anyMatch(PointerOverlayWindow::visible); }
-    public static boolean textFocused() { return WINDOWS.stream().anyMatch(w -> w.visible() && w.isSearchFocused()); }
-    public static void clearTextFocus() { for (var w : WINDOWS) w.clearTextFocus(); }
+    /** Membership/order is fixed for one dispatch; visibility remains live as callbacks run. */
+    private static List<PointerOverlayWindow> snapshot() { return List.copyOf(WINDOWS); }
+    public static boolean anyVisible() { return snapshot().stream().anyMatch(PointerOverlayWindow::visible); }
+    public static boolean textFocused() { return snapshot().stream().anyMatch(w -> w.visible() && w.isSearchFocused()); }
+    public static void clearTextFocus() { for (var w : snapshot()) w.clearTextFocus(); }
     public static void resetOwnedContext() { for (var w : List.copyOf(WINDOWS)) w.resetOwnedContext(); WINDOWS.clear(); overlayFront=true; }
     public static boolean overlayFront() { return overlayFront; }
     public static void overlayFront(boolean front) { overlayFront=front; }
-    public static boolean hit(double x,double y) { return WINDOWS.stream().anyMatch(w -> w.visible() && w.contains(x,y)); }
+    public static boolean hit(double x,double y) { return snapshot().stream().anyMatch(w -> w.visible() && w.contains(x,y)); }
     public static boolean click(double x,double y,int button) { var ordered=paintOrder(); for(int i=ordered.size()-1;i>=0;i--){var w=ordered.get(i);if(w.contains(x,y))return w.mouseClicked(x,y,button);}return false; }
-    public static boolean drag(double x,double y) { for(var w:WINDOWS)if(w.visible()&&w.mouseDragged(x,y))return true;return false; }
-    public static boolean release(int button) { for(var w:WINDOWS)if(w.visible()&&w.mouseReleased(button))return true;return false; }
-    public static boolean scroll(double x,double y,double delta) { for(int i=WINDOWS.size()-1;i>=0;i--){var w=WINDOWS.get(i);if(w.visible()&&w.contains(x,y))return w.mouseScrolled(x,y,delta);}return false; }
-    public static boolean key(int key,int scan,int mods) { return WINDOWS.stream().anyMatch(w->w.visible()&&w.keyPressed(key,scan,mods)); }
-    public static boolean character(char c,int mods) { return WINDOWS.stream().anyMatch(w->w.visible()&&w.charTyped(c,mods)); }
+    public static boolean drag(double x,double y) { for(var w:snapshot())if(w.visible()&&w.mouseDragged(x,y))return true;return false; }
+    public static boolean release(int button) { for(var w:snapshot())if(w.visible()&&w.mouseReleased(button))return true;return false; }
+    public static boolean scroll(double x,double y,double delta) { var ordered=snapshot();for(int i=ordered.size()-1;i>=0;i--){var w=ordered.get(i);if(w.visible()&&w.contains(x,y))return w.mouseScrolled(x,y,delta);}return false; }
+    public static boolean key(int key,int scan,int mods) { for(var w:snapshot())if(w.visible()&&w.keyPressed(key,scan,mods))return true;return false; }
+    public static boolean character(char c,int mods) { for(var w:snapshot())if(w.visible()&&w.charTyped(c,mods))return true;return false; }
     /** Visible windows in back-to-front paint order; input reverses this exact order. */
-    public static List<PointerOverlayWindow> paintOrder() { return WINDOWS.stream().filter(PointerOverlayWindow::visible).toList(); }
+    public static List<PointerOverlayWindow> paintOrder() { return snapshot().stream().filter(PointerOverlayWindow::visible).toList(); }
     public static void render(GuiGraphics g,int mx,int my,float partial,int width,int height) {
         render(g,mx,my,partial,width,height,3);
     }
@@ -76,3 +78,4 @@ public final class PointerOverlayRegistry {
         }
     }
 }
+

@@ -110,3 +110,4 @@ public final class ModMedicalItems {
         return ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, path);
     }
 }
+

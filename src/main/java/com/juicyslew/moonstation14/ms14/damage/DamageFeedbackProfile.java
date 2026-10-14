@@ -14,3 +14,4 @@ public record DamageFeedbackProfile(boolean redFlash, boolean cameraShake, boole
     public static final DamageFeedbackProfile QUIET = new DamageFeedbackProfile(false, false, false, false);
     public static final DamageFeedbackProfile PHYSICAL = new DamageFeedbackProfile(true, true, true, false);
 }
+

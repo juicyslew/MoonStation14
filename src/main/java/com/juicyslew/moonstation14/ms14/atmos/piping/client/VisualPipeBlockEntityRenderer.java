@@ -65,3 +65,4 @@ public final class VisualPipeBlockEntityRenderer implements BlockEntityRenderer<
         poseStack.popPose();
     }
 }
+

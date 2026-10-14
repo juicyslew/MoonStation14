@@ -41,3 +41,4 @@ public record ToolProfile(Tool tool, Prying prying, String useSound, ExamineMeta
             throw new IllegalArgumentException("unsupported resolved tool use sound: " + useSound);
     }
 }
+

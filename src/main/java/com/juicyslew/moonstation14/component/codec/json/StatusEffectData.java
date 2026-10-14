@@ -129,3 +129,4 @@ public record StatusEffectData(
         }
     }
 }
+

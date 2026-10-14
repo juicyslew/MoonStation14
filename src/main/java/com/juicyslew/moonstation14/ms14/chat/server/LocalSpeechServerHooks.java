@@ -170,3 +170,4 @@ public final class LocalSpeechServerHooks {
         return ModCharacters.HUMAN_ID.equals(boundId) && current.filter(CharacterData::canSpeakText).isPresent();
     }
 }
+

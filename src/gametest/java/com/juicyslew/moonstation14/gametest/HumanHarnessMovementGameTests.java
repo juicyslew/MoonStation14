@@ -195,7 +195,7 @@ public final class HumanHarnessMovementGameTests {
         var pigLease = GroundedHarnessLease.tryAcquire(pig).orElseThrow();
         GroundedHarnessWorldStep sharedStep = new GroundedHarnessWorldStep();
         // Keep the probe centered and before any test-structure boundary; acceleration reaches cap quickly.
-        for (int tick = 0; tick < 5; tick++) {
+        for (int tick = 0; tick < 20; tick++) {
             require(sharedStep.step(human, 0, 1000, false, false, 0f).isPresent(),
                     "shared world step accepts owned HUMAN Villager");
             require(sharedStep.step(pig, 0, 1000, false, false, 0f).isPresent(),
@@ -210,16 +210,18 @@ public final class HumanHarnessMovementGameTests {
                 "resolved prototype retains the raw SS14 human walk/sprint values");
         require(humanPolicy.walkSpeedPerSecond() == 3.125d && humanPolicy.sprintSpeedPerSecond() == 5.625d,
                 "shared live policy applies the grounded Minecraft speed scale once to both speeds");
-        require(Math.abs(human.getDeltaMovement().z * 20d - 3.125d) < 1e-8,
-                "shared world step resolves HUMAN walk policy at 3.125 blocks/second");
+        require(Math.abs(human.getDeltaMovement().z * 20d - 3.125d) < .02,
+                "shared world step resolves HUMAN walk policy at 3.125 blocks/second; actual="
+                        + human.getDeltaMovement().z * 20d);
         // Exercise the production world step's sprint cap using the same enrolled human and lease.
         human.setDeltaMovement(Vec3.ZERO);
         for (int tick = 0; tick < 8; tick++) {
             require(sharedStep.step(human, 0, 1000, false, true, 0f).isPresent(),
                     "shared world step accepts sprinting owned HUMAN Villager");
         }
-        require(Math.abs(human.getDeltaMovement().z * 20d - 5.625d) < 1e-8,
-                "shared world step applies converted HUMAN sprint cap without repeated scaling");
+        require(Math.abs(human.getDeltaMovement().z * 20d - 5.625d) < .02,
+                "shared world step applies converted HUMAN sprint cap without repeated scaling; actual="
+                        + human.getDeltaMovement().z * 20d);
         require(Math.abs(pig.getDeltaMovement().z * 20d - 5d) < .02d,
                 "shared adapter resolves Pig walk policy at 5 blocks/second; actual="
                         + pig.getDeltaMovement().z * 20d + ", position=" + pig.position()

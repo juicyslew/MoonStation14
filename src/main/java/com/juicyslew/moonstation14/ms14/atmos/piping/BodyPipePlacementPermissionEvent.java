@@ -39,3 +39,4 @@ public final class BodyPipePlacementPermissionEvent extends Event implements ICa
     public Direction face() { return face; }
     public BlockPos destination() { return destination; }
 }
+

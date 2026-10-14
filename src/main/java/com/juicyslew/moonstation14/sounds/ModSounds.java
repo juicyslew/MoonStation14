@@ -57,6 +57,16 @@ public class ModSounds {
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE = registerFixedRangeSoundEvent("grenade/explode", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE_FAR = registerSoundEvent("grenade/explode_far");
+    public static final Supplier<SoundEvent> PA_PARTICLE_HIT = registerSoundEvent("pa_particle_hit");
+    public static final Supplier<SoundEvent> SINGULARITY_AMBIENT = registerFixedRangeSoundEvent("singularity/ambient", 14.0F);
+    public static final Supplier<SoundEvent> SINGULARITY_COMPONENT_AMBIENT = registerFixedRangeSoundEvent("singularity/component_ambient", 20.0F);
+    public static final Supplier<SoundEvent> SINGULARITY_FORM = registerSoundEvent("singularity/form");
+    public static final Supplier<SoundEvent> SINGULARITY_DISSIPATE = registerSoundEvent("singularity/dissipate");
+    public static final Supplier<SoundEvent> EMITTER_FIRE = registerSoundEvent("emitter/fire");
+    public static final Supplier<SoundEvent> PROJECTILE_FLY_BY = registerSoundEvent("projectile/fly_by");
+    public static final Supplier<SoundEvent> ITEM_SLOT_INSERT = registerSoundEvent("item_slot_insert");
+    public static final Supplier<SoundEvent> ITEM_SLOT_EJECT = registerSoundEvent("item_slot_eject");
+    public static final Supplier<SoundEvent> GAS_VALVE_TOGGLE = registerSoundEvent("gas_valve_toggle");
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),
             java.util.Map.entry("crying", registerSoundEvent("emote/crying")),
@@ -88,3 +98,4 @@ public class ModSounds {
         SOUND_EVENTS.register(eventBus);
     }
 }
+

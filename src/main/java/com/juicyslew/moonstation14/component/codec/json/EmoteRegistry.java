@@ -36,3 +36,4 @@ public final class EmoteRegistry {
 
     public record EmoteSpec(String sound) { }
 }
+

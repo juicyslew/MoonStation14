@@ -18,3 +18,4 @@ public abstract class MobMedicalAiMixin {
         callback.cancel();
     }
 }
+

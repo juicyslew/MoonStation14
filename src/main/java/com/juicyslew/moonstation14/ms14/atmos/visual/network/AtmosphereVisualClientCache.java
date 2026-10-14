@@ -284,3 +284,4 @@ public final class AtmosphereVisualClientCache {
     }
     private record QueuedDelta(long revision, AtmosphereVisualPayload.VisualCell cell) { }
 }
+

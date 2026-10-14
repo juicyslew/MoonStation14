@@ -52,3 +52,4 @@ public final class HandBarLayout {
                 new Rect(rightStart + equipment + equipmentGap, equipmentY, equipment, equipment));
     }
 }
+

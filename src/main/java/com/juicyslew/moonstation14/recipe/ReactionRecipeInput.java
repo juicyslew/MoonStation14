@@ -28,3 +28,4 @@ public record ReactionRecipeInput(Map<ResourceKey<ReagentData>, Float> container
         return container().isEmpty();
     }
 }
+

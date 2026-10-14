@@ -35,3 +35,4 @@ public record PlayerCharacterBinding(UUID accountId, String profileKey, UUID min
         return new PlayerCharacterBinding(tag.getUUID(ACCOUNT), tag.getString(PROFILE), tag.getUUID(MIND));
     }
 }
+

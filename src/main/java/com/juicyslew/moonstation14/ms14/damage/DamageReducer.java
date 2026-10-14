@@ -200,3 +200,4 @@ public final class DamageReducer {
         return total;
     }
 }
+

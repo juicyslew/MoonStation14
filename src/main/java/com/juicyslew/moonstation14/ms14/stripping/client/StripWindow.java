@@ -112,3 +112,4 @@ public final class StripWindow implements PointerOverlayWindow {
     @Override public boolean keyPressed(int key,int scan,int mods){if(key==GLFW.GLFW_KEY_ESCAPE){close();return true;}return false;}
     @Override public boolean charTyped(char value,int modifiers){return false;}
 }
+

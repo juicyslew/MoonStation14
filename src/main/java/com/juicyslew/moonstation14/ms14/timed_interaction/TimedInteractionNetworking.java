@@ -12,3 +12,4 @@ public final class TimedInteractionNetworking {
                         (payload, context) -> TimedInteractionSnapshot.deliverClient(payload));
     }
 }
+

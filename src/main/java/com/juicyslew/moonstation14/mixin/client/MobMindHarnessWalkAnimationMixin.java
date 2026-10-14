@@ -35,3 +35,4 @@ public abstract class MobMindHarnessWalkAnimationMixin {
         OwnedHarnessWalkAnimation.update(mob, mob.position().subtract(start));
     }
 }
+

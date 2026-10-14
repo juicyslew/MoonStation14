@@ -27,7 +27,7 @@ import java.util.UUID;
 public final class PeacefulPlayerRegenerationGameTests {
     private PeacefulPlayerRegenerationGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "peaceful_player_regeneration_difficulty_isolated", timeoutTicks = 20)
     public static void eligibleCharacterSkipsPeacefulNutritionButExplicitHealingWorks(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         MinecraftServer server = level.getServer();
@@ -50,6 +50,8 @@ public final class PeacefulPlayerRegenerationGameTests {
 
         try {
             server.setDifficulty(Difficulty.PEACEFUL, true);
+            MoonStation14.LOGGER.info("Peaceful regeneration GameTest difficulty transition: {} -> {} at world tick {}",
+                    originalDifficulty, server.getWorldData().getDifficulty(), level.getGameTime());
             level.getGameRules().getRule(GameRules.RULE_NATURAL_REGENERATION).set(true, server);
             // tickCount begins at zero, so vanilla's Peaceful 20-tick health/saturation
             // branch and 10-tick food branch would all run on this invocation.
@@ -74,6 +76,8 @@ public final class PeacefulPlayerRegenerationGameTests {
         } finally {
             level.getGameRules().getRule(GameRules.RULE_NATURAL_REGENERATION).set(originalNaturalRegeneration, server);
             server.setDifficulty(originalDifficulty, true);
+            MoonStation14.LOGGER.info("Peaceful regeneration GameTest difficulty restored: {} at world tick {}",
+                    server.getWorldData().getDifficulty(), level.getGameTime());
         }
         helper.succeed();
     }

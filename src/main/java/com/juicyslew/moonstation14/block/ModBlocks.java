@@ -19,7 +19,12 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
+import com.juicyslew.moonstation14.block.custom.FieldGeneratorBlock;
+import com.juicyslew.moonstation14.block.custom.SingularityGeneratorBlock;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
+import com.juicyslew.moonstation14.block.custom.EmitterBlock;
+import com.juicyslew.moonstation14.block.custom.ParticleAcceleratorPartBlock;
+import com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlock;
 import com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -116,6 +121,20 @@ public class ModBlocks {
     public static final DeferredBlock<DisposalTubeBlock> DISPOSAL_TUBE = BLOCKS.register("disposal_tube",
             () -> new DisposalTubeBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion().noLootTable()));
     public static final DeferredBlock<ChemMasterBlock> CHEM_MASTER = BLOCKS.register("chem_master", ChemMasterBlock::new);
+    public static final DeferredBlock<FieldGeneratorBlock> FIELD_GENERATOR = registerBlock("field_generator",
+            () -> new FieldGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL)));
+    public static final DeferredBlock<SingularityGeneratorBlock> SINGULARITY_GENERATOR = registerBlock("singularity_generator",
+            () -> new SingularityGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
+    public static final DeferredBlock<EmitterBlock> EMITTER = registerBlock("emitter",
+            () -> new EmitterBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL)));
+    public static final DeferredBlock<RadiationCollectorBlock> RADIATION_COLLECTOR = registerBlock("radiation_collector", RadiationCollectorBlock::new);
+    public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_CONTROL_BOX = registerPa("pa_control_box", "control", true);
+    public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_END_CAP = registerPa("pa_end_cap", "end", false);
+    public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_FUEL_CHAMBER = registerPa("pa_fuel_chamber", "fuel", false);
+    public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_POWER_BOX = registerPa("pa_power_box", "power", false);
+    public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_EMITTER_PORT = registerPa("pa_emitter_port", "port", false);
+    public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_EMITTER_FORE = registerPa("pa_emitter_fore", "fore", false);
+    public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_EMITTER_STARBOARD = registerPa("pa_emitter_starboard", "starboard", false);
     static {
         ModItems.ITEMS.register("disposal_tube", () -> new CatalogOnlyDisposalPipeBlockItem(
                 DISPOSAL_TUBE.get(), new Item.Properties()));
@@ -141,6 +160,13 @@ public class ModBlocks {
                         .lightLevel(state -> kind.isLamp() && state.getValue(PowerDeviceBlock.LIT) ? 14 : 0)));
     }
 
+    private static DeferredBlock<ParticleAcceleratorPartBlock> registerPa(String id, String role, boolean control) {
+        return registerBlock(id, () -> new ParticleAcceleratorPartBlock(role, id, control,
+                // These accepted PA meshes are partial, interlocking models. A full-cube
+                // occlusion shape incorrectly hides their neighboring faces.
+                BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
+    }
+
     private static <T extends Block> void registerBlockItem(String name, DeferredBlock<T> block) {
         ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
     }
@@ -157,3 +183,4 @@ public class ModBlocks {
         return false;
     }
 }
+

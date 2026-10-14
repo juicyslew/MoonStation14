@@ -8,3 +8,4 @@ public final class EquipmentPanelState {
     public void toggle(long epoch) { beginBody(epoch); expanded = !expanded; }
     public void beginBody(long epoch) { if (bodyEpoch != epoch) { bodyEpoch = epoch; expanded = true; } }
 }
+

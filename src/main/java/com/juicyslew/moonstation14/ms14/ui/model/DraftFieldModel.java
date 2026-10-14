@@ -110,3 +110,4 @@ public final class DraftFieldModel {
     public Intent pending() { return pending; }
     public long revision() { return revision; }
 }
+

@@ -221,3 +221,4 @@ public final class ThermalExposureMath {
                                  DamageAmounts damage) {
     }
 }
+

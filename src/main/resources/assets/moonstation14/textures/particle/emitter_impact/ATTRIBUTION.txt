@@ -1,0 +1,4 @@
+Sprite frames extracted pixel-identically from SS14 Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/impact_bullet.png at upstream revision c9df5ef5d675b0d1d226828bddf6b78c28502d91; pristine source PNG is retained under assets/moonstation14/provenance/emitter_impact/.
+Upstream RSI metadata: CC-BY-SA-3.0; copyright: Taken from tgstation at https://github.com/tgstation/tgstation/tree/88d7dbfc105fbf40284d7b7c4587f8d23c0ac3ac, modified by chromiumboy.
+Source image SHA-256: B0AC0921D3839AC582D3AB62160229A1D71C0FBD5E6AE0BACD5A840B6CEDF9F3.
+RSI state has five frames at 0.05 seconds each. Native particle sprite frames are selected per impact at one frame per 20Hz tick and loop after frame 4; profile lifetime independently defaults to five ticks (upstream TimedDespawn 0.25 seconds).

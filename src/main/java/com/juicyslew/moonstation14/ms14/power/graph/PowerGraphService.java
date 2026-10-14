@@ -72,6 +72,15 @@ public final class PowerGraphService {
                 : state.graph.state(node);
     }
 
+    /** Read-only graph internals for focused runtime diagnostics; never loads chunks. */
+    public static LoadedPowerGraph.NodeDiagnostics diagnostics(ServerLevel level, CableFaceNode node) {
+        LevelState state = STATES.get(level);
+        if (state == null) return new LoadedPowerGraph.NodeDiagnostics(
+                new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1),
+                true, false, java.util.List.of());
+        return state.graph.diagnostics(node);
+    }
+
     /** Bounded indexed lookup for lamp extension receivers. Null means graph knowledge is incomplete. */
     public static java.util.List<CableFaceNode> nodesNear(ServerLevel level, BlockPos center, int radius,
                                                           com.juicyslew.moonstation14.ms14.power.cable.CableTier tier) {
@@ -328,3 +337,4 @@ public final class PowerGraphService {
     /** Diagnostic details are appended to the existing snapshot without forcing world queries. */
     private record CachedLampNode(long revision, int radius, CableFaceNode node) { }
 }
+

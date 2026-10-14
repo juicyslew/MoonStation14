@@ -115,10 +115,13 @@ public final class GroundedHarnessWorldStep {
             actualForDiagnostics[0] = vector(accepted);
             return new MovementCollisionResolver.CollisionResult(vector(accepted), body.onGround());
         };
+        MovementVector gravityPulse = vector(com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
+                .deltaVelocity(body.level(), initial, body.level().getGameTime()));
+        double impulseBound = Math.max(32d, Math.hypot(Math.hypot(gravityPulse.x(), gravityPulse.y()), gravityPulse.z()));
         CharacterMovementEnvironment environment = new CharacterMovementEnvironment(GroundedHarnessPhysics.TICK_SECONDS,
                 GroundedHarnessPhysics.GRAVITY_PER_SECOND_SQUARED, GroundedHarnessPhysics.JUMP_VELOCITY_PER_SECOND,
                 GroundedHarnessPhysics.VERTICAL_DRAG,
-                MovementVector.ZERO, 32d, body.maxUpStep(), resolver, surfaceFactor, voluntaryFactor,
+                gravityPulse, impulseBound, body.maxUpStep(), resolver, surfaceFactor, voluntaryFactor,
                 tetherImpulse(body));
         CharacterMovementState result;
         try {
@@ -176,3 +179,4 @@ public final class GroundedHarnessWorldStep {
         return Double.isFinite(value.x) && Double.isFinite(value.y) && Double.isFinite(value.z);
     }
 }
+

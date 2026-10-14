@@ -35,6 +35,6 @@ avoids a separate client-side playback path.
 An authentic upstream sound may only be considered after obtaining verifiable
 file-specific provenance and permission to use it, then recording its source,
 author, exact license, modifications, and any other required attribution in the
-[`third-party-emote-audio.md`](../../third-party-emote-audio.md)-style
+[`third-party-emote-audio.md`](../../audio/third-party-emote-audio.md)-style
 third-party audio documentation. Until that evidence exists, retain the vanilla
 substitute and do not import `slip.ogg`.

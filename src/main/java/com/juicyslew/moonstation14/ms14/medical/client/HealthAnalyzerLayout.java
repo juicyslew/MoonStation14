@@ -78,3 +78,4 @@ public final class HealthAnalyzerLayout {
         return new ClipBounds(windowX + 1, windowY + HEADER, windowX + windowWidth - 1, windowY + windowHeight - footer);
     }
 }
+

@@ -40,3 +40,4 @@ public final class ItemFootprints {
         return profile == null ? ONE : profile.footprint();
     }
 }
+

@@ -295,3 +295,4 @@ public final class AirAlarmMenuService {
                 observed.mode().ordinal(), bits, observed.revision(), observed.externalPressureBoundKPa(), observed.volumeRateM3PerSecond());
     }
 }
+

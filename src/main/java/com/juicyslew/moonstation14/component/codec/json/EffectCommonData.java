@@ -40,3 +40,4 @@ public record EffectCommonData(List<ConditionData> conditions, float probability
                 commonSetter);
     }
 }
+

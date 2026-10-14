@@ -284,3 +284,4 @@ public final class ChatIdentitySavedData extends SavedData {
         return tag;
     }
 }
+

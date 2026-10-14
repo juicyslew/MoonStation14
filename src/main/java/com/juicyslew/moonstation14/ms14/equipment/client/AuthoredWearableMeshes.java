@@ -37,3 +37,4 @@ public final class AuthoredWearableMeshes {
         @Override protected void apply(Map<ResourceLocation,AuthoredWearableMesh> prepared, ResourceManager manager, net.minecraft.util.profiling.ProfilerFiller profiler) { applySnapshot(prepared); }
     }
 }
+

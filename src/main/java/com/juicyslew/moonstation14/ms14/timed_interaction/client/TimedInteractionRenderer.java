@@ -165,3 +165,4 @@ public final class TimedInteractionRenderer {
         b.addVertex(m,x0,y0,0).setColor(r,g,bl,a).setUv(0,0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0,0,1);
     }
 }
+

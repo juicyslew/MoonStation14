@@ -35,5 +35,8 @@ class ConstructionEntityPrototypeTest {
         assertEquals("moonstation14:steel_wall_block", wall.block()); assertTrue(wall.defaultAnchored());
         assertFalse(wall.anchorable()); assertFalse(wall.unanchorable()); assertEquals(1.0, wall.anchoringSeconds()); assertTrue(wall.airtight());
         assertEquals("moonstation14:plastic_wall", plastic.block()); assertFalse(plastic.anchorable()); assertTrue(plastic.airtight());
+        assertEquals(2, wall.radiationBlocker().orElseThrow().resistance());
+        assertEquals(2, plastic.radiationBlocker().orElseThrow().resistance());
+        assertTrue(girder.radiationBlocker().isEmpty(), "unmapped structures do not infer shielding");
     }
 }

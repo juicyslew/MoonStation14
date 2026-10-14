@@ -204,10 +204,15 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    useJUnitPlatform {
+        if (project.hasProperty('ms14NativeShaderCompile')) includeTags 'native-shader-compile'
+        else if (!project.hasProperty('ms14IncludeNativeShaderCompile')) excludeTags 'native-shader-compile'
+    }
     systemProperty 'moonstation14.projectDir', projectDir.toString()
     systemProperty 'moonstation14.gametestClasses', sourceSets.gametest.output.classesDirs.singleFile.toString()
     classpath += sourceSets.gametest.output
 }
+
 
 if (project.hasProperty('ms14GameTestTags')) {
     def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {

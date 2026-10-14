@@ -30,3 +30,4 @@ public final class ConstructionKeyGesture {
     public void reset(){down=false;palette=false;ticks=0;}
     public void resetContext(){ reset(); consumed=false; consumedKey=0; consumedScan=0; }
 }
+

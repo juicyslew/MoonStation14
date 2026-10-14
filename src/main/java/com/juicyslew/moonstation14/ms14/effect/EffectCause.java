@@ -7,3 +7,4 @@ public enum EffectCause {
     REACTION,
     MANUAL
 }
+

@@ -250,3 +250,4 @@ public final class MachineSearchList extends AbstractButton {
         }
     }
 }
+

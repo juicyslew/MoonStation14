@@ -9,3 +9,4 @@ public interface GameplayWindow {
     /** True only while a text editor owns keyboard input. */
     boolean capturesKeyboard();
 }
+

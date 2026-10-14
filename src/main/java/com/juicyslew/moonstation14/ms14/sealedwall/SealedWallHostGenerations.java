@@ -110,3 +110,4 @@ public final class SealedWallHostGenerations {
     private record Active(long position, UUID generation) implements Record { }
     private record Invalidated(long position) implements Record { }
 }
+

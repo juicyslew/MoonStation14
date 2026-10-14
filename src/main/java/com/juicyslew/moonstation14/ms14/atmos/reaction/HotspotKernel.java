@@ -91,3 +91,4 @@ public final class HotspotKernel {
         return Optional.of(state);
     }
 }
+

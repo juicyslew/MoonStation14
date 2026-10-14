@@ -30,3 +30,4 @@ public record ControlledSoundPayload(ResourceLocation dimension, ResourceLocatio
                 b.readDouble(), b.readDouble(), b.readDouble(), b.readFloat());
     }
 }
+

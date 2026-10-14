@@ -41,3 +41,4 @@ public interface StatusEffectLifecycle {
     default void onInvalidated(ResourceKey<StatusEffectData> key, StatusEffectInstance instance) {
     }
 }
+

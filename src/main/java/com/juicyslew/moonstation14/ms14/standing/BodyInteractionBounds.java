@@ -39,3 +39,4 @@ public final class BodyInteractionBounds {
         return result.inflate(1.0e-7);
     }
 }
+

@@ -112,3 +112,4 @@ public final class MinecraftLoadedBodyAdapter {
                 && CharacterIdentitySystem.resolve(harness).isPresent();
     }
 }
+

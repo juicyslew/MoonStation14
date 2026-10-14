@@ -485,3 +485,4 @@ public final class WorldGridClientPolicy {
         public boolean actionsEnabled() { return confirmed && fresh; }
     }
 }
+

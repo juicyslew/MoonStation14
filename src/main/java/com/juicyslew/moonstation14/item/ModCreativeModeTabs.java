@@ -27,14 +27,19 @@ public class ModCreativeModeTabs {
             ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER,
             ModItems.OINTMENT, ModItems.BRUTEPACK, ModItems.GAUZE, ModItems.HANDHELD_HEALTH_ANALYZER,
             ModItems.NETWORK_CONFIGURATOR, ModItems.REMOTE_SIGNALLER, ModItems.REMOTE_SIGNALLER_ADVANCED,
+            ModItems.PLASMA_TANK,
             ModEquipmentItems.GREY_CAP, ModEquipmentItems.GREY_JUMPSUIT, ModEquipmentItems.SIMPLE_COAT,
             ModEquipmentItems.BLACK_GLOVES, ModEquipmentItems.BLACK_SHOES, ModEquipmentItems.GLASSES,
             ModEquipmentItems.RED_TIE, ModEquipmentItems.BLACK_BANDANA, ModEquipmentItems.EARPIECES,
-            ModEquipmentItems.BLANK_ID_CARD, ModEquipmentItems.UTILITY_CASE);
+            ModEquipmentItems.BLANK_ID_CARD, ModEquipmentItems.UTILITY_CASE, ModEquipmentItems.SUIT_RAD,
+            ModEquipmentItems.HOOD_RAD);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
             ModBlocks.STEEL_WALL_BLOCK, ModBlocks.PLASTIC_WALL, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR, ModBlocks.AIRLOCK,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,
             ModBlocks.HIGH_LOAD_TEST_LAMP, ModBlocks.MAGIC_BLOCK,
+            ModBlocks.PA_CONTROL_BOX, ModBlocks.PA_END_CAP, ModBlocks.PA_FUEL_CHAMBER, ModBlocks.PA_POWER_BOX,
+            ModBlocks.PA_EMITTER_PORT, ModBlocks.PA_EMITTER_FORE, ModBlocks.PA_EMITTER_STARBOARD,
+            ModBlocks.EMITTER, ModBlocks.FIELD_GENERATOR, ModBlocks.SINGULARITY_GENERATOR, ModBlocks.RADIATION_COLLECTOR,
             ModBlocks.ATMOS_AIR_PRODUCER, ModBlocks.ATMOS_OXYGEN_PRODUCER,
             ModBlocks.ATMOS_NITROGEN_PRODUCER, ModBlocks.ATMOS_CARBON_DIOXIDE_PRODUCER,
             ModBlocks.ATMOS_PLASMA_PRODUCER, ModBlocks.ATMOS_TRITIUM_PRODUCER,
@@ -50,9 +55,16 @@ public class ModCreativeModeTabs {
     public static final Supplier<CreativeModeTab> MOONSTATION_ITEMS_TAB = CREATIVE_MODE_TAB.register("moonstation_items_tab",
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModItems.STEEL.get()))
                     .title(Component.translatable("creativetab.moonstation14.moonstation_items"))
-                    .displayItems((itemDisplayParameters, output) ->
-                            MOONSTATION_ITEM_ENTRIES.forEach(entry -> output.accept(
-                                    com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.createCreativeStack(entry.get())))).build());
+                    .displayItems((itemDisplayParameters, output) -> {
+                            MOONSTATION_ITEM_ENTRIES.stream().filter(entry -> entry.get().asItem() != ModItems.PLASMA_TANK.get())
+                                    .forEach(entry -> output.accept(
+                                            com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.createCreativeStack(entry.get())));
+                            var tanks = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.clientGasTanks();
+                            output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks,
+                                    com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.PLASMA_ID));
+                            output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks,
+                                    com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.PLASMA_FILLED_ID));
+                    }).build());
     public static final Supplier<CreativeModeTab> MOONSTATION_BLOCKS_TAB = CREATIVE_MODE_TAB.register("moonstation_blocks_tab",
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocks.STEEL_WALL_GIRDER_BLOCK.get()))
                     .withTabsBefore(ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "moonstation_items_tab"))
@@ -64,3 +76,4 @@ public class ModCreativeModeTabs {
         CREATIVE_MODE_TAB.register(eventBus);
     }
 }
+

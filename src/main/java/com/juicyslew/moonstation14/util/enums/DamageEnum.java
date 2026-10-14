@@ -63,3 +63,4 @@ public enum DamageEnum implements StringRepresentable {
             StringRepresentable.fromEnum(DamageEnum::values);
 }
 
+

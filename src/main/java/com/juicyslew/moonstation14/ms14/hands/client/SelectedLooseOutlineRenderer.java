@@ -46,3 +46,4 @@ public final class SelectedLooseOutlineRenderer {
                 .move(-cameraPosition.x, -cameraPosition.y, -cameraPosition.z);
     }
 }
+

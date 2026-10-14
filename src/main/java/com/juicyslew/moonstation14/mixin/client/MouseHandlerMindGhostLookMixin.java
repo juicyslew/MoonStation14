@@ -26,3 +26,4 @@ public abstract class MouseHandlerMindGhostLookMixin {
         ObserverClient.projectCameraLookForRenderFrame();
     }
 }
+

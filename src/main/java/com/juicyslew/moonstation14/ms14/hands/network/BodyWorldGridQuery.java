@@ -27,3 +27,4 @@ public record BodyWorldGridQuery(long epoch, long sequence, UUID target, long ha
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

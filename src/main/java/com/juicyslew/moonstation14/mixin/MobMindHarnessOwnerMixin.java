@@ -49,3 +49,4 @@ public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, Con
         if (!mob.level().isClientSide) mob.getEntityData().set(moonstation14$DISPOSAL_CONTAINED, contained);
     }
 }
+

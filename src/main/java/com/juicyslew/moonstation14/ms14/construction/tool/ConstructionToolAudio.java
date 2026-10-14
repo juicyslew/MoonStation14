@@ -31,3 +31,4 @@ public final class ConstructionToolAudio {
         level.playSound(null, user.getX(), user.getY(), user.getZ(), sound, SoundSource.PLAYERS, 1.0F, 1.0F);
     }
 }
+

@@ -206,3 +206,4 @@ public final class AtmosphereOwnershipSearch {
         return new Snapshot(status, List.of(), candidates.size());
     }
 }
+

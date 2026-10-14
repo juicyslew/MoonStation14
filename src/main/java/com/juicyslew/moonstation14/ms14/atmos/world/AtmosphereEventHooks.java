@@ -61,3 +61,4 @@ public final class AtmosphereEventHooks {
         if (level instanceof ServerLevel serverLevel) AtmosphereService.INSTANCE.topologyChanged(serverLevel, pos);
     }
 }
+

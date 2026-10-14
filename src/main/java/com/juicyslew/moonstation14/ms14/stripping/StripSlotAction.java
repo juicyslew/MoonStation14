@@ -16,3 +16,4 @@ public record StripSlotAction(long epoch,long sequence,long actorRevision,UUID t
     public StripSlotAction { if(epoch<=0||sequence<=0||actorRevision<0||target==null||targetRevision<0||kind==null||slot==null||slot.isBlank()||slot.length()>64)throw new IllegalArgumentException("Invalid strip action"); }
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

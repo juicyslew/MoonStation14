@@ -37,3 +37,4 @@ public final class AirlockToolLineOfSight {
         return level.getBlockEntity(root)==expected&&expected.identity().equals(identity)?hitPos:null;
     }
 }
+

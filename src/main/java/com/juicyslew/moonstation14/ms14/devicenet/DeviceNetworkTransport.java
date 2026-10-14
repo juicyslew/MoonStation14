@@ -5,6 +5,21 @@ import java.util.*;
 
 /** Loaded-only endpoint directory and deferred addressed/broadcast packet delivery. */
 public final class DeviceNetworkTransport {
+    public enum DeliveryOutcome { SOURCE_UNAVAILABLE, SOURCE_CONFIGURATION_CHANGED, RECEIVER_UNAVAILABLE, RECEIVER_CONFIGURATION_OR_CONNECTION, RECEIVER_UNPOWERED, ADDRESS_REJECTED, LIST_REJECTED, CONNECTION_REJECTED, HOOK_REJECTED, ENDPOINT_CALLED }
+    public record DeliveryAttempt(DeviceNetworkPacket packet, DeviceIdentity receiverDeviceIdentity, DeliveryOutcome outcome) { }
+    private record DeliveryObserver(DeviceIdentity sender, DeviceIdentity receiver, java.util.function.Consumer<DeliveryAttempt> callback) { }
+    private final List<DeliveryObserver> deliveryObservers = new ArrayList<>();
+    /** Registers a transient, endpoint-scoped diagnostic callback. Close it to stop observations. */
+    public synchronized AutoCloseable observeDelivery(DeviceIdentity sender, DeviceIdentity receiver, java.util.function.Consumer<DeliveryAttempt> callback) {
+        var observer=new DeliveryObserver(Objects.requireNonNull(sender),receiver,Objects.requireNonNull(callback)); deliveryObservers.add(observer);
+        return ()->{ synchronized(DeviceNetworkTransport.this){deliveryObservers.remove(observer);} };
+    }
+    private void observe(DeviceNetworkPacket packet, DeviceIdentity receiver, DeliveryOutcome outcome) {
+        DeliveryAttempt attempt=new DeliveryAttempt(packet,receiver,outcome);
+        List<DeliveryObserver> observers; synchronized(this){observers=List.copyOf(deliveryObservers);}
+        for(var observer:observers) if(observer.sender().equals(packet.sender())&&(observer.receiver()==null||observer.receiver().equals(receiver)))
+            try { observer.callback().accept(attempt); } catch(RuntimeException ignored) { /* Diagnostics must not affect delivery. */ }
+    }
     public interface AddressStore { Optional<String> get(DeviceIdentity identity); void put(DeviceIdentity identity,String address); }
     private final Map<DeviceIdentity, DeviceEndpoint> loaded = new HashMap<>();
     private final Map<NetworkAddress, DeviceIdentity> connected = new HashMap<>();
@@ -110,42 +125,43 @@ public final class DeviceNetworkTransport {
             DeviceEndpoint sender;
             List<DeviceEndpoint> candidates;
             synchronized (this) { sender = loaded.get(packet.sender()); candidates = List.copyOf(loaded.values()); }
-            if (sender == null || !sender.available()) continue;
+            if (sender == null || !sender.available()) { observe(packet,null,DeliveryOutcome.SOURCE_UNAVAILABLE); continue; }
             var tx = sender.composition().network().orElse(null);
             // A queued packet belongs to the sender configuration observed at enqueue time.
             // Address/network/frequency edits invalidate it instead of transmitting stale data.
             if (tx == null || !tx.transmit() || tx.networkId() != packet.senderNetworkId()
                     || tx.transmitFrequency() != packet.senderTransmitFrequency()
                     || !tx.address().equals(packet.senderAddress()) || tx.address().isBlank()
-                    || !isConnected(sender.identity(),packet.senderNetworkId())) continue;
+                    || !isConnected(sender.identity(),packet.senderNetworkId())) { observe(packet,null,DeliveryOutcome.SOURCE_CONFIGURATION_CHANGED); continue; }
             for (DeviceEndpoint target : candidates) {
-                if (target.identity().equals(sender.identity()) || !target.available()) continue;
+                if (target.identity().equals(sender.identity())) continue;
+                if (!target.available()) { observe(packet,target.identity(),DeliveryOutcome.RECEIVER_UNAVAILABLE); continue; }
                 var rx = target.composition().network().orElse(null);
                 if (rx == null || !rx.receive() || rx.networkId()!=packet.networkId()
-                        || rx.receiveFrequency() != packet.frequency() || !isConnected(target.identity(),packet.networkId())) continue;
-                if(rx.requiresPower() && !target.powered()) continue;
+                        || rx.receiveFrequency() != packet.frequency() || !isConnected(target.identity(),packet.networkId())) { observe(packet,target.identity(),DeliveryOutcome.RECEIVER_CONFIGURATION_OR_CONNECTION); continue; }
+                if(rx.requiresPower() && !target.powered()) { observe(packet,target.identity(),DeliveryOutcome.RECEIVER_UNPOWERED); continue; }
                 var txConnection = sender.composition().connection().orElse(null);
                 var rxConnection = target.composition().connection().orElse(null);
                 boolean addressed = !packet.broadcast() && rx.address().equals(packet.destinationAddress());
-                if (!packet.broadcast() && !rx.receiveAll() && !addressed) continue;
+                if (!packet.broadcast() && !rx.receiveAll() && !addressed) { observe(packet,target.identity(),DeliveryOutcome.ADDRESS_REJECTED); continue; }
                 if (target.deviceList()!=null && target.deviceList().filterIncoming()
-                        && !target.deviceList().permits(packet.sender().value().toString(), true)) continue;
+                        && !target.deviceList().permits(packet.sender().value().toString(), true)) { observe(packet,target.identity(),DeliveryOutcome.LIST_REJECTED); continue; }
                 if (packet.broadcast() && tx.sendBroadcastAttempt()) {
                     DeviceList list=sender.deviceList();
                     if (list!=null && ((list.allowList() && list.addresses().isEmpty())
-                            || !list.permits(target.identity().value().toString(), false))) continue;
+                            || !list.permits(target.identity().value().toString(), false))) { observe(packet,target.identity(),DeliveryOutcome.LIST_REJECTED); continue; }
                 }
                 boolean sameDimension=sender.dimension().equals(target.dimension());
                 // SS14 connection components are independent veto hooks, not matching transport modes.
                 // A wired receiver rejects a different grid even if its sender has no wired component.
-                if(rxConnection!=null&&rxConnection.wired()&&!sameDimension) continue;
+                if(rxConnection!=null&&rxConnection.wired()&&!sameDimension) { observe(packet,target.identity(),DeliveryOutcome.CONNECTION_REJECTED); continue; }
                 // Wireless checks only apply when both endpoints opt into wireless; a failed wireless
                 // path cannot be rescued by a second wired connection on the same receiver.
                 if(rxConnection!=null&&rxConnection.wireless()&&txConnection!=null&&txConnection.wireless()
                         &&(!sameDimension||sender.position().distSqr(target.position())
-                        >txConnection.wirelessRange()*txConnection.wirelessRange())) continue;
-                if(!target.beforePacketReceived(sender,packet)) continue;
-                target.receive(packet.payload(), packet.senderAddress()); delivered++;
+                        >txConnection.wirelessRange()*txConnection.wirelessRange())) { observe(packet,target.identity(),DeliveryOutcome.CONNECTION_REJECTED); continue; }
+                if(!target.beforePacketReceived(sender,packet)) { observe(packet,target.identity(),DeliveryOutcome.HOOK_REJECTED); continue; }
+                target.receive(packet.payload(), packet.senderAddress()); observe(packet,target.identity(),DeliveryOutcome.ENDPOINT_CALLED); delivered++;
             }
         }
         return delivered;
@@ -171,3 +187,4 @@ public final class DeviceNetworkTransport {
         @Override public void receive(DevicePayload payload,String sourceAddress){delegate.receive(payload,sourceAddress);}
     }
 }
+

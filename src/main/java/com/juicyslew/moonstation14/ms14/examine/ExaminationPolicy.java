@@ -41,3 +41,4 @@ public final class ExaminationPolicy {
                 && distance >= 0 && distance <= DETAILS_RANGE && lineOfSight);
     }
 }
+

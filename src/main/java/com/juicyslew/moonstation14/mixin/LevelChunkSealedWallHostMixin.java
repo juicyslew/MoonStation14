@@ -32,3 +32,4 @@ public abstract class LevelChunkSealedWallHostMixin {
                     .ifPresent(data -> data.invalidate(server, pos));
     }
 }
+

@@ -142,3 +142,4 @@ public final class BloodReducer {
         return (float)value;
     }
 }
+

@@ -145,3 +145,4 @@ public final class BodyLooseThrow {
     private static boolean same(ItemStack a, ItemStack b) { return b != null && a.getCount() == b.getCount()
             && ItemStack.isSameItemSameComponents(a, b); }
 }
+

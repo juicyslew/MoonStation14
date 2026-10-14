@@ -39,3 +39,4 @@ final class ChemMasterWireCodec {
  private static List<ChemMasterWindowState.ReagentRow> readRows(RegistryFriendlyByteBuf b) { int n=b.readVarInt(); if(n<0||n>MAX_ROWS) throw new IllegalArgumentException("invalid reagent row count"); List<ChemMasterWindowState.ReagentRow> rows=new ArrayList<>(n); for(int i=0;i<n;i++) rows.add(new ChemMasterWindowState.ReagentRow(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,b.readResourceLocation()),ReagentUnits.validateCents(b.readVarLong(),"amountCents"))); return rows; }
  private static <T> T enumAt(T[] values,int index) { if(index<0||index>=values.length) throw new IllegalArgumentException("invalid ChemMaster enum"); return values[index]; }
 }
+

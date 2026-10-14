@@ -11,3 +11,4 @@ public record DisposalBuildSelection(int containerId, java.util.UUID session, lo
     public DisposalBuildSelection { if(containerId<0||session==null||requestId<=0||prototypeId==null||prototypeId.isBlank())throw new IllegalArgumentException("Invalid disposal selection"); }
     public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

@@ -22,3 +22,4 @@ public abstract class ChunkMapObserverCenterMixin {
         return player.chunkPosition();
     }
 }
+

@@ -19,3 +19,4 @@ public record PullerComponent(double walkModifier, double sprintModifier, Tether
     }
     @Override public String type() { return TYPE; }
 }
+

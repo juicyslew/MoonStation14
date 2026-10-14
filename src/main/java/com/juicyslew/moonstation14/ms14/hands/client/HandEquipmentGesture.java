@@ -227,3 +227,4 @@ public final class HandEquipmentGesture {
         return equipment.allows(action) ? new Plan(action, hand.id()) : null;
     }
 }
+

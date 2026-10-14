@@ -70,3 +70,4 @@ public final class PostureNetworking {
         return block.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
     }
 }
+

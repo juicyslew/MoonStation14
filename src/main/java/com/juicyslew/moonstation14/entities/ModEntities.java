@@ -43,7 +43,20 @@ public class ModEntities {
     public static final DeferredHolder<EntityType<?>, EntityType<LooseItemEntity>> LOOSE_ITEM =
             ENTITIES.register("loose_item", () -> EntityType.Builder.<LooseItemEntity>of(LooseItemEntity::new, MobCategory.MISC)
                     .sized(.25f, .25f).clientTrackingRange(8).updateInterval(1).build("loose_item"));
+    public static final DeferredHolder<EntityType<?>, EntityType<GasCanisterEntity>> GAS_CANISTER =
+            ENTITIES.register("gas_canister", () -> EntityType.Builder.<GasCanisterEntity>of(GasCanisterEntity::new, MobCategory.MISC)
+                    .sized(.5f, 1f).clientTrackingRange(8).updateInterval(1).build("gas_canister"));
+    public static final DeferredHolder<EntityType<?>, EntityType<EmitterBoltEntity>> EMITTER_BOLT =
+            ENTITIES.register("emitter_bolt", () -> EntityType.Builder.<EmitterBoltEntity>of(EmitterBoltEntity::new, MobCategory.MISC)
+                    .sized(.4f, .4f).clientTrackingRange(8).updateInterval(1).build("emitter_bolt"));
+    public static final DeferredHolder<EntityType<?>, EntityType<SingularityEntity>> SINGULARITY =
+            ENTITIES.register("singularity", () -> EntityType.Builder.<SingularityEntity>of(SingularityEntity::new, MobCategory.MISC)
+                    .sized(1.5f, 1.5f).clientTrackingRange(16).updateInterval(1).build("singularity"));
+    public static final DeferredHolder<EntityType<?>, EntityType<ParticleAcceleratorParticleEntity>> PA_PARTICLE =
+            ENTITIES.register("particle_accelerator_particle", () -> EntityType.Builder.<ParticleAcceleratorParticleEntity>of(ParticleAcceleratorParticleEntity::new, MobCategory.MISC)
+                    .sized(.96f, .96f).clientTrackingRange(8).updateInterval(1).build("particle_accelerator_particle"));
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
     }
 }
+

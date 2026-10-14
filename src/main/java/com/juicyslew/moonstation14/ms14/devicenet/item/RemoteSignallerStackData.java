@@ -21,3 +21,4 @@ public record RemoteSignallerStackData(DeviceIdentity identity, String address) 
     public RemoteSignallerStackData { Objects.requireNonNull(identity); Objects.requireNonNull(address); }
     public static RemoteSignallerStackData create() { return new RemoteSignallerStackData(DeviceIdentity.random(), ""); }
 }
+

@@ -9,3 +9,4 @@ public record FootstepSoundParamsData(float volume) {
             Codec.FLOAT.fieldOf("volume").forGetter(FootstepSoundParamsData::volume)
     ).apply(instance, FootstepSoundParamsData::new));
 }
+

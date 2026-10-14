@@ -202,16 +202,24 @@ public final class BodyLiquidInteraction {
         return sipBody(body, worldTargetId, hand, token, currentRevision, authorityValid, true, doseCents);
     }
 
+    public static Result sipTimedOwned(LivingEntity body, UUID worldTargetId, String hand, String token,
+                                       long currentRevision, int doseCents, BooleanSupplier authorityValid,
+                                       java.util.function.LongConsumer acceptedDose) {
+        if (doseCents <= 0) return Result.DENIED;
+        return LiveHandsCommitGateway.batch(() -> sipTransaction(body, worldTargetId, hand, token, currentRevision,
+                authorityValid, true, doseCents, acceptedDose));
+    }
+
     private static Result sipBody(LivingEntity body, @Nullable UUID worldTargetId, String hand,
                                    @Nullable String token, long revision, BooleanSupplier authorityValid,
                                    boolean timed, int doseCents) {
         return LiveHandsCommitGateway.batch(() -> sipTransaction(body, worldTargetId, hand, token, revision,
-                authorityValid, timed, doseCents));
+                authorityValid, timed, doseCents, ignored -> { }));
     }
 
     private static Result sipTransaction(LivingEntity body, @Nullable UUID worldTargetId, String hand,
                                    @Nullable String token, long revision, BooleanSupplier authorityValid,
-                                   boolean timed, int doseCents) {
+                                     boolean timed, int doseCents, java.util.function.LongConsumer acceptedDose) {
         if (body == null || hand == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || level.getServer() == null || !level.getServer().isSameThread()
                 || !CharacterControlSystem.canAct(body) || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
@@ -309,6 +317,7 @@ public final class BodyLiquidInteraction {
             return Result.RECOVERY_REQUIRED;
         }
         EntityActivitySystem.update(body, EntityActivity.REAGENT_METABOLISM, true);
+        if (timed && acceptedDose != null) acceptedDose.accept(Math.toIntExact(plan.transferredCents()));
         if (!timed) SIP_COOLDOWN.put(body.getUUID(), now + 20L);
         float pitch = 0.75F + body.getRandom().nextFloat() * 0.5F;
         level.playSound(null, body.getX(), body.getY(), body.getZ(), ModSounds.DRINK.get(), SoundSource.PLAYERS,
@@ -402,3 +411,4 @@ public final class BodyLiquidInteraction {
         return true;
     }
 }
+

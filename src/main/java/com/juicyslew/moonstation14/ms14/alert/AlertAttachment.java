@@ -25,3 +25,4 @@ public final class AlertAttachment implements IMS14Attachment<AlertAttachment, A
     @Override public Codec<AlertAttachment> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, AlertAttachment> getStreamCodec() { return STREAM_CODEC; }
 }
+

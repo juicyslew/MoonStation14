@@ -23,3 +23,4 @@ public enum StatusEffectEligibility {
         return serializedName;
     }
 }
+

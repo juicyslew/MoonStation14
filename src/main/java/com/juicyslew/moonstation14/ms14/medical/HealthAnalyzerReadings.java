@@ -86,3 +86,4 @@ public final class HealthAnalyzerReadings {
                 name, species, state, active, inRange, temperature, blood, bleeding, unrevivable, damage);
     }
 }
+

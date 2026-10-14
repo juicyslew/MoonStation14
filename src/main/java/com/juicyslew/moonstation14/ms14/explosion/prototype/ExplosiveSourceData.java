@@ -55,3 +55,4 @@ public record ExplosiveSourceData(double totalIntensity, double intensitySlope, 
         return new BlastPlanner.Proposal(totalIntensity, intensitySlope, maxIntensity);
     }
 }
+

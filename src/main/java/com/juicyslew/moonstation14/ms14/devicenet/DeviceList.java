@@ -23,3 +23,4 @@ public record DeviceList(List<String> addresses, int capacity, boolean allowList
         return allowList == addresses.contains(address);
     }
 }
+

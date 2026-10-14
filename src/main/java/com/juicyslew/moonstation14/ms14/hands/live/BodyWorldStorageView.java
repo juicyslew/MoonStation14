@@ -73,3 +73,4 @@ public final class BodyWorldStorageView {
                 contents.orElseThrow().entries(), epoch, expectedHandRevision));
     }
 }
+

@@ -77,3 +77,4 @@ public final class GhostMobHarnessRenderer extends EntityRenderer<GhostMobHarnes
         event.registerEntityRenderer(GhostMobHarnessRegistration.getEntityType(), GhostMobHarnessRenderer::new);
     }
 }
+

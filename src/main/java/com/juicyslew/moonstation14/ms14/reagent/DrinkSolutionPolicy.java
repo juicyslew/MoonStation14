@@ -17,3 +17,4 @@ public record DrinkSolutionPolicy(boolean enabled, String solutionName, float co
             throw new IllegalArgumentException("invalid drink policy");
     }
 }
+

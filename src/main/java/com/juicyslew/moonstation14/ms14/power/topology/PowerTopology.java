@@ -84,3 +84,4 @@ public final class PowerTopology {
                 && cable.host().equals(port.device().relative(port.face()));
     }
 }
+

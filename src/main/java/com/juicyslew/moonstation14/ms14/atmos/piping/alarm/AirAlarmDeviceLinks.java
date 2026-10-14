@@ -165,3 +165,4 @@ public final class AirAlarmDeviceLinks {
         valid = true;
     }
 }
+

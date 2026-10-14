@@ -21,7 +21,7 @@ class EquipmentPrototypeTest {
         var templates=new LinkedHashMap<ResourceLocation,JsonObject>();templates.put(ModInventoryTemplates.HUMAN_ID,resource("inventory_template","human"));
         manager.reload(ModInventoryTemplates.TYPE,templates);
         var items=new LinkedHashMap<ResourceLocation,JsonObject>();
-        for(String name:java.util.List.of("base_item","base_clothing","grey_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt"))
+        for(String name:java.util.List.of("base_item","base_clothing","grey_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt","suit_rad","hood_rad"))
             items.put(ModInventoryTemplates.id(name),resource("equipment_item",name));
         manager.reload(ModEquipmentItems.TYPE,items);
         var template=manager.snapshot(ModInventoryTemplates.TYPE).get(ModInventoryTemplates.HUMAN_ID);
@@ -85,6 +85,49 @@ class EquipmentPrototypeTest {
         var composed=manager.snapshot(ModEquipmentItems.TYPE);
         assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.IDCARD),composed.get(ModInventoryTemplates.id("preferred_inherited")).clothing().orElseThrow().quickEquipPreferredSlotFlags());
         assertTrue(composed.get(ModInventoryTemplates.id("preferred_cleared")).clothing().orElseThrow().quickEquipPreferredSlotFlags().isEmpty());
+    }
+
+    @Test void radiationSuitAndSeparateHoodResolveAsWearableArmor() throws Exception {
+        var manager=new PrototypeManager();manager.register(ModInventoryTemplates.TYPE);manager.register(ModEquipmentItems.TYPE);
+        var templates=new LinkedHashMap<ResourceLocation,JsonObject>();templates.put(ModInventoryTemplates.HUMAN_ID,resource("inventory_template","human"));
+        manager.reload(ModInventoryTemplates.TYPE,templates);
+        var items=new LinkedHashMap<ResourceLocation,JsonObject>();
+        for(String name:java.util.List.of("base_item","base_clothing","suit_rad","hood_rad"))items.put(ModInventoryTemplates.id(name),resource("equipment_item",name));
+        manager.reload(ModEquipmentItems.TYPE,items);
+        var catalog=manager.snapshot(ModEquipmentItems.TYPE);var template=manager.snapshot(ModInventoryTemplates.TYPE).get(ModInventoryTemplates.HUMAN_ID);
+        var suit=ModEquipmentItems.require(catalog,ModInventoryTemplates.id("suit_rad"));
+        var hood=ModEquipmentItems.require(catalog,ModInventoryTemplates.id("hood_rad"));
+        assertEquals("Huge",suit.item().size());assertEquals("Small",hood.item().size());
+        assertEquals(0.01f,suit.armor().orElseThrow().modifiers().get("radiation").coefficient());
+        assertEquals(0.65f,hood.armor().orElseThrow().modifiers().get("radiation").coefficient());
+        assertTrue(suit.allowSuitStorage().isPresent());
+        assertTrue(EquipmentFitPolicy.fits(template,"outerClothing",suit,java.util.Set.of(),false));
+        assertTrue(EquipmentFitPolicy.fits(template,"head",hood,java.util.Set.of(),false));
+        assertFalse(EquipmentFitPolicy.fits(template,"head",suit,java.util.Set.of(),false));
+        assertFalse(EquipmentFitPolicy.fits(template,"outerClothing",hood,java.util.Set.of(),false));
+    }
+
+    @Test void optionalArmorComposesThroughActualEquipmentCatalogWithDefaults() {
+        var manager = new PrototypeManager();
+        manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        items.put(ModInventoryTemplates.id("base_item"), JsonParser.parseString(
+                "{\"item\":{\"size\":\"Normal\"}}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("armor_parent"), JsonParser.parseString(
+                "{\"parent\":\"base_item\",\"armor\":{\"modifiers\":{\"radiation\":{\"coefficient\":0.01}}}}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("armor_child"), JsonParser.parseString(
+                "{\"parent\":\"armor_parent\",\"item\":{\"size\":\"Small\"},\"armor\":{\"modifiers\":{\"radiation\":{\"flat_reduction\":2}}}}").getAsJsonObject());
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var catalog = manager.snapshot(ModEquipmentItems.TYPE);
+        var parent = ModEquipmentItems.require(catalog, ModInventoryTemplates.id("armor_parent")).armor().orElseThrow();
+        var child = ModEquipmentItems.require(catalog, ModInventoryTemplates.id("armor_child")).armor().orElseThrow();
+        assertEquals(0f, parent.modifiers().get("radiation").flatReduction());
+        assertEquals(.01f, parent.modifiers().get("radiation").coefficient());
+        assertEquals(2f, child.modifiers().get("radiation").flatReduction());
+        assertEquals(.01f, child.modifiers().get("radiation").coefficient());
+        assertEquals(1f, ModEquipmentItems.require(catalog, ModInventoryTemplates.id("base_item"))
+                .armor().map(value -> value.modifiers().getOrDefault("radiation",
+                        new EquipmentItemData.ArmorModifier(0f, 1f)).coefficient()).orElse(1f));
     }
 
     @Test void templatesPermitSubsetAndApplyOnlyOmittedSlotFlagDefaults() {

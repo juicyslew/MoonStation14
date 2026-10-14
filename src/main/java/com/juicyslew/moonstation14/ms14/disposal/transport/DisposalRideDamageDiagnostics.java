@@ -53,3 +53,4 @@ public final class DisposalRideDamageDiagnostics {
                 body.getHealth(), body.getMaxHealth(), air);
     }
 }
+

@@ -19,3 +19,4 @@ public final class LocalChatVisualPolicy {
         return Integer.signum(amount);
     }
 }
+

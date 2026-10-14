@@ -158,3 +158,4 @@ public final class BuiltinExamineContributors {
         return SolutionExamineFormatter.volumeCategory(units, capacity); // deterministic adaptation for SS14 examiner-dependent middle band.
     }
 }
+

@@ -22,3 +22,4 @@ public record InitialBodyComponent(Map<OrganCategory, ResourceLocation> organs) 
     public InitialBodyComponent { organs = Map.copyOf(Objects.requireNonNull(organs, "organs")); }
     @Override public String type() { return TYPE; }
 }
+

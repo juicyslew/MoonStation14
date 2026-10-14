@@ -135,3 +135,4 @@ public final class BodyGrenadeHeldFuseService {
                 .filter(stack -> stack.getCount() == 1 && ItemStack.isSameItemSameComponents(stack, expected)).isPresent();
     }
 }
+

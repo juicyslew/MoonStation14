@@ -40,3 +40,4 @@ public final class AtmosphereProfiles {
         return ambient(dimension, vacuumDimensions);
     }
 }
+

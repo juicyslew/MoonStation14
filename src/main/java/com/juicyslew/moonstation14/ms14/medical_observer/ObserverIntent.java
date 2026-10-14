@@ -11,3 +11,4 @@ public record ObserverIntent(int strafe, int forward, int vertical, boolean spri
         yaw = Mth.wrapDegrees(yaw);
     }
 }
+

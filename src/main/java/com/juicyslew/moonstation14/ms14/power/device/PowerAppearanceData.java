@@ -39,3 +39,4 @@ public record PowerAppearanceData(String kind, String inactive, String active, S
     }
     private static boolean finite(double... values) { for(double v:values) if(!Double.isFinite(v)) return false; return true; }
 }
+

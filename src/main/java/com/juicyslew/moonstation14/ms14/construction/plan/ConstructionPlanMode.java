@@ -105,3 +105,4 @@ public final class ConstructionPlanMode {
     }
     public static synchronized void clearActor(UUID actor) { PLANS.keySet().removeIf(k -> k.actor().equals(actor)); }
 }
+

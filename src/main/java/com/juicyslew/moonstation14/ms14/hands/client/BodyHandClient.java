@@ -191,6 +191,7 @@ public final class BodyHandClient {
         POPUPS.clear();
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
         com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.atmos.tank.client.CanisterClientCache.clear();
         com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
         POLICY.reset();
         placementProof = null; deferredPlacement.clear();
@@ -314,6 +315,13 @@ public final class BodyHandClient {
         if (suppressExaminePauseTicks > 0) suppressExaminePauseTicks--;
         clock++;
         reconcile();
+        var paBody = currentBody();
+        com.juicyslew.moonstation14.ms14.singularity.pa.control.client.PaControlWorkspace.INSTANCE.tick(
+                paBody == null ? null : paBody.getUUID(), GhostControlClient.committedCharacterEpoch(),
+                paBody == null ? null : paBody.level().dimension().location(), clock);
+        com.juicyslew.moonstation14.ms14.radiation.control.client.RadiationCollectorControlClient.STATE.cancelIfAuthorityChanged(
+                paBody == null ? null : paBody.getUUID(), GhostControlClient.committedCharacterEpoch(),
+                paBody == null ? null : paBody.level().dimension().location());
         if (DUMP_GESTURE.active() && looseEntity(DUMP_GESTURE.source()) == null) {
             sendDumpCancel();
             DUMP_GESTURE.contextLost();
@@ -529,11 +537,19 @@ public final class BodyHandClient {
     }
 
     private static boolean requestBlockUse(BodyBlockUseRequest.Intent intent) {
+        var proof = buildBlockUseProof(intent);
+        if (proof == null) return false;
+        PacketDistributor.sendToServer(proof);
+        return true;
+    }
+
+    /** Builds the same fresh hand/ray proof used by ordinary world use; does not send it. */
+    private static BodyBlockUseRequest buildBlockUseProof(BodyBlockUseRequest.Intent intent) {
         var snapshot = POLICY.snapshot();
         if (snapshot == null || cameraBody == null
-                || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isClientActionBlocked(cameraBody)) return false;
+                || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isClientActionBlocked(cameraBody)) return null;
         var hand = snapshot.hands().stream().filter(slot -> slot.id().equals(snapshot.activeHand())).findFirst().orElse(null);
-        if (hand == null) return false;
+        if (hand == null) return null;
         var plan = hand.itemId() == null ? null : constructionUsePlan(hand.itemId());
         placementProof = intent == BodyBlockUseRequest.Intent.USE && plan != null && hand.itemId() != null
                 && plan.body().equals(snapshot.bodyId()) && plan.epoch() == snapshot.epoch()
@@ -541,23 +557,88 @@ public final class BodyHandClient {
                 hand.count(), plan.required(), plan.revision(), plan.prototype(), plan.rotation()) : null;
         boolean contained = com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained();
         var ownerTarget = containedWorldTarget();
-        if (contained && ownerTarget.isEmpty()) return false;
+        if (contained && ownerTarget.isEmpty()) return null;
         var start = cameraBody.getEyePosition();
         var end = start.add(cameraBody.getLookAngle().scale(NORMAL_WORLD_AIM_REACH));
         var hit = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
         if (contained) hit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(ownerTarget.orElseThrow()).add(0, .5, 0), net.minecraft.core.Direction.UP, ownerTarget.orElseThrow(), true);
-        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return false;
+        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return null;
         long sequence = POLICY.blockUseSequence(clock);
-        if (sequence == 0) return false;
-        PacketDistributor.sendToServer(new BodyBlockUseRequest(snapshot.epoch(), sequence, snapshot.revision(),
+        if (sequence == 0) return null;
+        if (intent == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                && cameraBody.level().getBlockEntity(hit.getBlockPos()) instanceof com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity pa
+                && pa.role().equals("control")) {
+            com.juicyslew.moonstation14.ms14.singularity.pa.control.client.PaControlWorkspace.INSTANCE.expectOpen(
+                    sequence, snapshot.bodyId(), snapshot.epoch(), cameraBody.level().dimension().location(), hit.getBlockPos(),
+                    pa.placementIdentity(), pa.profileId(), clock);
+        }
+        return new BodyBlockUseRequest(snapshot.epoch(), sequence, snapshot.revision(),
                 hand.id(), hand.token(), hit.getBlockPos(), hit.getDirection(),
-                net.minecraft.client.Minecraft.getInstance().player.input.shiftKeyDown, intent));
+                net.minecraft.client.Minecraft.getInstance().player.input.shiftKeyDown, intent);
+    }
+
+    /** Callable context query issuance for the currently aimed radiation collector. */
+    public static boolean requestRadiationCollectorQuery() {
+        reconcile();
+        Mob body = currentBody();
+        if (body == null || body != cameraBody || cameraEpoch != GhostControlClient.committedCharacterEpoch()
+                || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isClientActionBlocked(body)) return false;
+        var proof = buildBlockUseProof(BodyBlockUseRequest.Intent.USE);
+        if (proof == null || !(body.level().getBlockEntity(proof.target())
+                instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity)) return false;
+        var snapshot = POLICY.snapshot();
+        if (snapshot == null) return false;
+        com.juicyslew.moonstation14.ms14.radiation.control.client.RadiationCollectorControlClient.STATE.expectQuery(
+                proof.sequence(), snapshot.bodyId(), snapshot.epoch(), body.level().dimension().location(), proof.target());
+        com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlNetworking.request(
+                new com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlRequest(
+                        proof.sequence(), com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlRequest.Operation.QUERY,
+                        proof, null));
+        return true;
+    }
+
+    /** Request an eject only while the currently aimed collector still matches the ready context. */
+    public static boolean requestRadiationCollectorEject(
+            com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlSnapshot expectedSnapshot) {
+        reconcile();
+        Mob body = currentBody();
+        if (expectedSnapshot == null || body == null || body != cameraBody
+                || cameraEpoch != GhostControlClient.committedCharacterEpoch()
+                || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isClientActionBlocked(body)) return false;
+        var proof = buildBlockUseProof(BodyBlockUseRequest.Intent.USE);
+        if (proof == null || !proof.target().equals(expectedSnapshot.position())
+                || !(body.level().getBlockEntity(proof.target())
+                instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity)) return false;
+        var snapshot = POLICY.snapshot();
+        if (snapshot == null || !snapshot.bodyId().equals(expectedSnapshot.bodyId())
+                || snapshot.epoch() != expectedSnapshot.authorityEpoch()
+                || !body.level().dimension().location().equals(expectedSnapshot.dimension())) return false;
+        var state = com.juicyslew.moonstation14.ms14.radiation.control.client.RadiationCollectorControlClient.STATE;
+        state.beginAction();
+        com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlNetworking.request(
+                new com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlRequest(
+                        proof.sequence(), com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlRequest.Operation.EJECT,
+                        proof, new com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlRequest.EjectExpectation(
+                                expectedSnapshot.placementId(), expectedSnapshot.profileId(), expectedSnapshot.slotRevision(), expectedSnapshot.ledgerRevision())));
         return true;
     }
 
     private static boolean openAimedWorldActivation() {
         reconcile();
+        var canisterBody = currentBody();
+        com.juicyslew.moonstation14.ms14.atmos.tank.client.CanisterWorkspace.INSTANCE.tick(
+                canisterBody == null ? null : canisterBody.getUUID(), GhostControlClient.committedCharacterEpoch(), clock);
         if (cameraBody == null) return false;
+        UUID entityTarget = lookTarget(cameraBody);
+        if (entityTarget != null && cameraBody.level().getEntitiesOfClass(ItemEntity.class,
+                cameraBody.getBoundingBox().inflate(NORMAL_WORLD_AIM_REACH), e -> e.getUUID().equals(entityTarget)
+                        && e instanceof com.juicyslew.moonstation14.entities.GasCanisterEntity).size() == 1) {
+            com.juicyslew.moonstation14.ms14.atmos.tank.client.CanisterClientCache.beginOpen(entityTarget);
+            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.register(
+                    com.juicyslew.moonstation14.ms14.atmos.tank.client.CanisterWorkspace.INSTANCE.overlay());
+            PacketDistributor.sendToServer(new com.juicyslew.moonstation14.ms14.atmos.tank.CanisterOpenRequest(entityTarget));
+            return true;
+        }
         var ownerTarget = containedWorldTarget();
         if (com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained()) {
             if (ownerTarget.isEmpty() || !isWorldActivationTarget(cameraBody, ownerTarget.get())) return false;
@@ -589,6 +670,10 @@ public final class BodyHandClient {
     private static boolean isWorldActivationTarget(Mob body, net.minecraft.core.BlockPos pos) {
         var target = body.level().getBlockEntity(pos);
         return target instanceof com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity
+                || target instanceof com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity pa && pa.role().equals("control")
+                || target instanceof com.juicyslew.moonstation14.block.block_entity.EmitterBlockEntity
+                || target instanceof com.juicyslew.moonstation14.block.block_entity.FieldGeneratorBlockEntity
+                || target instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity
                 || target instanceof com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity
                 || target instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
     }
@@ -793,6 +878,21 @@ public final class BodyHandClient {
                 && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineWorldClick()) {
             event.setCanceled(true); return;
         }
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && event.getAction() == GLFW.GLFW_PRESS
+                && mc.screen == null && mc.mouseHandler.isMouseGrabbed() && currentBody() != null
+                && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(
+                        mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth(),
+                        mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight())
+                && POPUPS.topmost(mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth(),
+                        mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight()) == null
+                && com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.topmost(
+                        mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth(),
+                        mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight()) == null
+                && com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active() == null
+                && requestRadiationCollectorQuery()) {
+            event.setCanceled(true);
+            return;
+        }
         double guiX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
         double guiY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
         boolean overUi=pointerCanvas&&((StoragePopupScreen)mc.screen).pointerUiHit(guiX,guiY)
@@ -903,7 +1003,11 @@ public final class BodyHandClient {
                 block != null && block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, active.token() != null,
                 target != null, medicalTarget);
         if (route == PrimaryWorldGesture.Route.BLOCK_USE) {
-            requestBlockUse(BodyBlockUseRequest.Intent.USE);
+            if (active.token() == null && block instanceof net.minecraft.world.phys.BlockHitResult blockHit
+                    && cameraBody.level().getBlockEntity(blockHit.getBlockPos())
+                    instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity)
+                requestBlockUse(BodyBlockUseRequest.Intent.ACTIVATE_WORLD);
+            else requestBlockUse(BodyBlockUseRequest.Intent.USE);
         } else {
             var action = PrimaryWorldGesture.action(route);
             if (action == BodyHandActionRequest.Action.PICKUP && target != null)
@@ -2505,6 +2609,31 @@ public final class BodyHandClient {
         graphics.drawCenteredString(mc.font, label, graphics.guiWidth() / 2, graphics.guiHeight() / 2 + 20, 0xffe7f5ff);
     }
 
+    /** Read-only proof for machine clients; the target is resolved by the existing body aim path. */
+    public record AimedHandProof(BodyHandStateSnapshot snapshot, BodyHandStateSnapshot.Hand hand, UUID target) { }
+    public static AimedHandProof aimedHandProof() {
+        reconcile();
+        Mob body = currentBody();
+        var snapshot = POLICY.presentationSnapshot();
+        if (body == null || snapshot == null || !body.getUUID().equals(snapshot.bodyId())
+                || GhostControlClient.committedCharacterEpoch() != snapshot.epoch()) return null;
+        UUID target = lookTarget(body);
+        if (target == null) return null;
+        var active = snapshot.hands().stream().filter(h -> h.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        return active == null ? null : new AimedHandProof(snapshot, active, target);
+    }
+
+    /** Current accepted hand proof for an already-open machine UI; unlike aimed opening it needs no target. */
+    public static AimedHandProof currentHandProof() {
+        reconcile();
+        Mob body = currentBody();
+        var snapshot = POLICY.presentationSnapshot();
+        if (body == null || snapshot == null || !body.getUUID().equals(snapshot.bodyId())
+                || GhostControlClient.committedCharacterEpoch() != snapshot.epoch()) return null;
+        var active = snapshot.hands().stream().filter(h -> h.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        return active == null ? null : new AimedHandProof(snapshot, active, null);
+    }
+
     static boolean popupWorldToEquipment(PopupActionPlan.WorldCrossSource source, String slotId) {
         if (!(net.minecraft.client.Minecraft.getInstance().screen instanceof StoragePopupScreen)
                 || source == null || slotId == null || !ItemFootprints.clientCatalogIsLoaded()) return false;
@@ -2838,3 +2967,4 @@ public final class BodyHandClient {
         return y + mc.font.lineHeight + 4;
     }
 }
+

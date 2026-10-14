@@ -103,3 +103,4 @@ public final class FilteredListModel {
     public String selectedId() { return selectedId; }
     public long revision() { return revision; }
 }
+

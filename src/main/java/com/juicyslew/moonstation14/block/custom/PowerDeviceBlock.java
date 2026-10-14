@@ -162,3 +162,4 @@ public class PowerDeviceBlock extends Block implements EntityBlock {
         return ApcMenuService.open(serverPlayer, pos, device) ? InteractionResult.CONSUME : InteractionResult.FAIL;
     }
 }
+

@@ -348,3 +348,4 @@ public final class BodyTemperatureSystem {
 
     public enum Outcome { APPLIED, SKIPPED }
 }
+

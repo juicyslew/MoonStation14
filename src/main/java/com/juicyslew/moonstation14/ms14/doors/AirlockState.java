@@ -170,3 +170,4 @@ public record AirlockState(UUID identity,long revision,DoorPhase phase,boolean p
     private static long ticks(double seconds){if(!Double.isFinite(seconds)||seconds<0)throw new IllegalArgumentException("invalid transition duration");return Math.max(1,(long)Math.ceil(seconds*20));}
     private static boolean finitePositive(double value){return Double.isFinite(value)&&value>0;}
 }
+

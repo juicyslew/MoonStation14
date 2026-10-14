@@ -105,3 +105,4 @@ public final class ConstructionGuidanceText {
         return result.toString();
     }
 }
+

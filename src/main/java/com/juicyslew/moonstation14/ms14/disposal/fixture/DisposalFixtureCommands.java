@@ -212,3 +212,4 @@ public final class DisposalFixtureCommands {
     private static String partial(BlockPos o,String what){return "Partial build failed at "+what+"; inspect/repair bounded area "+bounds(o)+".";}
     private static String bounds(BlockPos o){return "["+o.getX()+","+o.getY()+","+o.getZ()+"]..["+(o.getX()+W-1)+","+(o.getY()+H-1)+","+(o.getZ()+D-1)+"]";}
 }
+

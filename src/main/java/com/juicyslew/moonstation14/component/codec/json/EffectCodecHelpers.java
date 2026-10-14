@@ -51,3 +51,4 @@ final class EffectCodecHelpers {
                 : DataResult.error(() -> "unknown value '" + value + "'"));
     }
 }
+

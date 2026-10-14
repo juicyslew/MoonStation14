@@ -95,7 +95,9 @@ public final class BodyTimedIngestionService {
         var result = TimedInteractionSystem.start(body, owner, sequence, KIND, admitted.sourceKey(),
                 profile.delayTicks(), true, false,
                 () -> TimedIngestionAccess.valid(body, admitted, authority),
-                () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(), authority)) {
+                 () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(), authority,
+                         cents -> IngestionReceiptObserver.publish(new IngestionReceiptObserver.Receipt(
+                                 owner == null ? null : owner.getUUID(), body.getUUID(), admitted.sourceKey(), cents)))) {
                     case COMMITTED_REPEAT -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.REPEAT; }
                     case COMMITTED_STOP -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.STOP; }
                     case DENIED -> TimedInteractionSystem.Completion.DENIED;
@@ -150,3 +152,4 @@ public final class BodyTimedIngestionService {
         return "puddle:" + level.dimension().location() + ":" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
     }
 }
+

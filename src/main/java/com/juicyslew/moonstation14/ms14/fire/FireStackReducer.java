@@ -72,3 +72,4 @@ public final class FireStackReducer {
         return value;
     }
 }
+

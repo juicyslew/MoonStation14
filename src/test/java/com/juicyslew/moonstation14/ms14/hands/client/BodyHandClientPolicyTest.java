@@ -546,6 +546,25 @@ class BodyHandClientPolicyTest {
         assertNull(policy.confirmedSnapshot());
     }
 
+    @Test void targetMissRetainsProofForImmediateRetryButGenericDenialRefreshes() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        long query = policy.query(1);
+        var hands = snapshot(0, query, ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(hands));
+        long first = policy.blockUseSequence(2);
+        assertTrue(policy.blockUseResult(new com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult(
+                7, first, com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult.Outcome.TARGET_NOT_ADMITTED)));
+        assertSame(hands, policy.confirmedSnapshot());
+        assertFalse(policy.blockUseBarrier());
+        long retry = policy.blockUseSequence(3);
+        assertTrue(retry > first);
+        assertTrue(policy.blockUseResult(new com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult(
+                7, retry, com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult.Outcome.DENIED)));
+        assertNull(policy.confirmedSnapshot());
+        assertTrue(policy.blockUseBarrier());
+    }
+
     @Test void lostBlockUseAckAndQueryTimeoutFailClosedAndRetryOnce() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);

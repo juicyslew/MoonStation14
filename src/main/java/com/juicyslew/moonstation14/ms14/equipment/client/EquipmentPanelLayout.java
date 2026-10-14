@@ -68,3 +68,4 @@ public final class EquipmentPanelLayout {
         return new Layout(toggle, new HandBarLayout.Rect(minX,minY,maxX-minX,maxY-minY), slots, cell, expanded);
     }
 }
+

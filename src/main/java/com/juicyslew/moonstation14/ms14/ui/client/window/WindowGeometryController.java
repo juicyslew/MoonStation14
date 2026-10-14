@@ -126,3 +126,4 @@ public final class WindowGeometryController {
         return (int) Math.max(min, Math.min(max, Math.round(value)));
     }
 }
+

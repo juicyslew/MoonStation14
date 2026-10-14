@@ -45,6 +45,7 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
     public static final ResourceLocation GENERIC_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "generic");
     public static final ResourceLocation JUG_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "jug");
     public static final ResourceLocation GRENADE_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "grenade");
+    public static final ResourceLocation GAS_CANISTER_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "gas_canister");
     public static final ResourceLocation BLOCK_MODEL_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "block_model");
     public static final Codec<LooseObjectProfile> CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.FLOAT.fieldOf("mass").forGetter(LooseObjectProfile::mass),
@@ -91,3 +92,4 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
         return client ? resolveClient(id) : resolve(id);
     }
 }
+

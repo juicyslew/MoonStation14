@@ -10,3 +10,4 @@ public enum CableTier implements StringRepresentable {
     CableTier(String id) { this.id = id; }
     @Override public String getSerializedName() { return id; }
 }
+

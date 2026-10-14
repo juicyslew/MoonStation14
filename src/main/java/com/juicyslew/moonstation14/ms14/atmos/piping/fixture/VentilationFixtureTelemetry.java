@@ -139,3 +139,4 @@ public final class VentilationFixtureTelemetry {
 
     private static String fmt(double value) { return String.format(java.util.Locale.ROOT, "%.2f", value); }
 }
+

@@ -8,3 +8,4 @@ public record DeviceIdentity(UUID value) {
     public DeviceIdentity { Objects.requireNonNull(value, "value"); }
     public static DeviceIdentity random() { return new DeviceIdentity(UUID.randomUUID()); }
 }
+

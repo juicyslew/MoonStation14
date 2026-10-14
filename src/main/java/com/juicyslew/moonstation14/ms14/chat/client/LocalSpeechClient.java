@@ -724,3 +724,4 @@ public final class LocalSpeechClient {
         return result;
     }
 }
+

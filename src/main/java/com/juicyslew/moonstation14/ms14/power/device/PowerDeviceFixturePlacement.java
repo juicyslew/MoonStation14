@@ -55,3 +55,4 @@ public final class PowerDeviceFixturePlacement {
                 && level.getBlockState(apcPos).getValue(PowerDeviceBlock.FACING) == facing;
     }
 }
+

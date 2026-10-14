@@ -30,3 +30,4 @@ public final class GrenadeSoundNetworking {
         PacketDistributor.sendToPlayer(player, payload);
     }
 }
+

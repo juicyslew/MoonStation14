@@ -24,3 +24,4 @@ public record CharacterMovementCommand(double wishX, double wishZ, boolean jumpR
         return stunned ? new CharacterMovementCommand(0d, 0d, false, sprint) : this;
     }
 }
+

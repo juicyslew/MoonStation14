@@ -55,3 +55,4 @@ public final class HungerReducer {
         private static Result failed() { return new Result(false, Float.NaN, Float.NaN, false); }
     }
 }
+

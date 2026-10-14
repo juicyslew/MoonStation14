@@ -16,3 +16,4 @@ public record StatusEffectClearChange(
         Objects.requireNonNull(before, "status effect instance");
     }
 }
+

@@ -12,3 +12,4 @@ public final class IngestionNetworking {
                         (payload, context) -> IngestionCommitted.deliverClient(payload));
     }
 }
+

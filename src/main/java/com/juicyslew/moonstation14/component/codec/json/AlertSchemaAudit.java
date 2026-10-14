@@ -107,3 +107,4 @@ public final class AlertSchemaAudit {
         throw new IllegalArgumentException("Alert schema at " + path + ": " + message);
     }
 }
+

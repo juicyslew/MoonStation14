@@ -7,3 +7,4 @@ public final class MovementWishPolicy {
         return currentMask != previousMask || currentMask != 0 && now - lastNotify >= interval;
     }
 }
+

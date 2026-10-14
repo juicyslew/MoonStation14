@@ -227,3 +227,4 @@ public final class MachineUiGalleryScreen extends Screen {
 
     @Override public boolean isPauseScreen() { return false; }
 }
+

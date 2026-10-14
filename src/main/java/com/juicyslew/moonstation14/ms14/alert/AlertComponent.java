@@ -35,3 +35,4 @@ public record AlertComponent(Map<ResourceKey<AlertData>, AlertInstance> contents
     @Override public Codec<AlertComponent> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, AlertComponent> getStreamCodec() { return STREAM_CODEC; }
 }
+

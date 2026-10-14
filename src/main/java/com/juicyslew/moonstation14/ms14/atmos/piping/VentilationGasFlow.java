@@ -61,3 +61,4 @@ public final class VentilationGasFlow {
             throw new IllegalArgumentException(name + " must be positive and finite");
     }
 }
+

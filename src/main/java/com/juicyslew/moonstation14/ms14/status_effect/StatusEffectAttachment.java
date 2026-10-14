@@ -185,3 +185,4 @@ public final class StatusEffectAttachment implements IMS14Attachment<StatusEffec
         return STREAM_CODEC;
     }
 }
+

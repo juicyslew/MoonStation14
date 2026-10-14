@@ -441,3 +441,4 @@ public final class PrototypeManager {
         return (PrototypeCatalog<T>) catalog;
     }
 }
+

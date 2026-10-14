@@ -358,3 +358,4 @@ public final class HealthAnalyzerServer {
                 net.minecraft.world.level.ClipContext.Fluid.NONE, body)).getType() == net.minecraft.world.phys.HitResult.Type.MISS;
     }
 }
+

@@ -143,9 +143,11 @@ public class LooseItemEntity extends ItemEntity {
     private void setSettled(boolean value) { entityData.set(SETTLED, value); }
 
     public void setCreativePickupDelay(int ticks) { creativePickupDelay = Math.max(2, Math.min(40, ticks)); }
+    /** Admission policy for hand pickup; specialized world fixtures may deny hand ownership. */
+    public boolean admitsBodyHandPickup() { return true; }
 
     @Override public void playerTouch(net.minecraft.world.entity.player.Player player) {
-        if (creativePickupDelay > 0 || !(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
+        if (!admitsBodyHandPickup() || creativePickupDelay > 0 || !(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
                 || !serverPlayer.isCreative()
                 || com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(serverPlayer).isPresent()) return;
         super.playerTouch(player);
@@ -180,6 +182,13 @@ public class LooseItemEntity extends ItemEntity {
         Vec3 tether = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
                 .deltaVelocityPerSecond(this).scale(.05);
         if (tether.lengthSqr() > 0) applyPullVelocityChange(tether);
+        // Only the exact live server UUID is a physical world-item target; do not wake
+        // detached/preview instances that happen to execute a presentation tick.
+        if (level().getEntity(getId()) == this) {
+            Vec3 gravity = com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
+                    .deltaVelocity(level(), position(), level().getGameTime()).scale(.05);
+            if (gravity.lengthSqr() > 0) applyPullVelocityChange(gravity);
+        }
         if (settled()) {
             if (tickCount < nextSupportCheck) return;
             nextSupportCheck = tickCount + 10;

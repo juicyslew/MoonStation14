@@ -29,6 +29,7 @@
     "MobDisposalContainmentAiMixin",
     "LivingEntityMindHarnessTravelMixin",
     "EntityAirlockBumpMixin",
+    "EntityGasCanisterRemovalMixin",
     "LivingEntityDeathStateAccessor",
     "LivingEntityMedicalCorpseMixin",
     "LivingEntityPostureMovementMixin",
@@ -63,6 +64,11 @@
     "client.ContainedBodyCameraMixin",
     "client.ContainedPerspectiveLockMixin",
     "client.ContainedOwnerPickMixin"
+    ,"client.VertexBufferSingularityDiagnosticMixin"
+    ,"client.ProgramSingularityLensMixin"
+    ,"client.ShaderInstanceSingularityLensMixin"
+    ,"client.LevelRendererSingularityLensMixin"
+    ,"client.FrustumSingularityLensMixin"
   ],
   "injectors": {
     "defaultRequire": 1

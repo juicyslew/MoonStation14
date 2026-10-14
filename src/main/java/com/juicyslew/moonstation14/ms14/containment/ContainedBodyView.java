@@ -12,3 +12,4 @@ public record ContainedBodyView(UUID ownerIdentity, Optional<BlockPos> worldTarg
         worldTarget = java.util.Objects.requireNonNull(worldTarget).map(BlockPos::immutable);
     }
 }
+

@@ -137,3 +137,4 @@ public final class BoundedGasEqualizer {
         private GasMixture mixture() { return mixture; }
     }
 }
+

@@ -178,3 +178,4 @@ public final class ChatIdentityRegistry {
         return ledger;
     }
 }
+

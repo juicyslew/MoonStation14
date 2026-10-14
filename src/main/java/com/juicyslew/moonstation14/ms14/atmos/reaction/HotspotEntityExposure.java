@@ -43,3 +43,4 @@ public final class HotspotEntityExposure {
 
     public record Selection<T>(List<T> occupants, int nextCursor) { }
 }
+

@@ -276,3 +276,4 @@ public final class DirectionalCueOverlay {
         return select(new Snapshot(Vec3.ZERO, rotation, projection, 0, now), null, width, height, now);
     }
 }
+

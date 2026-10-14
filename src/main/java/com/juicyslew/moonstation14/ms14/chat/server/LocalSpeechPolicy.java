@@ -57,3 +57,4 @@ public final class LocalSpeechPolicy {
         return dx * dx + dy * dy + dz * dz <= RANGE * RANGE;
     }
 }
+

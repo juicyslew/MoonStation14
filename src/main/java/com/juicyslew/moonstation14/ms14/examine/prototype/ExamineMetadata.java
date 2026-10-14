@@ -22,3 +22,4 @@ public record ExamineMetadata(String name, String description) {
     public boolean hasName() { return !name.isBlank(); }
     public boolean hasDescription() { return !description.isBlank(); }
 }
+

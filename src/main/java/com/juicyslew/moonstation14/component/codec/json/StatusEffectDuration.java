@@ -113,3 +113,4 @@ public record StatusEffectDuration(boolean isPermanent, float finiteSeconds) {
         return finiteSeconds;
     }
 }
+

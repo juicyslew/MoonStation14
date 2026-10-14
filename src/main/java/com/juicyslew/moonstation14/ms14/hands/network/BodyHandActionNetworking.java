@@ -40,11 +40,14 @@ public final class BodyHandActionNetworking {
                         PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), BodyBlockUseResult.Outcome.DENIED));
                         return;
                     }
-                     var admission = BodyHandRequestService.admitBlockUse(actor, request);
+                      var inspection = BodyHandRequestService.inspectBlockUse(actor, request);
+                      var admission = inspection.admission();
                      if (contained && admission != null
                              && !(admission.authority().body().level().getBlockEntity(admission.hit().pos())
                                   instanceof DisposalUnitBlockEntity)) admission = null;
-                    BodyBlockUseResult.Outcome outcome = BodyBlockUseResult.Outcome.DENIED;
+                     BodyBlockUseResult.Outcome outcome = admission == null
+                             && inspection.failure() == BodyHandRequestService.BlockUseFailure.TARGET_NOT_ADMITTED
+                             ? BodyBlockUseResult.Outcome.TARGET_NOT_ADMITTED : BodyBlockUseResult.Outcome.DENIED;
                      if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
                           var body = admission.authority().body();
@@ -294,3 +297,4 @@ public final class BodyHandActionNetworking {
                 });
     }
 }
+

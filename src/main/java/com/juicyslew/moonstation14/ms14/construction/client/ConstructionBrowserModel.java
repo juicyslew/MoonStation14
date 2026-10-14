@@ -38,3 +38,4 @@ final class ConstructionBrowserModel {
     }
     static int boundedScroll(int scroll,int rowCount,int visibleRows){return Math.max(0,Math.min(scroll,Math.max(0,rowCount-visibleRows)));}
 }
+

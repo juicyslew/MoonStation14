@@ -26,3 +26,4 @@ public final class DisposalConstructionPlacementPolicy {
         return plan!=null&&plan.prototype().equals(prototype)&&plan.revision()==revision;
     }
 }
+

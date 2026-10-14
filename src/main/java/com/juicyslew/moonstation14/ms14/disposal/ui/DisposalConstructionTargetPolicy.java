@@ -9,3 +9,4 @@ public final class DisposalConstructionTargetPolicy {
         return eligibleSteelHost && !liveTubeAtHost && kind == DisposalEntityData.Kind.STRAIGHT;
     }
 }
+

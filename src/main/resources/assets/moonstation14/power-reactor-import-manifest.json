@@ -1,0 +1,1715 @@
+{
+  "acceptance": "USER_ACCEPTED_AS_IS_current_R6_complete56",
+  "acceptedPackageSource": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6",
+  "acceptedPackageSha256": "763579c8a8cf0b56beaa1835115d8487c7e13adaaae6af4addeff7736e941e66",
+  "sourceRevision": "Space Station 14 c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "assets": [
+    {
+      "assetId": "generation_pa_control_box",
+      "prototypeIds": [
+        "ParticleAcceleratorControlBox"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_pa_control_box/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_pa_control_box\\generation_pa_control_box.bbmodel",
+      "texture": "textures/generation_pa_control_box/default.png",
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.32
+        ],
+        "max": [
+          7.0,
+          16.0,
+          5.0
+        ]
+      },
+      "states": 8,
+      "loops": 1
+    },
+    {
+      "assetId": "generation_pa_emitter_fore",
+      "prototypeIds": [
+        "ParticleAcceleratorEmitterFore"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_pa_emitter_fore/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_pa_emitter_fore\\generation_pa_emitter_fore.bbmodel",
+      "texture": "textures/generation_pa_emitter_fore/default.png",
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0
+    },
+    {
+      "assetId": "generation_pa_emitter_port",
+      "prototypeIds": [
+        "ParticleAcceleratorEmitterPort"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_pa_emitter_port/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_pa_emitter_port\\generation_pa_emitter_port.bbmodel",
+      "texture": "textures/generation_pa_emitter_port/default.png",
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0
+    },
+    {
+      "assetId": "generation_pa_emitter_starboard",
+      "prototypeIds": [
+        "ParticleAcceleratorEmitterStarboard"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_pa_emitter_starboard/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_pa_emitter_starboard\\generation_pa_emitter_starboard.bbmodel",
+      "texture": "textures/generation_pa_emitter_starboard/default.png",
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          8.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0
+    },
+    {
+      "assetId": "generation_pa_end_cap",
+      "prototypeIds": [
+        "ParticleAcceleratorEndCap"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_pa_end_cap/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_pa_end_cap\\generation_pa_end_cap.bbmodel",
+      "texture": "textures/generation_pa_end_cap/default.png",
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          7.0,
+          7.15,
+          8.0
+        ]
+      },
+      "states": 3,
+      "loops": 0
+    },
+    {
+      "assetId": "generation_pa_fuel_chamber",
+      "prototypeIds": [
+        "ParticleAcceleratorFuelChamber"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_pa_fuel_chamber/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_pa_fuel_chamber\\generation_pa_fuel_chamber.bbmodel",
+      "texture": "textures/generation_pa_fuel_chamber/default.png",
+      "bounds": {
+        "min": [
+          -6.5,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          6.5,
+          7.7,
+          8.0
+        ]
+      },
+      "states": 8,
+      "loops": 0
+    },
+    {
+      "assetId": "generation_pa_power_box",
+      "prototypeIds": [
+        "ParticleAcceleratorPowerBox"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_pa_power_box/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_pa_power_box\\generation_pa_power_box.bbmodel",
+      "texture": "textures/generation_pa_power_box/default.png",
+      "bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -7.16
+        ],
+        "max": [
+          6.16,
+          13.16,
+          6.0
+        ]
+      },
+      "states": 8,
+      "loops": 0
+    },
+    {
+      "assetId": "generation_singularity_collector",
+      "prototypeIds": [
+        "RadiationCollector",
+        "RadiationCollectorNoTank",
+        "RadiationCollectorFullTank"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_singularity_collector/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_singularity_collector\\generation_singularity_collector.bbmodel",
+      "texture": "textures/generation_singularity_collector/default.png",
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          11.0,
+          5.0
+        ]
+      },
+      "states": 11,
+      "loops": 3
+    },
+    {
+      "assetId": "generation_singularity_containment",
+      "prototypeIds": [
+        "ContainmentFieldGenerator"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_singularity_containment/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_singularity_containment\\generation_singularity_containment.bbmodel",
+      "texture": "textures/generation_singularity_containment/default.png",
+      "bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          5.0,
+          24.0,
+          5.0
+        ]
+      },
+      "states": 11,
+      "loops": 0
+    },
+    {
+      "assetId": "generation_singularity_emitter",
+      "prototypeIds": [
+        "Emitter"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_singularity_emitter/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_singularity_emitter\\generation_singularity_emitter.bbmodel",
+      "texture": "textures/generation_singularity_emitter/default.png",
+      "bounds": {
+        "min": [
+          -5.3,
+          -0.5149999999999997,
+          -6.44
+        ],
+        "max": [
+          5.3,
+          10.1,
+          6.975
+        ]
+      },
+      "states": 6,
+      "loops": 1
+    },
+    {
+      "assetId": "generation_singularity_generator",
+      "prototypeIds": [
+        "SingularityGenerator"
+      ],
+      "defaultModel": "moonstation14:block/power_collection/generation_singularity_generator/default",
+      "master": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\terminal_support_r6\\authoring\\generation_singularity_generator\\generation_singularity_generator.bbmodel",
+      "texture": "textures/generation_singularity_generator/default.png",
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          7.0,
+          23.0,
+          5.0
+        ]
+      },
+      "states": 1,
+      "loops": 0
+    }
+  ],
+  "files": [
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/completed.json",
+      "sha256": "e6304c792aeb8cc331c22b49d77f04108676e785fe7c58306e1e7caa1ef5fb69",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/completed.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/default.json",
+      "sha256": "3e05721c86e305b5dcfef49771fc89de418d0f4d29fc501a9f2a061918553bb1",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/unlitp.json",
+      "sha256": "46bf673f49ee4cc52336161a4ca8d9a5104e7cb72bd1dd052c3bd77c3107ff64",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/unlitp.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/unlitp0.json",
+      "sha256": "388279c1d10a4a9f622c4bc4fe096e8aa314af1d88fd362397901ea3bf4f3de8",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/unlitp0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/unlitp1.json",
+      "sha256": "fe93887b2c923272258c7c2a910f0fb79ecfdfd67fbe00c1dc00941b8572125d",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/unlitp1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/unlitp2.json",
+      "sha256": "762240535b181a830f589e9a1c108c89ff8199bf2850876f77bbdb3a0079add4",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/unlitp2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/unlitp3.json",
+      "sha256": "86183adb816e2c89d529f368509a5e0d50ff797d88899f43215b58b6dea21500",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/unlitp3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/unwired.json",
+      "sha256": "4b33f0f47826d6f716bae95025fe41263802f3a7e492c034554894fe82e0260a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/unwired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_control_box/wired.json",
+      "sha256": "9feb1e781ff804ac5b57a39db12e660db8a0268444cddd1904ffc3f43fa0bf7b",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_control_box/wired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/completed.json",
+      "sha256": "ee04b27c0e2b428a423b72c2a6d6d055f9e3628f5cb37ed48b5b37abc56f4d7c",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/completed.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/default.json",
+      "sha256": "04d0dd70b7c862fe54fc24aeb84abcc130fd246c243087dfdfc0ae9ec207c0f3",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/unlitp.json",
+      "sha256": "93edb9927bc356bdc531cd3ffc3b482fd5d1721a8aa6e21822f2c11037ed774f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/unlitp.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/unlitp0.json",
+      "sha256": "73e98435cbe5d36b712ad2873b3e6af65452c79eef00937e9ea34c7df1efd2da",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/unlitp0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/unlitp1.json",
+      "sha256": "2d7e3f38d7c01fb30f6309ee06430d9fa4665d654490ad9525468459b7adfaa8",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/unlitp1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/unlitp2.json",
+      "sha256": "4410638687a9edc7e60ef01cba909257b02ef6348eb53b8a11ed27a846b7d998",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/unlitp2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/unlitp3.json",
+      "sha256": "95278d072e30738151f28fa6c650922d3f9760cecde97024e40c938c24364a62",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/unlitp3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/unwired.json",
+      "sha256": "3bbeb8977227c35a8c6851aa44ac68e57a612d3bcf18851c659ac63e6776be51",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/unwired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_fore/wired.json",
+      "sha256": "fd8f3f2a51b0ccf6f162b63eaca87fc00442a86839fd99ca87aa3773d59f0484",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_fore/wired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/completed.json",
+      "sha256": "15d1a128b0936d95484397cfdcf2bf663d08fa59b3a1d3947ea2473de44608bf",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/completed.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/default.json",
+      "sha256": "7b8fc8fb3fc690b1b4ef457949275e6c6bc72d5c0d324e1d3eaed9644ae6aab9",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/unlitp.json",
+      "sha256": "5afb6d5381ce7efcb08d2495f6ea0977370a3aaffa09364e011bc12a10bb855a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/unlitp.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/unlitp0.json",
+      "sha256": "83e8635f9d4d6f54d8ac4fb9bf89d6c05e94d2a675f9222f7e1c8ccacc1a1d5c",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/unlitp0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/unlitp1.json",
+      "sha256": "d1df3f904e6bd369a25173727046804587910a29c3a8cf62798337f825cc2300",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/unlitp1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/unlitp2.json",
+      "sha256": "0a81f4e2f6d66eb6eae016ea2be538687138cb558a751d46acf3ad6f96a1c904",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/unlitp2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/unlitp3.json",
+      "sha256": "7bd294b09378ce9ba27885d5467398dde585adfbc0a67a1cd916ee64b23a630a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/unlitp3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/unwired.json",
+      "sha256": "f2daea5ac2d2271e8ec9d8ec669a5541cc65c30f4380cf1aa978bcec589ca4c8",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/unwired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_port/wired.json",
+      "sha256": "ebdab366d2e756e35faa267dd271640cd82a88e78fbc5032aeebee78e7298f5c",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_port/wired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/completed.json",
+      "sha256": "d99a96ac9873056155463bdc4a54730fcb80a2432d527e13d068f050798b16f0",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/completed.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/default.json",
+      "sha256": "3786540a63ec465b4564d79c23ec7282bbabe2ac58da6cccca03c94bcfdd70df",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/unlitp.json",
+      "sha256": "531e891d8e874675aab36834fdc5dd3534064123254b86b2ddd376675777f108",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/unlitp.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/unlitp0.json",
+      "sha256": "0bd46e8f0291479d2e829686b2b2ae735a8db01441d78b897d602f1b3595cf09",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/unlitp0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/unlitp1.json",
+      "sha256": "8f0725e2677eafff2bbbb4e4bb53b8c2ead36f6c5a1505e88303454700e5fa2b",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/unlitp1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/unlitp2.json",
+      "sha256": "efcf1e775a52f3c8a9d65b12597abf6682fc75a74c36ead434707acf5ef531da",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/unlitp2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/unlitp3.json",
+      "sha256": "db67642e99a95a6d3038e4e54c3b4721e21ea88e5b1a2691372b1e7fac6a4bb2",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/unlitp3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/unwired.json",
+      "sha256": "41ec238191b1bdbdff2ae8caadba08498c02690710b2a468b8c6386dd96d2200",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/unwired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_emitter_starboard/wired.json",
+      "sha256": "0a370edd3a45024502017b91f1a874362f84f3b06339dee967f2e6de47e406ee",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_emitter_starboard/wired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_end_cap/completed.json",
+      "sha256": "d57220988a6f9a66d1e69f02aea1172a8eb4660b3da45a20517a4254406caf5a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_end_cap/completed.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_end_cap/default.json",
+      "sha256": "73e3bbc3c17d38c9558d70f3eebb0a02cbbfcde6bdacb6c98b8f07870878fc4d",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_end_cap/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_end_cap/unwired.json",
+      "sha256": "6236d06cc7a2527fb0245e5374ad7aa93d2124c97208e02431a47a19da17673a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_end_cap/unwired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_end_cap/wired.json",
+      "sha256": "8b736cd47d252150a9bf44bdc98c6d5590579552335da81358cb0af0d770c142",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_end_cap/wired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/completed.json",
+      "sha256": "9d560c5a69acb3e62f7dce7def848716430853dc7fb3f604a26cd7cc565de48e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/completed.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/default.json",
+      "sha256": "d7bee933d639e08f7b48bd54807c93b2ac11f6684f9940c29adcb433bc8c1e98",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/unlitp.json",
+      "sha256": "f866ae9f8e396f9ddc2797cf516b8c9be77f28a4efdefa8219e5ebc454da6514",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/unlitp.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/unlitp0.json",
+      "sha256": "da552526e56bbd3e07165d7dc98f7753b05c1eb4aa85c79bde214ae26697c09e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/unlitp0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/unlitp1.json",
+      "sha256": "d60acb61c26f4c3a178654b0ad8564f59ed2b429afc786f4f7cf24c71b7d5d49",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/unlitp1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/unlitp2.json",
+      "sha256": "b574a1ceba421928663e73259936453cff338b9a1208e0d1f993bebe0dfdb4ce",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/unlitp2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/unlitp3.json",
+      "sha256": "7710aeb446fcefeab56ff347f4caa9318ba2deb843d6ca760f05f32443d44f76",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/unlitp3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/unwired.json",
+      "sha256": "61474e8745c27106620845d3dc26dcf26088d64ce445ef4c12fd87550082bc72",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/unwired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_fuel_chamber/wired.json",
+      "sha256": "dea64e8d3b3933ff3f338afe8170de3bb12fdea67bfa16deadbb609c7bee9044",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_fuel_chamber/wired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/completed.json",
+      "sha256": "ca8a1758b0032b6ee9d6ce27456bf521438e2d137128050441ae495772246588",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/completed.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/default.json",
+      "sha256": "35d86a464481e43749a71832c24f04b071ce7747b6de072c8ba456583699cc1a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/unlitp.json",
+      "sha256": "8b6419532b59497a06fa64c27a3d7eeef6cbdcf726004e4b55099ddd248154ea",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/unlitp.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/unlitp0.json",
+      "sha256": "cdb39c82d81b000733ec053a4f25f123a51bb4510ec2e73783d8f68b9c1c75a6",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/unlitp0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/unlitp1.json",
+      "sha256": "0c3d2899975af317b5057e916a81b2bcd322ddce819aa07e3c896127ca65e566",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/unlitp1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/unlitp2.json",
+      "sha256": "8cd8155931d825440e825d95b7bc7256b9b35da3274a317c3213d2af4ea85442",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/unlitp2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/unlitp3.json",
+      "sha256": "372c2bac2e478df14a4c319baedcdd297199c5b291e009a8bce9c712bdc9174a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/unlitp3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/unwired.json",
+      "sha256": "bc4e4ac14546e7f6485173791c249447bf9580bb54a70e3233d148c50c8c4b42",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/unwired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_pa_power_box/wired.json",
+      "sha256": "951490888f31c548bd90027d6508d3ce303436bf75889b32dc64f915a54372f1",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_pa_power_box/wired.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_active.json",
+      "sha256": "789248a09873f25017ea45b29ea5295036313e7a5715a71f94d75546558c35c6",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_active.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_deactive.json",
+      "sha256": "9666d34315a387fc8b2a2e4d4a9b808919fea16e05052edacf4492c0b96b31e5",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_deactive.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_o0.json",
+      "sha256": "c95f25464bc09ca841a9079698f5f26da5fb649c53acc9d5ce4920a51edb9655",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_o0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_o1.json",
+      "sha256": "db3827090c899f3bf41c42f4d639145e49978843a78a8a21b31d93dfb86ff9bc",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_o1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_o2.json",
+      "sha256": "bb6d2cf3d940e50d53d37100e0f448306bd415aa2aa021ffcb5061b1e8d655a9",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_o2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_o3.json",
+      "sha256": "a1e3924466fdd4ac420402b51a7ad53a4f70eddee3635d0e96e2cf0ebf9fa48b",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_o3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_off.json",
+      "sha256": "5cc7372a7b4eb6456761af5101bda7986d1442fff71a76b90d20355490d18ea7",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_off.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_on.json",
+      "sha256": "308101f7838862241f2e3adc4175f06625327da985b133f2643a2082fa44ea4f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_on.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/ca_tank.json",
+      "sha256": "2c29d90d14508b05f043dd7c364308fad35df3166f4243f4f2a9c3964eea568b",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/ca_tank.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/cu.json",
+      "sha256": "46115e7520193eee087836134f8a2de078eb89749fe5d95f2b6ee5f0c28b1ecc",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/cu.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/default.json",
+      "sha256": "1f662ad82a0700e5f27ecdb6d3980b271173f4214f8ca1da39d7c52e84e8091b",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_00.json",
+      "sha256": "918a921f54609c10f8b037a62cefb72ea47d10a7b19fef1795422e238f680448",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_00.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_00.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_00.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_00.obj",
+      "sha256": "305011608ce6997a9d6166d1e303c0dddaa1728c67e2a8fe88578509e20abfc4",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_00.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_01.json",
+      "sha256": "e455d1564ebc3b6a6c6024aea5a9f0d5877947d5a7ae736d9477c97f0de351c8",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_01.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_01.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_01.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_01.obj",
+      "sha256": "b53abc50ebfe1c2624fc0279cb64a074542b57ecdc0448314f733e296d21540e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_01.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_02.json",
+      "sha256": "418125afabf10e5f61d3bffb8c706edaf1001e51698a15552214b66045e93b64",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_02.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_02.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_02.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_02.obj",
+      "sha256": "2374287e56deb4146381611ad670e89000091098352ad0c4362d2b696b2d6a47",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_02.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_03.json",
+      "sha256": "132c845750627bacad0b3cf8033bcef9bf80f6610078e0292cd2655d36e93a05",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_03.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_03.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_03.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_03.obj",
+      "sha256": "0a22ec30d7e5630785f576318a9d05029a8c8eb7e41549730360a942befe8de0",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_03.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_04.json",
+      "sha256": "4745d334032e126d8b91f4c1c17f18fded821d6d87a37ae78ac70455f875cb02",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_04.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_04.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_04.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_04.obj",
+      "sha256": "28c4d5b45a9eca250892e721d00053b1c005934748c03e9758523c4c298e1dac",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_04.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_05.json",
+      "sha256": "dc49ec320a44ea68cae5295dcd810958f81e7f942e4aa5bf3c18659a294d97b8",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_05.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_05.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_05.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_05.obj",
+      "sha256": "6e79700cf2ae46e8bfb64af088ff049f0af9ca01b02522d344d4b2dd4234685a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_05.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_06.json",
+      "sha256": "901d2589dfb5d84bdfc58dec817dc077a72c409768ed082267a1cb26b662532f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_06.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_06.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_06.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_06.obj",
+      "sha256": "e75d14bc9df2931e069acb7fc6d6f50ff030333af3f260be0ce96291649e1968",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_06.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_07.json",
+      "sha256": "5674604e98fc76195e209eb6832ad4c83ec0d52ca6ddff1507d896006691431f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_07.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_07.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_07.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_07.obj",
+      "sha256": "ca550e3d78190a331f9bf9892ad31e042f59d1efe73320158173a00aee83044f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_07.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_08.json",
+      "sha256": "046f8db0e00992488b0ee1381f70e011eb127dd538fe6e9e0a041a35e302c429",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_08.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_08.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_08.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_08.obj",
+      "sha256": "5cfdcdec70d61d569ca0193044fa16594524709fcc7d1455d4683e081a607cca",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_08.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_09.json",
+      "sha256": "d6521742ffc8814976337621b0f741feb6a61a0e5834b7134621c16beca2aad3",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_09.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_09.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_09.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_09.obj",
+      "sha256": "0757d7f1344be4149a86069842aa26fb1e1172e773cf266529ce53fa7e67fb66",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_09.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_10.json",
+      "sha256": "30d0fe6dc892ce61d624a8b05ead9565a170c8dd377420e08eb4325b871d1938",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_10.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_10.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_10.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_10.obj",
+      "sha256": "42a86dce794fe8ce922a9158d671e3a0a562cadd53783d64e51f512402ecb08d",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_10.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_11.json",
+      "sha256": "b2a0900e902f61e6c4ed7c665616635d61c248fe7ac2c2e40179bdc8b0abe4f4",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_11.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_11.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_11.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_11.obj",
+      "sha256": "7e2e69df032d6e3c14304b89767596e14b7f3b321b23425ed0a81e6150ad40b0",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_11.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_12.json",
+      "sha256": "a272a4f9ffa3e22b7aa9054cc110483c10c22a949b2438cd1d151cc4a9982a3c",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_12.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_12.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_12.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_12.obj",
+      "sha256": "7ce00730c670c73f3ef518a7a80608718d47e0e622a3562f1789c4a2d9f17bfa",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_12.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_13.json",
+      "sha256": "ff2d7fcbaec93be34516d63c3d44ffe72ffdc60c4ac3af6abfaaee52d3d86883",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_13.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_13.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_13.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_13.obj",
+      "sha256": "cf3d656efcfe9c2f205dbf5c924e54f47d2e1491d8372cd4461181d5315f4af8",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_13.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_14.json",
+      "sha256": "ae44a3325df22c7754a654f5603437e2a1292ede336a47d04c66c9a5972eec1e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_14.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_14.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_14.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_14.obj",
+      "sha256": "c78600fc0d70ca37548f2afe9884e6e80d9b31476897a9de806686fd38c59c3c",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_14.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_15.json",
+      "sha256": "3301b09e35595f96198e7122ab0ff1844f026a621a0cdce8f8e63443a5e0eb52",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_15.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_15.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_15.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_15.obj",
+      "sha256": "dcf0c884d0b25ffa04f4402ff98f696fe64c47964320076fc126e8b64f3a2e36",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_15.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_16.json",
+      "sha256": "c7a58c37565e16281cebbeadb2e5218794d376106132cadd2a704f9104c91aa7",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_16.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_16.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_16.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_activate_16.obj",
+      "sha256": "d1a5737ea8d2db2e7097f88b66a0570439dac33f3b4e5a5c87bfe5ff7d54062f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_activate_16.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_00.json",
+      "sha256": "96b30e0e66cb0785d15003aefff9dc7460da5e8a74f2a064bb61018790325a6e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_00.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_00.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_00.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_00.obj",
+      "sha256": "cc61102aadce0a2a3c86b4af7a5323fba54ee9e46b5ce71578aff83913e7898a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_00.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_01.json",
+      "sha256": "4831be0fb14742a96bbdfc9005c7663bb96e72512996344ad9deeb453270ab06",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_01.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_01.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_01.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_01.obj",
+      "sha256": "50be3e429f6487fa6a16f04ebc91c9f943d8089f88e37037c95ef3f3e1c0d5a2",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_01.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_02.json",
+      "sha256": "cbadc63a30e23e691b512a51f52789177bf8acc421d48cf61b0321fa6c280384",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_02.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_02.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_02.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_02.obj",
+      "sha256": "c6f00679ef9962ed08391527ce8a457898766775e2b1684bf3a9c67c48e6c237",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_02.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_03.json",
+      "sha256": "5b524060b534167783a597360953e3ebb34bbb1eb74f350de957758cbddbcc86",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_03.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_03.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_03.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_03.obj",
+      "sha256": "e2a8e140c828811563f4cd7ecbbc56872e4cb5484318f933aa8d7f793fd9ea25",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_03.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_04.json",
+      "sha256": "5dc94a201c65743571680b272249bd8d8ae4507011e6cee2adbb16b9847d7d65",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_04.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_04.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_04.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_04.obj",
+      "sha256": "111da8a1f263e836098eb0584d1419e279326740f08e464ebeebe0c228c89d12",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_04.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_05.json",
+      "sha256": "b8901ba8b43e974726675f3d842293d7c1ca727f723c88d4b47bc64b72e7cf21",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_05.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_05.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_05.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_05.obj",
+      "sha256": "b63d89e9063f7328d9dab3f13cb14e16eca2d010b8fe9e92167ef91af79fb445",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_05.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_06.json",
+      "sha256": "d69ccd6602b2bccfadd9ec8b7fca15aa274d676eb8ca9ef1635488415702cfab",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_06.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_06.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_06.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_06.obj",
+      "sha256": "98b40550348fc0969cc91780554c0817f13bd69f0a03381d66f884d4b28a89e5",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_06.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_07.json",
+      "sha256": "852b58168baf931393238893c83250e53083a351c12df7811849dc1479fc7a21",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_07.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_07.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_07.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_07.obj",
+      "sha256": "ac9fa75d3d0ecf881f71eb947e0492a9590046a716b63355f96f65f69f6ca543",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_07.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_08.json",
+      "sha256": "0ff08edfacd786cc8ce44847bbf26232d71d6a1a2a93625ca03d9930cdc17fb5",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_08.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_08.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_08.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_08.obj",
+      "sha256": "01e35774eb67fb45695177743b169e4be5551ff97228489b16fd604c86ffaa40",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_08.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_09.json",
+      "sha256": "e469dd81c1146ee5afb0d672ba2803c59243605e9f3a7233c4a0b0b157b80d00",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_09.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_09.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_09.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_09.obj",
+      "sha256": "89843d294e77438353bccc63b67a892f0dd9d6fd853af30270007b678446526b",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_09.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_10.json",
+      "sha256": "f5e4b320aa287f28c55a525fb7593697793f25c9929e2bde51093eb8502c3f6a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_10.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_10.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_10.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_10.obj",
+      "sha256": "7b8ee6eb30a68970643244af584791f3a1b85561de8e80f0dbadbce5f6fec08c",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_10.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_11.json",
+      "sha256": "63d3c74e3e3f36a59945c83515f433f46f31c79a62af1151892f59442f7f4a16",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_11.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_11.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_11.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_11.obj",
+      "sha256": "cb5d9f6f60e5efe7a536dcfa0e1f04bebf51b0efe91ac5caa5ea6b62425878eb",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_11.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_12.json",
+      "sha256": "445efeca9f6af4efc4700e88244dd6a4b2dde4ae168ea18374e21da5a4b906c7",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_12.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_12.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_12.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_12.obj",
+      "sha256": "b8df055cd7ac3c387644b0e09f5ba732cc89d37a1c210fc7bb4893a1654f4b1e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_12.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_13.json",
+      "sha256": "62905338a07ad2de1d0e1e92d5f12f971240b3cdd33c5d71f1bdb877f1097214",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_13.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_13.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_13.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_13.obj",
+      "sha256": "c396021dfdb004f676b4a5a17195a8bc8ecebe98874010fd9fc95e4c041ace4a",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_13.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_14.json",
+      "sha256": "00650b44b0d5e36f387e03997c1166702d597a180043a96ef3dc399421be6c69",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_14.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_14.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_14.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_14.obj",
+      "sha256": "26831366b4da71439aba42048566cb24c19f56b6bb5f07b93f66485af6986210",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_14.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_15.json",
+      "sha256": "33bbe0025f14528bf4e0dead14a8ef6f61d37e029e505c95b65ed4934b6bb3e2",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_15.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_15.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_15.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_15.obj",
+      "sha256": "9ca960176bcc0797cb6661ae8ae4ae3c799bc4ea7dfc9decdfd58ca86513e4fd",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_15.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_16.json",
+      "sha256": "e8478955c4258ca00cb9bcd521e90d435a669c85750b37f958479e1bfe34cb95",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_16.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_16.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_16.mtl"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/motion_deactivate_16.obj",
+      "sha256": "068957b5ae78baec553e93507c435f69e227a412b95a76013a4410efab7b9af1",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/motion_deactivate_16.obj"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_collector/static.json",
+      "sha256": "28f5a1b4e09fc5f6bcf7b57de8d4648dc4fda9f0657b93a598968260723315c1",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_collector/static.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/a1.json",
+      "sha256": "3d52e4d6754557d338d0e1af07af4be95006e58268dfcae39f8163ee814d78ae",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/a1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/a2.json",
+      "sha256": "7eeb8bc2dde2a6b7b55f69542b08baf9947c100c9c21a417c3950d1eb334f98b",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/a2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/a3.json",
+      "sha256": "dea2a113e8f2a333484b2b0596b2b9935e137f1aee867c851405ce940eca3a23",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/a3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/default.json",
+      "sha256": "89e08e4ff7bd752be772b672d664d25b59e829074b6b434feb554cfc92ec6478",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/icon.json",
+      "sha256": "4a9149f1f461953836f904b7810842be14bdf75db68593e713c2f76061140419",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/icon.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/on.json",
+      "sha256": "59be87d394e5329a844d58a502f8ee0cda699f663ce95cc6724023085a1c2ac5",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/on.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/p1.json",
+      "sha256": "400296b2610e2b6d3bc589b4520bb568db15fe6c1760ea7f3d57d593b3aba9cb",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/p1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/p2.json",
+      "sha256": "d74d8d2db60f4213df3561e772dc84585b2d8113adf7f7702d725755b2a6fe5e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/p2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/p3.json",
+      "sha256": "f09dc9bd805ae3a1ffe42c20f4c9a3d014889a8b5220595f217e9e5063579b23",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/p3.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/p4.json",
+      "sha256": "a28cf18043250c1eb4e0023c6bcd74f14d484e7433d1a0f2e6d87debf01973dd",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/p4.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/p5.json",
+      "sha256": "0f0c571e971ac20928f2430c2df419152d95f13446de47134ce6fd24b46360f0",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/p5.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_containment/p6.json",
+      "sha256": "2b5ebe854ddfea5b4a17ac98dc733b3dd456eede21aaa9dcee5ca2407712e098",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_containment/p6.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_emitter/beam.json",
+      "sha256": "884ce713a05b7f8b917169ec6665c1bfd5c855d7249ec9a445b09ed1192f617f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_emitter/beam.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_emitter/default.json",
+      "sha256": "3efaacb49d9d160a30aec879ffbacecacfdd3753e64ffec654b5086eda490069",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_emitter/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_emitter/emitter0.json",
+      "sha256": "06175f10709cf669bcbf64700fda7b80461753fc69a7136ec5d08b0ca9ce4c97",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_emitter/emitter0.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_emitter/emitter1.json",
+      "sha256": "c67f4fd4edb3b708b1680483e1c753b9878256284877ab81eef648494eae4272",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_emitter/emitter1.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_emitter/emitter2.json",
+      "sha256": "ff4485fe889510941edc14af7df5698fab62f9942b32a69a77f6eeeb18eb9e2e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_emitter/emitter2.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_emitter/locked.json",
+      "sha256": "4c970ccaad4c6e4b127a7142ef9020ac0e0cb6a974f9b83335d618e5a678c96f",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_emitter/locked.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_emitter/underpowered.json",
+      "sha256": "a3c6c458a193fffc2e65f662560753931f7dee84e0a6220498568bd2dc6c01a4",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_emitter/underpowered.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_generator/default.json",
+      "sha256": "1a37f7f790c83117697c074be978778d168d326dda8ba102e4540b7bfe69cf5e",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_generator/default.json"
+    },
+    {
+      "path": "models/block/power_collection/generation_singularity_generator/icon.json",
+      "sha256": "58cd8a5a964d1cd1eb7005700aab73f99a21d094962528bb4563bb93d26f5655",
+      "source": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_singularity_generator/icon.json"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/completed.png",
+      "sha256": "9b0441a86763de4e3ae7a81526621310c9916f7a7b38645e98fae3d5a04bbd32",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/completed.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/default.png",
+      "sha256": "9b0441a86763de4e3ae7a81526621310c9916f7a7b38645e98fae3d5a04bbd32",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/unlitp.png",
+      "sha256": "e71d97bec9604cb40286fd9017d0070db07eaa305bf333ded6c0c12eeb049592",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/unlitp.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/unlitp0.png",
+      "sha256": "188be6129d732206f3f54d4ab2dad00672588ecf3a83543e87c41db4950c897f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/unlitp0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/unlitp1.png",
+      "sha256": "3fe275744c63679e451ebab89a3a3766a695b73571f153e5656db70df09d71da",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/unlitp1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/unlitp2.png",
+      "sha256": "c4386ab4dfe289aaecea0c520832f8379b95ac160f933372bb90031406028803",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/unlitp2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/unlitp3.png",
+      "sha256": "79e89fee45c6ab6dea566e1d51c2d9f678de35e1da5c173a2842e43c58c5aa57",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/unlitp3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/unlitp3.png.mcmeta",
+      "sha256": "6ca0932a98bdb509dde0b9ceacfba51db3063a0be5065926cbd9d38a5e1792fc",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/unlitp3.png.mcmeta"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/unwired.png",
+      "sha256": "986c9f2412865e57c7c086e4e9eef73be92867797c4c01f7beaf057dcc699400",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/unwired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_control_box/wired.png",
+      "sha256": "42f1f026fcbdd7538192dce08ab38c65b57d38cb01e8bdbf0e699c47e20f7f5d",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_control_box/wired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/completed.png",
+      "sha256": "cb9964981f269b9a1f3149fdfa42fd80b739483099a3cb4ffc872b90761c505f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/completed.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/default.png",
+      "sha256": "cb9964981f269b9a1f3149fdfa42fd80b739483099a3cb4ffc872b90761c505f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/unlitp.png",
+      "sha256": "cb9964981f269b9a1f3149fdfa42fd80b739483099a3cb4ffc872b90761c505f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/unlitp.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/unlitp0.png",
+      "sha256": "c2375dd6e5fe99f8eed29e97c086e0b83ab28fc6b3ec690951171e146c427227",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/unlitp0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/unlitp1.png",
+      "sha256": "bb9eac4965481341e1540b01a88bb2ed61baa3a6604cb6d8208208006f1b7bea",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/unlitp1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/unlitp2.png",
+      "sha256": "d0a10fd673fdb2092d199f7c165a894260f416411c0901b2334e961157a75288",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/unlitp2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/unlitp3.png",
+      "sha256": "1ad3c0a5ddb263b18afd79df13407d895e0bf1cffe6fce15c2dcd77747ec291e",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/unlitp3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/unwired.png",
+      "sha256": "86dc885fb2d22f8cf3cbbfbaa7624b2d0a6bf2fa933f9765baefe4b291c873d8",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/unwired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_fore/wired.png",
+      "sha256": "86dc885fb2d22f8cf3cbbfbaa7624b2d0a6bf2fa933f9765baefe4b291c873d8",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_fore/wired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/completed.png",
+      "sha256": "6062def41650c2f1590761fe482980e2b80864e3aad023c62e09d3280d0d4832",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/completed.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/default.png",
+      "sha256": "6062def41650c2f1590761fe482980e2b80864e3aad023c62e09d3280d0d4832",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/unlitp.png",
+      "sha256": "6062def41650c2f1590761fe482980e2b80864e3aad023c62e09d3280d0d4832",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/unlitp.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/unlitp0.png",
+      "sha256": "926c410b59762571dcef799b1af83ff04a0d03038101966d49038917808c4b78",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/unlitp0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/unlitp1.png",
+      "sha256": "b5f21a5f3d2c209826f22f6bf0e13b5a9e7e5f433091122b25557faa21c44bb3",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/unlitp1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/unlitp2.png",
+      "sha256": "abce3cc820e6308b22a39f1507b0307695e001a2bc9b9532ae189cb6871c2b55",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/unlitp2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/unlitp3.png",
+      "sha256": "66fabceaa4d08be0dd6e62ad61ab3e06a4c9fa65cb1c62af3256f56296a05ed4",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/unlitp3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/unwired.png",
+      "sha256": "13de1ff537159d2eb9c4f08fae86c6facb29a438ba341720d4dc65011a97b8f8",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/unwired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_port/wired.png",
+      "sha256": "d67d1004277054e1ce142c0b2692647f2ff4df39152408abefb4f555967ab48e",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_port/wired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/completed.png",
+      "sha256": "ac97fd9aed47cd4b773f28024482fbcd22cad6dd4f7633f60b049f3f17eede2f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/completed.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/default.png",
+      "sha256": "ac97fd9aed47cd4b773f28024482fbcd22cad6dd4f7633f60b049f3f17eede2f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/unlitp.png",
+      "sha256": "ac97fd9aed47cd4b773f28024482fbcd22cad6dd4f7633f60b049f3f17eede2f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/unlitp.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/unlitp0.png",
+      "sha256": "6a9708de259888f8b9c982a1ecfa09d9ece3915a5490805955422235c2ec17d4",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/unlitp0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/unlitp1.png",
+      "sha256": "9f08720a0b9d6c15cf40a4a597494c4791133bb282bd4e8bbfb78e65592287f1",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/unlitp1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/unlitp2.png",
+      "sha256": "257f9ae078f0d252f766f49629f7c8d8dd74883369c23f7b0ba7afb4e0a0a8ca",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/unlitp2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/unlitp3.png",
+      "sha256": "d6c8312daed9564d33c04b5a5d0030c7a328fc463a2d9285b8126a27202858a0",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/unlitp3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/unwired.png",
+      "sha256": "876c626718ee914f4a274f802f03b7d372274b26c547e838ad98148e070a8a54",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/unwired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_emitter_starboard/wired.png",
+      "sha256": "8adc8b237c623c15c138912bacec2b56d3b9ed07687e47f2ae2c4a2280e61b5d",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_emitter_starboard/wired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_end_cap/completed.png",
+      "sha256": "b6b838a3bb24f47d25caac7fa981e72e10fd502ad0580f743c53a797f2e5f48c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_end_cap/completed.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_end_cap/default.png",
+      "sha256": "b6b838a3bb24f47d25caac7fa981e72e10fd502ad0580f743c53a797f2e5f48c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_end_cap/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_end_cap/unwired.png",
+      "sha256": "b6b838a3bb24f47d25caac7fa981e72e10fd502ad0580f743c53a797f2e5f48c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_end_cap/unwired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_end_cap/wired.png",
+      "sha256": "b6b838a3bb24f47d25caac7fa981e72e10fd502ad0580f743c53a797f2e5f48c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_end_cap/wired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/completed.png",
+      "sha256": "518bd1ca7a574f5935359f23cf95afc8d154cf8e42612f770cbcd613da70c1c0",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/completed.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/default.png",
+      "sha256": "518bd1ca7a574f5935359f23cf95afc8d154cf8e42612f770cbcd613da70c1c0",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/unlitp.png",
+      "sha256": "8b7686c908b0dd06d0e32b0a89634294cf4002bef1565992ffb2b9ef3dd29ca5",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/unlitp.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/unlitp0.png",
+      "sha256": "24f65695b4722d34dd8dd7238b29668e7687b9b03b62fa1b98e6db919aae932e",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/unlitp0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/unlitp1.png",
+      "sha256": "0a11ceb6b9653a9d57ea8711879a0249e06d3c28cf3d4b82153495ecc2130d9d",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/unlitp1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/unlitp2.png",
+      "sha256": "41d08ad3a912b29fa60747e381b78bc8166d28941a47774100a996636a6efba2",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/unlitp2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/unlitp3.png",
+      "sha256": "57437d6415773ea0034445a7b4a30dca5af36829f59c4ee538ca143b20c4bb21",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/unlitp3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/unwired.png",
+      "sha256": "8aa01c3c4bb65a6f9a567fb66087465a5d802d1453b2a779020e6ab2b4581c82",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/unwired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_fuel_chamber/wired.png",
+      "sha256": "13fffcd13d545bb42583629dfdee311a9d18a6d6de4cb66eed4615c8bd3b637d",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_fuel_chamber/wired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/completed.png",
+      "sha256": "719a6e523243860d64db518e89e4b1ba86d54397a99461afbba01e50e6463b99",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/completed.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/default.png",
+      "sha256": "719a6e523243860d64db518e89e4b1ba86d54397a99461afbba01e50e6463b99",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/unlitp.png",
+      "sha256": "f836e8580ba36369d87d8daa1e1911d0803753d806355eaf806cf13845fafb5c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/unlitp.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/unlitp0.png",
+      "sha256": "f836e8580ba36369d87d8daa1e1911d0803753d806355eaf806cf13845fafb5c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/unlitp0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/unlitp1.png",
+      "sha256": "f836e8580ba36369d87d8daa1e1911d0803753d806355eaf806cf13845fafb5c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/unlitp1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/unlitp2.png",
+      "sha256": "f836e8580ba36369d87d8daa1e1911d0803753d806355eaf806cf13845fafb5c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/unlitp2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/unlitp3.png",
+      "sha256": "f836e8580ba36369d87d8daa1e1911d0803753d806355eaf806cf13845fafb5c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/unlitp3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/unwired.png",
+      "sha256": "7c13cb34f53ec3dc3d42fe61ccb6666272d9ae39f7a674c463d086998d08fa15",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/unwired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_pa_power_box/wired.png",
+      "sha256": "73a0f164f51f3d5e9693814730bd5a099613b4543054d94606cb9ec9c31e858c",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_pa_power_box/wired.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_active.png",
+      "sha256": "2c4d79ec80ead241082ef2dc28ec2bca5ca658f6c930744708be0090cc4146c8",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_active.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_active.png.mcmeta",
+      "sha256": "393fa021e08d74230a7c7cc507e7b16d983ff71f87c7edb6b7cc487615130aba",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_active.png.mcmeta"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_deactive.png",
+      "sha256": "3e6c62236de71952473173de79ad9c8c127daf4fb3556d061a54a20383205f50",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_deactive.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_deactive.png.mcmeta",
+      "sha256": "393fa021e08d74230a7c7cc507e7b16d983ff71f87c7edb6b7cc487615130aba",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_deactive.png.mcmeta"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_o0.png",
+      "sha256": "e1e9207577ca6dea5cf601739b8a4fe41a44449cf7f7e10e69ef4e9a404696ea",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_o0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_o0.png.mcmeta",
+      "sha256": "88f42fe1bacdb58e80436564ea1a7ed5230d612627ada296a5012660d004da6d",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_o0.png.mcmeta"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_o1.png",
+      "sha256": "fbf709f56a73611f1950eb7b1b0feecf8c4c459c0816709a3aeab2a26cb59471",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_o1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_o2.png",
+      "sha256": "0e2d44e0707bff985395b212f2cd192a12560e3e2253753373d1b4067c8a8a3b",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_o2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_o3.png",
+      "sha256": "c2fc427fef95f1e87561b42c63290dc024588d9a5fa06a200aa95817897148a3",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_o3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_off.png",
+      "sha256": "51ef1257e1ee20ad25c9fc5ae4d3acd3b32d427ce67621514428c77beb8b3166",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_off.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_on.png",
+      "sha256": "0b205107782c51d5c9192be51901740e479a198c89c69033057461558fb7eb0b",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_on.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/ca_tank.png",
+      "sha256": "36a0f6c29ededc9c3721d8117766b1db2d2883ef704aba3c93f31d000808f102",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/ca_tank.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/cu.png",
+      "sha256": "33fd61db3596d9713b797108d6638be105f9b58a89408303c0473d0ef932d683",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/cu.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/default.png",
+      "sha256": "51ef1257e1ee20ad25c9fc5ae4d3acd3b32d427ce67621514428c77beb8b3166",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_collector/static.png",
+      "sha256": "fce4cd31bdf24c1b18b8fa851db5083357201f47c014fc81ebb6cbd823518402",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_collector/static.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/a1.png",
+      "sha256": "d79102d04fbb829359ccc71be4bb144dcda4ffb172db13d2cbf70c17b3039f3f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/a1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/a2.png",
+      "sha256": "d79102d04fbb829359ccc71be4bb144dcda4ffb172db13d2cbf70c17b3039f3f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/a2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/a3.png",
+      "sha256": "d79102d04fbb829359ccc71be4bb144dcda4ffb172db13d2cbf70c17b3039f3f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/a3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/default.png",
+      "sha256": "d79102d04fbb829359ccc71be4bb144dcda4ffb172db13d2cbf70c17b3039f3f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/icon.png",
+      "sha256": "d79102d04fbb829359ccc71be4bb144dcda4ffb172db13d2cbf70c17b3039f3f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/icon.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/on.png",
+      "sha256": "520d787a9e3447ed26591c47bdfcbf54ecd37d52afe9a5c9c06b187dbea9a786",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/on.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/p1.png",
+      "sha256": "e192f86173491ae16d5aa99a9222bca1d7803c7b6217eb1c5143629fe62acf29",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/p1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/p2.png",
+      "sha256": "ab771245500958fa5715fa57a3514c90e423e1072b6f0374a0e957d7a1a76d97",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/p2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/p3.png",
+      "sha256": "15204f68af1ca6dce5418066b9a262479cfa5847505adffa1f7820b0b11dff16",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/p3.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/p4.png",
+      "sha256": "4902e9810a6781036d0c99d243cc908db8292bb0d3cd3eb9daa1d5adcb9cfb5e",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/p4.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/p5.png",
+      "sha256": "03206ef4955cf50016ab67a7949996c0b6e71cc50261d76cfae21a7ce70a4882",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/p5.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_containment/p6.png",
+      "sha256": "c3c83d68592b07a91d85902d7768092774f131d3cc0dc1de03355597999eeeda",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_containment/p6.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/beam.png",
+      "sha256": "1cafeb4503b3689efb0430aaa0bc3a9a3bb1ae7586e1711c2aa083869f4c0a2e",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/beam.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/default.png",
+      "sha256": "487326a4496f38e07d2bc339cfe5d975b44bba1f631b1ba7eb3194cb6441b94f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/emitter0.png",
+      "sha256": "40fba535829d28f65fd811026033f81a500674a766ecbe23d788f8b156f86032",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/emitter0.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/emitter1.png",
+      "sha256": "487326a4496f38e07d2bc339cfe5d975b44bba1f631b1ba7eb3194cb6441b94f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/emitter1.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/emitter2.png",
+      "sha256": "487326a4496f38e07d2bc339cfe5d975b44bba1f631b1ba7eb3194cb6441b94f",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/emitter2.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/locked.png",
+      "sha256": "ad50508266abe88c74e99822e2f2901bde8355b65ff9f9a97904161383d743cd",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/locked.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/underpowered.png",
+      "sha256": "3c04e412e959bd32e4a7a5f12a583ad30a70c7c5324e9cf777bc4bca5c688278",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/underpowered.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_emitter/underpowered.png.mcmeta",
+      "sha256": "acb10f764cecb6faf5dea19a6cb020b85f8939fa418dffa6250104fd0f1811e3",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_emitter/underpowered.png.mcmeta"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_generator/default.png",
+      "sha256": "f2bc78ed1e467762be89328693bf400699981fa1b76d4ad2cb7160a090c9a1c1",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_generator/default.png"
+    },
+    {
+      "path": "textures/block/power_collection/generation_singularity_generator/icon.png",
+      "sha256": "f2bc78ed1e467762be89328693bf400699981fa1b76d4ad2cb7160a090c9a1c1",
+      "source": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_singularity_generator/icon.png"
+    }
+  ],
+  "knownImportLimits": [
+    "Independent Cartesian-product component layers are not provided by generic whole-state snapshots; do not invent component files.",
+    "Collector whole-pose OBJ candidates and motion contract are imported; native OBJ rendering remains future work.",
+    "Containment-field effect geometry and singularity effects are excluded."
+  ]
+}

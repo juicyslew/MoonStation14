@@ -10,3 +10,4 @@ public final class TimedInteractionPredictionIdentity {
         return predictionSequence == snapshotSequence && predictionBody.equals(snapshotBody);
     }
 }
+

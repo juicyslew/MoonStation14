@@ -10,3 +10,4 @@ public final class ChemMasterClientReceiver {
     public static void install(Consumer<ChemMasterWindowState> handler){receiver=Objects.requireNonNull(handler);}
     public static void handle(ChemMasterWindowState state){receiver.accept(Objects.requireNonNull(state));}
 }
+

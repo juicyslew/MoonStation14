@@ -240,3 +240,4 @@ public final class AirAlarmScreen extends AbstractContainerScreen<AirAlarmMenu> 
     @Override protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) { }
     @Override public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) { renderBackground(g, mouseX, mouseY, partialTick); super.render(g, mouseX, mouseY, partialTick); }
 }
+

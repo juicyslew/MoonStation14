@@ -39,3 +39,4 @@ public record LocalCharacterIdentityPayload(String name, int rgb, ResourceLocati
                 ResourceLocation.parse(buf.readUtf(MAX_DIMENSION_LENGTH)));
     }
 }
+

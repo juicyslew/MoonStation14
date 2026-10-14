@@ -123,3 +123,4 @@ public record StatusEffectComponent(Map<ResourceKey<StatusEffectData>, StatusEff
         return STREAM_CODEC;
     }
 }
+

@@ -1,0 +1,11 @@
+{
+  "id": "moonstation14:particle_accelerator_particle",
+  "type": "moonstation14:pa_particle",
+  "parent": "moonstation14:base_bullet",
+  "radiation_damage": 25.0,
+  "lifetime_ticks": 60,
+  "half_extent": 0.48,
+  "delete_on_collide": false,
+  "impact_sound": "moonstation14:pa_particle_hit",
+  "sprite": "moonstation14:textures/entity/pa_particle/particle"
+}
