@@ -158,7 +158,40 @@ public final class BodyHandActionNetworking {
                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
                           var body = admission.authority().body();
                           var targetEntity = body.level().getBlockEntity(admission.hit().pos());
-                          if (targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster) {
+                            if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity extractor) {
+                                outcome = com.juicyslew.moonstation14.ms14.botany.SeedExtractorHandUseService.use(
+                                        actor, request, admission, extractor, held);
+                            } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity tray) {
+                               outcome = com.juicyslew.moonstation14.ms14.botany.BotanyHandUseService.use(
+                                       actor, request, admission, tray, held);
+                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity grinder) {
+                                if (grinder.program() == null || grinder.program().active()) {
+                                    outcome = BodyBlockUseResult.Outcome.DENIED;
+                                } else if (held == null && request.sneaking()) {
+                                    var slot = grinder.beakerSlot();
+                                    var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                    var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                    var result = slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                            : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.take(
+                                                admission.authority(), request.handId(), request.expectedRevision(), slot,
+                                                slot.snapshot().revision(), ledger.snapshot().revision(), ledger, grinder::isLoadedValid);
+                                      if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) { grinder.slotTransferCommitted(true, false); outcome = BodyBlockUseResult.Outcome.HAND_CHANGED; }
+                                    else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED) outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                                } else if (held != null) {
+                                    var token = admission.hands().token(request.handId()).orElse(null);
+                                    var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                    var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                    var slot = held.getItem() instanceof com.juicyslew.moonstation14.ms14.chemistry.DispenserCompatibleItem compatible
+                                            && compatible.fitsInDispenser(body.level()) && grinder.beakerSlot().snapshot().stack().isEmpty()
+                                            ? grinder.beakerSlot() : grinder.chamberSlots().stream().filter(candidate -> candidate.snapshot().stack().isEmpty() && candidate.canAccept(candidate.snapshot().revision(), held)).findFirst().orElse(null);
+                                    var result = token == null || slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                            : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.insert(admission.authority(), request.handId(), token,
+                                                admission.hands().revision(), slot, slot.snapshot().revision(), ledger.snapshot().revision(), ledger,
+                                                grinder::isLoadedValid);
+                                      if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) { grinder.slotTransferCommitted(slot == grinder.beakerSlot(), true); outcome = BodyBlockUseResult.Outcome.PLACED; }
+                                    else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED) outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                                }
+                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster) {
                               if (held == null && request.sneaking()) {
                                   var level = (net.minecraft.server.level.ServerLevel) body.level();
                                   var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
@@ -272,10 +305,19 @@ public final class BodyHandActionNetworking {
                           } else {
                                outcome = BodyWorldItemActions.use(actor, request, admission);
                         }
-                      } else if (admission != null) {
-                        var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
-                        var held = admission.hands().stackCopy(request.handId()).orElse(null);
-                          if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD && request.sneaking() && held == null
+                       } else if (admission != null) {
+                          var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
+                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
+                            if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                    && targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity grinder
+                                    && com.juicyslew.moonstation14.ms14.botany.ui.GrinderSessionService.open(actor, grinder,
+                                        snapshot -> com.juicyslew.moonstation14.ms14.botany.ui.GrinderNetworking.send(actor, snapshot)) != null)
+                                outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                            else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                   && targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity tray) {
+                               outcome = com.juicyslew.moonstation14.ms14.botany.BotanyHandUseService.use(
+                                       actor, request, admission, tray, held);
+                           } else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD && request.sneaking() && held == null
                                   && targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster) {
                               var body = admission.authority().body();
                               var level = (net.minecraft.server.level.ServerLevel) body.level();

@@ -4,6 +4,7 @@ Missing standard handoffs were reconstructed on 2026-10-03 from project records 
 
 ## Existing owner handoffs
 
+- [Basic botany: trays, produce, grinder and seed renewal](botany-sprint/HANDOFF.md) — owner accepted and closed 2026-10-14; includes wall-adjacent harvest placement and grinder sound/batch authority invariants.
 - [Stripping, dressing and spatial calibration](stripping-sprint/HANDOFF.md)
 - [Examination, solution readouts and celestial inspection](examination-sprint/HANDOFF.md)
 - [Hands/inventory program](hands-inventory-program/HANDOFF.md)

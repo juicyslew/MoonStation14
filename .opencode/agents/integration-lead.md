@@ -47,7 +47,6 @@ permission:
     fidelity-reviewer: allow
   external_directory:
     "*": deny
-    "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14/**": allow
     "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**": allow
     "C:/Users/William/Documents/Minecraft Mod Dev Files/Asset Building Workspace/**": allow
     "C:/Users/William/Documents/SS14-dev/space-station-14/**": allow

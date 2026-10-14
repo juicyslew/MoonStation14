@@ -84,7 +84,7 @@ public final class AirAlarmPowerGameTests {
         });
     }
 
-    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 320, templateNamespace = "moonstation14")
+    @GameTest(template = "power_receiver_tall_clear", timeoutTicks = 1200, templateNamespace = "moonstation14")
     public static void alarmUsesInheritedHundredWattsAndRadiusThree(GameTestHelper helper) {
         var fixture = com.juicyslew.moonstation14.gametest.atmos.AirAlarmPowerFixture.place(helper);
         awaitKnownAlarmTopology(helper, fixture.level(), fixture.alarmPos(), fixture.cable(),

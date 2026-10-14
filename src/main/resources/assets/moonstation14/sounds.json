@@ -64,6 +64,11 @@
       "moonstation14:chemistry/reaction_bubbles"
     ]
   },
+  "botany/grinder/blender": {
+    "sounds": [
+      "moonstation14:botany/grinder/blender"
+    ]
+  },
   "ss14/items/drink": {
     "sounds": [
       "moonstation14:ss14/items/drink"
