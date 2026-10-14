@@ -13,6 +13,9 @@ public interface IReagentTrait {
     /** Primary logical solution represented by a single-solution item trait. */
     default String solutionName(ItemStack stack, Level level) { return "default"; }
 
+    /** Whether an item solution permits reagent reaction after accepted transfer. */
+    default boolean canReact(ItemStack stack, Level level) { return true; }
+
     default RefillableSolutionPolicy refillableSolution(ItemStack stack, Level level) { return RefillableSolutionPolicy.DISABLED; }
     default SolutionTransferPolicy solutionTransfer(ItemStack stack, Level level) { return SolutionTransferPolicy.DISABLED; }
     default DrinkSolutionPolicy drinkSolution(ItemStack stack, Level level) { return DrinkSolutionPolicy.DISABLED; }

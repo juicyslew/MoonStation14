@@ -9,6 +9,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarness;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.LoadedBodyResolver;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.MinecraftLoadedBodyAdapter;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
@@ -17,6 +18,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.GameType;
@@ -46,8 +49,11 @@ public final class LifecycleExistingBodyReconnect {
     private static final Map<MinecraftServer, Map<UUID, Pending>> PENDING = new HashMap<>();
     private static final int MAX_RETURN_WAIT_TICKS = 200;
     private static final Map<MinecraftServer, Map<UUID, ReturnWait>> RETURN_WAITS = new HashMap<>();
+    private static final int RETURN_TICKET_RADIUS = 0;
+    private static final TicketType<UUID> RETURN_TICKET = TicketType.create("moonstation14_exact_body_return", UUID::compareTo);
     enum ReturnResult { RETURNED, CHUNK_LOADING, BLOCKED }
-    private record ReturnWait(ServerPlayer player, SavedLifecycleProfile saved, int deadline) { }
+    private record ReturnWait(ServerPlayer player, SavedLifecycleProfile saved, int deadline,
+                              ServerLevel level, ChunkPos chunk, UUID ticketKey) { }
 
     private LifecycleExistingBodyReconnect() { }
 
@@ -81,12 +87,12 @@ public final class LifecycleExistingBodyReconnect {
         ReturnWait wait = waits.get(player.getUUID());
         boolean expired = wait != null && server.getTickCount() > wait.deadline();
         if (wait != null && (wait.player() != player || !wait.saved().equals(saved))) {
-            waits.remove(player.getUUID());
+            removeReturnWait(server, player.getUUID(), wait);
             return ReturnResult.BLOCKED;
         }
         var observed = MinecraftLoadedBodyAdapter.observe(server, saved);
         if (expired && observed.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE) {
-            waits.remove(player.getUUID());
+            removeReturnWait(server, player.getUUID(), wait);
             return ReturnResult.BLOCKED;
         }
         if (observed.outcome() == LoadedBodyResolver.Outcome.DEFER_KNOWN_BODY && wait == null) {
@@ -97,21 +103,26 @@ public final class LifecycleExistingBodyReconnect {
             observed = MinecraftLoadedBodyAdapter.observe(server, saved);
             if (returnObservation(observed.outcome(), bodyVisibleInAnyLevel(server, saved.bodyId()), true)
                     == ReturnResult.CHUNK_LOADING) {
-                waits.put(player.getUUID(), new ReturnWait(player, saved,
-                        server.getTickCount() + MAX_RETURN_WAIT_TICKS));
+                ChunkPos exactChunk = new ChunkPos(cx, cz);
+                UUID ticketKey = player.getUUID();
+                try { retainReturnChunk(bodyLevel, exactChunk, ticketKey); }
+                catch (RuntimeException | Error failure) { return ReturnResult.BLOCKED; }
+                ReturnWait pending = new ReturnWait(player, saved,
+                        server.getTickCount() + MAX_RETURN_WAIT_TICKS, bodyLevel, exactChunk, ticketKey);
+                ReturnWait prior = waits.put(player.getUUID(), pending);
+                if (prior != null) releaseReturnTicket(prior);
                 return ReturnResult.CHUNK_LOADING;
             }
         } else if (wait != null && !expired && returnObservation(observed.outcome(),
                 bodyVisibleInAnyLevel(server, saved.bodyId()), true) == ReturnResult.CHUNK_LOADING)
             return ReturnResult.CHUNK_LOADING;
-        waits.remove(player.getUUID());
+        if (wait != null) removeReturnWait(server, player.getUUID(), wait);
         if (observed.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
-                || !(observed.candidate().entity() instanceof PlayerCharacterHarnessEntity body)
-                || !body.isNoAi()) return ReturnResult.BLOCKED;
-        var binding = body.playerCharacterBinding();
+                || !(observed.candidate().entity() instanceof net.minecraft.world.entity.Mob body)) return ReturnResult.BLOCKED;
+        var binding = PlayerCharacterHarnessBinder.binding(body);
         if (!bodyLevel.getChunkSource().hasChunk(cx, cz) || body.level() != bodyLevel
                 || bodyLevel.getEntity(body.getUUID()) != body
-                || binding == null || body.hasInvalidSavedBinding()
+                || binding == null || body instanceof PlayerCharacterHarnessEntity human && human.hasInvalidSavedBinding()
                 || !binding.accountId().equals(player.getUUID()) || !binding.profileKey().equals(saved.profileKey())
                 || !binding.mindId().equals(saved.mindId()) || !body.getUUID().equals(saved.bodyId())) return ReturnResult.BLOCKED;
         double oldX = player.getX(), oldY = player.getY(), oldZ = player.getZ();
@@ -151,7 +162,7 @@ public final class LifecycleExistingBodyReconnect {
             restoreCreative(player, expectedPark, oldLevel, oldX, oldY, oldZ, oldYaw, oldPitch);
             return ReturnResult.BLOCKED;
         }
-        body.setOfflineSinceMillis(saved.offlineSinceMillis());
+        if (body instanceof PlayerCharacterHarnessEntity humanBody) humanBody.setOfflineSinceMillis(saved.offlineSinceMillis());
         com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.Snapshot active;
         try {
             active = context.reconnectOffline(saved,
@@ -170,10 +181,15 @@ public final class LifecycleExistingBodyReconnect {
             restoreCreative(player, expectedPark, oldLevel, oldX, oldY, oldZ, oldYaw, oldPitch);
             return ReturnResult.BLOCKED;
         }
-        body.clearOfflineSinceMillis();
+        if (body instanceof PlayerCharacterHarnessEntity humanBody) humanBody.clearOfflineSinceMillis();
         try {
-            if (LifecycleCharacterSessionControl.beginPrepared(player, body, context.lifecycle(), active.connectionGeneration())
-                    != LifecycleCharacterSessionControl.StartResult.PREPARED) throw new IllegalStateException("session was not prepared");
+            var start = LifecycleCharacterSessionControl.beginPrepared(player, body, context.lifecycle(), active.connectionGeneration());
+            if (start != LifecycleCharacterSessionControl.StartResult.PREPARED) {
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Reconnect controller startup rejected (result={}, bodyType={}, noAi={}, epoch={})",
+                        start, body.getType(), body.isNoAi(), active.connectionGeneration());
+                throw new IllegalStateException("session was not prepared: " + start);
+            }
         } catch (RuntimeException | Error failure) {
             context.lifecycle().suspendActiveSessionForRecovery(player.getUUID(),
                     new com.juicyslew.moonstation14.ms14.player_body_control.MindId(saved.mindId()),
@@ -402,8 +418,7 @@ public final class LifecycleExistingBodyReconnect {
                                   SavedLifecycleProfile saved, LoadedBodyResolver.Resolution observed,
                                   Consumer<String> disconnect, boolean newlyParked) {
         if (observed.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
-                || !(observed.candidate().entity() instanceof PlayerCharacterHarnessEntity body)
-                || !body.isNoAi()) {
+                || !(observed.candidate().entity() instanceof net.minecraft.world.entity.Mob body)) {
             disconnect.accept(observed.outcome() == LoadedBodyResolver.Outcome.DEFER_KNOWN_BODY ? DEFER : RECOVERY);
             return;
         }
@@ -412,8 +427,8 @@ public final class LifecycleExistingBodyReconnect {
             disconnect.accept(RECOVERY);
             return;
         }
-        var binding = body.playerCharacterBinding();
-        if (binding == null || body.hasInvalidSavedBinding()
+        var binding = PlayerCharacterHarnessBinder.binding(body);
+        if (binding == null || body instanceof PlayerCharacterHarnessEntity human && human.hasInvalidSavedBinding()
                 || !binding.accountId().equals(saved.accountId())
                 || !binding.profileKey().equals(saved.profileKey())
                 || !binding.mindId().equals(saved.mindId())
@@ -423,7 +438,7 @@ public final class LifecycleExistingBodyReconnect {
         }
         if (!CarrierHandInventoryGate.allows(player)) { disconnect.accept(DIRTY_CARRIER); return; }
         // Durable OFFLINE data is authoritative over a stale/missing entity timestamp after restart.
-        body.setOfflineSinceMillis(saved.offlineSinceMillis());
+        if (body instanceof PlayerCharacterHarnessEntity humanBody) humanBody.setOfflineSinceMillis(saved.offlineSinceMillis());
         // Place the carrier using the saved dimension as authority before any durable activation.
         if (!makeCarrierInert(player, newlyParked)) {
             disconnect.accept(RECOVERY);
@@ -453,10 +468,15 @@ public final class LifecycleExistingBodyReconnect {
             return;
         }
         // The marker remains if the durable CAS failed or returned ambiguous evidence.
-        body.clearOfflineSinceMillis();
+        if (body instanceof PlayerCharacterHarnessEntity humanBody) humanBody.clearOfflineSinceMillis();
         try {
             var result = LifecycleCharacterSessionControl.beginPrepared(player, body, context.lifecycle(), active.connectionGeneration());
-            if (result != LifecycleCharacterSessionControl.StartResult.PREPARED) throw new IllegalStateException("session was not prepared");
+            if (result != LifecycleCharacterSessionControl.StartResult.PREPARED) {
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Reconnect controller startup rejected (result={}, bodyType={}, noAi={}, epoch={})",
+                        result, body.getType(), body.isNoAi(), active.connectionGeneration());
+                throw new IllegalStateException("session was not prepared: " + result);
+            }
         } catch (RuntimeException | Error failure) {
             context.lifecycle().suspendActiveSessionForRecovery(player.getUUID(),
                     new com.juicyslew.moonstation14.ms14.player_body_control.MindId(saved.mindId()),
@@ -519,6 +539,27 @@ public final class LifecycleExistingBodyReconnect {
     @SubscribeEvent
     public static void serverTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
+        Map<UUID, ReturnWait> returnWaits = RETURN_WAITS.get(server);
+        if (returnWaits != null) {
+            for (var item : returnWaits.entrySet().toArray(Map.Entry[]::new)) {
+                @SuppressWarnings("unchecked") Map.Entry<UUID, ReturnWait> entry = (Map.Entry<UUID, ReturnWait>) item;
+                ReturnWait wait = entry.getValue();
+                if (returnWaits.get(entry.getKey()) != wait) continue;
+                ServerPlayer player = wait.player();
+                advanceReturnWait(server.getTickCount(), wait.deadline(),
+                        () -> waitOwnerValid(server, player, wait.saved()),
+                        () -> {
+                            var observation = MinecraftLoadedBodyAdapter.observe(server, wait.saved());
+                            return new ReturnTickObservation(observation.outcome(),
+                                    bodyVisibleInAnyLevel(server, wait.saved().bodyId()));
+                        },
+                        () -> resumeReturnWait(player, server),
+                        () -> removeReturnWait(server, entry.getKey(), wait),
+                        () -> player.sendSystemMessage(Component.literal(
+                                "The exact saved character body could not be proven safe. You remain in Creative; inspect recovery or reconnect.")));
+            }
+            if (returnWaits.isEmpty()) RETURN_WAITS.remove(server);
+        }
         Map<UUID, Pending> entries = PENDING.get(server);
         if (entries == null) return;
         for (var item : entries.entrySet().toArray(Map.Entry[]::new)) {
@@ -563,7 +604,7 @@ public final class LifecycleExistingBodyReconnect {
             Map<UUID, ReturnWait> waits = RETURN_WAITS.get(server);
             if (waits != null) {
                 ReturnWait wait = waits.get(player.getUUID());
-                if (wait != null && wait.player() == player) waits.remove(player.getUUID());
+                if (wait != null && wait.player() == player) removeReturnWait(server, player.getUUID(), wait);
                 if (waits.isEmpty()) RETURN_WAITS.remove(server);
             }
         }
@@ -572,7 +613,62 @@ public final class LifecycleExistingBodyReconnect {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void serverStopped(ServerStoppedEvent event) {
         PENDING.remove(event.getServer());
-        RETURN_WAITS.remove(event.getServer());
+        Map<UUID, ReturnWait> waits = RETURN_WAITS.remove(event.getServer());
+        if (waits != null) waits.values().forEach(LifecycleExistingBodyReconnect::releaseReturnTicket);
+    }
+
+    record ReturnTickObservation(LoadedBodyResolver.Outcome outcome, boolean uuidVisible) { }
+
+    private static void resumeReturnWait(ServerPlayer player, MinecraftServer server) {
+        if (returnDevelopmentDetached(player, server) == ReturnResult.BLOCKED
+                && player.connection != null && player.connection.isAcceptingMessages())
+            player.sendSystemMessage(Component.literal(
+                    "The exact saved character body could not be proven safe. You remain in Creative; inspect recovery or reconnect."));
+    }
+
+    static void advanceReturnWait(int tick, int deadline, BooleanSupplier ownerValid,
+                                  Supplier<ReturnTickObservation> observe, Runnable resume,
+                                  Runnable cancel, Runnable timeout) {
+        if (!ownerValid.getAsBoolean()) { cancel.run(); return; }
+        ReturnTickObservation current = observe.get();
+        if (current.outcome() == LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE) { resume.run(); return; }
+        if (returnObservation(current.outcome(), current.uuidVisible(), true) == ReturnResult.BLOCKED) {
+            cancel.run(); timeout.run(); return;
+        }
+        if (tick > deadline) { cancel.run(); timeout.run(); }
+    }
+
+    private static boolean waitOwnerValid(MinecraftServer server, ServerPlayer player, SavedLifecycleProfile saved) {
+        if (!(player != null && player.connection != null && player.connection.isAcceptingMessages()
+                && !player.isRemoved() && player.getServer() == server
+                && server.getPlayerList().getPlayer(player.getUUID()) == player
+                && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE
+                && LifecycleDevelopmentMode.isTracked(server, player)
+                && LifecycleStartupRuntime.contextFor(server).isPresent())) return false;
+        var context = LifecycleStartupRuntime.contextFor(server).orElse(null);
+        try {
+            return context != null && saved.equals(context.currentAccountProfile(player.getUUID()).orElse(null))
+                    && verifiedReturnClaim(server, player, saved);
+        } catch (IOException | RuntimeException failure) { return false; }
+    }
+
+    private static void removeReturnWait(MinecraftServer server, UUID account, ReturnWait expected) {
+        Map<UUID, ReturnWait> waits = RETURN_WAITS.get(server);
+        if (waits == null) return;
+        if (waits.remove(account, expected)) releaseReturnTicket(expected);
+        if (waits.isEmpty()) RETURN_WAITS.remove(server);
+    }
+
+    private static void releaseReturnTicket(ReturnWait wait) {
+        releaseReturnChunk(wait.level(), wait.chunk(), wait.ticketKey());
+    }
+
+    static void retainReturnChunk(ServerLevel level, ChunkPos chunk, UUID key) {
+        level.getChunkSource().addRegionTicket(RETURN_TICKET, chunk, RETURN_TICKET_RADIUS, key);
+    }
+
+    static void releaseReturnChunk(ServerLevel level, ChunkPos chunk, UUID key) {
+        level.getChunkSource().removeRegionTicket(RETURN_TICKET, chunk, RETURN_TICKET_RADIUS, key);
     }
 
     private static void removePending(MinecraftServer server, UUID account, Pending expected) {

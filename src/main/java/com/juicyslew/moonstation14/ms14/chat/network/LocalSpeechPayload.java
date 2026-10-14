@@ -13,7 +13,8 @@ import java.util.UUID;
 /** Unsigned, server-authored local speech. Contains no account identifier or signed-chat metadata. */
 public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String actualName, int rgb, String text,
                                    double x, double y, double z, ResourceLocation dimension,
-                                   Mode mode, int azimuthSector, int verticalBand, DistanceTier distanceTier) implements CustomPacketPayload {
+                                    Mode mode, int azimuthSector, int verticalBand, DistanceTier distanceTier,
+                                    String soundCue) implements CustomPacketPayload {
     private static final int MAX_DIMENSION_LENGTH = 256;
     public static final int NO_BEARING = -1;
     public static final UUID NO_UUID = new UUID(0, 0);
@@ -47,10 +48,19 @@ public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String a
                     || !ChatIdentityRegistry.validColor(rgb)
                     || azimuthSector != NO_BEARING || verticalBand != NO_BEARING
                     || distanceTier != DistanceTier.NONE)
+                || soundCue == null || !(soundCue.isEmpty() || "mouse_squeak".equals(soundCue))
+                || mode == Mode.W_MUFFLED && !soundCue.isEmpty()
                 || !LocalSpeechPolicy.validText(text)
                   || !LocalSpeechPolicy.validPosition(x, y, z)
                   || dimension == null || dimension.toString().length() > MAX_DIMENSION_LENGTH)
             throw new IllegalArgumentException("Invalid local speech payload");
+    }
+
+    public LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String actualName, int rgb, String text,
+                              double x, double y, double z, ResourceLocation dimension, Mode mode,
+                              int azimuthSector, int verticalBand, DistanceTier distanceTier) {
+        this(speakerEntityId, speakerUuid, actualName, rgb, text, x, y, z, dimension, mode, azimuthSector,
+                verticalBand, distanceTier, "");
     }
 
     /** Legacy clear packet API for local fixtures; server-authored speech uses the canonical UUID constructor. */
@@ -96,16 +106,25 @@ public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String a
         buf.writeDouble(value.z);
         buf.writeUtf(value.dimension.toString(), MAX_DIMENSION_LENGTH);
         buf.writeEnum(value.mode);
+        buf.writeUtf(value.soundCue, 32);
         buf.writeByte(value.azimuthSector);
         buf.writeByte(value.verticalBand);
         buf.writeEnum(value.distanceTier);
     }
 
     private static LocalSpeechPayload read(RegistryFriendlyByteBuf buf) {
-        return new LocalSpeechPayload(buf.readVarInt(), buf.readUUID(), buf.readUtf(49), buf.readInt(),
-                buf.readUtf(LocalSpeechPolicy.MAX_TEXT_LENGTH), buf.readDouble(), buf.readDouble(), buf.readDouble(),
-                ResourceLocation.parse(buf.readUtf(MAX_DIMENSION_LENGTH)), buf.readEnum(Mode.class),
-                buf.readByte(), buf.readByte(), buf.readEnum(DistanceTier.class));
+        int entityId = buf.readVarInt();
+        UUID speakerUuid = buf.readUUID();
+        String name = buf.readUtf(49);
+        int rgb = buf.readInt();
+        String text = buf.readUtf(LocalSpeechPolicy.MAX_TEXT_LENGTH);
+        double x = buf.readDouble(), y = buf.readDouble(), z = buf.readDouble();
+        ResourceLocation dimension = ResourceLocation.parse(buf.readUtf(MAX_DIMENSION_LENGTH));
+        Mode mode = buf.readEnum(Mode.class);
+        String cue = buf.readUtf(32);
+        return new LocalSpeechPayload(entityId, speakerUuid, name, rgb, text,
+                x, y, z, dimension, mode,
+                buf.readByte(), buf.readByte(), buf.readEnum(DistanceTier.class), cue);
     }
 }
 

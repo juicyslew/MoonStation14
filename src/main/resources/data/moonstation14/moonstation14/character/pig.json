@@ -3,6 +3,7 @@
     "minecraft:pig"
   ],
   "components": [
+    {"type": "GhostRole", "name": "Pig", "description": "A pig", "rules": "Follow server rules."},
     {"type": "Damageable", "damage_container": "Biological"},
     {"type": "MobState"},
     {"type": "GhostOnMove", "must_be_dead": true, "can_return": true},

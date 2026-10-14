@@ -54,7 +54,9 @@ public class ReagentSystem {
                 ? ReagentUnits.fromFloat(targetCapacity) : policyCapacity; }
         catch (RuntimeException invalidCapacity) { return; }
         if (dstCont.totalUnits() > targetCapacityCents) return;
-        transfer(level, srcCont, dstCont, amount, targetCapacityCents);
+        transfer(level, srcCont, dstCont, amount, targetCapacityCents,
+                !(target.holder() instanceof net.minecraft.world.item.ItemStack targetStack)
+                        || target.trait().canReact(targetStack, level));
 
         MS14Provider.updateIfChanged(source.holder(), sourceBridge, srcBefore, srcCont);
         boolean targetCommitted = MS14Provider.updateIfChanged(target.holder(), targetBridge, dstBefore, dstCont);
@@ -81,6 +83,11 @@ public class ReagentSystem {
 
     private static void transfer(Level level, ReagentAttachment srcCont, ReagentAttachment dstCont,
                                  float amount, long capacity) {
+        transfer(level, srcCont, dstCont, amount, capacity, true);
+    }
+
+    private static void transfer(Level level, ReagentAttachment srcCont, ReagentAttachment dstCont,
+                                 float amount, long capacity, boolean canReact) {
         // Float APIs bound requested flow to cent precision; once admitted the paired
         // source/destination mutation is exact and capacity-conserving.
         // Spill-solution callers use Float.MAX_VALUE as an "all available" sentinel.
@@ -94,7 +101,7 @@ public class ReagentSystem {
         }
         long admitted = ReagentAttachment.transferUnits(srcCont, dstCont, requested, capacity);
         if (admitted == 0) return;
-        dstCont.recursiveReaction(level, target_capacity);
+        if (canReact) dstCont.recursiveReaction(level, target_capacity);
     }
 
     public static InteractionResult handleSpill(TraitHandler<IReagentTrait> source, Level level, BlockPos targetPos, float amount) {

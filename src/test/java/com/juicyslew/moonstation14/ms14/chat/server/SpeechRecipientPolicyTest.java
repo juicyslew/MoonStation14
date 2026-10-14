@@ -61,11 +61,11 @@ class SpeechRecipientPolicyTest {
         assertTrue(source.contains("LocalSpeechPayload.NO_UUID.equals(speakerUuid)) return;"));
         assertTrue(Pattern.compile("(?:\\w+\\s*=\\s*)?new\\s+LocalSpeechPayload\\s*\\(\\s*"
                 + "body\\.getId\\(\\)\\s*,\\s*speakerUuid\\s*,\\s*speaker\\.name\\(\\)\\s*,\\s*"
-                + "speaker\\.rgb\\(\\)\\s*,\\s*parsed\\.body\\(\\)\\s*,\\s*"
+                 + "speaker\\.rgb\\(\\)\\s*,\\s*spokenText\\s*,\\s*"
                 + "position\\.x\\s*,\\s*position\\.y\\s*,\\s*position\\.z\\s*,\\s*"
                 + "body\\.level\\(\\)\\.dimension\\(\\)\\.location\\(\\)\\s*,\\s*mode\\s*,\\s*"
                 + "LocalSpeechPayload\\.NO_BEARING\\s*,\\s*LocalSpeechPayload\\.NO_BEARING\\s*,\\s*"
-                + "LocalSpeechPayload\\.DistanceTier\\.NONE\\s*\\)", Pattern.DOTALL)
+                 + "LocalSpeechPayload\\.DistanceTier\\.NONE\\s*,\\s*soundCue\\s*\\)", Pattern.DOTALL)
                 .matcher(source).find(), "clear payload must use the validated body identity, parsed text, position, dimension, mode, and no bearings");
         assertEquals(1, source.split(Pattern.quote("LocalSpeechNetworking.send(recipient, outgoing);"), -1).length - 1);
         assertEquals(1, source.split(Pattern.quote("for (ServerPlayer recipient : level.getServer().getPlayerList().getPlayers())"), -1).length - 1);

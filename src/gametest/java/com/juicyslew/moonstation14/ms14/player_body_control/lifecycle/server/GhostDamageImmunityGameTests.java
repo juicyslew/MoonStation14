@@ -24,6 +24,7 @@ public final class GhostDamageImmunityGameTests {
         float initialHealth = ghost.getHealth();
         require(initialHealth == 1f, "ghost starts with one health point");
         require(!ghost.getType().canSerialize(), "transient ghost type remains non-serializable");
+        require(ghost.requiresCustomPersistence(), "ghost lifetime is not subject to vanilla distance despawn");
 
         DamageSource[] attacks = {sources.generic(), sources.drown(), sources.inWall(),
                 sources.onFire(), sources.magic(), sources.fellOutOfWorld(), sources.genericKill()};
@@ -49,6 +50,18 @@ public final class GhostDamageImmunityGameTests {
         require(body.hurt(helper.getLevel().damageSources().generic(), 2f), "ordinary body accepts damage");
         require(body.getHealth() < initialHealth, "ordinary body loses health");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
+    public static void observerSurvivesBelowWorldTicks(GameTestHelper helper) {
+        GhostMobHarnessEntity ghost = helper.spawn(GhostMobHarnessRegistration.getEntityType(), new BlockPos(1, 1, 1));
+        ghost.setPos(1.5, helper.getLevel().getMinBuildHeight() - 100, 1.5);
+        helper.runAfterDelay(5, () -> {
+            require(ghost.isAlive() && !ghost.isRemoved(), "observer remains alive below world until lifecycle cleanup");
+            ghost.discard();
+            require(ghost.isRemoved(), "explicit lifecycle cleanup still removes below-world observer");
+            helper.succeed();
+        });
     }
 
     private static void require(boolean condition, String message) {

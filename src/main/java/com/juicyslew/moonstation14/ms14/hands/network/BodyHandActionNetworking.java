@@ -33,166 +33,7 @@ public final class BodyHandActionNetworking {
         event.registrar("1").executesOn(HandlerThread.MAIN)
                 .playToServer(BodyBlockUseRequest.TYPE, BodyBlockUseRequest.STREAM_CODEC, (request, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
-                    if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
-                      boolean contained = DisposalContainedActionPolicy.isContained(actor);
-                     boolean containedTarget = contained && DisposalContainedActionPolicy.permitsOwnerBlockTarget(actor, request);
-                     if (contained && !containedTarget) {
-                        PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), BodyBlockUseResult.Outcome.DENIED));
-                        return;
-                    }
-                      var inspection = BodyHandRequestService.inspectBlockUse(actor, request);
-                      var admission = inspection.admission();
-                     if (contained && admission != null
-                             && !(admission.authority().body().level().getBlockEntity(admission.hit().pos())
-                                  instanceof DisposalUnitBlockEntity)) admission = null;
-                     BodyBlockUseResult.Outcome outcome = admission == null
-                             && inspection.failure() == BodyHandRequestService.BlockUseFailure.TARGET_NOT_ADMITTED
-                             ? BodyBlockUseResult.Outcome.TARGET_NOT_ADMITTED : BodyBlockUseResult.Outcome.DENIED;
-                     if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
-                         var held = admission.hands().stackCopy(request.handId()).orElse(null);
-                          var body = admission.authority().body();
-                          var targetEntity = body.level().getBlockEntity(admission.hit().pos());
-                          if (targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster) {
-                              if (held == null && request.sneaking()) {
-                                  var level = (net.minecraft.server.level.ServerLevel) body.level();
-                                  var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
-                                  var slot = chemMaster.inputSlot();
-                                  var result = slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
-                                          : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.take(
-                                                  admission.authority(), request.handId(), request.expectedRevision(), slot,
-                                                  slot.snapshot().revision(), ledger.snapshot().revision(), ledger,
-                                                  () -> chemMaster.isLoadedValid());
-                                  if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
-                                      chemMaster.slotChanged();
-                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playEject(
-                                              (net.minecraft.server.level.ServerLevel) body.level(), chemMaster.getBlockPos(), chemMaster.prototype());
-                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
-                                      outcome = BodyBlockUseResult.Outcome.HAND_CHANGED;
-                                  } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
-                                      outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
-                              } else if (held != null && held.getItem() instanceof com.juicyslew.moonstation14.ms14.chemistry.DispenserCompatibleItem compatible
-                                      && chemMaster.isLoadedValid() && compatible.fitsInDispenser(body.level())) {
-                                  var level = (net.minecraft.server.level.ServerLevel) body.level();
-                                  var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
-                                  var token = admission.hands().token(request.handId()).orElse(null);
-                                  var result = token == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
-                                          : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.insert(
-                                                  admission.authority(), request.handId(), token, admission.hands().revision(),
-                                                  chemMaster.inputSlot(), chemMaster.inputSlot().snapshot().revision(), ledger.snapshot().revision(), ledger,
-                                                  () -> chemMaster.isLoadedValid());
-                                  if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
-                                      chemMaster.slotChanged();
-                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playInsert(
-                                              (net.minecraft.server.level.ServerLevel) body.level(), chemMaster.getBlockPos(), chemMaster.prototype());
-                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
-                                      outcome = BodyBlockUseResult.Outcome.PLACED;
-                                  } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
-                                      outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
-                              } else if (com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.opensWorkspace(
-                                      request.intent(), held == null, request.sneaking())
-                                      && com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.open(actor, chemMaster))
-                                  outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
-                          } else if (held != null && targetEntity instanceof DisposalUnitBlockEntity unit) {
-                             boolean inserted = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.revalidate(actor, admission.authority())
-                                     && DisposalUnitHandAdapter.insert(body, request.handId(), request.expectedRevision(), unit);
-                             outcome = inserted ? BodyBlockUseResult.Outcome.PLACED : BodyBlockUseResult.Outcome.DENIED;
-                           } else if (held != null && held.is(ModItems.WRENCH.get())) {
-                               outcome = BodyDisposalTubeAnchorUse.begin(actor, request, admission)
-                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
-                           } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
-                               outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
-                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
-                           } else if (held != null && held.is(ModItems.WELDER.get())) {
-                               outcome = BodyDisposalTubeWelderUse.begin(actor, request, admission)
-                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
-                          } else if (held != null && held.is(ModItems.DISPOSAL_UNIT.get())) {
-                             var result = FunctionalDisposalUnitPlacement.place(actor, request, admission);
-                             outcome = result == FunctionalDisposalUnitPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
-                                     : result == FunctionalDisposalUnitPlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
-                         } else if (held != null && (held.is(ModItems.GAS_VENT.get()) || held.is(ModItems.GAS_SCRUBBER.get()))) {
-                            var result = FunctionalVentilationDevicePlacement.place(actor, request, admission);
-                            outcome = result == FunctionalVentilationDevicePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
-                                    : result == FunctionalVentilationDevicePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
-                        } else if (held != null && held.is(ModItems.AIR_ALARM.get())) {
-                            var result = FunctionalAirAlarmPlacement.place(actor, request, admission);
-                            outcome = result == FunctionalAirAlarmPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
-                                    : result == FunctionalAirAlarmPlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
-                        } else if (held != null && (held.is(ModItems.GAS_PIPE_SEGMENT.get())
-                                || held.is(ModItems.GAS_PIPE_SEGMENT_SECONDARY.get())
-                                || held.is(ModItems.GAS_PIPE_SEGMENT_TERTIARY.get()))) {
-                            var result = FunctionalExposedPipePlacement.place(actor, request, admission);
-                            outcome = result == FunctionalExposedPipePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
-                                    : result == FunctionalExposedPipePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
-                          } else if (held != null && DisposalBuildMenuService.matchesActiveMaterial(admission.authority(), held)) {
-                                 String sharedRecipe=com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService
-                                         .selectedRecipe(actor,body);
-                                 if(sharedRecipe!=null) {
-                                     outcome=BodyWorldItemActions.use(actor,request,admission);
-                                 } else if (com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService
-                                         .hasConstructionHost((net.minecraft.server.level.ServerLevel) body.level(), admission.hit().pos())) {
-                                    outcome = BodyWorldItemActions.use(actor, request, admission);
-                                } else {
-                                    long beforeRevision = request.expectedRevision();
-                                    boolean handled = DisposalBuildMenuService.useSelected(actor, request, admission);
-                                    var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-                                    outcome = handled
-                                            ? BodyConstructionOutcomePolicy.outcome(true, beforeRevision,
-                                                    liveHands == null ? null : liveHands.revision())
-                                            : BodyWorldItemActions.use(actor, request, admission);
-                                }
-                        } else if (held == null) {
-                            boolean opened = AirAlarmMenuService.open(actor, request, admission);
-                            if (opened) outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
-                        } else {
-                            outcome = BodyWorldItemActions.use(actor, request, admission);
-                        }
-                      } else if (admission != null) {
-                        var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
-                        var held = admission.hands().stackCopy(request.handId()).orElse(null);
-                          if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD && request.sneaking() && held == null
-                                  && targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster) {
-                              var body = admission.authority().body();
-                              var level = (net.minecraft.server.level.ServerLevel) body.level();
-                              var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
-                              var slot = chemMaster.inputSlot();
-                              var result = slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
-                                      : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.take(
-                                              admission.authority(), request.handId(), request.expectedRevision(), slot,
-                                              slot.snapshot().revision(), ledger.snapshot().revision(), ledger,
-                                              () -> chemMaster.isLoadedValid());
-                              if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
-                                  chemMaster.slotChanged();
-                                  com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playEject(level,
-                                          chemMaster.getBlockPos(), chemMaster.prototype());
-                                  com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
-                                  outcome = BodyBlockUseResult.Outcome.HAND_CHANGED;
-                              } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
-                                  outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
-                          } else if (com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.opensWorkspace(
-                                  request.intent(), held == null, request.sneaking())
-                                  && targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster
-                                  && com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.open(actor, chemMaster))
-                              outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
-                          else if (request.intent() == BodyBlockUseRequest.Intent.CLIMB_INSIDE
-                                 && targetEntity instanceof DisposalUnitBlockEntity unit
-                                 && DisposalUnitMenuService.beginDirect(actor, unit, admission.authority()))
-                             outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
-                         else if (request.intent() == BodyBlockUseRequest.Intent.CLIMB_INSIDE)
-                             outcome = BodyBlockUseResult.Outcome.DENIED;
-                         else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
-                                && targetEntity instanceof DisposalUnitBlockEntity unit
-                                && DisposalUnitMenuService.open(actor, unit, admission.authority()))
-                            outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
-                        else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
-                                && targetEntity instanceof DisposalUnitBlockEntity)
-                            outcome = BodyBlockUseResult.Outcome.DENIED;
-                        else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
-                                && DisposalBuildMenuService.openEdit(actor, request, admission))
-                            outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
-                        else outcome = BodyWorldItemActions.activate(actor, request, admission);
-                    }
-                    if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
-                        PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), outcome));
+                    handleBlockUse(actor, request);
                 })
                 .playToClient(BodyBlockUseResult.TYPE, BodyBlockUseResult.STREAM_CODEC,
                         (result, context) -> { if (FMLEnvironment.dist == Dist.CLIENT) BodyBlockUseResult.deliverClient(result); })
@@ -296,5 +137,235 @@ public final class BodyHandActionNetworking {
                     if (FMLEnvironment.dist == Dist.CLIENT) BodyWorldGridSnapshot.deliverClient(snapshot);
                 });
     }
+
+    /** Full ordinary block-use owner shared by the decoded payload and registered-player fixtures. */
+    static BodyBlockUseResult.Outcome handleBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        if (actor == null || actor.connection == null || actor.getServer() == null
+                || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor)
+            return BodyBlockUseResult.Outcome.DENIED;
+                      boolean contained = DisposalContainedActionPolicy.isContained(actor);
+                     boolean containedTarget = contained && DisposalContainedActionPolicy.permitsOwnerBlockTarget(actor, request);
+                     if (contained && !containedTarget) {
+                        PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), BodyBlockUseResult.Outcome.DENIED));
+                        return BodyBlockUseResult.Outcome.DENIED;
+                    }
+                      var inspection = BodyHandRequestService.inspectBlockUse(actor, request);
+                      var admission = inspection.admission();
+                     if (contained && admission != null
+                             && !(admission.authority().body().level().getBlockEntity(admission.hit().pos())
+                                  instanceof DisposalUnitBlockEntity)) admission = null;
+                      BodyBlockUseResult.Outcome outcome = !contained && admission == null
+                             && inspection.failure() == BodyHandRequestService.BlockUseFailure.TARGET_NOT_ADMITTED
+                             ? BodyBlockUseResult.Outcome.TARGET_NOT_ADMITTED : BodyBlockUseResult.Outcome.DENIED;
+                     if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
+                         var held = admission.hands().stackCopy(request.handId()).orElse(null);
+                          var body = admission.authority().body();
+                          var targetEntity = body.level().getBlockEntity(admission.hit().pos());
+                            if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity extractor) {
+                                outcome = com.juicyslew.moonstation14.ms14.botany.SeedExtractorHandUseService.use(
+                                        actor, request, admission, extractor, held);
+                            } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity tray) {
+                               outcome = com.juicyslew.moonstation14.ms14.botany.BotanyHandUseService.use(
+                                       actor, request, admission, tray, held);
+                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity grinder) {
+                                if (grinder.program() == null || grinder.program().active()) {
+                                    outcome = BodyBlockUseResult.Outcome.DENIED;
+                                } else if (held == null && request.sneaking()) {
+                                    var slot = grinder.beakerSlot();
+                                    var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                    var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                    var result = slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                            : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.take(
+                                                admission.authority(), request.handId(), request.expectedRevision(), slot,
+                                                slot.snapshot().revision(), ledger.snapshot().revision(), ledger, grinder::isLoadedValid);
+                                      if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) { grinder.slotTransferCommitted(true, false); outcome = BodyBlockUseResult.Outcome.HAND_CHANGED; }
+                                    else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED) outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                                } else if (held != null) {
+                                    var token = admission.hands().token(request.handId()).orElse(null);
+                                    var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                    var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                    var slot = held.getItem() instanceof com.juicyslew.moonstation14.ms14.chemistry.DispenserCompatibleItem compatible
+                                            && compatible.fitsInDispenser(body.level()) && grinder.beakerSlot().snapshot().stack().isEmpty()
+                                            ? grinder.beakerSlot() : grinder.chamberSlots().stream().filter(candidate -> candidate.snapshot().stack().isEmpty() && candidate.canAccept(candidate.snapshot().revision(), held)).findFirst().orElse(null);
+                                    var result = token == null || slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                            : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.insert(admission.authority(), request.handId(), token,
+                                                admission.hands().revision(), slot, slot.snapshot().revision(), ledger.snapshot().revision(), ledger,
+                                                grinder::isLoadedValid);
+                                      if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) { grinder.slotTransferCommitted(slot == grinder.beakerSlot(), true); outcome = BodyBlockUseResult.Outcome.PLACED; }
+                                    else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED) outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                                }
+                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster) {
+                              if (held == null && request.sneaking()) {
+                                  var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                  var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                  var slot = chemMaster.inputSlot();
+                                  var result = slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                          : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.take(
+                                                  admission.authority(), request.handId(), request.expectedRevision(), slot,
+                                                  slot.snapshot().revision(), ledger.snapshot().revision(), ledger,
+                                                  () -> chemMaster.isLoadedValid());
+                                  if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
+                                      chemMaster.slotChanged();
+                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playEject(
+                                              (net.minecraft.server.level.ServerLevel) body.level(), chemMaster.getBlockPos(), chemMaster.prototype());
+                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
+                                      outcome = BodyBlockUseResult.Outcome.HAND_CHANGED;
+                                  } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
+                                      outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                               } else if (held != null && (held.is(com.juicyslew.moonstation14.item.ModItems.BOTTLE)
+                                       || held.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER))) {
+                                   var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                   var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                   var slot = chemMaster.outputSlot(); var token = admission.hands().token(request.handId()).orElse(null);
+                                   var slotState = slot == null ? null : slot.snapshot();
+                                   var result = token == null || slotState == null || !slot.canAccept(slotState.revision(), held)
+                                           ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                           : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.insert(
+                                               admission.authority(), request.handId(), token, admission.hands().revision(),
+                                               slot, slotState.revision(), ledger.snapshot().revision(), ledger,
+                                               () -> chemMaster.isLoadedValid());
+                                   if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
+                                       chemMaster.slotChanged();
+                                       com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playInsert(level,
+                                               chemMaster.getBlockPos(), chemMaster.prototype());
+                                       com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
+                                       outcome = BodyBlockUseResult.Outcome.PLACED;
+                                   } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
+                                       outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                               } else if (held != null && held.getItem() instanceof com.juicyslew.moonstation14.ms14.chemistry.DispenserCompatibleItem compatible
+                                      && chemMaster.isLoadedValid() && compatible.fitsInDispenser(body.level())) {
+                                  var level = (net.minecraft.server.level.ServerLevel) body.level();
+                                  var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                                  var token = admission.hands().token(request.handId()).orElse(null);
+                                  var result = token == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                          : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.insert(
+                                                  admission.authority(), request.handId(), token, admission.hands().revision(),
+                                                  chemMaster.inputSlot(), chemMaster.inputSlot().snapshot().revision(), ledger.snapshot().revision(), ledger,
+                                                  () -> chemMaster.isLoadedValid());
+                                  if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
+                                      chemMaster.slotChanged();
+                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playInsert(
+                                              (net.minecraft.server.level.ServerLevel) body.level(), chemMaster.getBlockPos(), chemMaster.prototype());
+                                      com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
+                                      outcome = BodyBlockUseResult.Outcome.PLACED;
+                                  } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
+                                      outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                               } else outcome = com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.opensWorkspace(
+                                       request.intent(), held == null, request.sneaking())
+                                       && com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.open(actor, chemMaster)
+                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+                          } else if (held != null && targetEntity instanceof DisposalUnitBlockEntity unit) {
+                             boolean inserted = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.revalidate(actor, admission.authority())
+                                     && DisposalUnitHandAdapter.insert(body, request.handId(), request.expectedRevision(), unit);
+                             outcome = inserted ? BodyBlockUseResult.Outcome.PLACED : BodyBlockUseResult.Outcome.DENIED;
+                           } else if (held != null && held.is(ModItems.WRENCH.get())) {
+                               outcome = BodyDisposalTubeAnchorUse.begin(actor, request, admission)
+                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                           } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
+                               outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
+                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                           } else if (held != null && held.is(ModItems.WELDER.get())) {
+                               outcome = BodyDisposalTubeWelderUse.begin(actor, request, admission)
+                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                          } else if (held != null && held.is(ModItems.DISPOSAL_UNIT.get())) {
+                             var result = FunctionalDisposalUnitPlacement.place(actor, request, admission);
+                             outcome = result == FunctionalDisposalUnitPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                     : result == FunctionalDisposalUnitPlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                         } else if (held != null && (held.is(ModItems.GAS_VENT.get()) || held.is(ModItems.GAS_SCRUBBER.get()))) {
+                            var result = FunctionalVentilationDevicePlacement.place(actor, request, admission);
+                            outcome = result == FunctionalVentilationDevicePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                    : result == FunctionalVentilationDevicePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                        } else if (held != null && held.is(ModItems.AIR_ALARM.get())) {
+                            var result = FunctionalAirAlarmPlacement.place(actor, request, admission);
+                            outcome = result == FunctionalAirAlarmPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                    : result == FunctionalAirAlarmPlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                        } else if (held != null && (held.is(ModItems.GAS_PIPE_SEGMENT.get())
+                                || held.is(ModItems.GAS_PIPE_SEGMENT_SECONDARY.get())
+                                || held.is(ModItems.GAS_PIPE_SEGMENT_TERTIARY.get()))) {
+                            var result = FunctionalExposedPipePlacement.place(actor, request, admission);
+                            outcome = result == FunctionalExposedPipePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
+                                    : result == FunctionalExposedPipePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
+                          } else if (held != null && DisposalBuildMenuService.matchesActiveMaterial(admission.authority(), held)) {
+                                 String sharedRecipe=com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService
+                                         .selectedRecipe(actor,body);
+                                 if(sharedRecipe!=null) {
+                                     outcome=BodyWorldItemActions.use(actor,request,admission);
+                                 } else if (com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService
+                                         .hasConstructionHost((net.minecraft.server.level.ServerLevel) body.level(), admission.hit().pos())) {
+                                    outcome = BodyWorldItemActions.use(actor, request, admission);
+                                } else {
+                                    long beforeRevision = request.expectedRevision();
+                                    boolean handled = DisposalBuildMenuService.useSelected(actor, request, admission);
+                                    var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                                    outcome = handled
+                                            ? BodyConstructionOutcomePolicy.outcome(true, beforeRevision,
+                                                    liveHands == null ? null : liveHands.revision())
+                                            : BodyWorldItemActions.use(actor, request, admission);
+                                }
+                        } else if (held == null) {
+                            boolean opened = AirAlarmMenuService.open(actor, request, admission);
+                            if (opened) outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                          } else {
+                               outcome = BodyWorldItemActions.use(actor, request, admission);
+                        }
+                       } else if (admission != null) {
+                          var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
+                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
+                            if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                    && targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity grinder
+                                    && com.juicyslew.moonstation14.ms14.botany.ui.GrinderSessionService.open(actor, grinder,
+                                        snapshot -> com.juicyslew.moonstation14.ms14.botany.ui.GrinderNetworking.send(actor, snapshot)) != null)
+                                outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                            else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                   && targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity tray) {
+                               outcome = com.juicyslew.moonstation14.ms14.botany.BotanyHandUseService.use(
+                                       actor, request, admission, tray, held);
+                           } else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD && request.sneaking() && held == null
+                                  && targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster) {
+                              var body = admission.authority().body();
+                              var level = (net.minecraft.server.level.ServerLevel) body.level();
+                              var ledger = com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers.forLevel(level);
+                              var slot = chemMaster.inputSlot();
+                              var result = slot == null ? com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.DENIED
+                                      : com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.take(
+                                              admission.authority(), request.handId(), request.expectedRevision(), slot,
+                                              slot.snapshot().revision(), ledger.snapshot().revision(), ledger,
+                                              () -> chemMaster.isLoadedValid());
+                              if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.SUCCESS) {
+                                  chemMaster.slotChanged();
+                                  com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterAudio.playEject(level,
+                                          chemMaster.getBlockPos(), chemMaster.prototype());
+                                  com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.machineChanged(chemMaster);
+                                  outcome = BodyBlockUseResult.Outcome.HAND_CHANGED;
+                              } else if (result == com.juicyslew.moonstation14.ms14.hands.live.BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED)
+                                  outcome = BodyBlockUseResult.Outcome.RECOVERY_REQUIRED;
+                          } else if (com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.opensWorkspace(
+                                  request.intent(), held == null, request.sneaking())
+                                  && targetEntity instanceof com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity chemMaster
+                                  && com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.open(actor, chemMaster))
+                              outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                          else if (request.intent() == BodyBlockUseRequest.Intent.CLIMB_INSIDE
+                                 && targetEntity instanceof DisposalUnitBlockEntity unit
+                                 && DisposalUnitMenuService.beginDirect(actor, unit, admission.authority()))
+                             outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                         else if (request.intent() == BodyBlockUseRequest.Intent.CLIMB_INSIDE)
+                             outcome = BodyBlockUseResult.Outcome.DENIED;
+                         else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                && targetEntity instanceof DisposalUnitBlockEntity unit
+                                && DisposalUnitMenuService.open(actor, unit, admission.authority()))
+                            outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                        else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                && targetEntity instanceof DisposalUnitBlockEntity)
+                            outcome = BodyBlockUseResult.Outcome.DENIED;
+                        else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                && DisposalBuildMenuService.openEdit(actor, request, admission))
+                            outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                        else outcome = BodyWorldItemActions.activate(actor, request, admission);
+                    }
+                    if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
+                        PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), outcome));
+                    return outcome;
+    }
+
 }
 

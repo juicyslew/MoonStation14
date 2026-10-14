@@ -5,6 +5,9 @@ import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
 import com.juicyslew.moonstation14.ms14.hands.client.PopupMovementIntent;
 import com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow;
 import com.juicyslew.moonstation14.ms14.ui.client.MachineWindowRenderer;
+import com.juicyslew.moonstation14.ms14.ui.client.window.WindowGeometryController;
+import com.juicyslew.moonstation14.ms14.ui.client.window.WindowChromeButtons;
+import com.juicyslew.moonstation14.ms14.ui.client.paint.GuiGraphicsPaint;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
@@ -14,6 +17,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 
 /** Small, non-modal airlock maintenance circuit. All row identity and status comes from the server. */
 public final class AirlockWireScreen extends Screen implements GameplayWindow {
@@ -27,28 +34,52 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
     private final int windowId;
     private final UUID session;
     private final PopupMovementIntent movement = new PopupMovementIntent();
+    private final Consumer<AirlockWireRequest> requestSender;
+    private final Runnable closeOwner;
+    private final Runnable serverCloseRequest;
+    private final Supplier<MovementKeys> movementKeys;
+    private final BiConsumer<Integer,Integer> embeddedInitializer;
+    private final BooleanSupplier fontBound;
     private AirlockWireSnapshot state;
     private long nextRequest;
     private long pending = -1;
     private AirlockWireRequest.Operation pendingOperation;
     private int waitTicks;
     private int screenTicks;
-    private int x, y, dragX, dragY;
-    private boolean dragging;
+    private int x, y;
+    private WindowGeometryController geometry;
     private boolean started;
     private boolean viewInitialized;
     boolean captureTransition;
     private boolean closingFromServer;
     private String message;
+    record MovementKeys(boolean authorized,boolean focused,boolean up,boolean down,boolean left,boolean right,
+                        boolean jump,boolean shift,boolean sprint) { }
 
     public AirlockWireScreen(int windowId, UUID session) {
+        this(windowId,session,AirlockWireNetworking::send,
+                ()->com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.wireClosed(),
+                ()->{if(Minecraft.getInstance().getConnection()!=null)AirlockWireNetworking.requestClose(windowId,session);},
+                AirlockWireScreen::nativeMovementKeys,null,null);
+    }
+
+    AirlockWireScreen(int windowId,UUID session,Consumer<AirlockWireRequest> requestSender,
+                      Runnable closeOwner,Runnable serverCloseRequest,Supplier<MovementKeys> movementKeys,
+                      BiConsumer<Integer,Integer> embeddedInitializer,BooleanSupplier fontBound) {
         super(Component.literal("Airlock — Wires"));
         this.windowId = windowId;
         this.session = session;
+        this.requestSender=java.util.Objects.requireNonNull(requestSender);
+        this.closeOwner=java.util.Objects.requireNonNull(closeOwner);
+        this.serverCloseRequest=java.util.Objects.requireNonNull(serverCloseRequest);
+        this.movementKeys=java.util.Objects.requireNonNull(movementKeys);
+        this.embeddedInitializer=embeddedInitializer==null?(w,h)->init(Minecraft.getInstance(),w,h):embeddedInitializer;
+        this.fontBound=fontBound==null?()->font!=null:fontBound;
     }
 
     public int windowId() { return windowId; }
     public UUID session() { return session; }
+    int windowX(){return x;} int windowY(){return y;}
 
     public boolean contains(double mx, double my) { return within(mx, my); }
     public boolean workspaceMouseClicked(double mx, double my, int button) {
@@ -56,25 +87,24 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
         return true;
     }
     public boolean workspaceMouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (!dragging) return false;
+        if (geometry == null || !geometry.isPointerCaptured()) return false;
         mouseDragged(mx, my, button, dx, dy);
         return true;
     }
     public boolean workspaceMouseReleased(double mx, double my, int button) {
-        if (!dragging) return false;
+        if (geometry == null || !geometry.isPointerCaptured()) return false;
         mouseReleased(mx, my, button);
         return true;
     }
     public void workspaceSize(int newWidth, int newHeight) {
-        if (!WireEmbeddedScreenInitPolicy.needsInit(viewInitialized, font != null, width, height, newWidth, newHeight)) return;
+        if (!WireEmbeddedScreenInitPolicy.needsInit(viewInitialized, fontBound.getAsBoolean(), width, height, newWidth, newHeight)) return;
         boolean first = !viewInitialized;
         int oldX = x, oldY = y;
-        init(Minecraft.getInstance(), newWidth, newHeight);
+        embeddedInitializer.accept(newWidth,newHeight);
+        this.width=newWidth;this.height=newHeight;
         viewInitialized = true;
-        if (!first) {
-            x = Math.max(0, Math.min(oldX, width - W));
-            y = Math.max(0, Math.min(oldY, height - H));
-        }
+        if (first) configureInputViewport(width,height);
+        else { x=oldX;y=oldY;resizeInputViewport(width,height); }
     }
 
     @Override protected void init() {
@@ -92,7 +122,7 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
         if (pending >= 0) return;
         pending = nextRequest++; waitTicks = 0;
         pendingOperation = operation;
-        AirlockWireNetworking.send(new AirlockWireRequest(windowId, session, pending,
+        requestSender.accept(new AirlockWireRequest(windowId, session, pending,
                 state == null ? 0 : state.rootRevision(), row, operation));
     }
 
@@ -116,46 +146,10 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
         var minecraft = Minecraft.getInstance();
         workspaceSize(minecraft.getWindow().getGuiScaledWidth(), minecraft.getWindow().getGuiScaledHeight());
         nearestPixelArt();
-        MachineWindowRenderer.window(g, font, x, y, W, H, title);
-        MachineWindowRenderer.insetPanel(g, x + 6, y + 31, W - 12, 110);
-        // PCB traces sit behind the authentic upstream wire/contact art.
-        g.fill(x + 14, y + 80, x + 196, y + 82, 0xff52664b);
-        g.fill(x + 14, y + 135, x + 196, y + 137, 0xff52664b);
-        if (state != null) for (int i = 0; i < state.rows().size(); i++) {
-            var row = state.rows().get(i);
-            var bounds = AirlockWireScreenLayout.wire(x, y, i);
-            boolean alternate = (i & 1) != 0;
-            ResourceLocation wireTexture = row.cut() ? (alternate ? WIRE_ALT_CUT : WIRE_CUT) : (alternate ? WIRE_ALT : WIRE);
-            RenderSystem.setShaderColor(((row.argb() >> 16) & 255) / 255f, ((row.argb() >> 8) & 255) / 255f,
-                    (row.argb() & 255) / 255f, 1f);
-            g.blit(wireTexture, bounds.x(), bounds.y(), 0, 0, bounds.width(), bounds.height(), 16, 50);
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-            g.drawString(font, row.letter(), bounds.x() + 5, bounds.y() + 18, 0xffffffff, true);
-        }
-        var labels = new String[]{"PWR", "BOLT", "TIMR", "AIA", "LOG", "BLIT", "SAFE"};
-        var lights = state == null ? java.util.Collections.nCopies(7, AirlockWireIndicators.Light.OFF)
-                : java.util.Arrays.asList(state.powerIndicator(), state.boltIndicator(), state.timingIndicator(),
-                state.aiInteractIndicator(), state.logIndicator(), state.boltLightsIndicator(), state.safetyIndicator());
-        for (int i = 0; i < labels.length; i++) {
-            var bounds = AirlockWireScreenLayout.indicator(x, y, i);
-            boolean implemented = i != 3 && i != 4;
-            var light = lights.get(i);
-            boolean on = AirlockWireLightStyle.isOn(light, screenTicks);
-            int diameter = AirlockWireLightStyle.diameter(on);
-            int left = bounds.x() + (10 - diameter) / 2, top = bounds.y() + (10 - diameter) / 2;
-            g.fill(left, top, left + diameter, top + diameter,
-                    on ? AirlockWireLightStyle.ON : AirlockWireLightStyle.OFF);
-            g.drawString(font, labels[i], bounds.x() + 12, bounds.y() + 2, MachineWindowRenderer.TEXT, false);
-        }
+        AirlockWirePaint.paint(new GuiGraphicsPaint(g,font),new AirlockWirePaint.View(x,y,state,screenTicks,message,mouseX,mouseY,title));
         if (AirlockWireScreenLayout.indicator(x, y, 3).contains(mouseX, mouseY)
                 || AirlockWireScreenLayout.indicator(x, y, 4).contains(mouseX, mouseY))
             g.renderTooltip(font, Component.literal("Wire continuity; AI/log service not implemented"), mouseX, mouseY);
-        var footer = AirlockWireScreenLayout.footer(x, y);
-        String footerText = message != null ? message
-                : state != null && !state.supplyPowered() ? "NO POWER" : "";
-        int footerColor = message != null ? 0xffffcc55
-                : state != null && !state.supplyPowered() ? 0xffff7770 : 0xffaab6ba;
-        g.drawString(font, font.plainSubstrByWidth(footerText, footer.width()), footer.x(), footer.y(), footerColor, false);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
@@ -169,8 +163,8 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
 
     @Override public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0 && within(mx, my)) {
-            if (mx >= x + W - 17 && my < y + 27) { onClose(); return true; }
-            if (my < y + 27) { dragging = true; dragX = (int) mx - x; dragY = (int) my - y; return true; }
+            if (WindowChromeButtons.contains(WindowChromeButtons.closeBounds(x,y,W,1f),mx,my)) { onClose(); return true; }
+            if (geometry != null && geometry.beginPointer(mx,my,button,27,23)) return true;
             int rowIndex = AirlockWireScreenLayout.hitWire(x, y, mx, my, state == null ? 0 : state.rows().size());
             if (rowIndex >= 0 && state != null && rowIndex < state.rows().size()) {
                 var row = state.rows().get(rowIndex);
@@ -178,17 +172,30 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
             }
             return true;
         }
-        if (button == 0) BodyHandClient.gameplayWindowMouseUse(button);
+        // An outside press is not a wire action and must not be replayed into world-use.
         return false;
     }
 
     private boolean within(double mx, double my) { return mx >= x && mx < x + W && my >= y && my < y + H; }
+    void configureInputViewport(int screenWidth,int screenHeight) {
+        this.width=screenWidth;this.height=screenHeight;
+        x=Math.max(0,(screenWidth-W)/2);y=Math.max(0,(screenHeight-H)/2);
+        geometry=new WindowGeometryController(Math.max(1,screenWidth),Math.max(1,screenHeight),x,y,W,H,W,H,false);
+        viewInitialized=true;
+    }
+    public boolean workspaceOwnsPointerCapture() { return geometry != null && geometry.isPointerCaptured(); }
+    void resizeInputViewport(int screenWidth,int screenHeight) {
+        if(geometry==null){configureInputViewport(screenWidth,screenHeight);return;}
+        this.width=screenWidth;this.height=screenHeight;geometry.setScreenSize(Math.max(1,screenWidth),Math.max(1,screenHeight));
+        geometry.setBounds(x,y,W,H);syncGeometry();
+    }
+    private void syncGeometry() { if (geometry != null) { x=geometry.x(); y=geometry.y(); } }
     @Override public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (dragging && button == 0) { x = (int) mx - dragX; y = (int) my - dragY; return true; }
+        if (button == 0 && geometry != null && geometry.dragPointer(mx,my)) { syncGeometry(); return true; }
         return within(mx, my);
     }
     @Override public boolean mouseReleased(double mx, double my, int button) {
-        if (button == 0 && dragging) { dragging = false; return true; }
+        if (geometry != null && geometry.releasePointer(button)) return true;
         return within(mx, my);
     }
     @Override public boolean keyPressed(int key, int scan, int modifiers) {
@@ -211,20 +218,25 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
     private void closeSession() {
         if (captureTransition) return;
         AirlockWireClient.removed(this);
-        dragging = false;
+        if (geometry != null) geometry.cancelPointer();
         movement.sample(false, false, false, false, false, false, false, false);
         if (!closingFromServer) {
             closingFromServer = true;
-            if (Minecraft.getInstance().getConnection() != null) AirlockWireNetworking.requestClose(windowId, session);
-            com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.wireClosed();
+            serverCloseRequest.run();
+            closeOwner.run();
         }
     }
     @Override public PopupMovementIntent.State movementIntent() {
+        var keys=movementKeys.get();
+        boolean eligible=keys.authorized()&&keys.focused();
+        return movement.sample(eligible,keys.up(),keys.down(),keys.left(),keys.right(),keys.jump(),keys.shift(),keys.sprint());
+    }
+    private static MovementKeys nativeMovementKeys() {
         long window = Minecraft.getInstance().getWindow().getWindow();
         if (!BodyHandClient.hasCommittedBody() || GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_FOCUSED) != GLFW.GLFW_TRUE)
-            return movement.sample(false, false, false, false, false, false, false, false);
+            return new MovementKeys(false,false,false,false,false,false,false,false,false);
         var o = Minecraft.getInstance().options;
-        return movement.sample(true, held(o.keyUp, window), held(o.keyDown, window), held(o.keyLeft, window),
+        return new MovementKeys(true,true,held(o.keyUp, window), held(o.keyDown, window), held(o.keyLeft, window),
                 held(o.keyRight, window), held(o.keyJump, window), held(o.keyShift, window), held(o.keySprint, window));
     }
     private static boolean held(net.minecraft.client.KeyMapping mapping, long window) {

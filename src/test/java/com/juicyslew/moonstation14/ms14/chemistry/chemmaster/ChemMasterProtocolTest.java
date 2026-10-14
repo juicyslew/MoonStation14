@@ -16,11 +16,25 @@ class ChemMasterProtocolTest {
   var request = new ChemMasterControlRequest(UUID.randomUUID(),UUID.randomUUID(),ResourceLocation.withDefaultNamespace("overworld"),new BlockPos(1,2,3),4,5,6,ChemMasterControlRequest.Operation.INPUT_REAGENT,ChemMasterControlRequest.Mode.TRANSFER,ChemMasterControlRequest.Sort.OLDEST_FIRST,Optional.of(key("water")),500);
   var b=buffer(); ChemMasterWireCodec.writeRequest(b,request); assertEquals(request,ChemMasterWireCodec.readRequest(b));
   assertThrows(IllegalArgumentException.class,()->new ChemMasterControlRequest(request.sessionId(),request.machineId(),request.dimension(),request.position(),1,0,0,ChemMasterControlRequest.Operation.QUERY,request.mode(),request.sort(),Optional.empty(),-1));
+  var bottleRequest=new ChemMasterControlRequest(request.sessionId(),request.machineId(),request.dimension(),request.position(),5,6,7,
+    ChemMasterControlRequest.Operation.OUTPUT_TO_BOTTLE,request.mode(),request.sort(),Optional.empty(),0,3,4,Optional.empty(),-1,
+    Optional.of(new ChemMasterControlRequest.OutputRequest(0,5,"label")));
+  var bottleBuffer=buffer(); ChemMasterWireCodec.writeRequest(bottleBuffer,bottleRequest); assertEquals(bottleRequest,ChemMasterWireCodec.readRequest(bottleBuffer));
+  assertThrows(IllegalArgumentException.class,()->new ChemMasterControlRequest.OutputRequest(1,1,"x".repeat(51)));
  }
  @Test void snapshotRoundTripsAndChecksCapacityAndRows() {
   var key=key("water");
-  var state=new ChemMasterWindowState(3,8,2,7,Optional.empty(),UUID.randomUUID(),UUID.randomUUID(),UUID.randomUUID(),2,ResourceLocation.withDefaultNamespace("overworld"),4,5,6,true,Optional.empty(),Optional.of(net.minecraft.network.chat.Component.literal("Beaker")),1000,250,List.of(new ChemMasterWindowState.ReagentRow(key,250)),List.of(new ChemMasterWindowState.ReagentRow(key,50)),ChemMasterControlRequest.Mode.TRANSFER,ChemMasterControlRequest.Sort.RECENT_FIRST);
-  var b=buffer(); ChemMasterWireCodec.writeState(b,state); assertEquals(state,ChemMasterWireCodec.readState(b));
+   var output=new ChemMasterWindowState.OutputSlot(4,ChemMasterWindowState.OutputKind.BOTTLE,Optional.of(net.minecraft.network.chat.Component.literal("Bottle (label)")),3000,500,
+     List.of(new ChemMasterWindowState.ReagentRow(key,500)),0,0,0,Optional.of("label"),List.of());
+    var state=new ChemMasterWindowState(3,8,2,17,7,Optional.empty(),UUID.randomUUID(),UUID.randomUUID(),UUID.randomUUID(),2,ResourceLocation.withDefaultNamespace("overworld"),4,5,6,true,Optional.empty(),Optional.of(net.minecraft.network.chat.Component.literal("Beaker")),1000,250,List.of(new ChemMasterWindowState.ReagentRow(key,250)),List.of(new ChemMasterWindowState.ReagentRow(key,50)),ChemMasterControlRequest.Mode.TRANSFER,ChemMasterControlRequest.Sort.RECENT_FIRST,output,ChemMasterControlRequest.DrawSource.INPUT,19,20,true);
+   var b=buffer(); ChemMasterWireCodec.writeState(b,state); assertEquals(state,ChemMasterWireCodec.readState(b));
+   var canister=new ChemMasterWindowState.OutputSlot(5,ChemMasterWindowState.OutputKind.PILL_CANISTER,
+     Optional.of(net.minecraft.network.chat.Component.literal("Canister (batch)")),0,0,List.of(),5,2,8,Optional.of("batch"),
+     List.of(new ChemMasterWindowState.PillDescriptor(0,0,19,Optional.of("batch"),List.of(new ChemMasterWindowState.ReagentRow(key,500)))));
+    var pillState=new ChemMasterWindowState(4,9,2,18,7,Optional.empty(),state.sessionId(),state.machineId(),state.bodyId(),2,state.dimension(),4,5,6,true,
+     Optional.empty(),state.loadedItemName(),1000,250,state.inputReagents(),state.bufferReagents(),state.mode(),state.sort(),canister,
+     ChemMasterControlRequest.DrawSource.BUFFER,19,20,false);
+   var pb=buffer();ChemMasterWireCodec.writeState(pb,pillState);assertEquals(pillState,ChemMasterWireCodec.readState(pb));
   assertThrows(IllegalArgumentException.class,()->new ChemMasterWindowState(0,0,0,-1,Optional.empty(),state.sessionId(),state.machineId(),state.bodyId(),0,state.dimension(),0,0,0,true,Optional.empty(),Optional.empty(),1,2,List.of(),List.of(),state.mode(),state.sort()));
  }
  private static net.minecraft.resources.ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> key(String path) { return net.minecraft.resources.ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,ResourceLocation.fromNamespaceAndPath("moonstation14",path)); }

@@ -31,8 +31,11 @@ class RemoteSignallerHandUseRoutingTest {
         String popup = method(source, "static boolean popupUseInHand(");
         assertTrue(popup.contains("var active=view.first().id().equals(view.activeHand())?view.first():view.second()"),
                 "popup dispatch must use the resolved active hand");
-        assertTrue(popup.contains("var kind=medicalKind(active.itemId())"));
-        assertTrue(popup.contains("else request(BodyHandActionRequest.Action.USE_IN_HAND);"),
+        assertTrue(popup.contains("HeldUseRequestDispatch.routeActivation("),
+                "popup Z dispatch must reuse shared storage/quick-equip/held-use routing");
+        String ordinaryPopupUse = method(source, "private static boolean ordinaryPopupHeldUse(");
+        assertTrue(ordinaryPopupUse.contains("var kind=medicalKind(active.itemId())"));
+        assertTrue(ordinaryPopupUse.contains("else request(BodyHandActionRequest.Action.USE_IN_HAND);"),
                 "items without a medical gesture specialization still dispatch USE_IN_HAND");
         assertTrue(popup.contains("if(!USE_IN_HAND.matches(key,scan)"), "preserve key and modifier guard");
     }

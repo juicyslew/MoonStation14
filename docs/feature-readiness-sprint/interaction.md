@@ -1,0 +1,3 @@
+# Interaction readiness contract
+
+The `interaction` catalog is defined once in `build.gradle`: ChemMaster workspace sequence, selected ChemMaster/airlock/ingestion prototype and runtime-resolution tests, and `HeldUseRequestDispatchTest`. These are JVM sequence, dispatch, or composition-unit evidence—not authenticated server admission. A mocked peer/handshake is not authenticated admission evidence. Record current run outcomes and native failure causes in `ACCEPTANCE.md` and invocation logs rather than freezing them into this contract. Authenticated authority/admission and live entry-path confirmation require the appropriate platform fixture or connected evidence; do not mark those boundaries PASS from helper or prototype tests.

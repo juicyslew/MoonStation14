@@ -511,8 +511,13 @@ public final class ApcOverloadGameTests {
         CableFaceNode output = new CableFaceNode(outputHost, Direction.WEST, CableTier.APC);
         BlockPos spineHost = heavyPos(helper, 3, 0, 6);
         CableFaceNode spine = new CableFaceNode(spineHost, Direction.UP, CableTier.APC);
-        scheduleConnectedOverloadSequence(helper, level, apcEntity, apc, output, spine,
-                heavyPos(helper, 3, 1, 7), fullFixtureDemandWatts);
+        PowerFixtureReadiness.await(helper, level, 700,
+                () -> PowerFixtureReadiness.topologyReadyWithKnownPorts(level, output, spine)
+                        && PowerRuntime.apcOutputObservation(level, apcEntity).known()
+                        && PowerRuntime.apcOutputObservation(level, apcEntity).outputWatts() >= fullFixtureDemandWatts,
+                () -> "await connected overload observation: " + overloadState(level, apcEntity, output, spine),
+                () -> scheduleConnectedOverloadSequence(helper, level, apcEntity, apc, output, spine,
+                        heavyPos(helper, 3, 1, 7), fullFixtureDemandWatts));
     }
 
     private static void scheduleConnectedOverloadSequence(GameTestHelper helper, ServerLevel level,

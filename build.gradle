@@ -1,3 +1,6 @@
+import groovy.xml.XmlSlurper
+import groovy.json.JsonSlurper
+
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -213,6 +216,205 @@ test {
     classpath += sourceSets.gametest.output
 }
 
+// Opt-in bounded catalog; never falls back to the complete JUnit suite.
+def readinessCatalog = [
+    ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
+    interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest'],
+    prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest'],
+    preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
+]
+if (project.hasProperty('ms14Readiness')) {
+    def rawSelection = project.property('ms14Readiness').toString()
+    def selected = rawSelection.split(',', -1).collect { it.trim() }
+    if (rawSelection.trim().isEmpty() || selected.any { it.isEmpty() } || selected.unique().size() != selected.size())
+        throw new GradleException('ms14Readiness must be a non-empty comma-separated set of unique selectors: ui,interaction,prediction,preview')
+    def unknown = selected.findAll { !readinessCatalog.containsKey(it) }
+    if (!unknown.isEmpty()) throw new GradleException("Unknown ms14Readiness selector(s): ${unknown.join(', ')}. Choose: ${readinessCatalog.keySet().join(', ')}")
+    def selectedTests = selected.collectMany { readinessCatalog[it] }.unique()
+    def reportFile = layout.buildDirectory.file('reports/feature-readiness/readiness.md')
+    def resultBinaryDirectory = layout.buildDirectory.dir('test-results/featureReadiness/binary').get()
+    def resultXmlDirectoryProvider = layout.buildDirectory.dir('test-results/featureReadiness/xml')
+    def resultXmlDirectory = resultXmlDirectoryProvider.get().asFile
+    def readinessOutputFile = reportFile.get().asFile
+    def readinessProjectRoot = projectDir.absolutePath
+    def previewManifestFile = new File(projectDir, 'build/reports/feature-readiness/previews/manifest.json')
+    def readinessStartedFile = layout.buildDirectory.file('reports/feature-readiness/current-run-started.txt').get().asFile
+    def gameResourcesJar = providers.gradleProperty('moonstation14.gameResourcesJar')
+        .orElse(providers.systemProperty('moonstation14.gameResourcesJar'))
+        .orElse(layout.buildDirectory.file('moddev/artifacts/neoforge-21.1.224-client-extra-aka-minecraft-resources.jar').get().asFile.absolutePath).get()
+    def readinessBegin = tasks.register('featureReadinessBegin') {
+        group = 'verification'
+        description = 'Writes an unverified current-run marker before readiness compilation.'
+        doLast {
+            def started = java.time.Instant.now()
+            readinessStartedFile.parentFile.mkdirs()
+            readinessStartedFile.text = "${started}\nselection=${selected.join(',')}\ncatalog=${selectedTests.join(',')}\nresources=${gameResourcesJar}\n"
+            if (selected.contains('preview') && previewManifestFile.exists()) java.nio.file.Files.delete(previewManifestFile.toPath())
+            readinessOutputFile.parentFile.mkdirs()
+            readinessOutputFile.text = """# Feature readiness run
+
+- Status: **UNVERIFIED — readiness run started; test results are not yet available**.
+- Run started: ${started}; selection: `${selected.join(',')}`.
+- Selected catalog: `${selectedTests.join('`, `')}`.
+- Resource input: `${gameResourcesJar}`.
+- No current test results are claimed. If compilation/prerequisites fail, this marker remains instead of a previous PASS.
+"""
+        }
+    }
+    // Ordering is scoped to this opt-in task graph; normal compile/test behavior is unchanged.
+    tasks.configureEach { candidate ->
+        if (candidate.name in ['compileJava', 'compileGametestJava', 'compileTestJava', 'processResources', 'processGametestResources', 'processTestResources', 'writeNeoForgeTestClasspath', 'prepareNeoForgeTestFiles']) {
+            candidate.mustRunAfter(readinessBegin)
+        }
+    }
+    // Reuse Gradle's repository test task: ModDev owns its NeoForge classpath/files
+    // preparation dependencies and JVM setup. These adjustments exist only when opted in.
+    def checkTask = tasks.named('test', Test)
+    checkTask.configure {
+        dependsOn readinessBegin
+        filter { selectedTests.each { includeTestsMatching(it) } }
+        systemProperty 'moonstation14.gameResourcesJar', gameResourcesJar
+        binaryResultsDirectory = resultBinaryDirectory
+        reports.junitXml.outputLocation = resultXmlDirectoryProvider
+        reports.html.outputLocation = layout.buildDirectory.dir('reports/tests/featureReadiness')
+        outputs.upToDateWhen { false }
+        outputs.cacheIf { false }
+        doFirst {
+            // Clear only stale XML: Gradle owns and manages its independent binary result directory.
+            def xmlRoot = resultXmlDirectory.toPath()
+            if (java.nio.file.Files.exists(xmlRoot))
+                java.nio.file.Files.walk(xmlRoot).sorted(java.util.Comparator.reverseOrder()).forEach { java.nio.file.Files.delete(it) }
+            java.nio.file.Files.createDirectories(xmlRoot)
+        }
+    }
+    def readinessReport = tasks.register('featureReadinessReport') {
+        doLast {
+            def xmlFiles = resultXmlDirectory.exists() ? java.nio.file.Files.walk(resultXmlDirectory.toPath()).filter { it.fileName.toString().startsWith('TEST-') && it.fileName.toString().endsWith('.xml') }.map { it.toFile() }.toList() : []
+            def counts = [tests: 0, failures: 0, errors: 0, skipped: 0]
+            def suitesByClass = [:]
+            xmlFiles.each { f ->
+                def suite = new XmlSlurper().parse(f)
+                ['tests', 'failures', 'errors', 'skipped'].each { key -> counts[key] += (suite.@"${key}".text() ?: '0') as int }
+                suitesByClass[suite.@name.text()] = [tests: (suite.@tests.text() ?: '0') as int, failures: (suite.@failures.text() ?: '0') as int, errors: (suite.@errors.text() ?: '0') as int, skipped: (suite.@skipped.text() ?: '0') as int]
+            }
+            def status = counts.failures || counts.errors ? 'FAIL' : (selectedTests.every { suitesByClass.containsKey(it) } && counts.tests > 0 && counts.skipped == 0 ? 'PASS' : 'UNVERIFIED')
+            def out = readinessOutputFile
+            out.parentFile.mkdirs()
+            def previewStatus = 'UNVERIFIED — no current preview manifest; no image evidence claimed.'
+            def previewSuite = 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest'
+            def previewValidation = 'UNVERIFIED'
+            def previewDetails = 'generator suite did not produce current evidence'
+            if (selected.contains('preview') && suitesByClass.containsKey(previewSuite) && suitesByClass[previewSuite].failures == 0 && suitesByClass[previewSuite].errors == 0 && previewManifestFile.isFile()) {
+                def manifest = new JsonSlurper().parse(previewManifestFile)
+                def allCases = manifest.cases instanceof List ? manifest.cases : []
+                def fullCases = allCases.findAll { it.full }
+                def sheets = allCases.findAll { it.contactSheet }
+                def expectedViewports = [[320, 240], [640, 360]]
+                def failures = []
+                if (!manifest.source?.contains('ChemMasterPaint.paint') || !manifest.source?.contains('AirlockWirePaint.paint')) failures << 'source does not identify both production painters'
+                if (fullCases.size() != 72) failures << "expected 72 full cases, found ${fullCases.size()}"
+                if (fullCases.collect { it.screen }.toSet() != (['chemmaster', 'airlock-wire'] as Set)) failures << 'full cases do not cover both expected screens'
+                if (fullCases.collect { it.guiScale as int }.toSet() != ([1, 2, 3] as Set)) failures << 'full cases do not cover GUI scales 1–3'
+                if (fullCases.collect { it.viewport }.toSet() != expectedViewports.collect { it as List }.toSet()) failures << 'full cases do not cover both expected viewports'
+                def groups = fullCases.groupBy { [it.screen, it.guiScale as int, it.viewport] }
+                if (groups.size() != 12 || groups.any { key, entries ->
+                    def states = entries.collect { it.state }
+                    def expected = key[0] == 'chemmaster' ? 8 : 4
+                    states.any { !(it instanceof String) || it.isBlank() } || states.toSet().size() != expected || entries.size() != expected
+                }) failures << 'expected eight ChemMaster and four wire distinct, named states for every screen/scale/viewport combination'
+                if (sheets.size() != 2) failures << "expected two contact sheets, found ${sheets.size()}"
+                def previewRoot = new File(readinessProjectRoot, 'build/reports/feature-readiness/previews').canonicalFile.toPath()
+                def imageCount = 0
+                def requiredImages = []
+                fullCases.each { item ->
+                    // Every fixture record must carry its schema-required artifacts; never skip a missing path.
+                    ['full', 'detail'].each { key ->
+                        if (!item[key]) failures << "full-case record missing required ${key} path (${item.screen}/${item.state})"
+                        else requiredImages.add([item, key])
+                    }
+                }
+                sheets.each { item ->
+                    if (!item.contactSheet) failures << "contact-sheet record missing required contactSheet path (${item.screen})"
+                    else requiredImages.add([item, 'contactSheet'])
+                }
+                requiredImages.each { pair ->
+                    def item = pair[0]
+                    def key = pair[1]
+                    try {
+                        def imagePath = java.nio.file.Paths.get(item[key].toString())
+                        def resolved = (imagePath.isAbsolute() ? imagePath : new File(readinessProjectRoot, item[key].toString()).toPath()).toFile().canonicalFile
+                        if (!resolved.toPath().startsWith(previewRoot)) failures << "${key} path escapes preview output: ${item[key]}"
+                        else if (!resolved.isFile() || resolved.length() == 0) failures << "missing/empty ${key} image: ${item[key]}"
+                        else {
+                            def dimensions = javax.imageio.ImageIO.read(resolved)
+                            if (dimensions == null || dimensions.width <= 0 || dimensions.height <= 0) failures << "undecodable/invalid ${key} image: ${item[key]}"
+                            else imageCount++
+                            dimensions?.flush()
+                        }
+                    } catch (Exception invalidImage) {
+                        failures << "invalid ${key} image path/content ${item[key]}: ${invalidImage.message}"
+                    }
+                }
+                previewValidation = failures ? 'FAIL' : 'PASS'
+                previewDetails = failures ? failures.join('; ') : "72 full cases and 2 contact sheets; ${imageCount} listed PNGs exist and decode under preview output"
+                previewStatus = "${previewValidation}: manifest `${previewManifestFile}`; ${previewDetails}. This validates generated artifacts, not visual/aesthetic acceptance."
+            } else if (selected.contains('preview') && suitesByClass.containsKey(previewSuite) && (suitesByClass[previewSuite].failures || suitesByClass[previewSuite].errors)) {
+                previewValidation = 'FAIL'
+                previewDetails = 'production preview generator test failed'
+                previewStatus = "FAIL: ${previewDetails}; no image evidence accepted."
+            }
+            if (previewValidation == 'FAIL') status = 'FAIL'
+            def categoryRows = readinessCatalog.collect { category, classes ->
+                def chosen = selected.contains(category)
+                def available = classes.every { selectedTests.contains(it) }
+                def classResults = classes.findAll { selectedTests.contains(it) }.collect { suitesByClass[it] }
+                def categoryStatus = !chosen ? 'NOT-SELECTED' : (classResults.any { it != null && (it.failures || it.errors) } ? 'FAIL' : (available && classResults.size() == classes.size() && classResults.every { it != null && it.tests > 0 && it.skipped == 0 } ? 'PASS' : 'UNVERIFIED'))
+                if (category == 'preview' && chosen) {
+                    // Preview evidence is conjunctive: passing JUnit alone cannot certify generated artifacts.
+                    if (classResults.any { it != null && (it.failures || it.errors) }) categoryStatus = 'FAIL'
+                    else if (available && classResults.size() == classes.size() && classResults.every { it != null && it.tests > 0 && it.skipped == 0 }) categoryStatus = previewValidation
+                    else categoryStatus = 'UNVERIFIED'
+                }
+                "| ${category} | ${categoryStatus} | ${chosen ? classes.join(', ') : '—'} |"
+            }.join('\n')
+            def startedAt = readinessStartedFile.isFile() ? java.time.Instant.parse(readinessStartedFile.readLines().first()) : null
+            def finishedAt = java.time.Instant.now()
+            def elapsed = startedAt == null ? 'unavailable (start marker missing)' : java.time.Duration.between(startedAt, finishedAt).toMillis() + ' ms wall-clock attempt'
+            out.text = """# Feature readiness run
+
+- Selection: `${selected.join(',')}`; catalog: `${selectedTests.join('`, `')}`
+- Focused JUnit route: **${status}**; no Minecraft process required. Fresh XML suites: ${xmlFiles.size()}.
+- Run identity: ${startedAt ?: 'missing start marker'}; finished: ${finishedAt}; elapsed: ${elapsed}.
+- Current XML totals: ${counts.tests} tests, ${counts.failures} failures, ${counts.errors} errors, ${counts.skipped} skipped. Checks are forced to execute; no cached/up-to-date result can count as pass.
+- Peak heap: not measured (no supported peak-heap sampler in this task).
+- Category status (PASS requires a fresh complete, non-skipped class set):
+| Category | Status | Selected evidence classes |
+|---|---|---|
+${categoryRows}
+- Preview images/manifest: ${previewStatus}
+- Prototype resolution/unit checks are not proof of a live runtime consumer; connected/runtime-consumer evidence remains **UNVERIFIED** unless separately established.
+- Latency cases: ${selected.contains('prediction') ? '`TimedInteractionPacketScheduleTest` and `HeldUseRequestDispatchTest` where selected; report only delays asserted by those current tests.' : '**NOT-APPLICABLE** (prediction not selected).'}
+- Native cursor/GPU and visual review: **UNVERIFIED**; owner acceptance is separate.
+
+Per-invocation report. This task clears its own XML result directory before execution; this report is not owner acceptance.
+"""
+            logger.lifecycle("Readiness report: ${out}")
+        }
+    }
+    checkTask.configure { finalizedBy readinessReport }
+    tasks.register('featureReadiness') {
+        group = 'verification'
+        description = 'Run focused feature readiness checks; requires -Pms14Readiness=<selectors>.'
+        dependsOn readinessBegin
+        dependsOn checkTask
+    }
+} else {
+    tasks.register('featureReadiness') {
+        group = 'verification'
+        description = 'Run focused feature readiness checks; requires -Pms14Readiness=<selectors>.'
+        doFirst { throw new GradleException('featureReadiness requires -Pms14Readiness=<ui,interaction,prediction,preview>; no full-suite fallback is available.') }
+    }
+}
 
 if (project.hasProperty('ms14GameTestTags')) {
     def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {

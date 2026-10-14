@@ -30,6 +30,7 @@ import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateAttachment;
 import com.juicyslew.moonstation14.ms14.standing.PostureAttachment;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -77,7 +78,9 @@ public class ModDataAttachments {
 
     public static final Supplier<AttachmentType<DamageData>> DAMAGE = ATTACHMENT_TYPES.register(
             "damage", () -> AttachmentType.builder(() -> new DamageData())
-                    .serialize(DamageData.CODEC, damage -> !damage.isEmpty())
+                    // Empty damage is meaningful: the client must distinguish a
+                    // synchronized healthy body from an attachment not yet synced.
+                    .serialize(DamageData.CODEC)
                     .sync(DamageData.STREAM_CODEC)
                     .build()
     );
@@ -211,6 +214,12 @@ public class ModDataAttachments {
             "posture", () -> AttachmentType.builder((Supplier<PostureAttachment>) PostureAttachment::new)
                     .serialize(PostureAttachment.CODEC).sync(PostureAttachment.STREAM_CODEC).build()
     );
+
+    /** Persisted server-only lifecycle identity for ordinary mapped role mobs; never synchronized or copied. */
+    public static final Supplier<AttachmentType<PlayerCharacterBinding>> MOB_LIFECYCLE_BINDING = ATTACHMENT_TYPES.register(
+            "mob_lifecycle_binding", () -> AttachmentType.<PlayerCharacterBinding>builder((Supplier<PlayerCharacterBinding>) () -> {
+                throw new IllegalStateException("Lifecycle binding requires an explicit authenticated assignment");
+            }).serialize(PlayerCharacterBinding.CODEC).build());
 
     /** Sparse server-persisted chunk atmosphere state; deliberately not synchronized. */
     public static final Supplier<AttachmentType<AtmosphereChunkData>> ATMOSPHERE_CHUNK = ATTACHMENT_TYPES.register(

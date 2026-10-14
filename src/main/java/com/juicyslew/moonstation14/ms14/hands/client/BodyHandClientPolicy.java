@@ -34,6 +34,8 @@ public final class BodyHandClientPolicy {
     private long sentBlockUseTick, sentQueryTick;
     private BodyHandStateSnapshot snapshot;
     private BodyHandStateSnapshot presentationSnapshot;
+    // Read-only last confirmed state is retained for input nomination while proof is refreshed.
+    private BodyHandStateSnapshot lastConfirmedSnapshot;
     private long pushedRevision = -1;
     private String feedback;
     private long localFeedbackUntil;
@@ -60,6 +62,7 @@ public final class BodyHandClientPolicy {
         lastQueryTick = Long.MIN_VALUE;
         snapshot = null;
         presentationSnapshot = null;
+        lastConfirmedSnapshot = null;
         pushedRevision = -1;
         feedback = null;
         localFeedbackUntil = 0;
@@ -116,6 +119,7 @@ public final class BodyHandClientPolicy {
                     || epoch != incoming.epoch() || snapshot != null && incoming.revision() < snapshot.revision()) return false;
             snapshot = incoming;
             presentationSnapshot = incoming;
+            lastConfirmedSnapshot = incoming;
             pushedRevision = incoming.revision();
             refreshRequired = false;
             return true;
@@ -138,6 +142,7 @@ public final class BodyHandClientPolicy {
         snapshot = incoming;
         refreshRequired = false;
         presentationSnapshot = incoming;
+        lastConfirmedSnapshot = incoming;
         if (throwIntent != null) {
             var active = incoming.hands().stream().filter(hand -> hand.id().equals(incoming.activeHand())).findFirst().orElse(null);
             if (incoming.epoch() != throwIntent.epoch || !account.equals(throwIntent.account)
@@ -154,6 +159,8 @@ public final class BodyHandClientPolicy {
     }
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
+    public boolean handQueryPending() { return pendingQuery != 0 && pendingAction == 0 && pendingBlockUse == 0; }
+    public BodyHandStateSnapshot lastConfirmedSnapshot() { return inputEnabled ? lastConfirmedSnapshot : null; }
     /** Confirmed read-only authority state; unlike inventoryView this remains usable while input is barred. */
     public BodyHandStateSnapshot confirmedSnapshot() {
         return inputEnabled && snapshot != null && snapshot.reason() == BodyHandStateSnapshot.Reason.OK
@@ -193,7 +200,8 @@ public final class BodyHandClientPolicy {
                                                String itemId, int count) {
         if (hand == null || token == null || !token.equals(hand.token()) || itemId == null
                 || !itemId.equals(hand.itemId()) || count != hand.count() || count <= 0 || count > 64
-                || hand.pullTarget() != null || hand.pouch() || "moonstation14:bag".equals(itemId) || "moonstation14:belt".equals(itemId))
+                || hand.pullTarget() != null || hand.pouch() || "moonstation14:bag".equals(itemId) || "moonstation14:belt".equals(itemId)
+                || "moonstation14:pill_canister".equals(itemId))
             return false;
         var id = ResourceLocation.tryParse(itemId);
         return id != null && BuiltInRegistries.ITEM.containsKey(id)
@@ -235,7 +243,7 @@ public final class BodyHandClientPolicy {
             }
             try {
                 host = new BodyHandStateSnapshot.GridHost(hostToken, kind,
-                        "bag".equals(kind) ? 7 : 8, "bag".equals(kind) ? 4 : 2, entries);
+                         "bag".equals(kind) ? 7 : "pill".equals(kind) ? 5 : 8, "bag".equals(kind) ? 4 : 2, entries);
             } catch (IllegalArgumentException malformedLegacyContents) {
                 return null;
             }
@@ -260,11 +268,13 @@ public final class BodyHandClientPolicy {
         if (!inputEnabled || source == null || !presentation && (pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0)
                 || source.hands().size() != 2 || token == null) return null;
         var hosts = source.hands().stream().filter(h -> token.equals(h.token())
-                && h.count() == 1 && ("moonstation14:bag".equals(h.itemId()) || "moonstation14:belt".equals(h.itemId()))).toList();
+                && h.count() == 1 && ("moonstation14:bag".equals(h.itemId()) || "moonstation14:belt".equals(h.itemId())
+                || "moonstation14:pill_canister".equals(h.itemId()))).toList();
         if (hosts.size() != 1) return null;
         var host = hosts.getFirst();
         var other = source.hands().get(0) == host ? source.hands().get(1) : source.hands().get(0);
-        var result = gridView(source, "moonstation14:bag".equals(host.itemId()) ? "bag" : "belt",
+        var result = gridView(source, "moonstation14:bag".equals(host.itemId()) ? "bag"
+                        : "moonstation14:pill_canister".equals(host.itemId()) ? "pill" : "belt",
                 token, host.childToken(), host.childItemId(), host.childCount(), other);
         return presentation && (snapshot != source || pendingQuery != 0 || pendingAction != 0 || pendingBlockUse != 0) ? disable(result) : result;
     }

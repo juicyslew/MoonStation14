@@ -1,0 +1,35 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/botany/indicators/harvest",
+    "particle": "moonstation14:block/botany/indicators/harvest"
+  },
+  "elements": [
+    {
+      "name": "status_harvest_display",
+      "from": [
+        11.8,
+        1.3,
+        2.4800000000000004
+      ],
+      "to": [
+        13.8,
+        2.8,
+        2.4800000000000004
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            4.0,
+            12.0,
+            10.0
+          ]
+        }
+      }
+    }
+  ],
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

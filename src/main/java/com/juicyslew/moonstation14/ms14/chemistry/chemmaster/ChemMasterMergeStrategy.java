@@ -9,11 +9,11 @@ import java.util.List;
 /** Resolves supported inherited machine fields, merging nested input policy fieldwise. */
 public final class ChemMasterMergeStrategy implements PrototypeMergeStrategy {
     @Override public boolean handles(String field) { return field.equals("powerLoadWatts") || field.equals("cableReach")
-            || field.equals("uiRange") || field.equals("inputSlot") || field.equals("clickSound")
+            || field.equals("uiRange") || field.equals("inputSlot") || field.equals("outputSlot") || field.equals("pillDosageLimit") || field.equals("clickSound")
             || field.equals("slotInsertSound") || field.equals("slotEjectSound") || field.equals("dumpableSolution"); }
     @Override public JsonElement merge(String field, ResourceLocation id, JsonObject child, List<JsonObject> parents) {
         if (!handles(field)) return null;
-        if (!field.equals("inputSlot") && !field.equals("dumpableSolution")) {
+        if (!field.equals("inputSlot") && !field.equals("outputSlot") && !field.equals("dumpableSolution")) {
             JsonElement result = null;
             for (JsonObject parent : parents) if (parent.has(field)) result = parent.get(field).deepCopy();
             return child.has(field) ? child.get(field).deepCopy() : result;

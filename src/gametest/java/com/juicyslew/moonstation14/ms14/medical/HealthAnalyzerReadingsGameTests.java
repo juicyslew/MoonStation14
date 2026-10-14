@@ -80,8 +80,9 @@ public final class HealthAnalyzerReadingsGameTests {
         require(snapshot.species().equals("Human"), "species comes from resolved humanoid profile");
         require(snapshot.temperatureKelvin().orElseThrow() == (float)315.25, "live temperature attachment read");
         require(snapshot.state().equals("Critical"), "typed Critical state read");
-        require(snapshot.damage().isEmpty() && body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == null,
-                "missing damage stays empty without importing vanilla baseline");
+        var damage = body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        require(snapshot.damage().isEmpty() && damage != null && damage.getMap().isEmpty(),
+                "enrolled actor has a known-zero ledger without importing vanilla baseline");
         require(body.getHealth() == healthBefore, "reading does not project native health");
         body.setData(ModDataAttachments.MOB_STATE.get(), new MobStateAttachment(
                 new MobStateData(MobStateComponent.State.DEAD, 2)));

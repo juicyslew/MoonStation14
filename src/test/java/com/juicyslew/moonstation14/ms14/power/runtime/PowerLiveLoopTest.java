@@ -27,6 +27,22 @@ final class PowerLiveLoopTest {
                 List.of(new PowerLiveLoop.ApcConsumer("isolated", 44, true, 250)), 20));
         assertEquals(0, result.apcConsumerWatts().get("isolated"), 1e-9);
     }
+    @Test void processingLoadsShareApcTierAllocationAndUnknownComponentsFailClosed() {
+        var apc = List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 1_000));
+        var one = new PowerLiveLoop.ProcessingLoad("processor", 3, true, 750);
+        var full = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(one), 20));
+        assertEquals(750, full.processingWatts().get("processor"), 1e-9);
+
+        var competing = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(one, new PowerLiveLoop.ProcessingLoad("other", 3, true, 750)), 20));
+        assertEquals(1_000, competing.processingWatts().values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9);
+        var unknown = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(new PowerLiveLoop.ProcessingLoad("unknown", 3, false, 750)), 20));
+        assertEquals(0, unknown.processingWatts().get("unknown"), 1e-9);
+    }
     @Test void chemMasterUsesResolvedDemandAndActualApcAllocation() {
         var source = List.of(new PowerLiveLoop.Source("source", 1, true, 1_000));
         var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));
@@ -62,10 +78,11 @@ final class PowerLiveLoopTest {
         var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));
         var apc = List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 0));
         var unit = new PowerLiveLoop.DisposalLoad("unit", 3, true, 1_000);
-        var result = PowerLiveLoop.solve(new PowerLiveLoop.Input(src, sub, apc, List.of(), List.of(), List.of(), List.of(), List.of(unit), 20));
+        var result = PowerLiveLoop.solve(new PowerLiveLoop.Input(src, sub, apc, List.of(), List.of(), List.of(), List.of(), List.of(unit),
+                List.of(), List.of(), List.of(), List.of(), 20));
         assertEquals(1_000, result.disposalWatts().get("unit"), 1e-9);
         var unknown = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(), List.of(), List.of(), List.of(),
-                List.of(new PowerLiveLoop.DisposalLoad("unit", 3, false, 1_000)), 20));
+                List.of(new PowerLiveLoop.DisposalLoad("unit", 3, false, 1_000)), List.of(), List.of(), List.of(), List.of(), 20));
         assertEquals(0, unknown.disposalWatts().get("unit"), 1e-9);
     }
     @Test void ventsShareApcAllocationWithLampsAndAreBilledOnlyForElapsedTime() {
@@ -100,10 +117,12 @@ final class PowerLiveLoopTest {
         var sub=List.of(new PowerLiveLoop.Substation("sub",1,true,2,true));
         var apc=List.of(new PowerLiveLoop.Apc("apc",2,true,3,true,true,0));
         var door=new PowerLiveLoop.AirlockLoad("airlock",3,true,20);
-        var result=PowerLiveLoop.solve(new PowerLiveLoop.Input(source,sub,apc,List.of(),List.of(),List.of(),List.of(door),List.of(),20));
+        var result=PowerLiveLoop.solve(new PowerLiveLoop.Input(source,sub,apc,List.of(),List.of(),List.of(),List.of(door),List.of(),
+                List.of(),List.of(),List.of(),List.of(),20));
         assertEquals(20,result.airlockWatts().get("airlock"),1e-9);
         var shortSupply=PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("source2",1,true,10)),sub,
-                List.of(new PowerLiveLoop.Apc("apc2",2,true,3,true,true,0)),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.AirlockLoad("door2",3,true,20)),List.of(),20));
+                List.of(new PowerLiveLoop.Apc("apc2",2,true,3,true,true,0)),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.AirlockLoad("door2",3,true,20)),List.of(),
+                List.of(),List.of(),List.of(),List.of(),20));
         assertTrue(shortSupply.airlockWatts().get("door2")<20);
     }
 

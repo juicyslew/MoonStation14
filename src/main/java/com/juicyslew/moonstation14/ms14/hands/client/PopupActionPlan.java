@@ -290,7 +290,8 @@ final class PopupActionPlan {
     private static String hostId(BodyHandStateSnapshot proof, StoragePopupWorkspace.HostKey host) {
         if (host.kind() == StoragePopupWorkspace.HostKind.HELD) {
             var hands = proof.hands().stream().filter(h -> host.token().equals(h.token()) && h.count() == 1
-                    && ("moonstation14:bag".equals(h.itemId()) || "moonstation14:belt".equals(h.itemId()))).toList();
+                    && ("moonstation14:bag".equals(h.itemId()) || "moonstation14:belt".equals(h.itemId())
+                    || "moonstation14:pill_canister".equals(h.itemId()))).toList();
             return hands.size() == 1 ? hands.getFirst().id() : null;
         }
         String slot = host.kind() == StoragePopupWorkspace.HostKind.BELT ? "belt" : "back";
@@ -302,7 +303,8 @@ final class PopupActionPlan {
     private static BodyHandStateSnapshot.GridHost explicitGrid(BodyHandStateSnapshot proof, StoragePopupWorkspace.HostKey host) {
         String kind = host.kind() == StoragePopupWorkspace.HostKind.HELD
                 ? proof.hands().stream().filter(h -> host.token().equals(h.token())).map(h ->
-                "moonstation14:bag".equals(h.itemId()) ? "bag" : "moonstation14:belt".equals(h.itemId()) ? "belt" : "")
+                "moonstation14:bag".equals(h.itemId()) ? "bag" : "moonstation14:belt".equals(h.itemId()) ? "belt"
+                        : "moonstation14:pill_canister".equals(h.itemId()) ? "pill" : "")
                 .findFirst().orElse("") : host.kind() == StoragePopupWorkspace.HostKind.BAG ? "bag" : "belt";
         var grids = proof.grids().stream().filter(g -> host.token().equals(g.hostToken())
                 && kind.equals(g.kind())).toList();

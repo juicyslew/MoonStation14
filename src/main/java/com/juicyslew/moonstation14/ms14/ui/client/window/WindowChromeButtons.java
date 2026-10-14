@@ -7,6 +7,8 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
 import com.juicyslew.moonstation14.ms14.ui.client.MachineActionButtonRenderer;
 import net.minecraft.client.gui.GuiGraphics;
+import com.juicyslew.moonstation14.ms14.ui.client.paint.OrderedPaint;
+import com.juicyslew.moonstation14.ms14.ui.client.paint.GuiGraphicsPaint;
 
 /** Factory for focusable vanilla title-bar controls; screens add and reposition the returned widgets. */
 public final class WindowChromeButtons {
@@ -32,6 +34,25 @@ public final class WindowChromeButtons {
         return new net.minecraft.client.gui.navigation.ScreenRectangle(
                 Math.round(windowX + (windowWidth - EDGE - SIZE) * scale),
                 Math.round(windowY + EDGE * scale), Math.round(SIZE * scale), Math.round(SIZE * scale));
+    }
+
+    /** Exact bounds shared by non-widget machine chrome painting and hit routing. */
+    public static net.minecraft.client.gui.navigation.ScreenRectangle closeBounds(int x, int y, int width, int height) {
+        return new net.minecraft.client.gui.navigation.ScreenRectangle(x,y,Math.max(0,width),Math.max(0,height));
+    }
+
+    public static boolean contains(net.minecraft.client.gui.navigation.ScreenRectangle bounds,double x,double y) {
+        return x>=bounds.left()&&x<(long)bounds.left()+bounds.width()
+                &&y>=bounds.top()&&y<(long)bounds.top()+bounds.height();
+    }
+
+    public static void paintClose(GuiGraphics graphics,net.minecraft.client.gui.navigation.ScreenRectangle bounds,
+                                  int mouseX,int mouseY) {
+        paintClose(new GuiGraphicsPaint(graphics,net.minecraft.client.Minecraft.getInstance().font),bounds,mouseX,mouseY);
+    }
+    public static void paintClose(OrderedPaint graphics,net.minecraft.client.gui.navigation.ScreenRectangle bounds,int mouseX,int mouseY) {
+        MachineActionButtonRenderer.render(graphics,"×",bounds.left(),bounds.top(),bounds.width(),bounds.height(),
+                contains(bounds,mouseX,mouseY),true,false,.65f);
     }
 
     /** Returns null when help is not supplied; callers should only register a non-null widget. */
