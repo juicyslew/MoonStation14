@@ -33,6 +33,7 @@ public final class BuiltinExamineContributors {
         ExamineContributorRegistry.register("puddle-solution", BuiltinExamineContributors::puddleSolution);
         ExamineContributorRegistry.register("jug-solution", BuiltinExamineContributors::jugSolution);
         ExamineContributorRegistry.register("beaker-solution", BuiltinExamineContributors::beakerSolution);
+        ExamineContributorRegistry.register("botany-tray", BotanyExamineContributor::contribute);
     }
 
     static void metadata(ExamineContext context, ExamineCollector collector) {

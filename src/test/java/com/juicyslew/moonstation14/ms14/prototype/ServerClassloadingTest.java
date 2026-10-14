@@ -138,7 +138,8 @@ class ServerClassloadingTest {
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/mixin/client/")
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")) {
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")) {
                     continue;
                 }
 

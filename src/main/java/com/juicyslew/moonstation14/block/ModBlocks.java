@@ -20,6 +20,9 @@ import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
+import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlock;
+import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlock;
+import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlock;
 import com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -116,6 +119,14 @@ public class ModBlocks {
     public static final DeferredBlock<DisposalTubeBlock> DISPOSAL_TUBE = BLOCKS.register("disposal_tube",
             () -> new DisposalTubeBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion().noLootTable()));
     public static final DeferredBlock<ChemMasterBlock> CHEM_MASTER = BLOCKS.register("chem_master", ChemMasterBlock::new);
+    public static final DeferredBlock<HydroponicsTrayBlock> HYDROPONICS_TRAY = registerBlock("hydroponics_tray",
+            () -> new HydroponicsTrayBlock("hydroponics_tray", BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
+    public static final DeferredBlock<HydroponicsTrayBlock> EMPTY_HYDROPONICS_TRAY = registerBlock("empty_hydroponics_tray",
+            () -> new HydroponicsTrayBlock("empty_hydroponics_tray", BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
+    public static final DeferredBlock<SeedExtractorBlock> SEED_EXTRACTOR = registerBlock("seed_extractor",
+            () -> new SeedExtractorBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
+    public static final DeferredBlock<ReagentGrinderBlock> REAGENT_GRINDER = registerBlock("reagent_grinder",
+            () -> new ReagentGrinderBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
     static {
         ModItems.ITEMS.register("disposal_tube", () -> new CatalogOnlyDisposalPipeBlockItem(
                 DISPOSAL_TUBE.get(), new Item.Properties()));

@@ -1,0 +1,30 @@
+{
+  "asset_id": "hydroponics_tray_front_status_slots_r2",
+  "scope": "ONE tray front correction; all 34 plant appearances and existing tray top/rear/sides/supports preserved",
+  "family": "saved BasicBotany hydroponics_tray, native Java cuboids and source-pixel front indicators",
+  "target": {"minecraft": "Java 1.21.1", "loader": "NeoForge 21.1.224", "authoring": "Blockbench java_block project 4.10, reference BB4.12.6", "runtime": "native block-model JSON + PNG + native texture animation mcmeta", "new_dependencies": []},
+  "coordinates": {"units_per_block": 16, "origin": "northwest bottom block corner", "front": "-Z north", "plant_root": [8,5,8], "renderer_translation": [0,0,0], "tray_envelope": [[1,0,1],[15,5,15]]},
+  "slots": {
+    "view_order": "left-to-right when looking at the NORTH front = decreasing export X; matches actual SS14 overlay pixel positions",
+    "front_plane_z": 1.9,
+    "backing_plane_z": 2.5,
+    "indicator_plane_z": 2.48,
+    "opening_y": [1.3,2.8],
+    "opening_width": 2.0,
+    "opening_height": 1.5,
+    "recess_depth": 0.6,
+    "cells": [
+      {"id": "harvest", "center_x": 12.8, "source": "harvest3", "appearance": "PlantHolderVisuals.HarvestLight", "source_crop": [4,27,8,30]},
+      {"id": "health", "center_x": 10.4, "source": "lowhealth3", "appearance": "PlantHolderVisuals.HealthLight", "source_crop": [9,27,13,30]},
+      {"id": "alert", "center_x": 8.0, "source": "alert3", "appearance": "PlantHolderVisuals.AlertLight", "source_crop": [14,27,18,30]},
+      {"id": "nutrition", "center_x": 5.6, "source": "lownutri3", "appearance": "PlantHolderVisuals.NutritionLight", "source_crop": [19,27,23,30]},
+      {"id": "water", "center_x": 3.2, "source": "lowwater3", "appearance": "PlantHolderVisuals.WaterLight", "source_crop": [24,27,28,30]}
+    ]
+  },
+  "parts": {"modified": "dark_undertray: remove ONLY north face, retain bounds/ID/other five faces/UVs", "added": "six solid front mullions; top and bottom front rails; five independently named dark recessed backings; six pale bottom divider accents; five separately exported north-only optional indicator quads", "hierarchy": "existing tray group unchanged, new semantic parts appended; each optional indicator is a separate component project", "pivots": "static unrotated elements; block-local root; no mechanics"},
+  "texture": {"base": "saved128x128 RGBA atlas; original texels retained, three source-colored 1x1 swatches plus padding added only in unused bottom rows", "indicators": "exact native4x3 opaque crops; padded into8x8 frames, seven-frame8x56 PNG strips", "filter": "nearest", "material": "native cutout, ordinary lighting, no global fullbright or translucency", "density": "base32texels/block; status pixels preserve source4x3 scale rather than entire sprite portrait"},
+  "states": {"inactive": "five dark recessed slots ALWAYS visible, no component drawn", "active": "draw corresponding independent status quad behind opening, replacing its black appearance", "valid_combinations": "all32 independent masks; empty cell may still report low water/nutrition; plant status does not determine geometry eligibility", "controller": "existing authoritative status owner selects zero/one component per slot, independently of plant/dead/harvest mesh; integration remains pending"},
+  "timing": {"native_frames_per_indicator": 7, "seconds_per_frame": 0.1, "ticks_per_frame": 2, "loop_seconds": 0.7, "loop_ticks": 14, "mechanical_clips": [], "animation": "native source optical loops only; no growth timer or added physical motion"},
+  "collision": "unchanged host Block.box(1,0,1,15,5,15), models do not supply hitboxes",
+  "assumptions": ["Open slots means actual framed recessed apertures with dark backing/display seats, not holes through the entire fluid basin", "Recess depth and hidden walls inferred conservatively; source five information positions and native pigments retained", "Original gallery is historical ONLY for tray front; all original plant masters remain current", "No renderer/gameplay/reference-repo writes or app launch authorized"]
+}

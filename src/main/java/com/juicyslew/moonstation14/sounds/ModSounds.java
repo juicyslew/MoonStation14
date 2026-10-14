@@ -20,6 +20,7 @@ public class ModSounds {
     public static final Supplier<SoundEvent> TOOL_WELDER = registerSoundEvent("ss14/tools/welder");
     public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
+    public static final Supplier<SoundEvent> BOTANY_GRINDER = registerSoundEvent("botany/grinder/blender");
     public static final Supplier<SoundEvent> CHEMMASTER_CLICK = registerSoundEvent("chemistry/chemmaster/click");
     public static final Supplier<SoundEvent> CHEMMASTER_INSERT = registerSoundEvent("chemistry/chemmaster/insert");
     public static final Supplier<SoundEvent> CHEMMASTER_EJECT = registerSoundEvent("chemistry/chemmaster/eject");

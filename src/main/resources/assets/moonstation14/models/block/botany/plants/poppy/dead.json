@@ -1,0 +1,1000 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/botany/poppy/dead",
+    "particle": "moonstation14:block/botany/poppy/dead"
+  },
+  "elements": [
+    {
+      "name": "dry_lower_stem",
+      "from": [
+        7.775,
+        5.0,
+        7.775
+      ],
+      "to": [
+        8.225,
+        11.0,
+        8.225
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            0.125,
+            0.25,
+            1.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            0.125,
+            0.25,
+            1.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            0.125,
+            0.25,
+            1.625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            0.125,
+            0.25,
+            1.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        }
+      }
+    },
+    {
+      "name": "bent_dry_middle",
+      "from": [
+        7.775,
+        11.0,
+        7.775
+      ],
+      "to": [
+        8.225,
+        16.0,
+        8.225
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            0.875,
+            0.125,
+            1.0,
+            1.375
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            0.875,
+            0.125,
+            1.0,
+            1.375
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            0.875,
+            0.125,
+            1.0,
+            1.375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            0.875,
+            0.125,
+            1.0,
+            1.375
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          11,
+          8
+        ],
+        "axis": "z",
+        "angle": -45,
+        "rescale": false
+      }
+    },
+    {
+      "name": "dry_upper_stem",
+      "from": [
+        11.34,
+        14.54,
+        7.8
+      ],
+      "to": [
+        11.74,
+        18.54,
+        8.2
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            1.25,
+            0.125,
+            1.375,
+            1.125
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            1.25,
+            0.125,
+            1.375,
+            1.125
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            1.25,
+            0.125,
+            1.375,
+            1.125
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            1.25,
+            0.125,
+            1.375,
+            1.125
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        }
+      }
+    },
+    {
+      "name": "spent_head_neck",
+      "from": [
+        11.365,
+        18.54,
+        7.825
+      ],
+      "to": [
+        11.715,
+        20.54,
+        8.175
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            1.625,
+            0.125,
+            1.75,
+            0.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            1.625,
+            0.125,
+            1.75,
+            0.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            1.625,
+            0.125,
+            1.75,
+            0.625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            1.625,
+            0.125,
+            1.75,
+            0.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            0.125,
+            0.625,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          11.54,
+          18.54,
+          8.0
+        ],
+        "axis": "z",
+        "angle": 45,
+        "rescale": false
+      }
+    },
+    {
+      "name": "grey_seed_remnant_middle",
+      "from": [
+        9.35,
+        20.116,
+        7.5
+      ],
+      "to": [
+        10.85,
+        20.884,
+        8.5
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            2.0,
+            0.125,
+            2.375,
+            0.375
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            2.625,
+            0.125,
+            2.875,
+            0.375
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            2.0,
+            0.125,
+            2.375,
+            0.375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            2.625,
+            0.125,
+            2.875,
+            0.375
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            2.0,
+            0.125,
+            2.375,
+            0.375
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            2.0,
+            0.125,
+            2.375,
+            0.375
+          ]
+        }
+      }
+    },
+    {
+      "name": "grey_seed_remnant_bottom",
+      "from": [
+        9.620000000000001,
+        19.9,
+        7.66
+      ],
+      "to": [
+        10.58,
+        20.116,
+        8.34
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.625,
+            0.125,
+            3.75,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.625,
+            0.125,
+            3.75,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        }
+      }
+    },
+    {
+      "name": "grey_seed_remnant_cap",
+      "from": [
+        9.620000000000001,
+        20.884,
+        7.66
+      ],
+      "to": [
+        10.58,
+        21.1,
+        8.34
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.625,
+            0.125,
+            3.75,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.625,
+            0.125,
+            3.75,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.125,
+            0.125,
+            3.375,
+            0.25
+          ]
+        }
+      }
+    },
+    {
+      "name": "dry_grey_leaf_0_body",
+      "from": [
+        8.0,
+        8.0,
+        7.625
+      ],
+      "to": [
+        9.8,
+        8.35,
+        8.175
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            0.125,
+            4.5,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            0.125,
+            4.5,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            5.125,
+            0.125,
+            5.625,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            5.875,
+            0.125,
+            6.375,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          8.0,
+          8.0,
+          7.9
+        ],
+        "axis": "z",
+        "angle": -22.5,
+        "rescale": false
+      }
+    },
+    {
+      "name": "dry_grey_leaf_0_tip",
+      "from": [
+        9.8,
+        8.07,
+        7.746
+      ],
+      "to": [
+        10.45,
+        8.28,
+        8.054
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          8.0,
+          8.0,
+          7.9
+        ],
+        "axis": "z",
+        "angle": -22.5,
+        "rescale": false
+      }
+    },
+    {
+      "name": "dry_grey_leaf_1_body",
+      "from": [
+        7.5,
+        12.0,
+        7.625
+      ],
+      "to": [
+        9.3,
+        12.35,
+        8.175
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            0.125,
+            4.5,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            0.125,
+            4.5,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            5.125,
+            0.125,
+            5.625,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            5.875,
+            0.125,
+            6.375,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          9.3,
+          12.0,
+          7.9
+        ],
+        "axis": "z",
+        "angle": 22.5,
+        "rescale": false
+      }
+    },
+    {
+      "name": "dry_grey_leaf_1_tip",
+      "from": [
+        6.85,
+        12.07,
+        7.746
+      ],
+      "to": [
+        7.5,
+        12.28,
+        8.054
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          9.3,
+          12.0,
+          7.9
+        ],
+        "axis": "z",
+        "angle": 22.5,
+        "rescale": false
+      }
+    },
+    {
+      "name": "dry_grey_leaf_2_body",
+      "from": [
+        11.54,
+        16.0,
+        7.625
+      ],
+      "to": [
+        13.34,
+        16.35,
+        8.175
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            0.125,
+            4.5,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            0.125,
+            4.5,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            5.125,
+            0.125,
+            5.625,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            5.875,
+            0.125,
+            6.375,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          11.54,
+          16.0,
+          7.9
+        ],
+        "axis": "z",
+        "angle": -22.5,
+        "rescale": false
+      }
+    },
+    {
+      "name": "dry_grey_leaf_2_tip",
+      "from": [
+        13.34,
+        16.07,
+        7.746
+      ],
+      "to": [
+        13.99,
+        16.28,
+        8.054
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            4.75,
+            0.125,
+            4.875,
+            0.25
+          ]
+        }
+      },
+      "rotation": {
+        "origin": [
+          11.54,
+          16.0,
+          7.9
+        ],
+        "axis": "z",
+        "angle": -22.5,
+        "rescale": false
+      }
+    }
+  ],
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.ms14.explosion.grenade.core.GrenadeFuseData;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.chemistry.output.PillData;
 import com.juicyslew.moonstation14.ms14.chemistry.output.ChemOutputLabel;
+import com.juicyslew.moonstation14.ms14.botany.ProduceInstanceData;
 import com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelData;
 import com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData;
 import com.juicyslew.moonstation14.ms14.medical.SyringeStackData;
@@ -87,6 +88,9 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ChemOutputLabel>> CHEM_OUTPUT_LABEL =
             register_component("chem_output_label", builder -> builder.persistent(ChemOutputLabel.CODEC)
                     .networkSynchronized(ChemOutputLabel.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<ProduceInstanceData>> PRODUCE_INSTANCE =
+            register_component("produce_instance", builder -> builder.persistent(ProduceInstanceData.CODEC)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodec(ProduceInstanceData.CODEC)));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<GrenadeFuseData>> GRENADE_FUSE =
             register_component("grenade_fuse", builder -> builder.persistent(GrenadeFuseData.CODEC)

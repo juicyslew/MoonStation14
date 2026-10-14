@@ -1,0 +1,7 @@
+# Starter seed profile composition
+
+Audited against SS14 pin `c9df5ef5d675b0d1d226828bddf6b78c28502d91`: `Content.Server/Botany/SeedPrototype.cs` (`SeedData` defaults) and `Resources/Prototypes/Hydroponics/seeds.yml` (wheat, tomato, potato, poppy, aloe). Upstream seed prototypes are direct definitions (no entity-parent composition). Local `defaults` deliberately maps the C# shared defaults into typed biology/lifecycle records; the five resolved children override those values. The numeric profile fields and chemistry use upstream Min/Max/PotencyDivisor; ordinary chemistry formula is `min(potency-derived, max)` where derived amount is `min + potency/divisor`.
+
+Upstream packet/product prototype identifiers are represented as local resource IDs: `WheatSeeds` / `WheatBushel` → `wheat_seeds` / `wheat_bushel`; TomatoSeeds/FoodTomato → tomato_seeds/tomato; PotatoSeeds/FoodPotato → potato_seeds/potato; PoppySeeds/FoodPoppy → poppy_seeds/poppy; AloeSeeds/FoodAloe → aloe_seeds/aloe. Stable visual keys correspond to upstream plantRsi basenames. They are metadata, not a claim of imported assets or stage geometry.
+
+This typed catalog intentionally excludes mutation destinations, splat/pest/light/sound behavior, and unsupported entity components. It is a resolved profile catalog only; tray simulation, harvesting/product generation and a live world consumer are future units. `PrototypeRuntime` registers it for server/client snapshots and datapack reload/sync.

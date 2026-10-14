@@ -18,6 +18,8 @@ public class ModCreativeModeTabs {
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_ITEM_ENTRIES = List.of(
             ModItems.STEEL, ModItems.METAL_ROD, ModItems.WOOD, ModItems.CLOTH, ModItems.GLASS, ModItems.PAPER, ModItems.PLASTIC,
             ModItems.CHEESE_SLICE, ModItems.PUMPKIN_PIE_SLICE,
+            ModItems.WHEAT_SEEDS, ModItems.TOMATO_SEEDS, ModItems.POTATO_SEEDS, ModItems.POPPY_SEEDS, ModItems.ALOE_SEEDS,
+            ModItems.WHEAT_BUSHEL, ModItems.TOMATO, ModItems.POTATO, ModItems.POPPY, ModItems.ALOE,
             ModItems.CROWBAR, ModItems.AIRLOCK_MULTITOOL, ModItems.PILL, ModItems.PILL_CANISTER, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
             ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE, ModItems.SYRINGE,
@@ -25,7 +27,7 @@ public class ModCreativeModeTabs {
             ModItems.JUG, ModItems.BEAKER, ModItems.BEAKER_LARGE, ModItems.CHEM_MASTER, ModItems.GAS_PIPE_SEGMENT, ModItems.GAS_PIPE_SEGMENT_SECONDARY, ModItems.GAS_PIPE_SEGMENT_TERTIARY,
             ModItems.GAS_VENT, ModItems.GAS_SCRUBBER, ModItems.AIR_ALARM,
             ModItems.DISPOSAL_UNIT,
-            ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER,
+            ModItems.WRENCH, ModItems.SCREWDRIVER, ModItems.WELDER, ModItems.BOTANY_HOE, ModItems.BOTANY_SPADE,
             ModItems.OINTMENT, ModItems.BRUTEPACK, ModItems.GAUZE, ModItems.HANDHELD_HEALTH_ANALYZER,
             ModItems.NETWORK_CONFIGURATOR, ModItems.REMOTE_SIGNALLER, ModItems.REMOTE_SIGNALLER_ADVANCED,
             ModEquipmentItems.GREY_CAP, ModEquipmentItems.GREY_JUMPSUIT, ModEquipmentItems.SIMPLE_COAT,
@@ -44,7 +46,8 @@ public class ModCreativeModeTabs {
             ModBlocks.ATMOS_GAS_SINK, ModBlocks.ATMOS_HEATER, ModBlocks.ATMOS_COOLER,
             ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY, ModItems.GAS_PIPE_VISUAL_TERTIARY,
             ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE, ModBlocks.CHEM_MASTER,
-            ModBlocks.SIGNAL_BUTTON, ModBlocks.SIGNAL_SWITCH);
+            ModBlocks.SIGNAL_BUTTON, ModBlocks.SIGNAL_SWITCH,
+            ModBlocks.HYDROPONICS_TRAY, ModBlocks.EMPTY_HYDROPONICS_TRAY, ModBlocks.SEED_EXTRACTOR, ModBlocks.REAGENT_GRINDER);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TAB =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MoonStation14.MOD_ID);
 

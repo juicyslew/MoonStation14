@@ -79,7 +79,7 @@ public final class BodyHandRequestService {
                 ? new BlockUseAdmission(authority, hands, hit) : null;
     }
 
-    static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
+    public static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
                                             String actualToken) {
         return expectedToken == null ? !tokenPresent && !stackPresent
                 : tokenPresent && stackPresent && expectedToken.equals(actualToken);
