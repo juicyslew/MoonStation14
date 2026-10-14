@@ -209,3 +209,4 @@ public final class CharacterIdentitySystem {
         }
     }
 }
+

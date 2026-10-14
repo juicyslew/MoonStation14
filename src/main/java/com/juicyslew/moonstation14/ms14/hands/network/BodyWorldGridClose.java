@@ -24,3 +24,4 @@ public record BodyWorldGridClose(long epoch, UUID target, UUID session) implemen
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

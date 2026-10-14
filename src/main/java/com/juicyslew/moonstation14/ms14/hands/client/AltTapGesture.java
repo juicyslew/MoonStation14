@@ -26,3 +26,4 @@ final class AltTapGesture {
         usedAsModifier = false;
     }
 }
+

@@ -10,3 +10,4 @@ public final class InventoryTemplateMergeStrategy implements PrototypeMergeStrat
     }
     private static void mergeSlot(java.util.Map<String,JsonObject> slots,JsonObject source){String key=source.get("id").getAsString();JsonObject target=slots.computeIfAbsent(key,k->new JsonObject());source.entrySet().forEach(e->target.add(e.getKey(),e.getValue().deepCopy()));}
 }
+

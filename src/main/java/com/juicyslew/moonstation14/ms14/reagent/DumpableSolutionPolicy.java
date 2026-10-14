@@ -13,3 +13,4 @@ public record DumpableSolutionPolicy(boolean enabled, String solutionName, boole
     public static final DumpableSolutionPolicy DISABLED = new DumpableSolutionPolicy(false, "default", false);
     public DumpableSolutionPolicy { if (solutionName == null || solutionName.isBlank()) throw new IllegalArgumentException("invalid dump policy"); }
 }
+

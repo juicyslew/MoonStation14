@@ -70,3 +70,4 @@ public record HealthAnalyzerSnapshot(UUID scannerId, long epoch, UUID actorId,
         }
     }
 }
+

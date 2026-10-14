@@ -4,12 +4,14 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 import net.minecraft.resources.ResourceLocation;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape;
 
 /** Resolved supported Item, Clothing and optional AllowSuitStorage composition. */
 public record EquipmentItemData(Item item, Optional<Clothing> clothing,
-                                Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags) {
+                                Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags,
+                                Optional<Armor> armor) {
     public enum AppearanceRegion { HEAD, TORSO, LEGS, FEET, HANDS, EYES, EARS, NECK, FACE }
 
     public static final Codec<AppearanceRegion> REGION_CODEC = Codec.STRING.comapFlatMap(value -> {
@@ -44,17 +46,58 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
     ).apply(instance, Clothing::new));
     public static final Codec<AllowSuitStorage> SUIT_STORAGE_CODEC = Codec.BOOL.xmap(
             AllowSuitStorage::new, AllowSuitStorage::enabled);
+    public static final Codec<ArmorModifier> ARMOR_MODIFIER_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.FLOAT.optionalFieldOf("flat_reduction", 0f).forGetter(ArmorModifier::flatReduction),
+            Codec.FLOAT.optionalFieldOf("coefficient", 1f).forGetter(ArmorModifier::coefficient)
+    ).apply(instance, ArmorModifier::new));
+    public static final Codec<Armor> ARMOR_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.unboundedMap(Codec.STRING.comapFlatMap(value -> {
+                try {
+                    com.juicyslew.moonstation14.ms14.damage.DamageKeys.requireCanonical(value);
+                    return com.mojang.serialization.DataResult.success(value);
+                } catch (IllegalArgumentException exception) {
+                    return com.mojang.serialization.DataResult.error(exception::getMessage);
+                }
+            }, value -> value), ARMOR_MODIFIER_CODEC).fieldOf("modifiers").forGetter(Armor::modifiers)
+    ).apply(instance, Armor::new));
     public static final Codec<EquipmentItemData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ITEM_CODEC.fieldOf("item").forGetter(EquipmentItemData::item),
             CLOTHING_CODEC.optionalFieldOf("clothing").forGetter(EquipmentItemData::clothing),
             SUIT_STORAGE_CODEC.optionalFieldOf("allow_suit_storage").forGetter(EquipmentItemData::allowSuitStorage),
-            EquipmentTag.CODEC.listOf().optionalFieldOf("tags", List.of()).forGetter(EquipmentItemData::tags)
+            EquipmentTag.CODEC.listOf().optionalFieldOf("tags", List.of()).forGetter(EquipmentItemData::tags),
+            ARMOR_CODEC.optionalFieldOf("armor").forGetter(EquipmentItemData::armor)
     ).apply(instance, EquipmentItemData::new));
 
     public EquipmentItemData {
-        if (item == null || clothing == null || allowSuitStorage == null || tags == null)
+        if (item == null || clothing == null || allowSuitStorage == null || tags == null || armor == null)
             throw new IllegalArgumentException("null equipment composition");
         tags = List.copyOf(tags);
+    }
+
+    public EquipmentItemData(Item item, Optional<Clothing> clothing,
+                             Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags) {
+        this(item, clothing, allowSuitStorage, tags, Optional.empty());
+    }
+
+    /** Generic typed armor modifiers; absent type entries leave damage untouched. */
+    public record Armor(Map<String, ArmorModifier> modifiers) {
+        public Armor {
+            if (modifiers == null) throw new IllegalArgumentException("invalid armor modifiers");
+            var copy = new java.util.LinkedHashMap<String, ArmorModifier>();
+            modifiers.forEach((key, modifier) -> {
+                com.juicyslew.moonstation14.ms14.damage.DamageKeys.requireCanonical(key);
+                if (modifier == null) throw new IllegalArgumentException("invalid armor modifier");
+                copy.put(key, modifier);
+            });
+            modifiers = Map.copyOf(copy);
+        }
+    }
+    public record ArmorModifier(float flatReduction, float coefficient) {
+        public ArmorModifier {
+            if (!Float.isFinite(flatReduction) || flatReduction < 0f
+                    || !Float.isFinite(coefficient) || coefficient < 0f || coefficient > 1f)
+                throw new IllegalArgumentException("invalid armor modifier values");
+        }
     }
 
     public record Item(String size) {
@@ -111,3 +154,4 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
         }
     }
 }
+

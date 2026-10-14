@@ -112,3 +112,4 @@ public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceive
                 throw new IllegalArgumentException("unknown or null air alarm field: " + key);
     }
 }
+

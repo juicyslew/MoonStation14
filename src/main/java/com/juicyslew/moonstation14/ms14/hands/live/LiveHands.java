@@ -1566,3 +1566,4 @@ public final class LiveHands {
         @Override public ItemStack stack() { return stack.copy(); }
     }
 }
+

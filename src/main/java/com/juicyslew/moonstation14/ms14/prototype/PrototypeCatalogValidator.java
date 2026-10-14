@@ -5,3 +5,4 @@ package com.juicyslew.moonstation14.ms14.prototype;
 public interface PrototypeCatalogValidator<T> {
     void validate(PrototypeCatalog<T> catalog);
 }
+

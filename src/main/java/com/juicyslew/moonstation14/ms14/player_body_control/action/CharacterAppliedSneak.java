@@ -26,3 +26,4 @@ public final class CharacterAppliedSneak {
         return appliedSneak && age >= 0 && age <= 1;
     }
 }
+

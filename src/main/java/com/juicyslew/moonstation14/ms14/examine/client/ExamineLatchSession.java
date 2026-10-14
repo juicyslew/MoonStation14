@@ -22,3 +22,4 @@ public final class ExamineLatchSession {
     public void dismiss() { dismissed = true; target = null; actor = null; }
     public void clear() { target = null; actor = null; dismissed = false; }
 }
+

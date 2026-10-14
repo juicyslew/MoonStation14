@@ -241,3 +241,4 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
     }
     @Override public boolean capturesKeyboard() { return false; }
 }
+

@@ -20,3 +20,4 @@ public abstract class LevelRendererCriticalCloudsMixin {
         if (CriticalFogClient.isCriticalObservedBody()) ci.cancel();
     }
 }
+

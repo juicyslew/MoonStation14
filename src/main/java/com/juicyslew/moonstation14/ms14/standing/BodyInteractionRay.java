@@ -16,3 +16,4 @@ public final class BodyInteractionRay {
                 && start.distanceTo(value) < blockerDistance);
     }
 }
+

@@ -38,3 +38,4 @@ public sealed interface AtmosDevicePayload extends DevicePayload
         }
     }
 }
+

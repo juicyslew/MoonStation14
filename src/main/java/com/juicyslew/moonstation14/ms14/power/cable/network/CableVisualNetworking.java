@@ -25,3 +25,4 @@ public final class CableVisualNetworking {
 
     public static void installClientHandler(Consumer<CableVisualPayload> handler) { clientHandler = handler; }
 }
+

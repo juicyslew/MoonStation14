@@ -248,3 +248,4 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

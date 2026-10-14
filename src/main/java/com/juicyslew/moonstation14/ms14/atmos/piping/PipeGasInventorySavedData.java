@@ -118,3 +118,4 @@ public final class PipeGasInventorySavedData extends SavedData {
         return tag;
     }
 }
+

@@ -23,6 +23,7 @@ class GameTestStructureTemplateEncodingTest {
         assertSize("power_receiver_tall_clear.nbt", 16, 13, 16);
         assertSize("disposal_clear.nbt", 32, 8, 32);
         assertSize("disposal_power_clear.nbt", 48, 8, 48);
+        assertSize("singularity_fixture_clear.nbt", 32, 16, 24);
 
         assertCoordinatesFit(16, 13, 18,
                 new int[][]{{3, 1, 2}, {3, 1, 5}, {12, 0, 15}, {12, 3, 15}});

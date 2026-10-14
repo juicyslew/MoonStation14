@@ -43,3 +43,4 @@ public final class ExamineCollector {
                 .thenComparing(ExamineEntry::group).thenComparing(entry -> entry.text().getString())).toList();
     }
 }
+

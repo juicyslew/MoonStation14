@@ -69,3 +69,4 @@ public final class AirAlarmCandidates {
         return chunk != null && chunk.getFullStatus().isOrAfter(FullChunkStatus.FULL) ? chunk : null;
     }
 }
+

@@ -170,3 +170,4 @@ public final class VanillaPlayerDataInventoryView {
         if (remaining[0] < 0) throw new IllegalArgumentException("Oversized playerdata text");
     }
 }
+

@@ -92,3 +92,4 @@ public final class AirlockQuadClipper {
         return axis == 0 ? vertex.x() : axis == 1 ? vertex.y() : vertex.z();
     }
 }
+

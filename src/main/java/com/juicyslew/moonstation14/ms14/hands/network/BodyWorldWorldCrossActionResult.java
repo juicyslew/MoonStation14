@@ -38,3 +38,4 @@ public record BodyWorldWorldCrossActionResult(long epoch, long sequence,
     static void deliverClient(BodyWorldWorldCrossActionResult result) { var handler = clientHandler; if (handler != null) handler.accept(result); }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

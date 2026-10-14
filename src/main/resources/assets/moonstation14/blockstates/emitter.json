@@ -1,0 +1,91 @@
+{
+  "variants": {
+    "facing=north,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/emitter_default",
+      "uvlock": true
+    },
+    "facing=north,visual=on": {
+      "model": "moonstation14:block/reactor_bindings/emitter_on",
+      "uvlock": true
+    },
+    "facing=north,visual=underpowered": {
+      "model": "moonstation14:block/reactor_bindings/emitter_underpowered",
+      "uvlock": true
+    },
+    "facing=east,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/emitter_default",
+      "y": 90,
+      "uvlock": true
+    },
+    "facing=east,visual=on": {
+      "model": "moonstation14:block/reactor_bindings/emitter_on",
+      "y": 90,
+      "uvlock": true
+    },
+    "facing=east,visual=underpowered": {
+      "model": "moonstation14:block/reactor_bindings/emitter_underpowered",
+      "y": 90,
+      "uvlock": true
+    },
+    "facing=south,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/emitter_default",
+      "y": 180,
+      "uvlock": true
+    },
+    "facing=south,visual=on": {
+      "model": "moonstation14:block/reactor_bindings/emitter_on",
+      "y": 180,
+      "uvlock": true
+    },
+    "facing=south,visual=underpowered": {
+      "model": "moonstation14:block/reactor_bindings/emitter_underpowered",
+      "y": 180,
+      "uvlock": true
+    },
+    "facing=west,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/emitter_default",
+      "y": 270,
+      "uvlock": true
+    },
+    "facing=west,visual=on": {
+      "model": "moonstation14:block/reactor_bindings/emitter_on",
+      "y": 270,
+      "uvlock": true
+    },
+    "facing=west,visual=underpowered": {
+      "model": "moonstation14:block/reactor_bindings/emitter_underpowered",
+      "y": 270,
+      "uvlock": true
+    },
+    "facing=up,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/emitter_default",
+      "x": 90,
+      "uvlock": true
+    },
+    "facing=up,visual=on": {
+      "model": "moonstation14:block/reactor_bindings/emitter_on",
+      "x": 90,
+      "uvlock": true
+    },
+    "facing=up,visual=underpowered": {
+      "model": "moonstation14:block/reactor_bindings/emitter_underpowered",
+      "x": 90,
+      "uvlock": true
+    },
+    "facing=down,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/emitter_default",
+      "x": 270,
+      "uvlock": true
+    },
+    "facing=down,visual=on": {
+      "model": "moonstation14:block/reactor_bindings/emitter_on",
+      "x": 270,
+      "uvlock": true
+    },
+    "facing=down,visual=underpowered": {
+      "model": "moonstation14:block/reactor_bindings/emitter_underpowered",
+      "x": 270,
+      "uvlock": true
+    }
+  }
+}

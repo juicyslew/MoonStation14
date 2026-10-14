@@ -1,0 +1,41 @@
+{
+  "status": "USER_ACCEPTED_AS_IS_current_Power_R6",
+  "accepted_art": true,
+  "user_quote": "I accept these designs.",
+  "date": "2026-10-11",
+  "package": "assets/Structures/Power/candidates/terminal_support_r6",
+  "accepted_appearances": 56,
+  "accepted_projects": 86,
+  "accepted_scope": "Entire current delivered Power R6 package:56appearances/86editable projects, two latest emitter/Tesla corrections plus54exact saved R5 appearances and unchanged independent components/AME masks/states/clips/exports. No approval of obsolete revisions, unrelated or skipped existing families inferred.",
+  "before_snapshot": "work/Structures/Power/terminal_support_r6/acceptance_before_metadata",
+  "original_saved_files": 2566,
+  "accepted_core_files": 2566,
+  "saved_files_after_acceptance": 2568,
+  "accepted_output_hashes_sha256": "763579c8a8cf0b56beaa1835115d8487c7e13adaaae6af4addeff7736e941e66",
+  "saved_dependencies_checked": {
+    "appearances": 56,
+    "embedded_PNG_hierarchies": 86,
+    "embedded_external_main_PNG_pairs": 56,
+    "runtime_destinations": 909,
+    "prior_review_image_hashes": 11,
+    "entire_R1_through_R5_preserved": true,
+    "unrelated_retrieval_families_preserved": 81
+  },
+  "only_existing_files_changed": [
+    "README.md",
+    "approval.json",
+    "delivery_hashes.json"
+  ],
+  "protection_refresh": "delivery_hashes.json ONLY two already-existing README.md/approval.json entries; no new guard keys or broad digest refresh; old guard preserved",
+  "art_source_export_preview_validation_bytes": "UNCHANGED",
+  "supersedes": "This explicit acceptance supersedes pending R6 labels in frozen gallery/inventory/review evidence and prior positive-feedback-not-formal-approval notes ONLY for the current R6 designs. Their art/evidence bytes remain untouched.",
+  "not_executed": [
+    "art/model/texture/spec/state/clip/export/preview generation",
+    "rendering",
+    "Blockbench application",
+    "Java-loader/Minecraft",
+    "runtime/gameplay/reference-repository installation"
+  ],
+  "remaining_limits": "Source coil_open/grounding_rod_open missing; hidden depth/leg4fold positions/angular/endcapoverlaps/CPUalpha/small detail/native state fallback/virtual charger interpretation/light/collision/runtime limits unchanged. See unchanged source/registry/binding/contracts.",
+  "future_changes": "Preserve accepted art/later hand edits/guards. No automatic improvements/rebuilds/render replacement. Future explicitly authorized revisions separate candidates; never regenerate-to-retrieve/delete guards."
+}

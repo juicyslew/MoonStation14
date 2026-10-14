@@ -1,0 +1,11 @@
+{
+  "id": "moonstation14:field_generator_base",
+  "type": "moonstation14:field_generator",
+  "abstract": true,
+  "maxCharge": 25,
+  "boltCharge": 3,
+  "connectionThreshold": 6,
+  "decayAmount": 2,
+  "decayIntervalTicks": 400,
+  "maxConnectionLength": 8
+}

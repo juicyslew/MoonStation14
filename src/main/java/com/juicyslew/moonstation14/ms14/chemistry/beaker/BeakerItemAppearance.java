@@ -29,3 +29,4 @@ public final class BeakerItemAppearance {
                 && data.solutionContainer().solutionName().equals("beaker");
     }
 }
+

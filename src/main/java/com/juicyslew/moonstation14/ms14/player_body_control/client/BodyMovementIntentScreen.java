@@ -6,3 +6,4 @@ import com.juicyslew.moonstation14.ms14.hands.client.PopupMovementIntent;
 public interface BodyMovementIntentScreen {
     PopupMovementIntent.State movementIntent();
 }
+

@@ -16,3 +16,4 @@ public record StrippablePrototypeComponent(double handStripDelay) implements Cha
     public StrippablePrototypeComponent { if (!Double.isFinite(handStripDelay) || handStripDelay < 0) throw new IllegalArgumentException("invalid hand strip delay"); }
     @Override public String type() { return TYPE; }
 }
+

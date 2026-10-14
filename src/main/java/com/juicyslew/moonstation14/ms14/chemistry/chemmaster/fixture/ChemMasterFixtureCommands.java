@@ -32,3 +32,4 @@ public final class ChemMasterFixtureCommands {
         return result.startsWith("Refused") || result.startsWith("NOT READY") ? 0 : 1;
     }
 }
+

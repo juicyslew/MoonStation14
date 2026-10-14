@@ -77,3 +77,4 @@ public final class GrenadeFuse {
         public boolean expired() { return expired; }
     }
 }
+

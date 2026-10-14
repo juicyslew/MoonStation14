@@ -42,3 +42,4 @@ public enum MetabolismStage {
         return serializedName;
     }
 }
+

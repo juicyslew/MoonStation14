@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.item.custom.SyringeItem;
 import com.juicyslew.moonstation14.item.custom.BeakerItem;
+import com.juicyslew.moonstation14.item.custom.GasTankItem;
 import com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
@@ -110,6 +111,9 @@ public class ModItems {
             () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 4));
     public static final DeferredItem<Item> GAS_VENT = ITEMS.register("gas_vent",
             () -> new Item(new Item.Properties().stacksTo(1)));
+    /** Entity presentation surrogate only; never contains canister gas or a tank slot. */
+    public static final DeferredItem<Item> GAS_CANISTER_PROXY = ITEMS.register("gas_canister_proxy",
+            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "gas_canister"))));
     public static final DeferredItem<Item> GAS_SCRUBBER = ITEMS.register("gas_scrubber",
             () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> AIR_ALARM = ITEMS.register("air_alarm",
@@ -136,6 +140,7 @@ public class ModItems {
             .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.SMALL_ID));
     public static final DeferredItem<BeakerItem> BEAKER_LARGE = ITEMS.register("beaker_large", () -> new BeakerItem(new Item.Properties().stacksTo(1)
             .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.LARGE_ID));
+    public static final DeferredItem<GasTankItem> PLASMA_TANK = ITEMS.register("plasma_tank", () -> new GasTankItem(new Item.Properties()));
     public static final DeferredItem<BlockItem> CHEM_MASTER = ITEMS.register("chem_master",
             () -> new BlockItem(com.juicyslew.moonstation14.block.ModBlocks.CHEM_MASTER.get(), new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> NETWORK_CONFIGURATOR = ITEMS.register("network_configurator", () -> new Item(new Item.Properties().stacksTo(1)
@@ -154,3 +159,4 @@ public class ModItems {
         ITEMS.register(eventBus);
     }
 }
+

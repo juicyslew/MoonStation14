@@ -54,3 +54,4 @@ public final class StarterStationPlacementGeometry {
         return Optional.of(List.copyOf(plan));
     }
 }
+

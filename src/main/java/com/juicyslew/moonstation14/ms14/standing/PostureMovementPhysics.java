@@ -12,3 +12,4 @@ public final class PostureMovementPhysics {
         return downFriction;
     }
 }
+

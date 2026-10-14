@@ -637,3 +637,4 @@ public final class ExamineClient {
     public static boolean escape() { if (!hasPopup() || !POPUP.escape()) return false; dismiss(); return true; }
     public static void dismiss() { popupDismissed = true; detailGateInitialized = false; detailRetryAt = 0; POPUP.clear(); clearResponseState(); }
 }
+

@@ -10,6 +10,7 @@ import com.juicyslew.moonstation14.ms14.machine.itemslots.MachineItemSlot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTestAssertException;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
@@ -31,6 +32,141 @@ import java.util.function.Consumer;
 @GameTestTags({"machine-slots", "hands"})
 public final class BodyMachineItemSlotTransferGameTests {
     private BodyMachineItemSlotTransferGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
+    public static void activeHandSwapsWholePayloadWithOccupiedSlotGameTest(GameTestHelper helper) {
+        activeHandSwapsWholePayloadWithOccupiedSlot(helper);
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
+    public static void staleSlotRevisionAndWhitelistDenialPreserveOwnersGameTest(GameTestHelper helper) {
+        staleSlotRevisionAndWhitelistDenialPreserveOwners(helper);
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 50)
+    public static void rejectedSwapCommitCompensatesSlotAndClaimsGameTest(GameTestHelper helper) {
+        rejectedSwapCommitCompensatesSlotAndClaims(helper);
+    }
+
+    public static void activeHandSwapsWholePayloadWithOccupiedSlot(GameTestHelper helper) {
+        Villager body = body(helper);
+        ItemLocationLedger ledger = new ItemLocationLedger();
+        MachineItemSlot slot = slot(body, ledger);
+        ItemToken oldToken = new ItemToken("swap-outgoing");
+        ItemStack oldStack = new ItemStack(Items.DIAMOND, 2);
+        oldStack.set(DataComponents.CUSTOM_NAME, Component.literal("slot payload"));
+        ItemLocation slotSource = new ItemLocation.BodyHand(body.getUUID(), "left");
+        require(ledger.register(oldToken, slotSource).accepted()
+                && slot.insert(0, ledger.snapshot().revision(), oldToken, slotSource, oldStack), "seed occupied slot");
+        LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemToken incoming = new ItemToken("swap-incoming");
+        ItemStack incomingStack = new ItemStack(Items.DIAMOND, 3);
+        incomingStack.set(DataComponents.CUSTOM_NAME, Component.literal("hand payload"));
+        LiveHands held = initial.putWhole(initial.revision(), initial.activeHand(), incoming, incomingStack).state();
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), held);
+        String hand = held.activeHand();
+        long ledgerRevision = ledger.snapshot().revision();
+        require(BodyMachineItemSlotTransfer.swapActiveHandOwnedForFixture(body, incoming.value(), held.revision() - 1,
+                slot, 1, ledgerRevision, ledger, () -> true) == BodyMachineItemSlotTransfer.Result.DENIED,
+                "stale hand revision rejects before either owner changes");
+        require(BodyMachineItemSlotTransfer.swapActiveHandOwnedForFixture(body, incoming.value(), held.revision(),
+                slot, 1, ledgerRevision - 1, ledger, () -> true) == BodyMachineItemSlotTransfer.Result.DENIED,
+                "stale ledger revision rejects before either owner changes");
+        require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == held
+                        && slot.snapshot().token().equals(oldToken)
+                        && ledger.snapshot().revision() == ledgerRevision,
+                "stale requests preserve hand, slot and claims");
+        require(BodyMachineItemSlotTransfer.swapActiveHandOwnedForFixture(body, incoming.value(), held.revision(), slot,
+                1, ledger.snapshot().revision(), ledger, () -> true) == BodyMachineItemSlotTransfer.Result.SUCCESS,
+                "active hand and occupied slot swap");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(after.token(hand).orElseThrow().equals(oldToken.value())
+                        && ItemStack.matches(oldStack, after.stackCopy(hand).orElseThrow()), "old slot payload returned to hand");
+        require(slot.snapshot().token().equals(incoming) && ItemStack.matches(incomingStack, slot.snapshot().stack()),
+                "incoming original token and exact stack now own slot");
+        require(ledger.snapshot().locations().get(incoming).equals(new ItemLocation.MachineSlot(body.getUUID(), "input"))
+                        && ledger.snapshot().locations().get(oldToken).equals(new ItemLocation.BodyHand(body.getUUID(), hand)),
+                "both canonical claims exchanged");
+        require(slot.dispose() && ledger.snapshot().locations().get(oldToken)
+                .equals(new ItemLocation.BodyHand(body.getUUID(), hand)), "slot disposal cannot clear returned hand claim");
+        body.discard();
+        helper.succeed();
+    }
+
+    public static void staleSlotRevisionAndWhitelistDenialPreserveOwners(GameTestHelper helper) {
+        Villager body = body(helper);
+        ItemLocationLedger ledger = new ItemLocationLedger();
+        MachineItemSlot slot = slot(body, ledger);
+        ItemToken oldToken = new ItemToken("denied-slot-owner");
+        ItemLocation source = new ItemLocation.BodyHand(body.getUUID(), "left");
+        ItemStack oldStack = new ItemStack(Items.DIAMOND, 2);
+        require(ledger.register(oldToken, source).accepted()
+                && slot.insert(0, ledger.snapshot().revision(), oldToken, source, oldStack), "seed slot");
+        LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemStack heldStack = new ItemStack(Items.DIAMOND);
+        LiveHands held = initial.putWhole(initial.revision(), initial.activeHand(), new ItemToken("denied-hand-owner"), heldStack).state();
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), held);
+        long ledgerRevision = ledger.snapshot().revision();
+        require(BodyMachineItemSlotTransfer.swapActiveHandOwnedForFixture(body, "denied-hand-owner", held.revision(),
+                slot, slot.snapshot().revision() + 1, ledgerRevision, ledger, () -> true)
+                == BodyMachineItemSlotTransfer.Result.DENIED, "stale slot revision denied");
+        require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == held
+                        && slot.snapshot().token().equals(oldToken)
+                        && ledger.snapshot().revision() == ledgerRevision,
+                "stale slot request preserves payloads and claims");
+
+        LiveHands cleared = held.takeWhole(held.revision(), held.activeHand(), new ItemToken("denied-hand-owner")).state();
+        require(cleared.stackCopy(held.activeHand()).isEmpty(), "remove prior payload before preparing whitelist fixture");
+        LiveHands nonDiamond = cleared.putWhole(cleared.revision(), cleared.activeHand(),
+                new ItemToken("whitelist-denied"), new ItemStack(Items.APPLE)).state();
+        require(nonDiamond.token(nonDiamond.activeHand()).orElseThrow().equals("whitelist-denied")
+                        && ItemStack.matches(new ItemStack(Items.APPLE), nonDiamond.stackCopy(nonDiamond.activeHand()).orElseThrow()),
+                "native hand helpers prepare the apple whitelist-denial payload");
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), nonDiamond);
+        ledgerRevision = ledger.snapshot().revision();
+        require(BodyMachineItemSlotTransfer.swapActiveHandOwnedForFixture(body, "whitelist-denied", nonDiamond.revision(),
+                slot, slot.snapshot().revision(), ledgerRevision, ledger, () -> true)
+                == BodyMachineItemSlotTransfer.Result.DENIED, "slot whitelist denies incoming payload");
+        require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == nonDiamond
+                        && nonDiamond.token(nonDiamond.activeHand()).orElseThrow().equals("whitelist-denied")
+                        && ItemStack.matches(new ItemStack(Items.APPLE), nonDiamond.stackCopy(nonDiamond.activeHand()).orElseThrow())
+                        && slot.snapshot().token().equals(oldToken)
+                        && ItemStack.matches(oldStack, slot.snapshot().stack())
+                        && ledger.snapshot().locations().get(oldToken).equals(new ItemLocation.MachineSlot(body.getUUID(), "input")),
+                "whitelist denial preserves exact payload ownership");
+        cleanup(helper, body, ledger);
+        helper.succeed();
+    }
+
+    public static void rejectedSwapCommitCompensatesSlotAndClaims(GameTestHelper helper) {
+        Villager body = body(helper);
+        ItemLocationLedger ledger = new ItemLocationLedger();
+        MachineItemSlot slot = slot(body, ledger);
+        ItemToken oldToken = new ItemToken("commit-rejected-slot");
+        ItemLocation source = new ItemLocation.BodyHand(body.getUUID(), "left");
+        ItemStack oldStack = new ItemStack(Items.DIAMOND, 2);
+        require(ledger.register(oldToken, source).accepted()
+                && slot.insert(0, ledger.snapshot().revision(), oldToken, source, oldStack), "seed slot");
+        LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemToken incoming = new ItemToken("commit-rejected-hand");
+        ItemStack incomingStack = new ItemStack(Items.DIAMOND, 3);
+        LiveHands held = initial.putWhole(initial.revision(), initial.activeHand(), incoming, incomingStack).state();
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), held);
+        require(ledger.register(incoming, new ItemLocation.BodyHand(body.getUUID(), held.activeHand())).accepted(), "claim incoming token");
+        long revision = ledger.snapshot().revision();
+        require(BodyMachineItemSlotTransfer.swapActiveHandOwnedForFixture(body, incoming.value(), held.revision(), slot,
+                slot.snapshot().revision(), revision, ledger, () -> true, ignored -> false)
+                == BodyMachineItemSlotTransfer.Result.RECOVERY_REQUIRED, "rejected pre-attach commit reports recovery");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(after.token(held.activeHand()).orElseThrow().equals(incoming.value())
+                        && ItemStack.matches(incomingStack, after.stackCopy(held.activeHand()).orElseThrow())
+                        && slot.snapshot().token().equals(oldToken) && ItemStack.matches(oldStack, slot.snapshot().stack())
+                        && ledger.snapshot().locations().get(incoming).equals(new ItemLocation.BodyHand(body.getUUID(), held.activeHand()))
+                        && ledger.snapshot().locations().get(oldToken).equals(new ItemLocation.MachineSlot(body.getUUID(), "input")),
+                "compensation restores both exact owners and ledger claims");
+        cleanup(helper, body, ledger);
+        helper.succeed();
+    }
 
     public static void insertTakePreserveWholeStackAndReinsertAfterOrdinaryOwnershipRelease(GameTestHelper helper) {
         Villager body = body(helper);

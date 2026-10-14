@@ -69,3 +69,4 @@ final class SickPopupProvenance {
         synchronized int size() { return last.size(); }
     }
 }
+

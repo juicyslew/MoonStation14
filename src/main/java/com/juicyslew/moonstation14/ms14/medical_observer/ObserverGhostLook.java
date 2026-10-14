@@ -17,3 +17,4 @@ public final class ObserverGhostLook {
         entity.yBodyRotO = yaw;
     }
 }
+

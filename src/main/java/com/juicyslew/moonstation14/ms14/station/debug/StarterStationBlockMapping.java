@@ -22,3 +22,4 @@ public final class StarterStationBlockMapping {
         return BlockRole.STEEL_WALL;
     }
 }
+

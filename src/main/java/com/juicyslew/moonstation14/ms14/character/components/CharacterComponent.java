@@ -13,3 +13,4 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         StrippablePrototypeComponent {
     String type();
 }
+

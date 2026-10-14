@@ -1,0 +1,17 @@
+{
+  "initialEnergy": 180,
+  "initialLevel": 1,
+  "radsPerLevel": 2,
+  "energyLoss": 1,
+  "gravityAcceleration": 10,
+  "gravityRange": 4,
+  "minSpeed": 1.875,
+  "maxSpeed": 2.5,
+  "levelThresholds": [0, 0, 200, 500, 1000, 2000, 5000],
+  "drainPerSecond": [0, 1, 5, 10, 20, 0, 0],
+  "radiation": { "intensity": 2, "slope": 0.2 },
+  "eventHorizon": { "consumeEntities": true, "entityEnergy": 1.0 },
+  "sounds": { "ambient":"moonstation14:singularity/ambient", "ambient_db":-4, "ambient_range":14,
+    "component_ambient":"moonstation14:singularity/component_ambient", "component_ambient_db":5, "component_ambient_range":20,
+    "dissipation":"moonstation14:singularity/dissipate" }
+}

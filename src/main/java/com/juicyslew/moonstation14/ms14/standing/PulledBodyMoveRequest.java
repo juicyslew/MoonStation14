@@ -16,3 +16,4 @@ public record PulledBodyMoveRequest(boolean hasInput) implements CustomPacketPay
                     buf -> new PulledBodyMoveRequest(net.minecraft.network.codec.ByteBufCodecs.BOOL.decode(buf)));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

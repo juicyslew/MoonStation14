@@ -6,3 +6,4 @@ import net.minecraft.world.level.Level;
 public interface DispenserCompatibleItem {
     boolean fitsInDispenser(Level level);
 }
+

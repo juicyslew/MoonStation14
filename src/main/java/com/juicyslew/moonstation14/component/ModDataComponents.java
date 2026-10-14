@@ -19,6 +19,7 @@ import com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData;
 import com.juicyslew.moonstation14.ms14.medical.SyringeStackData;
 import com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData;
 import com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerStackData;
+import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -86,6 +87,9 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<WelderFuelData>> WELDER_FUEL =
             register_component("welder_fuel", builder -> builder.persistent(WelderFuelData.CODEC)
                     .networkSynchronized(WelderFuelData.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<GasTankContents>> GAS_TANK_CONTENTS =
+            register_component("gas_tank_contents", builder -> builder.persistent(GasTankContents.CODEC)
+                    .networkSynchronized(GasTankContents.STREAM_CODEC));
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ResourceLocation>> LOOSE_OBJECT_PROFILE =
             register_component("loose_object_profile", builder -> builder.persistent(ResourceLocation.CODEC)
                     .networkSynchronized(ResourceLocation.STREAM_CODEC));
@@ -118,3 +122,4 @@ public class ModDataComponents {
         DATA_COMPONENT_TYPES.register(eventBus);
     }
 }
+

@@ -220,3 +220,4 @@ public final class BodyCraftInventoryService {
         return !targeted&&inRange&&unobstructed;
     }
 }
+

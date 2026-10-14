@@ -12,3 +12,4 @@ public final class ConfiguratorOperationSequence {
         return Math.max(clientCurrent, published) + 1;
     }
 }
+

@@ -13,3 +13,4 @@ public record NetworkConfiguratorSnapshot(UUID session, long requestId, long epo
     public record Pair(String sourcePort, String sinkPort) { }
     public NetworkConfiguratorSnapshot { sources=List.copyOf(sources); sinks=List.copyOf(sinks); links=List.copyOf(links); }
 }
+

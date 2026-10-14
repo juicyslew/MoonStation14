@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "moonstation14:block/reactor_bindings/singularity_generator"
+    }
+  }
+}

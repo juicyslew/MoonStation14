@@ -1,0 +1,80 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/reactor_r8/generation_singularity_containment/p3",
+    "particle": "moonstation14:block/reactor_r8/generation_singularity_containment/p3"
+  },
+  "elements": [
+    {
+      "name": "power_lens",
+      "from": [
+        7.3,
+        3.0,
+        5.83
+      ],
+      "to": [
+        8.7,
+        9.0,
+        5.99
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            15.5,
+            0.125,
+            15.875,
+            1.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            4.875,
+            0.25,
+            6.375
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            0.5,
+            4.875,
+            0.875,
+            6.375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            4.875,
+            0.25,
+            6.375
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            1.125,
+            4.875,
+            1.5,
+            5.0
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            1.125,
+            4.875,
+            1.5,
+            5.0
+          ]
+        }
+      }
+    }
+  ],
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

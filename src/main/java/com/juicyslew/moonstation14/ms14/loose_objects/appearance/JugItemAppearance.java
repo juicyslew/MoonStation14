@@ -40,3 +40,4 @@ public final class JugItemAppearance {
 
     static int resolveColor(int color) { return color == -1 ? 0xffffffff : color; }
 }
+

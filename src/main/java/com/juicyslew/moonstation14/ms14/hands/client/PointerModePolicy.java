@@ -28,3 +28,4 @@ final class PointerModePolicy {
         return true;
     }
 }
+

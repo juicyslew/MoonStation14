@@ -21,7 +21,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class DeviceAlarmWorkflowGameTests {
     private DeviceAlarmWorkflowGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 320)
+    @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", batch = "powered_alarm_device_sync_workflow", timeoutTicks = 320)
     public static void poweredAlarmQueuedSyncReceivesVentState(GameTestHelper helper) {
         var fixture = AirAlarmPowerFixture.place(helper);
         BlockPos ventPos = fixture.alarmPos().east();

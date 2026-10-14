@@ -26,3 +26,4 @@ public record HungerComponent(float hunger) implements IMS14Component<HungerComp
     @Override public Codec<HungerComponent> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, HungerComponent> getStreamCodec() { return STREAM_CODEC; }
 }
+

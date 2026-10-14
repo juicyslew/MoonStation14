@@ -158,3 +158,4 @@ public final class HandActorAuthority {
         return level.getEntity(body.getUUID()) == body;
     }
 }
+

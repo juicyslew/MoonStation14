@@ -27,8 +27,10 @@ class StunActionAdmissionBytecodeTest {
     }
 
     @Test void blockUseAdmissionGatesBeforeTargetProbe() throws IOException {
-        var calls = calls(BodyHandRequestService.class, "admitBlockUse");
+        var calls = calls(BodyHandRequestService.class, "inspectBlockUse");
         assertBefore(calls, "CharacterControlSystem.canAct", "BodyBlockUseTargetProbe.probe");
+        assertEquals(1, count(calls(BodyHandRequestService.class, "admitBlockUse"),
+                "BodyHandRequestService.inspectBlockUse"), "admission wrapper delegates to canonical inspection");
     }
 
     @Test void wireToolAdmissionGatesBeforeElectrifiedContact() throws IOException {

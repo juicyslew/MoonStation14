@@ -36,3 +36,4 @@ public final class PipeComponentEqualization {
         return Collections.unmodifiableMap(result);
     }
 }
+

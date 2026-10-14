@@ -77,3 +77,4 @@ public final class AirlockBlock extends Block implements EntityBlock {
         if(level.getBlockEntity(root) instanceof AirlockBlockEntity be)be.onScheduledTick(level);
     }
 }
+

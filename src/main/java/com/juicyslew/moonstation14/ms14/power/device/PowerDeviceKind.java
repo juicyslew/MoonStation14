@@ -45,3 +45,4 @@ public enum PowerDeviceKind {
         return List.copyOf(ports);
     }
 }
+

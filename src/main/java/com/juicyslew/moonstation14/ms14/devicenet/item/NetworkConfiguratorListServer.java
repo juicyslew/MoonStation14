@@ -249,3 +249,4 @@ public final class NetworkConfiguratorListServer {
                 ? null : stack.get(ModDataComponents.NETWORK_CONFIGURATOR.get());
     }
 }
+

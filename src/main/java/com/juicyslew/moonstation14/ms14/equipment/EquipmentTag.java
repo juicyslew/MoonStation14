@@ -8,3 +8,4 @@ public enum EquipmentTag {
         return com.mojang.serialization.DataResult.error(()->"unsupported equipment tag "+value);
     },tag->tag==PET_ONLY?"PetOnly":tag.name());
 }
+

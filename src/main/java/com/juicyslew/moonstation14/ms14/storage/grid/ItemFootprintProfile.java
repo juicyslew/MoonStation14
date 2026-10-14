@@ -35,3 +35,4 @@ public record ItemFootprintProfile(List<GridGeometry.Cell> cells, Optional<ItemS
     }
     public GridGeometry.Footprint footprint() { return GridGeometry.Footprint.of(cells); }
 }
+

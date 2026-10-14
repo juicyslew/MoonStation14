@@ -121,3 +121,4 @@ public final class BodyGrenadeThrow {
         return b != null && a.getCount() == b.getCount() && ItemStack.isSameItemSameComponents(a, b);
     }
 }
+

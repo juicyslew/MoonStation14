@@ -76,3 +76,4 @@ public record CharacterMovementEnvironment(double secondsPerTick, double gravity
         }
     }
 }
+

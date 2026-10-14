@@ -48,36 +48,50 @@ public final class BodyHandRequestService {
 
     /** Read-only admission only: deliberately does not invoke block use, item use, or protection callbacks. */
     public static boolean probeBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
-        return admitBlockUse(actor, request) != null;
+        return inspectBlockUse(actor, request).admission() != null;
     }
 
     /** Package-private authenticated read-only admission snapshot for narrowly scoped dispatchers. */
     public static BlockUseAdmission admitBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
-        if (request == null) return null;
+        return inspectBlockUse(actor, request).admission();
+    }
+
+    public static BlockUseInspection inspectBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        if (request == null) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var resolved = HandActorAuthority.resolve(actor);
-        if (resolved.isEmpty()) return null;
+        if (resolved.isEmpty()) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var authority = resolved.orElseThrow();
-        if (!BodyHandStateService.hasIssued(actor, authority)) return null;
-        if (!CharacterControlSystem.canAct(authority.body())) return null;
+        if (!BodyHandStateService.hasIssued(actor, authority)) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
+        if (!CharacterControlSystem.canAct(authority.body())) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
-        if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null) return null;
+        if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null)
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (hands == null || !request.handId().equals(hands.activeHand())
                 || !hands.handIds().contains(request.handId()) || !authority.handIds().contains(request.handId())
-                || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision()) return null;
+                || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision())
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var token = hands.token(request.handId());
         var stack = hands.stackCopy(request.handId());
         if (!blockUseHandStateMatches(request.expectedToken(), token.isPresent(), stack.isPresent(), token.orElse(null)))
-            return null;
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         if (!(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
-                || !HandActorAuthority.revalidate(actor, authority)) return null;
+                || !HandActorAuthority.revalidate(actor, authority))
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         // No reliable controlled-body crouch authority is currently defined. The hint is intentionally ignored.
         var hit = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
-        return hit != null && HandActorAuthority.revalidate(actor, authority)
+        boolean stillValid = HandActorAuthority.revalidate(actor, authority)
                 && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
-                && hands.revision() == request.expectedRevision()
-                ? new BlockUseAdmission(authority, hands, hit) : null;
+                && hands.compatible(authority.body()) && hands.revision() == request.expectedRevision()
+                && blockUseHandStateMatches(request.expectedToken(), hands.token(request.handId()).isPresent(),
+                        hands.stackCopy(request.handId()).isPresent(), hands.token(request.handId()).orElse(null));
+        if (!stillValid) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
+        if (hit == null) return new BlockUseInspection(null, BlockUseFailure.TARGET_NOT_ADMITTED);
+        return new BlockUseInspection(new BlockUseAdmission(authority, hands, hit), BlockUseFailure.NONE);
     }
+
+    public enum BlockUseFailure { NONE, INVALID_PROOF, TARGET_NOT_ADMITTED }
+    public record BlockUseInspection(BlockUseAdmission admission, BlockUseFailure failure) { }
 
     static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
                                             String actualToken) {
@@ -972,3 +986,4 @@ public final class BodyHandRequestService {
         }
     }
 }
+

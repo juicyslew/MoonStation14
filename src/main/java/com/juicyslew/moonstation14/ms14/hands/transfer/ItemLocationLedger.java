@@ -75,6 +75,31 @@ public final class ItemLocationLedger {
         return Result.success(snapshot);
     }
 
+    /** One-revision exchange of an occupied machine-slot claim with an authenticated whole hand item.
+     * An absent incoming claim is valid for the same untracked hand ownership used by ordinary insert. */
+    public synchronized Result exchangeSlotClaims(long expectedRevision, ItemToken incoming,
+            ItemLocation incomingHand, ItemToken outgoing, ItemLocation slot, ItemLocation outgoingHand) {
+        Objects.requireNonNull(incoming); Objects.requireNonNull(incomingHand); Objects.requireNonNull(outgoing);
+        Objects.requireNonNull(slot); Objects.requireNonNull(outgoingHand);
+        if (expectedRevision != snapshot.revision()) return Result.rejected(snapshot, Rejection.STALE_REVISION);
+        if (incoming.equals(outgoing) || !(slot instanceof ItemLocation.MachineSlot))
+            return Result.rejected(snapshot, Rejection.SOURCE_MISMATCH);
+        ItemLocation currentOut = snapshot.locations().get(outgoing);
+        if (!slot.equals(currentOut)) return Result.rejected(snapshot, Rejection.SOURCE_MISMATCH);
+        ItemLocation currentIn = snapshot.locations().get(incoming);
+        if (currentIn != null && !incomingHand.equals(currentIn))
+            return Result.rejected(snapshot, Rejection.SOURCE_MISMATCH);
+        if (isOccupied(outgoingHand, incoming, snapshot.locations()))
+            return Result.rejected(snapshot, Rejection.DESTINATION_OCCUPIED);
+        if (snapshot.revision() == Long.MAX_VALUE) return Result.rejected(snapshot, Rejection.REVISION_OVERFLOW);
+        LinkedHashMap<ItemToken, ItemLocation> next = new LinkedHashMap<>(snapshot.locations());
+        next.remove(outgoing);
+        next.put(incoming, slot);
+        next.put(outgoing, outgoingHand);
+        snapshot = new ItemLocationSnapshot(snapshot.revision() + 1, next);
+        return Result.success(snapshot);
+    }
+
     /** Exact ledger identity only: arbitrary geometric storage overlap belongs to an adapter. */
     private static boolean isOccupied(ItemLocation destination, ItemToken movingToken,
             Map<ItemToken, ItemLocation> locations) {
@@ -112,3 +137,4 @@ public final class ItemLocationLedger {
         static Result rejected(ItemLocationSnapshot snapshot, Rejection reason) { return new Result(false, snapshot, reason); }
     }
 }
+

@@ -13,11 +13,11 @@ class DeviceNetworkCoreTest {
     private static final ResourceKey<Level> DIM=Level.OVERWORLD;
     static final class Endpoint implements DeviceEndpoint {
         final DeviceIdentity id=DeviceIdentity.random(); String address; final double range;
-        final List<DevicePayload> received=new ArrayList<>(); final BlockPos pos; boolean powered=true;
+        final List<DevicePayload> received=new ArrayList<>(); final BlockPos pos; boolean powered=true,requiresPower;
         int networkId=2, txFrequency=1280, rxFrequency=1280, configuredLimit=10; boolean receiveAll=true, broadcastHook,wired,wireless=true,connectionPresent=true,autoConnect=true,customAddress, externalAddressOwner; int overloaded; DeviceList list; Consumer<DevicePayload> onReceive=payload->{ }; Optional<DeviceComposition.SoundOnOverload> overloadSound=Optional.empty();
         Endpoint(String address,int x,double range){this.address=address;this.pos=new BlockPos(x,64,0);this.range=range;}
         public DeviceIdentity identity(){return id;} public ResourceKey<Level> dimension(){return DIM;} public BlockPos position(){return pos;}
-        public DeviceComposition composition(){return new DeviceComposition(List.of(new DevicePort("Pressed","Pressed","")),List.of(new DevicePort("Toggle","Toggle","")),Optional.of(new DeviceComposition.NetworkInterface(networkId,true,true,address,"",txFrequency,rxFrequency,receiveAll,false,autoConnect,true,customAddress,broadcastHook)),Optional.of(new DeviceList.Config(32,true,false)),Optional.of(new DeviceComposition.SourceConfig(30,Map.of())),Optional.of(new DeviceComposition.SinkConfig(configuredLimit)),connectionPresent?Optional.of(new DeviceComposition.ConnectionConfig(wired,wireless,range)):Optional.empty(),overloadSound);}
+        public DeviceComposition composition(){return new DeviceComposition(List.of(new DevicePort("Pressed","Pressed","")),List.of(new DevicePort("Toggle","Toggle","")),Optional.of(new DeviceComposition.NetworkInterface(networkId,true,true,address,"",txFrequency,rxFrequency,receiveAll,requiresPower,autoConnect,true,customAddress,broadcastHook)),Optional.of(new DeviceList.Config(32,true,false)),Optional.of(new DeviceComposition.SourceConfig(30,Map.of())),Optional.of(new DeviceComposition.SinkConfig(configuredLimit)),connectionPresent?Optional.of(new DeviceComposition.ConnectionConfig(wired,wireless,range)):Optional.empty(),overloadSound);}
         public boolean available(){return true;} public boolean powered(){return powered;} public DeviceList deviceList(){return list;} public boolean mutateDeviceListMembers(DeviceList replacement){list=replacement;return true;} public void receive(DevicePayload payload,String source){received.add(payload);onReceive.accept(payload);} public void onOverload(){overloaded++;}
         public boolean ownsAddressOutsideWorldSavedData(){return externalAddressOwner;}
     }
@@ -26,6 +26,20 @@ class DeviceNetworkCoreTest {
         transport.register(sender);transport.register(target);transport.register(far);
         assertTrue(transport.enqueue(new DeviceNetworkPacket(sender.id,2,1280,"source","",true,new SignalPayload("Pressed",DeviceSignal.MOMENTARY))));
         assertTrue(target.received.isEmpty()); assertEquals(1,transport.drain()); assertEquals(1,target.received.size()); assertTrue(far.received.isEmpty());
+    }
+    @Test void scopedDeliveryObserverDistinguishesPowerVetoFromEndpointCallAndCanBeClosed() throws Exception {
+        var transport=new DeviceNetworkTransport();var sender=new Endpoint("sender",0,30);var target=new Endpoint("target",1,30);
+        transport.register(sender);target.requiresPower=true;transport.register(target);target.powered=false;
+        var attempts=new ArrayList<DeviceNetworkTransport.DeliveryAttempt>();
+        AutoCloseable observer=transport.observeDelivery(sender.id,target.id,attempts::add);
+        var packet=new DeviceNetworkPacket(sender.id,2,1280,"sender","",true,new SignalPayload("Pressed",DeviceSignal.MOMENTARY));
+        assertTrue(transport.enqueue(packet));assertEquals(0,transport.drain());
+        assertEquals(DeviceNetworkTransport.DeliveryOutcome.RECEIVER_UNPOWERED,attempts.getFirst().outcome());
+        target.powered=true;assertTrue(transport.enqueue(packet));assertEquals(1,transport.drain());
+        assertEquals(DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED,attempts.getLast().outcome());
+        observer.close();assertTrue(transport.enqueue(packet));sender.txFrequency=1300;assertEquals(0,transport.drain());
+        assertEquals(2,attempts.size(),"closed observer receives no further notifications");
+        assertEquals(1,target.received.size());
     }
     @Test void ordinaryBroadcastListenersReceiveEvenWhenReceiveAllIsFalse(){
         var transport=new DeviceNetworkTransport();var sender=new Endpoint("sender",0,30);var target=new Endpoint("target",1,30);target.receiveAll=false;

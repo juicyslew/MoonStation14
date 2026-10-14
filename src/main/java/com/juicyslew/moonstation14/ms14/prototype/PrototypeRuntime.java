@@ -66,6 +66,16 @@ import com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls;
 import com.juicyslew.moonstation14.ms14.devicenet.control.SignalControlData;
 import com.juicyslew.moonstation14.ms14.devicenet.NetworkDeviceItemData;
 import com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems;
+import com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals;
+import com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay;
+import com.juicyslew.moonstation14.ms14.singularity.containment.ModFieldGenerators;
+import com.juicyslew.moonstation14.ms14.singularity.emitter.ModEmitters;
+import com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators;
+import com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAcceleratorParticles;
+import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankData;
+import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
+import com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterProfile;
+import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -211,6 +221,18 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<SignalControlData> clientSignalControls() { return CLIENT_MANAGER.snapshot(ModSignalControls.TYPE); }
     public static PrototypeCatalog<NetworkDeviceItemData> serverNetworkDeviceItems() { return SERVER_MANAGER.snapshot(ModNetworkDeviceItems.TYPE); }
     public static PrototypeCatalog<NetworkDeviceItemData> clientNetworkDeviceItems() { return CLIENT_MANAGER.snapshot(ModNetworkDeviceItems.TYPE); }
+    public static PrototypeCatalog<GasTankData> serverGasTanks() { return SERVER_MANAGER.snapshot(ModGasTanks.TYPE); }
+    public static PrototypeCatalog<GasTankData> clientGasTanks() { return CLIENT_MANAGER.snapshot(ModGasTanks.TYPE); }
+    public static PrototypeCatalog<GasCanisterProfile> serverGasCanisters() { return SERVER_MANAGER.snapshot(ModGasCanisters.TYPE); }
+    public static PrototypeCatalog<GasCanisterProfile> clientGasCanisters() { return CLIENT_MANAGER.snapshot(ModGasCanisters.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.containment.FieldGeneratorProfile> serverFieldGenerators() { return SERVER_MANAGER.snapshot(ModFieldGenerators.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.containment.FieldGeneratorProfile> clientFieldGenerators() { return CLIENT_MANAGER.snapshot(ModFieldGenerators.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfile> serverSingularityGameplay() { return SERVER_MANAGER.snapshot(ModSingularityGameplay.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfile> clientSingularityGameplay() { return CLIENT_MANAGER.snapshot(ModSingularityGameplay.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorControlProfile> serverParticleAccelerators() { return SERVER_MANAGER.snapshot(ModParticleAccelerators.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorControlProfile> clientParticleAccelerators() { return CLIENT_MANAGER.snapshot(ModParticleAccelerators.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticleProfile> serverParticleAcceleratorParticles() { return SERVER_MANAGER.snapshot(ModParticleAcceleratorParticles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticleProfile> clientParticleAcceleratorParticles() { return CLIENT_MANAGER.snapshot(ModParticleAcceleratorParticles.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -246,11 +268,22 @@ public final class PrototypeRuntime {
         manager.register(ModBeakers.TYPE);
         manager.register(ModChemMasters.TYPE);
         manager.register(ModPowerAppearances.TYPE);
+        manager.register(ModSingularityVisuals.TYPE);
+        manager.register(ModSingularityGameplay.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
+        manager.register(ModFieldGenerators.TYPE);
+        manager.register(ModEmitters.TYPE);
+         manager.register(ModParticleAccelerators.TYPE);
+         manager.register(ModParticleAcceleratorParticles.TYPE);
         manager.register(ModDeviceNetworks.FREQUENCY_TYPE);
         manager.register(ModDeviceNetworks.NETWORK_TYPE);
         manager.register(ModDeviceNetworks.PORT_TYPE);
         manager.register(ModSignalControls.TYPE);
         manager.register(ModNetworkDeviceItems.TYPE);
+        manager.register(ModGasTanks.TYPE);
+        manager.register(ModGasCanisters.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE);
         return manager;
     }
 }
+

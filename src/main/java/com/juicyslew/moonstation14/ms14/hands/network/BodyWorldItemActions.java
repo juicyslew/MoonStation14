@@ -99,6 +99,8 @@ public final class BodyWorldItemActions {
                 || !level.mayInteract(actor, admission.hit().pos())) return BodyBlockUseResult.Outcome.DENIED;
         ItemStack stack = hands.stackCopy(request.handId()).orElse(null);
         if (stack == null || stack.isEmpty()) return BodyBlockUseResult.Outcome.DENIED;
+        if (body.level().getBlockEntity(admission.hit().pos()) instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity collector)
+            return com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorInteractionService.use(actor, request, admission, collector);
         if (com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.isConfigurator(stack)) {
             var dataType = com.juicyslew.moonstation14.component.ModDataComponents.NETWORK_CONFIGURATOR.get();
             var configurator = stack.get(dataType);
@@ -195,6 +197,32 @@ public final class BodyWorldItemActions {
                                                        BodyHandRequestService.BlockUseAdmission admission) {
         if (actor != null && request != null && admission != null
                 && request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD) {
+            var target=admission.authority().body().level().getBlockEntity(admission.hit().pos());
+            var held=admission.hands().stackCopy(request.handId()).orElse(null);
+            // Authenticated empty hands are represented by no occupant/token; a missing stack
+            // is accepted here only after the shared block-use admission has validated that proof.
+            boolean emptyHand = held == null;
+            if (emptyHand
+                    && target instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity collector)
+                return collector.toggleEnabled() ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+            if(emptyHand&&target instanceof com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity pa
+                    && pa.role().equals("control")) {
+                var snapshot=com.juicyslew.moonstation14.ms14.singularity.pa.control.PaControlSessionService
+                        .open(actor,pa,admission.authority(),request.sequence()).orElse(null);
+                if(snapshot!=null){com.juicyslew.moonstation14.ms14.singularity.pa.control.PaControlNetworking.sendOpenSnapshot(actor,snapshot);
+                    return BodyBlockUseResult.Outcome.NO_CHANGE;}
+                return BodyBlockUseResult.Outcome.DENIED;
+            }
+            if (emptyHand && target instanceof com.juicyslew.moonstation14.block.block_entity.EmitterBlockEntity emitter) {
+                boolean before = emitter.requestedOn();
+                emitter.toggleRequestedOn();
+                return emitter.requestedOn() != before ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+            }
+            if (emptyHand && target instanceof com.juicyslew.moonstation14.block.block_entity.FieldGeneratorBlockEntity field) {
+                boolean changed=field.toggleEnabled();
+                if (!changed) actor.displayClientMessage(field.toggleFeedback(false),true);
+                return changed ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
+            }
             if (com.juicyslew.moonstation14.ms14.doors.AirlockInteraction.activate(request, admission))
                 return BodyBlockUseResult.Outcome.NO_CHANGE;
             if (com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService
@@ -213,3 +241,4 @@ public final class BodyWorldItemActions {
         return expectedToken != null && actualToken.filter(expectedToken::equals).isPresent();
     }
 }
+

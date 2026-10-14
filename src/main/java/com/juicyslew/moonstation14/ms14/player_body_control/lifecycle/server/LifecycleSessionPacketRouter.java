@@ -135,3 +135,4 @@ final class LifecycleSessionPacketRouter {
 
     enum Route { CHARACTER, GHOST, UNKNOWN, AMBIGUOUS }
 }
+

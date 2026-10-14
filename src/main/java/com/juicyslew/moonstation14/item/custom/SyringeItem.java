@@ -54,3 +54,4 @@ public final class SyringeItem extends Item implements IReagentTrait {
 
     private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, path); }
 }
+

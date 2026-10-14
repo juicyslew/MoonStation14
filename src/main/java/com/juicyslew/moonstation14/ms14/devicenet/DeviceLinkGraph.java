@@ -52,3 +52,4 @@ public final class DeviceLinkGraph {
     }
     Map<PortRef, DeviceSignal> rememberedSnapshot() { return Map.copyOf(remembered); }
 }
+

@@ -1,0 +1,7 @@
+# Emitter cadence parity audit
+
+Verified against SS14 checkout `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
+
+`Resources/Prototypes/Entities/Structures/Machines` does not override the ordinary emitter cadence fields: the emitter prototype inherits `EmitterComponent` data defaults in `Content.Shared/Singularity/Components/SharedEmitterComponent.cs`: active power 600 W, `FireBurstSize=3`, `FireInterval=2s`, and burst delay 4–10s. `Content.Server/Singularity/EntitySystems/EmitterSystem.cs`, `PowerOn` (188–200) schedules its first callback at the maximum delay (10s); `ShotTimerCallback` (215–233) fires before incrementing the counter and resets only when the counter is no longer less than 3. Thus the burst has four actual shots, spaced 2s, and then a randomized 4–10s pause. Power-on resets counter and cancellation token; power-off cancels the timer.
+
+The local resolved `EmitterProfile` represents `burst_size` as the number of actual shots, so the ordinary emitter is authored as 4 (the SS14 counter value 3 plus its initial shot). Its schedule uses the resolved maximum delay on a fresh power epoch, resolved spacing between shots, then a resolved min/max randomized pause. A power interruption discards progress and requires a fresh maximum delay. Local bolt speed/lifetime and Minecraft power/runtime behavior remain adaptations, not claims of SS14 cadence composition parity. `EmitterBurstScheduleTest` and the powered emitter GameTest exercise resolved count and timings.

@@ -11,3 +11,4 @@ public final class HealthAnalyzerActivationPolicy {
         return active ? Decision.TOGGLE_OFF : Decision.TOGGLE_ON_OPEN;
     }
 }
+

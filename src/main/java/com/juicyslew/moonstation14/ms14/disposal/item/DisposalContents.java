@@ -210,3 +210,4 @@ public final class DisposalContents {
         @Override public ItemStack stack() { return stack.copy(); }
     }
 }
+

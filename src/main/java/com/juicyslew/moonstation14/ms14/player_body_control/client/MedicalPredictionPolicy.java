@@ -27,3 +27,4 @@ public final class MedicalPredictionPolicy {
         return new Decision(suspended, barrier, permitted, permitted, permitted);
     }
 }
+

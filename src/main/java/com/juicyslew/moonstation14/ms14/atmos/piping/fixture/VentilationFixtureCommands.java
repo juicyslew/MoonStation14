@@ -28,3 +28,4 @@ public final class VentilationFixtureCommands {
         return 1;
     }
 }
+

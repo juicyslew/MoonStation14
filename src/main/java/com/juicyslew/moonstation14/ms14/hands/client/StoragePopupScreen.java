@@ -1393,3 +1393,4 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public boolean isPauseScreen() { return false; }
 }
+

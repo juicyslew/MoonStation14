@@ -102,3 +102,4 @@ public abstract class InventoryParkedDirectGuardMixin {
         if (moonstation14$parkedDirect()) callback.cancel();
     }
 }
+

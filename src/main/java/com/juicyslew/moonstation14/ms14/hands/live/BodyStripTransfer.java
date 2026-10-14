@@ -221,3 +221,4 @@ public final class BodyStripTransfer {
     private static LiveHands existing(LivingEntity body) { return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()); }
     private static boolean live(LivingEntity body, ServerLevel level) { return body.level() == level && body.isAlive() && !body.isRemoved() && body.isAddedToLevel() && level.getEntity(body.getUUID()) == body; }
 }
+

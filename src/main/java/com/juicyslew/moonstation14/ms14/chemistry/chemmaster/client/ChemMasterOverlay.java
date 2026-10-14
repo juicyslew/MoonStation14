@@ -138,3 +138,4 @@ final class ChemMasterOverlay implements PointerOverlayWindow {
     @Override public boolean keyPressed(int key,int scan,int mods){return false;}@Override public boolean charTyped(char c,int mods){return false;}
     @Override public boolean isSearchFocused(){return false;}@Override public void clearTextFocus(){}@Override public void resetOwnedContext(){workspace.closeLocal(window);}
 }
+

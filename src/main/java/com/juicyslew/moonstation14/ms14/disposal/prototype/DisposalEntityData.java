@@ -237,3 +237,4 @@ public final class DisposalEntityData {
     public ContainedViewData containedView() { return containedView; }
     public ExamineMetadata metadata() { return metadata; }
 }
+

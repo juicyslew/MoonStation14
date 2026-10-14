@@ -99,3 +99,4 @@ public final class ExternalBodyFlight {
 
     private record State(ServerLevel level, long endTick, long lastAdvancedTick) { }
 }
+

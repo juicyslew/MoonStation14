@@ -58,17 +58,21 @@ class DamageFeedbackProfileTest {
         JsonObject physical = json("{\"id\":\"moonstation14:physical\",\"abstract\":true,"
                 + "\"red_flash\":true,\"camera_shake\":true,\"interrupt_actions\":true}");
         JsonObject combat = json("{\"id\":\"moonstation14:combat\",\"parent\":\"moonstation14:physical\"}");
+        JsonObject radiation = json("{\"id\":\"moonstation14:radiation\",\"parent\":\"moonstation14:quiet\"}");
         manager.reload(ModDamageFeedback.TYPE, java.util.Map.of(
                 ModDamageFeedback.id("quiet"), quiet,
                 ModDamageFeedback.id("chemical"), chemical,
                 ModDamageFeedback.id("physical"), physical,
-                ModDamageFeedback.id("combat"), combat));
+                ModDamageFeedback.id("combat"), combat,
+                DamageSystem.Cause.RADIATION.profileId(), radiation));
         var catalog = manager.snapshot(ModDamageFeedback.TYPE);
         assertEquals(DamageFeedbackProfile.QUIET, ModDamageFeedback.resolve(catalog,
                 DamageSystem.Cause.CHEMICAL.profileId()));
         assertEquals(DamageFeedbackProfile.PHYSICAL, ModDamageFeedback.resolve(catalog,
                 DamageSystem.Cause.COMBAT.profileId()));
         assertEquals(false, ModDamageFeedback.resolve(catalog, DamageSystem.Cause.COMBAT.profileId()).hurtSound());
+        assertEquals(DamageFeedbackProfile.QUIET, ModDamageFeedback.resolve(catalog,
+                DamageSystem.Cause.RADIATION.profileId()), "radiation inherits quiet feedback without physical flash, shake, or timed-action interruption");
         assertThrows(IllegalStateException.class,
                 () -> ModDamageFeedback.resolve(catalog, ModDamageFeedback.id("missing")));
     }

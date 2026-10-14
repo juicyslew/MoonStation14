@@ -1,4 +1,14 @@
 {
+  "pa_particle_hit": { "sounds": ["moonstation14:ss14/weapons/guns/hits/bullet_hit"] },
+  "singularity/ambient": { "sounds": [{"name":"moonstation14:ss14/effects/singularity","attenuation_distance":14}] },
+  "singularity/component_ambient": { "sounds": [{"name":"moonstation14:ss14/effects/singularity_form","attenuation_distance":20}] },
+  "singularity/form": { "sounds": ["moonstation14:ss14/effects/singularity_form"] },
+  "singularity/dissipate": { "sounds": ["moonstation14:ss14/effects/singularity_collapse"] },
+  "emitter/fire": { "sounds": ["moonstation14:ss14/weapons/emitter"] },
+  "projectile/fly_by": { "sounds": ["moonstation14:ss14/weapons/guns/miss/bullet_miss1", "moonstation14:ss14/weapons/guns/miss/bullet_miss2", "moonstation14:ss14/weapons/guns/miss/bullet_miss3", "moonstation14:ss14/weapons/guns/miss/bullet_miss4"] },
+  "item_slot_insert": { "sounds": ["moonstation14:chemistry/chemmaster/revolver_magin"] },
+  "item_slot_eject": { "sounds": ["moonstation14:chemistry/chemmaster/revolver_magout"] },
+  "gas_valve_toggle": { "sounds": ["moonstation14:ss14/atmos/squeak1", "moonstation14:ss14/atmos/squeak2", "moonstation14:ss14/atmos/squeak3"] },
   "crowbar_use": {
     "sounds": [
       "moonstation14:crowbar_use"

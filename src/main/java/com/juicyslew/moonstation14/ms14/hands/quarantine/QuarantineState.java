@@ -255,3 +255,4 @@ public final class QuarantineState {
         return new Result(state, null, duplicate);
     }
 }
+

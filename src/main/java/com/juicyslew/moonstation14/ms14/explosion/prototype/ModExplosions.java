@@ -29,3 +29,4 @@ public final class ModExplosions {
         return data;
     }
 }
+

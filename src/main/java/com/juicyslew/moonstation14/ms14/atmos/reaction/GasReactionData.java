@@ -124,3 +124,4 @@ public record GasReactionData(Map<GasType, Double> minimumRequirements, double m
         }
     }
 }
+

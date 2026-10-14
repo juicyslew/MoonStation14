@@ -36,3 +36,4 @@ public final class TetherMotion {
 
     private static boolean finite(Vec3 v) { return Double.isFinite(v.x) && Double.isFinite(v.y) && Double.isFinite(v.z); }
 }
+

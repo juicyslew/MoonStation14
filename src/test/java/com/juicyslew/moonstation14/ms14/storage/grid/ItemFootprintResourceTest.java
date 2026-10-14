@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(50, raw.size());
+        assertEquals(53, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(45, resolved.size());
+        assertEquals(48, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -39,7 +39,7 @@ class ItemFootprintResourceTest {
                 "network_configurator", "remote_signaller", "remote_signaller_advanced", "signal_button", "signal_switch",
                 "beaker", "beaker_large", "chem_master", "black_bandana", "black_gloves", "black_shoes",
                 "blank_id_card", "earpieces", "glasses", "grey_cap", "grey_jumpsuit", "red_tie", "simple_coat",
-                "utility_case"};
+                "utility_case", "plasma_tank", "suit_rad", "hood_rad"};
         for (String name : coreItems) assertTrue(resolved.get(id(name)) != null, "missing profile " + name);
 
         assertCounts(resolved, 4, "steel", "glass", "plastic", "cloth", "wood", "jug",
@@ -52,7 +52,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(45, catalog.size());
+        assertEquals(48, catalog.size());
         assertEquals(catalog.get(id("wirecutter")).cells(), catalog.get(id("screwdriver")).cells());
         for (String item : new String[]{"screwdriver", "crowbar", "wirecutter", "multitool", "atmosphere_analyzer"})
             assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(item)).itemSize(), item);
@@ -65,6 +65,10 @@ class ItemFootprintResourceTest {
         assertEquals(2, catalog.get(id("beaker")).cells().size());
         assertEquals(4, catalog.get(id("beaker_large")).cells().size());
         assertEquals(4, catalog.get(id("chem_master")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Normal), catalog.get(id("plasma_tank")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Huge), catalog.get(id("suit_rad")).itemSize());
+        assertEquals(9, catalog.get(id("suit_rad")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("hood_rad")).itemSize());
         assertEquals(2, catalog.get(id("network_configurator")).cells().size());
         assertEquals(catalog.get(id("remote_signaller")).cells(), catalog.get(id("remote_signaller_advanced")).cells());
         assertEquals(2, catalog.get(id("remote_signaller_advanced")).cells().size());

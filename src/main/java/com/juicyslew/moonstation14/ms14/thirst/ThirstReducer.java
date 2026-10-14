@@ -64,3 +64,4 @@ public final class ThirstReducer {
         private static Result failed() { return new Result(false, Float.NaN, false); }
     }
 }
+

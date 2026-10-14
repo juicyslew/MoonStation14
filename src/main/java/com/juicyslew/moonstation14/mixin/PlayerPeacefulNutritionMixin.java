@@ -29,3 +29,4 @@ public abstract class PlayerPeacefulNutritionMixin {
         return original.call(rules, key);
     }
 }
+

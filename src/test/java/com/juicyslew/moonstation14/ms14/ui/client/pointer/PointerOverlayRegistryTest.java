@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.ui.client.pointer;
 import net.minecraft.client.gui.GuiGraphics;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,7 +12,23 @@ import static org.junit.jupiter.api.Assertions.*;
 class PointerOverlayRegistryTest {
     private final FakeWindow browser = new FakeWindow(0, 0, 20, 20);
     private final FakeWindow other = new FakeWindow(30, 0, 20, 20);
-    @AfterEach void cleanup() { PointerOverlayRegistry.resetOwnedContext(); }
+    private List<PointerOverlayWindow> originalWindows;
+    private boolean originalFront;
+    private List<PointerOverlayWindow> windows() throws Exception {
+        var windowsField = PointerOverlayRegistry.class.getDeclaredField("WINDOWS");
+        windowsField.setAccessible(true);
+        @SuppressWarnings("unchecked") var value = (List<PointerOverlayWindow>) windowsField.get(null);
+        return value;
+    }
+    @BeforeEach void isolateRegistry() throws Exception {
+        originalWindows=List.copyOf(windows());originalFront=PointerOverlayRegistry.overlayFront();
+        windows().clear();PointerOverlayRegistry.overlayFront(true);
+    }
+    @AfterEach void restoreRegistry() throws Exception {
+        var live=windows();
+        for(var window:List.copyOf(live)) if(window instanceof FakeWindow fake) fake.resetOwnedContext();
+        live.clear();live.addAll(originalWindows);PointerOverlayRegistry.overlayFront(originalFront);
+    }
     @Test void routesToHitWindowAndCapturesDragAndReleaseOutside() {
         PointerOverlayRegistry.register(browser); PointerOverlayRegistry.register(other); browser.visible=true;
         PointerOverlayRegistry.register(browser);
@@ -34,7 +51,11 @@ class PointerOverlayRegistryTest {
         assertTrue(PointerOverlayRegistry.textFocused());
         PointerOverlayRegistry.clearTextFocus();
         assertFalse(browser.focus); assertTrue(browser.visible); assertTrue(other.visible); assertFalse(PointerOverlayRegistry.textFocused());
-        browser.focus=true; PointerOverlayRegistry.resetOwnedContext();
+        browser.focus=true;
+        // A process-wide registry can contain production overlays whose context reset
+        // sends packets. Exercise the fake windows' reset contract locally instead.
+        browser.resetOwnedContext(); other.resetOwnedContext();
+        PointerOverlayRegistry.unregister(browser); PointerOverlayRegistry.unregister(other);
         assertFalse(browser.visible); assertFalse(browser.focus); assertFalse(other.visible);
         var reopened=new FakeWindow(0,0,20,20); reopened.visible=true; PointerOverlayRegistry.register(reopened);
         assertTrue(PointerOverlayRegistry.anyVisible()); assertFalse(PointerOverlayRegistry.hit(35,5));
@@ -43,6 +64,45 @@ class PointerOverlayRegistryTest {
         PointerOverlayRegistry.register(browser); PointerOverlayRegistry.register(other);
         browser.visible=true; other.visible=true; other.focus=true;
         assertTrue(PointerOverlayRegistry.key(1,1,0)); assertEquals(0,browser.consumed); assertEquals(1,other.consumed);
+    }
+    @Test void keyDispatchUsesEntrySnapshotWhenCallbackUnregistersItself() {
+        var first=new FakeWindow(0,0,20,20);var second=new FakeWindow(0,0,20,20);
+        first.visible=true;first.focus=true;second.visible=true;
+        first.keyAction=()->PointerOverlayRegistry.unregister(first);
+        PointerOverlayRegistry.register(first);PointerOverlayRegistry.register(second);
+        assertTrue(PointerOverlayRegistry.key(1,1,0));
+        assertEquals(1,first.keys);assertEquals(0,second.keys);
+        assertFalse(PointerOverlayRegistry.key(1,1,0));assertEquals(1,second.keys);
+    }
+    @Test void keyDispatchDefersRegistrationAndPreservesSnapshotOrderDuringReorder() {
+        var first=new FakeWindow(0,0,20,20);var second=new FakeWindow(0,0,20,20);var third=new FakeWindow(0,0,20,20);var added=new FakeWindow(0,0,20,20);
+        first.visible=true;second.visible=true;third.visible=true;added.visible=true;
+        first.keyAction=()->{PointerOverlayRegistry.bringToFront(second);PointerOverlayRegistry.register(added);};
+        PointerOverlayRegistry.register(first);PointerOverlayRegistry.register(second);PointerOverlayRegistry.register(third);
+        assertFalse(PointerOverlayRegistry.key(1,1,0));
+        assertEquals(List.of(first,third,second,added),List.copyOf(PointerOverlayRegistry.paintOrder()));
+        assertEquals(1,first.keys);assertEquals(1,second.keys);assertEquals(1,third.keys);assertEquals(0,added.keys);
+        PointerOverlayRegistry.key(1,1,0);assertEquals(1,added.keys);
+    }
+    @Test void unconsumedKeyRemovalStillDispatchesRemainingSnapshotOnce() {
+        var first=new FakeWindow(0,0,20,20);var second=new FakeWindow(0,0,20,20);first.visible=true;second.visible=true;
+        first.keyAction=()->PointerOverlayRegistry.unregister(first);
+        PointerOverlayRegistry.register(first);PointerOverlayRegistry.register(second);
+        assertFalse(PointerOverlayRegistry.key(1,1,0));assertEquals(1,first.keys);assertEquals(1,second.keys);
+    }
+    @Test void otherCallbackDispatchesAlsoTolerateReentrantUnregister() {
+        var window=new FakeWindow(0,0,20,20);window.visible=true;window.focus=true;window.captured=true;
+        PointerOverlayRegistry.register(window);
+        window.charAction=()->PointerOverlayRegistry.unregister(window);
+        assertTrue(PointerOverlayRegistry.character('x',0));
+        PointerOverlayRegistry.register(window);window.clearAction=()->PointerOverlayRegistry.unregister(window);
+        assertDoesNotThrow(PointerOverlayRegistry::clearTextFocus);
+        PointerOverlayRegistry.register(window);window.dragAction=()->PointerOverlayRegistry.unregister(window);
+        assertTrue(PointerOverlayRegistry.drag(1,1));
+        PointerOverlayRegistry.register(window);window.releaseAction=()->PointerOverlayRegistry.unregister(window);
+        assertTrue(PointerOverlayRegistry.release(0));
+        PointerOverlayRegistry.register(window);window.scrollAction=()->PointerOverlayRegistry.unregister(window);
+        assertFalse(PointerOverlayRegistry.scroll(1,1,1));
     }
     @Test void productionHostAdmissionSuppressesPauseButSharesGameplayWorkspaceAndMachineUiPolicy() {
         assertTrue(PointerOverlayRegistry.hostAllowed(true,false,false));
@@ -114,13 +174,14 @@ class PointerOverlayRegistryTest {
     }
     private static final class FakeWindow implements PointerOverlayWindow {
         final int x,y,w,h; boolean visible,focus,captured; int clicks,drags,releases,keys,consumed,renders;
+        Runnable keyAction=()->{},charAction=()->{},clearAction=()->{},dragAction=()->{},releaseAction=()->{},scrollAction=()->{};
         FakeWindow(int x,int y,int w,int h){this.x=x;this.y=y;this.w=w;this.h=h;}
         public boolean visible(){return visible;} public boolean contains(double px,double py){return visible&&px>=x&&px<x+w&&py>=y&&py<y+h;}
          public void renderIntoGui(GuiGraphics g,int mx,int my,float p,int sw,int sh){renders++;}
-        public boolean mouseClicked(double a,double b,int button){clicks++;captured=true;return true;}
-        public boolean mouseDragged(double a,double b){drags++;return captured;} public boolean mouseReleased(int b){releases++;boolean v=captured;captured=false;return v;}
-        public boolean mouseScrolled(double a,double b,double d){return false;} public boolean keyPressed(int k,int s,int m){keys++;if(focus)consumed++;return focus;}
-        public boolean charTyped(char c,int m){return focus;} public boolean isSearchFocused(){return focus;}
-        public void clearTextFocus(){focus=false;} public void resetOwnedContext(){visible=false;focus=false;captured=false;}
+         public boolean mouseClicked(double a,double b,int button){clicks++;captured=true;return true;}
+        public boolean mouseDragged(double a,double b){drags++;dragAction.run();return captured;} public boolean mouseReleased(int b){releases++;releaseAction.run();boolean v=captured;captured=false;return v;}
+         public boolean mouseScrolled(double a,double b,double d){scrollAction.run();return false;} public boolean keyPressed(int k,int s,int m){keys++;keyAction.run();if(focus)consumed++;return focus;}
+        public boolean charTyped(char c,int m){charAction.run();return focus;} public boolean isSearchFocused(){return focus;}
+        public void clearTextFocus(){clearAction.run();focus=false;} public void resetOwnedContext(){visible=false;focus=false;captured=false;}
     }
 }

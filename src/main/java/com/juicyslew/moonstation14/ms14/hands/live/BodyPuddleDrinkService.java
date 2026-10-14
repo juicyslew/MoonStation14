@@ -41,8 +41,14 @@ public final class BodyPuddleDrinkService {
 
     public static BodyLiquidInteraction.Result finishTimed(LivingEntity body, BlockPos pos,
             PuddleBlockEntity expectedPuddle, int doseCents, boolean destroyOnEmpty, BooleanSupplier authority) {
+        return finishTimed(body, pos, expectedPuddle, doseCents, destroyOnEmpty, authority, ignored -> { });
+    }
+
+    public static BodyLiquidInteraction.Result finishTimed(LivingEntity body, BlockPos pos,
+            PuddleBlockEntity expectedPuddle, int doseCents, boolean destroyOnEmpty, BooleanSupplier authority,
+            java.util.function.LongConsumer receipt) {
         if (body == null || !(body.level() instanceof ServerLevel level) || pos == null || expectedPuddle == null
-                || authority == null || doseCents <= 0 || !level.hasChunkAt(pos)
+                || authority == null || receipt == null || doseCents <= 0 || !level.hasChunkAt(pos)
                 || !authority.getAsBoolean() || !eligibleBody(body) || level.getBlockEntity(pos) != expectedPuddle
                 || !visiblePuddle(level, body, pos) || !validContents(expectedPuddle, level))
             return BodyLiquidInteraction.Result.DENIED;
@@ -96,6 +102,7 @@ public final class BodyPuddleDrinkService {
             puddle.endDeferredEmptyCleanup(committed);
         }
         if (!committed) return safeToCleanup ? BodyLiquidInteraction.Result.DENIED : BodyLiquidInteraction.Result.RECOVERY_REQUIRED;
+        receipt.accept(plan.transferredCents());
         EntityActivitySystem.update(body, EntityActivity.REAGENT_METABOLISM, true);
         level.playSound(null, body.getX(), body.getY(), body.getZ(), ModSounds.DRINK.get(), SoundSource.PLAYERS,
                 0.7943282F, 1f);
@@ -156,3 +163,4 @@ public final class BodyPuddleDrinkService {
         values.forEach((k,v) -> result.put(k, ReagentUnits.toFloat(v))); return result;
     }
 }
+

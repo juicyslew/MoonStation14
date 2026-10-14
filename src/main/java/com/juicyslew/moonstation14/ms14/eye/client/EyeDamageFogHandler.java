@@ -54,3 +54,4 @@ public final class EyeDamageFogHandler {
         return rawBlind && projected.flatMap(data -> data.component(BlindablePrototypeComponent.class)).isPresent();
     }
 }
+

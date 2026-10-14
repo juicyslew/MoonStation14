@@ -13,3 +13,4 @@ public record ConstructionGraphProgress(String node, int edgeIndex, int stepInde
         return new Result(new ConstructionGraphProgress(edge.to(),0,0),Optional.of(edge.to()),edge.returns());
     }
 }
+

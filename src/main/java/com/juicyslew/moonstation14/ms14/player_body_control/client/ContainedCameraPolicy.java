@@ -40,3 +40,4 @@ public final class ContainedCameraPolicy {
                 && epoch == ownedEpoch && epoch > 0;
     }
 }
+

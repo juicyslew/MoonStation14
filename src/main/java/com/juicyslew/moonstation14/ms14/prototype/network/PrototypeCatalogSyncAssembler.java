@@ -191,3 +191,4 @@ public final class PrototypeCatalogSyncAssembler {
     private record EntryKey(ResourceLocation typeId, ResourceLocation prototypeId) {
     }
 }
+

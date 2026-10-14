@@ -13,3 +13,4 @@ public final class ApcBreakerIntentPolicy {
         return currentClosed == desiredClosed ? Decision.NO_CHANGE : Decision.TOGGLE;
     }
 }
+

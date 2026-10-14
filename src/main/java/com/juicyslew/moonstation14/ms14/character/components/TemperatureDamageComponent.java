@@ -33,3 +33,4 @@ public record TemperatureDamageComponent(double heatDamageThresholdKelvin, doubl
     }
     public ThermalExposureMath.DamageProfile toProfile() { return new ThermalExposureMath.DamageProfile(heatDamageThresholdKelvin, coldDamageThresholdKelvin, heatDamagePerSecond, coldDamagePerSecond, damageCap); }
 }
+

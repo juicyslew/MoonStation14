@@ -45,3 +45,4 @@ public final class GhostMobHarnessEntity extends Mob {
         noPhysics = true;
     }
 }
+

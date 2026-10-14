@@ -63,3 +63,4 @@ final class StoragePopupLifecycle {
     record Transition(StoragePopupWorkspace.HostKey source, StoragePopupWorkspace.HostKey destination,
                       BodyHandActionResult.HostTransition.Direction direction) { }
 }
+

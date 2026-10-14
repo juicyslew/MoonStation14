@@ -12,3 +12,4 @@ public interface ChunkMapObserverAccess {
     void moonstation14$applyChunkTrackingView(ServerPlayer player, ChunkTrackingView view);
 
 }
+

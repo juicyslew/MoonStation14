@@ -235,3 +235,4 @@ public final class TimedInteractionSystem {
         CALLBACKS.clear(); PRESENTATION.clear(); ACTORS.clear(); serverThread=null;
     }
 }
+

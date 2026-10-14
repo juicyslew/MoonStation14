@@ -16,3 +16,4 @@ public final class ApcPowerDeviceBlock extends PowerDeviceBlock {
         builder.add(EMISSION);
     }
 }
+

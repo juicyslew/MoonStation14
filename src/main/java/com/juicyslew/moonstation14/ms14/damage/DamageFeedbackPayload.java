@@ -41,3 +41,4 @@ public record DamageFeedbackPayload(int entityId, UUID entityUuid, boolean redFl
     /** Scoped observation seam for server integration fixtures; null restores normal dispatch. */
     public static void observeDispatch(Consumer<DamageFeedbackPayload> observer) { dispatchObserver = observer; }
 }
+

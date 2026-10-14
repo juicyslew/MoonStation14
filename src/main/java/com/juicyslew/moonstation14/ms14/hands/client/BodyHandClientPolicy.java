@@ -486,6 +486,7 @@ public final class BodyHandClientPolicy {
     public boolean blockUseResult(BodyBlockUseResult incoming) {
         if (!inputEnabled || pendingBlockUse == 0 || incoming.sequence() != pendingBlockUse || incoming.epoch() != epoch) return false;
         pendingBlockUse = 0;
+        if (incoming.outcome() == BodyBlockUseResult.Outcome.TARGET_NOT_ADMITTED) return true;
         if (incoming.outcome() == BodyBlockUseResult.Outcome.PLACED
                 || incoming.outcome() == BodyBlockUseResult.Outcome.RECOVERY_REQUIRED
                 || incoming.outcome() == BodyBlockUseResult.Outcome.DENIED
@@ -629,3 +630,4 @@ public final class BodyHandClientPolicy {
         }
     }
 }
+

@@ -128,3 +128,4 @@ public class CreativeGasPipeVisualItem extends BlockItem {
                 && player.mayUseItemAt(target, context.getClickedFace(), context.getItemInHand());
     }
 }
+

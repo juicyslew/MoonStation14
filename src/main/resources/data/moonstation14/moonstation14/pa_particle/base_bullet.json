@@ -1,0 +1,12 @@
+{
+  "id": "moonstation14:base_bullet",
+  "type": "moonstation14:pa_particle",
+  "abstract": true,
+  "radiation_damage": 0.0,
+  "lifetime_ticks": 200,
+  "half_extent": 0.3,
+  "delete_on_collide": true,
+  "impact_sound": "moonstation14:pa_particle_hit",
+  "fly_by": { "sound": "moonstation14:projectile/fly_by", "probability": 0.1, "range": 1.5 },
+  "sprite": "moonstation14:textures/entity/pa_particle/particle"
+}

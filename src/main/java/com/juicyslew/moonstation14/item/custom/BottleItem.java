@@ -121,3 +121,4 @@ public class BottleItem extends Item implements IReagentTrait {
         return data == null ? 0f : MapOperations.getTotal(data.contents());
     }
 }
+

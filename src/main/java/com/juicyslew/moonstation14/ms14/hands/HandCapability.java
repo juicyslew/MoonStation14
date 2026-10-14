@@ -54,3 +54,4 @@ public final class HandCapability {
         return existing.hands().stream().map(HandComponent.Slot::id).toList().equals(prototypeHandIds);
     }
 }
+

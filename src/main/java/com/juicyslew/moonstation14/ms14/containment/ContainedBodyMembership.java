@@ -23,3 +23,4 @@ public final class ContainedBodyMembership<O> {
     public O get(UUID body) { return owners.get(body); }
     public Map<UUID, O> snapshot() { return Map.copyOf(owners); }
 }
+

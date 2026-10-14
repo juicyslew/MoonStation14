@@ -125,3 +125,4 @@ public record OrganData(OrganCategory category, Optional<Lung> lung) {
             throw new IllegalArgumentException("Lungs category requires Lung marker; other categories forbid Lung marker");
     }
 }
+

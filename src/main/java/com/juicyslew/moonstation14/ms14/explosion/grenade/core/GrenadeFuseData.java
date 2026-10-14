@@ -59,3 +59,4 @@ public record GrenadeFuseData(GrenadeFuse.Phase phase, long deadline, boolean be
 
     public GrenadeFuse toFuse() { return GrenadeFuse.restore(phase, deadline, beepedAtPrime, beepedAtForty); }
 }
+

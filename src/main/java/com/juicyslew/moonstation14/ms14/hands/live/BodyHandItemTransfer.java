@@ -47,23 +47,24 @@ public final class BodyHandItemTransfer {
     }
 
     /** Shared package-local detached drop stage for other exact-source ownership transfers. */
-    static LooseItemEntity createStagedDrop(LivingEntity body, ItemStack stack) {
+    static LooseItemEntity createStagedDrop(Entity body, ItemStack stack) {
         return createStagedDrop(body, stack, null);
     }
 
-    private static LooseItemEntity createStagedDrop(LivingEntity body, ItemStack stack, Entity excludedCarrier) {
+    private static LooseItemEntity createStagedDrop(Entity body, ItemStack stack, Entity excludedCarrier) {
         return createTrustedDropEntity(body, stack, excludedCarrier);
     }
 
-    private static LooseItemEntity createTrustedDropEntity(LivingEntity body, ItemStack stack, Entity excludedCarrier) {
+    private static LooseItemEntity createTrustedDropEntity(Entity body, ItemStack stack, Entity excludedCarrier) {
         if (body == null || stack == null || stack.isEmpty() || !(body.level() instanceof ServerLevel level)) return null;
         try {
             LooseObjectProfile profile = LooseObjectProfile.resolveForStack(stack, false);
-            var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
-            var owner = containment.ownerOf(body).orElse(null);
+            LivingEntity livingBody = body instanceof LivingEntity living ? living : null;
+            var owner = livingBody == null ? null
+                    : com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).ownerOf(livingBody).orElse(null);
             BodyItemTargetProbe.DropPlacement placement;
             if (owner != null) {
-                Vec3 root = owner.positionFor(body);
+                Vec3 root = owner.positionFor(livingBody);
                 if (!owner.isValid() || root == null || !finite(root)
                         || !level.hasChunkAt(net.minecraft.core.BlockPos.containing(root))) return null;
                 placement = new BodyItemTargetProbe.DropPlacement(root, Vec3.ZERO);
@@ -145,7 +146,8 @@ public final class BodyHandItemTransfer {
         Entity entity = level.getEntity(sourceId);
         if (!(entity instanceof ItemEntity item) || item.isRemoved() || !item.isAddedToLevel()
                 || item.level() != level || item.getTarget() != null || item.hasPickUpDelay()
-                 || !reachable(body, item.position())) return Result.DENIED;
+                  || !reachable(body, item.position())) return Result.DENIED;
+        if (item instanceof LooseItemEntity loose && !loose.admitsBodyHandPickup()) return Result.DENIED;
         ItemStack source = item.getItem().copy();
         if (!valid(source)) return Result.DENIED;
         Vec3 sourcePosition = item.position();
@@ -513,3 +515,4 @@ public final class BodyHandItemTransfer {
         return Double.isFinite(point.x) && Double.isFinite(point.y) && Double.isFinite(point.z);
     }
 }
+

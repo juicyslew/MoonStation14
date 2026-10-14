@@ -204,3 +204,4 @@ public final class MedicalTreatmentService {
                 level, soundId.orElseThrow(), at.getX(), at.getY(), at.getZ());
     }
 }
+

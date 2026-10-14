@@ -328,6 +328,24 @@ final class PowerGraphTest {
         assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.state(left).knowledge());
     }
 
+    @Test void diagnosticsExposeStoredMissingFrontierAndClearWhenNeighborLoads() {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        CableFaceNode left = new CableFaceNode(new BlockPos(15, 0, 8), Direction.UP, CableTier.HV);
+        ChunkPos rightChunk = new ChunkPos(1, 0);
+        graph.replaceChunk(new ChunkPos(0, 0), List.of(left));
+        var rebuilding = graph.diagnostics(left);
+        assertTrue(rebuilding.rebuilding());
+        assertFalse(rebuilding.nodeIndexed());
+        finish(graph, 8);
+        var incomplete = graph.diagnostics(left);
+        assertEquals(LoadedPowerGraph.Knowledge.UNKNOWN, incomplete.state().knowledge());
+        assertTrue(incomplete.nodeIndexed());
+        assertEquals(List.of(rightChunk), incomplete.unloadedPotentialNeighborChunks());
+        graph.setChunkLoaded(rightChunk, true);
+        assertTrue(graph.diagnostics(left).unloadedPotentialNeighborChunks().isEmpty());
+        assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.diagnostics(left).state().knowledge());
+    }
+
     @Test void periodicValidationRotatesAcrossMoreThanFourChunksWithoutInvalidatingKnownGraph() {
         LoadedPowerGraph graph = new LoadedPowerGraph();
         ChunkValidationScheduler scheduler = new ChunkValidationScheduler();

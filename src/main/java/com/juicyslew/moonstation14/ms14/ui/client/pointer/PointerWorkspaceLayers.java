@@ -40,3 +40,4 @@ public final class PointerWorkspaceLayers {
         return (browserFront ? browserBase : STORAGE_BASE) + paintIndex * WINDOW_STRIDE;
     }
 }
+

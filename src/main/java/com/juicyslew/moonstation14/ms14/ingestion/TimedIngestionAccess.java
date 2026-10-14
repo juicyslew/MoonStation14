@@ -117,15 +117,21 @@ public final class TimedIngestionAccess {
     }
 
     public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty, BooleanSupplier authority) {
+        return complete(body, admission, doseCents, destroyOnEmpty, authority, ignored -> { });
+    }
+
+    public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty,
+                                      BooleanSupplier authority, java.util.function.LongConsumer receipt) {
         if(doseCents<=0||!valid(body,admission,authority)) return Completion.DENIED;
         LiveHands hands=liveHands(body); String hand=admission.kind==Kind.HELD?findTokenHand(hands,admission.token):hands.activeHand();
         if(hand==null)return Completion.DENIED;
         long revision=hands.revision(); long available=availableStomach(body,admission.level);
         if(available<=0)return Completion.DENIED;
         BodyLiquidInteraction.Result result;
-        if(admission.kind==Kind.PUDDLE) result=BodyPuddleDrinkService.finishTimed(body,admission.pos,admission.puddle,doseCents,destroyOnEmpty,authority);
+        if(admission.kind==Kind.PUDDLE) result=BodyPuddleDrinkService.finishTimed(body,admission.pos,admission.puddle,doseCents,destroyOnEmpty,authority,
+                cents -> receipt.accept(cents));
         else result=BodyLiquidInteraction.sipTimedOwned(body,admission.kind==Kind.WORLD?admission.worldId:null,
-                hand,admission.kind==Kind.HELD?admission.token:null,revision,doseCents,authority);
+                hand,admission.kind==Kind.HELD?admission.token:null,revision,doseCents,authority,receipt);
         return switch(result) {
             case DENIED -> Completion.DENIED;
             case RECOVERY_REQUIRED -> Completion.RECOVERY_REQUIRED;
@@ -184,3 +190,4 @@ public final class TimedIngestionAccess {
         return Math.max(0,(long)com.juicyslew.moonstation14.ms14.loose_objects.interaction.LiquidInteractionCapability.STOMACH_CAPACITY_CENTS-used);
     }
 }
+

@@ -39,3 +39,4 @@ public final class CharacterIdentityAttachment
         return STREAM_CODEC;
     }
 }
+

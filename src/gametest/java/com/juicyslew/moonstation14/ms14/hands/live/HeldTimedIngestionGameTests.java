@@ -19,6 +19,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
+import net.minecraft.gametest.framework.GameTestListener;
+import net.minecraft.gametest.framework.GameTestRunner;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -57,14 +60,34 @@ public final class HeldTimedIngestionGameTests {
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
     public static void resolvedBeakerDrinkConsumesFiveUnitsAfterTwentyTicks(GameTestHelper h) {
         Fixture f = fixtureWithItem(h, new ItemStack(ModItems.BEAKER.get()), 6);
+        AtomicReference<com.juicyslew.moonstation14.ms14.ingestion.IngestionReceiptObserver.Receipt> receipt = new AtomicReference<>();
+        AutoCloseable observer = com.juicyslew.moonstation14.ms14.ingestion.IngestionReceiptObserver.observe(r -> {
+            if (r.actorId() == null && r.bodyId().equals(f.body.getUUID()) && r.sourceKey().equals("held:" + f.token)) receipt.set(r);
+        });
+        AtomicBoolean closed = new AtomicBoolean();
+        Runnable closeObserver = () -> {
+            if (closed.compareAndSet(false, true)) try { observer.close(); } catch (Exception ignored) { }
+        };
+        h.testInfo.addListener(new GameTestListener() {
+            @Override public void testStructureLoaded(GameTestInfo ignored) { }
+            @Override public void testPassed(GameTestInfo ignored, GameTestRunner runner) { closeObserver.run(); }
+            @Override public void testFailed(GameTestInfo ignored, GameTestRunner runner) { closeObserver.run(); }
+            @Override public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) { closeObserver.run(); }
+        });
         require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 90, () -> true).name().equals("OK"),
                 "resolved drink policy starts the existing timed ingestion operation");
+        AtomicReference<String> trace = new AtomicReference<>("");
+        for (int tick = 19; tick <= 23; tick++) {
+            int at = tick;
+            h.runAfterDelay(tick, () -> trace.set(trace.get() + (trace.get().isEmpty() ? "" : ";") + at + ":" + ingestionSample(f)));
+        }
         h.runAfterDelay(10, () -> require(source(f) == 600, "beaker remains unchanged before its 20-tick deadline"));
         h.runAfterDelay(23, () -> {
-            require(source(f) == 100, "resolved 5u serving leaves 1u from 6u source");
-            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
-                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) == 500,
-                    "exact serving reaches the actual body stomach");
+            var committed = receipt.get();
+            require(committed != null && committed.acceptedCents() == 500,
+                    "actual canonical transaction committed exact 5u; receipt=" + committed + " " + ingestionSample(f) + " trace=" + trace.get());
+            require(source(f) == 100, "resolved 5u serving leaves 1u from 6u source; " + ingestionSample(f) + " trace=" + trace.get());
+            closeObserver.run();
             h.succeed();
         });
     }
@@ -134,6 +157,12 @@ public final class HeldTimedIngestionGameTests {
     private static LiveHands hands(Fixture f) { return hands(f.body); }
     private static LiveHands hands(Villager b) { return b.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()); }
     private static long source(Fixture f) { var r=f.body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).stackCopy("left"); if(r.isEmpty()) r=hands(f).stackCopy("right"); return r.map(s -> { var c=s.get(ModDataComponents.REAGENT.get()); return c==null?0L:ReagentUnits.fromFloat(c.contents().getOrDefault(WATER,0f)); }).orElse(0L); }
+    private static String ingestionSample(Fixture f) {
+        var stomach = com.juicyslew.moonstation14.ms14.MS14Provider.get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap();
+        return "source=" + source(f) + "u token=" + f.token + " stomach=" + ReagentUnits.fromFloat(stomach.getOrDefault(WATER, 0f))
+                + "u reagents=" + stomach + " alive=" + f.body.isAlive() + " health=" + f.body.getHealth()
+                + " body=" + f.body.getUUID() + " op=" + state(f).operations();
+    }
     private static TimedOperationState state(Fixture f) { return f.body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get()); }
     private static boolean active(Fixture f) { return state(f).operations().stream().anyMatch(o -> o.phase()==TimedOperation.Phase.ACTIVE); }
     private static boolean cancelled(Fixture f) { return state(f).operations().stream().anyMatch(o -> o.phase()==TimedOperation.Phase.CANCELLED); }

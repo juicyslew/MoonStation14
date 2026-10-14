@@ -115,3 +115,4 @@ public final class EquipmentFitPolicy {
                 && ("Tiny".equals(size) || "Small".equals(size));
     }
 }
+

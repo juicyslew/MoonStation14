@@ -287,3 +287,4 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         }
     }
 }
+

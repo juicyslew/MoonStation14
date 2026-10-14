@@ -185,3 +185,4 @@ public final class VentilationDeviceConfig {
         return changed;
     }
 }
+

@@ -14,3 +14,4 @@ public record DevicePort(String id, String name, String description, List<String
         if (id.isBlank()) throw new IllegalArgumentException("port id must be non-empty");
     }
 }
+

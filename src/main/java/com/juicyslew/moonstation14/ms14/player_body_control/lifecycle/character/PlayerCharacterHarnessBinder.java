@@ -63,3 +63,4 @@ public final class PlayerCharacterHarnessBinder {
         return ModCharacters.HUMAN_ID.equals(prototypeKey);
     }
 }
+

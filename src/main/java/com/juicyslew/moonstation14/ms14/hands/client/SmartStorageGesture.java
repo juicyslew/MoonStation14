@@ -45,3 +45,4 @@ public final class SmartStorageGesture {
                 active.id(), slot.token(), entries.getLast().token());
     }
 }
+

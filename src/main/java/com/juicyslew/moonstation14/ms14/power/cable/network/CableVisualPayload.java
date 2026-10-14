@@ -87,3 +87,4 @@ public record CableVisualPayload(ResourceLocation dimension, int chunkX, int chu
 
     private record Key(int x, int y, int z, Direction face, CableTier tier) { }
 }
+

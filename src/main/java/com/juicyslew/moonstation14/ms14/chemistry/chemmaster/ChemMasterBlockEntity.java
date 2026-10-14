@@ -221,3 +221,4 @@ public final class ChemMasterBlockEntity extends BlockEntity {
         try { return Enum.valueOf(type, value); } catch (IllegalArgumentException ignored) { return fallback; }
     }
 }
+

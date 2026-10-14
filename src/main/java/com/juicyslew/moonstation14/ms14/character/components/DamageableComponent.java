@@ -15,3 +15,4 @@ public record DamageableComponent(Optional<String> damageContainer) implements C
     public DamageableComponent { damageContainer = damageContainer == null ? Optional.empty() : damageContainer; }
     @Override public String type() { return TYPE; }
 }
+

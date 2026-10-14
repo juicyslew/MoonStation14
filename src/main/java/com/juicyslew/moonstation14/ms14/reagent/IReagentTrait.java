@@ -34,3 +34,4 @@ public interface IReagentTrait {
         return new TraitHandler<>(this, this);
     }
 }
+

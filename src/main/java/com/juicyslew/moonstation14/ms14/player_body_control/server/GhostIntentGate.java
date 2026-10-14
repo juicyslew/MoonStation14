@@ -42,3 +42,4 @@ public final class GhostIntentGate<T> {
         exhausted = false;
     }
 }
+

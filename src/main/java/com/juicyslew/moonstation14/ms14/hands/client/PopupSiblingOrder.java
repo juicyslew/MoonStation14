@@ -6,3 +6,4 @@ public final class PopupSiblingOrder {
     private PopupSiblingOrder() { }
     public static synchronized int front() { return ++next; }
 }
+

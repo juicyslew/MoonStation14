@@ -13,3 +13,4 @@ public final class OwnedHarnessWalkAnimation {
         body.walkAnimation.update(speed, .4f);
     }
 }
+

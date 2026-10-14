@@ -7,3 +7,4 @@ import com.google.gson.JsonObject;
 public interface PrototypeJsonCatalogValidator {
     void validate(PrototypeCatalog<JsonObject> ownedRaw, PrototypeCatalog<JsonObject> resolved);
 }
+

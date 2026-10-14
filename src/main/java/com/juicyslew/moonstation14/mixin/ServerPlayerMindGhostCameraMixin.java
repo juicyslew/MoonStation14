@@ -20,3 +20,4 @@ public abstract class ServerPlayerMindGhostCameraMixin {
                 || LifecycleGhostSessionControl.shouldKeepGhostCamera(player));
     }
 }
+

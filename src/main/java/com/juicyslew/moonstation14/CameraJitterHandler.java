@@ -49,3 +49,4 @@ public class CameraJitterHandler {
         event.setPitch(event.getPitch() + pitchOffset);
     }
 }
+

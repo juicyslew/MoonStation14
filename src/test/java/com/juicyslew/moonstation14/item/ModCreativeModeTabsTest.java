@@ -32,6 +32,9 @@ class ModCreativeModeTabsTest {
         }
         // The body inventory scanner is handheld equipment, not an ordinary Creative item.
         registeredItems.removeIf(item -> item == ModItems.T_RAY_SCANNER);
+        // Entity-only presentation proxy is not an inventory/creative item.
+        registeredItems.removeIf(item -> item == ModItems.GAS_CANISTER_PROXY);
+        assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModItems.GAS_CANISTER_PROXY));
         assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModItems.T_RAY_SCANNER));
         assertFalse(ModItems.T_RAY_SCANNER.get() instanceof net.minecraft.world.item.BlockItem);
         // Functional ventilation items are distinct from their blocks and belong in Items.

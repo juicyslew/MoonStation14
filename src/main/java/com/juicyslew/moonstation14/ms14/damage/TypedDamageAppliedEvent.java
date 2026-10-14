@@ -18,3 +18,4 @@ public final class TypedDamageAppliedEvent extends Event {
     public LivingEntity entity() { return entity; }
     public Map<String, Float> delta() { return delta; }
 }
+

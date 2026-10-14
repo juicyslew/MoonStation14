@@ -42,3 +42,4 @@ public record HandOperation(HandState state, Rejection rejection, Optional<ItemT
         return new HandOperation(original, rejection, Optional.empty());
     }
 }
+

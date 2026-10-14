@@ -18,3 +18,4 @@ public record HealthAnalyzerStackData(UUID scannerId, boolean active) {
     public HealthAnalyzerStackData { if (scannerId == null) throw new IllegalArgumentException("scanner UUID required"); }
     public static HealthAnalyzerStackData create() { return new HealthAnalyzerStackData(UUID.randomUUID(), false); }
 }
+

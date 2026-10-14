@@ -23,3 +23,4 @@ final class DisposalRecipeSelection {
                 ? Optional.of(choice.prototype) : Optional.empty();
     }
 }
+

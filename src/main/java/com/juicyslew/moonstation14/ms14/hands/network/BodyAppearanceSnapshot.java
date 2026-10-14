@@ -32,3 +32,4 @@ public record BodyAppearanceSnapshot(ResourceLocation dimension, int entityId, U
         return new BodyAppearanceSnapshot(body.level().dimension().location(),body.getId(),body.getUUID(),state.revision(),handEntries,equipment);
     }
 }
+

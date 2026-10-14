@@ -37,3 +37,4 @@ public final class BodyVentilationDevicePlacementPermissionEvent extends Event i
     public BlockPos destination() { return destination; }
     public VentilationDeviceConfig.Kind kind() { return kind; }
 }
+

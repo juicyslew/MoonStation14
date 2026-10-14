@@ -8,3 +8,4 @@ public class ModFoodProperties {
     public static final FoodProperties WAFFLE = new FoodProperties.Builder().nutrition(2).saturationModifier(0.25f)
             .effect(() -> new MobEffectInstance(MobEffects.HEALTH_BOOST, 20), .35f).build();
 }
+

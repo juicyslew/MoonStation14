@@ -200,3 +200,4 @@ public final class PipeGasInventory {
     }
     private static Entry parseRecord(Record r, boolean active) { PipeTopology.Layer layer = PipeTopology.Layer.valueOf(r.layer()); UUID id = UUID.fromString(r.id()); validVolume(r.volume()); if (r.version() <= 0) throw new IllegalArgumentException("entry version must be positive"); PipeTopology.NodeKey key = new PipeTopology.NodeKey(new BlockPos(r.x(), r.y(), r.z()), layer); EnumMap<GasType, Double> gas = new EnumMap<>(GasType.class); for (Amount a : r.gases()) if (gas.putIfAbsent(a.type(), a.moles()) != null) throw new IllegalArgumentException("duplicate gas id"); return new Entry(key, id, r.volume(), new GasMixture(gas, r.temperature()), r.version(), active); }
 }
+

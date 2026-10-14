@@ -63,3 +63,4 @@ public final class StripViewCorrelation {
     public int entityId() { return entityId; }
     public long targetRevision() { return targetRevision; }
 }
+

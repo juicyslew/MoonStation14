@@ -180,3 +180,4 @@ public final class FunctionalAirAlarmPlacement {
         return level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk;
     }
 }
+

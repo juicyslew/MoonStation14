@@ -21,3 +21,4 @@ public record SyringeStackData(ResourceLocation mode, float transferAmountUnits)
             throw new IllegalArgumentException("Syringe mode and positive finite transfer amount are required");
     }
 }
+

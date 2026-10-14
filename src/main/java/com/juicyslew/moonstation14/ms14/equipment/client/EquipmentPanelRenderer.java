@@ -38,3 +38,4 @@ public final class EquipmentPanelRenderer {
         } else g.blit(texture,x,y,w,h,0,0,32,32,32,32);
     }
 }
+

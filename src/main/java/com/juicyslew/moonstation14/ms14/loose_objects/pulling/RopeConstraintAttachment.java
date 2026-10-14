@@ -47,3 +47,4 @@ public record RopeConstraintAttachment(List<Constraint> constraints) {
     }
     private static boolean finite(Vec3 v) { return v != null && Double.isFinite(v.x) && Double.isFinite(v.y) && Double.isFinite(v.z); }
 }
+

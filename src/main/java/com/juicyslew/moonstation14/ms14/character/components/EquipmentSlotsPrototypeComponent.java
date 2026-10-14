@@ -43,3 +43,4 @@ public record EquipmentSlotsPrototypeComponent(List<String> slots, Optional<Reso
 
     @Override public String type() { return TYPE; }
 }
+

@@ -11,3 +11,4 @@ public record PostureToggleRequest() implements CustomPacketPayload {
     public static final StreamCodec<RegistryFriendlyByteBuf, PostureToggleRequest> STREAM_CODEC = StreamCodec.unit(new PostureToggleRequest());
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

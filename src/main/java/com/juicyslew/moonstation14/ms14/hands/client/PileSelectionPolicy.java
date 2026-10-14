@@ -23,3 +23,4 @@ public final class PileSelectionPolicy {
     public int index(List<UUID> visible) { return visible == null || selected == null ? -1 : visible.indexOf(selected); }
     public void clear() { selected = null; }
 }
+

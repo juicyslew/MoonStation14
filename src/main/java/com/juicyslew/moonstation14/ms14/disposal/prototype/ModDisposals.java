@@ -53,3 +53,4 @@ public final class ModDisposals {
             throw new IllegalArgumentException(childId + " must inherit " + parentId);
     }
 }
+

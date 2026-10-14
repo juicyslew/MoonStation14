@@ -33,3 +33,4 @@ public final class HandAttachment implements IMS14Attachment<HandAttachment, Han
     }
     @Override public int hashCode() { return state.hashCode(); }
 }
+

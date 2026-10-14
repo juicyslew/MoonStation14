@@ -24,3 +24,4 @@ public record StripViewSnapshot(long epoch,long sequence,UUID target,ResourceLoc
     public StripViewSnapshot { if(epoch<=0||sequence<=0||target==null||dimension==null||entityId<0||targetRevision<0||slots==null||slots.size()>64||status==null)throw new IllegalArgumentException("Invalid strip snapshot");slots=List.copyOf(slots); }
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

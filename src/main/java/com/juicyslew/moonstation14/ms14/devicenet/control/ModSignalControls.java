@@ -51,3 +51,4 @@ public final class ModSignalControls {
             throw new IllegalArgumentException("missing signal button or switch");
     }
 }
+

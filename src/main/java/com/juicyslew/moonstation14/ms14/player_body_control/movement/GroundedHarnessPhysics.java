@@ -9,3 +9,4 @@ public final class GroundedHarnessPhysics {
 
     private GroundedHarnessPhysics() { }
 }
+
