@@ -12,8 +12,34 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class ModCreativeModeTabsTest {
+    @Test
+    void botanyItemsAreSearchableByLocalizedNameAndPresentInTheirExistingTabs() throws Exception {
+        var itemEntries = ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES;
+        var blockEntries = ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES;
+        for (var item : List.of(ModItems.WHEAT_SEEDS, ModItems.TOMATO_SEEDS, ModItems.POTATO_SEEDS,
+                ModItems.POPPY_SEEDS, ModItems.ALOE_SEEDS, ModItems.WHEAT_BUSHEL, ModItems.TOMATO,
+                ModItems.POTATO, ModItems.POPPY, ModItems.ALOE, ModItems.BOTANY_HOE, ModItems.BOTANY_SPADE)) {
+            assertTrue(itemEntries.contains(item), "botany item missing from Moonstation Items tab: " + item);
+            assertLocalizedName(item.get().getDescriptionId());
+        }
+        for (var block : List.of(ModBlocks.HYDROPONICS_TRAY, ModBlocks.EMPTY_HYDROPONICS_TRAY,
+                ModBlocks.SEED_EXTRACTOR, ModBlocks.REAGENT_GRINDER)) {
+            assertTrue(blockEntries.contains(block), "botany block missing from Moonstation Blocks tab: " + block);
+            assertLocalizedName(block.get().asItem().getDescriptionId());
+        }
+    }
+
+    private static void assertLocalizedName(String key) throws Exception {
+        try (var stream = ModCreativeModeTabsTest.class.getResourceAsStream("/assets/moonstation14/lang/en_us.json")) {
+            assertNotNull(stream, "English language file is available");
+            var json = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(json.contains("\"" + key + "\""), "missing translation for display key " + key);
+        }
+    }
+
     @Test
     void everyRegisteredItemAndBlockItemIsListedExactlyOnceInItsDedicatedTab() throws IllegalAccessException {
         List<Object> entries = new ArrayList<>();

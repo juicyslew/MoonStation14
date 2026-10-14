@@ -8,6 +8,22 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PowerLiveLoopTest {
+    @Test void processingLoadsShareApcTierAllocationAndUnknownComponentsFailClosed() {
+        var apc = List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 1_000));
+        var one = new PowerLiveLoop.ProcessingLoad("processor", 3, true, 750);
+        var full = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(one), 20));
+        assertEquals(750, full.processingWatts().get("processor"), 1e-9);
+
+        var competing = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(one, new PowerLiveLoop.ProcessingLoad("other", 3, true, 750)), 20));
+        assertEquals(1_000, competing.processingWatts().values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9);
+        var unknown = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(), List.of(), apc, List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(new PowerLiveLoop.ProcessingLoad("unknown", 3, false, 750)), 20));
+        assertEquals(0, unknown.processingWatts().get("unknown"), 1e-9);
+    }
     @Test void chemMasterUsesResolvedDemandAndActualApcAllocation() {
         var source = List.of(new PowerLiveLoop.Source("source", 1, true, 1_000));
         var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));

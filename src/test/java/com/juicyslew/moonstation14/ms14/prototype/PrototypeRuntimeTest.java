@@ -69,6 +69,10 @@ class PrototypeRuntimeTest {
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
                 ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE);
         expectedTypes.add(ModDamageFeedback.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
@@ -239,7 +243,10 @@ class PrototypeRuntimeTest {
                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
+                 ModIngestionProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
                 ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId(),

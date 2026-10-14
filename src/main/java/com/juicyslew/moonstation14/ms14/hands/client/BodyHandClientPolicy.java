@@ -34,6 +34,8 @@ public final class BodyHandClientPolicy {
     private long sentBlockUseTick, sentQueryTick;
     private BodyHandStateSnapshot snapshot;
     private BodyHandStateSnapshot presentationSnapshot;
+    // Read-only last confirmed state is retained for input nomination while proof is refreshed.
+    private BodyHandStateSnapshot lastConfirmedSnapshot;
     private long pushedRevision = -1;
     private String feedback;
     private long localFeedbackUntil;
@@ -60,6 +62,7 @@ public final class BodyHandClientPolicy {
         lastQueryTick = Long.MIN_VALUE;
         snapshot = null;
         presentationSnapshot = null;
+        lastConfirmedSnapshot = null;
         pushedRevision = -1;
         feedback = null;
         localFeedbackUntil = 0;
@@ -116,6 +119,7 @@ public final class BodyHandClientPolicy {
                     || epoch != incoming.epoch() || snapshot != null && incoming.revision() < snapshot.revision()) return false;
             snapshot = incoming;
             presentationSnapshot = incoming;
+            lastConfirmedSnapshot = incoming;
             pushedRevision = incoming.revision();
             refreshRequired = false;
             return true;
@@ -138,6 +142,7 @@ public final class BodyHandClientPolicy {
         snapshot = incoming;
         refreshRequired = false;
         presentationSnapshot = incoming;
+        lastConfirmedSnapshot = incoming;
         if (throwIntent != null) {
             var active = incoming.hands().stream().filter(hand -> hand.id().equals(incoming.activeHand())).findFirst().orElse(null);
             if (incoming.epoch() != throwIntent.epoch || !account.equals(throwIntent.account)
@@ -154,6 +159,8 @@ public final class BodyHandClientPolicy {
     }
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
+    public boolean handQueryPending() { return pendingQuery != 0 && pendingAction == 0 && pendingBlockUse == 0; }
+    public BodyHandStateSnapshot lastConfirmedSnapshot() { return inputEnabled ? lastConfirmedSnapshot : null; }
     /** Confirmed read-only authority state; unlike inventoryView this remains usable while input is barred. */
     public BodyHandStateSnapshot confirmedSnapshot() {
         return inputEnabled && snapshot != null && snapshot.reason() == BodyHandStateSnapshot.Reason.OK

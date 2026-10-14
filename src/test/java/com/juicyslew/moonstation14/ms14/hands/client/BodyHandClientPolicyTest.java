@@ -602,6 +602,67 @@ class BodyHandClientPolicyTest {
         assertNull(policy.confirmedSnapshot());
     }
 
+    @Test void lastConfirmedHandsRemainNominationOnlyAcrossRefreshAndClearOnContextReset() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var confirmed = snapshot(0, policy.query(1), ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(confirmed));
+        policy.externalTimedCompletion();
+        assertNull(policy.snapshot());
+        assertSame(confirmed, policy.lastConfirmedSnapshot());
+        policy.bind(ACCOUNT, BODY, 8);
+        assertNull(policy.lastConfirmedSnapshot());
+    }
+
+    @Test void emptyHandNominationSurvivesRefreshBarrierUntilMatchingQueryReply() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var confirmed = snapshot(0, policy.query(1), ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(confirmed));
+        policy.externalTimedCompletion();
+        long refresh = policy.query(2);
+        assertTrue(policy.blockUseBarrier(), "refreshRequired is an existing block-use barrier");
+        assertTrue(policy.handQueryPending());
+        assertTrue(DeferredEmptyHandWorldUse.emptyHandIntentMayWait(policy.handQueryPending()));
+        assertTrue(DeferredEmptyHandWorldUse.emptyHandIntentMayWait(policy.handQueryPending()), "ordinary tick retains same nomination");
+        assertTrue(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)));
+        assertFalse(policy.handQueryPending());
+        assertFalse(DeferredEmptyHandWorldUse.emptyHandIntentMayWait(policy.handQueryPending()));
+    }
+
+    @Test void productionPrimaryRouteNominationRequiresPendingQueryEmptyHandAndWorldAdmission() {
+        var block = PrimaryWorldGesture.route(true, true, false, false);
+        assertTrue(DeferredEmptyHandWorldUse.mayNominate(true, block, true, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(false, block, true, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true, block, false, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true, block, true, false));
+        assertEquals(PrimaryWorldGesture.Route.PICKUP, PrimaryWorldGesture.route(true, true, false, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true,
+                PrimaryWorldGesture.route(true, true, false, true), true, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true,
+                PrimaryWorldGesture.route(true, true, true, false), false, true));
+    }
+
+    @Test void deferredEmptyHandNominationRequiresExactFreshContextAndConsumesOnce() {
+        var queue = new DeferredEmptyHandWorldUse();
+        var body = UUID.randomUUID();
+        var dimension = net.minecraft.resources.ResourceLocation.withDefaultNamespace("overworld");
+        var pos = new net.minecraft.core.BlockPos(1, 2, 3);
+        var intent = new DeferredEmptyHandWorldUse.Intent(body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", false, 20);
+        queue.nominate(intent);
+        assertTrue(DeferredEmptyHandWorldUse.contextMatches(intent, body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", true, 19, true));
+        assertFalse(DeferredEmptyHandWorldUse.contextMatches(intent, body, 5, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", true, 19, true));
+        assertFalse(DeferredEmptyHandWorldUse.contextMatches(intent, body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", false, 19, true));
+        assertFalse(DeferredEmptyHandWorldUse.contextMatches(intent, body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", true, 20, true));
+        assertSame(intent, queue.take());
+        assertNull(queue.take());
+    }
+
     @Test void lostBlockUseAckAndQueryTimeoutFailClosedAndRetryOnce() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);

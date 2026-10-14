@@ -132,6 +132,12 @@ public class MoonStation14Client {
         analyzerWorkspace.closeSender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
         var chemMasterWorkspace = com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE;
         chemMasterWorkspace.sender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
+        com.juicyslew.moonstation14.ms14.botany.ui.GrinderNetworking.setClientConsumer(snapshot -> {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            mc.execute(() -> com.juicyslew.moonstation14.ms14.botany.client.GrinderWindow.INSTANCE.accept(snapshot));
+        });
+        com.juicyslew.moonstation14.ms14.botany.GrinderProcessingAudioNetworking.setClientConsumer(com.juicyslew.moonstation14.ms14.botany.client.GrinderProcessingAudio::accept);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.botany.client.GrinderProcessingAudio::tick);
         com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterClientReceiver.install(state -> {
             var mc = net.minecraft.client.Minecraft.getInstance();
             mc.execute(() -> {
@@ -192,7 +198,7 @@ public class MoonStation14Client {
             if (camera == null || camera.isRemoved() || camera.level() != minecraft.level) return;
             var sound = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(payload.sound()).orElse(null);
             if (sound != null) minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), sound,
-                    net.minecraft.sounds.SoundSource.PLAYERS, payload.volume(), 1f, false);
+                    net.minecraft.sounds.SoundSource.PLAYERS, payload.volume(), payload.pitch(), false);
         });
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
@@ -934,10 +940,13 @@ public class MoonStation14Client {
         }
         com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer.additionalModels()
                 .forEach(event::register);
+        com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer.additionalModels()
+                .forEach(event::register);
     }
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.HYDROPONICS_TRAY.get(), com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
         event.registerEntityRenderer(ModEntities.MOUSE.get(), com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::new);
         // This is the simplest 2D renderer. It just draws the Item's icon.

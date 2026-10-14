@@ -421,6 +421,132 @@ public final class HeldTimedIngestionGameTests {
         });
     }
 
+    @GameTestTags({"botany", "botany-food"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 55)
+    public static void registeredActorEatsHarvestedTomatoOnlyAtTimedCompletion(GameTestHelper h) {
+        var fixture = com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture
+                .register((net.minecraft.server.level.ServerLevel) h.getLevel(), "tomato-food");
+        h.runAtTickTime(2, () -> {
+            try {
+                var active = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var isolatedPos = h.absolutePos(new BlockPos(2, 1, 2)).getCenter();
+                body.setPos(isolatedPos.x, isolatedPos.y, isolatedPos.z);
+                var initialStomach = com.juicyslew.moonstation14.ms14.MS14Provider.get(body,
+                        com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap();
+                var stomachBefore = new java.util.HashMap<String, Long>();
+                initialStomach.forEach((key, value) -> stomachBefore.put(key.toString(), ReagentUnits.fromFloat(value)));
+                var seedId = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("tomato");
+                ItemStack tomato = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(seedId, 10f);
+                var source = tomato.get(ModDataComponents.REAGENT.get()).centContents();
+                long dose = ReagentUnits.total(source.values());
+                require(dose == 441, "tomato harvest carries its actual generated 441-cent chemistry");
+                var hands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                String hand = hands.activeHand(), token = "ready-tomato-food";
+                require(LiveHandsFixtureTransfer.put(fixture.player(), body, hand, token, tomato), "tomato assigned through live hands owner");
+                waitForTomatoSafeCompletion(h, fixture, active, body, tomato, source, hand, token, stomachBefore);
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static void waitForTomatoSafeCompletion(GameTestHelper h,
+            com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture fixture,
+            com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver.Active active,
+            net.minecraft.world.entity.LivingEntity body, ItemStack tomato,
+            Map<ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData>, Long> source,
+            String hand, String token, Map<String, Long> stomachBefore) {
+        long nextMetabolism = h.getLevel().getGameTime() + 10;
+        if (!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM.isDue(nextMetabolism, body.getId())) {
+            h.runAfterDelay(1, () -> waitForTomatoSafeCompletion(h, fixture, active, body, tomato, source, hand, token, stomachBefore));
+            return;
+        }
+        try {
+                // Align only this fixture's request: the next metabolism bucket is 10 ticks
+                // away, then the completion proof at +22 is 8 ticks after that bucket.
+                var issued = com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.query(fixture.player(),
+                        new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery(active.epoch(), 2));
+                require(issued.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Reason.OK,
+                        "fresh inventory proof issued");
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.requireFreshQuery(fixture.player());
+                require(issued.hands().stream().anyMatch(slot -> slot.id().equals(hand) && token.equals(slot.token())), "request token is freshly proven");
+                while (fixture.pollOutbound() != null) { }
+                var ack = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(fixture.player(),
+                        new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(
+                                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.USE_IN_HAND,
+                                hand, active.epoch(), 3, issued.revision(), null, token));
+                require(ack.accepted(), "authenticated held USE_IN_HAND admitted food ingestion");
+                var initial = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                require(token.equals(initial.token(hand).orElse(null)) && ItemStack.matches(tomato, initial.stackCopy(hand).orElseThrow()),
+                        "timed start does not consume or alter the harvest");
+                var operation = body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                        .filter(op -> op.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
+                require(operation.durationTicks() == 20, "resolved edible profile uses one-second completion");
+                h.runAfterDelay(19, () -> {
+                    var at19 = com.juicyslew.moonstation14.ms14.MS14Provider.get(body,
+                            com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap();
+                    require(token.equals(((LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())).token(hand).orElse(null)),
+                            "harvest remains held before completion; t=" + h.getLevel().getGameTime());
+                    String preCompletion = at19.entrySet().stream().map(e -> e.getKey() + "=" + ReagentUnits.fromFloat(e.getValue()))
+                            .collect(java.util.stream.Collectors.joining(","));
+                    var before = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                    require(token.equals(before.token(hand).orElse(null)), "harvest remains held before completion");
+                    h.runAfterDelay(3, () -> {
+                        try {
+                            var after = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                            require(after.token(hand).isEmpty(), "destroy-on-empty harvest token is removed after committed dose");
+                            var stomach = com.juicyslew.moonstation14.ms14.MS14Provider.get(body,
+                                    com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap();
+                            for (var reagent : source.entrySet())
+                                require(ReagentUnits.fromFloat(stomach.getOrDefault(reagent.getKey(), 0f)) == reagent.getValue(),
+                                        "actual generated tomato reagent reaches stomach exactly: " + reagent.getKey()
+                                                + " expected=" + reagent.getValue() + " actual="
+                                                + ReagentUnits.fromFloat(stomach.getOrDefault(reagent.getKey(), 0f))
+                                                + " baseline=" + stomachBefore + " preCompletion=" + preCompletion
+                                                + " t=" + h.getLevel().getGameTime() + " body=" + body.getUUID()
+                                                + " pos=" + body.position());
+                            h.succeed();
+                        } finally { fixture.close(); }
+                    });
+                });
+        } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+    }
+
+    @GameTestTags({"botany", "botany-food"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 30)
+    public static void registeredHumanRejectsHarvestedWheatWithoutChangingHeldSource(GameTestHelper h) {
+        var fixture = com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture
+                .register((net.minecraft.server.level.ServerLevel) h.getLevel(), "wheat-food");
+        h.runAtTickTime(2, () -> {
+            try {
+                var active = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                ItemStack wheat = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(
+                        com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"), 10f);
+                var hands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                String hand = hands.activeHand(), token = "ready-wheat-food";
+                require(LiveHandsFixtureTransfer.put(fixture.player(), body, hand, token, wheat), "wheat assigned through live hands owner");
+                var issued = com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.query(fixture.player(),
+                        new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery(active.epoch(), 2));
+                require(issued.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Reason.OK,
+                        "fresh inventory proof issued");
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.requireFreshQuery(fixture.player());
+                while (fixture.pollOutbound() != null) { }
+                var ack = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(fixture.player(),
+                        new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(
+                                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.USE_IN_HAND,
+                                hand, active.epoch(), 3, issued.revision(), null, token));
+                require(!ack.accepted(), "ordinary human admission rejects special-digestion wheat");
+                var after = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                require(token.equals(after.token(hand).orElse(null)) && ItemStack.matches(wheat, after.stackCopy(hand).orElseThrow()),
+                        "rejected wheat source and exact token remain unchanged");
+                require(body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get()) == null
+                        || body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().isEmpty(),
+                        "rejection creates no timed ingestion operation");
+                h.succeed();
+            } finally { fixture.close(); }
+        });
+    }
+
     private static Fixture fixture(GameTestHelper h, float units) {
         return fixtureWithItem(h, new ItemStack(ModItems.BOTTLE.get()), units);
     }

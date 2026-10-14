@@ -18,6 +18,7 @@ import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.item.custom.SyringeItem;
 import com.juicyslew.moonstation14.item.custom.BeakerItem;
 import com.juicyslew.moonstation14.item.custom.PillItem;
+import com.juicyslew.moonstation14.item.custom.ProduceEdibleItem;
 import com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
@@ -62,6 +63,8 @@ public class ModItems {
     public static final DeferredItem<Item> SCREWDRIVER = ITEMS.register("screwdriver", () -> new Item(new Item.Properties().stacksTo(1)
             .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "screwdriver"))));
     public static final DeferredItem<Item> WELDER = ITEMS.register("welder", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> BOTANY_HOE = ITEMS.register("botany_hoe", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> BOTANY_SPADE = ITEMS.register("botany_spade", () -> new Item(new Item.Properties().stacksTo(1)));
 
     // Food
     public static final DeferredItem<Item> WAFFLE = ITEMS.register("waffle",
@@ -71,6 +74,17 @@ public class ModItems {
             () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<PrototypeEdibleItem> PUMPKIN_PIE_SLICE = ITEMS.register("pumpkin_pie_slice",
             () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> WHEAT_SEEDS = ITEMS.register("wheat_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> TOMATO_SEEDS = ITEMS.register("tomato_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> POTATO_SEEDS = ITEMS.register("potato_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> POPPY_SEEDS = ITEMS.register("poppy_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> ALOE_SEEDS = ITEMS.register("aloe_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> WHEAT_BUSHEL = ITEMS.register("wheat_bushel", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> TOMATO = ITEMS.register("tomato", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> POTATO = ITEMS.register("potato", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> POPPY = ITEMS.register("poppy", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> ALOE = ITEMS.register("aloe", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
 
     // CUSTOM ITEMS
     // TODO: If I start having dependency issues with what needs to be defined before what, consider a lazy-initialized static map pattern for these item's construction result maps.

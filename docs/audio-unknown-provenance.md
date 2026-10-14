@@ -114,6 +114,20 @@ file identifies them as CC0-1.0 by ScarKy0, source
 The ChemMaster click reuses the APC sample `machine_switch.ogg`; retain its
 existing unresolved-provenance entry above and adjacent notice. Source SHA-256:
 `E39E881D52AFC399F50AC4ED9B79084736A3025CF10CDE51460F106A2BACE55D`.
+## Grinder blender audio
+
+`src/main/resources/assets/moonstation14/sounds/botany/grinder/blender.ogg`
+is an unchanged copy of SS14 `Resources/Audio/Machines/blender.ogg` at pinned
+revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256
+`521E12A215F45C40FFF3C50718D1380A6AE404713C769100725CFC2EB7CDBC0F`.
+The pinned `Machines/attributions.yml` has no file-specific blender entry.
+Author, original source, and file-specific license are unresolved. Do not infer
+coverage from root MIT, repository-level CC, or another blanket license. See the
+[adjacent notice](../src/main/resources/assets/moonstation14/sounds/botany/grinder/blender.ogg.license.txt).
+This is a one-shot lasting 5.269 seconds; future controlled playback must stop
+at 70 ticks on completion, not on power loss. No runtime playback or stop
+integration is claimed here.
+
 ## Defibrillator overload audio
 - Device light-switch audio is **resolved**, not unknown: pinned `Resources/Audio/Machines/attributions.yml:106�109` credits Skyrat-SS13 under CC-BY-SA-3.0. The source URL, revision and hash are retained in `sounds/device_lightswitch.ogg.license.txt`.
 - `src/main/resources/assets/moonstation14/sounds/device/defib_zap.ogg` was copied byte-for-byte from pinned SS14 `Resources/Audio/Items/Defib/defib_zap.ogg` (revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`). SHA-256: `CC851D025345F472C05682372C17AFA7D0C0AFB7D6F1D606855C952A76BB56EE`. Asset-specific upstream credit/license metadata was not located; provenance remains unknown. Do not infer a license or attribution from the repository-level license. Resolve rights/credit before redistribution beyond this repository.

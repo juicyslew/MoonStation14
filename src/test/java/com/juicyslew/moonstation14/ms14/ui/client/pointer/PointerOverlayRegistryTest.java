@@ -68,6 +68,28 @@ class PointerOverlayRegistryTest {
         assertFalse(PointerOverlayRegistry.allowsHost(new net.minecraft.client.gui.screens.Screen(
                 net.minecraft.network.chat.Component.literal("modal")) { }));
     }
+    @Test void keyDispatchUsesStableSnapshotAndSkipsRemovedWindows() {
+        var added=new FakeWindow(0,0,20,20);added.visible=true;added.focus=true;
+        browser.visible=true;other.visible=true;browser.focus=true;other.focus=true;
+         browser.onKey=()->{PointerOverlayRegistry.unregister(browser);PointerOverlayRegistry.register(added);return false;};
+         other.onKey=()->false; // keep dispatch moving so the newly added window is reached next time
+        PointerOverlayRegistry.register(browser);PointerOverlayRegistry.register(other);
+         assertFalse(PointerOverlayRegistry.key(1,1,0));
+        assertEquals(1,browser.keys); // callback unregisters itself before a later turn
+        assertEquals(1,other.keys);assertEquals(0,added.keys);
+        assertTrue(PointerOverlayRegistry.key(1,1,0));assertEquals(1,added.keys);
+    }
+    @Test void clickAndRenderCallbacksCanMutateMembershipDuringSnapshotTraversal() {
+        var first=new FakeWindow(0,0,20,20);var second=new FakeWindow(0,0,20,20);
+        first.visible=true;second.visible=true;PointerOverlayRegistry.register(first);PointerOverlayRegistry.register(second);
+        second.onClick=()->{PointerOverlayRegistry.unregister(first);return true;};
+        assertTrue(PointerOverlayRegistry.click(5,5,0));assertEquals(0,first.clicks);assertEquals(1,second.clicks);
+        first.visible=true;PointerOverlayRegistry.register(first);
+        second.onRender=()->PointerOverlayRegistry.unregister(first);
+         PointerOverlayRegistry.visitPaintOrder(PointerOverlayRegistry.paintOrder(), (window, index) ->
+                 window.renderIntoGui(null,0,0,0,320,240));
+        assertEquals(0,first.renders);
+    }
     @Test void screenInputAdmissionLeavesStorageCanvasToItsSingleScreenRouter() {
         var canvas=new com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen(
                 new com.juicyslew.moonstation14.ms14.hands.client.StoragePopupWorkspace(320,240));
@@ -193,13 +215,14 @@ class PointerOverlayRegistryTest {
     }
     private static final class FakeWindow implements PointerOverlayWindow {
         final int x,y,w,h; boolean visible,focus,captured,available=true; int clicks,drags,releases,keys,consumed,renders;
+        java.util.function.BooleanSupplier onKey,onClick;Runnable onRender;
         FakeWindow(int x,int y,int w,int h){this.x=x;this.y=y;this.w=w;this.h=h;}
         public boolean visible(){return visible;} public boolean contains(double px,double py){return visible&&px>=x&&px<x+w&&py>=y&&py<y+h;}
         public boolean pointerAvailable(){return available;}public boolean ownsPointerCapture(){return captured;}
-         public void renderIntoGui(GuiGraphics g,int mx,int my,float p,int sw,int sh){renders++;}
-        public boolean mouseClicked(double a,double b,int button){clicks++;captured=true;return true;}
+         public void renderIntoGui(GuiGraphics g,int mx,int my,float p,int sw,int sh){renders++;if(onRender!=null)onRender.run();}
+        public boolean mouseClicked(double a,double b,int button){clicks++;captured=true;return onClick==null||onClick.getAsBoolean();}
         public boolean mouseDragged(double a,double b){drags++;return captured;} public boolean mouseReleased(int b){releases++;boolean v=captured;captured=false;return v;}
-        public boolean mouseScrolled(double a,double b,double d){return false;} public boolean keyPressed(int k,int s,int m){keys++;if(focus)consumed++;return focus;}
+        public boolean mouseScrolled(double a,double b,double d){return false;} public boolean keyPressed(int k,int s,int m){keys++;if(focus)consumed++;return onKey==null?focus:onKey.getAsBoolean();}
         public boolean charTyped(char c,int m){return focus;} public boolean isSearchFocused(){return focus;}
         public void clearTextFocus(){focus=false;} public void resetOwnedContext(){visible=false;focus=false;captured=false;}
     }

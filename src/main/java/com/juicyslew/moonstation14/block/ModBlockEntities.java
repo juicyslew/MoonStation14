@@ -11,6 +11,9 @@ import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity;
 import com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlockEntity;
+import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity;
+import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity;
+import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
@@ -67,6 +70,12 @@ public class ModBlockEntities {
             () -> BlockEntityType.Builder.of(ChemMasterBlockEntity::new, ModBlocks.CHEM_MASTER.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WallSignalControlBlockEntity>> WALL_SIGNAL_CONTROL = BLOCK_ENTITY_TYPES.register("wall_signal_control",
             () -> BlockEntityType.Builder.of(WallSignalControlBlockEntity::new, ModBlocks.SIGNAL_BUTTON.get(), ModBlocks.SIGNAL_SWITCH.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HydroponicsTrayBlockEntity>> HYDROPONICS_TRAY = BLOCK_ENTITY_TYPES.register("hydroponics_tray",
+            () -> BlockEntityType.Builder.of(HydroponicsTrayBlockEntity::new, ModBlocks.HYDROPONICS_TRAY.get(), ModBlocks.EMPTY_HYDROPONICS_TRAY.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SeedExtractorBlockEntity>> SEED_EXTRACTOR = BLOCK_ENTITY_TYPES.register("seed_extractor",
+            () -> BlockEntityType.Builder.of(SeedExtractorBlockEntity::new, ModBlocks.SEED_EXTRACTOR.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ReagentGrinderBlockEntity>> REAGENT_GRINDER = BLOCK_ENTITY_TYPES.register("reagent_grinder",
+            () -> BlockEntityType.Builder.of(ReagentGrinderBlockEntity::new, ModBlocks.REAGENT_GRINDER.get()).build(null));
 
     public static void register(IEventBus eventBus){
         BLOCK_ENTITY_TYPES.register(eventBus);
