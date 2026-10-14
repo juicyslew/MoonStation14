@@ -1,1 +1,551 @@
-{"agents":{"3d-modeler":{"permissions":[{"action":"subagent","effect":"allow","resource":"fidelity-reviewer"},{"action":"subagent","effect":"allow","resource":"investigate"},{"action":"subagent","effect":"allow","resource":"ss14-expert"},{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"deny","resource":"*gate-validate*"},{"action":"shell","effect":"deny","resource":"*workflow.py*gate-clear-blocker*"},{"action":"shell","effect":"allow","resource":"*gradlew*test*--tests*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-05/**"}]},"fidelity-reviewer":{"permissions":[{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"deny","resource":"*gate-validate*"},{"action":"shell","effect":"deny","resource":"*workflow.py*gate-clear-blocker*"},{"action":"shell","effect":"allow","resource":"*gradlew*test*--tests*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/Asset Building Workspace/**"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/SS14-dev/space-station-14/**"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"}]},"implement":{"permissions":[{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"deny","resource":"*gate-validate*"},{"action":"shell","effect":"deny","resource":"*workflow.py*gate-clear-blocker*"},{"action":"shell","effect":"allow","resource":"*gradlew*test*--tests*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"}]},"integration-lead":{"permissions":[{"action":"subagent","effect":"deny","resource":"integration-lead"},{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"allow","resource":"*workflow.py*gate-validate*"},{"action":"shell","effect":"allow","resource":"*workflow.py*gate-clear-blocker*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"}]},"investigate":{"permissions":[{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"deny","resource":"*gate-validate*"},{"action":"shell","effect":"deny","resource":"*workflow.py*gate-clear-blocker*"},{"action":"shell","effect":"allow","resource":"*gradlew*test*--tests*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"}]},"orchestrate-ms14":{"permissions":[{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"deny","resource":"*gate-validate*"},{"action":"shell","effect":"deny","resource":"*workflow.py*gate-clear-blocker*"},{"action":"shell","effect":"allow","resource":"*gradlew*test*--tests*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-05/**"}]},"review":{"permissions":[{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"deny","resource":"*gate-validate*"},{"action":"shell","effect":"deny","resource":"*workflow.py*gate-clear-blocker*"},{"action":"shell","effect":"allow","resource":"*gradlew*test*--tests*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"}]},"ss14-expert":{"permissions":[{"action":"shell","effect":"deny","resource":"*runGameTestServer*"},{"action":"shell","effect":"deny","resource":"*runServer*"},{"action":"shell","effect":"deny","resource":"*runClient*"},{"action":"shell","effect":"deny","resource":"*featureReadiness*"},{"action":"shell","effect":"deny","resource":"*gradlew*build*"},{"action":"shell","effect":"deny","resource":"*gradlew*check*"},{"action":"shell","effect":"deny","resource":"*gradlew*test*"},{"action":"shell","effect":"deny","resource":"*gate-validate*"},{"action":"shell","effect":"deny","resource":"*workflow.py*gate-clear-blocker*"},{"action":"shell","effect":"allow","resource":"*gradlew*test*--tests*"},{"action":"external_directory","effect":"allow","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"},{"action":"edit","effect":"deny","resource":"C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**"}]}}}
+{
+  "agents": {
+    "orchestrate-ms14": {
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gate-validate*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*--tests*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        },
+        {
+          "action": "external_directory",
+          "effect": "allow",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-05/**"
+        }
+      ]
+    },
+    "implement": {
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gate-validate*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*--tests*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        }
+      ]
+    },
+    "investigate": {
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gate-validate*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*--tests*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        }
+      ]
+    },
+    "ss14-expert": {
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gate-validate*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*--tests*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        }
+      ]
+    },
+    "review": {
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gate-validate*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*--tests*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        }
+      ]
+    },
+    "3d-modeler": {
+      "permissions": [
+        {
+          "action": "subagent",
+          "resource": "fidelity-reviewer",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "investigate",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "ss14-expert",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gate-validate*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*--tests*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        },
+        {
+          "action": "external_directory",
+          "effect": "allow",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-05/**"
+        }
+      ]
+    },
+    "integration-lead": {
+      "permissions": [
+        {
+          "action": "subagent",
+          "resource": "integration-lead",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-validate*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        }
+      ]
+    },
+    "fidelity-reviewer": {
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*runGameTestServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runServer*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*runClient*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*featureReadiness*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*build*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*check*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gate-validate*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*workflow.py*gate-clear-blocker*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*gradlew*test*--tests*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/Asset Building Workspace/**",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/SS14-dev/space-station-14/**",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-shared/**",
+          "effect": "deny"
+        }
+      ]
+    }
+  }
+}

@@ -33,6 +33,28 @@ public final class CommittedSpectatorGuard {
         };
     }
 
+    /** True only when a committed harness owns a distinct entity and the carrier is the exact server player. */
+    public static boolean isTransportCarrier(ServerPlayer player) {
+        if (player == null || player.server == null || !player.server.isSameThread()
+                || player.server.getPlayerList().getPlayer(player.getUUID()) != player) return false;
+        return isTransportCarrier(owners(player), player);
+    }
+
+    static boolean isTransportCarrier(Ownership[] snapshots, Entity carrier) {
+        int count = 0;
+        Entity owned = null;
+        for (Ownership snapshot : snapshots) {
+            if (!snapshot.committed()) continue;
+            count++;
+            owned = snapshot.owned();
+        }
+        return isTransportCarrier(count, owned != null, owned == carrier);
+    }
+
+    static boolean isTransportCarrier(int committedOwners, boolean ownedResolved, boolean ownedIsCarrier) {
+        return committedOwners == 1 && ownedResolved && !ownedIsCarrier;
+    }
+
     /** A teleport packet is never an ownership handoff, even when it targets the owned body. */
     public static boolean blockTeleport(ServerPlayer player) {
         return blockTeleport(player, null);

@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.ms14.alert.AlertSystem;
 import com.juicyslew.moonstation14.ms14.alert.ModAlerts;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
+import com.juicyslew.moonstation14.ms14.movement.NutritionMovementFactor;
 import com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -44,8 +45,11 @@ public final class HungerSystem {
             reconcile(entity, level);
             return false;
         }
-        int value = HungerReducer.initialValue(level.getRandom().nextInt(
-                HungerReducer.INITIAL_MIN_INCLUSIVE, HungerReducer.INITIAL_MAX_EXCLUSIVE));
+        HungerPrototypeComponent policy = policy(entity);
+        int minimum = (int) policy.peckish() + 10;
+        int maximum = (int) policy.okay();
+        int value = maximum <= minimum ? minimum : level.getRandom().nextInt(minimum, maximum);
+        value = HungerReducer.initialValue(value, policy);
         HungerAttachment initial = new HungerAttachment(new HungerComponent(value));
         boolean changed = MS14Provider.updateIfChanged(entity, MS14Bridges.HUNGER,
                 new HungerComponent(HungerComponent.DEFAULT_HUNGER), initial);
@@ -58,7 +62,7 @@ public final class HungerSystem {
         if (!isEligible(entity) || !entity.hasData(ModDataAttachments.HUNGER.get())) return false;
         HungerAttachment state = MS14Provider.getDetached(entity, MS14Bridges.HUNGER);
         HungerComponent before = MS14Provider.snapshot(state);
-        HungerReducer.Result result = HungerReducer.decayOneSecond(state.hunger());
+        HungerReducer.Result result = HungerReducer.decayOneSecond(state.hunger(), policy(entity));
         if (result.changed()) state.setHunger(result.after());
         boolean changed = MS14Provider.updateIfChanged(entity, MS14Bridges.HUNGER, before, state);
         if (entity.level() instanceof ServerLevel level) reconcile(entity, level);
@@ -74,7 +78,7 @@ public final class HungerSystem {
                 return false;
             }
         }
-        HungerReducer.Level status = HungerReducer.classify(read(entity));
+        HungerReducer.Level status = HungerReducer.classify(read(entity), policy(entity));
         boolean starving = status == HungerReducer.Level.STARVING || status == HungerReducer.Level.DEAD;
         boolean peckish = status == HungerReducer.Level.PECKISH;
         try {
@@ -87,6 +91,16 @@ public final class HungerSystem {
             LOGGER.warn("Hunger projection failed for {}; authoritative hunger remains unchanged", entity.getUUID(), failure);
             return false;
         }
+    }
+
+    private static HungerPrototypeComponent policy(LivingEntity entity) {
+        return ActiveCharacterPolicy.resolveActor(entity).flatMap(c -> c.component(HungerPrototypeComponent.class))
+                .orElse(HungerPrototypeComponent.DEFAULT);
+    }
+
+    public static boolean isStarving(LivingEntity entity) {
+        return isEligible(entity) && HungerReducer.classify(read(entity), policy(entity))
+                .ordinal() >= HungerReducer.Level.STARVING.ordinal();
     }
 
     private static AlertSystem.Outcome setAlert(LivingEntity entity, ServerLevel level,
@@ -102,10 +116,10 @@ public final class HungerSystem {
     private static void reconcileModifier(AttributeInstance attribute, boolean slowed) {
         AttributeModifier current = attribute.getModifier(STARVING_MODIFIER_ID);
         if (!slowed) { if (current != null) attribute.removeModifier(STARVING_MODIFIER_ID); return; }
-        if (current != null && Double.compare(current.amount(), -0.25d) == 0
+        if (current != null && Double.compare(current.amount(), NutritionMovementFactor.ATTRIBUTE_MODIFIER_AMOUNT) == 0
                 && current.operation() == AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL) return;
         if (current != null) attribute.removeModifier(STARVING_MODIFIER_ID);
-        attribute.addTransientModifier(new AttributeModifier(STARVING_MODIFIER_ID, -0.25d,
+        attribute.addTransientModifier(new AttributeModifier(STARVING_MODIFIER_ID, NutritionMovementFactor.ATTRIBUTE_MODIFIER_AMOUNT,
                 AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
     }
 
@@ -124,7 +138,7 @@ public final class HungerSystem {
     }
     public static boolean satiate(LivingEntity entity, float factor, float scale) {
         if (!isEligible(entity)) return false;
-        HungerReducer.Result transition = HungerReducer.satiate(read(entity), factor, scale);
+        HungerReducer.Result transition = HungerReducer.satiate(read(entity), factor, scale, policy(entity));
         if (!transition.valid()) return false;
         if (!transition.changed()) return true;
         HungerAttachment state = MS14Provider.getDetached(entity, MS14Bridges.HUNGER);

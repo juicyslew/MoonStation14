@@ -70,6 +70,12 @@ public final class ExamineClient {
         Mob body = GhostControlClient.ownedCharacterForPresentation();
         long epoch = GhostControlClient.presentationCharacterEpoch();
         if (body != null && epoch > 0 && body.level() == mc.level) return new Authority(body.getUUID(), epoch, body);
+        if (GhostControlClient.isLocalGhostControl()) {
+            Entity ghost = GhostControlClient.ownedGhostForPresentation();
+            var context = GhostControlClient.committedGhostContext();
+            if (ghost != null && context != null && ghost.level() == mc.level
+                    && ghost.getUUID().equals(context.ghost())) return new Authority(context.ghost(), context.epoch(), ghost);
+        }
         return null;
     }
 
@@ -162,7 +168,9 @@ public final class ExamineClient {
 
     private static ExaminationPolicy.Examiner examiner(Authority actor) {
         var observer = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();
-        boolean actualGhost = ExamineClientPolicy.actualObserverGhost(observer != null
+        boolean canonicalGhost = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()
+                && com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedGhostForPresentation() == actor.body();
+        boolean actualGhost = canonicalGhost || ExamineClientPolicy.actualObserverGhost(observer != null
                         && observer.mode() == com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Mode.GHOST,
                 observer != null && actor.actor().equals(observer.ghost()), observer != null && observer.epoch() == actor.epoch());
         if (actualGhost) {
@@ -180,7 +188,9 @@ public final class ExamineClient {
     }
     private static boolean isActualGhost(Authority actor) {
         var observer = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();
-        return ExamineClientPolicy.actualObserverGhost(observer != null
+        return com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()
+                && com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedGhostForPresentation() == actor.body()
+                || ExamineClientPolicy.actualObserverGhost(observer != null
                         && observer.mode() == com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Mode.GHOST,
                 observer != null && actor.actor().equals(observer.ghost()), observer != null && observer.epoch() == actor.epoch());
     }
@@ -606,6 +616,12 @@ public final class ExamineClient {
     }
 
     public static boolean hasPopup() { return POPUP.target() != null && !popupDismissed; }
+    /** A correlated authoritative world mutation may invalidate the currently latched block's cached details. */
+    public static void worldMutationConfirmed(net.minecraft.core.BlockPos position) {
+        if (position == null || requestedTarget == null || popupDismissed
+                || requestedTarget.kind() != ExamineTarget.Kind.BLOCK || !requestedTarget.blockPos().equals(position)) return;
+        request(requestedTarget, false);
+    }
     public static boolean mouseClick(double x, double y, int button) {
         Minecraft mc = Minecraft.getInstance();
         boolean storageHost = mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen;

@@ -14,6 +14,14 @@ If this gets enough support, then I can consider mod compatibility, but so far m
 ## AI Disclaimer
 This shit is vibe-coded as hell. There's no shot I'd be able to accomplish this without AI. Moreover, since SS14's public repo already exists laying out exactly how everything should work, it's kind of the perfect tool for this job. You don't have to like it, that's super valid. But I have wanted this to exist for a while, and I'm just happy to be able to facilitate it's existence.
 
+## License
+MoonStation code is MIT-licensed; see [LICENSE](LICENSE). Third-party assets and
+dependencies are not covered by that license and retain their file- or
+component-specific terms. See the [media reuse and attribution policy](docs/media-use-and-attribution.md)
+and adjacent asset notices. Sable is a planned external integration, not bundled
+here, and is separately licensed under PolyForm Shield 1.0.0. See the [licensing review](docs/shuttle-relocation-sprint/licensing-review.md)
+for details.
+
 ## Frequently Asked Questions
 #### How can I try this?
 For now, you'd have to download the repo, setup neoforge and all that jazz, and then run the client, or preferably a separate server and client. I'll put instructions here at some point when this is actually playable.

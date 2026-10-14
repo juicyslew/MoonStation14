@@ -16,6 +16,12 @@ public class DamageHooks {
         if (event.getEntity().level().isClientSide()) {
             return;
         }
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player
+                && com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard
+                        .isTransportCarrier(player)) {
+            event.setCanceled(true);
+            return;
+        }
         com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.ensureProjection(event.getEntity());
         DamageSystem.ensureBaseline(event.getEntity());
     }

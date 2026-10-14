@@ -67,7 +67,10 @@ public final class CharacterIdentitySystem {
                 return false;
             }
             Optional<CharacterData> prototype = resolveHost(entity, level, present);
-            prototype.ifPresent(data -> ComplexInteractionSystem.bootstrap(entity, level, data));
+            prototype.ifPresent(data -> {
+                ComplexInteractionSystem.bootstrap(entity, level, data);
+                if (entity instanceof LivingEntity living) initializeMedicalProjection(living, data);
+            });
             return prototype.isPresent();
         }
 
@@ -77,7 +80,17 @@ public final class CharacterIdentitySystem {
         binding.bind(requestedId);
         MS14Provider.update(entity, MS14Bridges.CHARACTER_IDENTITY, binding);
         ComplexInteractionSystem.bootstrap(entity, level, prototype.orElseThrow());
+        if (entity instanceof LivingEntity living) initializeMedicalProjection(living, prototype.orElseThrow());
         return true;
+    }
+
+    /** Publish an explicit known-zero ledger for enrolled medical actors; absent client data means pending sync. */
+    private static void initializeMedicalProjection(LivingEntity entity, CharacterData character) {
+        if (com.juicyslew.moonstation14.ms14.mobs.MobStatePolicy.from(character).isPresent()
+                && entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) == null) {
+            entity.setData(ModDataAttachments.DAMAGE.get(), new com.juicyslew.moonstation14.component.codec.attachment.DamageData());
+            entity.syncData(ModDataAttachments.DAMAGE.get());
+        }
     }
 
     /** Reads do not materialize attachments. Every lookup uses the current server catalog. */

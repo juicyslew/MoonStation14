@@ -28,6 +28,15 @@ class LifecycleCharacterDeathHandlerTest {
     }
 
     @Test
+    void typedMobDeathRequiresPersistedDeadStateAndExactBoundPrototype() {
+        assertTrue(LifecycleCharacterDeathHandler.roleMobDeathDecision(true, true, true, true));
+        assertFalse(LifecycleCharacterDeathHandler.roleMobDeathDecision(false, true, true, true));
+        assertFalse(LifecycleCharacterDeathHandler.roleMobDeathDecision(true, false, true, true));
+        assertFalse(LifecycleCharacterDeathHandler.roleMobDeathDecision(true, true, false, true));
+        assertFalse(LifecycleCharacterDeathHandler.roleMobDeathDecision(true, true, true, false));
+    }
+
+    @Test
     void offlineDeathGateRequiresReservedOrSameServerCreatedAccountAndSafeStartupState() throws Exception {
         UUID account = UUID.randomUUID();
         UUID foreign = UUID.randomUUID();

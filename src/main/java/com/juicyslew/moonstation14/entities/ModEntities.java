@@ -55,8 +55,14 @@ public class ModEntities {
     public static final DeferredHolder<EntityType<?>, EntityType<ParticleAcceleratorParticleEntity>> PA_PARTICLE =
             ENTITIES.register("particle_accelerator_particle", () -> EntityType.Builder.<ParticleAcceleratorParticleEntity>of(ParticleAcceleratorParticleEntity::new, MobCategory.MISC)
                     .sized(.96f, .96f).clientTrackingRange(8).updateInterval(1).build("particle_accelerator_particle"));
+    public static final DeferredHolder<EntityType<?>, EntityType<MouseMob>> MOUSE =
+            ENTITIES.register("mouse", () -> EntityType.Builder.<MouseMob>of(MouseMob::new, MobCategory.CREATURE)
+                    // SS14 collision radius is 0.2; Minecraft's sized() takes width, so diameter is 0.4.
+                    // Height 0.3 is a compact Minecraft geometry adaptation, not upstream fixture data.
+                    .sized(0.4f, 0.3f).clientTrackingRange(8).build("mouse"));
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
+        eventBus.addListener((net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent event) ->
+                event.put(MOUSE.get(), MouseMob.createAttributes().build()));
     }
 }
-

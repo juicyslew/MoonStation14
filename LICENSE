@@ -19,3 +19,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## Scope and third-party materials
+
+The MIT license above applies to MoonStation code except where a file or
+component carries a different explicit notice. It does not relicense third-party
+artwork, models, textures, audio, dependencies, or other materials. Those retain
+their applicable file- or component-specific terms; derivatives remain subject
+to the applicable license. There is no blanket license for all project media.
+
+See [docs/media-use-and-attribution.md](docs/media-use-and-attribution.md) and
+the adjacent notices and provenance records under
+`src/main/resources/assets/moonstation14` for media-specific information.
+
+Sable is selected for planned external integration and is not currently bundled
+in this repository. Its PolyForm Shield 1.0.0 terms and project review are
+documented in [docs/shuttle-relocation-sprint/licensing-review.md](docs/shuttle-relocation-sprint/licensing-review.md).

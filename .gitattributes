@@ -3,7 +3,7 @@
 # are changed when only line endings change.
 src/generated/**/.cache/* text eol=lf
 src/generated/**/*.json text eol=lf
-* text=auto
+* text=auto eol=lf
 *.java text eol=lf
 *.json text eol=lf
 *.md text eol=lf

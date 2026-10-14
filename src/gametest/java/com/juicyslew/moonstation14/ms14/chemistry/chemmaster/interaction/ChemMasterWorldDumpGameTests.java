@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.LooseItemEntity;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity;
@@ -18,12 +19,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 
 /** Trusted service fixtures only; these do not exercise authenticated packet transport. */
-@GameTestTags({"chemmaster-dump", "power"})
+@GameTestTags({"chemmaster-dump", "power", "feature-readiness"})
 @PrefixGameTestTemplate(false)
 public final class ChemMasterWorldDumpGameTests {
     private ChemMasterWorldDumpGameTests() { }
@@ -81,6 +83,72 @@ public final class ChemMasterWorldDumpGameTests {
         h.assertTrue(item.getItem().get(ModDataComponents.REAGENT.get())==null&&item.getItem().getCount()==1,"empty jug remains as same world item");
         h.assertTrue(be.inputSlot().snapshot().stack().isEmpty()&&be.bufferRevision()==rev+1&&be.stateRevision()==state+1,"input unchanged and buffer revisions advance");
         h.assertTrue(before.contents().centContents().isEmpty(),"started empty"); h.succeed();
+    }
+
+    @GameTest(template="empty",templateNamespace="moonstation14",timeoutTicks=80)
+    public static void authenticatedDumpBeginCancelReleaseAndDuplicateConserveSource(GameTestHelper h) {
+        RegisteredServerPlayerFixture fixture=RegisteredServerPlayerFixture.register((ServerLevel)h.getLevel(),"readiness-chem-dump");
+        h.runAtTickTime(2, () -> { try {
+            var owner=RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+            ServerLevel level=(ServerLevel)h.getLevel();
+            var body=owner.body();
+            BlockPos machinePos=BlockPos.containing(body.getX()+1,body.getY(),body.getZ());
+            level.setBlock(machinePos,ModBlocks.CHEM_MASTER.get().defaultBlockState(),3);
+            var machine=(ChemMasterBlockEntity)level.getBlockEntity(machinePos);
+            h.assertTrue(machine!=null&&machine.isLoadedValid(),"real target ChemMaster is loaded");
+            body.setPos(machinePos.getX()-1.1,machinePos.getY(),machinePos.getZ()+.5);
+            var water=ModReagents.createKey("water");
+            ItemStack jug=jugWith(water,2);
+            var source=LooseItemEntity.create(level,body.position().add(0,.2,0),jug); level.addFreshEntity(source);
+            var dimension=level.dimension().location();
+            var cancelled=java.util.UUID.randomUUID();
+            var beginCancel=new ChemMasterDumpRequest(cancelled,ChemMasterDumpRequest.Phase.BEGIN,owner.epoch(),1,
+                    source.getUUID(),dimension,java.util.Optional.empty());
+            ChemMasterDumpService.handle(fixture.player(),beginCancel);
+            requireDumpAck(fixture,cancelled,ChemMasterDumpRequest.Phase.BEGIN,true);
+            ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(cancelled,ChemMasterDumpRequest.Phase.CANCEL,
+                    owner.epoch(),2,source.getUUID(),dimension,java.util.Optional.empty()));
+            requireDumpAck(fixture,cancelled,ChemMasterDumpRequest.Phase.CANCEL,true);
+            h.assertTrue(source.isAlive()&&source.getItem().get(ModDataComponents.REAGENT.get()).contents()
+                    .getOrDefault(water,0f)==2f&&machine.buffer().snapshot().contents().centContents().isEmpty(),
+                    "owned cancel leaves loose jug and ChemMaster buffer unchanged");
+            var gesture=java.util.UUID.randomUUID();
+            ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(gesture,ChemMasterDumpRequest.Phase.BEGIN,
+                    owner.epoch(),3,source.getUUID(),dimension,java.util.Optional.empty()));
+            requireDumpAck(fixture,gesture,ChemMasterDumpRequest.Phase.BEGIN,true);
+            long slotRevision=machine.inputSlot().snapshot().revision();
+            long bufferRevision=machine.bufferRevision();
+            var release=new ChemMasterDumpRequest(gesture,ChemMasterDumpRequest.Phase.RELEASE,owner.epoch(),4,
+                    source.getUUID(),dimension,java.util.Optional.of(machinePos));
+            ChemMasterDumpService.handle(fixture.player(),release);
+            requireDumpAck(fixture,gesture,ChemMasterDumpRequest.Phase.RELEASE,true);
+            h.assertTrue(machine.buffer().quantities().getOrDefault(water,0L)==200
+                    &&machine.bufferRevision()==bufferRevision+1&&machine.inputSlot().snapshot().revision()==slotRevision
+                    &&source.isAlive()&&source.getItem().get(ModDataComponents.REAGENT.get())==null,
+                    "authenticated release transfers exact 2u once, keeps jug entity and input slot unchanged");
+            ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(gesture,ChemMasterDumpRequest.Phase.RELEASE,
+                    owner.epoch(),5,source.getUUID(),dimension,java.util.Optional.of(machinePos)));
+            requireDumpAck(fixture,gesture,ChemMasterDumpRequest.Phase.RELEASE,false);
+            h.assertTrue(machine.buffer().quantities().getOrDefault(water,0L)==200&&machine.bufferRevision()==bufferRevision+1,
+                    "duplicate release cannot consume/add source again");
+            h.succeed();
+        } catch (RuntimeException|Error failure) { throw failure; }
+        finally { fixture.close(); } });
+    }
+
+    private static void requireDumpAck(RegisteredServerPlayerFixture fixture,java.util.UUID gesture,
+            ChemMasterDumpRequest.Phase phase,boolean accepted) {
+        Object packet;
+        while((packet=fixture.pollOutbound())!=null) {
+            if(packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
+                    && custom.payload() instanceof ChemMasterDumpResult result && result.gestureId().equals(gesture)
+                    && result.phase()==phase) {
+                if(result.accepted()!=accepted) throw new net.minecraft.gametest.framework.GameTestAssertException(
+                        "unexpected dump acknowledgement phase="+phase+" accepted="+result.accepted()+" reason="+result.reason());
+                return;
+            }
+        }
+        throw new net.minecraft.gametest.framework.GameTestAssertException("missing dump acknowledgement phase="+phase);
     }
 
     @GameTest(template="empty",templateNamespace="moonstation14",timeoutTicks=30)

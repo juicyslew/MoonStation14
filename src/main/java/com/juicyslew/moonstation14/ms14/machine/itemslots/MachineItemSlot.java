@@ -10,6 +10,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.function.Predicate;
 
 /** One removable, whole-stack machine slot. Policy is supplied by the owning machine. */
@@ -161,8 +164,84 @@ public final class MachineItemSlot {
         ItemStack candidate = stack.copy();
         if (!mutation.test(candidate) || candidate.isEmpty() || !candidate.is(stack.getItem())
                 || candidate.getCount() != stack.getCount() || !accepts.test(candidate) || revision == Long.MAX_VALUE) return false;
-        stack = candidate; revision++;
-        return true;
+        return commitBatch(locations.snapshot().revision(), List.of(new SlotChange(this, expectedRevision,
+                expectedToken, stack, candidate))).accepted();
+    }
+
+    /** Atomically replace or consume exact already-owned stacks across this ledger's slots. */
+    public static BatchResult commitBatch(long expectedLedgerRevision, List<SlotChange> changes) {
+        Objects.requireNonNull(changes);
+        if (changes.isEmpty()) return BatchResult.REJECTED;
+        var unique = new HashSet<MachineItemSlot>();
+        var locations = new HashSet<ItemLocation>();
+        var tokens = new HashSet<ItemToken>();
+        ItemLocationLedger ledger = changes.get(0).slot.locations;
+        for (SlotChange change : changes) {
+            if (change == null || !unique.add(change.slot) || change.slot.locations != ledger
+                    || !locations.add(new ItemLocation.MachineSlot(change.slot.owner, change.slot.id))
+                    || !tokens.add(change.token)) return BatchResult.REJECTED;
+        }
+        var ordered = changes.stream().sorted(java.util.Comparator
+                .comparing((SlotChange change) -> change.slot.owner)
+                .thenComparing(change -> change.slot.id)).toList();
+        return lockAndCommit(ordered, 0, expectedLedgerRevision, ledger);
+    }
+
+    private static BatchResult lockAndCommit(List<SlotChange> changes, int index, long expectedLedgerRevision,
+            ItemLocationLedger ledger) {
+        if (index < changes.size()) {
+            synchronized (changes.get(index).slot) {
+                return lockAndCommit(changes, index + 1, expectedLedgerRevision, ledger);
+            }
+        }
+        var removals = new LinkedHashMap<ItemToken, ItemLocation>();
+        var candidates = new LinkedHashMap<MachineItemSlot, ItemStack>();
+        for (SlotChange change : changes) {
+            MachineItemSlot slot = change.slot;
+            if (slot.retired || slot.revision != change.expectedRevision || slot.revision == Long.MAX_VALUE
+                    || slot.token == null || !slot.token.equals(change.token)
+                    || !ItemStack.matches(slot.stack, change.originalStack) || change.originalStack.isEmpty()) return BatchResult.REJECTED;
+            ItemStack replacement = change.replacementStack;
+            if (replacement.isEmpty()) removals.put(change.token, new ItemLocation.MachineSlot(slot.owner, slot.id));
+            else if (replacement.is(change.originalStack.getItem()) && replacement.getCount() == change.originalStack.getCount()
+                    && slot.accepts.test(replacement)) candidates.put(slot, replacement.copy());
+            else return BatchResult.REJECTED;
+        }
+        // Policy callbacks may be reentrant; re-prove every slot after the last callback.
+        for (SlotChange change : changes) {
+            MachineItemSlot slot = change.slot;
+            if (slot.retired || slot.revision != change.expectedRevision || slot.revision == Long.MAX_VALUE
+                    || !Objects.equals(slot.token, change.token)
+                    || !ItemStack.matches(slot.stack, change.originalStack)) return BatchResult.REJECTED;
+        }
+        var snapshot = ledger.snapshot();
+        if (snapshot.revision() != expectedLedgerRevision) return BatchResult.REJECTED;
+        for (SlotChange change : changes) {
+            if (!Objects.equals(snapshot.locations().get(change.token), new ItemLocation.MachineSlot(change.slot.owner, change.slot.id)))
+                return BatchResult.REJECTED;
+        }
+        if (!removals.isEmpty() && !ledger.unregisterBatch(expectedLedgerRevision, removals).accepted()) return BatchResult.REJECTED;
+        for (SlotChange change : changes) {
+            MachineItemSlot slot = change.slot;
+            slot.revision++;
+            if (change.replacementStack.isEmpty()) { slot.token = null; slot.stack = ItemStack.EMPTY; }
+            else slot.stack = candidates.get(slot);
+        }
+        return BatchResult.ACCEPTED;
+    }
+
+    public record SlotChange(MachineItemSlot slot, long expectedRevision, ItemToken token,
+            ItemStack originalStack, ItemStack replacementStack) {
+        public SlotChange {
+            Objects.requireNonNull(slot); Objects.requireNonNull(token);
+            originalStack = Objects.requireNonNull(originalStack).copy();
+            replacementStack = Objects.requireNonNull(replacementStack).copy();
+        }
+        @Override public ItemStack originalStack() { return originalStack.copy(); }
+        @Override public ItemStack replacementStack() { return replacementStack.copy(); }
+    }
+    public enum BatchResult { ACCEPTED, REJECTED;
+        public boolean accepted() { return this == ACCEPTED; }
     }
 
     public UUID ownerId() { return owner; }

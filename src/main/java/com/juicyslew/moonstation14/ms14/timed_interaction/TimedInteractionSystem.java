@@ -168,6 +168,24 @@ public final class TimedInteractionSystem {
              if(next!=state){body.setData(ModDataAttachments.TIMED_OPERATIONS.get(),next);publish(body);cleanupCallbacks(body,next);cleanupActor(body,next);}
         }
     }
+    /** Cancels only active operations selected by an authoritative server-side policy. */
+    public static void cancelMatching(LivingEntity body, java.util.function.Predicate<TimedOperation> selector) {
+        if (body == null || selector == null || !(body.level() instanceof ServerLevel level)) return;
+        checkThread(level);
+        TimedOperationState state = body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get());
+        if (state == null) return;
+        TimedOperationState next = state;
+        long current = now(level);
+        for (TimedOperation operation : state.operations())
+            if (operation.phase() == TimedOperation.Phase.ACTIVE && selector.test(operation))
+                next = TimedInteractionEngine.cancel(next, operation.id(), current);
+        if (next != state) {
+            body.setData(ModDataAttachments.TIMED_OPERATIONS.get(), next);
+            publish(body);
+            cleanupCallbacks(body, next);
+            cleanupActor(body, next);
+        }
+    }
     private static void cleanupCallbacks(LivingEntity body, TimedOperationState state) {
         Set<Long> ids=new HashSet<>(); for(TimedOperation op:state.operations()) if(op.phase()==TimedOperation.Phase.ACTIVE) ids.add(op.id());
         for (var entry : List.copyOf(CALLBACKS.entrySet())) if (entry.getKey().body().equals(body.getUUID()) && !ids.contains(entry.getKey().id())) {

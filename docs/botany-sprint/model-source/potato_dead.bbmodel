@@ -1,0 +1,862 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "java_block",
+    "box_uv": false
+  },
+  "name": "potato_dead",
+  "model_identifier": "potato_dead",
+  "resolution": {
+    "width": 128,
+    "height": 128
+  },
+  "elements": [
+    {
+      "name": "central_stem",
+      "uuid": "a0e26519-6c87-5aca-83ca-3283f749cef1",
+      "type": "cube",
+      "from": [
+        7.725,
+        5.0,
+        7.725
+      ],
+      "to": [
+        8.275,
+        11.3,
+        8.275
+      ],
+      "origin": [
+        8,
+        5,
+        8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            1,
+            1,
+            2,
+            14
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            1,
+            1,
+            2,
+            14
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            1,
+            1,
+            2,
+            14
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            1,
+            1,
+            2,
+            14
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            4,
+            1,
+            5,
+            2
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            4,
+            1,
+            5,
+            2
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_0_-1_body",
+      "uuid": "350d06b7-68cf-5d66-bcae-a85afe50fcc8",
+      "type": "cube",
+      "from": [
+        4.925,
+        7.8,
+        6.7
+      ],
+      "to": [
+        8.0,
+        8.85,
+        9.3
+      ],
+      "origin": [
+        8.0,
+        7.800000000000001,
+        8.0
+      ],
+      "rotation": [
+        0,
+        0,
+        22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            22,
+            1,
+            28,
+            6
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            30,
+            1,
+            36,
+            6
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_0_-1_tip",
+      "uuid": "6e4803a4-4032-5b2d-940a-3858217d6f9e",
+      "type": "cube",
+      "from": [
+        4.275,
+        8.01,
+        7.272
+      ],
+      "to": [
+        4.925,
+        8.64,
+        8.728
+      ],
+      "origin": [
+        8.0,
+        7.800000000000001,
+        8.0
+      ],
+      "rotation": [
+        0,
+        0,
+        22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_0_1_body",
+      "uuid": "e43aebd0-3f2d-5c26-94d3-e5eae59bf22e",
+      "type": "cube",
+      "from": [
+        8.0,
+        7.8,
+        6.7
+      ],
+      "to": [
+        11.075,
+        8.85,
+        9.3
+      ],
+      "origin": [
+        8.0,
+        7.800000000000001,
+        8.0
+      ],
+      "rotation": [
+        0,
+        0,
+        -22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            22,
+            1,
+            28,
+            6
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            30,
+            1,
+            36,
+            6
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_0_1_tip",
+      "uuid": "22f05d7b-cf62-5287-b145-9d028050453b",
+      "type": "cube",
+      "from": [
+        11.075,
+        8.01,
+        7.272
+      ],
+      "to": [
+        11.725,
+        8.64,
+        8.728
+      ],
+      "origin": [
+        8.0,
+        7.800000000000001,
+        8.0
+      ],
+      "rotation": [
+        0,
+        0,
+        -22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_1_-1_body",
+      "uuid": "78fdf497-6a08-586b-b8d3-c691706998f0",
+      "type": "cube",
+      "from": [
+        5.170999999999999,
+        9.48,
+        6.85
+      ],
+      "to": [
+        8.0,
+        10.53,
+        9.45
+      ],
+      "origin": [
+        8.0,
+        9.48,
+        8.15
+      ],
+      "rotation": [
+        0,
+        0,
+        22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            22,
+            1,
+            28,
+            6
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            30,
+            1,
+            36,
+            6
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_1_-1_tip",
+      "uuid": "e2499aad-1825-5193-9716-47f012f92db5",
+      "type": "cube",
+      "from": [
+        4.521,
+        9.69,
+        7.422
+      ],
+      "to": [
+        5.170999999999999,
+        10.32,
+        8.878
+      ],
+      "origin": [
+        8.0,
+        9.48,
+        8.15
+      ],
+      "rotation": [
+        0,
+        0,
+        22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_1_1_body",
+      "uuid": "5faac537-a498-5b4f-9f0a-d53ded559f4d",
+      "type": "cube",
+      "from": [
+        8.0,
+        9.48,
+        6.85
+      ],
+      "to": [
+        10.829,
+        10.53,
+        9.45
+      ],
+      "origin": [
+        8.0,
+        9.48,
+        8.15
+      ],
+      "rotation": [
+        0,
+        0,
+        -22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            7,
+            1,
+            13,
+            3
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            15,
+            1,
+            20,
+            3
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            22,
+            1,
+            28,
+            6
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            30,
+            1,
+            36,
+            6
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    },
+    {
+      "name": "paired_leaflet_1_1_tip",
+      "uuid": "9084bd5e-c5d5-5fc7-a047-10b007c52f87",
+      "type": "cube",
+      "from": [
+        10.829,
+        9.69,
+        7.422
+      ],
+      "to": [
+        11.479,
+        10.32,
+        8.878
+      ],
+      "origin": [
+        8.0,
+        9.48,
+        8.15
+      ],
+      "rotation": [
+        0,
+        0,
+        -22.5
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            38,
+            1,
+            39,
+            2
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            41,
+            1,
+            44,
+            2
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            46,
+            1,
+            47,
+            4
+          ],
+          "texture": 0
+        }
+      },
+      "rescale": false
+    }
+  ],
+  "outliner": [
+    {
+      "name": "potato_dead",
+      "uuid": "c19d2b8b-b428-53fb-a117-a9c2c7709faf",
+      "origin": [
+        8,
+        0,
+        8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "children": [
+        {
+          "name": "plant",
+          "uuid": "6f37ec66-2d73-5509-9875-0cd02083dbbc",
+          "origin": [
+            8,
+            5,
+            8
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "children": [
+            "a0e26519-6c87-5aca-83ca-3283f749cef1",
+            "350d06b7-68cf-5d66-bcae-a85afe50fcc8",
+            "6e4803a4-4032-5b2d-940a-3858217d6f9e",
+            "e43aebd0-3f2d-5c26-94d3-e5eae59bf22e",
+            "22f05d7b-cf62-5287-b145-9d028050453b",
+            "78fdf497-6a08-586b-b8d3-c691706998f0",
+            "e2499aad-1825-5193-9716-47f012f92db5",
+            "5faac537-a498-5b4f-9f0a-d53ded559f4d",
+            "9084bd5e-c5d5-5fc7-a047-10b007c52f87"
+          ],
+          "visibility": true,
+          "export": true
+        }
+      ],
+      "visibility": true,
+      "export": true
+    }
+  ],
+  "textures": [
+    {
+      "uuid": "d0289957-9c9c-50bb-8cdd-5dd0143e4518",
+      "name": "dead.png",
+      "id": "0",
+      "mode": "bitmap",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABFklEQVR4nO3WsW3CQBQGYDuKxAIUEU2kFGGDFHTMwBopGIUia2QGuhRsAEUkGkTBAq6MEinS2fEZg0Vh3fc1lu81V/zvvcs/lq9ldoXt9/H3O315itbqDqcim4xHlf8287fnxvP1Zv+v/r7a5R2vToOHpkPS8Rgr/HVbzOEUr4fdfg+xSUPPAITjdDEbXbUaQuF6+AlSfaS3had+jyaLWXbz3eg4AT6/ipt362R8LMNpoGMHGIA+Lj3y+uoTTqo8AhN3lwmgQ4fDBEicACROABInAIkTgMQJQOIEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAYTkDQt029esHbZoAAAAASUVORK5CYII=",
+      "relative_path": "../../textures/potato/dead.png",
+      "internal": true,
+      "width": 128,
+      "height": 128,
+      "uv_width": 128,
+      "uv_height": 128
+    }
+  ],
+  "animations": [],
+  "ambientocclusion": true
+}

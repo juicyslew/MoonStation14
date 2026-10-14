@@ -17,7 +17,6 @@ import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMoveme
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostPredictionHistory;
-import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyMovementIntentScreen;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import net.minecraft.client.Minecraft;
@@ -64,6 +63,9 @@ public final class GhostControlClient {
     private static final TransitInterpolationPolicy transitInterpolation = new TransitInterpolationPolicy();
     private static final ExternalFlightPredictionPolicy externalFlightPrediction = new ExternalFlightPredictionPolicy();
     private static GhostControlPayloads.Begin deferredBegin;
+    private static ClientReadyPolicy.Observation lastReadyObservation;
+    private static String lastTrackingObservation;
+    private static String lastControlObservation;
 
     static {
         // This class is discovered only on the physical client due to its Dist.CLIENT subscriber annotation.
@@ -76,7 +78,11 @@ public final class GhostControlClient {
         Minecraft minecraft = Minecraft.getInstance();
         if (payload instanceof GhostControlPayloads.Begin begin) {
             if (minecraft.player == null || minecraft.level == null || context.player() != minecraft.player) {
+                GhostControlPayloads.Begin before = deferredBegin;
                 deferredBegin = ClientBeginPolicy.defer(deferredBegin, begin, highestEpoch);
+                if (deferredBegin == begin && before != begin)
+                    MoonStation14.LOGGER.info("[harness ready] epoch={} harnessKind={} expectedEntityId={} rawEntityType=ABSENT entityPresent=false recognizedPolicy=false spectator={} ownerLevelMatches=false acceptedEpoch={} pendingEpoch={} highestEpoch={} readySent=false reason=BEGIN_DEFERRED_CONTEXT_NOT_READY",
+                            begin.mindEpoch(), begin.harnessKind(), begin.harnessEntityId(), minecraft.player != null && minecraft.player.isSpectator(), acceptedBeginEpoch, pendingEpoch, highestEpoch);
                 return;
             }
             if (!(context.player() instanceof LocalPlayer player)
@@ -121,6 +127,7 @@ public final class GhostControlClient {
     public static void clientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         ContainedCharacterClientView.reconcileCamera(minecraft);
+        ControlledChunkDiagnostics.observe(minecraft);
         LocalPlayer player = minecraft.player;
         if (player == null || minecraft.level == null) {
             if (owner != null) clearSession(minecraft, true);
@@ -138,9 +145,12 @@ public final class GhostControlClient {
         if (ClientBeginPolicy.canAccept(deferredBegin, highestEpoch, true)) {
             GhostControlPayloads.Begin begin = deferredBegin;
             deferredBegin = null;
+            MoonStation14.LOGGER.info("[harness ready] epoch={} harnessKind={} expectedEntityId={} rawEntityType=ABSENT entityPresent=false recognizedPolicy=false spectator={} ownerLevelMatches=true acceptedEpoch={} pendingEpoch={} highestEpoch={} readySent=false reason=DEFERRED_BEGIN_ACCEPTED",
+                    begin.mindEpoch(), begin.harnessKind(), begin.harnessEntityId(), player.isSpectator(), acceptedBeginEpoch, pendingEpoch, highestEpoch);
             acceptBegin(minecraft, player, begin);
         }
         if (pendingEpoch == 0 || owner != player || ownerLevel != minecraft.level) return;
+        observeCommittedControl(minecraft, player);
         tryOfferReady(minecraft, player);
         if (!player.isSpectator()) return;
         tryReady(minecraft, player);
@@ -155,46 +165,30 @@ public final class GhostControlClient {
             return;
         }
 
-        // A vanilla Screen suppresses LocalPlayer.input; sample only the committed CHARACTER popup.
-        var popup = harnessKind == MobHarnessKind.CHARACTER && minecraft.screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow screen
-                && screen instanceof BodyMovementIntentScreen
-                ? screen.movementIntent() : null;
-        double strafe = popup == null ? player.input.leftImpulse : popup.left();
-        double forward = popup == null ? player.input.forwardImpulse : popup.forward();
-        double length = Math.hypot(strafe, forward);
-        if (length > 1d) { strafe /= length; forward /= length; }
-        short wishX = (short) Math.max(-1000, Math.min(1000, Math.round(strafe * 1000d)));
-        short wishZ = (short) Math.max(-1000, Math.min(1000, Math.round(forward * 1000d)));
-        boolean jumping = popup == null ? player.input.jumping : popup.jump();
-        boolean shifting = popup == null ? player.input.shiftKeyDown : popup.shift();
-        byte verticalWish = (byte) ((jumping ? 1 : 0) - (shifting ? 1 : 0));
-        int buttons = intentButtons(harnessKind, jumping, shifting,
-                popup == null ? player.isSprinting() : popup.sprint());
-        float[] observerLook = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.lookForGhost(ghost);
-        float yaw = normalizeYaw(observerLook == null ? player.getYRot() : observerLook[0]);
-        float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(observerLook == null ? player.getXRot() : observerLook[1])));
+        var ordinaryInput=new com.juicyslew.moonstation14.ms14.hands.client.PopupMovementIntent.State(
+                player.input.leftImpulse,player.input.forwardImpulse,player.input.jumping,player.input.shiftKeyDown,player.isSprinting());
+        // Canonical carrier control is independent of medical observer scope; never read an out-of-scope observer cache.
+        float yaw = normalizeYaw(player.getYRot());
+        float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(player.getXRot())));
         if (!Float.isFinite(yaw)) return;
         // Keep the camera-facing ghost responsive locally while authoritative rotation is in flight.
         if (ghost instanceof GhostMobHarnessEntity ghostBody) setOwnedBodyLook(ghostBody, yaw, pitch);
         else if (ghost instanceof Mob mob) setOwnedBodyLook(mob, yaw, pitch);
-        GhostControlPayloads.Intent intent = new GhostControlPayloads.Intent(activeEpoch, ++sentSequence,
-                wishX, wishZ, verticalWish, buttons, yaw, pitch);
         if (predictionHistory == null) return;
-        if (!medical.recordHistory()) {
-            predictionHistory.skip(intent);
-            GhostControlNetworking.sendToServer(intent);
-            return;
-        }
-        if (predictionHistory.record(intent) != GhostPredictionHistory.RecordResult.RECORDED)
-            return;
-        predict(ghost, intent, true);
-        GhostControlNetworking.sendToServer(intent);
+        long sequence=++sentSequence;
+        GameplayWindowMovementDispatch.dispatch(activeEpoch,sequence,harnessKind,minecraft.screen,ordinaryInput,yaw,pitch,intent->{
+            if (!medical.recordHistory()) { predictionHistory.skip(intent); return true; }
+            if (predictionHistory.record(intent) != GhostPredictionHistory.RecordResult.RECORDED) return false;
+            predict(ghost,intent,true);
+            return true;
+        },GhostControlNetworking::sendToServer);
     }
 
     /** Projects the local spectator's render-frame look onto only its committed ghost camera target. */
     public static void projectOwnedGhostLookForRenderFrame() {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
+        if (player != null) observeCommittedControl(minecraft, player);
         if (!committed || !readySent || predictionHistory == null || activeEpoch == 0
                 || activeEpoch != pendingEpoch || player == null || owner != player || !player.isSpectator()
                 || minecraft.level == null || ownerLevel != minecraft.level) return;
@@ -202,12 +196,43 @@ public final class GhostControlClient {
         Entity entity = currentBody(minecraft, ghostEntityId, harnessKind);
         if (entity == null || entity.getId() != ghostEntityId || minecraft.getCameraEntity() != entity) return;
 
-        float[] observerLook = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.lookForGhost(entity);
-        float yaw = normalizeYaw(observerLook == null ? player.getYRot() : observerLook[0]);
+        float yaw = normalizeYaw(player.getYRot());
         if (!Float.isFinite(yaw)) return;
-        float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(observerLook == null ? player.getXRot() : observerLook[1])));
+        float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(player.getXRot())));
         if (entity instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, yaw, pitch);
         else if (entity instanceof Mob mob) setOwnedBodyLook(mob, yaw, pitch);
+    }
+
+    /** Transition-only diagnostic: observation is deliberately separate from control decisions. */
+    private static void observeCommittedControl(Minecraft minecraft, LocalPlayer player) {
+        if (!committed || harnessKind != MobHarnessKind.CHARACTER) return;
+        Entity raw = minecraft.level == null || ghostEntityId < 0 ? null : minecraft.level.getEntity(ghostEntityId);
+        Entity body = currentBody(minecraft, ghostEntityId, harnessKind);
+        Entity camera = minecraft.getCameraEntity();
+        boolean spectator = player.isSpectator();
+        boolean ownerMatch = owner == player;
+        boolean levelMatch = minecraft.level != null && ownerLevel == minecraft.level;
+        boolean cameraLookup = camera != null && minecraft.level != null && minecraft.level.getEntity(camera.getId()) == camera;
+        boolean eligible = readySent && predictionHistory != null && activeEpoch != 0 && activeEpoch == pendingEpoch
+                && player == minecraft.player && ownerMatch && spectator && levelMatch && body != null
+                && camera == body && player.input != null;
+        String reason = !readySent ? "NOT_READY" : activeEpoch != pendingEpoch ? "EPOCH_MISMATCH"
+                : player != minecraft.player ? "PLAYER_MISMATCH" : !ownerMatch ? "OWNER_MISMATCH"
+                : !levelMatch ? "LEVEL_MISMATCH" : !spectator ? "NOT_SPECTATOR"
+                : predictionHistory == null ? "NO_PREDICTION_HISTORY" : raw == null ? "ENTITY_ABSENT"
+                : body == null ? "ENTITY_UNRECOGNIZED" : camera != body ? "CAMERA_MISMATCH"
+                : player.input == null ? "NO_INPUT" : "ELIGIBLE";
+        String observation = "epoch=" + activeEpoch + " entityId=" + ghostEntityId + " eligible=" + eligible + " reason=" + reason
+                + " raw=" + (raw == null ? "ABSENT" : raw.getType() + "#" + raw.getId() + ":removed=" + raw.isRemoved())
+                + " recognized=" + (body != null) + " camera=" + (camera == null ? "none" : camera.getId())
+                + " cameraLookupIdentical=" + cameraLookup + " owner=" + ownerMatch + " playerLevel=" + levelMatch
+                + " spectator=" + spectator + " chunksLoadedCamera=" + (camera != null && minecraft.level != null && minecraft.level.hasChunkAt(camera.blockPosition()))
+                + " chunksLoadedEntity=" + (raw != null && minecraft.level != null && minecraft.level.hasChunkAt(raw.blockPosition()))
+                + " pending=" + pendingEpoch + " highest=" + highestEpoch + " history=" + (predictionHistory != null);
+        if (!observation.equals(lastControlObservation)) {
+            MoonStation14.LOGGER.info("[harness control] {}", observation);
+            lastControlObservation = observation;
+        }
     }
 
     @SubscribeEvent
@@ -246,6 +271,30 @@ public final class GhostControlClient {
                                boolean spectator, boolean matchingOwnerLevel) {
             return beginEpoch > 0 && beginEpoch == pendingEpoch && entityPresent && spectator && matchingOwnerLevel;
         }
+        static String reason(boolean entityPresent, boolean spectator, boolean matchingOwnerLevel,
+                             long beginEpoch, long pendingEpoch) {
+            if (!entityPresent) return "BODY_NOT_READY";
+            if (!spectator) return "NOT_SPECTATOR";
+            if (!matchingOwnerLevel) return "CONTEXT_MISMATCH";
+            if (beginEpoch <= 0 || beginEpoch != pendingEpoch) return "EPOCH_MISMATCH";
+            return "ELIGIBLE";
+        }
+        static String entityReason(boolean rawPresent, MobHarnessKind kind, boolean expectedEntityType,
+                                   boolean policyRecognized) {
+            if (!rawPresent) return "ENTITY_NOT_TRACKED";
+            if (!expectedEntityType) return "UNSUPPORTED_KIND";
+            if (kind == MobHarnessKind.CHARACTER && !policyRecognized) return "CHARACTER_POLICY_UNAVAILABLE";
+            return "ELIGIBLE";
+        }
+        static boolean expectedCharacterEntityType(Class<?> rawType) {
+            return rawType != null && Mob.class.isAssignableFrom(rawType)
+                    && !GhostMobHarnessEntity.class.isAssignableFrom(rawType);
+        }
+        record Observation(long epoch, MobHarnessKind kind, int entityId, String rawType,
+                           boolean rawPresent, boolean recognized, boolean spectator, boolean context,
+                           long accepted, long pending, long highest, boolean readySent, String reason) {
+            boolean changedFrom(Observation prior) { return !equals(prior); }
+        }
     }
 
     private static void acceptBegin(Minecraft minecraft, LocalPlayer player, GhostControlPayloads.Begin begin) {
@@ -265,9 +314,31 @@ public final class GhostControlClient {
 
     private static void tryReady(Minecraft minecraft, LocalPlayer player) {
         Entity body = currentBody(minecraft, ghostEntityId, harnessKind);
-        if (readySent || !ClientReadyPolicy.canSend(acceptedBeginEpoch, pendingEpoch, body != null,
-                player.isSpectator(), owner == player && ownerLevel == minecraft.level)) return;
+        boolean spectator = player.isSpectator();
+        boolean matchingOwnerLevel = owner == player && ownerLevel == minecraft.level;
+        boolean eligible = ClientReadyPolicy.canSend(acceptedBeginEpoch, pendingEpoch, body != null,
+                spectator, matchingOwnerLevel);
+        Entity raw = minecraft.level == null || ghostEntityId < 0 ? null : minecraft.level.getEntity(ghostEntityId);
+        String rawType = raw == null ? "ABSENT" : raw.getType().toString();
+        String reason = ClientReadyPolicy.entityReason(raw != null, harnessKind,
+                raw != null && (harnessKind == MobHarnessKind.GHOST
+                        ? raw instanceof GhostMobHarnessEntity
+                        : ClientReadyPolicy.expectedCharacterEntityType(raw.getClass())), body != null);
+        if ("ELIGIBLE".equals(reason)) reason = ClientReadyPolicy.reason(body != null, spectator,
+                matchingOwnerLevel, acceptedBeginEpoch, pendingEpoch);
+        ClientReadyPolicy.Observation observation = new ClientReadyPolicy.Observation(pendingEpoch, harnessKind,
+                ghostEntityId, rawType, raw != null, body != null, spectator, matchingOwnerLevel,
+                acceptedBeginEpoch, pendingEpoch, highestEpoch, readySent, reason);
+        if (!readySent && observation.changedFrom(lastReadyObservation)) {
+            lastReadyObservation = observation;
+            MoonStation14.LOGGER.info("[harness ready] epoch={} harnessKind={} expectedEntityId={} rawEntityType={} entityPresent={} recognizedPolicy={} spectator={} ownerLevelMatches={} acceptedEpoch={} pendingEpoch={} highestEpoch={} readySent={} reason={}",
+                    pendingEpoch, harnessKind, ghostEntityId, rawType, raw != null, body != null, spectator, matchingOwnerLevel,
+                    acceptedBeginEpoch, pendingEpoch, highestEpoch, readySent, reason);
+        }
+        if (readySent || !eligible) return;
         readySent = true;
+        MoonStation14.LOGGER.info("[harness ready] epoch={} harnessKind={} expectedEntityId={} rawEntityType={} entityPresent=true recognizedPolicy=true spectator={} ownerLevelMatches={} acceptedEpoch={} pendingEpoch={} highestEpoch={} readySent=true reason=READY_SENT",
+                pendingEpoch, harnessKind, ghostEntityId, rawType, spectator, matchingOwnerLevel, acceptedBeginEpoch, pendingEpoch, highestEpoch);
         GhostControlNetworking.sendToServer(new GhostControlPayloads.Ready(pendingEpoch));
     }
 
@@ -305,11 +376,20 @@ public final class GhostControlClient {
     }
 
     private static void clearSession(Minecraft minecraft, boolean restoreCamera) {
+        if (pendingEpoch != 0 && !committed) {
+            Entity raw = minecraft.level == null || ghostEntityId < 0 ? null : minecraft.level.getEntity(ghostEntityId);
+            MoonStation14.LOGGER.info("[harness ready] epoch={} harnessKind={} expectedEntityId={} rawEntityType={} entityPresent={} recognizedPolicy=false spectator={} ownerLevelMatches={} acceptedEpoch={} pendingEpoch={} highestEpoch={} readySent={} reason=PENDING_CLEARED",
+                    pendingEpoch, harnessKind, ghostEntityId, raw == null ? "ABSENT" : raw.getType().toString(), raw != null,
+                    minecraft.player != null && minecraft.player.isSpectator(), owner == minecraft.player && ownerLevel == minecraft.level,
+                    acceptedBeginEpoch, pendingEpoch, highestEpoch, readySent);
+        }
         ContainedCharacterClientView.clear();
         Entity ghost = ghostEntityId < 0 ? null : currentBody(minecraft, ghostEntityId, harnessKind);
         if (restoreCamera && ghost != null && minecraft.getCameraEntity() == ghost
                 && minecraft.player != null) minecraft.setCameraEntity(minecraft.player);
         pendingEpoch = 0;
+        lastReadyObservation = null;
+        lastControlObservation = null;
         acceptedBeginEpoch = 0;
         ghostEntityId = -1;
         activeEpoch = 0;
@@ -344,16 +424,30 @@ public final class GhostControlClient {
     /** Exact-identity guard shared by ghost and configured-character tracker handling. */
     public static Entity ownedHarnessForTracker(Entity target) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (!committed || !readySent || predictionHistory == null || activeEpoch == 0
-                || activeEpoch != pendingEpoch || target == null || target.getId() != ghostEntityId
-                || minecraft.player == null || owner != minecraft.player || !owner.isSpectator()
-                || minecraft.level == null || ownerLevel != minecraft.level)
-            return null;
-
-        Entity ghost = currentBody(minecraft, ghostEntityId, harnessKind);
-        if (ghost == null || ghost != target) return null;
-        MedicalPredictionPolicy.Decision medical = medicalDecision(ghost);
-        return medical.ownsTracker() && minecraft.getCameraEntity() == ghost ? ghost : null;
+        Entity candidate = currentBody(minecraft, ghostEntityId, harnessKind);
+        boolean sessionReady = committed && readySent && predictionHistory != null && activeEpoch != 0
+                && activeEpoch == pendingEpoch && target != null && target.getId() == ghostEntityId
+                && minecraft.player != null && owner == minecraft.player && owner.isSpectator()
+                && minecraft.level != null && ownerLevel == minecraft.level;
+        MedicalPredictionPolicy.Decision medical = null;
+        boolean exactBody = candidate != null && candidate == target;
+        if (sessionReady && exactBody) medical = medicalDecision(candidate);
+        boolean cameraOwns = exactBody && minecraft.getCameraEntity() == candidate;
+        boolean owns = sessionReady && exactBody && medical != null && medical.ownsTracker() && cameraOwns;
+        if (owns && target instanceof Mob && !(target instanceof GhostMobHarnessEntity)) {
+            String observation = "kind=" + harnessKind + " epoch=" + activeEpoch + " target="
+                    + target.getType() + "#" + target.getId() + " expectedId=" + ghostEntityId
+                    + " candidate=" + exactBody + " sessionReady=" + sessionReady + " camera="
+                    + (minecraft.getCameraEntity() == null ? "none" : minecraft.getCameraEntity().getId())
+                    + " cameraOwns=" + cameraOwns + " medicalOwns=" + (medical != null && medical.ownsTracker())
+                    + " result=" + owns;
+            String dedupKey = activeEpoch + ":" + target.getId() + ":" + observation;
+            if (!dedupKey.equals(lastTrackingObservation)) {
+                MoonStation14.LOGGER.info("[harness tracking] {}", observation);
+                lastTrackingObservation = dedupKey;
+            }
+        }
+        return owns ? candidate : null;
     }
 
     /** Returns the committed, locally owned CHARACTER body for read-only HUD presentation. */
@@ -421,6 +515,55 @@ public final class GhostControlClient {
     /** Epoch of the exact committed CHARACTER camera session, or zero when it is not owned. */
     public static long committedCharacterEpoch() {
         return ownedCharacterForHud() == null ? 0 : activeEpoch;
+    }
+
+    /** Canonical local ghost-control mode; observer medical snapshots are presentation hints only. */
+    public static boolean isLocalGhostControl() {
+        return isLocalMindCarrier() && harnessKind == MobHarnessKind.GHOST
+                && pendingEpoch != 0 && (committed || !readySent || activeEpoch == pendingEpoch);
+    }
+
+    public static Entity ownedGhostForPresentation() {
+        if (!isLocalGhostControl()) return null;
+        return currentBody(Minecraft.getInstance(), ghostEntityId, harnessKind);
+    }
+
+    public static boolean isLocalCharacterControl() {
+        return isLocalMindCarrier() && harnessKind == MobHarnessKind.CHARACTER;
+    }
+
+    /** Applies server-authored role-teleport look only to the exact still-committed ghost camera. */
+    public static boolean applyAuthoritativeTeleportLook(
+            com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context context,
+            float yaw, float pitch) {
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft.player;
+        if (context == null || !Float.isFinite(yaw) || yaw < -180f || yaw > 180f
+                || !Float.isFinite(pitch) || pitch < -90f || pitch > 90f || player == null
+                || !context.equals(committedGhostContext())) return false;
+        Entity ghost = currentBody(minecraft, ghostEntityId, harnessKind);
+        if (!(ghost instanceof GhostMobHarnessEntity) || minecraft.getCameraEntity() != ghost
+                || !context.ghost().equals(ghost.getUUID())) return false;
+        player.setYRot(yaw);
+        player.setXRot(pitch);
+        player.yRotO = yaw;
+        player.xRotO = pitch;
+        setOwnedBodyLook((GhostMobHarnessEntity) ghost, yaw, pitch);
+        com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient
+                .applyAuthoritativeGhostLook(ghost, yaw, pitch);
+        if (predictionHistory != null) predictionHistory.onAuthorityBarrier();
+        return true;
+    }
+
+    /** Canonical committed ghost credential for request-only UI; pending sessions are excluded. */
+    public static com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context committedGhostContext() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!committed || !readySent || harnessKind != MobHarnessKind.GHOST || activeEpoch <= 0
+                || activeEpoch != pendingEpoch || minecraft.player == null || !minecraft.player.isSpectator()
+                || owner != minecraft.player || minecraft.level == null || ownerLevel != minecraft.level) return null;
+        Entity ghost = currentBody(minecraft, ghostEntityId, harnessKind);
+        return ghost != null && minecraft.getCameraEntity() == ghost
+                ? new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(ghost.getUUID(), activeEpoch) : null;
     }
 
     record OwnedCharacterBinding(java.util.UUID body, long epoch) { }

@@ -25,6 +25,9 @@ import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.block.custom.EmitterBlock;
 import com.juicyslew.moonstation14.block.custom.ParticleAcceleratorPartBlock;
 import com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlock;
+import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlock;
+import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlock;
+import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlock;
 import com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -135,6 +138,14 @@ public class ModBlocks {
     public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_EMITTER_PORT = registerPa("pa_emitter_port", "port", false);
     public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_EMITTER_FORE = registerPa("pa_emitter_fore", "fore", false);
     public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_EMITTER_STARBOARD = registerPa("pa_emitter_starboard", "starboard", false);
+    public static final DeferredBlock<HydroponicsTrayBlock> HYDROPONICS_TRAY = registerBlock("hydroponics_tray",
+            () -> new HydroponicsTrayBlock("hydroponics_tray", BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
+    public static final DeferredBlock<HydroponicsTrayBlock> EMPTY_HYDROPONICS_TRAY = registerBlock("empty_hydroponics_tray",
+            () -> new HydroponicsTrayBlock("empty_hydroponics_tray", BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
+    public static final DeferredBlock<SeedExtractorBlock> SEED_EXTRACTOR = registerBlock("seed_extractor",
+            () -> new SeedExtractorBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
+    public static final DeferredBlock<ReagentGrinderBlock> REAGENT_GRINDER = registerBlock("reagent_grinder",
+            () -> new ReagentGrinderBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
     static {
         ModItems.ITEMS.register("disposal_tube", () -> new CatalogOnlyDisposalPipeBlockItem(
                 DISPOSAL_TUBE.get(), new Item.Properties()));
@@ -183,4 +194,3 @@ public class ModBlocks {
         return false;
     }
 }
-

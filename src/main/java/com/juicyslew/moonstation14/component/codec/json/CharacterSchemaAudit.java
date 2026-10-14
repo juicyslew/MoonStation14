@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsProto
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 
 import java.util.Set;
+import java.util.HashSet;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
@@ -288,6 +289,21 @@ public final class CharacterSchemaAudit {
             fail(path + ".type", "expected string discriminator");
         String type = discriminator.getAsString();
         if (!CharacterComponentRegistry.registered(type)) fail(path + ".type", "unknown component type");
+        if ("MouseAppearance".equals(type)) {
+            checkFields(object, Set.of("type", "variants"), path);
+            if (object.has("variants")) {
+                JsonElement variants = object.get("variants");
+                if (!variants.isJsonArray() || variants.getAsJsonArray().isEmpty()) fail(path + ".variants", "expected nonempty array");
+                Set<String> seen = new HashSet<>();
+                for (int i = 0; i < variants.getAsJsonArray().size(); i++) {
+                    JsonElement variant = variants.getAsJsonArray().get(i);
+                    if (!variant.isJsonPrimitive() || !variant.getAsJsonPrimitive().isString()
+                            || !Set.of("white", "brown", "gray").contains(variant.getAsString())) fail(path + ".variants[" + i + "]", "unknown mouse appearance variant");
+                    if (!seen.add(variant.getAsString())) fail(path + ".variants[" + i + "]", "duplicate mouse appearance variant");
+                }
+            }
+            return;
+        }
         if (com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent.TYPE.equals(type)) {
             checkFields(object, COMPLEX_INTERACTION_FIELDS, path);
             return;
@@ -304,7 +320,17 @@ public final class CharacterSchemaAudit {
             auditRespirator(object, path, complete);
             return;
         }
-          if ("Body".equals(type) || "Hunger".equals(type) || "Thirst".equals(type) || "Stomach".equals(type)
+          if ("Hunger".equals(type)) {
+              checkFields(object, Set.of("type", "overfed", "okay", "peckish", "starving", "dead", "decay"), path);
+              validateNutrition(object, path, com.juicyslew.moonstation14.ms14.character.components.HungerPrototypeComponent.CODEC);
+              return;
+          }
+          if ("Thirst".equals(type)) {
+              checkFields(object, Set.of("type", "overHydrated", "okay", "thirsty", "parched", "dead", "decay", "startingThirst"), path);
+              validateNutrition(object, path, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.CODEC);
+              return;
+          }
+          if ("Body".equals(type) || "Stomach".equals(type)
                   || "Mouth".equals(type)
                   || "Blindable".equals(type) || "Incorporeal".equals(type)) {
              checkFields(object, Set.of("type"), path);
@@ -341,7 +367,15 @@ public final class CharacterSchemaAudit {
             return;
         }
         if ("Speech".equals(type)) {
-            checkFields(object, Set.of("type"), path);
+            checkFields(object, Set.of("type", "accent", "speechSound"), path);
+            if (object.has("accent") && (!object.get("accent").isJsonPrimitive()
+                    || !object.getAsJsonPrimitive("accent").isString()
+                    || !Set.of("", "mouse").contains(object.get("accent").getAsString())))
+                fail(path + ".accent", "unknown speech accent");
+            if (object.has("speechSound") && (!object.get("speechSound").isJsonPrimitive()
+                    || !object.getAsJsonPrimitive("speechSound").isString()
+                    || object.get("speechSound").getAsString().length() > 128))
+                fail(path + ".speechSound", "expected sound identifier string");
             return;
         }
         if ("StandingState".equals(type)) {
@@ -449,6 +483,18 @@ public final class CharacterSchemaAudit {
             checkFields(object, Set.of("type", "hands", "can_be_stripped"), path);
             if (complete || object.has("hands")) auditHands(object.get("hands"), path + ".hands");
             if (object.has("can_be_stripped")) auditBoolean(object.get("can_be_stripped"), path + ".can_be_stripped");
+            return;
+        }
+        if ("GhostRole".equals(type)) {
+            checkFields(object, Set.of("type", "name", "description", "rules", "takeover", "allow_movement", "allow_speech"), path);
+            for (String field : Set.of("name", "description", "rules")) {
+                if (field.equals("name") && !object.has(field)) fail(path + ".name", "required field");
+                if (object.has(field) && (!object.get(field).isJsonPrimitive() || !object.get(field).getAsJsonPrimitive().isString()
+                        || object.get(field).getAsString().length() > 128 || (field.equals("name") && object.get(field).getAsString().isBlank())))
+                    fail(path + "." + field, "expected string of at most 128 characters");
+            }
+            for (String field : Set.of("takeover", "allow_movement", "allow_speech"))
+                if (object.has(field)) auditBoolean(object.get(field), path + "." + field);
             return;
         }
         if ("Stripping".equals(type)) { checkFields(object, Set.of("type"), path); return; }
@@ -649,6 +695,11 @@ public final class CharacterSchemaAudit {
     private static void auditBoolean(JsonElement value, String path) {
         if (value == null) fail(path, "required field is missing");
         if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) fail(path, "expected boolean");
+    }
+
+    private static <T> void validateNutrition(JsonObject object, String path, com.mojang.serialization.Codec<T> codec) {
+        var result = codec.parse(com.mojang.serialization.JsonOps.INSTANCE, object);
+        if (result.error().isPresent()) fail(path, result.error().get().message());
     }
 
     private static void auditNonNegativeNumber(JsonElement value, String path) {

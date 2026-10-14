@@ -14,18 +14,64 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.util.Mth;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.SubscribeEvent;
 import org.joml.Matrix4f;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
 /** Camera-facing, depth-tested world presentation for actor-owned timed operations. */
 @OnlyIn(Dist.CLIENT)
+@EventBusSubscriber(modid=MoonStation14.MOD_ID,value=Dist.CLIENT)
 public final class TimedInteractionRenderer {
     private static final ResourceLocation FRAME=ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID,
             "textures/gui/timed_interaction_progress.png");
     private static final ResourceLocation WHITE=ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID,
             "textures/gui/white_pixel.png");
     private TimedInteractionRenderer() { }
+
+    @SubscribeEvent
+    public static void renderLocalHud(RenderGuiEvent.Post event) {
+        Minecraft mc=Minecraft.getInstance();
+        LivingEntity own=GhostControlClient.ownedCharacterForPresentation();
+        if(mc.level==null || own==null || own.isRemoved() || mc.level.getEntity(own.getId())!=own) return;
+        var snapshot=TimedInteractionClient.snapshotView().get(own.getId());
+        var gui=event.getGuiGraphics();
+        int width=gui.guiWidth(), height=gui.guiHeight();
+        int index=0;
+        if(snapshot!=null && snapshot.bodyUuid().equals(own.getUUID())
+                && snapshot.dimension().equals(mc.level.dimension().location())) {
+            double tick=TimedInteractionClient.estimatedServerTick(own.getId(),0);
+            for(var v:snapshot.views()) {
+                float progress=TimedInteractionClient.predictedProgress(v,tick);
+                float alpha=v.phase()==TimedOperation.Phase.CANCELLED
+                        ?TimedInteractionMath.cancellationFillAlpha(v.terminalTick(),tick):1f;
+                drawHudBar(gui,width,height,index++,progress,v.phase(),alpha);
+            }
+        }
+        for(var p:TimedInteractionClient.provisionalView(own.getUUID()).values())
+            drawHudBar(gui,width,height,index++,TimedInteractionMath.progress(0,p.durationTicks(),p.elapsedTicks()),TimedOperation.Phase.ACTIVE,1f);
+    }
+
+    private static void drawHudBar(net.minecraft.client.gui.GuiGraphics gui,int width,int height,int index,
+                                   float progress,TimedOperation.Phase phase,float alpha) {
+        int[] anchor=TimedInteractionMath.layoutLocalHud(width,height,index);
+        int x=anchor[0], y=anchor[1];
+        int scale=TimedInteractionMath.LOCAL_HUD_SCALE;
+        gui.setColor(1,1,1,alpha);
+        // Keep the source crop in authored texture pixels; only destination geometry scales.
+        gui.blit(FRAME,x,y,TimedInteractionMath.WIDTH*scale,TimedInteractionMath.HEIGHT*scale,
+                0f,0f,TimedInteractionMath.WIDTH,TimedInteractionMath.HEIGHT,
+                TimedInteractionMath.WIDTH,TimedInteractionMath.HEIGHT);
+        int fill=TimedInteractionMath.fillPixels(progress);
+        if(fill>0 && alpha>0) gui.fill(x+(TimedInteractionMath.FILL_LEFT+12)*scale,
+                y+(TimedInteractionMath.FILL_TOP+3)*scale,
+                x+(TimedInteractionMath.FILL_LEFT+12+fill)*scale,
+                y+(TimedInteractionMath.FILL_TOP+3+TimedInteractionMath.FILL_HEIGHT)*scale,
+                (TimedInteractionMath.color(progress,phase)&0x00ffffff)|((int)(255*alpha)<<24));
+        gui.setColor(1,1,1,1);
+    }
 
     public static void render(RenderLevelStageEvent event) {
         if(event.getStage()!=RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
@@ -40,24 +86,19 @@ public final class TimedInteractionRenderer {
             if(!s.dimension().equals(mc.level.dimension().location())) continue;
             double tick=TimedInteractionClient.estimatedServerTick(entry.getKey(),event.getPartialTick().getGameTimeDeltaPartialTick(false));
             var worldMarkers=TimedWorldTargetMarkers.select(s,mc.level.dimension().location(),actor.getUUID());
-            boolean localFirstPerson=actor==GhostControlClient.ownedCharacterForHud()&&firstPerson;
-            var localWorldBars=localFirstPerson
-                    ?TimedWorldTargetMarkers.selectLocalFirstPersonBars(s,mc.level.dimension().location(),actor.getUUID())
-                    :java.util.List.<TimedInteractionSnapshot.View>of();
+            // HUD ownership is stable across camera-entity implementations (including
+            // the mouse harness); tracker ownership deliberately requires camera==body.
+            boolean localActor=actor==GhostControlClient.ownedCharacterForPresentation();
             int index=0;
             for(TimedInteractionSnapshot.View v:s.views()) {
                 float progress=TimedInteractionClient.predictedProgress(v,tick);
                 var marker=worldMarkers.stream().filter(m->m.view().operationID()==v.operationID()).findFirst().orElse(null);
                 if(marker!=null) {
                     drawWorldTarget(event,marker.target(),cameraPos,buffers,progress);
-                    if(localWorldBars.stream().anyMatch(bar->bar.operationID()==v.operationID())) {
-                        float fillAlpha=v.phase()==TimedOperation.Phase.CANCELLED
-                                ?TimedInteractionMath.cancellationFillAlpha(v.terminalTick(),tick):1f;
-                        drawBar(event,actor,cameraPos,buffers,progress,v.phase(),fillAlpha,index);
-                    }
                     index++;
                     continue;
                 }
+                if(localActor) { index++; continue; }
                 float fillAlpha=v.phase()==TimedOperation.Phase.CANCELLED
                         ?TimedInteractionMath.cancellationFillAlpha(v.terminalTick(),tick):1f;
                 int color=TimedInteractionMath.color(progress,v.phase());
@@ -68,7 +109,7 @@ public final class TimedInteractionRenderer {
                     double x=Mth.lerp(partial,actor.xo,actor.getX());
                     double y=Mth.lerp(partial,actor.yo,actor.getY());
                     double z=Mth.lerp(partial,actor.zo,actor.getZ());
-                    boolean local=actor==GhostControlClient.ownedCharacterForHud();
+                    boolean local=actor==GhostControlClient.ownedCharacterForPresentation();
                     // The controlled CHARACTER is the active view body even though Minecraft's
                     // camera entity remains the player/ghost; the camera mixin proxies its view.
                     boolean cameraAnchor=local && firstPerson;
@@ -83,22 +124,17 @@ public final class TimedInteractionRenderer {
                     pose.mulPose(camera.rotation());
                     float scale=cameraAnchor?TimedInteractionMath.FIRST_PERSON_SCALE:TimedInteractionMath.ACTOR_SCALE;
                     pose.scale(scale,-scale,scale);
-                    Matrix4f m=pose.last().pose(); var consumer=buffers.getBuffer(actor==GhostControlClient.ownedCharacterForHud()?RenderType.entityTranslucentEmissive(FRAME):RenderType.entityTranslucent(FRAME));
+                    Matrix4f m=pose.last().pose(); var consumer=buffers.getBuffer(local?RenderType.entityTranslucentEmissive(FRAME):RenderType.entityTranslucent(FRAME));
                     draw(consumer,m,-12,-3,12,4,1f,light,OverlayTexture.NO_OVERLAY);
                     int fill=TimedInteractionMath.fillPixels(progress);
-                    if(fill>0 && fillAlpha>0) drawFill(buffers,actor==GhostControlClient.ownedCharacterForHud(),m,TimedInteractionMath.FILL_LEFT,TimedInteractionMath.FILL_TOP,TimedInteractionMath.FILL_LEFT+fill,TimedInteractionMath.FILL_TOP+TimedInteractionMath.FILL_HEIGHT,color,fillAlpha,light);
+                    if(fill>0 && fillAlpha>0) drawFill(buffers,local,m,TimedInteractionMath.FILL_LEFT,TimedInteractionMath.FILL_TOP,TimedInteractionMath.FILL_LEFT+fill,TimedInteractionMath.FILL_TOP+TimedInteractionMath.FILL_HEIGHT,color,fillAlpha,light);
                 } finally { pose.popPose(); }
                 index++;
             }
         }
-        LivingEntity own=GhostControlClient.ownedCharacterForHud();
+        LivingEntity own=GhostControlClient.ownedCharacterForPresentation();
         if(own!=null && mc.level.getEntity(own.getId())==own && !own.isRemoved() && !own.isInvisible()) {
             var snapshot=snapshots.get(own.getId());
-            int index=snapshot==null?0:snapshot.views().size();
-            for(var p:TimedInteractionClient.provisionalView(own.getUUID()).values()) {
-                float progress=TimedInteractionMath.progress(0,p.durationTicks(),p.elapsedTicks());
-                drawBar(event,own,cameraPos,buffers,progress,TimedOperation.Phase.ACTIVE,1f,index++);
-            }
         }
         buffers.endBatch(RenderType.entityTranslucent(FRAME));
         buffers.endBatch(RenderType.entityTranslucentEmissive(FRAME));
@@ -131,7 +167,7 @@ public final class TimedInteractionRenderer {
         try {
             float partial=event.getPartialTick().getGameTimeDeltaPartialTick(false);
             double x=Mth.lerp(partial,actor.xo,actor.getX()), y=Mth.lerp(partial,actor.yo,actor.getY()), z=Mth.lerp(partial,actor.zo,actor.getZ());
-            boolean cameraAnchor=actor==GhostControlClient.ownedCharacterForHud()
+            boolean cameraAnchor=actor==GhostControlClient.ownedCharacterForPresentation()
                     && Minecraft.getInstance().options.getCameraType().isFirstPerson();
             if(cameraAnchor) {
                 var anchor=firstPersonAnchor(cameraPos,event.getCamera().getLookVector(),event.getCamera().getUpVector(),index,event.getProjectionMatrix());

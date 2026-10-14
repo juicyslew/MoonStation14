@@ -45,6 +45,7 @@
     "ChunkMapObserverCenterMixin"
   ],
   "client": [
+    "client.EditBoxDisplayAccessor",
     "client.MinecraftStunInputMixin",
     "client.ChatComponentUnifiedViewMixin",
     "client.ChatScreenReviewPagingMixin",
@@ -55,7 +56,9 @@
       "client.HumanoidProneArmsMixin",
       "client.PlayerProneSleevesMixin",
       "client.ProneRenderBoundsMixin",
-      "client.GhostOwnedEntityTrackerMixin",
+    "client.GhostOwnedEntityTrackerMixin",
+    "client.ClientChunkCenterDiagnosticMixin",
+    "client.LevelRendererOwnedViewAnchorMixin",
     "client.MobMindHarnessWalkAnimationMixin",
     "client.GameRendererDamageFeedbackMixin",
     "client.LivingEntityRendererDamageFeedbackMixin",

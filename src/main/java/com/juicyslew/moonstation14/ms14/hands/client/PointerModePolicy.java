@@ -8,6 +8,8 @@ final class PointerModePolicy {
     boolean open() { return origin != Origin.CLOSED; }
     void manualOpen() { origin = Origin.MANUAL; }
     void popupOpen() { if (origin == Origin.CLOSED) origin = Origin.POPUP_AUTOMATIC; }
+    /** A visible managed workspace needs a cursor, but must not convert explicit manual intent. */
+    void workspaceOpen() { popupOpen(); }
     void dismiss() { origin = Origin.CLOSED; }
     void authorityClear() { origin = Origin.CLOSED; }
     static boolean keepOpenForWindow(boolean activeWire, boolean visibleStorageWindow) {
@@ -15,6 +17,10 @@ final class PointerModePolicy {
     }
     static boolean shouldRestoreHost(boolean pointerOpen, boolean screenNull, boolean bodyAuthorized) {
         return pointerOpen && screenNull && bodyAuthorized;
+    }
+    static boolean preserveForGhostContext(com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context current,
+                                           com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context owner) {
+        return current != null && current.equals(owner);
     }
     boolean closeWhenEmpty() {
         if (origin != Origin.POPUP_AUTOMATIC) return false;

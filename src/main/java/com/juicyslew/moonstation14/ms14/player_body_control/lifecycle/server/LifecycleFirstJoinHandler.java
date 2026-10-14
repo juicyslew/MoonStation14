@@ -37,18 +37,30 @@ public final class LifecycleFirstJoinHandler {
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || player instanceof FakePlayer) return;
         MinecraftServer server = player.getServer();
-        if (server == null || !server.isSameThread()) { disconnect(player, FAILED); return; }
+        if (server == null || !server.isSameThread()) {
+            MoonStation14.LOGGER.warn("Lifecycle first join denied before snapshot (account={}, serverPresent={}, serverThread={})",
+                    player.getUUID(), server != null, server != null && server.isSameThread());
+            disconnect(player, FAILED); return;
+        }
         // Login may be fired before the player list is authoritative. Never infer a fresh account then.
-        if (player.isRemoved() || player.level().isClientSide || player.connection == null
-                || !player.connection.isAcceptingMessages()
-                || server.getPlayerList().getPlayer(player.getUUID()) != player
-                || !(player.level() instanceof ServerLevel)) {
+        boolean removed = player.isRemoved();
+        boolean clientLevel = player.level().isClientSide;
+        boolean connectionPresent = player.connection != null;
+        boolean acceptingMessages = connectionPresent && player.connection.isAcceptingMessages();
+        boolean playerListIdentity = server.getPlayerList().getPlayer(player.getUUID()) == player;
+        boolean serverLevel = player.level() instanceof ServerLevel;
+        if (removed || clientLevel || !connectionPresent || !acceptingMessages
+                || !playerListIdentity || !serverLevel) {
+            MoonStation14.LOGGER.warn("Lifecycle first join denied before snapshot (account={}, removed={}, clientLevel={}, connectionPresent={}, acceptingMessages={}, playerListIdentity={}, serverLevel={})",
+                    player.getUUID(), removed, clientLevel, connectionPresent, acceptingMessages, playerListIdentity, serverLevel);
             disconnect(player, FAILED);
             return;
         }
         var snapshot = LifecycleStartupRuntime.snapshot(server).orElse(null);
         LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
         if (snapshot == null || context == null) {
+            MoonStation14.LOGGER.error("Lifecycle first join denied before reservation (account={}, startupSnapshotPresent={}, lifecycleContextPresent={})",
+                    player.getUUID(), snapshot != null, context != null);
             disconnect(player, FAILED);
             return;
         }
@@ -127,11 +139,20 @@ public final class LifecycleFirstJoinHandler {
         JoinRoute route = routeDecision(true, false);
         if (snapshot.state() != LifecycleStartupRuntime.State.EMPTY
                 && snapshot.state() != LifecycleStartupRuntime.State.UNINITIALIZED) {
+            MoonStation14.LOGGER.warn("Lifecycle first join denied (account={}, reason=startup state {}, diagnostic={})",
+                    player.getUUID(), snapshot.state(), snapshot.diagnostic());
             disconnect(player, FAILED);
             return;
         }
-        if (GhostMobHarnessControl.ownsDebugSession(player)) { disconnect(player, FAILED); return; }
-        if (!supportedVanillaMode(player.gameMode.getGameModeForPlayer())) { disconnect(player, FAILED); return; }
+        if (GhostMobHarnessControl.ownsDebugSession(player)) {
+            MoonStation14.LOGGER.warn("Lifecycle first join denied (account={}, reason=debug session owns player)", player.getUUID());
+            disconnect(player, FAILED); return;
+        }
+        if (!supportedVanillaMode(player.gameMode.getGameModeForPlayer())) {
+            MoonStation14.LOGGER.warn("Lifecycle first join denied (account={}, reason=unsupported carrier mode {})",
+                    player.getUUID(), player.gameMode.getGameModeForPlayer());
+            disconnect(player, FAILED); return;
+        }
         // Login fires after level insertion and inventory-menu initialization. Refuse before reserving
         // the account: an unsafe carrier must not create a durable claim or change game mode.
         if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
@@ -154,18 +175,26 @@ public final class LifecycleFirstJoinHandler {
 
         // Carrier must be inert before any Mind authority can be promoted.
         if (token == null || !spectator[0]) {
+            MoonStation14.LOGGER.error("Lifecycle first join denied (account={}, reason=spectator transition not confirmed, tokenPresent={}, spectator={}, actualMode={})",
+                    player.getUUID(), token != null, spectator[0], player.gameMode.getGameModeForPlayer());
             disconnect(player, FAILED);
             return;
         }
         if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
         FirstCharacterBodyStager.Result staged = FirstCharacterBodyStager.stageReserved(token, player, server);
         if (staged.outcome() != FirstCharacterBodyStager.Outcome.PREPARED || staged.prepared() == null) {
+            MoonStation14.LOGGER.error("Lifecycle first join staging failed (account={}, outcome={}, reason={})",
+                    player.getUUID(), staged.outcome(), staged.diagnostic());
             disconnect(player, FAILED);
             return;
         }
         var prepared = staged.prepared();
         PlayerCharacterHarnessEntity body = prepared.body();
-        if (!validPrepared(server, player, context, prepared)) { disconnect(player, FAILED); return; }
+        if (!validPrepared(server, player, context, prepared)) {
+            MoonStation14.LOGGER.error("Lifecycle first join prepared-body verification failed (account={}, body={}, mind={}, generation={})",
+                    player.getUUID(), prepared.bodyUUID(), prepared.mindUUID(), prepared.generation());
+            disconnect(player, FAILED); return;
+        }
         if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
 
         // Establish the immutable speaker identity while authority remains PREPARING.
@@ -183,11 +212,15 @@ public final class LifecycleFirstJoinHandler {
         try {
             active = context.promoteFirstCharacter(prepared.accountUUID(), prepared.mindUUID(), prepared.bodyUUID()).orElse(null);
         } catch (Exception failure) {
+            MoonStation14.LOGGER.error("Lifecycle first join ACTIVE promotion threw (account={}, body={}, mind={})",
+                    player.getUUID(), prepared.bodyUUID(), prepared.mindUUID(), failure);
             disconnect(player, FAILED);
             return;
         }
         if (active == null || active.state() != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.LifecycleState.ACTIVE
                 || !active.active() || active.connectionGeneration() <= 0) {
+            MoonStation14.LOGGER.error("Lifecycle first join ACTIVE promotion verification failed (account={}, body={}, mind={}, active={})",
+                    player.getUUID(), prepared.bodyUUID(), prepared.mindUUID(), active);
             disconnect(player, FAILED);
             return;
         }

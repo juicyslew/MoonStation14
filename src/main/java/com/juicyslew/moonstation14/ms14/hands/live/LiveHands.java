@@ -355,13 +355,13 @@ public final class LiveHands {
                     var grid = GridContents.read(occupant.stack());
                     if (grid.isPresent()) {
                         var geometry = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(
-                                occupant.stack().is(ModItems.BAG) ? 7 : 8, occupant.stack().is(ModItems.BAG) ? 4 : 2));
+                                GridContents.width(occupant.stack()), GridContents.height(occupant.stack())));
                         for (var entry : grid.orElseThrow().entries()) geometry = geometry.place(entry.token(),
                                 com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(entry.stack()),
                                 new GridGeometry.Cell(entry.x(), entry.y()), entry.rotation()).snapshot();
                         var shape = com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(output);
-                        int width = occupant.stack().is(ModItems.BAG) ? 7 : 8;
-                        int height = occupant.stack().is(ModItems.BAG) ? 4 : 2;
+                        int width = GridContents.width(occupant.stack());
+                        int height = GridContents.height(occupant.stack());
                         for (int y=0; y<height && !output.isEmpty(); y++) for (int x=0; x<width && !output.isEmpty(); x++) {
                             var cell = new GridGeometry.Cell(x,y);
                             var placed = geometry.place(outputToken, shape, cell, GridGeometry.Rotation.DEG_0);
@@ -411,7 +411,7 @@ public final class LiveHands {
         ArrayList<Slot> handsNext = new ArrayList<>(hands);
         for (int i=0;i<equipmentNext.size();i++) {
             Slot hostSlot=equipmentNext.get(i); Occupant host=hostSlot.occupant().orElse(null);
-            if (host==null || !(host.stack().is(ModItems.BAG)||host.stack().is(ModItems.BELT))) continue;
+            if (host==null || !GridContents.isHost(host.stack())) continue;
             GridContents grid=GridContents.read(host.stack()).orElse(null); if(grid==null) continue;
             for (GridContents.Entry child:grid.entries()) {
                 ItemStack stack=child.stack();
@@ -431,7 +431,7 @@ public final class LiveHands {
                 if(!placed) {
                     Optional<GridContents> reduced=GridContents.read(changed.orElseThrow());
                     if(reduced.isPresent()) {
-                        int w=host.stack().is(ModItems.BAG)?7:8, h=host.stack().is(ModItems.BAG)?4:2;
+                        int w=GridContents.width(host.stack()), h=GridContents.height(host.stack());
                         var geo=GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(w,h));
                         for(var e:reduced.orElseThrow().entries()) geo=geo.place(e.token(),com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(e.stack()),new GridGeometry.Cell(e.x(),e.y()),e.rotation()).snapshot();
                         var shape=com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(product);
@@ -483,9 +483,9 @@ public final class LiveHands {
         ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElse(List.of()));
         for(int i=0;i<nextEquipment.size();i++) {
             Slot slot=nextEquipment.get(i); Occupant host=slot.occupant().orElse(null);
-            if(host==null||!(host.stack().is(ModItems.BAG)||host.stack().is(ModItems.BELT))) continue;
+            if(host==null||!GridContents.isHost(host.stack())) continue;
             var grid=GridContents.read(host.stack()); if(grid.isEmpty()) continue;
-            int w=host.stack().is(ModItems.BAG)?7:8,h=host.stack().is(ModItems.BAG)?4:2;
+            int w=GridContents.width(host.stack()),h=GridContents.height(host.stack());
             var geo=GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(w,h));
             for(var entry:grid.orElseThrow().entries()) geo=geo.place(entry.token(),com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(entry.stack()),new GridGeometry.Cell(entry.x(),entry.y()),entry.rotation()).snapshot();
             var shape=com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(output);
@@ -1004,7 +1004,7 @@ public final class LiveHands {
         for (Occupant occupant : allOccupants()) if (!tokens.add(occupant.token())) return Optional.empty();
         for (Slot slot : hands) if (slot.occupant().isPresent()) {
             Occupant occupant = slot.occupant().orElseThrow();
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var nested = GridContents.read(occupant.stack()); if (nested.isEmpty()) return Optional.empty();
                 if (!( !source.worn() && source.id().equals(slot.id()) && source.token().equals(occupant.token())))
                 for (var entry : nested.orElseThrow().entries()) if (!tokens.add(entry.token())) return Optional.empty();
@@ -1012,7 +1012,7 @@ public final class LiveHands {
         }
         for (Slot slot : layout) if (slot.occupant().isPresent()) {
             Occupant occupant = slot.occupant().orElseThrow();
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var nested = GridContents.read(occupant.stack()); if (nested.isEmpty()) return Optional.empty();
                 if (!(source.worn() && source.id().equals(slot.id()) && source.token().equals(occupant.token())))
                     for (var entry : nested.orElseThrow().entries()) if (!tokens.add(entry.token())) return Optional.empty();
@@ -1108,7 +1108,7 @@ public final class LiveHands {
         if (grid.isEmpty()) return Optional.empty();
         for (Occupant occupant : allOccupants()) {
             if (occupant.token().equals(childToken)) return Optional.empty();
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var contents = GridContents.read(occupant.stack());
                 if (contents.isEmpty() || contents.orElseThrow().entries().stream().anyMatch(e -> e.token().equals(childToken)))
                     return Optional.empty();
@@ -1143,7 +1143,7 @@ public final class LiveHands {
         for (Occupant occupant : allOccupants()) if (!tokens.add(occupant.token())) return Optional.empty();
         // Check all body-owned grids, not only the two selected hosts.
         for (Occupant occupant : allOccupants()) {
-            if (!occupant.stack().is(ModItems.BAG) && !occupant.stack().is(ModItems.BELT)) continue;
+            if (!GridContents.isHost(occupant.stack())) continue;
             var grid = GridContents.read(occupant.stack());
             if (grid.isEmpty()) return Optional.empty();
             for (GridContents.Entry entry : grid.orElseThrow().entries())
@@ -1178,7 +1178,7 @@ public final class LiveHands {
                 .filter(o -> o.token().equals(host.token()))
                 .filter(o -> host.worn() ? host.id().equals("back") && o.stack().is(ModItems.BAG)
                         || host.id().equals("belt") && o.stack().is(ModItems.BELT)
-                        : o.stack().is(ModItems.BAG) || o.stack().is(ModItems.BELT)).orElse(null);
+                        : GridContents.isHost(o.stack())).orElse(null);
     }
 
     private static void setGridHost(ArrayList<Slot> hands, ArrayList<Slot> equipment, GridHost host, ItemStack stack) {
@@ -1476,7 +1476,7 @@ public final class LiveHands {
     private boolean bodyContainsToken(String token) {
         for (Occupant occupant : allOccupants()) {
             if (occupant.token().equals(token)) return true;
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var grid = GridContents.read(occupant.stack());
                 if (grid.isEmpty() || grid.orElseThrow().entries().stream().anyMatch(entry -> entry.token().equals(token)))
                     return true;

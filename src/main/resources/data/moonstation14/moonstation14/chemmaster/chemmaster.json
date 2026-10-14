@@ -2,6 +2,8 @@
   "id": "chemmaster",
   "parent": "moonstation14:base",
   "powerLoadWatts": 250,
+  "pillDosageLimit": 20,
+  "outputSlot": { "acceptedProfiles": ["moonstation14:bottle", "moonstation14:pill_canister"] },
   "dumpableSolution": { "enabled": true, "solutionName": "buffer", "unlimited": true },
   "clickSound": "moonstation14:chemistry/chemmaster/click"
 }

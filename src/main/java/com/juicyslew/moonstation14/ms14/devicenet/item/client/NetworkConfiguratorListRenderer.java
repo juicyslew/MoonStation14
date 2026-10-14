@@ -14,7 +14,7 @@ public final class NetworkConfiguratorListRenderer {
         g.pose().pushPose();g.pose().translate(w.x(),w.y(),0);g.pose().scale((float)w.displayScale(),(float)w.displayScale(),1);
         MachineWindowRenderer.window(g,mc.font,x,y,NetworkConfiguratorListWindow.WIDTH,NetworkConfiguratorListWindow.HEIGHT,Component.empty());
         title(g,mc,w,x+10,y+10,Component.translatable(configuring?"gui.moonstation14.devicenet.configurator.configure":"gui.moonstation14.devicenet.configurator.list"));
-        if(w.undersized()){g.drawCenteredString(mc.font,"Enlarge viewport to use this window",sw/2,y+NetworkConfiguratorListWindow.HEIGHT/2,MachineWindowRenderer.HIGHLIGHT);return;}
+        if(w.undersized()){g.drawCenteredString(mc.font,"Enlarge viewport to use this window",sw/2,y+NetworkConfiguratorListWindow.HEIGHT/2,MachineWindowRenderer.HIGHLIGHT);g.pose().popPose();return;}
         MachineWindowRenderer.insetPanel(g,x+8,y+34,324,configuring?190:218);
         text(g,mc,w,x+14,y+39,fit(mc,configuring?Component.literal("Target: "+s.targetAddress()):Component.translatable("gui.moonstation14.devicenet.configurator.staged"),306,textScale(w)),MachineWindowRenderer.TEXT);
         var rows=configuring?s.memberDisplayRows():s.staged();

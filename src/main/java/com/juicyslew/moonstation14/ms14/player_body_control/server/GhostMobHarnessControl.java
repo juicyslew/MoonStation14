@@ -475,6 +475,12 @@ public final class GhostMobHarnessControl {
                 }
                 session.committed = true;
                 GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
+                if (session.kind == MobHarnessKind.GHOST && session.ghost != null) {
+                    session.lastPhysiologyDiagnostic = GhostPhysiologyDiagnostic.snapshot(session.ghost, player);
+                    GhostPhysiologyDiagnostic.log(session.ghost, player,
+                            session.body == null ? null : session.body.getUUID(), session.epoch,
+                            session.lastPhysiologyDiagnostic);
+                }
                 if (session.kind == MobHarnessKind.CHARACTER) finishCharacterCommit(state, session);
                 else if (session.returnGhost != null) finishReturnCommit(state, session);
                 MoonStation14.LOGGER.info("[mind ghost] Ready handshake committed for player={} epoch={} kind={} entityId={}",
@@ -665,6 +671,12 @@ public final class GhostMobHarnessControl {
             Vec3 accepted = session.ghost.position().subtract(new Vec3(beforeMove.x(), beforeMove.y(), beforeMove.z()));
             // Entity coordinates are authoritative; the returned pure state is based on the resolver's measured move.
             MovementVector actualPosition = movementPosition(session.ghost);
+            String physiology = GhostPhysiologyDiagnostic.snapshot(session.ghost, player);
+            if (!physiology.equals(session.lastPhysiologyDiagnostic)) {
+                GhostPhysiologyDiagnostic.log(session.ghost, player,
+                        session.body == null ? null : session.body.getUUID(), session.epoch, physiology);
+                session.lastPhysiologyDiagnostic = physiology;
+            }
             if (Math.abs(resolved.position().x() - actualPosition.x()) > 1.0e-6
                     || Math.abs(resolved.position().y() - actualPosition.y()) > 1.0e-6
                     || Math.abs(resolved.position().z() - actualPosition.z()) > 1.0e-6) {
@@ -1451,6 +1463,7 @@ public final class GhostMobHarnessControl {
                 ? com.juicyslew.moonstation14.ms14.standing.PostureSystem.crawlMultiplier(body)
                 : CharacterControlSystem.isKnockedDown(body)
                 ? com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d);
+        voluntary = (float) com.juicyslew.moonstation14.ms14.movement.NutritionMovementFactor.forActor(body, voluntary);
         var owner = BodyContainmentService.forLevel((net.minecraft.server.level.ServerLevel) body.level())
                 .ownerOf(body).orElse(null);
         var movementMode = CharacterMovementModeResolver.fromExactOwner(owner);
@@ -1509,6 +1522,7 @@ public final class GhostMobHarnessControl {
         int intentCount;
         boolean floodLogged;
         boolean acceptedMovementLogged;
+        String lastPhysiologyDiagnostic;
         long lastAppliedSequence;
         long appliedIntentTick = Long.MIN_VALUE;
         boolean appliedSneak;

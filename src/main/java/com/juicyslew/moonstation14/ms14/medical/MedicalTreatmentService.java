@@ -175,7 +175,13 @@ public final class MedicalTreatmentService {
 
     /** Empty resolved container means unrestricted typed damage; an absent component is rejected by the caller. */
     public static boolean acceptsDamageContainer(MedicalItemData.HealingPolicy policy, java.util.Optional<String> container) {
-        return container == null || container.isEmpty() || policy.allowedDamageContainers().contains(
+        if (container == null || container.isEmpty()) return true;
+        return acceptsDamageContainer(policy.allowedDamageContainers(), container);
+    }
+
+    /** Canonical case-insensitive lookup for prototype damage-container identifiers. */
+    public static boolean acceptsDamageContainer(java.util.List<String> allowed, java.util.Optional<String> container) {
+        return container != null && container.isPresent() && allowed.contains(
                 container.orElseThrow().toLowerCase(java.util.Locale.ROOT));
     }
 

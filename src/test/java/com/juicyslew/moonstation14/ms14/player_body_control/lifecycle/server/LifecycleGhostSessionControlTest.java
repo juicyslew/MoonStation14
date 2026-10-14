@@ -16,6 +16,43 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifecycleGhostSessionControlTest {
+    @Test void roleOfferReadinessRequiresExactCommittedGhostTargetAndConnection() {
+        assertTrue(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(false, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 7, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 25, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.GHOST, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, false, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, false, true));
+    }
+
+    @Test void failedRolePreparationReleasesOnlyItsExactUnclaimedRegistration() {
+        assertTrue(LifecycleServerContext.roleReservationReleaseDecision(true, false));
+        assertFalse(LifecycleServerContext.roleReservationReleaseDecision(false, false));
+        assertFalse(LifecycleServerContext.roleReservationReleaseDecision(true, true));
+    }
+
+    @Test void normallyUnboundMappedRoleCanPassTheOfferPrecommitGate() {
+        assertTrue(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, false, true, true),
+                "preexisting persistent ownership identity is not an offer target");
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, true, false, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(false, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, true, true, false));
+    }
+
+    @Test void postCommitCleanupSelectsOrdinarySessionCleanupOnlyForExactSession() {
+        assertTrue(LifecycleCharacterSessionControl.roleAdoptionCleanupUsesSession(true));
+        assertFalse(LifecycleCharacterSessionControl.roleAdoptionCleanupUsesSession(false));
+    }
+
     @Test void parkRequiresTheSameUniqueSavedDeathClaimIdentityAndGeneration() {
         UUID account = UUID.randomUUID(), mind = UUID.randomUUID(), corpse = UUID.randomUUID();
         var saved = new SavedLifecycleProfile(1, account, "person", mind, corpse,

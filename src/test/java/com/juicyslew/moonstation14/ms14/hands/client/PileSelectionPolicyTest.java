@@ -10,12 +10,13 @@ class PileSelectionPolicyTest {
     private static final UUID B = UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID C = UUID.fromString("00000000-0000-0000-0000-000000000003");
 
-    @Test void selectionIsStableAcrossReorderingAndResetsWhenRemoved() {
+    @Test void selectionTracksAimRankingAndRetainsCycleUntilRankingChanges() {
         PileSelectionPolicy policy = new PileSelectionPolicy();
         assertEquals(A, policy.update(List.of(A, B)));
         assertEquals(B, policy.cycle(List.of(A, B)));
-        assertEquals(B, policy.update(List.of(C, B, A)));
-        assertEquals(1, policy.index(List.of(C, B, A)));
+        assertEquals(B, policy.update(List.of(A, B)));
+        assertEquals(C, policy.update(List.of(C, B, A)));
+        assertEquals(0, policy.index(List.of(C, B, A)));
         assertEquals(C, policy.update(List.of(C, A)));
         policy.clear();
         assertEquals(A, policy.update(List.of(A, B)));

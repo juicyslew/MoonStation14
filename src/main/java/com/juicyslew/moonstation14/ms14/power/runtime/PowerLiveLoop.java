@@ -5,7 +5,7 @@ import com.juicyslew.moonstation14.ms14.power.solver.PowerAllocation;
 
 import java.util.*;
 
-/** Pure component-wide accounting for the bounded live HV → MV → APC power loop. */
+/** Pure component-wide accounting for the bounded live HV ╬ô├Ñ├å MV ╬ô├Ñ├å APC power loop. */
 public final class PowerLiveLoop {
     /** Rated transfer ceiling; actual transfer is still bounded by source watts and demand. */
     private static final double SUBSTATION_LIMIT = 30_000;
@@ -96,17 +96,19 @@ public final class PowerLiveLoop {
     public record ApcConsumer(String id, int apcComponent, boolean known, double demandWatts) {
         public ApcConsumer { if (id == null || id.isBlank() || !Double.isFinite(demandWatts) || demandWatts < 0) throw new IllegalArgumentException("Invalid APC consumer demand"); }
     }
+    public record ProcessingLoad(String id, int apcComponent, boolean known, double demandWatts) {
+        public ProcessingLoad { if (id == null || id.isBlank() || !Double.isFinite(demandWatts) || demandWatts <= 0) throw new IllegalArgumentException("Invalid processing demand"); }
+    }
     public record Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
-                         List<Lamp> lamps, List<VentLoad> vents, List<AlarmLoad> alarms,
-                           List<AirlockLoad> airlocks, List<DisposalLoad> disposal, List<ChemMasterLoad> chemMasters,
-                            List<MvConsumer> mvConsumers, List<ApcConsumer> apcConsumers, long elapsedTicks) {
+                        List<Lamp> lamps, List<VentLoad> vents, List<AlarmLoad> alarms,
+                        List<AirlockLoad> airlocks, List<DisposalLoad> disposal, List<ChemMasterLoad> chemMasters,
+                        List<MvConsumer> mvConsumers, List<ApcConsumer> apcConsumers,
+                        List<ProcessingLoad> processing, long elapsedTicks) {
         public Input {
-            sources = List.copyOf(sources); substations = List.copyOf(substations);
-            apcs = List.copyOf(apcs); lamps = List.copyOf(lamps); vents = List.copyOf(vents); alarms = List.copyOf(alarms);
-            airlocks = List.copyOf(airlocks); disposal = List.copyOf(disposal);
-            chemMasters = List.copyOf(chemMasters);
-            mvConsumers = List.copyOf(mvConsumers);
-            apcConsumers = List.copyOf(apcConsumers);
+            sources = List.copyOf(sources); substations = List.copyOf(substations); apcs = List.copyOf(apcs);
+            lamps = List.copyOf(lamps); vents = List.copyOf(vents); alarms = List.copyOf(alarms);
+            airlocks = List.copyOf(airlocks); disposal = List.copyOf(disposal); chemMasters = List.copyOf(chemMasters);
+            mvConsumers = List.copyOf(mvConsumers); apcConsumers = List.copyOf(apcConsumers); processing = List.copyOf(processing);
             Set<String> ids = new HashSet<>();
             for (Source value : sources) unique(ids, value.id());
             for (Substation value : substations) unique(ids, value.id());
@@ -119,52 +121,52 @@ public final class PowerLiveLoop {
             for (ChemMasterLoad value : chemMasters) unique(ids, value.id());
             for (MvConsumer value : mvConsumers) unique(ids, value.id());
             for (ApcConsumer value : apcConsumers) unique(ids, value.id());
+            for (ProcessingLoad value : processing) unique(ids, value.id());
         }
         public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
                      List<Lamp> lamps, List<VentLoad> vents, List<AlarmLoad> alarms,
-                      List<AirlockLoad> airlocks, List<DisposalLoad> disposal, List<ChemMasterLoad> chemMasters,
-                      long elapsedTicks) {
-            this(sources, substations, apcs, lamps, vents, alarms, airlocks, disposal, chemMasters, List.of(), List.of(), elapsedTicks);
+                     List<AirlockLoad> airlocks, List<DisposalLoad> disposal, List<ChemMasterLoad> chemMasters,
+                     List<MvConsumer> mvConsumers, List<ApcConsumer> apcConsumers, long elapsedTicks) {
+            this(sources, substations, apcs, lamps, vents, alarms, airlocks, disposal, chemMasters, mvConsumers, apcConsumers, List.of(), elapsedTicks);
         }
         public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
                      List<Lamp> lamps, List<VentLoad> vents, List<AlarmLoad> alarms,
                      List<AirlockLoad> airlocks, List<DisposalLoad> disposal, List<ChemMasterLoad> chemMasters,
                      List<MvConsumer> mvConsumers, long elapsedTicks) {
-            this(sources, substations, apcs, lamps, vents, alarms, airlocks, disposal, chemMasters, mvConsumers, List.of(), elapsedTicks);
-        }
-        public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs, List<Lamp> lamps,
-                     List<VentLoad> vents, List<AlarmLoad> alarms, long elapsedTicks) {
-            this(sources, substations, apcs, lamps, vents, alarms, List.of(), List.of(), List.of(), List.of(), List.of(), elapsedTicks);
+            this(sources, substations, apcs, lamps, vents, alarms, airlocks, disposal, chemMasters, mvConsumers, List.of(), List.of(), elapsedTicks);
         }
         public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
                      List<Lamp> lamps, List<VentLoad> vents, List<AlarmLoad> alarms,
-                     List<AirlockLoad> airlocks, List<DisposalLoad> disposal, long elapsedTicks) {
-            this(sources, substations, apcs, lamps, vents, alarms, airlocks, disposal, List.of(), List.of(), List.of(), elapsedTicks);
+                     List<AirlockLoad> airlocks, List<DisposalLoad> disposal, List<ChemMasterLoad> chemMasters, long elapsedTicks) {
+            this(sources, substations, apcs, lamps, vents, alarms, airlocks, disposal, chemMasters, List.of(), List.of(), List.of(), elapsedTicks);
+        }
+        public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
+                     List<Lamp> lamps, List<VentLoad> vents, List<AlarmLoad> alarms, long elapsedTicks) {
+            this(sources, substations, apcs, lamps, vents, alarms, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), elapsedTicks);
         }
         public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
                      List<Lamp> lamps, List<VentLoad> vents, long elapsedTicks) {
-            this(sources, substations, apcs, lamps, vents, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), elapsedTicks);
+            this(sources, substations, apcs, lamps, vents, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), elapsedTicks);
         }
-        public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs,
-                     List<Lamp> lamps, long elapsedTicks) {
-            this(sources, substations, apcs, lamps, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), elapsedTicks);
+        public Input(List<Source> sources, List<Substation> substations, List<Apc> apcs, List<Lamp> lamps, long elapsedTicks) {
+            this(sources, substations, apcs, lamps, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), elapsedTicks);
         }
     }
     public record Result(Map<String, Double> substationInputWatts, Map<String, Double> apcInputWatts,
-                          Map<String, Double> lampWatts, Map<String, Double> apcOutputWatts,
-                           Map<String, Double> batteryEnergyJoules, Map<String, Double> ventWatts,
-                            Map<String, Double> alarmWatts, Map<String, Double> airlockWatts,
-                              Map<String, Double> disposalWatts, Map<String, Double> chemMasterWatts,
-                               Map<String, Double> mvConsumerWatts, Map<String, Double> apcConsumerWatts) {
+                         Map<String, Double> lampWatts, Map<String, Double> apcOutputWatts,
+                         Map<String, Double> batteryEnergyJoules, Map<String, Double> ventWatts,
+                         Map<String, Double> alarmWatts, Map<String, Double> airlockWatts,
+                         Map<String, Double> disposalWatts, Map<String, Double> chemMasterWatts,
+                         Map<String, Double> mvConsumerWatts, Map<String, Double> apcConsumerWatts,
+                         Map<String, Double> processingWatts) {
         public Result {
             substationInputWatts = Map.copyOf(substationInputWatts); apcInputWatts = Map.copyOf(apcInputWatts);
             lampWatts = Map.copyOf(lampWatts); apcOutputWatts = Map.copyOf(apcOutputWatts);
             batteryEnergyJoules = Map.copyOf(batteryEnergyJoules); ventWatts = Map.copyOf(ventWatts);
             alarmWatts = Map.copyOf(alarmWatts); airlockWatts = Map.copyOf(airlockWatts);
-            disposalWatts = Map.copyOf(disposalWatts);
-            chemMasterWatts = Map.copyOf(chemMasterWatts);
-            mvConsumerWatts = Map.copyOf(mvConsumerWatts);
-            apcConsumerWatts = Map.copyOf(apcConsumerWatts);
+            disposalWatts = Map.copyOf(disposalWatts); chemMasterWatts = Map.copyOf(chemMasterWatts);
+            mvConsumerWatts = Map.copyOf(mvConsumerWatts); apcConsumerWatts = Map.copyOf(apcConsumerWatts);
+            processingWatts = Map.copyOf(processingWatts);
         }
     }
 
@@ -223,6 +225,7 @@ public final class PowerLiveLoop {
         Map<Integer, List<DisposalLoad>> disposalByApc = group(input.disposal(), DisposalLoad::known, DisposalLoad::apcComponent);
         Map<Integer, List<ChemMasterLoad>> chemMastersByApc = group(input.chemMasters(), ChemMasterLoad::known, ChemMasterLoad::apcComponent);
         Map<Integer, List<ApcConsumer>> genericByApc = group(input.apcConsumers(), ApcConsumer::known, ApcConsumer::apcComponent);
+        Map<Integer, List<ProcessingLoad>> processingByApc = group(input.processing(), ProcessingLoad::known, ProcessingLoad::apcComponent);
         Map<String, Double> lampWatts = new HashMap<>();
         Map<String, Double> ventWatts = new HashMap<>();
         Map<String, Double> alarmWatts = new HashMap<>();
@@ -230,6 +233,7 @@ public final class PowerLiveLoop {
         Map<String, Double> disposalWatts = new HashMap<>();
         Map<String, Double> chemMasterWatts = new HashMap<>();
         Map<String, Double> genericWatts = new HashMap<>();
+        Map<String, Double> processingWatts = new HashMap<>();
         Map<String, Double> apcOutputWatts = new HashMap<>();
         Map<String, Double> energies = new HashMap<>();
         for (Lamp lamp : input.lamps()) lampWatts.put(lamp.id(), 0.0);
@@ -239,6 +243,7 @@ public final class PowerLiveLoop {
         for (DisposalLoad unit : input.disposal()) disposalWatts.put(unit.id(), 0.0);
         for (ChemMasterLoad load : input.chemMasters()) chemMasterWatts.put(load.id(), 0.0);
         for (ApcConsumer load : input.apcConsumers()) genericWatts.put(load.id(), 0.0);
+        for (ProcessingLoad load : input.processing()) processingWatts.put(load.id(), 0.0);
         for (Apc apc : input.apcs()) {
             energies.put(apc.id(), validEnergy(apc.energyJoules()));
             apcOutputWatts.put(apc.id(), 0.0);
@@ -258,6 +263,7 @@ public final class PowerLiveLoop {
             List<DisposalLoad> disposalLoads = disposalByApc.getOrDefault(entry.getKey(), List.of());
             List<ChemMasterLoad> chemMasterLoads = chemMastersByApc.getOrDefault(entry.getKey(), List.of());
             List<ApcConsumer> genericLoads = genericByApc.getOrDefault(entry.getKey(), List.of());
+            List<ProcessingLoad> processingLoads = processingByApc.getOrDefault(entry.getKey(), List.of());
             double activeStored = active.stream().mapToDouble(apc -> validEnergy(apc.energyJoules())).sum();
             double seconds = Math.max(0, Math.min((double) input.elapsedTicks(),
                     PowerAllocation.MAX_VALUE)) / PowerAllocation.TICKS_PER_SECOND;
@@ -277,6 +283,7 @@ public final class PowerLiveLoop {
             if (!active.isEmpty()) disposalLoads.forEach(unit -> demands.add(new PowerAllocation.Load(unit.id(), unit.demandWatts())));
             if (!active.isEmpty()) chemMasterLoads.forEach(load -> demands.add(new PowerAllocation.Load(load.id(), load.demandWatts())));
             if (!active.isEmpty()) genericLoads.forEach(load -> demands.add(new PowerAllocation.Load(load.id(), load.demandWatts())));
+            if (!active.isEmpty()) processingLoads.forEach(load -> demands.add(new PowerAllocation.Load(load.id(), load.demandWatts())));
             var allocation = PowerAllocation.solve(new PowerAllocation.Network(PowerAllocation.Tier.APC, true,
                      offers, demands,
                      battery), input.elapsedTicks());
@@ -287,6 +294,7 @@ public final class PowerLiveLoop {
             for (DisposalLoad unit : disposalLoads) disposalWatts.put(unit.id(), allocation.deliveredWatts().getOrDefault(unit.id(), 0.0));
             for (ChemMasterLoad load : chemMasterLoads) chemMasterWatts.put(load.id(), allocation.deliveredWatts().getOrDefault(load.id(), 0.0));
             for (ApcConsumer load : genericLoads) genericWatts.put(load.id(), allocation.deliveredWatts().getOrDefault(load.id(), 0.0));
+            for (ProcessingLoad load : processingLoads) processingWatts.put(load.id(), allocation.deliveredWatts().getOrDefault(load.id(), 0.0));
             Map<String, Double> sourceUsed = allocateSourceUse(active, apcInputs,
                     allocation.sourceUsedWatts());
             Map<String, Double> batteryUsed = allocateBatteryUse(active,
@@ -314,13 +322,13 @@ public final class PowerLiveLoop {
             double energy = validEnergy(apc.energyJoules());
             energies.put(apc.id(), chargeBattery(energy, apcInputs.getOrDefault(apc.id(), 0.0), secondsFor(input.elapsedTicks())));
         }
-        return new Result(Map.copyOf(hvInputs), Map.copyOf(apcInputs), Map.copyOf(lampWatts),
-                  Map.copyOf(apcOutputWatts), Map.copyOf(energies), Map.copyOf(ventWatts), Map.copyOf(alarmWatts),
-                   Map.copyOf(airlockWatts), Map.copyOf(disposalWatts), Map.copyOf(chemMasterWatts), Map.copyOf(mvConsumerWatts), Map.copyOf(genericWatts));
+        return new Result(hvInputs, apcInputs, lampWatts, apcOutputWatts, energies, ventWatts, alarmWatts,
+                airlockWatts, disposalWatts, chemMasterWatts, mvConsumerWatts, genericWatts, processingWatts);
     }
 
     private static double secondsFor(long elapsedTicks) {
-        return Math.max(0, Math.min((double) elapsedTicks, PowerAllocation.MAX_VALUE)) / PowerAllocation.TICKS_PER_SECOND;
+        return Math.max(0, Math.min((double) elapsedTicks, PowerAllocation.MAX_VALUE))
+                / PowerAllocation.TICKS_PER_SECOND;
     }
 
     private static double chargeBattery(double energy, double inputWatts, double seconds) {
@@ -330,7 +338,6 @@ public final class PowerLiveLoop {
     }
 
     private static Map<String, Double> apcInputRequests(List<Apc> apcs, Input input, long elapsedTicks) {
-        Map<String, Double> requests = new HashMap<>();
         Map<Integer, Double> demandByApc = new HashMap<>();
         for (Lamp load : input.lamps()) if (load.known()) demandByApc.merge(load.component(), load.kind().lampDemandWatts(), Double::sum);
         for (VentLoad load : input.vents()) if (load.known()) demandByApc.merge(load.apcComponent(), load.demandWatts(), Double::sum);
@@ -339,19 +346,19 @@ public final class PowerLiveLoop {
         for (DisposalLoad load : input.disposal()) if (load.known()) demandByApc.merge(load.apcComponent(), load.demandWatts(), Double::sum);
         for (ChemMasterLoad load : input.chemMasters()) if (load.known()) demandByApc.merge(load.apcComponent(), load.demandWatts(), Double::sum);
         for (ApcConsumer load : input.apcConsumers()) if (load.known()) demandByApc.merge(load.apcComponent(), load.demandWatts(), Double::sum);
+        for (ProcessingLoad load : input.processing()) if (load.known()) demandByApc.merge(load.apcComponent(), load.demandWatts(), Double::sum);
         Map<Integer, List<Apc>> grouped = group(apcs, Apc::apcKnown, Apc::apcComponent);
         Map<Integer, List<Apc>> providers = new HashMap<>();
         for (Apc apc : apcs) if (apc.apcKnown() && apc.breakerClosed() && apc.mvKnown())
             providers.computeIfAbsent(apc.apcComponent(), ignored -> new ArrayList<>()).add(apc);
-        double seconds = Math.max(0, Math.min((double) elapsedTicks, PowerAllocation.MAX_VALUE) / PowerAllocation.TICKS_PER_SECOND);
+        double seconds = secondsFor(elapsedTicks);
         Map<Integer, Double> sharedDemand = new HashMap<>();
         for (var entry : grouped.entrySet()) {
             List<Apc> eligible = providers.getOrDefault(entry.getKey(), List.of());
-            // A shared APC component has one receiver demand; split it across its APC ports
-            // so no port claims the full shared load. The solver still apportions scarce MV.
             sharedDemand.put(entry.getKey(), eligible.isEmpty() ? 0
                     : demandByApc.getOrDefault(entry.getKey(), 0.0) / eligible.size());
         }
+        Map<String, Double> requests = new HashMap<>();
         for (Apc apc : apcs) {
             double energy = validEnergy(apc.energyJoules());
             double chargeRoom = seconds <= 0 ? 0 : Math.min(BATTERY_CHARGE_RATE, (BATTERY_CAPACITY - energy) / seconds);

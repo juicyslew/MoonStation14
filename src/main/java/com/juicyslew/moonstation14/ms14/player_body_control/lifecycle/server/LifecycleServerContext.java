@@ -300,6 +300,22 @@ final class LifecycleServerContext {
         }).map(java.util.Optional::ofNullable).orElse(java.util.Optional.empty());
     }
 
+    synchronized java.util.Optional<PlayerLifecycleRegistry.Snapshot> takeOverGhostRole(
+            UUID account, long epoch, com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId ghostId,
+            com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId targetId,
+            String dimension, SavedLifecycleProfile.Location location, Map<String, String> appearance,
+            com.juicyslew.moonstation14.ms14.player_body_control.TargetEligibility eligibility) throws IOException {
+        if (!reservedAccounts.contains(account)) return java.util.Optional.empty();
+        return primaryStore.withCurrentPrimary(primary -> {
+            var rows = primary.envelope().profiles().stream().filter(row -> row.accountId().equals(account)
+                    && (row.state() == SavedLifecycleProfile.State.GHOST
+                    || row.state() == SavedLifecycleProfile.State.DEAD_CLAIM)).toList();
+            if (rows.size() != 1) return null;
+            return lifecycle.takeOverGhostRoleDurably(primary, rows.get(0), ghostId, targetId, dimension,
+                    location, appearance, epoch, eligibility).orElse(null);
+        }).map(java.util.Optional::ofNullable).orElse(java.util.Optional.empty());
+    }
+
     /** Manual authenticated revived-corpse return; caller supplies exact live/alive world eligibility. */
     synchronized java.util.Optional<PlayerLifecycleRegistry.Snapshot> returnRevivedCorpse(
             SavedLifecycleProfile saved, long expectedGeneration,
@@ -357,6 +373,29 @@ final class LifecycleServerContext {
     boolean initialized() { return initialized; }
 
     BodyControlRegistry ownership() { return ownership; }
+
+    synchronized boolean reserveRoleTarget(com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId id) {
+        return id != null && ownership.registerHarness(new com.juicyslew.moonstation14.ms14.player_body_control.MobHarness(
+                id, com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER));
+    }
+
+    /** Remove only our unowned registration; durable profile references fail closed. */
+    synchronized void releaseUnclaimedRoleTarget(com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId id) {
+        if (id == null) return;
+        try {
+            boolean durableReference = primaryStore.withCurrentPrimary(primary -> primary.envelope().profiles().stream()
+                    .anyMatch(row -> row.bodyId().equals(id.value()))).orElse(true);
+            var registered = ownership.registeredHarness(id).orElse(null);
+            boolean exactRoleRegistration = registered != null && registered.equals(
+                    new com.juicyslew.moonstation14.ms14.player_body_control.MobHarness(id,
+                            com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER));
+            if (roleReservationReleaseDecision(exactRoleRegistration, durableReference)) ownership.unregisterHarness(id);
+        } catch (IOException | RuntimeException uncertain) { /* preserve uncertain registrations */ }
+    }
+
+    static boolean roleReservationReleaseDecision(boolean exactRoleRegistration, boolean durableReference) {
+        return exactRoleRegistration && !durableReference;
+    }
 
     PlayerLifecycleRegistry lifecycle() { return lifecycle; }
 

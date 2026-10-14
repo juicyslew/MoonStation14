@@ -36,6 +36,14 @@ import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
 import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import com.juicyslew.moonstation14.ms14.ingestion.IngestionProfile;
 import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
+import com.juicyslew.moonstation14.ms14.botany.SeedProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles;
+import com.juicyslew.moonstation14.ms14.botany.ProduceProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles;
+import com.juicyslew.moonstation14.ms14.botany.MachineProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles;
+import com.juicyslew.moonstation14.ms14.botany.TrayProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles;
 import com.juicyslew.moonstation14.ms14.damage.DamageFeedbackProfile;
 import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 import com.juicyslew.moonstation14.ms14.medical.ModMedicalItems;
@@ -187,6 +195,14 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<ItemFootprintProfile> clientItemFootprints() { return CLIENT_MANAGER.snapshot(ModItemFootprints.TYPE); }
     public static PrototypeCatalog<IngestionProfile> serverIngestionProfiles() { return SERVER_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
     public static PrototypeCatalog<IngestionProfile> clientIngestionProfiles() { return CLIENT_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
+    public static PrototypeCatalog<SeedProfile> serverSeedProfiles() { return SERVER_MANAGER.snapshot(ModSeedProfiles.TYPE); }
+    public static PrototypeCatalog<SeedProfile> clientSeedProfiles() { return CLIENT_MANAGER.snapshot(ModSeedProfiles.TYPE); }
+    public static PrototypeCatalog<ProduceProfile> serverProduceProfiles() { return SERVER_MANAGER.snapshot(ModProduceProfiles.TYPE); }
+    public static PrototypeCatalog<ProduceProfile> clientProduceProfiles() { return CLIENT_MANAGER.snapshot(ModProduceProfiles.TYPE); }
+    public static PrototypeCatalog<MachineProfile> serverBotanyMachineProfiles() { return SERVER_MANAGER.snapshot(ModBotanyMachineProfiles.TYPE); }
+    public static PrototypeCatalog<MachineProfile> clientBotanyMachineProfiles() { return CLIENT_MANAGER.snapshot(ModBotanyMachineProfiles.TYPE); }
+    public static PrototypeCatalog<TrayProfile> serverTrayProfiles() { return SERVER_MANAGER.snapshot(ModTrayProfiles.TYPE); }
+    public static PrototypeCatalog<TrayProfile> clientTrayProfiles() { return CLIENT_MANAGER.snapshot(ModTrayProfiles.TYPE); }
     public static PrototypeCatalog<DamageFeedbackProfile> serverDamageFeedback() { return SERVER_MANAGER.snapshot(ModDamageFeedback.TYPE); }
     public static PrototypeCatalog<DamageFeedbackProfile> clientDamageFeedback() { return CLIENT_MANAGER.snapshot(ModDamageFeedback.TYPE); }
     public static PrototypeCatalog<MedicalItemData> serverMedicalItems() { return SERVER_MANAGER.snapshot(ModMedicalItems.TYPE); }
@@ -207,6 +223,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<JugData> clientJugs() { return CLIENT_MANAGER.snapshot(ModJugs.TYPE); }
     public static PrototypeCatalog<BeakerData> serverBeakers() { return SERVER_MANAGER.snapshot(ModBeakers.TYPE); }
     public static PrototypeCatalog<BeakerData> clientBeakers() { return CLIENT_MANAGER.snapshot(ModBeakers.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData> serverChemContainers() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData> clientChemContainers() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE); }
     public static PrototypeCatalog<ChemMasterData> serverChemMasters() { return SERVER_MANAGER.snapshot(ModChemMasters.TYPE); }
     public static PrototypeCatalog<ChemMasterData> clientChemMasters() { return CLIENT_MANAGER.snapshot(ModChemMasters.TYPE); }
     public static PrototypeCatalog<PowerAppearanceData> serverPowerAppearances() { return SERVER_MANAGER.snapshot(ModPowerAppearances.TYPE); }
@@ -255,6 +273,10 @@ public final class PrototypeRuntime {
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
         manager.register(ModIngestionProfiles.TYPE);
+        manager.register(ModSeedProfiles.TYPE);
+        manager.register(ModProduceProfiles.TYPE);
+        manager.register(ModBotanyMachineProfiles.TYPE);
+        manager.register(ModTrayProfiles.TYPE);
         manager.register(ModDamageFeedback.TYPE);
         manager.register(ModMedicalItems.TYPE);
         manager.register(ModInjectorModes.TYPE);
@@ -266,6 +288,7 @@ public final class PrototypeRuntime {
         manager.register(ModCelestialScenes.TYPE);
         manager.register(ModJugs.TYPE);
         manager.register(ModBeakers.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE);
         manager.register(ModChemMasters.TYPE);
         manager.register(ModPowerAppearances.TYPE);
         manager.register(ModSingularityVisuals.TYPE);

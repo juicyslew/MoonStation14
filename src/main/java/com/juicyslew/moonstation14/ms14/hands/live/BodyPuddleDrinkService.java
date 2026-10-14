@@ -48,7 +48,8 @@ public final class BodyPuddleDrinkService {
             PuddleBlockEntity expectedPuddle, int doseCents, boolean destroyOnEmpty, BooleanSupplier authority,
             java.util.function.LongConsumer receipt) {
         if (body == null || !(body.level() instanceof ServerLevel level) || pos == null || expectedPuddle == null
-                || authority == null || receipt == null || doseCents <= 0 || !level.hasChunkAt(pos)
+                || authority == null || receipt == null || level.getServer() == null || !level.getServer().isSameThread()
+                || doseCents <= 0 || !level.hasChunkAt(pos)
                 || !authority.getAsBoolean() || !eligibleBody(body) || level.getBlockEntity(pos) != expectedPuddle
                 || !visiblePuddle(level, body, pos) || !validContents(expectedPuddle, level))
             return BodyLiquidInteraction.Result.DENIED;
@@ -116,6 +117,8 @@ public final class BodyPuddleDrinkService {
                 && hands.stackCopy(hand).isEmpty() && hands.reservation(hand).isEmpty() && eligibleBody(body);
     }
     public static boolean eligibleBody(LivingEntity body) {
+        if (body == null || !(body.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || level.getEntity(body.getUUID()) != body) return false;
         var character = com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy.resolveActor(body).orElse(null);
         return body.isAlive() && !body.isRemoved() && body.isAddedToLevel()
                 && character != null && character.component(MouthComponent.class).isPresent()
@@ -163,4 +166,3 @@ public final class BodyPuddleDrinkService {
         values.forEach((k,v) -> result.put(k, ReagentUnits.toFloat(v))); return result;
     }
 }
-

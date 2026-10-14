@@ -13,6 +13,7 @@ import com.juicyslew.moonstation14.ms14.jug.ModJugs;
 import com.juicyslew.moonstation14.item.custom.JugItem;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
+import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -48,8 +49,8 @@ public final class ChemMasterFixtureGameTests {
         helper.assertTrue(machine!=null&&machine.powerLoadWatts()==250.0,"resolved machine demand is 250 W");
         helper.assertTrue(machine.inputSlot().snapshot().stack().isEmpty()&&machine.buffer().snapshot().contents().centContents().isEmpty(),"machine input and buffer begin empty");
         int initial=count(level,origin);
-        helper.assertTrue(initial==17,"seven beakers and ten ordinary loose jug supplies, found "+initial);
-        int empty50=0,empty100=0,filled50=0,filled100=0,mixed100=0,jugs=0,other=0;
+        helper.assertTrue(initial==19,"seven beakers, ten ordinary loose jug supplies, and two output packages, found "+initial);
+        int empty50=0,empty100=0,filled50=0,filled100=0,mixed100=0,jugs=0,bottles=0,canisters=0,emptyCanisters=0,other=0;
         java.util.Set<String> jugSpecies=new java.util.HashSet<>();
         var water=ModReagents.createKey("water");var sugar=ModReagents.createKey("sugar");
         helper.assertTrue(BeakerItem.capacityFromResolved(ModBeakers.resolved(level,ModBeakers.SMALL_ID))==50
@@ -59,11 +60,19 @@ public final class ChemMasterFixtureGameTests {
             var stack=e.getItem();
             if(stack.is(ModItems.BEAKER.get())) {var r=stack.get(ModDataComponents.REAGENT.get());if(r==null||r.centContents().isEmpty())empty50++;else if(r.centContents().size()==2&&r.centContents().getOrDefault(water,0L)==2000&&r.centContents().getOrDefault(sugar,0L)==1000)filled50++;else other++;}
             else if(stack.is(ModItems.BEAKER_LARGE.get())) {var r=stack.get(ModDataComponents.REAGENT.get());if(r==null||r.centContents().isEmpty())empty100++;else if(r.centContents().size()==2&&r.centContents().getOrDefault(water,0L)==4000&&r.centContents().getOrDefault(sugar,0L)==2000)filled100++;else if(r.centContents().size()==6&&r.centContents().values().stream().allMatch(v->v==1000L)&&java.util.Arrays.stream(new String[]{"ale","milk","coffee","cola","beer","absinthe"}).allMatch(id->r.centContents().getOrDefault(ModReagents.createKey(id),0L)==1000L))mixed100++;else other++;}
-            else if(stack.is(ModItems.JUG.get())) {var r=stack.get(ModDataComponents.REAGENT.get());if(r!=null&&r.centContents().size()==1&&r.centContents().values().iterator().next()==20000L){for(String id:new String[]{"water","sugar","sodium","chlorine","oxygen","iron","ethanol","ammonia","carbon","silicon"})if(r.centContents().containsKey(ModReagents.createKey(id)))jugSpecies.add(id);jugs++;}else other++;}
-            else other++;
-        }
-        helper.assertTrue(JugItem.capacityFromResolved(ModJugs.resolved(level))==200f&&empty50==2&&empty100==2&&filled50==1&&filled100==1&&mixed100==1&&jugs==10&&jugSpecies.size()==10&&other==0,
-                "exact stock includes preserved samples, six-reagent 60u sample, and ten single-reagent 200u jugs; other="+other);
+             else if(stack.is(ModItems.JUG.get())) {var r=stack.get(ModDataComponents.REAGENT.get());if(r!=null&&r.centContents().size()==1&&r.centContents().values().iterator().next()==20000L){for(String id:new String[]{"water","sugar","sodium","chlorine","oxygen","iron","ethanol","ammonia","carbon","silicon"})if(r.centContents().containsKey(ModReagents.createKey(id)))jugSpecies.add(id);jugs++;}else other++;}
+             else if(stack.is(ModItems.BOTTLE.get())) bottles++;
+             else if(stack.is(ModItems.PILL_CANISTER.get())) {
+                 var contents=GridContents.read(stack);
+                 if(contents.isPresent()&&GridContents.width(stack)==5&&GridContents.height(stack)==2&&contents.orElseThrow().entries().isEmpty()) {
+                     canisters++;
+                     emptyCanisters++;
+                 } else other++;
+             }
+             else other++;
+         }
+         helper.assertTrue(JugItem.capacityFromResolved(ModJugs.resolved(level))==200f&&empty50==2&&empty100==2&&filled50==1&&filled100==1&&mixed100==1&&jugs==10&&jugSpecies.size()==10&&bottles==1&&canisters==1&&emptyCanisters==1&&other==0,
+                 "exact stock includes the preserved beaker samples, ten single-reagent 200u jugs, one bottle and one empty 5x2 pill canister; other="+other);
         String repeat=ChemMasterFixtureService.build(level,origin);
         helper.assertTrue(repeat.startsWith("Refused")&&count(level,origin)==initial,"repeat build refuses before duplicate grants");
         BlockPos obstruction=origin.offset(7,3,9);level.setBlock(obstruction,Blocks.GLASS.defaultBlockState(),3);
