@@ -73,6 +73,7 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.fixture.ChemMasterFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.singularity.fixture.SingularityFixtureCommands::registerCommands);
         LocalSpeechServerHooks.register(NeoForge.EVENT_BUS);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chat.server.EmoteCommand::register);
         AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
         AtmosphereVisualServerHooks.register(NeoForge.EVENT_BUS);
         CableVisualServerHooks.register(NeoForge.EVENT_BUS);

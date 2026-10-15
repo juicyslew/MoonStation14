@@ -36,6 +36,7 @@ public class ModEventHooks {
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onEntityLeave);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onStartTracking);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.mobs.NpcAmbientVocalizationSystem::onServerStopped);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onEntityLeaveLevel);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onPlayerClone);
@@ -72,6 +73,15 @@ public class ModEventHooks {
             com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.reconcile(livingEntity);
             EntityActivitySystem.reconcile(livingEntity);
         }
+        if (event.getLevel() instanceof ServerLevel level) {
+            var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+            // A body with a persisted relation stays fail-closed even when its root loads later.
+            containment.reconcileLoadedEntity(event.getEntity());
+            // execute() can run inline during entity insertion. tell() guarantees reconciliation
+            // after the entity has been installed in the level's UUID lookup.
+            if (!event.isCanceled()) level.getServer().tell(new net.minecraft.server.TickTask(
+                    level.getServer().getTickCount(), () -> containment.reconcileLoadedEntity(event.getEntity())));
+        }
     }
 
     private static void onAppliedTypedDamage(
@@ -99,6 +109,8 @@ public class ModEventHooks {
 
     private static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
         if (event.getLevel() instanceof ServerLevel level && event.getEntity() instanceof LivingEntity livingEntity) {
+            com.juicyslew.moonstation14.ms14.mobs.NpcBehaviorSystem.onLeaveLevel(livingEntity);
+            com.juicyslew.moonstation14.ms14.mobs.NpcAmbientVocalizationSystem.onLeaveLevel(livingEntity);
             com.juicyslew.moonstation14.ms14.slip.SlipSystem.onEntityLeave(level, livingEntity);
         }
     }

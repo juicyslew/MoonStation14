@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -20,9 +21,70 @@ class GateProgressTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='gate-progress-', dir=Path.home() / 'AppData/Local/Temp/opencode')
         self.root = Path(self.temp.name) / 'exchange'
         (self.root / 'candidates').mkdir(parents=True)
+        try:
+            from . import agent_status
+        except ImportError:
+            import agent_status
+        self.agent_status = agent_status
+        self.roster_patch = patch.object(agent_status, 'roster', side_effect=self.fixture_roster)
+        self.roster_patch.start()
+        self.addCleanup(self.roster_patch.stop)
+        self.write_activity_snapshot(time.time())
 
+    def fixture_roster(self, root, candidates=()):
+        values = []
+        for candidate in candidates:
+            raw = self.agent_status._worktree(candidate.get('worktree'))
+            if raw and raw not in {item['id'] for item in values}:
+                values.append({'id': raw, 'worktree': raw, 'label': Path(raw).name,
+                               'core': Path(raw).name.startswith('core-')})
+        return values
+
+    def write_activity_snapshot(self, now):
+        roster = self.fixture_roster(self.root, [c for p in (self.root / 'candidates').glob('*.json')
+                                                 if (c := gp._read(p))])
+        (self.root / self.agent_status.SNAPSHOT).write_text(json.dumps({
+            'checked_at': now, 'errors': [],
+            'agents': [dict(slot, activity='idle', summary='Fixture idle') for slot in roster],
+            'active_sessions': {},
+        }), encoding='utf-8')
     def tearDown(self):
         self.temp.cleanup()
+
+    def dom(self, page, now):
+        script = re.search(r'<script>\s*(.*?)\s*</script>', page, re.S).group(1)
+        node = shutil.which('node') or shutil.which('node.exe')
+        if not node:
+            self.skipTest('Node.js unavailable for isolated board DOM fixture')
+        syntax = subprocess.run([node, '--check', '--input-type=commonjs'], input=script,
+                                capture_output=True, text=True, encoding='utf-8', timeout=15)
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+        harness = r"""
+class FixtureElement {
+  constructor(tag){this.tag=tag;this.children=[];this.hidden=false;this.className='';this._text='';this.attributes={};}
+  append(...items){this.children.push(...items);}
+  replaceChildren(...items){this.children=[...items];}
+  set textContent(v){this._text=String(v);this.children=[];}
+  get textContent(){return this._text+this.children.map(x=>x.textContent||'').join('');}
+  get childNodes(){return this.children;}
+  setAttribute(k,v){this.attributes[k]=v;}
+}
+const elements=new Map();
+const document={createElement:t=>new FixtureElement(t),getElementById:id=>{if(!elements.has(id))elements.set(id,new FixtureElement('div'));return elements.get(id);}};
+Date.now=()=>NOW*1000;
+""".replace('NOW', str(now))
+        inspect = r"""
+console.log(JSON.stringify({
+ text:Object.fromEntries(['working-cards','waiting-cards','active-cards','ready-cards','health-banner'].map(id=>[id,document.getElementById(id).textContent])),
+ count:Object.fromEntries(['working','waiting','active','ready'].map(id=>[id,document.getElementById(id+'-cards').childNodes.filter(x=>x.tag==='article').length])),
+ links:(function walk(e){return (e.tag==='a'?[e.href]:[]).concat(e.childNodes.flatMap(walk))})(document.getElementById('ready-cards')),
+ alertCount:['working','waiting','active','ready'].reduce((n,id)=>n+(function walk(e){return (e.attributes.role==='alert'?1:0)+e.childNodes.reduce((m,x)=>m+walk(x),0)})(document.getElementById(id+'-cards')),0)
+}));
+"""
+        result = subprocess.run([node, '-e', harness + script + inspect], capture_output=True,
+                                text=True, encoding='utf-8', timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.strip().splitlines()[-1])
 
     def candidate(self, ident, author='author-a', snapshot='snapshot-1', **extra):
         c = {'id': ident, 'snapshot_key': snapshot, 'worktree': {'worktree': author}, **extra}
@@ -114,7 +176,7 @@ class GateProgressTests(unittest.TestCase):
 
     def test_final_verdict_wins_unknown_health_in_python_and_browser(self):
         c = self.candidate('final', gate_request={'session_id': 'lead-final'},
-                           gate_outcome={'result': 'ready_for_owner'})
+                           revision_sequence=1, gate_outcome={'result': 'ready_for_owner'})
         (self.root / 'gate-health').mkdir()
         (self.root / 'gate-health/final.json').write_text(json.dumps({
             'candidate_id': 'final', 'snapshot_key': 'snapshot-1', 'session_id': 'lead-final',
@@ -123,10 +185,10 @@ class GateProgressTests(unittest.TestCase):
         row = next(x for x in gp._rows(self.root) if x['id'] == 'final')
         self.assertEqual(row['state'], 'ready_for_owner')
         self.assertEqual(gp._view_model(row, 10000)['title'], 'ready_for_owner')
-        page = gp.render(self.root).read_text(encoding='utf-8')
-        self.assertIn('"state": "ready_for_owner"', page)
+        projected = self.agent_status.project(self.root)
+        self.assertNotIn('ready_manual', [a['column'] for a in projected['agents']])
 
-    def test_three_column_board_dom_uses_current_owner_and_live_check_proof(self):
+    def test_four_column_agent_board_dom_folds_current_work_and_live_check_proof(self):
         now = 1_800_000_000
         live = self.candidate('live-check', author='tree-a', sprint_id='sprint-a', revision_sequence=1,
                               submitted_at=now - 1000)
@@ -134,6 +196,7 @@ class GateProgressTests(unittest.TestCase):
                                 submitted_at=now - 10)
         queued = self.candidate('queued-check', author='tree-a', sprint_id='sprint-b', revision_sequence=1,
                                 submitted_at=now - 900)
+        waiting = self.candidate('waiting-validation', author='tree-q', sprint_id='sprint-q', revision_sequence=1)
         needs = self.candidate('needs-fix', author='tree-b', sprint_id='sprint-c', revision_sequence=1,
                                gate_outcome={'result': 'needs_changes', 'findings': ['Attach the missing evidence.', 'Re-run the focused check.']},
                                review={'report_path': str(self.root / 'reports' / 'needs.json')})
@@ -150,6 +213,8 @@ class GateProgressTests(unittest.TestCase):
                       runner_pid=7001, child_pid=7002, started=now - 240)
         self.progress('queued-check', queued, phase='queued', updated_at=now - 300,
                       runner_pid=7003, started=now - 300)
+        self.progress('waiting-validation', waiting, phase='queued', updated_at=now - 20,
+                      runner_pid=7004, started=now - 20)
         self.progress(ghost['id'], ghost, phase='running', updated_at=now - 10000, check_index=1,
                       total=1, argv=['gradlew.bat', 'old'], log='old.log', runner_pid=7991)
         self.progress(ghost2['id'], ghost2, phase='running', updated_at=now - 10000, check_index=1,
@@ -169,63 +234,137 @@ class GateProgressTests(unittest.TestCase):
         (self.root / 'owner-feedback-observer.json').write_text(json.dumps({
             'status': 'unavailable', 'updated_at': now - 600, 'errors': ['observer unavailable', 'retry deferred']}), encoding='utf-8')
         with patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
-             patch('tooling.agent_workflow.gate_progress._pid_alive', side_effect=lambda pid: pid == 7001), \
+             patch('tooling.agent_workflow.gate_progress._pid_alive', side_effect=lambda pid: pid in {7001, 7004}), \
              patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
+            self.write_activity_snapshot(now)
             page = gp.render(self.root).read_text(encoding='utf-8')
-        self.assertIn('id="validation-column"', page)
-        self.assertIn('id="owner-column"', page)
-        self.assertIn('id="other-column"', page)
-        self.assertIn('@media(max-width:850px){.columns{grid-template-columns:1fr}', page)
-        script = re.search(r'<script>\s*(.*?)\s*</script>', page, re.S).group(1)
-        node = shutil.which('node') or shutil.which('node.exe')
-        if not node:
-            self.skipTest('Node.js unavailable for isolated board DOM fixture')
-        harness = r"""
-class FixtureElement {
-  constructor(tag){this.tag=tag;this.children=[];this.hidden=false;this.className='';this._text='';}
-  append(...items){this.children.push(...items);}
-  replaceChildren(...items){this.children=[...items];}
-  set textContent(v){this._text=String(v);this.children=[];}
-  get textContent(){return this._text+this.children.map(x=>x.textContent||'').join('');}
-  get childNodes(){return this.children;}
-}
-const elements=new Map();
-const document={createElement:t=>new FixtureElement(t),getElementById:id=>{if(!elements.has(id))elements.set(id,new FixtureElement('div'));return elements.get(id);}};
-Date.now=()=>1800000000000;
-"""
-        inspect = r"""
-console.log(JSON.stringify(Object.fromEntries(['validation-cards','owner-cards','owner-empty','other-cards','history-cards','observer-health'].map(id=>[id,document.getElementById(id).textContent]))));
-"""
-        result = subprocess.run([node, '-e', harness + script + inspect], capture_output=True,
-                                text=True, timeout=15)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        dom = json.loads(result.stdout.strip().splitlines()[-1])
-        self.assertIn('live-check', dom['validation-cards'])
-        self.assertIn('Check 2/3', dom['validation-cards'])
-        self.assertIn('240s', dom['validation-cards'])
-        self.assertIn('7001', dom['validation-cards'])
-        self.assertIn('Open current check log', dom['validation-cards'])
-        self.assertIn('gradlew.bat focusedTest', dom['validation-cards'])
-        self.assertNotIn('queued-check', dom['validation-cards'])
-        self.assertNotIn('station-atlas-legend-ranking-r1', dom['validation-cards'])
-        self.assertNotIn('station-atlas-large-plans-r1', dom['validation-cards'])
-        self.assertIn('Owner test', dom['owner-cards'])
-        self.assertNotIn('manual-feedback', dom['owner-cards'])
-        self.assertIn('Owner test', dom['owner-cards'])
-        self.assertIn('queued-check', dom['other-cards'])
-        self.assertIn('station-atlas-legend-ranking-r1', dom['other-cards'])
-        self.assertIn('station-atlas-large-plans-r1', dom['other-cards'])
-        self.assertIn('UNCONFIRMED / STALLED', dom['other-cards'])
-        self.assertIn('needs-fix', dom['other-cards'])
-        self.assertIn('Attach the missing evidence.', dom['other-cards'])
-        self.assertIn('Re-run the focused check.', dom['other-cards'])
-        self.assertIn('Open report', dom['other-cards'])
-        self.assertIn('Prior owner reply', dom['other-cards'])
-        self.assertNotIn('Old accepted work', dom['owner-cards'])
-        self.assertIn('legacy candidate ordering is unknown', dom['other-cards'])
-        self.assertIn('Owner-response queue is not verified', dom['observer-health'])
-        self.assertIn('observer unavailable', dom['observer-health'])
-        self.assertIn('Old accepted work', dom['history-cards'])
+        headings = ['Working', 'Waiting on Validation', 'Active Validation', 'Ready for Manual testing']
+        positions = [page.index('>'+heading+' <') for heading in headings]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn('grid-template-columns:repeat(4,minmax(0,1fr))', page)
+        self.assertIn('@media(max-width:1150px){.columns{grid-template-columns:repeat(2,minmax(0,1fr))}', page)
+        self.assertIn('@media(max-width:650px){.columns{grid-template-columns:1fr}', page)
+        dom = self.dom(page, now)
+        self.assertIn('live-check', dom['text']['active-cards'])
+        self.assertIn('Check 2/3', dom['text']['active-cards'])
+        self.assertIn('240s', dom['text']['active-cards'])
+        self.assertIn('7001', dom['text']['active-cards'])
+        self.assertIn('Open current check log', dom['text']['active-cards'])
+        self.assertIn('gradlew.bat focusedTest', dom['text']['active-cards'])
+        self.assertIn('sprint-b', dom['text']['active-cards'])
+        self.assertIn('Other current work', dom['text']['active-cards'])
+        self.assertIn('sprint-a', dom['text']['active-cards'])
+        self.assertIn('waiting-validation', dom['text']['waiting-cards'])
+        self.assertNotIn('station-atlas-legend-ranking-r1', dom['text']['active-cards'])
+        self.assertNotIn('station-atlas-large-plans-r1', dom['text']['active-cards'])
+        self.assertIn('Owner test', dom['text']['ready-cards'])
+        self.assertIn('Inspect the panel', dom['text']['ready-cards'])
+        self.assertNotIn('manual-feedback', dom['text']['ready-cards'])
+        self.assertEqual(dom['count']['active'], 1)
+        self.assertIn('station-atlas-legend-ranking-r1', dom['text']['working-cards'])
+        self.assertIn('atlas-b', dom['text']['working-cards'])
+        self.assertIn('needs-fix', dom['text']['working-cards'])
+        self.assertIn('Attach the missing evidence.', dom['text']['working-cards'])
+        self.assertIn('Re-run the focused check.', dom['text']['working-cards'])
+        self.assertNotIn('Technical report', dom['text']['working-cards'])
+        self.assertIn('manual-feedback', dom['text']['working-cards'])
+        self.assertIn('UNCONFIRMED', dom['text']['working-cards'])
+        self.assertIn('errors; status may be unknown', dom['text']['health-banner'])
+        self.assertIn('observer unavailable', dom['text']['health-banner'])
+
+    def test_core_idle_unknown_and_noncore_idle_are_distinct_in_dom(self):
+        now = 1_800_000_000
+        agents = [{'id': f'C:/agents/core-{i}', 'label': f'Agent {i:02d}',
+                   'worktree': f'C:/agents/core-{i}', 'core': True, 'column': 'working',
+                   'activity': 'idle', 'summary': 'Idle', 'additional_work': []}
+                  for i in range(1, 5)]
+        agents.extend([
+            {'id': 'C:/agents/consultant', 'label': 'Main consultant',
+             'worktree': 'C:/agents/consultant', 'core': False, 'column': 'working',
+             'activity': 'idle', 'summary': 'Idle'},
+            {'id': 'C:/agents/unknown', 'label': 'Agent 06',
+             'worktree': 'C:/agents/unknown', 'core': True, 'column': 'working',
+             'activity': 'unknown', 'summary': 'Activity unknown'},
+        ])
+        projection = {'agents': agents, 'checked_at': now, 'errors': ['Agent 06 activity API unavailable']}
+        with patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
+             patch.object(self.agent_status, 'project', return_value=projection):
+            page = gp.render(self.root).read_text(encoding='utf-8')
+        dom = self.dom(page, now)
+        self.assertEqual(dom['count']['working'], 6)
+        self.assertEqual(dom['alertCount'], 4)
+        self.assertIn('Agent 01 — Idle', dom['text']['working-cards'])
+        self.assertIn('Core agent idle — needs work', dom['text']['working-cards'])
+        self.assertIn('Main consultant — Idle', dom['text']['working-cards'])
+        self.assertIn('Agent 06 — Activity unknown', dom['text']['working-cards'])
+        self.assertIn('Agent 06 activity API unavailable', dom['text']['health-banner'])
+        self.assertNotIn('Idle', dom['text']['working-cards'].split('Agent 06 — Activity unknown')[-1])
+
+    def test_active_review_card_does_not_invent_check_or_idle_alert(self):
+        now = 1_800_000_000
+        review = {'id': 'review-agent', 'label': 'Agent 02', 'worktree': 'fixture-agent-02',
+                  'core': True, 'column': 'active_validation', 'activity': 'idle',
+                  'summary': 'Review current candidate', 'candidate_id': 'candidate-review',
+                  'validation_stage': 'review', 'additional_work': []}
+        with patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
+             patch.object(gp, '_project_agents', return_value={
+                 'agents': [review], 'checked_at': now, 'errors': []}):
+            page = gp.render(self.root).read_text(encoding='utf-8')
+        dom = self.dom(page, now)
+        active = dom['text']['active-cards']
+        self.assertEqual(dom['count']['active'], 1)
+        self.assertIn('Integration lead reviewing candidate', active)
+        self.assertNotIn('Check null/null', active)
+        self.assertNotIn('PID null', active)
+        self.assertEqual(dom['alertCount'], 0)
+
+    def test_real_agent_status_projection_idle_validation_and_manual_are_not_idle_alerts(self):
+        agent_status = self.agent_status
+
+        now = 1_800_000_000
+        worktrees = [str((Path(self.temp.name) / f'core-{i:02d}').resolve()) for i in range(1, 4)]
+        slots = [{'id': agent_status._worktree(path), 'label': f'Agent {i:02d}', 'worktree': path,
+                  'core': True} for i, path in enumerate(worktrees, 1)]
+        snapshot = {'checked_at': now, 'errors': [], 'agents': [dict(slot, activity='idle') for slot in slots],
+                    'active_sessions': {}}
+        rows = [
+            {'author': slots[0]['id'], 'id': 'queued-a', 'sprint_id': 's-a', 'validation_active': False,
+             'phase': 'queued', 'state': 'queued', 'health': {'state': 'active'}, 'updated_at': now,
+             'runner_pid': 333},
+            {'author': slots[1]['id'], 'id': 'live-b', 'sprint_id': 's-b', 'validation_active': True,
+             'phase': 'running', 'state': 'running', 'health': {}, 'updated_at': now,
+             'check_index': 1, 'total': 2, 'runner_pid': 222, 'started': now, 'log': 'check.log'},
+        ]
+        attention = {'awaiting_owner': [{'candidate_id': 'manual-c', 'worktree': slots[2]['worktree'], 'title': 'Inspect console',
+                                          'manual_steps': ['Verify the indicator'],
+                                          'fixture': 'manual-fixture'}],
+                     'agent_work': [], 'unconfirmed': [], 'completed': []}
+        rows[2:2] = [{'author': slots[2]['id'], 'id': 'manual-c', 'sprint_id': 's-c',
+                      'validation_active': False, 'phase': 'finished', 'state': 'ready_for_owner',
+                      'health': {}, 'updated_at': now}]
+        heads = [{'head': {'id': row['id'], 'worktree': row['author'], 'sprint_id': row['sprint_id'],
+                           'gate_request': {'session_id': 'lead-queued'} if row['id'] == 'queued-a' else {},
+                           'gate_outcome': {}, 'submitted_at': now}}
+                 for row in rows]
+        with patch.object(agent_status, 'roster', return_value=slots), \
+             patch('tooling.agent_workflow.owner_attention.current_work', return_value=heads), \
+             patch('tooling.agent_workflow.gate_progress._pid_alive', side_effect=lambda pid: pid == 333), \
+             patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
+             patch('tooling.agent_workflow.gate_progress._rows', return_value=rows), \
+             patch('tooling.agent_workflow.owner_attention.collect', return_value=attention):
+            projection = agent_status._project(self.root, rows, attention, now, snapshot)
+            (self.root / agent_status.SNAPSHOT).write_text(json.dumps(snapshot), encoding='utf-8')
+            page = gp.render(self.root).read_text(encoding='utf-8')
+        self.assertEqual([(a['column'], a['activity']) for a in projection['agents']], [
+            ('waiting_validation', 'idle'), ('active_validation', 'idle'), ('ready_manual', 'idle')])
+        self.assertEqual([a['manual_steps'] for a in projection['agents'] if a['column'] == 'ready_manual'],
+                         [['Verify the indicator']])
+        dom = self.dom(page, now)
+        self.assertIn('Waiting on validation', dom['text']['waiting-cards'])
+        self.assertIn('Active validation', dom['text']['active-cards'])
+        self.assertIn('Ready for manual testing', dom['text']['ready-cards'])
+        self.assertIn('Verify the indicator', dom['text']['ready-cards'])
+        self.assertEqual(dom['alertCount'], 0)
 
     def test_superseded_head_hidden_without_dropping_independent_project(self):
         self.candidate('old-head', author='tree-a', sprint_id='one', revision_sequence=1,
@@ -247,24 +386,36 @@ console.log(JSON.stringify(Object.fromEntries(['validation-cards','owner-cards',
 
     def test_snapshot_mismatch_ignored_and_no_request_inference(self):
         c = self.candidate('one', gate_request={'session_id': 'session'})
-        self.progress('one', c, snapshot_key='old-snapshot', phase='running')
+        self.progress('one', c, snapshot_key='old-snapshot', phase='running', check_index=7, total=7,
+                      argv=['MISMATCH_ATTACKER_COMMAND'], log='MISMATCH_ATTACKER_LOG',
+                      runner_pid=987654, child_pid=987655)
+        row = next(r for r in gp._rows(self.root) if r['id'] == 'one')
+        self.assertEqual(row['snapshot'], c['snapshot_key'][:12])
+        self.assertNotEqual(row['phase'], 'running')
+        self.assertNotEqual(row['state'], 'VALIDATION RUNNING')
+        for field in ('runner_pid', 'child_pid', 'log', 'argv', 'check_index', 'total'):
+            self.assertNotIn('MISMATCH_ATTACKER', str(row.get(field)))
+        self.assertNotEqual(row['runner_pid'], 987654)
+        self.assertNotEqual(row['log'], 'MISMATCH_ATTACKER_LOG')
         page = gp.render(self.root).read_text(encoding='utf-8')
-        self.assertIn('awaiting activity', page)
-        self.assertNotIn('running —', page)
+        data = json.loads(re.search(r'const data=(.*?);\nfunction elem', page, re.S).group(1))
+        self.assertFalse(any(a['column'] == 'active_validation' for a in data['agents']))
+        self.assertFalse(any(a.get('candidate_id') == 'one' and a['column'] == 'waiting_validation'
+                             for a in data['agents']))
 
     def test_queued_running_stale_and_verdict_precedence(self):
-        queued = self.candidate('queued', author='a')
+        queued = self.candidate('queued', author='a', sprint_id='queued-sprint', revision_sequence=1)
         self.progress('queued', queued, phase='queued', updated_at=9999999999)
-        finished = self.candidate('finished', author='b', gate_outcome={'result': 'ready_for_owner'}, author_completion={'status': 'delivered'}, gate_request={'session_id': 'lead-1'})
+        finished = self.candidate('finished', author='b', sprint_id='finished-sprint', revision_sequence=1, gate_outcome={'result': 'ready_for_owner'}, author_completion={'status': 'delivered'}, gate_request={'session_id': 'lead-1'})
         self.progress('finished', finished, phase='running', updated_at=1)
-        stale = self.candidate('stale', author='c')
+        stale = self.candidate('stale', author='c', sprint_id='stale-sprint', revision_sequence=1)
         self.progress('stale', stale, phase='running', updated_at=1)
         page = gp.render(self.root).read_text(encoding='utf-8')
         self.assertIn('queued', page)
-        self.assertIn('UNCONFIRMED / STALLED', page)
+        rows = {r['id']: r for r in gp._rows(self.root)}
+        self.assertEqual(gp._view_model(rows['stale'], time.time())['title'], 'UNCONFIRMED / STALLED')
+        self.assertIn('stale', page)
         self.assertIn('Date.now()/1000', page)
-        self.assertIn('"verdict": "ready_for_owner"', page)
-        self.assertIn('"delivery": "delivered"', page)
         model = {'state': 'running', 'phase': 'running', 'updated': 100, 'started': 50}
         self.assertFalse(gp._view_model(model, 140)['stale'])
         self.assertEqual(gp._view_model(model, 200)['title'], 'UNCONFIRMED / STALLED')
@@ -273,7 +424,8 @@ console.log(JSON.stringify(Object.fromEntries(['validation-cards','owner-cards',
         model['verdict'] = 'ready_for_owner'
         model['state'] = 'ready_for_owner'
         self.assertEqual(gp._view_model(model, 200)['elapsed'], 50)
-        self.assertIn('lead-1', page)
+        self.assertEqual(rows['finished']['session'], 'lead-1')
+        self.assertNotIn('finished', [a['candidate_id'] for a in self.agent_status.project(self.root)['agents'] if a['column'] == 'ready_manual'])
 
     def test_latest_per_author_and_escaping(self):
         self.candidate('old', author='same', submitted_at=1)
@@ -282,23 +434,26 @@ console.log(JSON.stringify(Object.fromEntries(['validation-cards','owner-cards',
         self.progress('unsafe', unsafe, phase='running', detail='<script>alert(1)</script>', log='unsafe <file>.txt')
         page = gp.render(self.root).read_text(encoding='utf-8')
         self.assertIn('new', page)
-        # Legacy ordering is deliberately surfaced as unconfirmed, never owner-actionable.
-        self.assertIn('old', page)
-        self.assertIn('legacy candidate ordering is unknown', page)
-        self.assertIn('\\u003cscript\\u003e', page)
-        self.assertNotIn('<script>alert(1)</script>', page)
+        unsafe_card = {'id': 'unsafe', 'label': 'Fixture agent', 'worktree': 'fixture', 'core': False, 'column': 'working', 'activity': 'working', 'summary': '<img src=x onerror=alert(1)>', 'additional_work': []}
+        with patch.object(gp, '_project_agents', return_value={'agents': [unsafe_card], 'checked_at': time.time(), 'errors': []}):
+            page = gp.render(self.root).read_text(encoding='utf-8')
+        dom = self.dom(page, time.time())
+        self.assertEqual(dom['count']['working'], 1)
+        self.assertIn('<img src=x onerror=alert(1)>', dom['text']['working-cards'])
+        self.assertNotIn('<img src=x onerror=alert(1)>', page)
 
-    def test_active_older_candidate_retained_and_phase_statuses(self):
-        self.candidate('newer', author='same', submitted_at=99)
-        older = self.candidate('active-old', author='same', submitted_at=1)
+    def test_superseded_nonrunning_history_hidden_and_current_head_visible(self):
+        self.candidate('newer', author='same', sprint_id='one', revision_sequence=2, submitted_at=99)
+        older = self.candidate('active-old', author='same', sprint_id='one', revision_sequence=1, submitted_at=1)
         self.progress('active-old', older, phase='blocked', updated_at=2)
-        pending = self.candidate('pending', author='pending-author')
+        pending = self.candidate('pending', author='pending-author', sprint_id='two', revision_sequence=1)
         self.progress('pending', pending, phase='pending')
         page = gp.render(self.root).read_text(encoding='utf-8')
-        self.assertIn('active-old', page)
+        self.assertNotIn('active-old', page)
         self.assertIn('pending', page)
-        self.assertIn('"phase": "blocked"', page)
-        self.assertIn('"state": "UNCONFIRMED / STALLED"', page)
+        stale_row = next(r for r in gp._rows(self.root) if r['id'] == 'pending')
+        self.assertEqual(stale_row['state'], 'UNCONFIRMED / STALLED')
+        self.assertIn('pending', page)
 
     def test_concurrent_updates_leave_valid_board(self):
         c = self.candidate('one')
@@ -325,26 +480,24 @@ console.log(JSON.stringify(Object.fromEntries(['validation-cards','owner-cards',
         (self.root / 'owner-feedback-observer.json').write_text(json.dumps({'status': 'watching', 'updated_at': 9999999999, 'errors': []}), encoding='utf-8')
         with patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
             page = gp.render(self.root).read_text(encoding='utf-8')
-        self.assertIn('Alpha', page); self.assertIn('Beta', page)
-        self.assertIn('legacy request', page); self.assertIn('triage', page)
-        self.assertIn('Ready for owner', page)
-        self.assertIn('Validation actively running', page)
-        self.assertIn('Other states', page)
-        self.assertIn("for(const x of completed)", page)
+        self.assertIn('No agents in this state.', page)
+        self.assertIn('Ready for Manual testing', page)
+        self.assertIn('Waiting on Validation', page)
+        self.assertIn('Active Validation', page)
+        self.assertNotIn('completed', page.casefold())
         self.assertIn('manual_steps', page)
         self.assertIn('function render(now)', page)
         self.assertIn('Date.now()/1000', page)
-        self.assertIn("oh.replaceChildren()", page)
-        self.assertIn('Unconfirmed — reconcile evidence', page)
+        self.assertIn("host.replaceChildren()", page)
+        self.assertIn('Activity unknown', page)
 
     def test_unconfirmed_prevents_verified_empty_queue(self):
         (self.root / 'owner-feedback-observer.json').write_text(json.dumps({'status': 'idle', 'updated_at': 9999999999, 'errors': []}), encoding='utf-8')
         groups = {'awaiting_owner': [], 'agent_work': [], 'unconfirmed': [{'id': 'old', 'reason': 'head unknown'}], 'completed': []}
         with patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
             page = gp.render(self.root).read_text(encoding='utf-8')
-        self.assertIn('Owner queue status is unknown; do not infer an empty queue.', page)
-        self.assertIn('head unknown', page)
-        self.assertIn('Unconfirmed — reconcile evidence', page)
+        self.assertIn('id="health-banner"', page)
+        self.assertIn('Agent status unknown; do not infer an empty queue.', page)
 
     def test_report_path_normalized_and_legacy_worktree_string(self):
         from tooling.agent_workflow import owner_attention
@@ -364,8 +517,14 @@ console.log(JSON.stringify(Object.fromEntries(['validation-cards','owner-cards',
         self.assertEqual(groups['awaiting_owner'][0]['report_path'], str(self.root / 'reports' / 'review.html'))
         with patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
             page = gp.render(self.root).read_text(encoding='utf-8')
-        self.assertIn((self.root / 'reports' / 'review.html').resolve().as_uri(), page)
-        self.assertIn("typeof w==='string'?w", page)
+        data = json.loads(re.search(r'const data=(.*?);\nfunction elem', page, re.S).group(1))
+        active_path = self.agent_status._worktree('C:/agents/active')
+        projected = next(a for a in data['agents'] if a['id'] == active_path)
+        expected_url = (self.root / 'reports' / 'review.html').resolve().as_uri()
+        self.assertEqual(projected['report_url'], expected_url)
+        self.assertEqual(projected['worktree'], active_path)
+        dom = self.dom(page, time.time())
+        self.assertIn(expected_url, dom['links'])
 
     @unittest.skipUnless(os.name == 'nt', 'Windows PowerShell launcher compatibility test')
     def test_launcher_noopen_with_spaced_paths_under_both_powershells(self):

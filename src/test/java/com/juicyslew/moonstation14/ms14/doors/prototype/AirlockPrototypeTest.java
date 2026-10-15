@@ -31,6 +31,7 @@ class AirlockPrototypeTest {
         assertNull(catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "base_airlock")));
         var resolved = catalog.get(ModAirlocks.STANDARD);
         assertEquals(20, resolved.apcPowerReceiver().requestedWatts());
+        assertEquals(new AirlockData.Collision(158,205),resolved.collision(),"fixture collision profile inherits from base_airlock");
         assertEquals(3, resolved.extensionCableReceiver().localReachBlocks());
         assertEquals(5, resolved.airlock().autoCloseSeconds());
         assertEquals(15, resolved.door().crushDamageBlunt());

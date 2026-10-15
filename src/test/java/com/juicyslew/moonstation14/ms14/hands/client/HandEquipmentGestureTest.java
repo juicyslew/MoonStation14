@@ -37,6 +37,20 @@ class HandEquipmentGestureTest {
                         back.token() != null && active.token() == null, false, false), null, null);
     }
 
+    @Test void capturedDragSurvivesUnchangedAuthorityAndCancelsOnRemovalOrReplacement() {
+        var proof = snapshot("left", BAG, null, false, false);
+        var drag = HandEquipmentGesture.beginAny(FIRST, view(proof), proof);
+        assertTrue(HandEquipmentGesture.sourceStillCurrent(drag, proof));
+        assertFalse(HandEquipmentGesture.sourceStillCurrent(drag,
+                snapshot("left", null, null, false, false)));
+        var replacement = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK,
+                proof.accountId(), proof.bodyId(), 7, 4, "left",
+                List.of(new BodyHandStateSnapshot.Hand("left", "replacement", BAG, 1), proof.hands().get(1)),
+                proof.equipment());
+        assertFalse(HandEquipmentGesture.sourceStillCurrent(drag, replacement));
+        assertFalse(HandEquipmentGesture.sourceStillCurrent(drag, null));
+    }
+
     @Test void onlyMatchingActiveHandCanEquipIntoEmptyCorrectSlot() {
         var proof = snapshot("right", null, BAG, false, false);
         assertNull(HandEquipmentGesture.begin(FIRST, view(proof), proof));

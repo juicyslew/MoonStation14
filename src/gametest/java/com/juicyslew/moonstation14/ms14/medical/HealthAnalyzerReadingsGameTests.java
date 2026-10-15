@@ -17,6 +17,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.animal.Pig;
+import com.juicyslew.moonstation14.entities.MouseMob;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -87,7 +88,7 @@ public final class HealthAnalyzerReadingsGameTests {
         body.setData(ModDataAttachments.MOB_STATE.get(), new MobStateAttachment(
                 new MobStateData(MobStateComponent.State.DEAD, 2)));
         var dead = read(body);
-        require(dead.state().equals("Dead") && dead.unrevivable(), "default non-revivable dead state alert");
+        require(dead.state().equals("Dead") && !dead.unrevivable(), "ordinary dead state does not imply permanent unrevivability");
         body.removeData(ModDataAttachments.BODY_TEMPERATURE.get());
         var missing = read(body);
         require(missing.temperatureKelvin().isEmpty(), "missing temperature remains unknown");
@@ -95,7 +96,32 @@ public final class HealthAnalyzerReadingsGameTests {
         helper.succeed();
     }
 
-    private static HealthAnalyzerSnapshot read(Villager body) {
+    @GameTestTags({"health-analyzer", "prototype"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    public static void readsPrototypeSpeciesForMouseHumanPigAndFallback(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager human = EntityType.VILLAGER.create(level);
+        Pig pig = EntityType.PIG.create(level);
+        MouseMob mouse = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(human != null && pig != null && mouse != null, "test actors created");
+        human.setPos(pos.getX(), pos.getY(), pos.getZ()); pig.setPos(pos.getX(), pos.getY(), pos.getZ());
+        mouse.setPos(pos.getX(), pos.getY(), pos.getZ());
+        require(level.addFreshEntity(human) && level.addFreshEntity(pig) && level.addFreshEntity(mouse), "actors added");
+        require(CharacterIdentitySystem.enroll(human, level, ModCharacters.HUMAN_ID), "villager resolves through Human composition");
+        require(CharacterIdentitySystem.enroll(pig, level, ResourceLocation.parse("moonstation14:pig")), "pig enrolled");
+        require(CharacterIdentitySystem.enroll(mouse, level, ResourceLocation.parse("moonstation14:mouse")), "mouse enrolled");
+        require(read(human).species().equals("Human"), "villager displays Human");
+        require(read(pig).species().equals("Pig"), "pig displays prototype species");
+        require(read(mouse).species().equals("Mouse"), "NPC mouse displays prototype species without HumanoidProfile");
+        var unsupported = EntityType.COW.create(level);
+        require(unsupported != null, "unsupported actor created");
+        var withoutIdentity = HealthAnalyzerReadings.read(UUID.randomUUID(), 1, UUID.randomUUID(), unsupported, 1, true, true);
+        require(withoutIdentity.species().equals("Unknown"), "unsupported actor without resolved component remains Unknown");
+        helper.succeed();
+    }
+
+    private static HealthAnalyzerSnapshot read(net.minecraft.world.entity.LivingEntity body) {
         return HealthAnalyzerReadings.read(UUID.randomUUID(), 1, UUID.randomUUID(), body, 2, true, true);
     }
 

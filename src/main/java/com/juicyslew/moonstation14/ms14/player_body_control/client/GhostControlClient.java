@@ -172,8 +172,10 @@ public final class GhostControlClient {
         float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(player.getXRot())));
         if (!Float.isFinite(yaw)) return;
         // Keep the camera-facing ghost responsive locally while authoritative rotation is in flight.
-        if (ghost instanceof GhostMobHarnessEntity ghostBody) setOwnedBodyLook(ghostBody, yaw, pitch);
-        else if (ghost instanceof Mob mob) setOwnedBodyLook(mob, yaw, pitch);
+        if (canChangeOwnedDirection(ghost)) {
+            if (ghost instanceof GhostMobHarnessEntity ghostBody) setOwnedBodyLook(ghostBody, yaw, pitch);
+            else if (ghost instanceof Mob mob) setOwnedBodyLook(mob, yaw, pitch);
+        }
         if (predictionHistory == null) return;
         long sequence=++sentSequence;
         GameplayWindowMovementDispatch.dispatch(activeEpoch,sequence,harnessKind,minecraft.screen,ordinaryInput,yaw,pitch,intent->{
@@ -199,8 +201,10 @@ public final class GhostControlClient {
         float yaw = normalizeYaw(player.getYRot());
         if (!Float.isFinite(yaw)) return;
         float pitch = Math.max(-90f, Math.min(90f, finiteOrZero(player.getXRot())));
-        if (entity instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, yaw, pitch);
-        else if (entity instanceof Mob mob) setOwnedBodyLook(mob, yaw, pitch);
+        if (canChangeOwnedDirection(entity)) {
+            if (entity instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, yaw, pitch);
+            else if (entity instanceof Mob mob) setOwnedBodyLook(mob, yaw, pitch);
+        }
     }
 
     /** Transition-only diagnostic: observation is deliberately separate from control decisions. */
@@ -568,7 +572,9 @@ public final class GhostControlClient {
 
     record OwnedCharacterBinding(java.util.UUID body, long epoch) { }
     static OwnedCharacterBinding ownedCharacterBinding() {
-        Mob body = ownedCharacterForHud();
+        // Camera presentation must survive tracker denial (for example, medical criticality).
+        // The camera consumer separately checks that the actual camera entity is this exact body.
+        Mob body = ownedCharacterForPresentation();
         return body == null ? null : new OwnedCharacterBinding(body.getUUID(), activeEpoch);
     }
 
@@ -635,8 +641,10 @@ public final class GhostControlClient {
             for (GhostControlPayloads.Intent intent : result.replayFrames()) predict(entity, intent, false);
         }
         // Preserve the local view; movement replay still uses each intent's quantized yaw.
-        if (entity instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, visualYaw, visualPitch);
-        else if (entity instanceof Mob mob) setOwnedBodyLook(mob, visualYaw, visualPitch);
+        if (canChangeOwnedDirection(entity)) {
+            if (entity instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, visualYaw, visualPitch);
+            else if (entity instanceof Mob mob) setOwnedBodyLook(mob, visualYaw, visualPitch);
+        }
     }
 
     private static void predict(Entity body, GhostControlPayloads.Intent intent, boolean animate) {
@@ -691,6 +699,16 @@ public final class GhostControlClient {
         if (!decision.authorityBarrierRequired() || barrierApplied)
             predictionMedicalSuspended = decision.suspended();
         return decision;
+    }
+
+    private static boolean canChangeOwnedDirection(Entity entity) {
+        var state = entity instanceof Mob mob
+                ? mob.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.MOB_STATE.get())
+                : null;
+        var medicalState = state == null
+                ? com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE
+                : state.data().state();
+        return MedicalPredictionPolicy.canChangeDirection(harnessKind, medicalState);
     }
 
     private static boolean isCharacterContainedMode() {

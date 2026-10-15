@@ -287,10 +287,28 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('cycle-1 (owner_accepted)',(self.root/'work/agent_exchange/manual-tests.md').read_text())
 
     def test_native_notification_hides_terminal_window(self):
-        with mock.patch.object(wf.os,'name','nt'),mock.patch.object(wf.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:
-            wf.native_notify(self.root/'manual-tests.md','fixture','specific candidate body')
-        self.assertEqual(run.call_args.kwargs['creationflags'],getattr(subprocess,'CREATE_NO_WINDOW',0))
-        self.assertIn('specific candidate body',run.call_args.args[0][-1])
+        manual=self.root/'space and ünicode'/'owner manual tests.md'
+        with mock.patch.object(wf.os,'name','nt'),mock.patch.object(wf.subprocess,'Popen') as launch:
+            result=wf.native_notify(manual,"O'Brien fixture",'specific candidate body')
+        argv=launch.call_args.args[0]; encoded=argv[-1]
+        import base64
+        script=base64.b64decode(encoded).decode('utf-16le')
+        self.assertIn('-EncodedCommand',argv); self.assertIn('BalloonTipClicked',script)
+        self.assertIn('[System.Windows.Forms.Application]::Run($form)',script)
+        self.assertIn('$timer.Interval=120000',script); self.assertIn('ProcessStartInfo',script)
+        self.assertIn('$form.ShowInTaskbar=$false',script); self.assertIn('$form.Hide()',script)
+        expected=(manual.parent/'integration-status.html').resolve().as_uri()
+        self.assertIn(__import__('base64').b64encode(expected.encode()).decode(),script)
+        self.assertNotIn('owner%20manual%20tests.md',script)
+        self.assertIn(__import__('base64').b64encode("O'Brien fixture".encode()).decode(),script)
+        self.assertIn(__import__('base64').b64encode('specific candidate body'.encode()).decode(),script)
+        self.assertIn('$psi.FileName=$targetUri',script)
+        self.assertEqual(launch.call_args.kwargs['creationflags'],getattr(subprocess,'CREATE_NO_WINDOW',0))
+        self.assertEqual(launch.call_args.kwargs['stdin'],subprocess.DEVNULL)
+        self.assertEqual(launch.call_args.kwargs['stdout'],subprocess.DEVNULL)
+        self.assertEqual(launch.call_args.kwargs['stderr'],subprocess.DEVNULL)
+        launch.return_value.wait.assert_not_called()
+        self.assertIn('listener_launched',result)
 
     def test_manual_notification_titles_are_specific_and_candidate_bound(self):
         generic={'id':'gas-mutation','sprint_id':'botany','revision_sequence':3,'worktree':{'worktree':str(self.root/'MoonStation14-agent-04')},
@@ -310,16 +328,17 @@ class WorkflowTests(unittest.TestCase):
                 'snapshot_key':'snap','origin_session_id':'owner-session'}}
         path=root/'candidates/notify-1.json'; wf.writejson(path,candidate)
         with mock.patch.object(wf,'verify_gate',return_value=(self.repo,candidate['gate_plan'])), \
-             mock.patch.object(wf,'verify_publication'), mock.patch.object(wf,'native_notify',return_value='delivered_to_os; user visibility is not guaranteed') as notify:
+             mock.patch.object(wf,'verify_publication'), mock.patch.object(wf,'native_notify',return_value='listener_launched; OS visibility and click are not verified') as notify:
             result=wf.send_manual_notification(path,root)
-        self.assertIn('delivered_to_os',result); notify.assert_called_once()
+        self.assertIn('listener_launched',result); notify.assert_called_once()
         receipt=wf.readjson(path)['gate_outcome']['notification_receipt']
         self.assertEqual(receipt['candidate_id'],'notify-1'); self.assertEqual(receipt['snapshot_key'],'snap')
         self.assertEqual(receipt['report_sha256'],'report-hash'); self.assertIn('repo',receipt['title'])
-        self.assertIn('notify-1',receipt['message']); self.assertEqual(receipt['status'],'delivered_to_os')
+        self.assertIn('notify-1',receipt['message']); self.assertEqual(receipt['status'],'listener_launched')
         self.assertIn('Check target mutation',receipt['message'])
         self.assertIn('snap',receipt['message']); self.assertIn('review report-h',receipt['message'])
         self.assertIn(str(self.assets/'independent-review.json'),receipt['report_path'])
+        self.assertIn('integration-status.html',receipt['target_url'])
         self.assertIn('review '+'report-hash'[:8],receipt['message'])
         self.assertEqual(notify.call_args.args[2],receipt['message'])
         notify.reset_mock(); changed=wf.readjson(path); changed['owner_review']['state']='feedback_received'; wf.writejson(path,changed)
@@ -337,7 +356,7 @@ class WorkflowTests(unittest.TestCase):
             'owner_review':{'state':'awaiting_owner','candidate_id':'notify-retry','snapshot_key':'retry-snapshot','origin_session_id':'owner'}}
         path=folder/'notify-retry.json'; wf.writejson(path,c); sent=[]
         with mock.patch.object(wf,'verify_gate',return_value=(self.repo,c['gate_plan'])),mock.patch.object(wf,'verify_publication'), \
-             mock.patch.object(wf,'native_notify',side_effect=lambda *args: sent.append(args) or 'delivered_to_os; user visibility is not guaranteed'):
+             mock.patch.object(wf,'native_notify',side_effect=lambda *args: sent.append(args) or 'listener_launched; OS visibility and click are not verified'):
             wf.send_manual_notification(path,root)
             saved=wf.readjson(path); original_body=saved['gate_outcome']['notification_receipt']['message']
             saved['gate_plan']['manual_steps']=['Changed later, must not alter retry payload']; wf.writejson(path,saved)
@@ -359,7 +378,7 @@ class WorkflowTests(unittest.TestCase):
            'owner_review':{'state':'awaiting_owner','candidate_id':ident,'snapshot_key':snapshot,'origin_session_id':'owner'}}
         path=folder/(ident+'.json'); wf.writejson(path,c); sent=[]
         with mock.patch.object(wf,'verify_gate',return_value=(Path(c['worktree']['worktree']),c['gate_plan'])), \
-             mock.patch.object(wf,'verify_publication'),mock.patch.object(wf,'native_notify',side_effect=lambda *args: sent.append(args) or 'delivered_to_os; user visibility is not guaranteed'):
+             mock.patch.object(wf,'verify_publication'),mock.patch.object(wf,'native_notify',side_effect=lambda *args: sent.append(args) or 'listener_launched; OS visibility and click are not verified'):
             wf.send_manual_notification(path,root)
         title,message=sent[0][1:3]
         self.assertLessEqual(len(message),255); self.assertIn(ident,message); self.assertIn(snapshot[:8],message)
@@ -367,10 +386,11 @@ class WorkflowTests(unittest.TestCase):
         receipt=wf.readjson(path)['gate_outcome']['notification_receipt']
         self.assertEqual(receipt['report_path'],report_path); self.assertEqual(receipt['manual_steps'],steps)
         self.assertIn('Botany',title); self.assertIn('agent-09',title)
-        with mock.patch.object(wf.os,'name','nt'),mock.patch.object(wf.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:
+        with mock.patch.object(wf.os,'name','nt'),mock.patch.object(wf.subprocess,'Popen') as launch:
             wf.native_notify(root/'manual-tests.md',title,message)
-        script=run.call_args.args[0][-1]
-        captured=re.search(r"\$n\.BalloonTipText='((?:''|[^'])*)';",script).group(1).replace("''", "'")
+        script=__import__('base64').b64decode(launch.call_args.args[0][-1]).decode('utf-16le')
+        encoded_text=re.search(r"\$n\.BalloonTipText=\[System\.Text\.Encoding\]::UTF8\.GetString\(\[System\.Convert\]::FromBase64String\('([^']+)'\)\)",script).group(1)
+        captured=__import__('base64').b64decode(encoded_text).decode('utf-8')
         self.assertEqual(captured,message); self.assertLessEqual(len(captured),255)
 
     def test_manual_notification_refuses_stale_or_superseded_candidate(self):
@@ -626,7 +646,7 @@ class WorkflowTests(unittest.TestCase):
         c['gate_request']={'origin_session_id':'visual-owner-session'}; wf.writejson(path,c)
         from tooling.agent_workflow import gate_dispatch
         with mock.patch.object(wf,'_ensure_owner_feedback',return_value={'status':'started'}), \
-             mock.patch.object(wf,'native_notify',return_value='delivered_to_os; user visibility is not guaranteed'), \
+             mock.patch.object(wf,'native_notify',return_value='listener_launched; OS visibility and click are not verified'), \
              mock.patch.object(gate_dispatch,'deliver_gate_completion',return_value={'status':'unavailable'}):
             wf.cmd_gate_finish(Namespace(id='visual-lead',result='ready_for_owner',report=str(report_path)),self.root/'work/agent_exchange')
         closed=json.loads(path.read_text()); before=path.read_bytes(); report_before=report_path.read_bytes()

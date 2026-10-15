@@ -22,6 +22,20 @@ class OwnedViewRendererAnchorTest {
     }
 
     @Test
+    void containedCameraBindingUsesStablePresentationOwnershipNotMedicalTrackerOwnership() throws IOException {
+        String source = Files.readString(projectFile("src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java"));
+        int method = source.indexOf("static OwnedCharacterBinding ownedCharacterBinding()");
+        int end = source.indexOf("private static void reconcileSnapshot", method);
+        String binding = source.substring(method, end);
+        assertTrue(binding.contains("ownedCharacterForPresentation()"));
+        assertTrue(!binding.contains("ownedCharacterForHud()"));
+        assertTrue(!binding.contains("ownedHarnessForTracker("));
+        String camera = Files.readString(projectFile("src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCharacterClientView.java"));
+        assertTrue(camera.contains("binding.body.equals(cameraEntity.getUUID())"),
+                "translation remains limited to exact committed camera body");
+    }
+
+    @Test
     void rendererGridAndSectionChangeCoordinatesUseOnlyCommittedOwnedCamera() throws IOException {
         String mixin = Files.readString(projectFile("src/main/java/com/juicyslew/moonstation14/mixin/client/LevelRendererOwnedViewAnchorMixin.java"));
         assertTrue(mixin.contains("ownedCharacterForPresentation()"));
@@ -53,6 +67,7 @@ class OwnedViewRendererAnchorTest {
         assertTrue(diagnostics.contains("observeRender(Minecraft minecraft, Camera renderCamera)"));
         assertTrue(diagnostics.contains("renderCamera.getPosition()"));
         assertTrue(diagnostics.contains("rendererPosition={}"));
+        assertTrue(!diagnostics.contains("+ renderPosition +"), "sub-chunk camera motion must not create a new log state");
     }
 
     @Test

@@ -49,10 +49,21 @@ def reconcile_components(root, workflow, request, *, now=None, refresh=True):
         owner = {'sessions': 0, 'pending_owner': 1, 'unknown_work': True, 'errors': [str(exc)[:250]]}
     try: gate = _gate_reconcile(root, workflow, request, now)
     except Exception as exc: gate = {'pending': 1, 'active': 0, 'errors': [str(exc)[:250]]}
-    errors = list(owner.get('errors', [])) + list(gate.get('errors', []))
+    agent = _reconcile_agent_status(root, workflow, request, now)
+    errors = list(owner.get('errors', [])) + list(gate.get('errors', [])) + list(agent.get('errors', []))
     try: _render(root)
     except Exception as exc: errors.append('board render failed: ' + str(exc)[:200])
-    return owner, gate, errors
+    return owner, gate, agent, errors
+
+
+def _reconcile_agent_status(root, workflow, request, now):
+    try:
+        module = _component('agent_status')
+        return module.reconcile(root, workflow=workflow, request=request, now=now, notify=True)
+    except Exception as exc:
+        # A failed poll cannot prove the core-agent set is empty.
+        return {'monitored': 0, 'core_monitored': 1, 'unknown_work': True,
+                'errors': [str(exc)[:250]]}
 
 
 def watch(root, workflow=None, request=None, *, clock=time.monotonic, sleep=time.sleep):
@@ -65,8 +76,8 @@ def watch(root, workflow=None, request=None, *, clock=time.monotonic, sleep=time
             request = gate_dispatch._request
         interval_owner, interval_gate, idle_grace = 10, 30, 60
         now = time.time()
-        owner_stats, gate_stats, render_errors = reconcile_components(root, wf, request, now=now, refresh=True)
-        last_owner = last_readiness = last_gate = clock()
+        owner_stats, gate_stats, agent_stats, render_errors = reconcile_components(root, wf, request, now=now, refresh=True)
+        last_owner = last_readiness = last_gate = last_agent = clock()
         idle_since = None
         while True:
             tick = clock()
@@ -81,16 +92,20 @@ def watch(root, workflow=None, request=None, *, clock=time.monotonic, sleep=time
                                    'unknown_work': True}
                 if tick-last_readiness >= 30: last_readiness = tick
                 last_owner = tick
+            if tick - last_agent >= 10:
+                agent_stats = _reconcile_agent_status(root, wf, request, time.time())
+                last_agent = tick
             if tick - last_gate >= interval_gate:
                 try: gate_stats = _gate_reconcile(root, wf, request, time.time())
                 except Exception as exc: gate_stats = {'errors': [str(exc)[:250]], 'pending': 1}
                 last_gate = tick
-            errors = list(owner_stats.get('errors', [])) + list(gate_stats.get('errors', [])) + render_errors
-            active = bool(owner_stats.get('sessions') or owner_stats.get('pending_owner') or gate_stats.get('pending') or gate_stats.get('active'))
+            errors = (list(owner_stats.get('errors', [])) + list(gate_stats.get('errors', [])) +
+                      list(agent_stats.get('errors', [])) + render_errors)
+            active = bool(owner_stats.get('sessions') or owner_stats.get('pending_owner') or gate_stats.get('pending') or gate_stats.get('active') or agent_stats.get('core_monitored') or agent_stats.get('unknown_work'))
             idle_since = None if active else (clock() if idle_since is None else idle_since)
             status = 'error' if errors else ('active' if active else 'idle')
             health = {'pid': os.getpid(), 'updated_at': time.time(), 'status': status,
-                      'components': {'owner_feedback': owner_stats, 'gate_liveness': gate_stats}, 'errors': errors}
+                      'components': {'owner_feedback': owner_stats, 'gate_liveness': gate_stats, 'agent_status': agent_stats}, 'errors': errors}
             try: wf.writejson(root / 'workflow-observer.json', health)
             except Exception: pass
             if not active and idle_since is not None and clock()-idle_since >= idle_grace:
@@ -137,8 +152,8 @@ def main(argv=None):
     if args.once:
         wf = _workflow()
         gate_dispatch = _component('gate_dispatch')
-        owner, gate, errors = reconcile_components(args.exchange, wf, gate_dispatch._request, now=time.time(), refresh=True)
-        stats = {'owner_feedback': owner, 'gate_liveness': gate, 'errors': errors}
+        owner, gate, agent, errors = reconcile_components(args.exchange, wf, gate_dispatch._request, now=time.time(), refresh=True)
+        stats = {'owner_feedback': owner, 'gate_liveness': gate, 'agent_status': agent, 'errors': errors}
         print(json.dumps(stats)); return 1 if errors else 0
     try: return watch(args.exchange)
     except (BlockingIOError, TimeoutError): return 0

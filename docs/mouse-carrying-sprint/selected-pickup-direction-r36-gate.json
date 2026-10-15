@@ -1,0 +1,52 @@
+{
+  "title": "Selected pickup and direction: r35 gate corrections",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/gametest/CharacterDirectionGameTests.java",
+  "acceptance_criteria": [
+    "Selected exact eligible targets use current range and block LOS, not a current aim-ray intersection; automatic selection retains ray and below-floor clipping behavior.",
+    "Normal selected jug pickup after lateral motion succeeds; wall denial preserves the original entity and empty hand.",
+    "Canonical mouse healthy, critical and recovered look intents execute on distinct ticks and have matching applied-sequence snapshots; critical facing stays unchanged and recovery restores facing.",
+    "Idle-direction fixture waits for all actual spawn positions to be entity-ticking without weakening its movement assertions or extending its 70-tick test timeout.",
+    "Fresh full native suite, focused medical JVM tests and interaction/prediction readiness pass before packaging. Same-holder escape transfer and observer/camera presentation remain unresolved and excluded."
+  ],
+  "manual_steps": [
+    "Check critical playable mouse facing stops and returns after healing; also observe critical AI mouse facing.",
+    "Catch thrown mice and jugs by clicking their visible bodies; current out-of-reach and wall-occluded targets must still be denied.",
+    "Check healthy held/thrown mouse look still works. Held jitter, remote drop glide and jump landing appearance remain unresolved.",
+    "Physical same-holder hand transfer should preserve escape in SS14, but that local fix is not included."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*MedicalPredictionPolicyTest", "--rerun-tasks", "--console=plain"],
+      "rationale": "Fresh direction permission cases; healthy external motion remains distinct from medical incapacity.",
+      "covers": ["Fresh full native suite, focused medical JVM tests and interaction/prediction readiness pass before packaging. Same-holder escape transfer and observer/camera presentation remain unresolved and excluded."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-selected-pickup-direction-r36", "--rerun-tasks", "--console=plain"],
+      "log": "build/gate-selected-pickup-direction-r36.log",
+      "rationale": "Fresh world and full native regression evidence, including all three r35 failures; no connected/GPU claims.",
+      "covers": [
+        "Selected exact eligible targets use current range and block LOS, not a current aim-ray intersection; automatic selection retains ray and below-floor clipping behavior.",
+        "Normal selected jug pickup after lateral motion succeeds; wall denial preserves the original entity and empty hand.",
+        "Canonical mouse healthy, critical and recovered look intents execute on distinct ticks and have matching applied-sequence snapshots; critical facing stays unchanged and recovery restores facing.",
+        "Idle-direction fixture waits for all actual spawn positions to be entity-ticking without weakening its movement assertions or extending its 70-tick test timeout."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=interaction,prediction", "--console=plain"],
+      "selectors": ["interaction", "prediction"],
+      "rationale": "Affected admission and prediction contracts; no authenticated or visual proof.",
+      "covers": ["Fresh full native suite, focused medical JVM tests and interaction/prediction readiness pass before packaging. Same-holder escape transfer and observer/camera presentation remain unresolved and excluded."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Record artifact only after passing checks; no deployment or owner acceptance.",
+      "covers": ["Fresh full native suite, focused medical JVM tests and interaction/prediction readiness pass before packaging. Same-holder escape transfer and observer/camera presentation remain unresolved and excluded."]
+    }
+  ]
+}

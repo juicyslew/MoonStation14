@@ -10,7 +10,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
-/** Depth-tested physical-bounds marker for the locally nominated visible loose item. */
+/** Depth-tested physical-bounds marker for the locally nominated visible pickup target. */
 public final class SelectedLooseOutlineRenderer {
 
     private SelectedLooseOutlineRenderer() { }
@@ -18,8 +18,8 @@ public final class SelectedLooseOutlineRenderer {
     public static void render(RenderLevelStageEvent event) {
         if (event == null || event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         Minecraft mc = Minecraft.getInstance();
-        net.minecraft.world.entity.item.ItemEntity entity = BodyHandClient.selectedItemForOutline();
-        if (entity == null || mc.level == null || entity.level() != mc.level || !entity.isAlive()) return;
+        net.minecraft.world.entity.Entity entity = BodyHandClient.selectedEntityForOutline();
+        if (entity == null || entity.isRemoved() || mc.level == null || entity.level() != mc.level) return;
         if (!(mc.getCameraEntity() instanceof net.minecraft.world.entity.Mob body)
                 || body != com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForHud()
                 || com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch() <= 0) return;

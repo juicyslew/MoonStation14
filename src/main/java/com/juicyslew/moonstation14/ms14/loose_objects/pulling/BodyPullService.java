@@ -300,6 +300,7 @@ public final class BodyPullService {
     }
 
     static boolean eligibleTarget(Entity target) {
+        if (target == null || target.isPassenger() || target.isVehicle()) return false;
         if (target instanceof LooseItemEntity loose) return !loose.isRemoved() && loose.getTarget() == null;
         return target instanceof LivingEntity living && !living.isRemoved()
                 && ActiveCharacterPolicy.resolveActor(living)
@@ -312,28 +313,9 @@ public final class BodyPullService {
                 || target instanceof LooseItemEntity && horizontalDistance(body.position(), target.position()) > PICKUP_REACH
                 || !(target instanceof LooseItemEntity
                 && BodyItemTargetProbe.probeSelected(level, body, targetId, PICKUP_REACH) != null)
-                && !(target instanceof LivingEntity && visibleLivingTarget(level, body, target))) return null;
+                && !(target instanceof LivingEntity
+                && BodyItemTargetProbe.probeSelectedGeometry(level, body, target, PICKUP_REACH))) return null;
         return target;
-    }
-
-    private static boolean visibleLivingTarget(ServerLevel level, LivingEntity body, Entity target) {
-        Vec3 eye = body.getEyePosition();
-        var box = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of((LivingEntity) target);
-        Vec3 end = eye.add(body.getLookAngle().scale(PICKUP_REACH));
-        Vec3 point = com.juicyslew.moonstation14.ms14.standing.BodyInteractionRay
-                .hit(box, eye, end, PICKUP_REACH, Double.POSITIVE_INFINITY).orElse(null);
-        if (point == null) return false;
-        int minX = Math.min(body.blockPosition().getX(), net.minecraft.core.BlockPos.containing(point).getX()) >> 4;
-        int maxX = Math.max(body.blockPosition().getX(), net.minecraft.core.BlockPos.containing(point).getX()) >> 4;
-        int minZ = Math.min(body.blockPosition().getZ(), net.minecraft.core.BlockPos.containing(point).getZ()) >> 4;
-        int maxZ = Math.max(body.blockPosition().getZ(), net.minecraft.core.BlockPos.containing(point).getZ()) >> 4;
-        for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++)
-            if (level.getChunkSource().getChunkNow(x, z) == null) return false;
-        var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, point,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                net.minecraft.world.level.ClipContext.Fluid.NONE, body));
-        return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS
-                && eligibleTarget(target) && target.level() == level && !target.isRemoved();
     }
 
     private record Pull(ServerPlayer actor, HandActorAuthority.Snapshot authority, BooleanSupplier authorityValid, LivingEntity body,

@@ -749,17 +749,50 @@ def cmd_gate_deliver(a,root):
     result=gate_dispatch.deliver_gate_completion(a,root,workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
     print(json.dumps(result,indent=2))
 
+def _integration_status_uri(manual_path):
+    passed=Path(manual_path)
+    board=passed if passed.name.casefold()=='integration-status.html' else passed.parent/'integration-status.html'
+    return board.resolve().as_uri()
+
+
 def native_notify(manual_path,title,message=None):
+    """Launch a bounded transient balloon listener; activation is not guaranteed."""
     if os.name!='nt': raise ValueError('native Windows notification unavailable on this platform')
-    title=title.replace("'","''")[:63]
-    text=(message or f'Manual testing requested. Open {manual_path}').replace("'","''")[:255]
-    script=("Add-Type -AssemblyName System.Windows.Forms; $n=New-Object System.Windows.Forms.NotifyIcon; "+
-        "$n.Icon=[System.Drawing.SystemIcons]::Information; $n.Visible=$true; "+
-        f"$n.BalloonTipTitle='{title}'; $n.BalloonTipText='{text}'; $n.ShowBalloonTip(5000); "+
-        "Start-Sleep -Seconds 6; $n.Visible=$false; $n.Dispose()")
-    subprocess.run(['powershell','-NoProfile','-NonInteractive','-Command',script],check=True,timeout=15,capture_output=True,text=True,
-                   creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
-    return 'delivered_to_os; user visibility is not guaranteed'
+    target=_integration_status_uri(manual_path)
+    title=str(title)[:63]
+    text=str(message or f'Manual testing is ready. Open {target}')
+    if len(text)>255: text=text[:255]
+    def psstring(value):
+        payload=__import__('base64').b64encode(str(value).encode('utf-8')).decode('ascii')
+        return f"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{payload}'))"
+    script=r'''
+$ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$n=New-Object System.Windows.Forms.NotifyIcon
+$form=New-Object System.Windows.Forms.Form
+$timer=New-Object System.Windows.Forms.Timer
+$n.Icon=[System.Drawing.SystemIcons]::Information
+$n.Visible=$true
+$form.ShowInTaskbar=$false
+$form.WindowState=[System.Windows.Forms.FormWindowState]::Minimized
+$form.Opacity=0
+$n.BalloonTipTitle=__TITLE__
+$n.BalloonTipText=__TEXT__
+$targetUri=__TARGET__
+$timer.Interval=120000
+$timer.add_Tick({$timer.Stop();$form.Close()})
+$form.add_Shown({$form.Hide();$timer.Start();$n.ShowBalloonTip(5000)})
+$n.add_BalloonTipClicked({
+  try {$psi=New-Object System.Diagnostics.ProcessStartInfo;$psi.FileName=$targetUri;$psi.UseShellExecute=$true;[System.Diagnostics.Process]::Start($psi)|Out-Null} catch {}
+  $timer.Stop();$form.Close()
+})
+try {[System.Windows.Forms.Application]::Run($form)} finally {$timer.Stop();$timer.Dispose();$form.Dispose();$n.Visible=$false;$n.Dispose()}
+'''.replace('__TITLE__',psstring(title)).replace('__TEXT__',psstring(text)).replace('__TARGET__',psstring(target))
+    encoded=__import__('base64').b64encode(script.encode('utf-16le')).decode('ascii')
+    subprocess.Popen(['powershell','-NoProfile','-NonInteractive','-EncodedCommand',encoded],stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0),close_fds=True)
+    return 'listener_launched; OS visibility and click are not verified'
 
 def manual_notification_title(candidate, plan=None):
     """Candidate-bound human title shared by automatic and explicit notification."""
@@ -798,21 +831,24 @@ def send_manual_notification(p,root):
         except (ImportError, OSError, KeyError, TypeError) as exc:
             raise ValueError(f'cannot verify current owner-review handoff: {exc}') from exc
         state=outcome.get('notification','pending')
-        if state.startswith('delivered_to_os'): raise ValueError('notification already sent')
+        if state.startswith(('delivered_to_os','listener_launched')): raise ValueError('notification already sent')
         if state=='sending' and time.time()-c['gate_outcome'].get('notification_started',time.time())<60: raise ValueError('notification send already in progress')
         verify_publication(c,root)
         title=manual_notification_title(c,plan)
         review=c.get('review',{})
         report_path=str(review.get('report_path') or outcome.get('manual_entry') or c['id'])
         report_hash=str(review.get('report_sha256') or 'unavailable')
+        target_url=_integration_status_uri(root/'manual-tests.md')
         prior=outcome.get('notification_receipt') or {}
         identity=(c['id'],c['snapshot_key'],report_hash,outcome.get('manual_entry'))
         old_identity=(prior.get('candidate_id'),prior.get('snapshot_key'),prior.get('report_sha256'),prior.get('manual_entry'))
         if prior and old_identity[:2]==identity[:2] and old_identity!=identity:
             raise ValueError('saved notification body is bound to changed report/manual-entry identity')
         if prior and old_identity==identity and isinstance(prior.get('message'),str) and isinstance(prior.get('title'),str):
+            if prior.get('target_url') not in (None,target_url):
+                raise ValueError('saved notification target differs from current integration status page')
             title,message=prior['title'],prior['message']
-            receipt=dict(prior,status='sending',retry_started_at=time.time())
+            receipt=dict(prior,target_url=prior.get('target_url',target_url),status='sending',retry_started_at=time.time())
         else:
             # NotifyIcon truncates BalloonTipText at 255 characters. Put all
             # proof identity first and keep the feature-specific step visible;
@@ -827,6 +863,7 @@ def send_manual_notification(p,root):
             receipt={'candidate_id':c['id'],'snapshot_key':c['snapshot_key'],'report_sha256':report_hash,
                      'report_path':report_path,'manual_entry':outcome.get('manual_entry'),'title':title,
                      'message':message,'manual_steps':list(plan.get('manual_steps',[])),
+                     'target_url':target_url,
                      'created_at':time.time(),'status':'sending'}
         c['gate_outcome']['notification']='sending'; c['gate_outcome']['notification_started']=receipt['created_at']
         c['gate_outcome']['notification_receipt']=receipt; writejson(p,c)
@@ -843,7 +880,7 @@ def send_manual_notification(p,root):
     lock=_manual_publication_lock(root)
     try:
         c=readjson(p); c['gate_outcome']['notification']=result
-        saved=c['gate_outcome'].get('notification_receipt',receipt); saved.update(status='delivered_to_os',result=result); c['gate_outcome']['notification_receipt']=saved; writejson(p,c)
+        saved=c['gate_outcome'].get('notification_receipt',receipt); saved.update(status='listener_launched',result=result); c['gate_outcome']['notification_receipt']=saved; writejson(p,c)
     finally: lock.close()
     return result
 

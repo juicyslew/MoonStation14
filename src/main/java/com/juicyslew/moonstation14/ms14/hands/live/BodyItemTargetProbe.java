@@ -43,57 +43,207 @@ public final class BodyItemTargetProbe {
 
     public record Target(UUID itemId, Vec3 hitLocation) { }
 
+    public enum ProbeFailure { NONE, INVALID_CONTEXT, INVALID_REACH, INVALID_LOOK, START_OUTSIDE_WORLD,
+        RAY_OUTSIDE_BORDER, CHUNK_LIMIT, MISSING_CHUNK, BLOCKED_OR_MISSED_TARGET, NOMINATED_NULL }
+    public record ProbeDiagnostic(ProbeFailure failure, Vec3 from, Vec3 requestedEnd, Vec3 clippedEnd,
+                                  int minBuildHeight, int maxBuildHeight, int minChunkX, int maxChunkX,
+                                  int minChunkZ, int maxChunkZ, String missingChunk,
+                                  HitResult.Type blockHitType, BlockPos blockHitPos, Vec3 blockHitLocation) { }
+    public record SelectedProbe(Target target, ProbeDiagnostic diagnostic) { }
+    private record CandidateSet(java.util.List<Target> candidates, ProbeDiagnostic diagnostic) { }
+
     /** At most this many visible ray candidates are enumerated; overflow fails closed. */
     public static final int MAX_VISIBLE_CANDIDATES = 32;
     private static final int MAX_ENUMERATED_CANDIDATES = 256;
 
     /** Deterministic visible pile members along the body-eye ray. */
     public static java.util.List<Target> visibleCandidates(ServerLevel level, LivingEntity body, double reach) {
+        return visibleCandidateSet(level, body, reach).candidates();
+    }
+
+    /** Same authoritative ray decision with read-only failure context for bounded diagnostics. */
+    public static SelectedProbe probeSelectedDiagnostic(ServerLevel level, LivingEntity body, UUID nominated,
+                                                         double reach) {
+        if (nominated == null) {
+            var d = diagnostic(ProbeFailure.NOMINATED_NULL, level, body, null, null, 0, 0, 0, 0, 0, 0,
+                    null, null);
+            return new SelectedProbe(null, d);
+        }
+        // A selected UID is an explicit client nomination (e.g. a click on a pile member),
+        // not an assertion that the server's current look ray still intersects it. Revalidate
+        // the exact live entity against current reach and block LOS instead.
         if (level == null || body == null || !level.getServer().isSameThread()
                 || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body || !Double.isFinite(reach) || reach <= 0 || reach > MAX_REACH)
-            return java.util.List.of();
+            return new SelectedProbe(null, diagnostic(ProbeFailure.INVALID_CONTEXT, level, body, null, null,
+                    level == null ? 0 : level.getMinBuildHeight(), level == null ? 0 : level.getMaxBuildHeight(),
+                    0, 0, 0, 0, null, null));
+        Entity entity = level.getEntity(nominated);
+        AABB bounds = entity == null ? null : entity.getBoundingBox();
+        if (entity == null || entity.level() != level || entity.isRemoved() || !entity.isAddedToLevel()
+                || !(entity instanceof ItemEntity || entity instanceof LivingEntity living
+                 && PortableBodyCarrying.eligibleLivingTarget(body, living))
+                || !probeSelectedGeometry(level, body, entity, reach))
+            return new SelectedProbe(null, diagnostic(ProbeFailure.BLOCKED_OR_MISSED_TARGET, level, body,
+                    body.getEyePosition(), null, level.getMinBuildHeight(), level.getMaxBuildHeight(), 0, 0, 0, 0, null, null));
+        Vec3 eye = body.getEyePosition();
+        Vec3 closest = closestPoint(eye, bounds);
+        return new SelectedProbe(new Target(nominated, closest), diagnostic(ProbeFailure.NONE, level, body,
+                eye, closest, level.getMinBuildHeight(), level.getMaxBuildHeight(), 0, 0, 0, 0, null, closest));
+    }
+
+    /** Shared nominated-entity physical admission: nearest-AABB reach and loaded block LOS, not aim ray. */
+    public static boolean probeSelectedGeometry(ServerLevel level, LivingEntity body, Entity entity, double reach) {
+        if (level == null || body == null || entity == null || level.getServer() == null
+                || !level.getServer().isSameThread() || body.level() != level || body.isRemoved()
+                || !body.isAlive() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
+                || entity.level() != level || entity.isRemoved() || !entity.isAddedToLevel()
+                || level.getEntity(entity.getUUID()) != entity || !Double.isFinite(reach) || reach <= 0
+                || reach > MAX_REACH) return false;
+        Vec3 eye = body.getEyePosition();
+        AABB bounds = entity.getBoundingBox();
+        return inside(level, eye) && inside(level, entity.position()) && withinReach(body, bounds, reach)
+                && clearLine(level, body, eye, bounds);
+    }
+
+    private static boolean withinReach(LivingEntity body, AABB bounds, double reach) {
+        return body != null && withinPhysicalReach(body.getEyePosition(), bounds, reach);
+    }
+    /** Physical nearest-AABB-point reach shared by server admission and client nomination. */
+    public static boolean withinPhysicalReach(Vec3 eye, AABB bounds, double reach) {
+        if (eye == null || bounds == null || !finite(eye) || !Double.isFinite(reach) || reach <= 0
+                || !Double.isFinite(bounds.minX) || !Double.isFinite(bounds.maxX)
+                || !Double.isFinite(bounds.minY) || !Double.isFinite(bounds.maxY)
+                || !Double.isFinite(bounds.minZ) || !Double.isFinite(bounds.maxZ)) return false;
+        Vec3 closest = closestPoint(eye, bounds);
+        return finite(closest) && eye.distanceToSqr(closest) <= reach * reach;
+    }
+    private static Vec3 closestPoint(Vec3 from, AABB box) {
+        return new Vec3(Mth.clamp(from.x, box.minX, box.maxX), Mth.clamp(from.y, box.minY, box.maxY),
+                Mth.clamp(from.z, box.minZ, box.maxZ));
+    }
+    private static boolean clearLine(ServerLevel level, LivingEntity body, Vec3 from, AABB bounds) {
+        Vec3 point = closestPoint(from, bounds);
+        if (!inside(level, point)) return false;
+        int minX = (Math.min(BlockPos.containing(from).getX(), BlockPos.containing(point).getX()) >> 4) - 1;
+        int maxX = (Math.max(BlockPos.containing(from).getX(), BlockPos.containing(point).getX()) >> 4) + 1;
+        int minZ = (Math.min(BlockPos.containing(from).getZ(), BlockPos.containing(point).getZ()) >> 4) - 1;
+        int maxZ = (Math.max(BlockPos.containing(from).getZ(), BlockPos.containing(point).getZ()) >> 4) + 1;
+        if ((long)(maxX-minX+1)*(maxZ-minZ+1)>MAX_CHUNKS) return false;
+        for (int x=minX;x<=maxX;x++) for (int z=minZ;z<=maxZ;z++)
+            if (level.getChunkSource().getChunkNow(x,z)==null) return false;
+        try {
+            return new LoadedGetter(level,minX,maxX,minZ,maxZ).clip(
+                    new ClipContext(from,point,ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,body)).getType()==HitResult.Type.MISS;
+        } catch (MissingChunk ignored) { return false; }
+    }
+
+    private static CandidateSet visibleCandidateSet(ServerLevel level, LivingEntity body, double reach) {
+        int minBuild = level == null ? 0 : level.getMinBuildHeight();
+        int maxBuild = level == null ? 0 : level.getMaxBuildHeight();
+        if (level == null || body == null || !level.getServer().isSameThread()
+                || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
+                || level.getEntity(body.getUUID()) != body) return candidateFailure(ProbeFailure.INVALID_CONTEXT,
+                level, body, null, null, minBuild, maxBuild, 0, 0, 0, 0, null, null);
+        if (!Double.isFinite(reach) || reach <= 0 || reach > MAX_REACH)
+            return candidateFailure(ProbeFailure.INVALID_REACH, level, body, null, null, minBuild, maxBuild,
+                    0, 0, 0, 0, null, null);
         Vec3 from = body.getEyePosition(), look = body.getLookAngle();
-        if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01) return java.util.List.of();
-        Vec3 to = from.add(look.scale(reach));
-        if (!finite(to) || !inside(level, from) || !inside(level, to)) return java.util.List.of();
+        if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01)
+            return candidateFailure(ProbeFailure.INVALID_LOOK, level, body, from, null, minBuild, maxBuild,
+                    0, 0, 0, 0, null, null);
+        if (!inside(level, from)) return candidateFailure(ProbeFailure.START_OUTSIDE_WORLD, level, body, from,
+                null, minBuild, maxBuild, 0, 0, 0, 0, null, null);
+        Vec3 requestedEnd = from.add(look.scale(reach));
+        if (!finite(requestedEnd) || !level.getWorldBorder().isWithinBounds(requestedEnd))
+            return candidateFailure(ProbeFailure.RAY_OUTSIDE_BORDER, level, body, from, requestedEnd,
+                    minBuild, maxBuild, 0, 0, 0, 0, null, null);
+        // A full reach ray may point below the build floor when an NPC faces a nearby floor-level
+        // item. Clip only its endpoint to legal Y; the target must still lie on the same ray before
+        // this endpoint, and collider occlusion remains authoritative.
+        double minRayY = minBuild + 1e-4, maxRayY = maxBuild - 1e-4;
+        Vec3 to = requestedEnd;
+        if (requestedEnd.y < minRayY || requestedEnd.y > maxRayY) {
+            double boundary = Mth.clamp(requestedEnd.y, minRayY, maxRayY);
+            double fraction = (boundary - from.y) / (requestedEnd.y - from.y);
+            to = from.add(look.scale(reach * fraction));
+        }
         int minX = (Math.min(BlockPos.containing(from).getX(), BlockPos.containing(to).getX()) >> 4) - 1;
         int maxX = (Math.max(BlockPos.containing(from).getX(), BlockPos.containing(to).getX()) >> 4) + 1;
         int minZ = (Math.min(BlockPos.containing(from).getZ(), BlockPos.containing(to).getZ()) >> 4) - 1;
         int maxZ = (Math.max(BlockPos.containing(from).getZ(), BlockPos.containing(to).getZ()) >> 4) + 1;
-        if ((long)(maxX-minX+1)*(maxZ-minZ+1)>MAX_CHUNKS) return java.util.List.of();
-        for(int x=minX;x<=maxX;x++) for(int z=minZ;z<=maxZ;z++) if(level.getChunkSource().getChunkNow(x,z)==null)return java.util.List.of();
+        if ((long)(maxX-minX+1)*(maxZ-minZ+1)>MAX_CHUNKS)
+            return candidateFailure(ProbeFailure.CHUNK_LIMIT, level, body, from, requestedEnd, minBuild, maxBuild,
+                    minX, maxX, minZ, maxZ, null, to);
+        for(int x=minX;x<=maxX;x++) for(int z=minZ;z<=maxZ;z++)
+            if(level.getChunkSource().getChunkNow(x,z)==null)
+                return candidateFailure(ProbeFailure.MISSING_CHUNK, level, body, from, requestedEnd,
+                        minBuild, maxBuild, minX, maxX, minZ, maxZ, x+","+z, to);
         try {
             BlockHitResult block = new LoadedGetter(level,minX,maxX,minZ,maxZ).clip(new ClipContext(from,to,ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,body));
-            if (!finite(block.getLocation())) return java.util.List.of();
+            if (!finite(block.getLocation())) return candidateFailure(ProbeFailure.BLOCKED_OR_MISSED_TARGET,
+                    level, body, from, requestedEnd, minBuild, maxBuild, minX, maxX, minZ, maxZ, null, to);
             double blocker=block.getType()==HitResult.Type.BLOCK?from.distanceTo(block.getLocation()):reach;
             java.util.ArrayList<Target> result=new java.util.ArrayList<>();
             int enumerated = 0;
-            for(Entity entity:level.getEntities(body,new AABB(from,to).inflate(TARGET_MARGIN), e->e instanceof ItemEntity)) {
-                if (++enumerated > MAX_ENUMERATED_CANDIDATES) return java.util.List.of();
-                ItemEntity item=(ItemEntity)entity;
-                if(item.level()!=level||item.isRemoved()||!item.isAddedToLevel()||level.getEntity(item.getUUID())!=item)continue;
-                AABB box=item.getBoundingBox(); Vec3 hit=box.inflate(TARGET_MARGIN).contains(from)?from:box.inflate(TARGET_MARGIN).clip(from,to).orElse(null);
+            // Automatic world-item targeting intentionally remains item-only. Living bodies are
+            // admitted only through an explicit nominated interaction, never as a foreground
+            // candidate that can steal pickup/configurator selection.
+            for(Entity entity:level.getEntities(body,new AABB(from,to).inflate(TARGET_MARGIN),
+                    e -> e instanceof ItemEntity)) {
+                if (++enumerated > MAX_ENUMERATED_CANDIDATES) return candidateFailure(
+                        ProbeFailure.BLOCKED_OR_MISSED_TARGET, level, body, from, requestedEnd,
+                        minBuild, maxBuild, minX, maxX, minZ, maxZ, "candidate-overflow", to);
+                if(entity.level()!=level||entity.isRemoved()||!entity.isAddedToLevel()||level.getEntity(entity.getUUID())!=entity)continue;
+                AABB box=entity.getBoundingBox(); Vec3 hit=box.inflate(TARGET_MARGIN).contains(from)?from:box.inflate(TARGET_MARGIN).clip(from,to).orElse(null);
                 if(hit==null)continue; double dist=from.distanceToSqr(hit);
                 double near=(look.x>=0?box.minX:box.maxX)*look.x+(look.y>=0?box.minY:box.maxY)*look.y+(look.z>=0?box.minZ:box.maxZ)*look.z-from.dot(look);
                 boolean overlap=box.contains(from);
                 if(!Double.isFinite(dist)||(dist>=blocker*blocker&&!(dist==0&&overlap))||(near>=blocker&&!overlap)||dist>reach*reach)continue;
-                result.add(new Target(item.getUUID(),hit));
+                result.add(new Target(entity.getUUID(),hit));
             }
             result.sort(java.util.Comparator.comparingDouble((Target t)->from.distanceToSqr(t.hitLocation())).thenComparing(Target::itemId));
             if (result.size() > MAX_VISIBLE_CANDIDATES)
                 result.subList(MAX_VISIBLE_CANDIDATES, result.size()).clear();
-            return java.util.List.copyOf(result);
-        } catch(MissingChunk ignored){return java.util.List.of();}
+            return new CandidateSet(java.util.List.copyOf(result), diagnostic(ProbeFailure.NONE, level, body,
+                    from, requestedEnd, minBuild, maxBuild, minX, maxX, minZ, maxZ, null, to, block));
+        } catch(MissingChunk ignored){return candidateFailure(ProbeFailure.MISSING_CHUNK, level, body, from,
+                requestedEnd, minBuild, maxBuild, minX, maxX, minZ, maxZ, "shape-query", to);}
     }
 
     /** Validates an explicitly nominated member of the bounded body-eye candidate set. */
     @Nullable
     public static Target probeSelected(ServerLevel level, LivingEntity body, UUID nominated, double reach) {
-        if (nominated == null) return null;
-        for (Target target : visibleCandidates(level, body, reach))
-            if (nominated.equals(target.itemId())) return target;
-        return null;
+        return probeSelectedDiagnostic(level, body, nominated, reach).target();
+    }
+
+    private static CandidateSet candidateFailure(ProbeFailure failure, ServerLevel level, LivingEntity body,
+            Vec3 from, Vec3 requestedEnd, int minBuild, int maxBuild, int minX, int maxX, int minZ, int maxZ,
+            String missingChunk, Vec3 clippedEnd) {
+        return new CandidateSet(java.util.List.of(), diagnostic(failure, level, body, from, requestedEnd,
+                minBuild, maxBuild, minX, maxX, minZ, maxZ, missingChunk, clippedEnd));
+    }
+
+    private static ProbeDiagnostic diagnostic(ProbeFailure failure, ServerLevel level, LivingEntity body,
+            Vec3 from, Vec3 requestedEnd, int minBuild, int maxBuild, int minX, int maxX, int minZ, int maxZ,
+            String missingChunk, Vec3 clippedEnd) {
+        return diagnostic(failure, level, body, from, requestedEnd, minBuild, maxBuild, minX, maxX,
+                minZ, maxZ, missingChunk, clippedEnd, null);
+    }
+
+    private static ProbeDiagnostic diagnostic(ProbeFailure failure, ServerLevel level, LivingEntity body,
+            Vec3 from, Vec3 requestedEnd, int minBuild, int maxBuild, int minX, int maxX, int minZ, int maxZ,
+            String missingChunk, Vec3 clippedEnd, BlockHitResult hit) {
+        return new ProbeDiagnostic(failure, from, requestedEnd, clippedEnd, minBuild, maxBuild,
+                minX, maxX, minZ, maxZ, missingChunk, hit == null ? null : hit.getType(),
+                hit == null || hit.getType() != HitResult.Type.BLOCK ? null : hit.getBlockPos(),
+                hit == null ? null : hit.getLocation());
+    }
+
+    private static ProbeDiagnostic withFailure(ProbeDiagnostic d, ProbeFailure failure) {
+        return new ProbeDiagnostic(failure, d.from(), d.requestedEnd(), d.clippedEnd(), d.minBuildHeight(),
+                d.maxBuildHeight(), d.minChunkX(), d.maxChunkX(), d.minChunkZ(), d.maxChunkZ(),
+                d.missingChunk(), d.blockHitType(), d.blockHitPos(), d.blockHitLocation());
     }
 
     /**
@@ -136,6 +286,12 @@ public final class BodyItemTargetProbe {
 
     static DropPlacement resolveDrop(ServerLevel level, Entity body, @Nullable Entity excludedCarrier,
                                      double width, double height) {
+        return resolveDrop(level, body, excludedCarrier, width, height, null);
+    }
+
+    /** Additional exact entity ignored by the placement sweep, e.g. a live body carried at the hand origin. */
+    static DropPlacement resolveDrop(ServerLevel level, Entity body, @Nullable Entity excludedCarrier,
+                                     double width, double height, @Nullable Entity additionallyExcluded) {
         if (!Double.isFinite(width) || width <= 0 || !Double.isFinite(height) || height <= 0) return null;
         Vec3 eye = body.getEyePosition(), look = body.getLookAngle();
         // The eye-height item box cannot clear a normal two-block ceiling. Launch from a
@@ -156,7 +312,7 @@ public final class BodyItemTargetProbe {
                         && finite(hit.getLocation())) {
                     Vec3 surface = hit.getLocation();
                     Vec3 placed = new Vec3(surface.x, surface.y + .001, surface.z);
-                    if (safeDropPosition(level, body, launch, placed, excludedCarrier, width, height))
+                    if (safeDropPosition(level, body, launch, placed, excludedCarrier, additionallyExcluded, width, height))
                         return new DropPlacement(placed, Vec3.ZERO);
                 }
             } catch (MissingChunk ignored) { /* A nearby loaded air candidate may still exist. */ }
@@ -164,7 +320,7 @@ public final class BodyItemTargetProbe {
         // Farthest safe short throw first; the smaller candidates stop on the near side of a wall.
         for (int step = 10; step >= 1; step--) {
             Vec3 placed = launch.add(look.scale(step * .125));
-            if (safeDropPosition(level, body, launch, placed, excludedCarrier, width, height))
+            if (safeDropPosition(level, body, launch, placed, excludedCarrier, additionallyExcluded, width, height))
                 return new DropPlacement(placed, look.scale(.16));
         }
         return fallbackDrop(level, body);
@@ -181,7 +337,8 @@ public final class BodyItemTargetProbe {
     }
 
     private static boolean safeDropPosition(ServerLevel level, Entity body, Vec3 from, Vec3 destination,
-                                            @Nullable Entity excludedCarrier, double width, double height) {
+                                             @Nullable Entity excludedCarrier, @Nullable Entity additionallyExcluded,
+                                             double width, double height) {
         if (!finite(destination) || !inside(level, destination)) return false;
         try {
             LoadedGetter getter = loadedAlong(level, from, destination, width / 2 + .125);
@@ -199,8 +356,8 @@ public final class BodyItemTargetProbe {
                     if (!shape.isEmpty() && Shapes.joinIsNotEmpty(shape.move(pos.getX(), pos.getY(), pos.getZ()),
                             Shapes.create(box), BooleanOp.AND)) return false;
                 }
-                if (!level.getEntities(body, box, entity -> entity != excludedCarrier
-                        && !(entity instanceof ItemEntity)).isEmpty()) return false;
+                if (!level.getEntities(body, box, entity -> entity != excludedCarrier && entity != additionallyExcluded
+                        && physicalReleaseBlocker(entity) && !(entity instanceof ItemEntity)).isEmpty()) return false;
             }
             return true;
         } catch (MissingChunk ignored) { return false; }
@@ -228,6 +385,37 @@ public final class BodyItemTargetProbe {
             }
             return true;
         } catch (MissingChunk ignored) { return false; }
+    }
+
+    /**
+     * Collision validation for releasing one live contained body. A stationary-container escape places
+     * the actor at its holder's feet; overlap with that exact root is expected during the atomic handoff.
+     * World blocks and other physical, non-spectator entities remain blocking.
+     */
+    static boolean portableBodyReleaseClear(ServerLevel level, LivingEntity body, Entity holder,
+                                             Vec3 position, double width, double height) {
+        if (level == null || body == null || position == null || !loadedItemBoxClear(level, position, width, height)) return false;
+        AABB moved = body.getBoundingBox().move(position.subtract(body.position()));
+        return level.getEntities(body, moved, entity -> entity != holder && physicalReleaseBlocker(entity)
+                && !(entity instanceof net.minecraft.world.entity.item.ItemEntity)).isEmpty();
+    }
+
+    static String portableBodyReleaseBlockers(ServerLevel level, LivingEntity body, Entity holder,
+                                               Vec3 position, double width, double height) {
+        if (level == null || body == null || position == null) return "invalid-input";
+        AABB moved = body.getBoundingBox().move(position.subtract(body.position()));
+        return level.getEntities(body, moved, entity -> entity != holder && physicalReleaseBlocker(entity)
+                        && !(entity instanceof net.minecraft.world.entity.item.ItemEntity)).stream().limit(3)
+                .map(entity -> entity.getType().toShortString() + "/" + entity.getId()
+                        + "/uuid=" + entity.getUUID() + "/noPhysics=" + entity.noPhysics
+                        + (entity instanceof net.minecraft.server.level.ServerPlayer player
+                                ? "/spectator=" + player.isSpectator() : "")
+                        + "/pos=" + entity.position())
+                .collect(java.util.stream.Collectors.joining(","));
+    }
+
+    private static boolean physicalReleaseBlocker(Entity entity) {
+        return !entity.noPhysics && net.minecraft.world.entity.EntitySelector.NO_SPECTATORS.test(entity);
     }
 
     private static LoadedGetter loadedAlong(ServerLevel level, Vec3 from, Vec3 to) {
@@ -259,70 +447,8 @@ public final class BodyItemTargetProbe {
     /** The first visible item, including reserved/delayed items: they block farther pickups, not grant them. */
     @Nullable
     public static Target nearestVisible(ServerLevel level, LivingEntity body, double reach) {
-        if (level == null || body == null || !level.getServer().isSameThread()
-                || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
-                || level.getEntity(body.getUUID()) != body
-                || !Double.isFinite(reach) || reach <= 0 || reach > MAX_REACH)
-            return null;
-
-        Vec3 from = body.getEyePosition();
-        Vec3 look = body.getLookAngle();
-        if (!finite(from) || !finite(look) || look.lengthSqr() < 0.99 || look.lengthSqr() > 1.01)
-            return null;
-        Vec3 to = from.add(look.scale(reach));
-        if (!finite(to) || from.equals(to) || !inside(level, from) || !inside(level, to)) return null;
-
-        // Include one chunk of shape-query margin around every chunk crossed by this short segment.
-        int minX = (Math.min(BlockPos.containing(from).getX(), BlockPos.containing(to).getX()) >> 4) - 1;
-        int maxX = (Math.max(BlockPos.containing(from).getX(), BlockPos.containing(to).getX()) >> 4) + 1;
-        int minZ = (Math.min(BlockPos.containing(from).getZ(), BlockPos.containing(to).getZ()) >> 4) - 1;
-        int maxZ = (Math.max(BlockPos.containing(from).getZ(), BlockPos.containing(to).getZ()) >> 4) + 1;
-        if ((long) (maxX - minX + 1) * (maxZ - minZ + 1) > MAX_CHUNKS) return null;
-        for (int x = minX; x <= maxX; x++)
-            for (int z = minZ; z <= maxZ; z++)
-                if (level.getChunkSource().getChunkNow(x, z) == null) return null;
-
-        try {
-            BlockHitResult block = new LoadedGetter(level, minX, maxX, minZ, maxZ).clip(
-                    new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, body));
-            if (!finite(block.getLocation())) return null;
-            double blockerDistance = block.getType() == HitResult.Type.BLOCK
-                    ? from.distanceTo(block.getLocation()) : reach;
-            ItemEntity first = null;
-            Vec3 firstHit = null;
-            double firstDistance = Double.POSITIVE_INFINITY;
-            // ServerLevel's entity index enumerates loaded entities; do not use Level.clip or chunk lookups.
-            for (Entity entity : level.getEntities(body,
-                    new AABB(from, to).inflate(TARGET_MARGIN), candidate -> candidate instanceof ItemEntity)) {
-                ItemEntity item = (ItemEntity) entity;
-                if (item.level() != level || item.isRemoved() || !item.isAddedToLevel()
-                        || level.getEntity(item.getUUID()) != item) continue;
-                AABB box = item.getBoundingBox();
-                Vec3 hit = box.inflate(TARGET_MARGIN).contains(from) ? from
-                        : box.inflate(TARGET_MARGIN).clip(from, to).orElse(null);
-                if (hit == null || !finite(hit)) continue;
-                double distance = from.distanceToSqr(hit);
-                // The inflated hit can precede a wall even when the real item is entirely behind it.
-                // Require the near face of the actual box to be on the visible side of the collider.
-                double nearFace = (look.x >= 0 ? box.minX : box.maxX) * look.x
-                        + (look.y >= 0 ? box.minY : box.maxY) * look.y
-                        + (look.z >= 0 ? box.minZ : box.maxZ) * look.z - from.dot(look);
-                boolean eyeOverlap = box.contains(from);
-                if (!Double.isFinite(distance)
-                        || (distance >= blockerDistance * blockerDistance && !(distance == 0 && eyeOverlap))
-                        || (nearFace >= blockerDistance && !eyeOverlap) || distance > reach * reach) continue;
-                // Exact hit-distance ties use UUID ordering, never the entity index's iteration order.
-                if (distance < firstDistance || distance == firstDistance
-                        && (first == null || item.getUUID().compareTo(first.getUUID()) < 0)) {
-                    first = item;
-                    firstHit = hit;
-                    firstDistance = distance;
-                }
-            }
-            return first == null ? null : new Target(first.getUUID(), firstHit);
-        } catch (MissingChunk ignored) {
-            return null;
-        }
+        CandidateSet candidates = visibleCandidateSet(level, body, reach);
+        return candidates.candidates().isEmpty() ? null : candidates.candidates().getFirst();
     }
 
     /** Read-only reach/line-of-sight check for a storage host; unlike probe, body look direction is irrelevant. */
@@ -438,4 +564,3 @@ public final class BodyItemTargetProbe {
         @Override public int getMinBuildHeight() { return level.getMinBuildHeight(); }
     }
 }
-

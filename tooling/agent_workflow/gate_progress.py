@@ -114,9 +114,9 @@ def _file_url(root, value):
 def _pid_alive(pid):
     """Delegate PID authority to gate liveness; never duplicate platform probes."""
     try:
-        try:
+        if __package__:
             from . import gate_liveness
-        except ImportError:
+        else:
             import gate_liveness
         return gate_liveness._pid_alive(pid)
     except (ImportError, OSError, ValueError, TypeError):
@@ -143,9 +143,9 @@ def _rows(exchange):
     found = []
     current_heads = None
     try:
-        try:
+        if __package__:
             from . import owner_attention
-        except ImportError:
+        else:
             import owner_attention
         heads = owner_attention.current_work(exchange)
         current_heads = {str(item['head'].get('id')) for item in heads if item.get('head')}
@@ -252,6 +252,22 @@ def _rows(exchange):
     return rows
 
 
+def _project_agents(exchange, rows, attention, now):
+    """Use the shared canonical-worktree projection; never infer agent identity here."""
+    try:
+        if __package__:
+            from . import agent_status
+        else:
+            import agent_status
+        value = agent_status.project(exchange, rows=rows, attention=attention, now=now)
+        if not isinstance(value, dict) or not isinstance(value.get('agents'), list):
+            raise ValueError('agent status projection returned an invalid shape')
+        return {'agents': value['agents'], 'checked_at': value.get('checked_at'),
+                'errors': value.get('errors') if isinstance(value.get('errors'), list) else []}
+    except (ImportError, OSError, ValueError, TypeError, KeyError) as exc:
+        return {'agents': [], 'checked_at': None, 'errors': [f'Agent activity unavailable: {exc}']}
+
+
 def render(exchange, output=None):
     exchange = Path(exchange).resolve()
     board = Path(output).resolve() if output else exchange / 'integration-status.html'
@@ -260,9 +276,9 @@ def render(exchange, output=None):
         attention = {'awaiting_owner': [], 'agent_work': [], 'unconfirmed': [], 'completed': []}
         observer = {'status': 'unavailable', 'updated_at': None, 'errors': ['Owner queue unavailable']}
         try:
-            try:
+            if __package__:
                 from . import owner_attention
-            except ImportError:
+            else:
                 import owner_attention
             attention = owner_attention.collect(exchange, refresh=False)
             for group in ('awaiting_owner', 'agent_work', 'unconfirmed', 'completed'):
@@ -272,7 +288,12 @@ def render(exchange, output=None):
             observer = _read(exchange / 'owner-feedback-observer.json') or observer
         except (ImportError, OSError, ValueError, TypeError) as exc:
             observer['errors'] = [f'Owner queue unavailable: {exc}']
-        payload = json.dumps({'generated': time.time(), 'candidates': _rows(exchange), 'attention': attention, 'observer': observer}, ensure_ascii=False)
+        now = time.time()
+        rows = _rows(exchange)
+        agent_status = _project_agents(exchange, rows, attention, now)
+        payload = json.dumps({'generated': now, 'agents': agent_status['agents'],
+                              'agent_status': agent_status,
+                              'observer': observer}, ensure_ascii=False)
         payload = payload.replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
         page = _PAGE.replace('__DATA__', payload)
         board.parent.mkdir(parents=True, exist_ok=True)
@@ -316,58 +337,73 @@ def _view_model(candidate, now):
             'next_action': health.get('next_action', '')}
 
 
-_PAGE = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="3"><meta name="viewport" content="width=device-width"><title>Needs your attention — Integration status</title><style>body{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:0 1rem;background:#101820;color:#edf2f4}h1{color:#70d6ff}article{background:#1d2b34;padding:1rem;margin:1rem 0;border-radius:8px}.stale{color:#ffbd69}.muted{color:#aab7bf}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#70d6ff}</style></head><body><h1>Needs your attention <span id="count"></span></h1><p id="health"></p><main id="owner-queue"></main><p class="muted">Give feedback to the agent in the normal conversation; the card clears automatically when your response is observed. A technical pass is not owner acceptance.</p><section><h2>Needs reconciliation / status unknown <span id="unknown-count"></span></h2><main id="unknown"></main></section><details><summary>With agents / validation</summary><main id="agents"></main></details><details><summary>Integration telemetry</summary><p class="muted">Progress is informational; only a recorded candidate verdict is authoritative.</p><main id="items"></main></details><script>const data=__DATA__;function elem(tag,text,cls){const e=document.createElement(tag);e.textContent=String(text??'');if(cls)e.className=cls;return e}function link(parent,label,url){if(!url)return;const a=document.createElement('a');a.href=url;a.textContent=label;a.target='_blank';a.rel='noopener';parent.append(a)}function age(t){return typeof t==='number'?Math.max(0,Math.floor(Date.now()/1000-t))+'s ago':'time unknown'}function shortPath(x){const w=x.worktree||{},v=typeof w==='string'?w:(w.worktree||w.path||'');return v.split(/[\\/]/).filter(Boolean).slice(-2).join('/')||'worktree unknown'}function renderItem(x,kind){const c=document.createElement('article'),title=x.title||x.sprint_id||x.id||'Work';c.append(elem('h2',title+' — '+kind));c.append(elem('p',shortPath(x)+' · waiting '+age(x.requested_at||x.submitted_at),'muted'));if(x.manual_steps?.length){const ol=document.createElement('ol');for(const step of x.manual_steps)ol.append(elem('li',step));c.append(ol)}if(x.fixture)c.append(elem('p','Fixture: '+x.fixture));if(x.build_identity)c.append(elem('p','Build: '+x.build_identity));if(x.unverified)c.append(elem('p','Unverified: '+x.unverified));const sid=x.origin_session_id||x.session_id||'';if(sid){const row=elem('p','Conversation ID: '+sid+' ');const copy=elem('button','Copy ID');copy.type='button';copy.onclick=()=>navigator.clipboard?.writeText(sid);row.append(copy);c.append(row)}link(c,'Review report',x.report_url||x.report);return c}function renderAttention(now){const a=data.attention||{},o=data.observer||{},pending=a.awaiting_owner||[],uncertain=a.unconfirmed||[],healthy=['watching','idle','ok'].includes(o.status)&&typeof o.updated_at==='number'&&now-o.updated_at<45,unknown=[...uncertain,...(!healthy?[{reason:'Observer stale or unavailable; current queue is not verified'}]:[])];document.getElementById('count').textContent='('+pending.length+(unknown.length?' confirmed; '+unknown.length+' unknown':'')+')';const h=document.getElementById('health');h.textContent=healthy?'Queue observation '+age(o.updated_at):'Owner queue not verified — last observation '+age(o.updated_at)+((o.errors||[]).length?': '+o.errors.join('; '):'');h.className=healthy?'':'stale';const q=document.getElementById('owner-queue');q.replaceChildren();if(!pending.length&&!unknown.length)q.append(elem('p','Nothing is currently confirmed to need your response.'));for(const x of pending)q.append(renderItem(x,x.kind||'Manual testing'));const u=document.getElementById('unknown');u.replaceChildren();document.getElementById('unknown-count').textContent='('+unknown.length+')';for(const x of unknown)u.append(renderItem(x,'Not confirmed — do not act on stale evidence'));const w=document.getElementById('agents');w.replaceChildren();for(const x of a.agent_work||[])w.append(renderItem(x,x.kind||'Agent triage / validation'))}function update(){const now=Date.now()/1000;renderAttention(now);const host=document.getElementById('items');host.replaceChildren();for(const c of data.candidates){const card=document.createElement('article');const ageSeconds=typeof c.updated==='number'?Math.max(0,now-c.updated):null,stale=!c.verdict&&c.phase==='running'&&ageSeconds!==null&&ageSeconds>30;card.append(elem('h2',c.id+' — '+(stale?'STALE — last reported running':c.state),stale?'stale':''));card.append(elem('p',c.detail||c.phase||'Awaiting activity'));if(ageSeconds!==null)card.append(elem('p','Last heartbeat: '+Math.floor(ageSeconds)+'s ago'+(stale?' — UNCONFIRMED':''),stale?'stale':''));if(c.check_index&&c.total)card.append(elem('p','Check '+c.check_index+'/'+c.total));if(c.log)link(card,'Open local log',c.log);if(c.report)link(card,'Open report',c.report);host.append(card)}if(!data.candidates.length)host.append(elem('p','No candidates in the shared exchange.'))}update();</script></body></html>
 
-'''
 
 
 _PAGE = r'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <meta http-equiv="refresh" content="3"><title>Integration status</title>
 <style>
-body{font:16px system-ui;max-width:1500px;margin:1.5rem auto;padding:0 1rem;background:#101820;color:#edf2f4}
-h1{color:#70d6ff}.columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:start}
-.column{background:#15232c;border:1px solid #38505e;border-radius:8px;padding:.8rem;min-width:0}
-article{background:#1d2b34;padding:1rem;margin:.8rem 0;border-radius:8px;overflow-wrap:anywhere}
-.stale{color:#ffbd69}.muted{color:#aab7bf}pre,code{white-space:pre-wrap;overflow-wrap:anywhere}
-a{color:#70d6ff}h2{font-size:1.15rem}h3{font-size:1rem}button{font:inherit}
-@media(max-width:850px){.columns{grid-template-columns:1fr}body{margin:1rem auto}}
+body{font:16px system-ui;max-width:1700px;margin:1.5rem auto;padding:0 1rem;background:#101820;color:#edf2f4}
+h1{color:#70d6ff}.columns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;align-items:start}
+.column{background:#15232c;border:1px solid #38505e;border-radius:8px;padding:.7rem;min-width:0}
+article{background:#1d2b34;padding:.85rem;margin:.7rem 0;border-radius:8px;overflow-wrap:anywhere}
+.stale{color:#ffbd69}.core-alert{color:#ff967c;background:#38251f;padding:.35rem;border-radius:4px}
+.muted{color:#aab7bf}pre,code{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#70d6ff}
+h2{font-size:1.05rem}h3{font-size:1rem}.agent-card h3{margin-top:0}
+@media(max-width:1150px){.columns{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.columns{grid-template-columns:1fr}body{margin:1rem auto}}
 </style></head><body>
-<h1>Integration status</h1><p id="observer-health" role="status"></p>
+<h1>Integration status</h1><div id="health-banner" role="status"></div>
 <div class="columns">
-<section class="column" id="validation-column"><h2>Validation actively running <span id="validation-count"></span></h2><div id="validation-cards"></div></section>
-<section class="column" id="owner-column"><h2>Ready for owner <span id="owner-count"></span></h2><div id="owner-cards"></div><div id="owner-empty"></div></section>
-<section class="column" id="other-column"><h2>Other states</h2><div id="other-cards"></div><details id="history"><summary>Completed history</summary><div id="history-cards"></div></details></section>
-</div>
-<p class="muted">Owner review and technical verdicts are separate. Operational telemetry is informational and never accepts work.</p>
+<section class="column" id="working-column"><h2>Working <span id="working-count"></span></h2><div id="working-cards"></div></section>
+<section class="column" id="waiting-column"><h2>Waiting on Validation <span id="waiting-count"></span></h2><div id="waiting-cards"></div></section>
+<section class="column" id="active-column"><h2>Active Validation <span id="active-count"></span></h2><div id="active-cards"></div></section>
+<section class="column" id="ready-column"><h2>Ready for Manual testing <span id="ready-count"></span></h2><div id="ready-cards"></div></section>
+</div><p class="muted">Owner response and technical validation are separate. This dashboard is read-only.</p>
 <script>
 const data=__DATA__;
 function elem(tag,text,cls){const e=document.createElement(tag);e.textContent=String(text??'');if(cls)e.className=cls;return e}
 function link(parent,label,url){if(!url)return;const a=document.createElement('a');a.href=url;a.textContent=label;a.target='_blank';a.rel='noopener';parent.append(a)}
 function age(t,now){return typeof t==='number'?Math.max(0,Math.floor(now-t))+'s':'time unknown'}
-function shortPath(x){const w=x.worktree||{},v=typeof w==='string'?w:(w.worktree||w.path||'');return v.split(/[\\/]/).filter(Boolean).slice(-2).join('/')||'worktree unknown'}
-function renderSteps(parent,steps){if(!Array.isArray(steps)||!steps.length)return;const ol=document.createElement('ol');for(const step of steps)ol.append(elem('li',step));parent.append(ol)}
-function renderOwner(x,now){const c=document.createElement('article');c.append(elem('h3',(x.title||x.sprint_id||x.id||'Work')+' — manual review'));if(x.candidate_id)c.append(elem('p','Candidate: '+x.candidate_id));c.append(elem('p',shortPath(x)+' · waiting '+age(x.requested_at||x.submitted_at,now),'muted'));if(x.reason)c.append(elem('p',x.reason));if(x.fixture)c.append(elem('p','Fixture: '+x.fixture));if(x.build_identity)c.append(elem('p','Build: '+x.build_identity));if(x.unverified)c.append(elem('p','Unverified: '+x.unverified));renderSteps(c,x.manual_steps);link(c,'Review report',x.report_url||x.report);return c}
-function renderCandidate(x,now){const c=document.createElement('article');c.append(elem('h3',x.id+' — '+x.state));if(x.detail)c.append(elem('p',x.detail));c.append(elem('p',shortPath({worktree:x.author})+' · sprint '+(x.sprint_id||'unknown')));
-if(x.validation_active){c.append(elem('p','Check '+x.check_index+'/'+x.total+' · elapsed '+age(x.started,now)+' · live PID '+x.runner_pid));c.append(elem('code',Array.isArray(x.argv)?x.argv.join(' '):''));link(c,'Open current check log',x.log)}
-else if(x.check_index&&x.total)c.append(elem('p','Last check '+x.check_index+'/'+x.total));
-if(x.findings&&x.findings.length){const h=elem('h4','Required corrections');c.append(h);renderSteps(c,x.findings)}
-if(x.log&&!x.validation_active)link(c,'Open log',x.log);link(c,'Open report',x.report);return c}
-function renderOtherItem(x,kind,now){const c=document.createElement('article');c.append(elem('h3',(x.title||x.sprint_id||x.id||'Work')+' — '+kind));c.append(elem('p',shortPath(x)+' · '+(x.reason||x.detail||'')));if(x.candidate_ids&&x.candidate_ids.length)c.append(elem('p','Candidate IDs requiring reconciliation: '+x.candidate_ids.join(', ')));if(x.fixture)c.append(elem('p','Fixture: '+x.fixture));if(x.build_identity)c.append(elem('p','Build: '+x.build_identity));renderSteps(c,x.manual_steps);link(c,'Review report',x.report_url||x.report);return c}
-function render(now){const a=data.attention||{},observer=data.observer||{},ready=a.awaiting_owner||[],agent=a.agent_work||[],unknown=a.unconfirmed||[],completed=a.completed||[];
-const health=document.getElementById('observer-health'),healthy=['watching','idle','ok'].includes(observer.status)&&typeof observer.updated_at==='number'&&now-observer.updated_at<45;
-health.textContent=healthy?'Owner-response observation is current.':'Owner-response queue is not verified — unknown is not empty.';health.className=healthy?'':'stale';if((observer.errors||[]).length){const detail=document.createElement('div');detail.append(elem('strong','Observer health errors ('+observer.errors.length+')'));const ul=document.createElement('ul');for(const error of observer.errors)ul.append(elem('li',error));detail.append(ul);health.append(detail)}
-const readyIds=new Set(ready.map(x=>String(x.candidate_id||x.id||''))),agentById=new Map(agent.filter(x=>x.candidate_id||x.id).map(x=>[String(x.candidate_id||x.id),x]));
-const unknownIds=new Set();for(const x of unknown){if(x.candidate_id||x.id)unknownIds.add(String(x.candidate_id||x.id));for(const id of x.candidate_ids||[])unknownIds.add(String(id))}
-const completedIds=new Set(completed.map(x=>String(x.candidate_id||x.id||''))),candidateRows=data.candidates||[],active=candidateRows.filter(x=>x.validation_active),activeIds=new Set(active.map(x=>String(x.id)));
-document.getElementById('validation-count').textContent='('+active.length+')';const vh=document.getElementById('validation-cards');vh.replaceChildren();for(const x of active)vh.append(renderCandidate(x,now));if(!active.length)vh.append(elem('p','No verified test process is actively running.'));
-document.getElementById('owner-count').textContent='('+ready.length+')';const oh=document.getElementById('owner-cards');oh.replaceChildren();for(const x of ready)oh.append(renderOwner(x,now));const empty=document.getElementById('owner-empty');empty.replaceChildren();if(!ready.length)empty.append(elem('p',healthy?'No current owner response is confirmed.':'Owner queue status is unknown; do not infer an empty queue.','muted'));
-const other=document.getElementById('other-cards');other.replaceChildren();const emitted=new Set([...readyIds,...activeIds,...completedIds]);
-for(const x of candidateRows){const id=String(x.id);if(emitted.has(id)||unknownIds.has(id))continue;const work=agentById.get(id);if(work&&x.state!=='needs_changes'){emitted.add(id);other.append(renderOtherItem(work,work.reason||'Agent work',now));continue}if(readyIds.has(id))continue;emitted.add(id);other.append(renderCandidate(x,now))}
-for(const x of agent){const id=String(x.candidate_id||x.id||'');if(id&&emitted.has(id))continue;if(id)emitted.add(id);other.append(renderOtherItem(x,x.reason||'Agent work',now))}
-for(const x of unknown){other.append(renderOtherItem(x,'Unconfirmed — reconcile evidence',now))}
-if(!other.childNodes.length)other.append(elem('p','No other candidate state is currently recorded.','muted'));
-const history=document.getElementById('history-cards');history.replaceChildren();for(const x of completed)history.append(renderOtherItem(x,x.reason||'Recorded owner history',now));document.getElementById('history').hidden=!completed.length;
+function list(parent,values){if(!Array.isArray(values)||!values.length)return;const ul=document.createElement('ul');for(const v of values)ul.append(elem('li',v));parent.append(ul)}
+function agentCard(a,now){const card=document.createElement('article');card.className='agent-card';
+card.append(elem('h3',(a.label||'Agent')+' — '+(a.summary||a.activity||'Activity unknown')));
+const state=a.column==='active_validation'?'Active validation':a.column==='waiting_validation'?'Waiting on validation':a.column==='ready_manual'?'Ready for manual testing':
+ a.activity==='idle'?(a.core?'Core agent idle — needs work':'Idle'):
+ a.activity==='unknown'?'Activity unknown':a.activity==='waiting'?'Waiting on validation':a.activity==='working'?'Working':'Activity unknown';
+const idleAlert=a.core&&a.column==='working'&&a.activity==='idle';
+card.append(elem('p',state,idleAlert?'core-alert':a.activity==='unknown'?'stale':'muted'));
+if(idleAlert){const alert=elem('p','Core slot needs attention.','core-alert');alert.setAttribute('role','alert');card.append(alert)}
+if(a.worktree)card.append(elem('p','Worktree: '+a.worktree,'muted'));
+if(a.detail)card.append(elem('p',a.detail));
+if(a.candidate_id)card.append(elem('p','Current candidate: '+a.candidate_id));
+if(a.session_id)card.append(elem('p','Session: '+a.session_id));
+if(a.column==='active_validation'){
+ const hasCheck=Number.isFinite(a.check_index)&&a.check_index>0&&Number.isFinite(a.total)&&a.total>0&&Number.isFinite(a.runner_pid)&&a.runner_pid>0;
+ if(hasCheck){card.append(elem('p','Check '+a.check_index+'/'+a.total+' · elapsed '+age(a.started,now)+' · live PID '+a.runner_pid));
+  if(a.command)card.append(elem('code',a.command));if(a.log)link(card,'Open current check log',a.log);
+ } else card.append(elem('p','Integration lead reviewing candidate'));
+} else if(a.check_index&&a.total)card.append(elem('p','Current check '+a.check_index+'/'+a.total));
+if(a.findings&&a.findings.length){card.append(elem('h4','Required corrections'));list(card,a.findings)}
+if(a.column==='ready_manual'){if(a.fixture)card.append(elem('p','Fixture: '+a.fixture));list(card,a.manual_steps)}
+if(a.additional_work&&a.additional_work.length){card.append(elem('h4','Other current work'));const ul=document.createElement('ul');for(const item of a.additional_work)ul.append(elem('li',(item.title||'Work')+' — '+(item.state||'status unknown')));card.append(ul)}
+if(a.report_url){const details=document.createElement('details');details.append(elem('summary','Technical report'));link(details,'Open report',a.report_url);card.append(details)}
+return card}
+function render(now){const agents=Array.isArray(data.agents)?data.agents:[],observer=data.observer||{},status=data.agent_status||{};
+const banner=document.getElementById('health-banner'),errors=[...(status.errors||[]),...(observer.errors||[])];
+const checked=status.checked_at,activityFresh=typeof checked==='number'&&now-checked>=0&&now-checked<=90;
+const observerFresh=['watching','idle','ok'].includes(observer.status)&&typeof observer.updated_at==='number'&&now-observer.updated_at>=0&&now-observer.updated_at<=45;
+const snapshotFresh=activityFresh&&observerFresh&&!errors.length;
+banner.className=errors.length||!snapshotFresh?'stale':'';
+banner.textContent=errors.length?'Activity or owner observation has errors; status may be unknown.':!activityFresh?'Agent activity snapshot is stale or unknown.':!observerFresh?'Owner-response observation is stale or unknown.':'Agent activity and owner observation snapshots are current.';
+if(errors.length){const ul=document.createElement('ul');for(const error of errors)ul.append(elem('li',error));banner.append(ul)}
+const columns=[['working','working'],['waiting_validation','waiting'],['active_validation','active'],['ready_manual','ready']];
+for(const [key,domKey] of columns){const selected=agents.filter(a=>a.column===key),host=document.getElementById(domKey+'-cards');
+ const count=document.getElementById(domKey+'-count');
+ count.textContent='('+selected.length+' agents)';host.replaceChildren();for(const agent of selected)host.append(agentCard(agent,now));
+ if(!selected.length)host.append(elem('p',snapshotFresh?'No agents in this state.':'Agent status unknown; do not infer an empty queue.','muted'));
+}
 }
 render(Date.now()/1000);
 </script></body></html>'''

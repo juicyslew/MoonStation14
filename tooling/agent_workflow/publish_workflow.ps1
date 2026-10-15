@@ -10,6 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $script:SharedSources = @(
     'tooling/agent_workflow/gate_liveness.py',
+    'tooling/agent_workflow/agent_status.py',
     'tooling/agent_workflow/workflow_observer.py',
     'tooling/agent_workflow/owner_attention.py',
     'tooling/agent_workflow/owner_feedback.py',

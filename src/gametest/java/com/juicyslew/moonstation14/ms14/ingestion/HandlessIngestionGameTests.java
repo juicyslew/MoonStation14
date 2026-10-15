@@ -120,9 +120,11 @@ public final class HandlessIngestionGameTests {
                     "resolved cheese prototype initializes 3.75 units exactly once");
             h.runAfterDelay(21,()->{
                 require(item.isRemoved(),"fully consumed cheese is destroyed");
-                require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider.get(mouse,
-                        com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(NUTRIMENT,0f))==375,
-                        "timed mouse ingestion transferred the full 3.75-unit source");
+                long stomachNutriment = ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider.get(mouse,
+                        com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(NUTRIMENT,0f));
+                require(stomachNutriment==375,
+                        "timed mouse ingestion transferred the full 3.75-unit source before metabolism; stomach nutriment="
+                                + stomachNutriment + ", source removed=" + item.isRemoved());
                 h.succeed();
             });
         });
@@ -223,6 +225,25 @@ public final class HandlessIngestionGameTests {
         face(mouse,probeItem);
         var admitted=TimedIngestionAccess.admitWorld(mouse,probeItem.getUUID(),null,0,()->true).orElseThrow();
         require(TimedIngestionAccess.valid(mouse,admitted,()->true),"handless admission validates its exact live source");
+        mouse.setYRot(90); mouse.setYHeadRot(90); mouse.setXRot(0);
+        require(TimedIngestionAccess.valid(mouse,admitted,()->true),
+                "an admitted bite continues when the body looks away; gaze is only an admission-time selection rule");
+        face(mouse,probeItem);
+        BlockPos door = pos.offset(1,0,0);
+        var closedDoor = Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.EAST)
+                .setValue(net.minecraft.world.level.block.DoorBlock.OPEN, false);
+        level.setBlock(door, closedDoor.setValue(net.minecraft.world.level.block.DoorBlock.HALF,
+                net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER), 3);
+        level.setBlock(door.above(), closedDoor.setValue(net.minecraft.world.level.block.DoorBlock.HALF,
+                net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), 3);
+        require(!TimedIngestionAccess.valid(mouse,admitted,()->true),
+                "a closed door still invalidates the loaded collider-reach predicate");
+        level.setBlock(door, Blocks.AIR.defaultBlockState(), 3);
+        level.setBlock(door.above(), Blocks.AIR.defaultBlockState(), 3);
+        probeItem.setTarget(java.util.UUID.randomUUID());
+        require(!TimedIngestionAccess.valid(mouse,admitted,()->true),"a newly claimed source invalidates continuation");
+        probeItem.setTarget(null);
         Vec3 original=probeItem.position();
         probeItem.setPos(original.x+8,original.y,original.z);
         require(!TimedIngestionAccess.valid(mouse,admitted,()->true),"handless validation still rejects an out-of-reach source");
@@ -232,6 +253,7 @@ public final class HandlessIngestionGameTests {
         face(mouse,item);
         require(BodyTimedIngestionService.startWorldOwned(mouse,item.getUUID(),null,0,1,()->true).name().equals("OK"),
                 "handless body starts ordinary timed world ingestion");
+        mouse.setYRot(90); mouse.setYHeadRot(90); mouse.setXRot(0);
         require(water(item)==1000&&stomach(mouse)==0,"start does not consume source or dose stomach");
         h.runAfterDelay(21,()->{
             require(water(item)==500,"existing timed ingestion transaction consumes exactly the resolved source dose; stomach="
@@ -348,7 +370,9 @@ public final class HandlessIngestionGameTests {
     }
     private static void waitForNonMetabolismCompletionTick(GameTestHelper helper, LivingEntity body, Runnable action) {
         long start = helper.getLevel().getGameTime();
-        if (!com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM.isDue(start + 20, body.getId()))
+        var metabolism = com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM;
+        if (!metabolism.isDue(start + 20, body.getId())
+                && !metabolism.isDue(start + 21, body.getId()))
             action.run();
         else helper.runAfterDelay(1, () -> waitForNonMetabolismCompletionTick(helper, body, action));
     }

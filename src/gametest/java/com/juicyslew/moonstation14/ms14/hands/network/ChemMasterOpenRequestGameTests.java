@@ -7,6 +7,8 @@ import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEnti
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterControlRequest;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterWindowUpdate;
+import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterWindowState;
+import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.fixture.ChemMasterFixtureService;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
@@ -21,14 +23,18 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Registered-player normal block-use admission and ChemMaster workspace request evidence. */
 @PrefixGameTestTemplate(false)
-@GameTestTags({"feature-readiness"})
+@GameTestTags({"feature-readiness", "chemmaster-admission-regression"})
 public final class ChemMasterOpenRequestGameTests {
     private ChemMasterOpenRequestGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", batch = "chemmaster_workspace_retention", timeoutTicks = 600)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", batch = "chemmaster_admission_workspace_retention", timeoutTicks = 600)
     public static void ordinaryAdmittedUseOpensAndRefreshesChemMasterWorkspace(GameTestHelper helper) {
         RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(
                 helper.getLevel(), "readiness-chem-open");
+        var invalidations = new java.util.concurrent.CopyOnWriteArrayList<ChemMasterSessionService.InvalidationDiagnostic>();
+        ChemMasterSessionService.setTestInvalidationObserver(diagnostic -> {
+            if (diagnostic.player().equals(fixture.player().getUUID())) invalidations.add(diagnostic);
+        });
         helper.runAtTickTime(2, () -> {
             try {
                 var owner = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
@@ -37,13 +43,19 @@ public final class ChemMasterOpenRequestGameTests {
                 require(ChemMasterFixtureService.build(level, origin).startsWith("Built open-air"),
                         "reuse existing real powered ChemMaster fixture builder");
                 BlockPos machinePos = origin.offset(3, 1, 8);
+                var body = owner.body();
+                // Finish the controlled-body relocation before the power readiness barrier so
+                // its ordinary chunk/view work cannot invalidate the just-accepted power sample.
+                body.setPos(machinePos.getX() + 0.5, machinePos.getY() + 1, machinePos.getZ() - 1.25);
+                RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
+                var powerSamples = new java.util.ArrayDeque<String>();
                 PowerFixtureReadiness.await(helper, level, 400,
                         () -> level.getBlockEntity(machinePos) instanceof ChemMasterBlockEntity machine
                                 && PowerRuntime.hasFullFreshChemMasterPower(level, machine, machine.placementIdentity()),
                         () -> "ChemMaster is waiting for its existing fixture's resolved fresh power", () -> {
                             try {
-                                var body = owner.body();
-                                // Stand on the fixture APC's top, south of the machine. This is
+                                 samplePower(powerSamples, "before-admission", helper, level, machinePos, null);
+                                 // Stand on the fixture APC's top, south of the machine. This is
                                 // inside the existing loaded approach and keeps the service wall
                                 // and intervening APC out of the actual body-to-machine ray.
                                  // Stay on the fixture's clear south approach but within the
@@ -104,11 +116,12 @@ public final class ChemMasterOpenRequestGameTests {
                                                   && fresh.hands().stream().allMatch(hand -> hand.token() != null),
                                           "fresh full proof confirms both hands occupied before explicit activation");
                                   bodyHit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
-                                  BodyBlockUseRequest request = new BodyBlockUseRequest(owner.epoch(), 1,
+                                   BodyBlockUseRequest request = new BodyBlockUseRequest(owner.epoch(), 1,
                                           fresh.revision(), fresh.activeHand(), fresh.hands().stream()
                                                   .filter(hand -> hand.id().equals(fresh.activeHand())).findFirst().orElseThrow().token(),
-                                          bodyHit.getBlockPos(), bodyHit.getDirection(), false,
-                                          BodyBlockUseRequest.Intent.ACTIVATE_WORLD);
+                                           bodyHit.getBlockPos(), bodyHit.getDirection(), false,
+                                           BodyBlockUseRequest.Intent.ACTIVATE_WORLD);
+                                   samplePower(powerSamples, "before-activation", helper, level, machinePos, null);
                                   BodyBlockUseResult.Outcome outcome = BodyHandActionNetworking.handleBlockUse(fixture.player(), request);
                                  require(outcome == BodyBlockUseResult.Outcome.NO_CHANGE,
                                           "full-hands explicit activation owner outcome=" + outcome + " target=" + bodyHit.getBlockPos()
@@ -119,6 +132,7 @@ public final class ChemMasterOpenRequestGameTests {
                                                  (ChemMasterBlockEntity) level.getBlockEntity(machinePos),
                                                  ((ChemMasterBlockEntity) level.getBlockEntity(machinePos)).placementIdentity()));
                                   ChemMasterWindowUpdate opened = takeWindowUpdate(fixture);
+                                  samplePower(powerSamples, "opened", helper, level, machinePos, opened.state().sessionId());
                                 require(opened != null && opened.state().open()
                                                 && opened.state().bodyId().equals(body.getUUID())
                                                 && opened.state().bodyEpoch() == owner.epoch(),
@@ -135,13 +149,20 @@ public final class ChemMasterOpenRequestGameTests {
                                  require(takeOptionalWindowUpdate(fixture) == null,
                                          "ordinary incompatible held USE does not create a second workspace update");
 
-                                ChemMasterSessionService.handle(fixture.player(), new ChemMasterControlRequest(
+                                 ChemMasterSessionService.handle(fixture.player(), new ChemMasterControlRequest(
                                         opened.state().sessionId(), opened.state().machineId(), opened.state().dimension(),
                                         new BlockPos(opened.state().x(), opened.state().y(), opened.state().z()),
                                         1, opened.state().stateRevision(), opened.state().slotRevision(),
                                         ChemMasterControlRequest.Operation.QUERY, opened.state().mode(), opened.state().sort(),
-                                        java.util.Optional.empty(), 0));
-                                ChemMasterWindowUpdate refreshed = takeWindowUpdate(fixture);
+                                         java.util.Optional.empty(), 0));
+                                 samplePower(powerSamples, "before-query", helper, level, machinePos, opened.state().sessionId());
+                                 ChemMasterWindowUpdate refreshed = takeOptionalWindowUpdate(fixture);
+                                 if (refreshed == null || !refreshed.state().open()) {
+                                     samplePower(powerSamples, "query-no-open-response", helper, level, machinePos, opened.state().sessionId());
+                                     dumpPowerSamples(powerSamples, invalidations);
+                                     require(false, "original ChemMaster session did not refresh after QUERY");
+                                 }
+                                 samplePower(powerSamples, "query-refreshed", helper, level, machinePos, opened.state().sessionId());
                                  require(refreshed != null && refreshed.state().open()
                                                  && refreshed.state().sessionId().equals(opened.state().sessionId())
                                                  && refreshed.state().frame() > opened.state().frame(),
@@ -150,14 +171,17 @@ public final class ChemMasterOpenRequestGameTests {
                                                  && com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isStunned(body),
                                          "resolved live human accepts real finite stun status");
                                  helper.runAfterDelay(2, () -> {
-                                     try {
-                                         require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isStunned(body)
-                                                         && !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body),
-                                                 "stun remains action-blocking after ordinary server ticks");
+                                      try {
+                                          require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isStunned(body)
+                                                          && !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body),
+                                                  "stun remains action-blocking after ordinary server ticks");
+                                          samplePower(powerSamples, "stun-retention-tick", helper, level, machinePos,
+                                                  opened.state().sessionId());
                                          var stunnedQuery = request(refreshed.state(), 2,
                                                  ChemMasterControlRequest.Operation.QUERY, refreshed.state().mode());
                                          ChemMasterSessionService.handle(fixture.player(), stunnedQuery);
                                           ChemMasterWindowUpdate retained = takeWindowUpdateForRequest(fixture, 2);
+                                        requireOriginalResponse(retained, opened.state(), 2, "stun-query", powerSamples, invalidations, helper, level, machinePos);
                                           require(retained.state().open()
                                                   && retained.state().sessionId().equals(opened.state().sessionId())
                                                   && retained.state().acknowledgedRequestId() == 2
@@ -168,9 +192,11 @@ public final class ChemMasterOpenRequestGameTests {
                                          var unchangedMode = retained.state().mode();
                                          var requestedMode = unchangedMode == ChemMasterControlRequest.Mode.TRANSFER
                                                  ? ChemMasterControlRequest.Mode.DISCARD : ChemMasterControlRequest.Mode.TRANSFER;
-                                         ChemMasterSessionService.handle(fixture.player(), request(retained.state(), 3,
-                                                 ChemMasterControlRequest.Operation.SET_MODE, requestedMode));
-                                         ChemMasterWindowUpdate denied = takeWindowUpdate(fixture);
+                                          ChemMasterSessionService.handle(fixture.player(), request(retained.state(), 3,
+                                                  ChemMasterControlRequest.Operation.SET_MODE, requestedMode));
+                                           ChemMasterWindowUpdate denied = takeOptionalWindowUpdate(fixture);
+                                           requireOriginalResponse(denied, opened.state(), 3, "stunned-mode", powerSamples,
+                                                   invalidations, helper, level, machinePos);
                                          require(denied.state().open()
                                                          && denied.state().sessionId().equals(opened.state().sessionId())
                                                          && denied.state().acknowledgedRequestId() == 3
@@ -187,18 +213,30 @@ public final class ChemMasterOpenRequestGameTests {
                                                                  && com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body),
                                                          "ordinary status ticking expires the finite stun");
                                                  ChemMasterSessionService.handle(fixture.player(), request(denied.state(), 4,
-                                                         ChemMasterControlRequest.Operation.QUERY, denied.state().mode()));
-                                                 ChemMasterWindowUpdate recovered = takeWindowUpdate(fixture);
-                                                 require(recovered.state().open()
-                                                                 && recovered.state().sessionId().equals(opened.state().sessionId())
-                                                                 && recovered.state().acknowledgedRequestId() == 4,
-                                                         "same session still answers QUERY after stun expiry");
+                                                  ChemMasterControlRequest.Operation.QUERY, denied.state().mode()));
+                                            ChemMasterWindowUpdate recovered = takeOptionalWindowUpdate(fixture);
+                                            requireOriginalResponse(recovered, opened.state(), 4, "post-stun-query",
+                                                    powerSamples, invalidations, helper, level, machinePos);
+                                          require(recovered != null && recovered.state().open()
+                                                                  && recovered.state().sessionId().equals(opened.state().sessionId())
+                                                                  && recovered.state().acknowledgedRequestId() == 4,
+                                                          "same session still answers QUERY after stun expiry: outboundPresent="
+                                                                  + (recovered != null) + " state=" + (recovered == null ? null : recovered.state())
+                                                                  + " authority=" + com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionAuthority.resolve(fixture.player())
+                                                                  + " bodyPos=" + body.position() + " machinePos=" + machinePos
+                                                                  + " distance=" + body.distanceToSqr(machinePos.getX()+.5, machinePos.getY()+.5, machinePos.getZ()+.5)
+                                                                  + " fullFreshPower=" + com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime
+                                                                  .hasFullFreshChemMasterPower(level, (ChemMasterBlockEntity) level.getBlockEntity(machinePos),
+                                                                          ((ChemMasterBlockEntity) level.getBlockEntity(machinePos)).placementIdentity())
+                                                                  + " invalidations=" + invalidations);
                                                  ChemMasterControlRequest.Mode recoveredMode = recovered.state().mode()
                                                          == ChemMasterControlRequest.Mode.TRANSFER
                                                          ? ChemMasterControlRequest.Mode.DISCARD : ChemMasterControlRequest.Mode.TRANSFER;
                                                  ChemMasterSessionService.handle(fixture.player(), request(recovered.state(), 5,
                                                          ChemMasterControlRequest.Operation.SET_MODE, recoveredMode));
-                                                 ChemMasterWindowUpdate accepted = takeWindowUpdate(fixture);
+                                                   ChemMasterWindowUpdate accepted = takeOptionalWindowUpdate(fixture);
+                                                   requireOriginalResponse(accepted, opened.state(), 5, "post-stun-mode",
+                                                           powerSamples, invalidations, helper, level, machinePos);
                                                  require(accepted.state().open()
                                                                  && accepted.state().sessionId().equals(opened.state().sessionId())
                                                                  && accepted.state().acknowledgedRequestId() == 5
@@ -217,25 +255,25 @@ public final class ChemMasterOpenRequestGameTests {
                                                                          && closed.state().closeReason().isPresent(),
                                                                  "ordinary server tick still closes session when body leaves resolved UI range");
                                                          helper.succeed();
-                                                     } finally { fixture.close(); }
-                                                 });
-                                             } catch (RuntimeException | Error failure) {
-                                                 fixture.close();
-                                                 throw failure;
-                                             }
-                                         });
-                                     } catch (RuntimeException | Error failure) {
-                                         fixture.close();
-                                         throw failure;
-                                     }
-                                 });
-                             } catch (RuntimeException | Error failure) {
-                                 fixture.close();
-                                 throw failure;
-                             }
+                                                      } finally { ChemMasterSessionService.setTestInvalidationObserver(null); fixture.close(); }
+                                                  });
+                                              } catch (RuntimeException | Error failure) {
+                                                  ChemMasterSessionService.setTestInvalidationObserver(null); fixture.close();
+                                                  throw failure;
+                                              }
+                                          });
+                                      } catch (RuntimeException | Error failure) {
+                                          ChemMasterSessionService.setTestInvalidationObserver(null); fixture.close();
+                                          throw failure;
+                                      }
+                                  });
+                              } catch (RuntimeException | Error failure) {
+                                  ChemMasterSessionService.setTestInvalidationObserver(null); fixture.close();
+                                  throw failure;
+                              }
                          });
             } catch (RuntimeException | Error failure) {
-                fixture.close();
+                ChemMasterSessionService.setTestInvalidationObserver(null); fixture.close();
                 throw failure;
             }
         });
@@ -262,8 +300,8 @@ public final class ChemMasterOpenRequestGameTests {
                 if (update.state().acknowledgedRequestId() == requestId) return update;
             }
         }
-        if (latest != null) return latest;
         throw new GameTestAssertException("no ChemMasterWindowUpdate outbound for request " + requestId
+                + "; latestAck=" + (latest == null ? "none" : latest.state().acknowledgedRequestId())
                 + "; packet types=" + packetTypes);
     }
 
@@ -275,6 +313,38 @@ public final class ChemMasterOpenRequestGameTests {
             if (update != null) return update;
         }
         return null;
+    }
+
+    private static void samplePower(java.util.ArrayDeque<String> samples, String stage, GameTestHelper helper,
+            ServerLevel level, BlockPos machinePos, java.util.UUID expectedSession) {
+        var machine = level.getBlockEntity(machinePos) instanceof ChemMasterBlockEntity be ? be : null;
+        var diag = PowerRuntime.chemMasterPowerDiagnostic(level, machine);
+        var current = com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.diagnosticSnapshot(level);
+        var footprint = com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.diagnosticSnapshot(level,
+                machinePos, 8, com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC);
+        samples.addLast(stage + "{helperTick=" + helper.getTick() + ",gameTime=" + level.getGameTime()
+                + ",expectedSession=" + expectedSession + ",machine=" + (machine == null ? "missing"
+                : machine.placementIdentity()) + ",power=" + diag + ",graph=" + current + ",receiver=" + footprint + "}");
+        while (samples.size() > 8) samples.removeFirst();
+    }
+
+    private static void dumpPowerSamples(java.util.ArrayDeque<String> samples,
+            java.util.List<ChemMasterSessionService.InvalidationDiagnostic> invalidations) {
+        com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                "ChemMaster original-session power samples (read-only): {} invalidations={}",
+                samples, invalidations.stream().limit(8).toList());
+    }
+
+    private static void requireOriginalResponse(ChemMasterWindowUpdate update, ChemMasterWindowState original,
+            long requestId, String stage, java.util.ArrayDeque<String> samples,
+            java.util.List<ChemMasterSessionService.InvalidationDiagnostic> invalidations,
+            GameTestHelper helper, ServerLevel level, BlockPos machinePos) {
+        if (update == null || update.state().acknowledgedRequestId() != requestId || !update.state().open()
+                || !original.sessionId().equals(update.state().sessionId())) {
+            samplePower(samples, stage + "-original-session-lost", helper, level, machinePos, original.sessionId());
+            dumpPowerSamples(samples, invalidations);
+            require(false, "original ChemMaster session lost at " + stage + " request " + requestId);
+        }
     }
 
     private static net.minecraft.world.entity.item.ItemEntity spawnPickupItem(ServerLevel level,

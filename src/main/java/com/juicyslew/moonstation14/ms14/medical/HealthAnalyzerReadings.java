@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
 import com.juicyslew.moonstation14.ms14.character.components.HumanoidProfileComponent;
+import com.juicyslew.moonstation14.ms14.character.components.SpeciesComponent;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.mobs.MobStatePolicy;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
@@ -31,15 +32,15 @@ public final class HealthAnalyzerReadings {
 
         var identity = CharacterIdentitySystem.resolveForActor(target);
         MobStatePolicy statePolicy = MobStateSystem.policy(target);
-        var stateAttachment = target.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
-        String state = identity.isEmpty() || statePolicy == null || stateAttachment == null ? "Unknown"
-                : switch (stateAttachment.data().state()) {
+        String state = statePolicy == null ? "Unknown"
+                : switch (MobStateSystem.currentState(target)) {
                     case ALIVE -> "Alive";
                     case CRITICAL -> "Critical";
                     case DEAD -> "Dead";
                 };
-        boolean unrevivable = "Dead".equals(state)
-                && !statePolicy.thresholds().allowRevives();
+        // Revive policy describes threshold-driven healing, not permanent inability to revive.
+        // Only an explicit permanent-unrevivable marker may set this warning; none exists yet.
+        boolean unrevivable = false;
 
         Map<String, Float> damage = Map.of();
         var storedDamage = target.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
@@ -79,8 +80,10 @@ public final class HealthAnalyzerReadings {
         boolean bleeding = false;
         var bloodState = BloodSystem.state(target).orElse(null);
         if (identity.isPresent() && bloodState != null) bleeding = bloodState.bleedRate() > 0;
-        String species = identity.flatMap(value -> value.component(HumanoidProfileComponent.class))
-                .map(HumanoidProfileComponent::species).orElse("Unknown");
+        String species = identity.flatMap(value -> value.component(SpeciesComponent.class))
+                .map(SpeciesComponent::label)
+                .or(() -> identity.flatMap(value -> value.component(HumanoidProfileComponent.class))
+                        .map(HumanoidProfileComponent::species)).orElse("Unknown");
         String name = target.getName().getString();
         return HealthAnalyzerSnapshot.readings(scannerId, epoch, actorId, target.getId(), target.getUUID(), frame,
                 name, species, state, active, inRange, temperature, blood, bleeding, unrevivable, damage);

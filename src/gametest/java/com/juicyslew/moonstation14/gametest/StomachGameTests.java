@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.entities.ModEntities;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
@@ -23,6 +24,8 @@ import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectOperation;
 import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivity;
 import com.juicyslew.moonstation14.ms14.activity.EntityActivitySystem;
+import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
+import com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner;
 import com.juicyslew.moonstation14.ms14.blood.BloodReducer;
 import com.juicyslew.moonstation14.ms14.blood.BloodSystem;
 import com.juicyslew.moonstation14.ms14.thirst.ThirstAttachment;
@@ -71,6 +74,15 @@ public final class StomachGameTests {
     private static final ResourceKey<ReagentData> INVALID = ResourceKey.create(
             com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
             ResourceLocation.fromNamespaceAndPath("moonstation14", "nonexistent_test"));
+    private static final ResourceKey<ReagentData> OXYGEN = ResourceKey.create(
+            com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
+            ResourceLocation.fromNamespaceAndPath("moonstation14", "oxygen"));
+    private static final ResourceKey<ReagentData> PLASMA = ResourceKey.create(
+            com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
+            ResourceLocation.fromNamespaceAndPath("moonstation14", "plasma"));
+    private static final ResourceKey<ReagentData> DEXALIN = ResourceKey.create(
+            com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY,
+            ResourceLocation.fromNamespaceAndPath("moonstation14", "dexalin"));
 
     private StomachGameTests() { }
 
@@ -105,6 +117,84 @@ public final class StomachGameTests {
         require(MS14Provider.get(character, MS14Bridges.STOMACH).getMap().equals(
                         Map.of(WATER, StomachSystem.CAPACITY)),
                 "invalid dose leaves stomach unchanged");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"stomach-reactions", "reagents", "mouse"})
+    public static void mouseStomachCombinesRealRecipeInputsAcrossDoses(GameTestHelper helper) {
+        var level = (ServerLevel) helper.getLevel();
+        var mouse = helper.spawn(ModEntities.MOUSE.get(), new BlockPos(1, 1, 1));
+        require(StomachSystem.isEligible(mouse), "resolved mouse prototype supplies a stomach");
+
+        ItemStack oxygen = new ItemStack(ModItems.BOTTLE.get());
+        oxygen.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(OXYGEN, 2f)));
+        require(StomachSystem.ingest(ModItems.BOTTLE.get().toHandle(oxygen), mouse, level, 1f) == 1f,
+                "first dose enters the live mouse stomach");
+        require(MS14Provider.get(mouse, MS14Bridges.STOMACH).getMap().equals(Map.of(OXYGEN, 1f)),
+                "below-threshold input is not consumed");
+        require(StomachSystem.ingest(ModItems.BOTTLE.get().toHandle(oxygen), mouse, level, 1f) == 1f,
+                "second half-dose completes the recipe input");
+        require(MS14Provider.get(mouse, MS14Bridges.STOMACH).getMap().equals(Map.of(OXYGEN, 2f)),
+                "recipe waits for its catalyst after matching oxygen inputs");
+
+        ItemStack plasma = new ItemStack(ModItems.BOTTLE.get());
+        plasma.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(PLASMA, 1f)));
+        require(StomachSystem.ingest(ModItems.BOTTLE.get().toHandle(plasma), mouse, level, 1f) == 1f,
+                "catalyst dose completes dexalin recipe");
+        require(MS14Provider.get(mouse, MS14Bridges.STOMACH).getMap().equals(Map.of(DEXALIN, 3f, PLASMA, 1f)),
+                "production dexalin recipe consumes oxygen, produces product and conserves its catalyst");
+        require(oxygen.get(ModDataComponents.REAGENT.get()).contents().isEmpty()
+                        && plasma.get(ModDataComponents.REAGENT.get()).contents().isEmpty(),
+                "all source doses are committed exactly once");
+
+        var containedOwner = new ContainedBodyOwner() {
+            private final java.util.UUID identity = java.util.UUID.randomUUID();
+            @Override public java.util.UUID identity() { return identity; }
+            @Override public ServerLevel level() { return level; }
+            @Override public net.minecraft.world.phys.Vec3 position() { return mouse.position(); }
+            @Override public Stage stage() { return Stage.STATIONARY; }
+            @Override public boolean isValid() { return true; }
+            @Override public boolean tryEscape(net.minecraft.world.entity.LivingEntity body) { return false; }
+        };
+        var containment = BodyContainmentService.forLevel(level);
+        require(containment.bind(mouse, containedOwner), "actual mouse binds to stationary body containment owner");
+        var beforeDigestion = MS14Provider.snapshot(MS14Provider.get(mouse, MS14Bridges.STOMACH));
+        TickHooks.runDueActivities(mouse, level, java.util.Set.of(EntityActivity.REAGENT_METABOLISM));
+        var duringContainment = MS14Provider.snapshot(MS14Provider.get(mouse, MS14Bridges.STOMACH));
+        require(!duringContainment.equals(beforeDigestion)
+                        && duringContainment.centContents().getOrDefault(DEXALIN, 0L)
+                        < beforeDigestion.centContents().getOrDefault(DEXALIN, 0L),
+                "scheduled stomach metabolism consumes reaction product while contained");
+        require(containment.unbind(mouse, containedOwner), "contained mouse unbinds cleanly");
+        require(MS14Provider.snapshot(MS14Provider.get(mouse, MS14Bridges.STOMACH)).equals(duringContainment),
+                "unbinding preserves the consumed, reacted stomach solution");
+
+        // Rejection at capacity never gets to the recipe engine or changes either holder.
+        MS14Provider.update(mouse, MS14Bridges.STOMACH,
+                new ReagentAttachment(Map.of(WATER, StomachSystem.CAPACITY)));
+        var stomachBefore = MS14Provider.snapshot(MS14Provider.get(mouse, MS14Bridges.STOMACH));
+        ItemStack rejectedSource = new ItemStack(ModItems.BOTTLE.get());
+        rejectedSource.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(PLASMA, 1f)));
+        var sourceBefore = rejectedSource.get(ModDataComponents.REAGENT.get());
+        require(StomachSystem.ingest(ModItems.BOTTLE.get().toHandle(rejectedSource), mouse, level, .5f) == 0f,
+                "full mouse stomach rejects a further dose");
+        require(MS14Provider.snapshot(MS14Provider.get(mouse, MS14Bridges.STOMACH)).equals(stomachBefore)
+                        && rejectedSource.get(ModDataComponents.REAGENT.get()).equals(sourceBefore),
+                "rejected dose preserves actual stomach and source");
+        require(StomachSystem.ingest(ModItems.BOTTLE.get().toHandle(rejectedSource), mouse, level, Float.NaN) == 0f,
+                "invalid dose is rejected before reaction processing");
+
+        var human = helper.spawn(EntityType.VILLAGER, new BlockPos(4, 1, 1));
+        ItemStack oxygenHuman = new ItemStack(ModItems.BOTTLE.get());
+        oxygenHuman.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(OXYGEN, 2f)));
+        ItemStack plasmaHuman = new ItemStack(ModItems.BOTTLE.get());
+        plasmaHuman.set(ModDataComponents.REAGENT.get(), new ReagentComponent(Map.of(PLASMA, 1f)));
+        require(StomachSystem.ingest(ModItems.BOTTLE.get().toHandle(oxygenHuman), human, level, 2f) == 2f
+                        && StomachSystem.ingest(ModItems.BOTTLE.get().toHandle(plasmaHuman), human, level, 1f) == 1f,
+                "same generic ingestion consumer accepts both human doses");
+        require(MS14Provider.get(human, MS14Bridges.STOMACH).getMap().equals(Map.of(DEXALIN, 3f, PLASMA, 1f)),
+                "human stomach uses the same resolved recipe path");
         helper.succeed();
     }
 

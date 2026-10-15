@@ -266,7 +266,7 @@ public final class AirlockBlockEntity extends BlockEntity {
         AABB box=doorwayBounds();
         for(LivingEntity entity:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
                 &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level)))
-            if(entity.getBoundingBox().intersects(box))return true;
+            if(entity.getBoundingBox().intersects(box)&&AirlockPassagePolicy.pairCollides(entity,this))return true;
         return false;
     }
     private java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> crushOccupants(ServerLevel level,AirlockData data) {
@@ -274,7 +274,7 @@ public final class AirlockBlockEntity extends BlockEntity {
         java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> positions=new java.util.LinkedHashMap<>();
         for(LivingEntity actor:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
                 &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level))) {
-            if(!actor.getBoundingBox().intersects(box))continue;
+            if(!actor.getBoundingBox().intersects(box)||!AirlockPassagePolicy.pairCollides(actor,this))continue;
             positions.put(actor,actor.position());
             crushVictims.add(actor.getUUID());
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.applyHealthChange(actor,java.util.Map.of(com.juicyslew.moonstation14.ms14.damage.DamageKeys.BLUNT,(float)data.door().crushDamageBlunt()),1f,false);
@@ -293,7 +293,8 @@ public final class AirlockBlockEntity extends BlockEntity {
         AABB doorway=doorwayBounds();
         return server.getEntitiesOfClass(LivingEntity.class,doorway.inflate(1.0E-5),actor->!actor.isSpectator()&&!actor.noPhysics
                 &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(actor,server)
-                &&AirlockGeometry.touchesDoorway(actor.getBoundingBox(),doorway));
+                &&AirlockGeometry.touchesDoorway(actor.getBoundingBox(),doorway)
+                &&AirlockPassagePolicy.pairCollides(actor,this));
     }
     void onScheduledTick(ServerLevel server) {
         scheduledDeadline=0;

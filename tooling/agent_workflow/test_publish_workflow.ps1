@@ -202,7 +202,7 @@ if (-not $deletedWasRejected) { throw 'Deleted receipt entry incorrectly fell ba
 $fixtureRoot = Join-Path $env:LOCALAPPDATA ('Temp\opencode\publisher-plan-fixture-' + [guid]::NewGuid().ToString('N'))
 $fixtureMain = Join-Path $fixtureRoot 'MoonStation14'
 $sharedSources = @(
-    'tooling/agent_workflow/gate_liveness.py','tooling/agent_workflow/workflow_observer.py',
+    'tooling/agent_workflow/gate_liveness.py','tooling/agent_workflow/agent_status.py','tooling/agent_workflow/workflow_observer.py',
     'tooling/agent_workflow/owner_attention.py','tooling/agent_workflow/owner_feedback.py','tooling/agent_workflow/gate_progress.py','tooling/agent_workflow/validation_evidence.py','tooling/agent_workflow/admission.py','tooling/agent_workflow/gate_dispatch.py','tooling/agent_workflow/workflow_runtime.py',
     'docs/development-workflow/README.runtime.md','docs/development-workflow/CLI.md','docs/development-workflow/coordinator.md',
     'docs/development-workflow/source-fidelity.md','docs/development-workflow/request-template.json',
@@ -212,6 +212,8 @@ $sharedSources = @(
     'tooling/agent_workflow/workflow_entry.py','AGENTS.md','opencode.jsonc'
 )
 if ($sharedSources.IndexOf('tooling/agent_workflow/gate_liveness.py') -gt $sharedSources.IndexOf('tooling/agent_workflow/gate_progress.py') -or
+    $sharedSources.IndexOf('tooling/agent_workflow/agent_status.py') -gt $sharedSources.IndexOf('tooling/agent_workflow/workflow_observer.py') -or
+    $sharedSources.IndexOf('tooling/agent_workflow/agent_status.py') -gt $sharedSources.IndexOf('tooling/agent_workflow/gate_progress.py') -or
     $sharedSources.IndexOf('tooling/agent_workflow/workflow_observer.py') -gt $sharedSources.IndexOf('tooling/agent_workflow/workflow_runtime.py')) {
     throw 'Shared operational dependencies must precede their consumers in the publication payload.'
 }
@@ -293,11 +295,14 @@ try {
         throw 'Prepared runtime/readme sources were not mapped to their shared destinations.'
     }
     $progressAt = $planOutput.IndexOf('tooling/agent_workflow/gate_progress.py')
+    $agentStatusAt = $planOutput.IndexOf('tooling/agent_workflow/agent_status.py')
+    $observerAt = $planOutput.IndexOf('tooling/agent_workflow/workflow_observer.py')
     $attentionAt = $planOutput.IndexOf('tooling/agent_workflow/owner_attention.py')
     $feedbackAt = $planOutput.IndexOf('tooling/agent_workflow/owner_feedback.py')
     $dispatchAt = $planOutput.IndexOf('tooling/agent_workflow/gate_dispatch.py')
     $runtimeAt = $planOutput.IndexOf('tooling/agent_workflow/workflow.py')
-    if ($attentionAt -lt 0 -or $feedbackAt -lt 0 -or $progressAt -lt 0 -or $dispatchAt -lt 0 -or $runtimeAt -lt 0 -or
+    if ($attentionAt -lt 0 -or $feedbackAt -lt 0 -or $agentStatusAt -lt 0 -or $observerAt -lt 0 -or $progressAt -lt 0 -or $dispatchAt -lt 0 -or $runtimeAt -lt 0 -or
+        $agentStatusAt -ge $observerAt -or $agentStatusAt -ge $progressAt -or
         $attentionAt -ge $progressAt -or $feedbackAt -ge $progressAt -or $progressAt -ge $runtimeAt -or $dispatchAt -ge $runtimeAt) {
         throw 'Shared dependency/dispatcher payloads must be planned before the mapped workflow runtime.'
     }

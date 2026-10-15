@@ -38,8 +38,13 @@ class AirlockBumpGeometryTest {
         assertTrue(AirlockGeometry.touchesDoorway(new AABB(1,0,.2,1.6,1.8,.8),doorway));
         assertTrue(AirlockGeometry.touchesDoorway(new AABB(.2,0,-.6,.8,1.8,0),doorway));
         assertTrue(AirlockGeometry.touchesDoorway(new AABB(.2,0,1,.8,1.8,1.6),doorway));
+        AABB toleratedPositiveGap=new AABB(-.600005,0,.2,-.000005,1.8,.8);
+        assertTrue(doorway.minX-toleratedPositiveGap.maxX>0);
+        assertFalse(toleratedPositiveGap.intersects(doorway));
+        assertTrue(AirlockGeometry.touchesDoorway(toleratedPositiveGap,doorway));
         assertFalse(AirlockGeometry.touchesDoorway(new AABB(-.6,0,-.6,0,1.8,0),doorway));
         assertFalse(AirlockGeometry.touchesDoorway(new AABB(.2,2,.2,.8,3,.8),doorway));
         assertFalse(AirlockGeometry.touchesDoorway(new AABB(-.6,0,.2,-.01,1.8,.8),doorway));
+        assertFalse(AirlockGeometry.touchesDoorway(new AABB(-.60002,0,.2,-.00002,1.8,.8),doorway));
     }
 }

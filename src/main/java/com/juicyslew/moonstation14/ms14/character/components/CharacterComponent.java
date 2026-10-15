@@ -10,7 +10,9 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         MouthComponent, MobStateComponent, MobThresholdsComponent, CrawlerComponent, PullableComponent,
         ObserverMovementComponent, IncorporealComponent, GhostOnMoveComponent, PullerComponent, DoorBumpOpenerComponent,
         ExaminerComponent, DamageableComponent, HumanoidProfileComponent, StrippingPrototypeComponent,
-        StrippablePrototypeComponent, GhostRoleComponent, MouseAppearanceComponent {
+        StrippablePrototypeComponent, GhostRoleComponent, MouseAppearanceComponent, CollisionProfileComponent,
+        NpcBehaviorComponent, AmbientVocalizationComponent, NpcIdleAttentionComponent, PortableBodyComponent,
+        CanEscapeInventoryComponent, SpeciesComponent {
     String type();
 }
 

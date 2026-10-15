@@ -146,6 +146,20 @@ public final class MobStateSystem {
     public static boolean isAlive(LivingEntity body) { return query(body) == MobStateComponent.State.ALIVE; }
     public static boolean isCritical(LivingEntity body) { return query(body) == MobStateComponent.State.CRITICAL; }
     public static boolean isDead(LivingEntity body) { return query(body) == MobStateComponent.State.DEAD; }
+    /** Current resolved medical state without materializing attachments; an absent state is the canonical Alive default. */
+    public static MobStateComponent.State currentState(LivingEntity body) { return query(body); }
+    /** Native health can be zero while a prototype-resolved CRITICAL/DEAD body remains a valid world body. */
+    public static boolean isRetainedNonAliveBody(LivingEntity body) {
+        MobStatePolicy policy = policy(body);
+        if (policy == null) return false;
+        if (isDead(body)) return true;
+        return isCritical(body) && policy.states().allowedStates().contains(MobStateComponent.State.CRITICAL);
+    }
+    /** True only for an existing, resolved medically-dead server corpse with exhausted native health. */
+    public static boolean acceptsPhysicalCorpseDamage(LivingEntity body) {
+        return body != null && !body.level().isClientSide() && !body.isRemoved()
+                && body.getHealth() <= 0f && policy(body) != null && isDead(body);
+    }
     public static boolean isIncapacitated(LivingEntity body) { return !isAlive(body); }
     private static MobStateComponent.State query(LivingEntity body) {
         if (body == null) return MobStateComponent.State.ALIVE;

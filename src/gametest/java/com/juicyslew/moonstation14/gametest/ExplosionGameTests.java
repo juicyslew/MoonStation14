@@ -7,6 +7,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.explosion.core.BlastPlanner;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
 import com.juicyslew.moonstation14.ms14.explosion.server.ServerExplosionService;
+import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import net.minecraft.core.BlockPos;
@@ -15,6 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -76,6 +78,51 @@ public final class ExplosionGameTests {
             var damage = zombie.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
             require(damage != null && damage.getMap().values().stream().mapToDouble(Float::doubleValue).sum() > 0,
                     "blast applies typed damage attachment");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"corpse-damage"})
+    public static void retainedDeadBodyReceivesBlastAndKnockbackButNoPhysicsBodyDoesNot(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlastPlanner.Proposal nonlethalProposal = new BlastPlanner.Proposal(10, 3, 10);
+        BlockPos source = pos(helper, 5, 2, 5);
+        Pig corpse = helper.spawn(EntityType.PIG, new BlockPos(6, 2, 5));
+        Pig pinned = helper.spawn(EntityType.PIG, new BlockPos(5, 2, 6));
+        corpse.setNoAi(true); pinned.setNoAi(true);
+        corpse.setNoGravity(true); pinned.setNoGravity(true);
+        require(DamageSystem.applyHealthChange(corpse, java.util.Map.of("heat", 200f), 1f, true)
+                        == DamageSystem.Result.APPLIED
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(corpse)
+                        && !corpse.isAlive() && corpse.getHealth() == 0,
+                "blast fixture is a retained medical-dead zero-health pig");
+        require(DamageSystem.applyHealthChange(pinned, java.util.Map.of("heat", 200f), 1f, true)
+                        == DamageSystem.Result.APPLIED
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(pinned),
+                "pinned control is retained medical-dead body");
+        pinned.noPhysics = true;
+        corpse.setPos(source.getX() + 0.75, source.getY(), source.getZ() + 0.5);
+        pinned.setPos(source.getX() + 0.5, source.getY(), source.getZ() + 0.75);
+        helper.runAfterDelay(2, () -> {
+            require(!corpse.isAlive() && !corpse.isRemoved() && !pinned.isAlive(),
+                    "both corpse entities remain retained before blast");
+            // Ignore vanilla hurt resistance from the lethal fixture setup hit.
+            corpse.invulnerableTime = 0;
+            pinned.invulnerableTime = 0;
+            float corpseBluntBefore = typedBlunt(corpse);
+            float pinnedBluntBefore = typedBlunt(pinned);
+            var beforePinned = pinned.getDeltaMovement();
+            var result = ServerExplosionService.execute(level, source, ModExplosions.DEFAULT_ID, nonlethalProposal);
+            require(result.status() == ServerExplosionService.Status.APPLIED && result.damaged() == 2,
+                    "blast selects both retained corpses exactly once: " + result);
+            require(typedBlunt(corpse) > corpseBluntBefore && typedBlunt(pinned) > pinnedBluntBefore,
+                    "blast commits typed blunt damage to each corpse ledger");
+            require(corpse.getDeltaMovement().x > 0, "eligible corpse receives outward blast impulse");
+            require(pinned.getDeltaMovement().equals(beforePinned), "noPhysics corpse remains excluded from knockback");
+            require(com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(corpse)
+                            && corpse.getHealth() == 0 && !corpse.isRemoved(),
+                    "repeat physical hit retains corpse identity and zero native health");
             helper.succeed();
         });
     }
@@ -189,6 +236,11 @@ public final class ExplosionGameTests {
 
     private static BlockPos pos(GameTestHelper helper, int x, int y, int z) {
         return helper.absolutePos(new BlockPos(x, y, z));
+    }
+
+    private static float typedBlunt(Pig pig) {
+        var damage = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        return damage == null ? 0f : damage.getMap().getOrDefault("blunt", 0f);
     }
 
     private static void require(boolean condition, String message) {

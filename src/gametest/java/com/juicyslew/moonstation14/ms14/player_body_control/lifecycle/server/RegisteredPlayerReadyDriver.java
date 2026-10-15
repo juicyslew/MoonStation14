@@ -18,6 +18,18 @@ import net.minecraft.world.level.ClipContext;
 /** Shared test-only driver for the registered player's real lifecycle Begin/Ready owner and hand query. */
 public final class RegisteredPlayerReadyDriver {
     private RegisteredPlayerReadyDriver() { }
+
+    /** Drives an already admitted public lifecycle intent through the real production post-tick owner. */
+    public static void submitAcceptedIntent(RegisteredServerPlayerFixture fixture,
+            com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent intent) {
+        LifecycleCharacterSessionControl.onPayload(intent, fixture.player());
+        LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
+    }
+
+    /** Re-enters the public post-tick owner without another payload, to verify a consumed fixture input is not replayed. */
+    public static void tickWithoutNewIntent(RegisteredServerPlayerFixture fixture) {
+        LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
+    }
     public record Active(LivingEntity body, long epoch, BodyHandStateSnapshot initialHands) { }
 
     public static Active readyAndQuery(RegisteredServerPlayerFixture fixture) {
@@ -40,6 +52,31 @@ public final class RegisteredPlayerReadyDriver {
             throw new IllegalStateException("full hand query denied after Ready: " + snapshot.reason());
         BodyHandStateService.requireFreshQuery(fixture.player());
         return new Active(active.body(), active.epoch(), snapshot);
+    }
+
+    /** Drives the same current-epoch GHOST Begin/Ready lifecycle transition used by the client. */
+    public static boolean readyGhost(RegisteredServerPlayerFixture fixture, long epoch) {
+        Object outbound;
+        boolean beginSeen = false;
+        while ((outbound = fixture.pollOutbound()) != null) {
+            if (outbound instanceof ClientboundCustomPayloadPacket packet
+                    && packet.payload() instanceof GhostControlPayloads.Begin begin
+                    && begin.harnessKind() == MobHarnessKind.GHOST && begin.mindEpoch() == epoch) {
+                beginSeen = true;
+                break;
+            }
+        }
+        if (!beginSeen) return false;
+        LifecycleGhostSessionControl.onPayload(new GhostControlPayloads.Ready(epoch), fixture.player());
+        return LifecycleGhostSessionControl.committedActorSnapshot(fixture.player())
+                .filter(actor -> actor.epoch() == epoch).isPresent();
+    }
+
+    /** Completes the real role-adoption OfferReady phase against its emitted target id/epoch. */
+    public static void acceptRoleOffer(RegisteredServerPlayerFixture fixture,
+                                       GhostControlPayloads.Offer offer) {
+        LifecycleGhostSessionControl.onPayload(new GhostControlPayloads.OfferReady(
+                offer.currentEpoch(), offer.targetEntityId(), offer.targetKind()), fixture.player());
     }
 
     /** Aims at a real outline hit and returns its actual face for an ordinary nominated block request. */

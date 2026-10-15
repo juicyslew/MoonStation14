@@ -19,9 +19,14 @@ public final class LiveHandsCommitGateway {
         LivingEntity body = authority.body();
         if (body.level().isClientSide || body.level().getServer() == null || !body.level().getServer().isSameThread()
                 || !value.compatible(body) || !BodyHandStateService.representable(value, body)) return false;
+        LiveHands previous = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         body.setData(ModDataAttachments.LIVE_HANDS.get(), value);
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != value
-                || !HandActorAuthority.revalidate(actor, authority)) return false;
+                || !HandActorAuthority.revalidate(actor, authority)
+                || !reconcilePortableBodies(body, previous, value)) {
+            restoreAttachment(body, value, previous);
+            return false;
+        }
         deferOrPublish(actor, authority, value);
         return true;
     }
@@ -68,11 +73,16 @@ public final class LiveHandsCommitGateway {
         if (body == null || value == null || body.level().isClientSide || body.level().getServer() == null
                 || !body.level().getServer().isSameThread() || expected != null
                 && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != expected) return false;
+        LiveHands previous = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         boolean publishable = value.compatible(body) && BodyHandStateService.representable(value, body);
         if (!publishable && !allowIncompatibleCleanup) return false;
         try { body.setData(ModDataAttachments.LIVE_HANDS.get(), value); }
         catch (RuntimeException failure) { return false; }
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != value) return false;
+        if (!reconcilePortableBodies(body, previous, value)) {
+            restoreAttachment(body, value, previous);
+            return false;
+        }
         if (publishable) {
             var server = body.level().getServer();
             ServerPlayer owner = null; HandActorAuthority.Snapshot ownerAuthority = null;
@@ -83,6 +93,17 @@ public final class LiveHandsCommitGateway {
             deferOrPublish(owner, ownerAuthority, value, body);
         }
         return true;
+    }
+
+    private static boolean reconcilePortableBodies(LivingEntity body, LiveHands before, LiveHands after) {
+        if (!PortableBodyCarrying.hasKey(before, body) && !PortableBodyCarrying.hasKey(after, body)) return true;
+        return PortableBodyCarrying.reconcile(body, before, after);
+    }
+
+    private static void restoreAttachment(LivingEntity body, LiveHands failed, LiveHands previous) {
+        if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != failed) return;
+        if (previous == null) body.removeData(ModDataAttachments.LIVE_HANDS.get());
+        else body.setData(ModDataAttachments.LIVE_HANDS.get(), previous);
     }
 
     private static void deferOrPublish(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands value) { deferOrPublish(actor,authority,value,authority.body()); }

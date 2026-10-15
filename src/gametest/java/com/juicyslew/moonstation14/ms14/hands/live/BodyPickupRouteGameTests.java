@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -11,11 +12,59 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.gametest.framework.GameTest;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
+@PrefixGameTestTemplate(false)
+@GameTestTags({"hands", "interaction"})
 public final class BodyPickupRouteGameTests {
     private BodyPickupRouteGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void selectedJugPickupUsesCurrentVisibleTargetAfterAimMoves(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = fixtureBody(level, origin);
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemEntity jug = new ItemEntity(level, origin.getX() + 2.5, origin.getY() + 1.5,
+                origin.getZ() + .5, new ItemStack(com.juicyslew.moonstation14.item.ModItems.JUG.get()));
+        require(level.addFreshEntity(jug), "resolved jug item spawned");
+        require(com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe
+                .probeSelected(level, body, jug.getUUID(), 5) != null, "initial nominated jug on ray");
+        jug.setPos(jug.getX(), jug.getY(), jug.getZ() + .5);
+        require(jug.getBoundingBox().clip(body.getEyePosition(),
+                body.getEyePosition().add(body.getLookAngle().scale(5))).isEmpty(), "moved jug is off ray");
+        require(com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe
+                .probeSelected(level, body, jug.getUUID(), 5) != null, "moved jug remains in reach and visible");
+        require(BodyHandItemTransferGameTestAccess.pickupSelectedOwned(body, jug.getUUID(), "left", before.revision())
+                == BodyHandItemTransfer.Result.SUCCESS, "selected production pickup succeeds without current aim ray");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(jug.isRemoved() && level.getEntity(jug.getUUID()) == null && after.stackCopy("left").orElseThrow()
+                .is(com.juicyslew.moonstation14.item.ModItems.JUG.get()), "exact jug UUID transferred to hand once");
+        body.discard();
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void selectedPickupWallDenialPreservesEmptyHandAndOriginalEntity(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = fixtureBody(level, origin);
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemEntity target = item(level, origin, 2);
+        UUID originalId = target.getUUID();
+        level.setBlock(origin.offset(1, 1, 0), Blocks.STONE.defaultBlockState(), 3);
+        require(BodyHandItemTransferGameTestAccess.pickupSelectedOwned(body, originalId, "left", before.revision())
+                == BodyHandItemTransfer.Result.DENIED, "current wall denies selected pickup");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(after == before && after.stackCopy("left").isEmpty() && !target.isRemoved()
+                && level.getEntity(originalId) == target && target.getItem().getCount() == 3,
+                "denial preserves empty hand and exact world entity");
+        target.discard(); body.discard();
+        helper.succeed();
+    }
 
     public static void firstHitDenialsAndWorldToHandConservation(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();

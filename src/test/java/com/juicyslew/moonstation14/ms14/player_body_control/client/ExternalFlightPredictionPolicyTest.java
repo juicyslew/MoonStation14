@@ -22,4 +22,11 @@ class ExternalFlightPredictionPolicyTest {
         policy.clear();
         assertFalse(policy.advanceFrame());
     }
+
+    @Test void longAuthoritativeLeaseCountsDownWithoutTruncation() {
+        var policy = new ExternalFlightPredictionPolicy();
+        policy.reset(15);
+        for (int i = 0; i < 14; i++) assertTrue(policy.advanceFrame());
+        assertFalse(policy.advanceFrame());
+    }
 }

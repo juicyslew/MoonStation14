@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,7 +29,8 @@ public final class BodyHandItemTransfer {
 
     /** Shared world destination/entity path for trusted minted grants; caller retains input on failure. */
     public static LooseItemEntity spawnTrustedGrant(LivingEntity body, ItemStack stack) {
-        if (body == null || stack == null || stack.isEmpty() || !(body.level() instanceof ServerLevel level)
+        if (body == null || stack == null || stack.isEmpty() || PortableBodyCarrying.containsPortableReferences(stack)
+                || !(body.level() instanceof ServerLevel level)
                 || !level.getServer().isSameThread() || body.isRemoved() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body || !finite(body.position())
                 || !level.hasChunkAt(body.blockPosition())) return null;
@@ -57,7 +59,8 @@ public final class BodyHandItemTransfer {
 
     /** Detached, stationary harvest output at a checked horizontal offset from the ordinary body drop point. */
     static LooseItemEntity createStagedHarvestDrop(LivingEntity body, ItemStack stack, double offsetX, double offsetZ) {
-        if (body == null || stack == null || stack.isEmpty() || !Double.isFinite(offsetX) || !Double.isFinite(offsetZ)
+        if (body == null || stack == null || stack.isEmpty() || PortableBodyCarrying.containsPortableReferences(stack)
+                || !Double.isFinite(offsetX) || !Double.isFinite(offsetZ)
                 || Math.abs(offsetX) > .25 || Math.abs(offsetZ) > .25) return null;
         try {
             if (!(body.level() instanceof ServerLevel level) || !level.getServer().isSameThread()
@@ -94,7 +97,9 @@ public final class BodyHandItemTransfer {
     }
 
     private static LooseItemEntity createTrustedDropEntity(Entity body, ItemStack stack, Entity excludedCarrier) {
-        if (body == null || stack == null || stack.isEmpty() || !(body.level() instanceof ServerLevel level)) return null;
+        if (body == null || stack == null || stack.isEmpty()
+                || body instanceof LivingEntity living && PortableBodyCarrying.containsPortableReferences(stack)
+                || !(body.level() instanceof ServerLevel level)) return null;
         try {
             LooseObjectProfile profile = LooseObjectProfile.resolveForStack(stack, false);
             LivingEntity livingBody = body instanceof LivingEntity living ? living : null;
@@ -189,15 +194,15 @@ public final class BodyHandItemTransfer {
     }
 
     private static Result pickupTransaction(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
-                                         BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource,
-                                         boolean selectedPolicy) {
+                                          BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource,
+                                          boolean selectedPolicy) {
         return pickupTransaction(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, committedSource,
                 selectedPolicy, null, null);
     }
 
     private static Result pickupTransaction(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
-                                         BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource,
-                                         boolean selectedPolicy, ItemEntity exactEntity, ItemStack expectedStack) {
+                                          BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource,
+                                          boolean selectedPolicy, ItemEntity exactEntity, ItemStack expectedStack) {
         if (body == null || itemEntityUuid == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || !CharacterControlSystem.canAct(body)) return Result.DENIED;
         if (!level.getServer().isSameThread() || body.isRemoved() || !body.isAddedToLevel()
@@ -205,6 +210,11 @@ public final class BodyHandItemTransfer {
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (before == null || !before.compatible(body) || before.revision() != expectedHandRevision)
             return Result.DENIED;
+        // Legacy loose-item pickup takes the nearest visible item. A nominated eligible living
+        // target is inherently an explicit selection and must use the same geometry as selected pickup.
+        Entity nominated = level.getEntity(itemEntityUuid);
+        if (!selectedPolicy && nominated instanceof LivingEntity living
+                && PortableBodyCarrying.eligibleLivingTarget(body, living)) selectedPolicy = true;
         // The packet UUID is only a hint. The body-eye ray selects the actual source on this tick.
         // A reserved/delayed first item blocks a farther pickup rather than being skipped.
         Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
@@ -215,6 +225,9 @@ public final class BodyHandItemTransfer {
         if (!trusted && selected == null) return Result.DENIED;
         UUID sourceId = trusted ? exactEntity.getUUID() : selected.itemId();
         Entity entity = trusted ? exactEntity : level.getEntity(sourceId);
+        if (entity instanceof LivingEntity living)
+            return pickupPortableLiving(body, living, sourceId, hand, before, expectedHandRevision,
+                    authorityValid, committedSource, selectedPolicy, level, sourceEye, sourceLook);
         if (!(entity instanceof ItemEntity item) || item.isRemoved() || !item.isAddedToLevel()
                 || item.level() != level || item.getTarget() != null || item.hasPickUpDelay()
                   || !reachable(body, item.position())) return Result.DENIED;
@@ -298,6 +311,49 @@ public final class BodyHandItemTransfer {
         return Result.RECOVERY_REQUIRED;
     }
 
+    private static Result pickupPortableLiving(LivingEntity carrier, LivingEntity target, UUID nominated,
+            String hand, LiveHands before, long expectedRevision, BooleanSupplier authorityValid,
+            java.util.function.Consumer<UUID> committedSource, boolean selectedPolicy, ServerLevel level,
+            Vec3 sourceEye, Vec3 sourceLook) {
+        if (!PortableBodyCarrying.eligibleLivingTarget(carrier, target) || !reachable(carrier, target.position()))
+            return Result.DENIED;
+        Vec3 targetPosition = target.position();
+        UUID tokenId = UUID.randomUUID();
+        ItemToken token = new ItemToken(tokenId.toString());
+        ItemStack key = PortableBodyCarrying.createKey(carrier, target, tokenId);
+        if (!PortableBodyKeys.isKey(key)) return Result.DENIED;
+        LiveHands.WholeResult transition = before.putWhole(expectedRevision, hand, token, key);
+        if (!transition.succeeded() || !BodyHandStateService.representable(transition.state(), carrier)) return Result.DENIED;
+        BodyItemTargetProbe.Target confirmed = selectedPolicy
+                ? BodyItemTargetProbe.probeSelected(level, carrier, nominated, BodyItemTargetProbe.MAX_REACH)
+                : BodyItemTargetProbe.nearestVisible(level, carrier, BodyItemTargetProbe.MAX_REACH);
+        if (confirmed == null || !nominated.equals(confirmed.itemId())
+                || !authorityValid.getAsBoolean() || !CharacterControlSystem.canAct(carrier)
+                || carrier.level() != level || carrier.isRemoved() || !carrier.isAddedToLevel()
+                || level.getEntity(carrier.getUUID()) != carrier || carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || target.level() != level || target.isRemoved() || !target.isAddedToLevel()
+                || level.getEntity(target.getUUID()) != target
+                || !target.position().equals(targetPosition)
+                || !reachable(carrier, target.position()) || !sourceEye.equals(carrier.getEyePosition())
+                || !sourceLook.equals(carrier.getLookAngle()) || !PortableBodyCarrying.eligibleLivingTarget(carrier, target))
+            return Result.DENIED;
+        try { LiveHandsCommitGateway.commitOwned(carrier, before, transition.state()); }
+        catch (RuntimeException failure) {
+            return carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                    ? Result.DENIED : Result.RECOVERY_REQUIRED;
+        }
+        if (carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != transition.state()
+                || !transition.state().compatible(carrier)) return Result.RECOVERY_REQUIRED;
+        var owner = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                .ownerOf(target).orElse(null);
+        if (!(owner instanceof PortableBodyCarrierOwner portable) || portable.carrier() != carrier
+                || !portable.reference().body().equals(target.getUUID()) || !portable.handToken().equals(token.value()))
+            return Result.RECOVERY_REQUIRED;
+        committedSource.accept(target.getUUID());
+        return Result.SUCCESS;
+    }
+
+
     public static Result drop(ServerPlayer actor, String hand, String expectedToken, long expectedHandRevision) {
         return drop(actor, hand, expectedToken, expectedHandRevision, ignored -> { });
     }
@@ -317,10 +373,11 @@ public final class BodyHandItemTransfer {
      */
     public static Result consumeOneForAuthorizedBody(ServerPlayer carrier, HandActorAuthority.Snapshot exactAuthority,
                                                       String handId, String token, long revision,
-                                                      ItemStack expectedItem) {
+        ItemStack expectedItem) {
         if (carrier == null || exactAuthority == null || exactAuthority.actor() != carrier
                 || handId == null || token == null || expectedItem == null || expectedItem.isEmpty())
             return Result.DENIED;
+        if (PortableBodyCarrying.containsPortableReferences(expectedItem)) return Result.DENIED;
         LivingEntity body = exactAuthority.body();
         if (!(body.level() instanceof ServerLevel level) || !level.getServer().isSameThread()
                 || !CharacterControlSystem.canAct(body) || !HandActorAuthority.revalidate(carrier, exactAuthority)
@@ -395,6 +452,13 @@ public final class BodyHandItemTransfer {
         LiveHands.WholeResult transition = before.takeWhole(expectedHandRevision, hand, token);
         if (!transition.succeeded()) return Result.DENIED;
         ItemStack stack = transition.takenStack().orElseThrow();
+        // Portable keys leave only through their body-owner transaction, never as item entities.
+        if (PortableBodyKeys.isKeyItem(stack))
+            return dropPortableBody(body, excludedCarrier, level, before, transition, hand, token, stack,
+                    authorityValid, committedWorldEntity, forced);
+        if (PortableBodyCarrying.containsPortableReferences(stack))
+            return dropPortableContainer(body, excludedCarrier, level, before, transition, hand, token, stack,
+                    authorityValid, committedWorldEntity, forced);
         if (!valid(stack) || !authorityValid.getAsBoolean()
                 || (!forced && !CharacterControlSystem.canAct(body)) || !finite(body.position())
                 || !level.hasChunkAt(body.blockPosition())
@@ -471,6 +535,142 @@ public final class BodyHandItemTransfer {
             return Result.SUCCESS;
         }
         return Result.RECOVERY_REQUIRED;
+    }
+
+    private static Result dropPortableBody(LivingEntity carrier, Entity excludedCarrier, ServerLevel level,
+            LiveHands before, LiveHands.WholeResult transition, String hand, ItemToken token, ItemStack key,
+            BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedWorldEntity, boolean forced) {
+        if (!PortableBodyKeys.isKey(key) || !PortableBodyCarrying.validateProspective(carrier, before)
+                || !authorityValid.getAsBoolean() || (!forced && !CharacterControlSystem.canAct(carrier))) return Result.DENIED;
+        var reference = PortableBodyKeys.reference(key);
+        if (reference == null || !reference.token().toString().equals(token.value())) return Result.DENIED;
+        LivingEntity mouse = level.getEntity(reference.body()) instanceof LivingEntity living ? living : null;
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        var currentOwner = mouse == null ? null : containment.ownerOf(mouse).orElse(null);
+        if (!(currentOwner instanceof PortableBodyCarrierOwner owner) || owner.carrier() != carrier
+                || !owner.reference().equals(reference) || !owner.handToken().equals(token.value())) return Result.DENIED;
+        float width = mouse.getBbWidth(), height = mouse.getBbHeight();
+        Vec3 carrierPosition = carrier.position(), carrierEye = carrier.getEyePosition(), carrierLook = carrier.getLookAngle();
+        Vec3 mousePosition = mouse.position();
+        BodyItemTargetProbe.DropPlacement placement = BodyItemTargetProbe.resolveDrop(
+                level, carrier, carrier, width, height, mouse);
+        if (placement == null || !portableBodyDropClear(level, carrier, mouse, placement.position(), width, height))
+            return Result.DENIED;
+        LiveHands cleared = transition.state();
+        if (!BodyHandStateService.representable(cleared, carrier) || !authorityValid.getAsBoolean()
+                || (!forced && !CharacterControlSystem.canAct(carrier))
+                || carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || level.getEntity(mouse.getUUID()) != mouse || !mouse.position().equals(mousePosition)
+                || !carrier.position().equals(carrierPosition) || !carrier.getEyePosition().equals(carrierEye)
+                || !carrier.getLookAngle().equals(carrierLook) || !owner.isValid()
+                || containment.ownerOf(mouse).orElse(null) != owner
+                || !portableBodyDropClear(level, carrier, mouse, placement.position(), width, height)) return Result.DENIED;
+        var release = PortableBodyReleaseTransaction.capture(mouse);
+        if (release == null || release.rootOwner() != owner || release.rootRevision() != before.revision()) return Result.DENIED;
+        var releaseResult = PortableBodyReleaseTransaction.release(release,
+                new PortableBodyReleaseTransaction.Placement(placement.position(), placement.velocity(),
+                        () -> authorityValid.getAsBoolean() && (forced || CharacterControlSystem.canAct(carrier))
+                                && carrier.level() == level && level.getEntity(carrier.getUUID()) == carrier
+                                && carrier.position().equals(carrierPosition) && carrier.getEyePosition().equals(carrierEye)
+                                && carrier.getLookAngle().equals(carrierLook)
+                                && portableBodyDropClear(level, carrier, mouse, placement.position(), width, height)));
+        if (releaseResult == PortableBodyReleaseTransaction.Result.DENIED) return Result.DENIED;
+        if (releaseResult == PortableBodyReleaseTransaction.Result.RECOVERY_REQUIRED) return Result.RECOVERY_REQUIRED;
+        PortableBodyEscapeService.onDropped(mouse);
+        committedWorldEntity.accept(mouse.getUUID());
+        return Result.SUCCESS;
+    }
+
+    private static Result dropPortableContainer(LivingEntity carrier, Entity excludedCarrier, ServerLevel level,
+            LiveHands before, LiveHands.WholeResult transition, String hand, ItemToken token, ItemStack rootStack,
+            BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedWorldEntity, boolean forced) {
+        var entry = PortableBodyCarrying.directPortableKey(rootStack);
+        if (entry == null || !PortableBodyKeys.isKey(entry.stack()) || !authorityValid.getAsBoolean()
+                || (!forced && !CharacterControlSystem.canAct(carrier))) return Result.DENIED;
+        var reference = PortableBodyKeys.reference(entry.stack());
+        LivingEntity portableBody = reference == null || !reference.dimension().equals(level.dimension().location())
+                ? null : level.getEntity(reference.body()) instanceof LivingEntity living ? living : null;
+        if (portableBody == null || !com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(portableBody, level))
+            return Result.DENIED;
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        var oldOwner = containment.registeredOwnerOf(portableBody).orElse(null);
+        if (!(oldOwner instanceof PortableBodyCarrierOwner owner) || owner.carrier() != carrier
+                || !owner.reference().equals(reference) || !owner.isValid()) return Result.DENIED;
+        LooseObjectProfile profile;
+        try { profile = LooseObjectProfile.resolveForStack(rootStack, false); }
+        catch (RuntimeException invalidProfile) { return Result.DENIED; }
+        Vec3 origin = carrier.position(), eye = carrier.getEyePosition(), look = carrier.getLookAngle();
+        var placement = BodyItemTargetProbe.resolveDrop(level, carrier, excludedCarrier,
+                profile.physicalWidth(), profile.physicalHeight());
+        if (placement == null || !BodyItemTargetProbe.loadedItemBoxClear(level, placement.position(),
+                profile.physicalWidth(), profile.physicalHeight())
+                || new net.minecraft.world.phys.AABB(placement.position().x - profile.physicalWidth() / 2,
+                placement.position().y, placement.position().z - profile.physicalWidth() / 2,
+                placement.position().x + profile.physicalWidth() / 2, placement.position().y + profile.physicalHeight(),
+                placement.position().z + profile.physicalWidth() / 2).intersects(carrier.getBoundingBox())
+                || carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || !authorityValid.getAsBoolean() || (!forced && !CharacterControlSystem.canAct(carrier))
+                || !origin.equals(carrier.position()) || !eye.equals(carrier.getEyePosition())
+                || !look.equals(carrier.getLookAngle()) || !owner.isValid()) return Result.DENIED;
+        LooseItemEntity root;
+        try {
+            root = LooseItemEntity.create(level, placement.position(), rootStack.copy());
+            if (!same(rootStack, root.getItem())) return Result.DENIED;
+            root.launch(placement.velocity(), 0);
+        } catch (RuntimeException failure) { return Result.DENIED; }
+        try {
+            if (!level.addFreshEntity(root) || root.isRemoved() || !root.isAddedToLevel()
+                    || level.getEntity(root.getUUID()) != root || !same(rootStack, root.getItem())) {
+                if (root.isAddedToLevel() && level.getEntity(root.getUUID()) == root) root.discard();
+                return Result.DENIED;
+            }
+        } catch (RuntimeException failure) {
+            if (root.isAddedToLevel() && level.getEntity(root.getUUID()) == root) root.discard();
+            return Result.DENIED;
+        }
+        var worldOwner = new PortableWorldStorageOwner(level, root.getUUID(), entry.token(), reference);
+        if (!containment.transfer(portableBody, owner, worldOwner)) {
+            root.discard();
+            return Result.DENIED;
+        }
+        try { LiveHandsCommitGateway.commitOwned(carrier, before, transition.state()); }
+        catch (RuntimeException failure) {
+            if (carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                    && containment.registeredOwnerOf(portableBody).orElse(null) == worldOwner
+                    && containment.transfer(portableBody, worldOwner, owner)) {
+                root.discard();
+                return Result.DENIED;
+            }
+            return Result.RECOVERY_REQUIRED;
+        }
+        if (carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != transition.state()
+                || containment.registeredOwnerOf(portableBody).orElse(null) != worldOwner
+                || !same(rootStack, root.getItem())) return Result.RECOVERY_REQUIRED;
+        committedWorldEntity.accept(root.getUUID());
+        return Result.SUCCESS;
+    }
+
+    static boolean portableBodyDropClear(ServerLevel level, LivingEntity carrier, LivingEntity mouse,
+                                                   Vec3 position, double width, double height) {
+        if (!BodyItemTargetProbe.loadedItemBoxClear(level, position, width, height)) return false;
+        var moved = mouse.getBoundingBox().move(position.subtract(mouse.position()));
+        if (moved.intersects(carrier.getBoundingBox())) return false;
+        return level.getEntities(mouse, moved, entity -> entity != carrier && !(entity instanceof ItemEntity)).isEmpty();
+    }
+
+    private static Result restorePortableBody(LivingEntity carrier, LivingEntity mouse, LiveHands before,
+            LiveHands cleared, String hand, ItemToken token, ItemStack key) {
+        if (carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != cleared) return Result.RECOVERY_REQUIRED;
+        LiveHands.WholeResult restored = cleared.putWhole(cleared.revision(), hand, token, key);
+        if (!restored.succeeded()) return Result.RECOVERY_REQUIRED;
+        try { LiveHandsCommitGateway.commitOwned(carrier, cleared, restored.state()); }
+        catch (RuntimeException failure) { return Result.RECOVERY_REQUIRED; }
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(
+                (ServerLevel) carrier.level());
+        return carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == restored.state()
+                && containment.ownerOf(mouse).filter(owner -> owner instanceof PortableBodyCarrierOwner portable
+                && portable.carrier() == carrier && portable.reference().equals(PortableBodyKeys.reference(key))).isPresent()
+                ? Result.DENIED : Result.RECOVERY_REQUIRED;
     }
 
     private static Result dropAtContainedOwner(LivingEntity body, ServerLevel level,

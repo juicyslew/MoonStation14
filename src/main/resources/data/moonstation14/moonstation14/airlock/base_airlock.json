@@ -1,6 +1,7 @@
 {
   "id": "base_airlock",
   "abstract": true,
+  "collision": { "mask": 158, "layer": 205 },
   "metadata": { "name": "airlock", "description": "It opens, it closes, and maybe crushes you." },
   "door": {
     "openTimeOneSeconds": 0.4,

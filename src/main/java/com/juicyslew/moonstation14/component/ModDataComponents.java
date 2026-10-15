@@ -22,6 +22,8 @@ import com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData;
 import com.juicyslew.moonstation14.ms14.medical.SyringeStackData;
 import com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData;
 import com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerStackData;
+import com.juicyslew.moonstation14.ms14.hands.PortableBodyReference;
+import com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance;
 import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponentType;
@@ -38,6 +40,13 @@ public class ModDataComponents {
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ReagentComponent>> REAGENT =
             register_component("reagent", builder -> builder.persistent(ReagentComponent.CODEC).networkSynchronized(ReagentComponent.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<PortableBodyReference>> PORTABLE_BODY_REFERENCE =
+            register_component("portable_body_reference", builder -> builder.persistent(PortableBodyReference.CODEC)
+                    .networkSynchronized(PortableBodyReference.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<PortableBodyAppearance>> PORTABLE_BODY_APPEARANCE =
+            register_component("portable_body_appearance", builder -> builder.persistent(PortableBodyAppearance.CODEC)
+                    .networkSynchronized(PortableBodyAppearance.STREAM_CODEC));
 
     /** Item-side half of the stomach bridge; ingestion currently writes character attachments only. */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ReagentComponent>> STOMACH =
@@ -135,4 +144,3 @@ public class ModDataComponents {
         DATA_COMPONENT_TYPES.register(eventBus);
     }
 }
-
