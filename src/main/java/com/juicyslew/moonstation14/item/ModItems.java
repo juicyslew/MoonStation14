@@ -17,6 +17,9 @@ import com.juicyslew.moonstation14.item.custom.CreativeGasPipeVisualItem;
 import com.juicyslew.moonstation14.item.custom.GrenadeItem;
 import com.juicyslew.moonstation14.item.custom.SyringeItem;
 import com.juicyslew.moonstation14.item.custom.BeakerItem;
+import com.juicyslew.moonstation14.item.custom.GasTankItem;
+import com.juicyslew.moonstation14.item.custom.PillItem;
+import com.juicyslew.moonstation14.item.custom.ProduceEdibleItem;
 import com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
@@ -66,6 +69,8 @@ public class ModItems {
     public static final DeferredItem<Item> SCREWDRIVER = ITEMS.register("screwdriver", () -> new Item(new Item.Properties().stacksTo(1)
             .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "screwdriver"))));
     public static final DeferredItem<Item> WELDER = ITEMS.register("welder", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> BOTANY_HOE = ITEMS.register("botany_hoe", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> BOTANY_SPADE = ITEMS.register("botany_spade", () -> new Item(new Item.Properties().stacksTo(1)));
 
     // Food
     public static final DeferredItem<Item> WAFFLE = ITEMS.register("waffle",
@@ -75,6 +80,17 @@ public class ModItems {
             () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<PrototypeEdibleItem> PUMPKIN_PIE_SLICE = ITEMS.register("pumpkin_pie_slice",
             () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> WHEAT_SEEDS = ITEMS.register("wheat_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> TOMATO_SEEDS = ITEMS.register("tomato_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> POTATO_SEEDS = ITEMS.register("potato_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> POPPY_SEEDS = ITEMS.register("poppy_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> ALOE_SEEDS = ITEMS.register("aloe_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> WHEAT_BUSHEL = ITEMS.register("wheat_bushel", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> TOMATO = ITEMS.register("tomato", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> POTATO = ITEMS.register("potato", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> POPPY = ITEMS.register("poppy", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> ALOE = ITEMS.register("aloe", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
 
     // CUSTOM ITEMS
     // TODO: If I start having dependency issues with what needs to be defined before what, consider a lazy-initialized static map pattern for these item's construction result maps.
@@ -105,8 +121,12 @@ public class ModItems {
     public static final DeferredItem<Item> AIRLOCK_MULTITOOL = ITEMS.register("multitool",
             () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_multitool"))));
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",
-            () -> new BottleItem(new Item.Properties().stacksTo(1))
+            () -> new BottleItem(new Item.Properties().stacksTo(1).component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()))
     );
+    public static final DeferredItem<PillItem> PILL = ITEMS.register("pill", () -> new PillItem(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.PILL_TYPE.get(), new com.juicyslew.moonstation14.ms14.chemistry.output.PillData(0))
+            .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent())));
+    public static final DeferredItem<Item> PILL_CANISTER = ITEMS.register("pill_canister", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<SyringeItem> SYRINGE = ITEMS.register("syringe",
             () -> new SyringeItem(new Item.Properties().stacksTo(1)
                     .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent())));
@@ -120,6 +140,9 @@ public class ModItems {
             () -> new CreativeGasPipeVisualItem(ModBlocks.GAS_PIPE_VISUAL.get(), new Item.Properties(), 4));
     public static final DeferredItem<Item> GAS_VENT = ITEMS.register("gas_vent",
             () -> new Item(new Item.Properties().stacksTo(1)));
+    /** Entity presentation surrogate only; never contains canister gas or a tank slot. */
+    public static final DeferredItem<Item> GAS_CANISTER_PROXY = ITEMS.register("gas_canister_proxy",
+            () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "gas_canister"))));
     public static final DeferredItem<Item> GAS_SCRUBBER = ITEMS.register("gas_scrubber",
             () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> AIR_ALARM = ITEMS.register("air_alarm",
@@ -146,6 +169,7 @@ public class ModItems {
             .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.SMALL_ID));
     public static final DeferredItem<BeakerItem> BEAKER_LARGE = ITEMS.register("beaker_large", () -> new BeakerItem(new Item.Properties().stacksTo(1)
             .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.LARGE_ID));
+    public static final DeferredItem<GasTankItem> PLASMA_TANK = ITEMS.register("plasma_tank", () -> new GasTankItem(new Item.Properties()));
     public static final DeferredItem<BlockItem> CHEM_MASTER = ITEMS.register("chem_master",
             () -> new BlockItem(com.juicyslew.moonstation14.block.ModBlocks.CHEM_MASTER.get(), new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> NETWORK_CONFIGURATOR = ITEMS.register("network_configurator", () -> new Item(new Item.Properties().stacksTo(1)

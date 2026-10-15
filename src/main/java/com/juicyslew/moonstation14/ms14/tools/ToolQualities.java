@@ -50,9 +50,43 @@ public final class ToolQualities {
                 PrototypeRuntime.serverManager().snapshot(ModToolProfiles.TYPE));
     }
 
+    /** Hoe identity is resolved component metadata, never inferred from the held item ID. */
+    public static boolean hasHoe(ItemStack stack) {
+        ToolProfile profile = profile(stack);
+        return profile != null && profile.tags().contains("Hoe");
+    }
+
+    /** Shovel eligibility follows the resolved Shovel component, not a mining quality. */
+    public static boolean hasShovel(ItemStack stack) {
+        ToolProfile profile = profile(stack);
+        return profile != null && profile.shovel() != null;
+    }
+
+    /** Returns zero when no resolved Shovel component is present. */
+    public static double shovelSpeed(ItemStack stack) {
+        ToolProfile profile = profile(stack);
+        return profile == null || profile.shovel() == null ? 0 : profile.shovel().speedModifier();
+    }
+
+    public static boolean hasHoe(ResourceLocation itemId, PrototypeCatalog<ToolProfile> catalog) {
+        ToolProfile profile = itemId == null || catalog == null ? null : catalog.get(itemId);
+        return profile != null && profile.tags().contains("Hoe");
+    }
+
+    public static boolean hasShovel(ResourceLocation itemId, PrototypeCatalog<ToolProfile> catalog) {
+        ToolProfile profile = itemId == null || catalog == null ? null : catalog.get(itemId);
+        return profile != null && profile.shovel() != null;
+    }
+
+    public static double shovelSpeed(ResourceLocation itemId, PrototypeCatalog<ToolProfile> catalog) {
+        ToolProfile profile = itemId == null || catalog == null ? null : catalog.get(itemId);
+        return profile == null || profile.shovel() == null ? 0 : profile.shovel().speedModifier();
+    }
+
     static double prySpeed(ResourceLocation itemId, PrototypeCatalog<ToolProfile> catalog) {
         if (!has(itemId, ToolProfile.Quality.PRYING, catalog)) return 0;
         ToolProfile profile = catalog.get(itemId);
         return profile.prying() == null ? 0 : profile.prying().speedModifier();
     }
 }
+

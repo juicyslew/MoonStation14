@@ -15,3 +15,4 @@ public interface GameplayWindow {
         return screen instanceof GameplayWindow window && !window.capturesKeyboard();
     }
 }
+

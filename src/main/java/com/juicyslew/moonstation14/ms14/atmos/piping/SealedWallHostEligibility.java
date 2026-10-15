@@ -51,3 +51,4 @@ public final class SealedWallHostEligibility {
         return state.isCollisionShapeFullBlock(level, pos) && !AtmosphereTopology.isPassable(level, pos);
     }
 }
+

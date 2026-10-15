@@ -48,38 +48,53 @@ public final class BodyHandRequestService {
 
     /** Read-only admission only: deliberately does not invoke block use, item use, or protection callbacks. */
     public static boolean probeBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
-        return admitBlockUse(actor, request) != null;
+        return inspectBlockUse(actor, request).admission() != null;
     }
 
     /** Package-private authenticated read-only admission snapshot for narrowly scoped dispatchers. */
     public static BlockUseAdmission admitBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
-        if (request == null) return null;
+        return inspectBlockUse(actor, request).admission();
+    }
+
+    public static BlockUseInspection inspectBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        if (request == null) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var resolved = HandActorAuthority.resolve(actor);
-        if (resolved.isEmpty()) return null;
+        if (resolved.isEmpty()) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var authority = resolved.orElseThrow();
-        if (!BodyHandStateService.hasIssued(actor, authority)) return null;
-        if (!CharacterControlSystem.canAct(authority.body())) return null;
+        if (!BodyHandStateService.hasIssued(actor, authority)) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
+        if (!CharacterControlSystem.canAct(authority.body())) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
-        if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null) return null;
+        if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null)
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (hands == null || !request.handId().equals(hands.activeHand())
                 || !hands.handIds().contains(request.handId()) || !authority.handIds().contains(request.handId())
-                || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision()) return null;
+                || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision())
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var token = hands.token(request.handId());
         var stack = hands.stackCopy(request.handId());
         if (!blockUseHandStateMatches(request.expectedToken(), token.isPresent(), stack.isPresent(), token.orElse(null)))
-            return null;
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         if (!(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
-                || !HandActorAuthority.revalidate(actor, authority)) return null;
+                || !HandActorAuthority.revalidate(actor, authority))
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         // No reliable controlled-body crouch authority is currently defined. The hint is intentionally ignored.
         var hit = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
-        return hit != null && HandActorAuthority.revalidate(actor, authority)
+        boolean stillValid = HandActorAuthority.revalidate(actor, authority)
                 && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
-                && hands.revision() == request.expectedRevision()
-                ? new BlockUseAdmission(authority, hands, hit) : null;
+                && hands.compatible(authority.body()) && hands.revision() == request.expectedRevision()
+                && blockUseHandStateMatches(request.expectedToken(), hands.token(request.handId()).isPresent(),
+                        hands.stackCopy(request.handId()).isPresent(), hands.token(request.handId()).orElse(null));
+        if (!stillValid) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
+        if (hit == null) return new BlockUseInspection(null, BlockUseFailure.TARGET_NOT_ADMITTED);
+        return new BlockUseInspection(new BlockUseAdmission(authority, hands, hit), BlockUseFailure.NONE);
     }
 
-    static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
+    public enum BlockUseFailure { NONE, INVALID_PROOF, TARGET_NOT_ADMITTED }
+
+    public record BlockUseInspection(BlockUseAdmission admission, BlockUseFailure failure) { }
+
+    public static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
                                             String actualToken) {
         return expectedToken == null ? !tokenPresent && !stackPresent
                 : tokenPresent && stackPresent && expectedToken.equals(actualToken);
@@ -196,7 +211,7 @@ public final class BodyHandRequestService {
             boolean storing = request.action() == BodyHandActionRequest.Action.HELD_GRID_STORE;
             boolean moving = request.action() == BodyHandActionRequest.Action.HELD_GRID_MOVE;
             if (hostToken == null || !hostToken.equals(request.expectedToken()) || host == null
-                    || !(host.is(ModItems.BAG) || host.is(ModItems.BELT)) || contents == null
+                    || !GridContents.isHost(host) || contents == null
                     || storing && (!request.expectedChildOrSourceToken().equals(otherToken))
                     || !storing && !request.expectedChildOrSourceToken().equals(moving
                         ? contents.entries().stream().filter(e -> e.token().equals(request.expectedChildOrSourceToken())
@@ -593,7 +608,7 @@ public final class BodyHandRequestService {
                 var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), ownedToken,
                         request.expectedRevision(), true);
                 BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-                if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                if (outcome != BodyLiquidInteraction.Result.DENIED && outcome != BodyLiquidInteraction.Result.CANNOT_INGEST) BodyHandStateService.requireFreshQuery(actor);
                 return response;
             }
             if (hands.reservation(request.handId()).isPresent())
@@ -657,7 +672,7 @@ public final class BodyHandRequestService {
                             var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), request.expectedToken(),
                                     request.expectedRevision(), false);
                             BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-                            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                            if (outcome != BodyLiquidInteraction.Result.DENIED && outcome != BodyLiquidInteraction.Result.CANNOT_INGEST) BodyHandStateService.requireFreshQuery(actor);
                             return response;
                         });
                 if (dispatched != null) return dispatched;
@@ -878,7 +893,7 @@ public final class BodyHandRequestService {
     }
 
     private static BodyHandActionResult.Reason liquidReason(BodyLiquidInteraction.Result outcome) {
-        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
+        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED, CANNOT_INGEST -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
     }
     private static BodyHandActionResult.Reason looseThrowReason(BodyLooseThrow.Result outcome) {
         return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
@@ -972,3 +987,4 @@ public final class BodyHandRequestService {
         }
     }
 }
+

@@ -7,3 +7,4 @@ public interface BodyMetalTool {
     boolean supports(ItemStack stack);
     BodyBlockUseResult.Outcome use(BodyUseItemContext context);
 }
+

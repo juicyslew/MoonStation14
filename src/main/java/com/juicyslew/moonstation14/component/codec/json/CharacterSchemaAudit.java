@@ -885,3 +885,4 @@ public final class CharacterSchemaAudit {
         throw new IllegalArgumentException("Character schema at " + path + ": " + message);
     }
 }
+

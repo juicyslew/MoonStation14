@@ -129,7 +129,7 @@ class TimedInteractionMathTest {
     @Test
     void localFrameBlitSeparatesScaledDestinationFromAuthoredSourceCrop() throws IOException {
         Path renderer=projectRoot().resolve("src/main/java/com/juicyslew/moonstation14/ms14/timed_interaction/client/TimedInteractionRenderer.java");
-        String source=java.nio.file.Files.readString(renderer);
+        String source=java.nio.file.Files.readString(renderer).replace("\r\n", "\n");
         assertTrue(source.contains("gui.blit(FRAME,x,y,TimedInteractionMath.WIDTH*scale,TimedInteractionMath.HEIGHT*scale,\n"
                 + "                0f,0f,TimedInteractionMath.WIDTH,TimedInteractionMath.HEIGHT,\n"
                 + "                TimedInteractionMath.WIDTH,TimedInteractionMath.HEIGHT);"));

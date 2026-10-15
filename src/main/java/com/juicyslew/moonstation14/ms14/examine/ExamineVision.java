@@ -14,3 +14,4 @@ public final class ExamineVision {
     private ExamineVision() { }
     public static boolean isTransparent(BlockState state) { return state.is(TRANSPARENT); }
 }
+

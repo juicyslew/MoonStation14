@@ -55,3 +55,4 @@ public final class BodyActionPolicy {
         return identity != null && identity.complexInteractionEnabled() && !stunned;
     }
 }
+

@@ -350,3 +350,4 @@ public final class LifecycleFirstJoinHandler {
             player.connection.disconnect(Component.literal(reason));
     }
 }
+

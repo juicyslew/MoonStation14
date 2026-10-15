@@ -29,3 +29,4 @@ public final class ThirstAttachment implements IMS14Attachment<ThirstAttachment,
     }
     @Override public int hashCode() { return state.hashCode(); }
 }
+

@@ -100,3 +100,4 @@ public final class AirlockBumpSystem {
         return new double[]{Math.min(one,two), Math.max(one,two)};
     }
 }
+

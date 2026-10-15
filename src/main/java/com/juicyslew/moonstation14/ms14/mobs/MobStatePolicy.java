@@ -14,3 +14,4 @@ public record MobStatePolicy(MobStateComponent states, MobThresholdsComponent th
                 ? Optional.of(new MobStatePolicy(states.get(), thresholds.get())) : Optional.empty();
     }
 }
+

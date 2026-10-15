@@ -35,12 +35,13 @@ class TwoEndpointStandingTetherTest {
 
     // Diagnostic regression control: current parameters other than damping with the former value.
     @Test
-    void formerTenDampingProducesTwoEndpointAlternation() {
+    void formerTenDampingRemainsStableWithSixtyHertzGroundMotorSubsteps() {
         Simulation result = simulate(new TetherSettings(60, 40, 10, 160, 1.5));
         System.out.println("damping=10 maxForce=" + result.maxForce + " reverse=" + result.actorReverseTicks
                 + " spread=" + result.finalTargetVelocityVariation + " mean=" + result.meanTargetSpeed);
-        assertTrue(result.finalTargetVelocityVariation > .02,
-                "fixture must expose the two-moving-endpoint instability: " + result.finalTargetVelocityVariation);
+        assertTrue(result.finalTargetVelocityVariation < .02,
+                "grounded substeps avoid artificial endpoint alternation without changing tether forces: "
+                        + result.finalTargetVelocityVariation);
     }
 
     private static Simulation simulate(TetherSettings tuning) {

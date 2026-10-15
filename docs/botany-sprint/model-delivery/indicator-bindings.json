@@ -1,0 +1,200 @@
+{
+  "formatVersion": 1,
+  "tray": "moonstation14:block/botany/hydroponics_tray",
+  "front": "north -Z",
+  "status_precedence": "independent booleans, NOT exclusive plant selection",
+  "renderer_translation": [
+    0,
+    0,
+    0
+  ],
+  "renderer_scale": 1,
+  "off": "omit that component; base dark backing remains visible",
+  "on": "draw component ONCE at block origin, behind physical slot front and in front of dark backing",
+  "normal_lighting": true,
+  "fullbright": false,
+  "native_cycle": {
+    "frames": 7,
+    "seconds_per_frame": 0.1,
+    "ticks_per_frame": 2,
+    "seconds": 0.7,
+    "ticks": 14
+  },
+  "slots": [
+    {
+      "id": "harvest",
+      "center_x": 12.8,
+      "source": "harvest3",
+      "appearance": "PlantHolderVisuals.HarvestLight",
+      "source_crop": [
+        4,
+        27,
+        8,
+        30
+      ],
+      "model": "moonstation14:block/botany/indicators/harvest",
+      "quad_export": [
+        [
+          11.8,
+          1.3,
+          2.4800000000000004
+        ],
+        [
+          13.8,
+          2.8,
+          2.4800000000000004
+        ]
+      ],
+      "faces": [
+        "north"
+      ],
+      "texture_uv_java": [
+        4,
+        4,
+        12,
+        10
+      ],
+      "element_name": "status_harvest_display"
+    },
+    {
+      "id": "health",
+      "center_x": 10.4,
+      "source": "lowhealth3",
+      "appearance": "PlantHolderVisuals.HealthLight",
+      "source_crop": [
+        9,
+        27,
+        13,
+        30
+      ],
+      "model": "moonstation14:block/botany/indicators/health",
+      "quad_export": [
+        [
+          9.4,
+          1.3,
+          2.4800000000000004
+        ],
+        [
+          11.4,
+          2.8,
+          2.4800000000000004
+        ]
+      ],
+      "faces": [
+        "north"
+      ],
+      "texture_uv_java": [
+        4,
+        4,
+        12,
+        10
+      ],
+      "element_name": "status_health_display"
+    },
+    {
+      "id": "alert",
+      "center_x": 8.0,
+      "source": "alert3",
+      "appearance": "PlantHolderVisuals.AlertLight",
+      "source_crop": [
+        14,
+        27,
+        18,
+        30
+      ],
+      "model": "moonstation14:block/botany/indicators/alert",
+      "quad_export": [
+        [
+          7.0,
+          1.3,
+          2.4800000000000004
+        ],
+        [
+          9.0,
+          2.8,
+          2.4800000000000004
+        ]
+      ],
+      "faces": [
+        "north"
+      ],
+      "texture_uv_java": [
+        4,
+        4,
+        12,
+        10
+      ],
+      "element_name": "status_alert_display"
+    },
+    {
+      "id": "nutrition",
+      "center_x": 5.6,
+      "source": "lownutri3",
+      "appearance": "PlantHolderVisuals.NutritionLight",
+      "source_crop": [
+        19,
+        27,
+        23,
+        30
+      ],
+      "model": "moonstation14:block/botany/indicators/nutrition",
+      "quad_export": [
+        [
+          4.6,
+          1.3,
+          2.4800000000000004
+        ],
+        [
+          6.6,
+          2.8,
+          2.4800000000000004
+        ]
+      ],
+      "faces": [
+        "north"
+      ],
+      "texture_uv_java": [
+        4,
+        4,
+        12,
+        10
+      ],
+      "element_name": "status_nutrition_display"
+    },
+    {
+      "id": "water",
+      "center_x": 3.2,
+      "source": "lowwater3",
+      "appearance": "PlantHolderVisuals.WaterLight",
+      "source_crop": [
+        24,
+        27,
+        28,
+        30
+      ],
+      "model": "moonstation14:block/botany/indicators/water",
+      "quad_export": [
+        [
+          2.2,
+          1.3,
+          2.4800000000000004
+        ],
+        [
+          4.2,
+          2.8,
+          2.4800000000000004
+        ]
+      ],
+      "faces": [
+        "north"
+      ],
+      "texture_uv_java": [
+        4,
+        4,
+        12,
+        10
+      ],
+      "element_name": "status_water_display"
+    }
+  ]
+}

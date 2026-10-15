@@ -28,3 +28,4 @@ public final class HandInfoLayout {
                 new HandBarLayout.Rect(rightX, y, panelWidth, panelHeight), Math.max(0, panelWidth - 6));
     }
 }
+

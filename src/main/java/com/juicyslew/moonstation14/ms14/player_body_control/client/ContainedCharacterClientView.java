@@ -74,3 +74,4 @@ public final class ContainedCharacterClientView {
     }
     private record OwnedBinding(UUID body, long epoch) { }
 }
+

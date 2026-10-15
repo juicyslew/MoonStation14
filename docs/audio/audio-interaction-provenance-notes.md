@@ -1,0 +1,7 @@
+# Tank-slot and valve audio mapping
+
+Upstream checkout verified at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
+
+* Canister valve default is `valveSqueak`, inherited from `GasMaxPressureHolderComponent` (`Content.Shared/Atmos/Components/GasMaxPressureHolderComponent.cs`). `Resources/Prototypes/SoundCollections/atmospherics.yml` declares three members: `/Audio/Effects/squeak1.ogg`, `squeak2.ogg`, and `squeak3.ogg`. These have been copied unchanged to `assets/moonstation14/sounds/ss14/atmos/`. No verified author/licensing metadata was located in the pinned checkout; attribution remains unknown.
+* Local tank internals connect/disconnect and a separately controllable gas-tank valve are absent. No such capability was added. `spray.ogg` (the atmospheric canister valve release default) is not used for the unrelated local inserted-tank-to-canister refill.
+* Item-slot sounds upstream default to `/Audio/Weapons/Guns/MagIn/revolver_magin.ogg` and `/Audio/Weapons/Guns/MagOut/revolver_magout.ogg` (`Content.Shared/Containers/ItemSlot/ItemSlotsSystem.cs`). Local events reuse the byte-identical existing `sounds/chemistry/chemmaster/` samples and retain their file-specific license notes; duplicate imports were removed. Source provenance is `Resources/Audio/Weapons/Guns/sources.json`, which attributes these to CEV-Eris commit `01f7518e0f8177734a6579aba2bbf76024aa96c4` (`rev_magin.ogg`, `rev_magout.ogg`). A verified license is not inferred from that source record. Unresolved provenance is indexed in `audio-unknown-provenance.md`.

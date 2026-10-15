@@ -86,23 +86,26 @@ public final class HumanHarnessTravelOwnershipGameTests {
                 require(vanillaVillager.walkAnimation.speed(1f) < 1e-4f
                                 && vanillaPig.walkAnimation.speed(1f) < 1e-4f,
                         "unowned stationary controls must not gain walk animation");
-                  int decayTicks = requiredWalkAnimationDecayTicks(Math.max(
-                         Math.max(ownedVillager.walkAnimation.speed(1f), ownedPig.walkAnimation.speed(1f)),
-                         Math.max(vanillaVillager.walkAnimation.speed(1f), vanillaPig.walkAnimation.speed(1f))));
+                   int decayTicks = Math.max(30, requiredWalkAnimationDecayTicks(Math.max(
+                          Math.max(ownedVillager.walkAnimation.speed(1f), ownedPig.walkAnimation.speed(1f)),
+                          Math.max(vanillaVillager.walkAnimation.speed(1f), vanillaPig.walkAnimation.speed(1f)))));
                   final int[] observed = {0};
                   com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeOnEachTick(helper, new Runnable() {
                       @Override public void run() {
                           if (!GroundedHarnessLease.isOwnedBodyEligible(ownedVillager)
                                   || !GroundedHarnessLease.isOwnedBodyEligible(ownedPig)) return;
-                          Vec3 villagerBefore = ownedVillager.position();
-                          Vec3 pigBefore = ownedPig.position();
+                           Vec3 villagerBefore = ownedVillager.position();
+                           Vec3 pigBefore = ownedPig.position();
+                           double villagerSpeedBefore = ownedVillager.getDeltaMovement().horizontalDistance();
+                           double pigSpeedBefore = ownedPig.getDeltaMovement().horizontalDistance();
                           var stationaryVillager = stepper.step(ownedVillager, 0, 0, false, false, 0f);
                           var stationaryPig = stepper.step(ownedPig, 0, 0, false, false, 0f);
                           require(stationaryVillager.isPresent() && stationaryPig.isPresent(), "stationary owned steps accepted");
-                          require(villagerBefore.equals(ownedVillager.position()) && pigBefore.equals(ownedPig.position())
-                                          && ownedVillager.getDeltaMovement().horizontalDistanceSqr() == 0
-                                          && ownedPig.getDeltaMovement().horizontalDistanceSqr() == 0,
-                                  "stationary owned steps must preserve position and zero horizontal velocity");
+                           require(ownedVillager.getDeltaMovement().horizontalDistance() <= villagerSpeedBefore + 1e-6
+                                           && ownedPig.getDeltaMovement().horizontalDistance() <= pigSpeedBefore + 1e-6
+                                           && ownedVillager.position().distanceTo(villagerBefore) < 1
+                                           && ownedPig.position().distanceTo(pigBefore) < 1,
+                                   "stationary owned steps apply resolved per-substep ground damping with bounded displacement");
                           observed[0]++;
                           if (observed[0] < decayTicks) return;
                   require(ownedVillager.walkAnimation.speed(1f) < WALK_ANIMATION_STATIONARY_THRESHOLD

@@ -179,3 +179,4 @@ public final class ExamineWorldSelector {
     private static double delta(double v){return v==0?Double.POSITIVE_INFINITY:Math.abs(1/v);}
     private static double firstBoundary(double origin,double direction,int cell,int step){return step==0?Double.POSITIVE_INFINITY:((step>0?cell+1.0:cell)-origin)/direction;}
 }
+

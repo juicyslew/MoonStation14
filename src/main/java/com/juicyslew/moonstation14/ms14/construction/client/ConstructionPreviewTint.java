@@ -31,3 +31,4 @@ public final class ConstructionPreviewTint {
         @Override public VertexConsumer setNormal(float x,float y,float z){delegate.setNormal(x,y,z);return this;}
     }
 }
+

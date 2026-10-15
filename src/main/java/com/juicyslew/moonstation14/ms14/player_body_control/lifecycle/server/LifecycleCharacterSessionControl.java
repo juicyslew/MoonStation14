@@ -1160,3 +1160,4 @@ public final class LifecycleCharacterSessionControl {
                 && entityId >= 0;
     }
 }
+

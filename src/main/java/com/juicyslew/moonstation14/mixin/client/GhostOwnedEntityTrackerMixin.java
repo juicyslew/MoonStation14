@@ -52,3 +52,4 @@ public abstract class GhostOwnedEntityTrackerMixin {
         GhostControlClient.onOwnedGhostTeleport(packet.getId());
     }
 }
+

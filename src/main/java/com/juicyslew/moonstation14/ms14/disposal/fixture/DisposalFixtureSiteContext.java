@@ -17,3 +17,4 @@ final class DisposalFixtureSiteContext {
     void clear() { sites.clear(); }
     private record Key(UUID operator, ResourceKey<Level> dimension) { }
 }
+

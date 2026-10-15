@@ -1,0 +1,50 @@
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileGametestJava UP-TO-DATE
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :gametestClasses UP-TO-DATE
+> Task :compileTestJava UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :test
+
+LooseItemRenderLayersTest > singlesAndDifferentGroundSurfacesDoNotRise() FAILED
+    org.opentest4j.AssertionFailedError at LooseItemRenderLayersTest.java:29
+
+PointerOverlayRegistryTest > keyDispatchUsesStableSnapshotAndSkipsRemovedWindows() FAILED
+    org.opentest4j.AssertionFailedError at PointerOverlayRegistryTest.java:79
+
+PointerOverlayRegistryTest > clickAndRenderCallbacksCanMutateMembershipDuringSnapshotTraversal() FAILED
+    org.opentest4j.AssertionFailedError at PointerOverlayRegistryTest.java:88
+        Caused by: java.lang.NullPointerException at PointerOverlayRegistryTest.java:88
+
+3376 tests completed, 3 failed
+
+> Task :test FAILED
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-04/build/reports/problems/problems-report.html
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-04/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+
+BUILD FAILED in 3m 43s
+For more on this, please refer to https://docs.gradle.org/9.2.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+13 actionable tasks: 1 executed, 12 up-to-date

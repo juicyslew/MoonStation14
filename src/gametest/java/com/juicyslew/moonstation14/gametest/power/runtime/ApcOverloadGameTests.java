@@ -232,29 +232,22 @@ public final class ApcOverloadGameTests {
     private static String debugState(DebugFixture fixture) {
         var level = fixture.level();
         CableFaceNode receiver = PowerGraphService.nearestLampNode(level, fixture.lamps().get(0));
-        return "sources=" + fixture.sources().stream().map(port -> PowerGraphService.state(level, port)).toList()
-                + ",subHV=" + PowerGraphService.state(level, fixture.subHvPort())
+        return "src=" + fixture.sources().stream().map(port -> shortState(PowerGraphService.diagnostics(level, port))).toList()
+                + ",subHV=" + shortState(PowerGraphService.diagnostics(level, fixture.subHvPort()))
                 + ",subMV=" + PowerGraphService.state(level, fixture.subMvPort())
-                + ",apcMV=" + PowerGraphService.state(level, fixture.apcMvPort())
-                + ",output=" + PowerGraphService.state(level, fixture.output())
-                + ",receiver=" + receiver
-                + ",receiverState=" + (receiver == null ? "none" : PowerGraphService.state(level, receiver))
-                + ",breakerClosed=" + fixture.apc().breakerClosed()
-                + ",tripLatched=" + fixture.apc().tripLatched()
-                + ",energyJoules=" + fixture.apc().energyJoules()
-                + ",debugLoadWatts=" + 2 * PowerDeviceKind.DEBUG_LOAD_LAMP.lampDemandWatts()
-                + ",sourceRatedWatts=" + PowerRuntime.SOURCE_WATTS
-                + ",substationRatedOutputWatts=" + (30_000 * .9)
-                + ",lampStates=" + lampDiagnostic(fixture, 0) + "/" + lampDiagnostic(fixture, 1)
-                + ",apcSupplyState=" + PowerRuntime.apcVisualState(level, fixture.apc())
-                + ",indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
-                + ",sourceChunk=" + loadedChunk(level, fixture.sources().get(0).host())
-                + ",substationHvChunk=" + loadedChunk(level, fixture.subHvPort().host())
-                + ",substationMvChunk=" + loadedChunk(level, fixture.subMvPort().host())
-                + ",apcMvChunk=" + loadedChunk(level, fixture.apcMvPort().host())
-                + ",receiverChunk=" + loadedChunk(level, fixture.lamps().get(0))
-                + ",graph=" + PowerGraphService.diagnosticSnapshot(level)
-                + ",solve=" + PowerRuntime.lastSolveDiagnostic(level);
+                + ",APCMV=" + PowerGraphService.state(level, fixture.apcMvPort())
+                + ",out=" + PowerGraphService.state(level, fixture.output())
+                + ",receiver=" + (receiver == null ? "none" : PowerGraphService.state(level, receiver))
+                + ",missingReal=" + loadedChunk(level, fixture.sources().get(0).host()) + "/"
+                + loadedChunk(level, fixture.subHvPort().host()) + "/" + loadedChunk(level, fixture.lamps().get(0))
+                + ",apc=" + fixture.apc().breakerClosed() + "/" + fixture.apc().tripLatched()
+                + ",lamps=" + lampDiagnostic(fixture, 0) + "/" + lampDiagnostic(fixture, 1)
+                + ",pending=" + PowerGraphService.diagnosticSnapshot(level);
+    }
+
+    private static String shortState(LoadedPowerGraph.NodeDiagnostics d) {
+        return d.state().knowledge() + "/" + d.state().componentId() + "[rebuild=" + d.rebuilding()
+                + ",indexed=" + d.nodeIndexed() + ",missing=" + d.unloadedPotentialNeighborChunks() + "]";
     }
 
     private static String loadedChunk(ServerLevel level, BlockPos pos) {
@@ -264,6 +257,7 @@ public final class ApcOverloadGameTests {
 
     /** Compact version of the established source -> HV -> substation -> MV -> APC -> floor-cable path. */
     private static DebugFixture debugFixture(GameTestHelper helper, boolean twoLamps) {
+        // Topology discovery probes one block beyond cable hosts; keep that candidate-neighbor halo resident too.
         var ticket = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 0, 2)),
                 helper.absolutePos(new BlockPos(5, 1, 7)), 1);
         ServerLevel level = (ServerLevel) helper.getLevel();
@@ -539,8 +533,13 @@ public final class ApcOverloadGameTests {
         CableFaceNode output = new CableFaceNode(outputHost, Direction.WEST, CableTier.APC);
         BlockPos spineHost = heavyPos(helper, 3, 0, 6);
         CableFaceNode spine = new CableFaceNode(spineHost, Direction.UP, CableTier.APC);
-        scheduleConnectedOverloadSequence(helper, level, apcEntity, apc, output, spine,
-                heavyPos(helper, 3, 1, 7), fullFixtureDemandWatts);
+        PowerFixtureReadiness.await(helper, level, 700,
+                () -> PowerFixtureReadiness.topologyReadyWithKnownPorts(level, output, spine)
+                        && PowerRuntime.apcOutputObservation(level, apcEntity).known()
+                        && PowerRuntime.apcOutputObservation(level, apcEntity).outputWatts() >= fullFixtureDemandWatts,
+                () -> "await connected overload observation: " + overloadState(level, apcEntity, output, spine),
+                () -> scheduleConnectedOverloadSequence(helper, level, apcEntity, apc, output, spine,
+                        heavyPos(helper, 3, 1, 7), fullFixtureDemandWatts));
     }
 
     private static void scheduleConnectedOverloadSequence(GameTestHelper helper, ServerLevel level,

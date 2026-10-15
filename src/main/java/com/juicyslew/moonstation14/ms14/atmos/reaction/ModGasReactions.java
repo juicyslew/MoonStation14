@@ -49,3 +49,4 @@ public final class ModGasReactions {
         return level.isClientSide() ? PrototypeRuntime.clientGasReactions() : PrototypeRuntime.serverGasReactions();
     }
 }
+

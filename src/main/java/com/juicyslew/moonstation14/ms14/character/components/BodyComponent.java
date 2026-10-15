@@ -15,3 +15,4 @@ public record BodyComponent() implements CharacterComponent {
 
     @Override public String type() { return TYPE; }
 }
+

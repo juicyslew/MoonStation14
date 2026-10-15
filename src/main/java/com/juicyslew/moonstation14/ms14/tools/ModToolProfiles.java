@@ -15,6 +15,8 @@ public final class ModToolProfiles {
     public static final ResourceLocation WIRECUTTER = id("wirecutter");
     public static final ResourceLocation SCREWDRIVER = id("screwdriver");
     public static final ResourceLocation MULTITOOL = id("multitool");
+    public static final ResourceLocation BOTANY_HOE = id("botany_hoe");
+    public static final ResourceLocation BOTANY_SPADE = id("botany_spade");
     public static final PrototypeType<ToolProfile> TYPE = new PrototypeType<>(id("tool_profile"),
             "moonstation14/tool_profile", ToolProfile.CODEC,
             ModToolProfiles::validateInheritance, ModToolProfiles::validateCatalog);
@@ -64,3 +66,4 @@ public final class ModToolProfiles {
                 || !json.keySet().equals(fields)) throw new IllegalArgumentException("invalid abstract profile " + id);
     }
 }
+

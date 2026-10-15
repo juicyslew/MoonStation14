@@ -113,7 +113,7 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         drawComponent(manager.getModel(modelLocation(BASE+"components/"+part)),pose,buffers,light,overlay,x,y,true,powered);
     }
 
-    private static void drawComponent(BakedModel model, PoseStack pose, MultiBufferSource buffers,
+    public static void drawComponent(BakedModel model, PoseStack pose, MultiBufferSource buffers,
                                        int light, int overlay, double xTranslation, double yTranslation,
                                       boolean clip, boolean powered) {
         if (model == null) return;
@@ -223,3 +223,4 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
                 .setLight(light).setNormal(normal.x, normal.y, normal.z);
     }
 }
+

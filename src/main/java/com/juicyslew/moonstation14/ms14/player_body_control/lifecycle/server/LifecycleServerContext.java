@@ -468,3 +468,4 @@ final class LifecycleServerContext {
 
     LifecycleProfileStore primaryStore() { return primaryStore; }
 }
+

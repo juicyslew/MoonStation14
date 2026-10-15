@@ -161,3 +161,4 @@ public final class MachineWindowRenderer {
                 size, size, 0.0f, 0.0f, sourceSize, sourceSize, textureWidth, textureHeight);
     }
 }
+

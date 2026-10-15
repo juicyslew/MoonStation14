@@ -62,3 +62,4 @@ public final class ModAirAlarms {
         catalog.get(AIR_ALARM).validate();
     }
 }
+

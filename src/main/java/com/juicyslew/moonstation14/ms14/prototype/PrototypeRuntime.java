@@ -36,6 +36,14 @@ import com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile;
 import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import com.juicyslew.moonstation14.ms14.ingestion.IngestionProfile;
 import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
+import com.juicyslew.moonstation14.ms14.botany.SeedProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles;
+import com.juicyslew.moonstation14.ms14.botany.ProduceProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles;
+import com.juicyslew.moonstation14.ms14.botany.MachineProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles;
+import com.juicyslew.moonstation14.ms14.botany.TrayProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles;
 import com.juicyslew.moonstation14.ms14.damage.DamageFeedbackProfile;
 import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 import com.juicyslew.moonstation14.ms14.medical.ModMedicalItems;
@@ -66,6 +74,16 @@ import com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls;
 import com.juicyslew.moonstation14.ms14.devicenet.control.SignalControlData;
 import com.juicyslew.moonstation14.ms14.devicenet.NetworkDeviceItemData;
 import com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems;
+import com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals;
+import com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay;
+import com.juicyslew.moonstation14.ms14.singularity.containment.ModFieldGenerators;
+import com.juicyslew.moonstation14.ms14.singularity.emitter.ModEmitters;
+import com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators;
+import com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAcceleratorParticles;
+import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankData;
+import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
+import com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterProfile;
+import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -177,6 +195,14 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<ItemFootprintProfile> clientItemFootprints() { return CLIENT_MANAGER.snapshot(ModItemFootprints.TYPE); }
     public static PrototypeCatalog<IngestionProfile> serverIngestionProfiles() { return SERVER_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
     public static PrototypeCatalog<IngestionProfile> clientIngestionProfiles() { return CLIENT_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
+    public static PrototypeCatalog<SeedProfile> serverSeedProfiles() { return SERVER_MANAGER.snapshot(ModSeedProfiles.TYPE); }
+    public static PrototypeCatalog<SeedProfile> clientSeedProfiles() { return CLIENT_MANAGER.snapshot(ModSeedProfiles.TYPE); }
+    public static PrototypeCatalog<ProduceProfile> serverProduceProfiles() { return SERVER_MANAGER.snapshot(ModProduceProfiles.TYPE); }
+    public static PrototypeCatalog<ProduceProfile> clientProduceProfiles() { return CLIENT_MANAGER.snapshot(ModProduceProfiles.TYPE); }
+    public static PrototypeCatalog<MachineProfile> serverBotanyMachineProfiles() { return SERVER_MANAGER.snapshot(ModBotanyMachineProfiles.TYPE); }
+    public static PrototypeCatalog<MachineProfile> clientBotanyMachineProfiles() { return CLIENT_MANAGER.snapshot(ModBotanyMachineProfiles.TYPE); }
+    public static PrototypeCatalog<TrayProfile> serverTrayProfiles() { return SERVER_MANAGER.snapshot(ModTrayProfiles.TYPE); }
+    public static PrototypeCatalog<TrayProfile> clientTrayProfiles() { return CLIENT_MANAGER.snapshot(ModTrayProfiles.TYPE); }
     public static PrototypeCatalog<DamageFeedbackProfile> serverDamageFeedback() { return SERVER_MANAGER.snapshot(ModDamageFeedback.TYPE); }
     public static PrototypeCatalog<DamageFeedbackProfile> clientDamageFeedback() { return CLIENT_MANAGER.snapshot(ModDamageFeedback.TYPE); }
     public static PrototypeCatalog<MedicalItemData> serverMedicalItems() { return SERVER_MANAGER.snapshot(ModMedicalItems.TYPE); }
@@ -197,6 +223,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<JugData> clientJugs() { return CLIENT_MANAGER.snapshot(ModJugs.TYPE); }
     public static PrototypeCatalog<BeakerData> serverBeakers() { return SERVER_MANAGER.snapshot(ModBeakers.TYPE); }
     public static PrototypeCatalog<BeakerData> clientBeakers() { return CLIENT_MANAGER.snapshot(ModBeakers.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData> serverChemContainers() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData> clientChemContainers() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE); }
     public static PrototypeCatalog<ChemMasterData> serverChemMasters() { return SERVER_MANAGER.snapshot(ModChemMasters.TYPE); }
     public static PrototypeCatalog<ChemMasterData> clientChemMasters() { return CLIENT_MANAGER.snapshot(ModChemMasters.TYPE); }
     public static PrototypeCatalog<PowerAppearanceData> serverPowerAppearances() { return SERVER_MANAGER.snapshot(ModPowerAppearances.TYPE); }
@@ -211,6 +239,18 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<SignalControlData> clientSignalControls() { return CLIENT_MANAGER.snapshot(ModSignalControls.TYPE); }
     public static PrototypeCatalog<NetworkDeviceItemData> serverNetworkDeviceItems() { return SERVER_MANAGER.snapshot(ModNetworkDeviceItems.TYPE); }
     public static PrototypeCatalog<NetworkDeviceItemData> clientNetworkDeviceItems() { return CLIENT_MANAGER.snapshot(ModNetworkDeviceItems.TYPE); }
+    public static PrototypeCatalog<GasTankData> serverGasTanks() { return SERVER_MANAGER.snapshot(ModGasTanks.TYPE); }
+    public static PrototypeCatalog<GasTankData> clientGasTanks() { return CLIENT_MANAGER.snapshot(ModGasTanks.TYPE); }
+    public static PrototypeCatalog<GasCanisterProfile> serverGasCanisters() { return SERVER_MANAGER.snapshot(ModGasCanisters.TYPE); }
+    public static PrototypeCatalog<GasCanisterProfile> clientGasCanisters() { return CLIENT_MANAGER.snapshot(ModGasCanisters.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.containment.FieldGeneratorProfile> serverFieldGenerators() { return SERVER_MANAGER.snapshot(ModFieldGenerators.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.containment.FieldGeneratorProfile> clientFieldGenerators() { return CLIENT_MANAGER.snapshot(ModFieldGenerators.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfile> serverSingularityGameplay() { return SERVER_MANAGER.snapshot(ModSingularityGameplay.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfile> clientSingularityGameplay() { return CLIENT_MANAGER.snapshot(ModSingularityGameplay.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorControlProfile> serverParticleAccelerators() { return SERVER_MANAGER.snapshot(ModParticleAccelerators.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorControlProfile> clientParticleAccelerators() { return CLIENT_MANAGER.snapshot(ModParticleAccelerators.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticleProfile> serverParticleAcceleratorParticles() { return SERVER_MANAGER.snapshot(ModParticleAcceleratorParticles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticleProfile> clientParticleAcceleratorParticles() { return CLIENT_MANAGER.snapshot(ModParticleAcceleratorParticles.TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -233,6 +273,10 @@ public final class PrototypeRuntime {
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
         manager.register(ModIngestionProfiles.TYPE);
+        manager.register(ModSeedProfiles.TYPE);
+        manager.register(ModProduceProfiles.TYPE);
+        manager.register(ModBotanyMachineProfiles.TYPE);
+        manager.register(ModTrayProfiles.TYPE);
         manager.register(ModDamageFeedback.TYPE);
         manager.register(ModMedicalItems.TYPE);
         manager.register(ModInjectorModes.TYPE);
@@ -244,13 +288,25 @@ public final class PrototypeRuntime {
         manager.register(ModCelestialScenes.TYPE);
         manager.register(ModJugs.TYPE);
         manager.register(ModBeakers.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE);
         manager.register(ModChemMasters.TYPE);
         manager.register(ModPowerAppearances.TYPE);
+        manager.register(ModSingularityVisuals.TYPE);
+        manager.register(ModSingularityGameplay.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
+        manager.register(ModFieldGenerators.TYPE);
+        manager.register(ModEmitters.TYPE);
+         manager.register(ModParticleAccelerators.TYPE);
+         manager.register(ModParticleAcceleratorParticles.TYPE);
         manager.register(ModDeviceNetworks.FREQUENCY_TYPE);
         manager.register(ModDeviceNetworks.NETWORK_TYPE);
         manager.register(ModDeviceNetworks.PORT_TYPE);
         manager.register(ModSignalControls.TYPE);
         manager.register(ModNetworkDeviceItems.TYPE);
+        manager.register(ModGasTanks.TYPE);
+        manager.register(ModGasCanisters.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE);
         return manager;
     }
 }
+

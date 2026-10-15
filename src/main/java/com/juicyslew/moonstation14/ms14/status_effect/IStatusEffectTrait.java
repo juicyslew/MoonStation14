@@ -12,3 +12,4 @@ public interface IStatusEffectTrait {
         return new TraitHandler<>(this, this);
     }
 }
+

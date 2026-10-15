@@ -24,3 +24,4 @@ final class ConfiguratorPaneLayout {
     double logicalX(double guiX){return (guiX-x)/scale;}
     double logicalY(double guiY){return (guiY-y)/scale;}
 }
+

@@ -88,3 +88,4 @@ public final class VentilationFixturePlan {
     public Map<String,Scenario> scenarios(){return Map.of("scrubber",Scenario.SCRUBBER_ENABLED_TEST_GAS,"vent",Scenario.VENT_DISABLED);}
     public Direction scrubberFacing(){return Direction.SOUTH;} public Direction ventFacing(){return Direction.SOUTH;} public Direction alarmFacing(){return Direction.NORTH;}
 }
+

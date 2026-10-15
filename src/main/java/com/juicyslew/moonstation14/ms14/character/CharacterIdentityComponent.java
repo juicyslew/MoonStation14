@@ -33,3 +33,4 @@ public record CharacterIdentityComponent(ResourceLocation characterId)
         return STREAM_CODEC;
     }
 }
+

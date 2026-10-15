@@ -26,3 +26,4 @@ public record ContainedBodyView(UUID ownerIdentity, Optional<BlockPos> worldTarg
         this(ownerIdentity, worldTarget, cameraCollision, Optional.empty());
     }
 }
+

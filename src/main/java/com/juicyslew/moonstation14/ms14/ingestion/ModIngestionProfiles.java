@@ -25,6 +25,7 @@ public final class ModIngestionProfiles {
     public static boolean serverReady() { return ready(serverCatalog()); }
     public static boolean clientReady() { return ready(clientCatalog()); }
     private static boolean ready(PrototypeCatalog<IngestionProfile> catalog) {
-        return catalog.contains(id("jug")) && catalog.contains(id("bottle")) && catalog.contains(id("puddle"));
+        return catalog.contains(id("jug")) && catalog.contains(id("bottle")) && catalog.contains(id("pill")) && catalog.contains(id("puddle"));
     }
 }
+

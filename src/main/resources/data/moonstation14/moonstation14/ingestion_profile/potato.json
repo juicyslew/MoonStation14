@@ -1,0 +1,1 @@
+{"id":"moonstation14:potato","parent":"moonstation14:food_base","edible":{"dose_cents":500,"delay_ticks":20,"force_feed_delay_ticks":60,"source_solution":{"capacity_cents":1400,"contents_cents":{"moonstation14:nutriment":1000,"moonstation14:vitamin":400}}}}

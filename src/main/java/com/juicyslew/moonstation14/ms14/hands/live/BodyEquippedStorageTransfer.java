@@ -433,3 +433,4 @@ public final class BodyEquippedStorageTransfer {
                 && level.getEntity(body.getUUID()) == body;
     }
 }
+

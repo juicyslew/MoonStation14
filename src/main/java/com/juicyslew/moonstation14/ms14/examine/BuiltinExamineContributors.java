@@ -33,6 +33,7 @@ public final class BuiltinExamineContributors {
         ExamineContributorRegistry.register("puddle-solution", BuiltinExamineContributors::puddleSolution);
         ExamineContributorRegistry.register("jug-solution", BuiltinExamineContributors::jugSolution);
         ExamineContributorRegistry.register("beaker-solution", BuiltinExamineContributors::beakerSolution);
+        ExamineContributorRegistry.register("botany-tray", BotanyExamineContributor::contribute);
     }
 
     static void metadata(ExamineContext context, ExamineCollector collector) {
@@ -158,3 +159,4 @@ public final class BuiltinExamineContributors {
         return SolutionExamineFormatter.volumeCategory(units, capacity); // deterministic adaptation for SS14 examiner-dependent middle band.
     }
 }
+

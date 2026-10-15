@@ -26,3 +26,4 @@ public record SpeechComponent(String accent, String speechSound, java.util.Set<S
 
     @Override public String type() { return TYPE; }
 }
+

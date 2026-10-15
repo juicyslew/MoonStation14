@@ -14,3 +14,4 @@ public record NativeBodyPullRequest(UUID target) implements CustomPacketPayload 
             buf -> new NativeBodyPullRequest(buf.readBoolean() ? buf.readUUID() : null));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

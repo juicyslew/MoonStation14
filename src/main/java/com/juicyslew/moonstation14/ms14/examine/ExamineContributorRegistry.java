@@ -28,3 +28,4 @@ public final class ExamineContributorRegistry {
         return ATTEMPTS.keySet().stream().sorted().allMatch(id -> ATTEMPTS.get(id).mayExamine(actor, target, level));
     }
 }
+

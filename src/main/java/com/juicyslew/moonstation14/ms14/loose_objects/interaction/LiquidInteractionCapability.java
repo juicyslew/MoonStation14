@@ -52,3 +52,4 @@ public final class LiquidInteractionCapability {
         return new TransferPlan(sourceBefore, nextSource, destinationBefore, nextDestination, accepted);
     }
 }
+

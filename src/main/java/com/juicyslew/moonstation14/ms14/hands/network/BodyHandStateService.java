@@ -193,7 +193,8 @@ public final class BodyHandStateService {
             return false;
         if (com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrying.containsPortableReferences(stack)
                 && !stack.is(ModItems.BAG) && !stack.is(ModItems.BELT)) return false;
-        if (stack.is(ModItems.BAG) || stack.is(ModItems.BELT)) {
+        if (GridContents.isHost(stack)) {
+            if (stack.is(ModItems.PILL_CANISTER)) return GridContents.read(stack).isPresent();
             if (stack.has(ModDataComponents.GRID_CONTENTS.get())) return GridContents.read(stack).isPresent();
             if (stack.has(ModDataComponents.POUCH_CONTENTS.get())) return PouchContents.read(stack).isPresent();
             return PouchContents.read(stack).isPresent();
@@ -218,11 +219,11 @@ public final class BodyHandStateService {
                 String itemId = BuiltInRegistries.ITEM.getKey(item.getItem()).toString();
                 if (itemId.isBlank() || itemId.length() > 256 || item.getCount() > 99)
                     return null;
-                if (item.is(ModItems.BAG) || item.is(ModItems.BELT)) {
+                if (GridContents.isHost(item)) {
                     if (item.has(ModDataComponents.GRID_CONTENTS.get())) {
                         if (GridContents.read(item).isEmpty()) return null;
                         slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(), false, null, null, 0, hands.reservation(id).map(Object::toString).orElse(null), present(item, body), null));
-                    } else {
+                    } else if (item.has(ModDataComponents.POUCH_CONTENTS.get())) {
                         var contents = PouchContents.read(item);
                         if (contents.isEmpty()) return null;
                         var child = contents.orElseThrow().child();
@@ -232,6 +233,14 @@ public final class BodyHandStateService {
                             slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(),
                                     false, value.token(), childId, value.stack().getCount(), hands.reservation(id).map(Object::toString).orElse(null), present(item, body), present(value.stack(), body)));
                         } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(), false, null, null, 0, hands.reservation(id).map(Object::toString).orElse(null), present(item, body), null));
+                    } else {
+                        // Registered storage hosts resolve to a valid virtual empty grid when no
+                        // attachment exists yet. Keep their ordinary hand row; grids() publishes
+                        // the resolved host dimensions and empty child list without writing it.
+                        slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId,
+                                item.getCount(), false, null, null, 0,
+                                hands.reservation(id).map(Object::toString).orElse(null),
+                                present(item, body), null));
                     }
                 } else slots.add(new BodyHandStateSnapshot.Hand(id, token.orElseThrow(), itemId, item.getCount(), false, null, null, 0, hands.reservation(id).map(Object::toString).orElse(null), present(item, body), null));
             }
@@ -261,7 +270,7 @@ public final class BodyHandStateService {
             if (hand.childToken() != null && !tokens.add(hand.childToken())) return null;
             // Grid children are validated for conservation even though the old summary cannot represent them.
             var stack = hands.stackCopy(hand.id());
-            if (stack.isPresent() && (stack.orElseThrow().is(ModItems.BAG) || stack.orElseThrow().is(ModItems.BELT))) {
+            if (stack.isPresent() && GridContents.isHost(stack.orElseThrow())) {
                 if (stack.orElseThrow().has(ModDataComponents.GRID_CONTENTS.get())
                         && GridContents.read(stack.orElseThrow()).isEmpty()) return null;
                 // Grid child identity is admitted and emitted by grids(); never count it twice here.
@@ -300,9 +309,9 @@ public final class BodyHandStateService {
             String childToken = null, childId = null;
             int childCount = 0;
             if (stack.has(ModDataComponents.GRID_CONTENTS.get())) {
-                if (!(stack.is(ModItems.BAG) || stack.is(ModItems.BELT))) return null;
+                if (!GridContents.isHost(stack)) return null;
                 if (GridContents.read(stack).isEmpty()) return null;
-            } else if (stack.is(ModItems.BAG) || stack.is(ModItems.BELT)) {
+            } else if (GridContents.isHost(stack)) {
                 var legacy = PouchContents.read(stack);
                 if (legacy.isEmpty()) return null;
                 var childContents = legacy.orElseThrow().child();
@@ -333,15 +342,14 @@ public final class BodyHandStateService {
         var seen = new HashSet<String>();
         for (String id : hands.handIds()) {
             var stack = hands.stackCopy(id);
-            if (stack.isPresent() && (stack.orElseThrow().is(ModItems.BAG) || stack.orElseThrow().is(ModItems.BELT))) {
+            if (stack.isPresent() && GridContents.isHost(stack.orElseThrow())) {
                 var host = stack.orElseThrow();
                 addGrid(result, seen, hands.token(id).orElse(null), host, body);
             }
         }
         var equipment = LiveHands.equipmentSnapshot(body, hands);
         if (equipment.isPresent()) for (var slot : equipment.orElseThrow().slots()) {
-            if (slot.stack().isPresent() && (slot.stack().orElseThrow().is(ModItems.BAG)
-                    || slot.stack().orElseThrow().is(ModItems.BELT)))
+            if (slot.stack().isPresent() && GridContents.isHost(slot.stack().orElseThrow()))
                 addGrid(result, seen, slot.token().orElse(null), slot.stack().orElseThrow(), body);
         }
         return result;
@@ -360,8 +368,8 @@ public final class BodyHandStateService {
             var entries = content.entries().stream().map(e -> new BodyHandStateSnapshot.GridEntry(e.token(),
                 BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString(), e.stack().getCount(), e.x(), e.y(), e.rotation().degrees(),
                 e.stack().get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get()), present(e.stack(), body))).toList();
-            result.add(new BodyHandStateSnapshot.GridHost(token, stack.is(ModItems.BAG) ? "bag" : "belt",
-                stack.is(ModItems.BAG) ? 7 : 8, stack.is(ModItems.BAG) ? 4 : 2, entries));
+        result.add(new BodyHandStateSnapshot.GridHost(token, stack.is(ModItems.PILL_CANISTER) ? "pill" : stack.is(ModItems.BAG) ? "bag" : "belt",
+                GridContents.width(stack), GridContents.height(stack), entries));
     }
 
     /** Bounded replay history keyed by the exact player identity and requested epoch (including bootstrap zero). */

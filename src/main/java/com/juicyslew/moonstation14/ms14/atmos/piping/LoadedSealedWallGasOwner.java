@@ -95,3 +95,4 @@ public final class LoadedSealedWallGasOwner {
                 .filter(entry -> Double.compare(entry.volume(), record.volume()) == 0)).orElse(null);
     }
 }
+

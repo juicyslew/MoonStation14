@@ -62,3 +62,4 @@ public final class DisposalWorldPayloadStage {
         public void rollback() { entity.discard(); }
     }
 }
+

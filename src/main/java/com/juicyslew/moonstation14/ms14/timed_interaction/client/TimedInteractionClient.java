@@ -99,3 +99,4 @@ public final class TimedInteractionClient {
         return TimedInteractionMath.progress(v.startTick(),v.durationTicks(),v.terminalTick());
     }
 }
+

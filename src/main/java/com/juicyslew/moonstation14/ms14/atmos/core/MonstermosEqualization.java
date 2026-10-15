@@ -459,3 +459,4 @@ public final class MonstermosEqualization {
 
     private static double tolerance(double value) { return Math.ulp(Math.max(1.0, value)) * 8; }
 }
+

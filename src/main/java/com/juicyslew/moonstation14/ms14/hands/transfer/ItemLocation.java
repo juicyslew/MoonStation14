@@ -50,3 +50,4 @@ public sealed interface ItemLocation permits ItemLocation.BodyHand, ItemLocation
         }
     }
 }
+

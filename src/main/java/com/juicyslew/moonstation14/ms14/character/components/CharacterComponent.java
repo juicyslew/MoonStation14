@@ -15,3 +15,4 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         CanEscapeInventoryComponent, SpeciesComponent {
     String type();
 }
+

@@ -386,3 +386,4 @@ public final class LungSystem {
     public static int intervalTicks(double seconds){long t=Math.round(seconds*20); if(t<1||t>Integer.MAX_VALUE)throw new IllegalArgumentException("lung interval out of range"); return (int)t;}
     public static boolean isDue(long time,int entityId,int interval){return interval>0&&Math.floorMod(Math.floorMod(time,(long)interval)+entityId,interval)==0;}
 }
+

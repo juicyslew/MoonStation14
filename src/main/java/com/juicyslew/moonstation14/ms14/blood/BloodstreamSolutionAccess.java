@@ -75,3 +75,4 @@ public final class BloodstreamSolutionAccess {
                 && level.getServer().isSameThread();
     }
 }
+

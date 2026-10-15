@@ -43,3 +43,4 @@ public record AtmosphereVisualResyncRequest(int chunkX, int chunkZ) implements C
         }
     }
 }
+

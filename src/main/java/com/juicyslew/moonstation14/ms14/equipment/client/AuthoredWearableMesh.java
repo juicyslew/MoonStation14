@@ -75,3 +75,4 @@ public final class AuthoredWearableMesh {
     private static String str(JsonObject o,String key) { return o.get(key).getAsString(); }
     private static IllegalArgumentException invalid(String message) { return new IllegalArgumentException(message); }
 }
+

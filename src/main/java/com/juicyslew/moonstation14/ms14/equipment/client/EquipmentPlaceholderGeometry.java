@@ -127,3 +127,4 @@ public final class EquipmentPlaceholderGeometry {
         return LayerDefinition.create(mesh, 64, 64).bakeRoot();
     }
 }
+

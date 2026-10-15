@@ -30,3 +30,4 @@ public final class MedicalCameraAnchorEntity extends Entity {
     @Override protected void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) { }
     @Override protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) { }
 }
+

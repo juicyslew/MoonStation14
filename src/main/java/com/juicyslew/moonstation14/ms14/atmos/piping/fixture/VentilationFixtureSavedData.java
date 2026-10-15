@@ -89,3 +89,4 @@ public final class VentilationFixtureSavedData extends SavedData {
         return tag;
     }
 }
+

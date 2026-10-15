@@ -231,3 +231,4 @@ public final class ServerExplosionService {
     private static Result result(Status status, int visited) { return new Result(status, visited, 0, 0, 0); }
     private record EntityHit(LivingEntity entity, double intensity) { }
 }
+

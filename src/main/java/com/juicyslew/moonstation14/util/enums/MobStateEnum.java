@@ -37,3 +37,4 @@ public enum MobStateEnum implements StringRepresentable {
     public static final Codec<MobStateEnum> CODEC =
             StringRepresentable.fromEnum(MobStateEnum::values);
 }
+

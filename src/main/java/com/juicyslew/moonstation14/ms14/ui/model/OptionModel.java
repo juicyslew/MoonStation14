@@ -48,3 +48,4 @@ public final class OptionModel {
     public Option at(int index) { return options.get(index); }
     public long revision() { return revision; }
 }
+

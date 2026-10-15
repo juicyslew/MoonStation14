@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:radiation_collector",
+  "charge_modifier": 15000,
+  "reactant": "plasma",
+  "efficiency": 1,
+  "breakdown_rate": 0.0001,
+  "enabled": false,
+  "power_holdover_ticks": 40,
+  "starting_tank": "moonstation14:plasma_tank"
+}

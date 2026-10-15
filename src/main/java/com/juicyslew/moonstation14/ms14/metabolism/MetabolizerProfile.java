@@ -51,3 +51,4 @@ public record MetabolizerProfile(List<MetabolismStage> stages, int perStageProce
         return perStageProcessCap;
     }
 }
+

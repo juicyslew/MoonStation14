@@ -133,3 +133,4 @@ public final class CharacterComponentMergeStrategy implements PrototypeMergeStra
                 + (type == null ? "" : " type '" + type + "'") + ": " + detail);
     }
 }
+

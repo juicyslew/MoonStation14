@@ -30,12 +30,20 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/devicenet/item/client/";
     private static final String CLIENT_STRIPPING_SOURCE_PREFIX =
             "com/juicyslew/moonstation14/ms14/stripping/client/";
+    private static final String CLIENT_CANISTER_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/atmos/tank/client/";
+    private static final String CLIENT_PA_CONTROL_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/singularity/pa/control/client/";
+    private static final String CLIENT_RADIATION_CONTROL_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/radiation/control/client/";
+    private static final String CLIENT_ENTITY_SOURCE_PREFIX = "com/juicyslew/moonstation14/entities/client/";
     private static final Set<String> CLIENT_ONLY_SOURCES = Set.of(
             "com/juicyslew/moonstation14/MoonStation14Client.java",
             "com/juicyslew/moonstation14/CameraJitterHandler.java",
             "com/juicyslew/moonstation14/util/ModSpecialProperties.java",
             "com/juicyslew/moonstation14/ms14/eye/client/EyeDamageFogHandler.java",
             "com/juicyslew/moonstation14/mixin/client/MinecraftStunInputMixin.java",
+            "com/juicyslew/moonstation14/mixin/client/EditBoxDisplayAccessor.java",
             "com/juicyslew/moonstation14/mixin/client/LocalPlayerStunDropMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ChatComponentUnifiedViewMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ChatListenerSystemNoticeMixin.java",
@@ -97,7 +105,11 @@ class ServerClassloadingTest {
               "com/juicyslew/moonstation14/ms14/doors/ui/client/AirlockWireClient.java",
               "com/juicyslew/moonstation14/ms14/player_body_control/client/GameplayWindowMovementDispatch.java",
              "com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java",
-             "com/juicyslew/moonstation14/ms14/hands/client/StoragePopupScreen.java"
+             "com/juicyslew/moonstation14/ms14/hands/client/StoragePopupScreen.java",
+              "com/juicyslew/moonstation14/entities/client/EmitterBoltRenderer.java",
+              "com/juicyslew/moonstation14/entities/client/ParticleAcceleratorParticleRenderer.java",
+              "com/juicyslew/moonstation14/entities/client/ProjectileBillboard.java",
+             "com/juicyslew/moonstation14/ms14/singularity/containment/client/FieldFaceRenderer.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
@@ -109,6 +121,10 @@ class ServerClassloadingTest {
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.ui\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern CLIENT_CHEMMASTER_REFERENCE = Pattern.compile(
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.chemistry\\.chemmaster\\.client\\.[A-Za-z_$][\\w$]*");
+    private static final Pattern CLIENT_CANISTER_REFERENCE = Pattern.compile(
+            "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.atmos\\.tank\\.client\\.[A-Za-z_$][\\w$]*");
+    private static final Pattern CLIENT_MIXIN_REFERENCE = Pattern.compile(
+            "\\bcom\\.juicyslew\\.moonstation14\\.mixin\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern PACKAGE_DECLARATION = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
     private static final Pattern COMMENTS = Pattern.compile("(?s)/\\*.*?\\*/|//[^\\r\\n]*");
 
@@ -129,13 +145,20 @@ class ServerClassloadingTest {
                         || relativePath.startsWith(CLIENT_HANDS_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_CHEMMASTER_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_DEVICE_NET_SOURCE_PREFIX)
-                        || relativePath.startsWith(CLIENT_STRIPPING_SOURCE_PREFIX)
+                         || relativePath.startsWith(CLIENT_STRIPPING_SOURCE_PREFIX)
+                         || relativePath.startsWith(CLIENT_CANISTER_SOURCE_PREFIX)
+                         || relativePath.startsWith(CLIENT_PA_CONTROL_SOURCE_PREFIX)
+                         || relativePath.startsWith(CLIENT_RADIATION_CONTROL_SOURCE_PREFIX)
+                         || relativePath.startsWith(CLIENT_ENTITY_SOURCE_PREFIX)
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/radiation/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/equipment/client/")
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/ghost_roles/client/")
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
-                        || relativePath.startsWith("com/juicyslew/moonstation14/mixin/client/")
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")) {
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/singularity/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/mixin/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/ghost_roles/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")) {
                     continue;
                 }
 
@@ -147,11 +170,46 @@ class ServerClassloadingTest {
                         .forEach(match -> violations.add(relativePath + ": " + match));
                 findMatches(CLIENT_CHEMMASTER_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
+                findMatches(CLIENT_CANISTER_REFERENCE, code)
+                        .forEach(match -> violations.add(relativePath + ": " + match));
+                findMatches(CLIENT_MIXIN_REFERENCE, code)
+                        .forEach(match -> violations.add(relativePath + ": " + match));
             }
         }
 
         assertTrue(violations.isEmpty(), () -> "Server-owned production sources reference client-only classes:\n"
                 + String.join("\n", violations));
+    }
+
+    @Test
+    void singularityEntityPresentationIsScopedToClientPackageAndClientEvents() throws IOException {
+        Path sourceRoot = findProductionSourceRoot();
+        Path clientRoot = sourceRoot.resolve(CLIENT_ENTITY_SOURCE_PREFIX);
+        assertTrue(Files.isDirectory(clientRoot));
+        try (Stream<Path> files = Files.walk(clientRoot)) {
+            for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+                String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+                Matcher declaration = PACKAGE_DECLARATION.matcher(code);
+                assertTrue(declaration.find());
+                assertTrue(declaration.group(1).startsWith("com.juicyslew.moonstation14.entities.client"));
+            }
+        }
+        String ambient = Files.readString(clientRoot.resolve("SingularityAmbientClient.java"));
+        assertTrue(ambient.contains("@EventBusSubscriber(modid = \"moonstation14\", value = Dist.CLIENT)"));
+    }
+
+    @Test
+    void editBoxAccessorIsRegisteredOnlyAsClientMixin() throws IOException {
+        Path config = findProductionSourceRoot().getParent().resolve("resources/moonstation14.mixins.json");
+        assertTrue(Files.isRegularFile(config), "Mixin configuration should exist");
+        String json = Files.readString(config);
+        assertTrue(json.matches("(?s).*\\\"client\\\"\\s*:\\s*\\[[^]]*\\\"client\\.EditBoxDisplayAccessor\\\"[^]]*].*"),
+                "EditBox accessor must be in the client mixin list");
+        String common = json.substring(json.indexOf("\"mixins\""), json.indexOf("\"client\""));
+        assertTrue(!common.contains("EditBoxDisplayAccessor"), "EditBox accessor must not be common-registered");
+        assertTrue(CLIENT_MIXIN_REFERENCE.matcher(
+                        "import com.juicyslew.moonstation14.mixin.client.EditBoxDisplayAccessor;").find(),
+                "common-source references to client mixins must be detected");
     }
 
     @Test

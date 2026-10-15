@@ -165,3 +165,4 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
         }
     }
 }
+

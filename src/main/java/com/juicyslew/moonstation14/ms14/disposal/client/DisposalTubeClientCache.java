@@ -39,3 +39,4 @@ public final class DisposalTubeClientCache {
     public void clear() { chunks.clear(); dimension=null; }
     private record Snapshot(List<DisposalTubeRecord> records) { Snapshot { records=List.copyOf(records); } }
 }
+

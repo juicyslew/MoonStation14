@@ -97,3 +97,4 @@ public final class VentilationPaidInterval {
         public double paidJoules() { return accounting.deliveredWatts() * accounting.elapsedTicks() / 20.0; }
     }
 }
+

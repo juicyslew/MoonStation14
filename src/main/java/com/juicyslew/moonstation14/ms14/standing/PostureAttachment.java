@@ -16,3 +16,4 @@ public final class PostureAttachment {
               (b,v) -> { var d=v.data; ByteBufCodecs.BOOL.encode(b,d.down()); ByteBufCodecs.BOOL.encode(b,d.voluntaryAutoStand()); ByteBufCodecs.VAR_LONG.encode(b,d.knockdownUntil()); ByteBufCodecs.VAR_LONG.encode(b,d.getUpKey()); ByteBufCodecs.VAR_INT.encode(b,d.totalHands()); ByteBufCodecs.VAR_INT.encode(b,d.freeHands()); ByteBufCodecs.BOOL.encode(b,d.pulling()); ByteBufCodecs.BOOL.encode(b,d.faceUp()); ByteBufCodecs.BOOL.encode(b,d.ownCrawling()); ByteBufCodecs.FLOAT.encode(b,d.movementFacingYaw()); },
                b -> new PostureAttachment(new PostureData(ByteBufCodecs.BOOL.decode(b), ByteBufCodecs.BOOL.decode(b), ByteBufCodecs.VAR_LONG.decode(b), ByteBufCodecs.VAR_LONG.decode(b), ByteBufCodecs.VAR_INT.decode(b), ByteBufCodecs.VAR_INT.decode(b), ByteBufCodecs.BOOL.decode(b), ByteBufCodecs.BOOL.decode(b), ByteBufCodecs.BOOL.decode(b), ByteBufCodecs.FLOAT.decode(b))));
 }
+

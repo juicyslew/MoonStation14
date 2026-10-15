@@ -22,3 +22,4 @@ public final class BodyAppearanceClientLifecycle {
             BodyHandNetworking.clientCache().clearDimension(level.dimension().location());
     }
 }
+

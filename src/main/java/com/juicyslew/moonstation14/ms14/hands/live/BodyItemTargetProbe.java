@@ -284,13 +284,13 @@ public final class BodyItemTargetProbe {
         return resolveDrop(level, body, excludedCarrier, .25, .25);
     }
 
-    static DropPlacement resolveDrop(ServerLevel level, LivingEntity body, @Nullable Entity excludedCarrier,
+    static DropPlacement resolveDrop(ServerLevel level, Entity body, @Nullable Entity excludedCarrier,
                                      double width, double height) {
         return resolveDrop(level, body, excludedCarrier, width, height, null);
     }
 
     /** Additional exact entity ignored by the placement sweep, e.g. a live body carried at the hand origin. */
-    static DropPlacement resolveDrop(ServerLevel level, LivingEntity body, @Nullable Entity excludedCarrier,
+    static DropPlacement resolveDrop(ServerLevel level, Entity body, @Nullable Entity excludedCarrier,
                                      double width, double height, @Nullable Entity additionallyExcluded) {
         if (!Double.isFinite(width) || width <= 0 || !Double.isFinite(height) || height <= 0) return null;
         Vec3 eye = body.getEyePosition(), look = body.getLookAngle();
@@ -328,7 +328,7 @@ public final class BodyItemTargetProbe {
 
     /** Last-resort conservation placement: body origin is already in a known loaded chunk. */
     @Nullable
-    private static DropPlacement fallbackDrop(ServerLevel level, LivingEntity body) {
+    private static DropPlacement fallbackDrop(ServerLevel level, Entity body) {
         Vec3 origin = body.position();
         if (!finite(origin) || !inside(level, origin)
                 || level.getChunkSource().getChunkNow(body.blockPosition().getX() >> 4,
@@ -336,7 +336,7 @@ public final class BodyItemTargetProbe {
         return new DropPlacement(origin, Vec3.ZERO);
     }
 
-    private static boolean safeDropPosition(ServerLevel level, LivingEntity body, Vec3 from, Vec3 destination,
+    private static boolean safeDropPosition(ServerLevel level, Entity body, Vec3 from, Vec3 destination,
                                              @Nullable Entity excludedCarrier, @Nullable Entity additionallyExcluded,
                                              double width, double height) {
         if (!finite(destination) || !inside(level, destination)) return false;
@@ -490,6 +490,23 @@ public final class BodyItemTargetProbe {
         Vec3 closest = new Vec3(Mth.clamp(eye.x, targetBounds.minX, targetBounds.maxX),
                 Mth.clamp(eye.y, targetBounds.minY, targetBounds.maxY), Mth.clamp(eye.z, targetBounds.minZ, targetBounds.maxZ));
         return finite(eye) && finite(closest) && eye.distanceToSqr(closest) <= MAX_REACH * MAX_REACH;
+    }
+
+    /** Loaded-only server validation for an entity-use target; client hit claims are never consumed. */
+    public static boolean loadedReachableEntity(ServerLevel level, LivingEntity body, Entity target, double reach) {
+        if (level == null || body == null || target == null || level.getServer() == null
+                || !level.getServer().isSameThread() || body.level() != level || target.level() != level
+                || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
+                || level.getEntity(body.getUUID()) != body || target.isRemoved() || !target.isAddedToLevel()
+                || level.getEntity(target.getUUID()) != target || !Double.isFinite(reach) || reach <= 0 || reach > MAX_REACH) return false;
+        Vec3 eye = body.getEyePosition(), position = target.position(); AABB box = target.getBoundingBox();
+        Vec3 point = new Vec3(Mth.clamp(eye.x,box.minX,box.maxX),Mth.clamp(eye.y,box.minY,box.maxY),Mth.clamp(eye.z,box.minZ,box.maxZ));
+        if (!finite(eye)||!finite(point)||!inside(level,eye)||!inside(level,point)||eye.distanceToSqr(point)>reach*reach) return false;
+        try {
+            BlockHitResult hit=loadedAlong(level,eye,point).clip(new ClipContext(eye,point,ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,body));
+            return hit.getType()==HitResult.Type.MISS && target.level()==level && !target.isRemoved()
+                    && level.getEntity(target.getUUID())==target && position.equals(target.position()) && box.equals(target.getBoundingBox());
+        } catch (MissingChunk ignored) { return false; }
     }
 
     /** Loaded-only validation for a previously nominated item target; does not require the current view ray. */

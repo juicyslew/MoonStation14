@@ -37,3 +37,4 @@ public final class WelderFuelService {
         return fuel != null && fuel.lit() && fuel.fuel() > 0;
     }
 }
+

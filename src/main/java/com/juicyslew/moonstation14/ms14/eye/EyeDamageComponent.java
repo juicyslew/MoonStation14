@@ -61,3 +61,4 @@ public record EyeDamageComponent(int damage)
         return STREAM_CODEC;
     }
 }
+

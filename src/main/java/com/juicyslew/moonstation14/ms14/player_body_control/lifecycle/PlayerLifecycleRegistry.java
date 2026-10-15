@@ -1234,3 +1234,4 @@ public final class PlayerLifecycleRegistry {
 
     private record ProfileKey(UUID accountId, String profileId) { }
 }
+

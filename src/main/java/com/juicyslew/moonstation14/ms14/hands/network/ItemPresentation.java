@@ -59,3 +59,4 @@ public final class ItemPresentation {
     }
     @Override public int hashCode() { return 0; }
 }
+

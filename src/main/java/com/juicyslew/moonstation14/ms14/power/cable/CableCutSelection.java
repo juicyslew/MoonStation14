@@ -22,3 +22,4 @@ public final class CableCutSelection {
         return new Result(existingTiers.iterator().next(), Refusal.NONE);
     }
 }
+

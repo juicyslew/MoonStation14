@@ -63,3 +63,4 @@ public final class EyeDamageSystem {
         entity.setData(ModDataAttachments.EYE_DAMAGE.get(), next.toAttachment());
     }
 }
+

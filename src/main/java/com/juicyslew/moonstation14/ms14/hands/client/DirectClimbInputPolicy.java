@@ -10,3 +10,4 @@ public final class DirectClimbInputPolicy {
         return !bodyDown && !shift && !control && !alt;
     }
 }
+

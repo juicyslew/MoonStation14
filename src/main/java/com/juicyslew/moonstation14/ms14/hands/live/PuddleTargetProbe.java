@@ -70,3 +70,4 @@ public final class PuddleTargetProbe {
     private record Candidate(BlockPos pos, double distance) { }
     private static boolean finite(Vec3 v) { return Double.isFinite(v.x)&&Double.isFinite(v.y)&&Double.isFinite(v.z); }
 }
+

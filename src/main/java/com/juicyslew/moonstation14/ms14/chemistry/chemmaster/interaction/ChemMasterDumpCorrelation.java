@@ -16,3 +16,4 @@ public final class ChemMasterDumpCorrelation {
                 && newer(sequence, owner.sequence());
     }
 }
+

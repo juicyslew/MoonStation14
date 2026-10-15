@@ -27,3 +27,4 @@ final class IgnitionDiagnosticHistory {
 
     List<AtmosphereService.IgnitionDiagnostic> firstByCycle() { return List.copyOf(firstByCycle.values()); }
 }
+

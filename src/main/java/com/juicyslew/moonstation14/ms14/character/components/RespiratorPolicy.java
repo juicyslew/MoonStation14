@@ -34,3 +34,4 @@ public record RespiratorPolicy(double breathIntervalSeconds, double breathVolume
             ResourceLocation.CODEC.optionalFieldOf("gasp_sound").forGetter(RespiratorPolicy::gaspSound)
     ).apply(i, RespiratorPolicy::new));
 }
+

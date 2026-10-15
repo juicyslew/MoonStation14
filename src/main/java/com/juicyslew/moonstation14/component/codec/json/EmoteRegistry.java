@@ -39,3 +39,4 @@ public final class EmoteRegistry {
         public EmoteSpec(String sound) { this(sound, 0f); }
     }
 }
+

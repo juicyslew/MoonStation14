@@ -92,3 +92,4 @@ public final class PlayerCharacterHarnessBinder {
         return prototypeKey != null;
     }
 }
+

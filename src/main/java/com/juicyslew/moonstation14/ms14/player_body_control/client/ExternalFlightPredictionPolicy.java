@@ -17,3 +17,4 @@ final class ExternalFlightPredictionPolicy {
 
     void clear() { remaining = 0; }
 }
+

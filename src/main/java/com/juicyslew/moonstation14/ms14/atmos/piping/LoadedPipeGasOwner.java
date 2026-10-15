@@ -174,3 +174,4 @@ public final class LoadedPipeGasOwner {
         return new PipeTopology.NodeKey(pos, layer);
     }
 }
+

@@ -49,3 +49,4 @@ public final class SlotGridModel {
     public Slot at(int index) { return slots.get(index); }
     public long revision() { return revision; }
 }
+

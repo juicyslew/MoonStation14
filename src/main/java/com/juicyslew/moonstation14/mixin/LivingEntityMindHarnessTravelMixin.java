@@ -33,10 +33,15 @@ public abstract class LivingEntityMindHarnessTravelMixin {
     private void moonstation14$applyNativeTetherImpulse(Vec3 input, CallbackInfo callback) {
         Object entity = this;
         if (entity instanceof LivingEntity living && !living.level().isClientSide
-                && (!(entity instanceof Mob mob) || (!((MindControlledMob) mob).moonstation14$isMovementOwned()
-                && !(mob instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven())))) {
-            Vec3 delta = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
-                    .deltaVelocityPerSecond(living).scale(.05);
+                && !living.isPassenger() && !living.isDeadOrDying() && !living.isSpectator() && !living.noPhysics
+                && (!(entity instanceof Mob mob) || (!(mob instanceof MindControlledMob owner
+                    && owner.moonstation14$isMovementOwned())
+                    && !(mob instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven())))) {
+            Vec3 perSecond = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
+                    .deltaVelocityPerSecond(living);
+            perSecond = perSecond.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
+                    .deltaVelocity(living.level(), living.position(), living.level().getGameTime()));
+            Vec3 delta = perSecond.scale(.05);
             if (delta.lengthSqr() > 0) living.setDeltaMovement(living.getDeltaMovement().add(delta));
         }
     }

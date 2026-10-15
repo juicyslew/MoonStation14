@@ -123,3 +123,4 @@ public record MedicalItemData(Item item, Optional<Stack> stack, Optional<Healing
     private static boolean positive(float value) { return Float.isFinite(value) && value > 0; }
     private static boolean finite(float value) { return Float.isFinite(value); }
 }
+

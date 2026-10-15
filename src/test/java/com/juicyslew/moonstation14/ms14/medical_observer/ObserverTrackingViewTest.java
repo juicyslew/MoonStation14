@@ -76,11 +76,18 @@ class ObserverTrackingViewTest {
         assertTrue(resolver.contains("lifecycleGhost == null ? null : lifecycleGhost.entity()"));
     }
 
+    @Test
+    void controlledBodyViewUsesValidatedBodyAndMissingContextKeepsCarrier() {
+        Vec3 carrier = new Vec3(0, 64, 0), body = new Vec3(256, 70, 0);
+        assertEquals(body, ObserverTracking.activeBodyOrCarrier(carrier, body));
+        assertEquals(carrier, ObserverTracking.activeBodyOrCarrier(carrier, null));
+    }
+
     private static ControlledViewTarget.Target target(ControlledViewTarget.Family family, long epoch) {
         return new ControlledViewTarget.Target(new ItemEntity(EntityType.ITEM, null), family, epoch);
     }
 
     private static net.minecraft.world.level.ChunkPos chunk(Vec3 position) {
         return new net.minecraft.world.level.ChunkPos(net.minecraft.core.BlockPos.containing(position));
-    }
+}
 }

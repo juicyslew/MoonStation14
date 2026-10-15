@@ -140,3 +140,4 @@ public final class CreativeCarrierSnapshotProbe {
         return stack == ItemStack.EMPTY && stack.getCount() == 0;
     }
 }
+

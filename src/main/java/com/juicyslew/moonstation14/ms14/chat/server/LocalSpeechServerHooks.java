@@ -187,3 +187,4 @@ public final class LocalSpeechServerHooks {
         return boundId != null && current.filter(CharacterData::canSpeakText).isPresent();
     }
 }
+

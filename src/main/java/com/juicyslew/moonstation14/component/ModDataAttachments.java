@@ -261,3 +261,4 @@ public class ModDataAttachments {
         ATTACHMENT_TYPES.register(eventBus);
     }
 }
+

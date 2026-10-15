@@ -14,3 +14,4 @@ public record HealthAnalyzerWindowUpdate(HealthAnalyzerWindowState state) implem
             buf -> new HealthAnalyzerWindowUpdate(HealthAnalyzerPayloadCodec.readState(buf)));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

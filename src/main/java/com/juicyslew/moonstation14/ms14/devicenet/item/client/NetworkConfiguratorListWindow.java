@@ -63,3 +63,4 @@ public final class NetworkConfiguratorListWindow {
     public int scroll(){return scroll;}
     private void send(NetworkConfiguratorListRequest.Operation op,List<String> members,String member){sender.accept(new Command(op,members,member));}
 }
+

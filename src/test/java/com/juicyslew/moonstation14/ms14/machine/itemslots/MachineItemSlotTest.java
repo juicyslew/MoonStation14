@@ -16,6 +16,138 @@ class MachineItemSlotTest {
         return new MachineItemSlot(owner, id, policy, ledger);
     }
 
+    @Test void initializeClaimsOnlyCanonicalSlotOnceAndPreservesCopiedWholeStack() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var slot = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        ItemStack named = new ItemStack(Items.GLASS_BOTTLE);
+        named.set(DataComponents.CUSTOM_NAME, Component.literal("finite plasma tank"));
+        assertFalse(slot.initialize(1, named));
+        assertFalse(slot.initialize(0, new ItemStack(Items.STONE)));
+        assertTrue(ledger.snapshot().locations().isEmpty());
+        assertTrue(slot.initialize(0, named));
+        var stored = slot.snapshot();
+        assertEquals(1, stored.revision());
+        assertEquals(new ItemLocation.MachineSlot(owner, "tankSlot"), ledger.snapshot().locations().get(stored.token()));
+        assertEquals(Component.literal("finite plasma tank"), stored.stack().get(DataComponents.CUSTOM_NAME));
+        assertFalse(slot.initialize(1, named));
+        assertFalse(slot.initialize(0, named));
+        assertEquals(1, slot.snapshot().revision());
+        assertEquals(1, ledger.snapshot().locations().size());
+    }
+
+    @Test void initializedSlotPersistenceReclaimsExactlyOneClaimAndSavedEmptyRemainsEmpty() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var populated = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(populated.initialize(0, new ItemStack(Items.GLASS_BOTTLE)));
+        var encoded = populated.encode(); var token = populated.snapshot().token();
+        assertTrue(populated.suspend());
+        var restored = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(restored.restore(encoded));
+        assertEquals(new ItemLocation.MachineSlot(owner, "tankSlot"), ledger.snapshot().locations().get(token));
+        assertFalse(populated.resume());
+
+        var emptyOwner = UUID.randomUUID();
+        var empty = slot(emptyOwner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), new ItemLocationLedger());
+        var emptyCodec = MachineItemSlot.codec();
+        var savedEmpty = emptyCodec.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                emptyCodec.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, empty.encode()).result().orElseThrow())
+                .result().orElseThrow();
+        var emptyRestored = slot(emptyOwner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), new ItemLocationLedger());
+        assertTrue(emptyRestored.restore(savedEmpty));
+        assertTrue(emptyRestored.snapshot().stack().isEmpty());
+    }
+
+    @Test void mutationRequiresTheCurrentCanonicalLedgerClaim() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var slot = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(slot.initialize(0, new ItemStack(Items.GLASS_BOTTLE)));
+        var before = slot.snapshot();
+        assertTrue(ledger.consume(ledger.snapshot().revision(), before.token(),
+                new ItemLocation.MachineSlot(owner, "tankSlot")).accepted());
+        assertFalse(slot.mutate(before.revision(), before.token(), stack -> { stack.setCount(2); return true; }));
+        assertEquals(before.revision(), slot.snapshot().revision());
+        assertEquals(1, slot.snapshot().stack().getCount());
+    }
+    @Test void batchReplacesAndConsumesOnlyWithExactSlotAndLedgerProofs() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var source = slot(owner, "source", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var beaker = slot(owner, "beaker", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var hand = new ItemLocation.BodyHand(UUID.randomUUID(), "left");
+        var sourceToken = new ItemToken("source"); var beakerToken = new ItemToken("beaker");
+        assertTrue(ledger.register(sourceToken, hand).accepted());
+        assertTrue(source.insert(0, ledger.snapshot().revision(), sourceToken, hand, new ItemStack(Items.GLASS_BOTTLE)));
+        assertTrue(ledger.register(beakerToken, hand).accepted());
+        assertTrue(beaker.insert(0, ledger.snapshot().revision(), beakerToken, hand, new ItemStack(Items.GLASS_BOTTLE)));
+        var src = source.snapshot(); var dst = beaker.snapshot(); long lr = ledger.snapshot().revision();
+        var changed = dst.stack(); changed.set(DataComponents.CUSTOM_NAME, Component.literal("changed"));
+        var batch = java.util.List.of(new MachineItemSlot.SlotChange(source, src.revision(), src.token(), src.stack(), ItemStack.EMPTY),
+                new MachineItemSlot.SlotChange(beaker, dst.revision(), dst.token(), dst.stack(), changed));
+        assertTrue(MachineItemSlot.commitBatch(lr, batch).accepted());
+        assertNull(source.snapshot().token());
+        assertFalse(ledger.snapshot().locations().containsKey(sourceToken));
+        assertEquals(Component.literal("changed"), beaker.snapshot().stack().get(DataComponents.CUSTOM_NAME));
+    }
+
+    @Test void batchRejectsStaleProofsAndInvalidReplacementWithoutPartialChanges() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var a = slot(owner, "a", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var b = slot(owner, "b", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var hand = new ItemLocation.BodyHand(UUID.randomUUID(), "left"); var ta = new ItemToken("a"); var tb = new ItemToken("b");
+        ledger.register(ta, hand); assertTrue(a.insert(0, ledger.snapshot().revision(), ta, hand, new ItemStack(Items.GLASS_BOTTLE)));
+        ledger.register(tb, hand); assertTrue(b.insert(0, ledger.snapshot().revision(), tb, hand, new ItemStack(Items.GLASS_BOTTLE)));
+        var sa = a.snapshot(); var sb = b.snapshot(); long lr = ledger.snapshot().revision();
+        var countChange = new ItemStack(Items.GLASS_BOTTLE, 2);
+        var changes = java.util.List.of(new MachineItemSlot.SlotChange(a, sa.revision(), ta, sa.stack(), ItemStack.EMPTY),
+                new MachineItemSlot.SlotChange(b, sb.revision(), tb, sb.stack(), countChange));
+        var beforeA = a.snapshot(); var beforeB = b.snapshot(); var beforeLedger = ledger.snapshot();
+        assertFalse(MachineItemSlot.commitBatch(lr, changes).accepted());
+        assertFalse(MachineItemSlot.commitBatch(lr - 1, java.util.List.of(new MachineItemSlot.SlotChange(a, sa.revision(), ta,
+                sa.stack(), ItemStack.EMPTY))).accepted());
+        assertEquals(beforeA.revision(), a.snapshot().revision()); assertEquals(beforeB.revision(), b.snapshot().revision());
+        assertEquals(beforeLedger, ledger.snapshot());
+        assertFalse(MachineItemSlot.commitBatch(lr, java.util.List.of(changes.get(0), changes.get(0))).accepted());
+    }
+
+    @Test void batchRejectsDuplicateClaimsAndReentrantPolicyMutation() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var first = slot(owner, "first", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var duplicateLocation = slot(owner, "first", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var hand = new ItemLocation.BodyHand(UUID.randomUUID(), "left"); var token = new ItemToken("batch-proof");
+        assertTrue(ledger.register(token, hand).accepted());
+        assertTrue(first.insert(0, ledger.snapshot().revision(), token, hand, new ItemStack(Items.GLASS_BOTTLE)));
+        var snapshot = first.snapshot(); var ledgerRevision = ledger.snapshot().revision();
+        var duplicate = new MachineItemSlot.SlotChange(duplicateLocation, 0, token,
+                new ItemStack(Items.GLASS_BOTTLE), ItemStack.EMPTY);
+        assertFalse(MachineItemSlot.commitBatch(ledgerRevision, java.util.List.of(
+                new MachineItemSlot.SlotChange(first, snapshot.revision(), token, snapshot.stack(), ItemStack.EMPTY), duplicate)).accepted());
+        var uniqueLocation = slot(owner, "unique", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var duplicateToken = new MachineItemSlot.SlotChange(uniqueLocation, 0, token,
+                new ItemStack(Items.GLASS_BOTTLE), ItemStack.EMPTY);
+        assertFalse(MachineItemSlot.commitBatch(ledgerRevision, java.util.List.of(
+                new MachineItemSlot.SlotChange(first, snapshot.revision(), token, snapshot.stack(), ItemStack.EMPTY), duplicateToken)).accepted());
+
+        var secondOwner = owner; var reenter = new java.util.concurrent.atomic.AtomicBoolean();
+        var second = slot(secondOwner, "z-second", s -> {
+            if (reenter.get()) first.mutate(first.snapshot().revision(), token,
+                    value -> { value.set(DataComponents.CUSTOM_NAME, Component.literal("reentrant")); return true; });
+            return s.is(Items.GLASS_BOTTLE);
+        }, ledger);
+        var secondToken = new ItemToken("batch-proof-second");
+        assertTrue(ledger.register(secondToken, hand).accepted());
+        assertTrue(second.insert(second.snapshot().revision(), ledger.snapshot().revision(), secondToken, hand,
+                new ItemStack(Items.GLASS_BOTTLE)));
+        var firstProof = first.snapshot(); var secondProof = second.snapshot(); ledgerRevision = ledger.snapshot().revision();
+        ItemStack changed = firstProof.stack(); changed.set(DataComponents.CUSTOM_NAME, Component.literal("reentrant"));
+        var batch = java.util.List.of(
+                new MachineItemSlot.SlotChange(first, firstProof.revision(), token, firstProof.stack(), ItemStack.EMPTY),
+                new MachineItemSlot.SlotChange(second, secondProof.revision(), secondToken, secondProof.stack(), secondProof.stack()));
+        // This predicate runs late in stable slot order and mutates the already-visited source.
+        reenter.set(true);
+        assertFalse(MachineItemSlot.commitBatch(ledgerRevision, batch).accepted());
+        assertEquals(Component.literal("reentrant"), first.snapshot().stack().get(DataComponents.CUSTOM_NAME));
+        assertEquals(secondProof.revision(), second.snapshot().revision());
+    }
+
     @Test void policyOccupiedAndStaleRejectionsDoNotMutateOwnership() {
         var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
         var slot = slot(owner, "input", s -> s.is(Items.GLASS_BOTTLE), ledger);
@@ -118,5 +250,20 @@ class MachineItemSlotTest {
         assertTrue(ItemStack.matches(current.stack(), restored.snapshot().stack()));
         assertFalse(slot.resume()); // The exact claim now belongs to the fresh runtime owner.
         assertTrue(slot.isRetired());
+    }
+
+    @Test void permanentDisposalDeletesPayloadAndCanonicalClaimIdempotently() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var slot = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(slot.initialize(0, new ItemStack(Items.GLASS_BOTTLE)));
+        var token = slot.snapshot().token();
+        assertTrue(slot.dispose());
+        assertTrue(slot.dispose());
+        assertTrue(slot.snapshot().stack().isEmpty());
+        assertNull(slot.snapshot().token());
+        assertTrue(ledger.snapshot().locations().isEmpty());
+        assertTrue(slot.isRetired());
+        assertFalse(ledger.snapshot().locations().containsKey(token));
+        assertFalse(slot.restore(slot.encode()));
     }
 }

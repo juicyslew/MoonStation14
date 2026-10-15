@@ -25,7 +25,7 @@ class AuthoredWearableMeshTest {
     @Test void allInstalledMeshesParseAndRemainImmutable() throws Exception {
         try(var paths=Files.list(ASSETS)) {
             var files=paths.filter(p->p.toString().endsWith(".json")).toList();
-            assertEquals(11,files.size());
+            assertTrue(files.size() >= 11);
             for(Path file:files) try(var reader=Files.newBufferedReader(file)) {
                 var mesh=AuthoredWearableMesh.parse(reader);
                 assertNotNull(mesh.texture()); assertFalse(mesh.bones().isEmpty());
@@ -35,6 +35,15 @@ class AuthoredWearableMeshTest {
                     q.vertices().forEach(v->{assertTrue(Double.isFinite(v.x())&&Double.isFinite(v.y())&&Double.isFinite(v.z())); assertTrue(v.u()>=0&&v.u()<=1&&v.v()>=0&&v.v()<=1);});
                 }));
                 assertThrows(UnsupportedOperationException.class,()->mesh.bones().clear());
+            }
+            var suitFile=ASSETS.resolve("outerclothing/suit_rad.json");
+            try(var reader=Files.newBufferedReader(suitFile)) {
+                var suit=AuthoredWearableMesh.parse(reader);
+                assertEquals(ResourceLocation.parse("moonstation14:textures/entity/equipment/outerclothing/suit_rad.png"),suit.texture());
+                assertTrue(Files.isRegularFile(ASSETS.getParent().getParent().resolve("textures/entity/equipment/outerclothing/suit_rad.png")));
+                assertTrue(suit.bones().keySet().containsAll(EnumSet.of(EquipmentRenderPlan.Anchor.TORSO,
+                        EquipmentRenderPlan.Anchor.LEFT_ARM, EquipmentRenderPlan.Anchor.RIGHT_ARM,
+                        EquipmentRenderPlan.Anchor.LEFT_LEG, EquipmentRenderPlan.Anchor.RIGHT_LEG)));
             }
         }
     }

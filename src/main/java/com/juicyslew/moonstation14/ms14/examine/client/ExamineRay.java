@@ -33,3 +33,4 @@ public final class ExamineRay {
         return near <= range ? new Hit(near, origin.add(ray.scale(near))) : null;
     }
 }
+

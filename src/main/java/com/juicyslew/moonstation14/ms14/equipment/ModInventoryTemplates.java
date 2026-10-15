@@ -12,3 +12,4 @@ public final class ModInventoryTemplates {
  public static void bootstrapClientBundled(){var raw=new java.util.LinkedHashMap<ResourceLocation,com.google.gson.JsonObject>();raw.put(HUMAN_ID,read("human"));PrototypeRuntime.clientManager().reload(TYPE,raw);}
  private static com.google.gson.JsonObject read(String name){String path="/data/moonstation14/moonstation14/inventory_template/"+name+".json";try(var stream=ModInventoryTemplates.class.getResourceAsStream(path)){if(stream==null)throw new IllegalStateException("Missing bundled prototype "+path);return com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();}catch(java.io.IOException e){throw new IllegalStateException("Could not read "+path,e);}}
 }
+

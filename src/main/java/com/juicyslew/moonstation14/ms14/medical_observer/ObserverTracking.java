@@ -25,6 +25,11 @@ public final class ObserverTracking {
         return resolveViewPosition(player.position(), target);
     }
 
+    /** A missing/stale controlled-body context deliberately retains the physical carrier position. */
+    public static Vec3 activeBodyOrCarrier(Vec3 carrier, Vec3 validatedBody) {
+        return validatedBody == null ? carrier : validatedBody;
+    }
+
     static Vec3 resolveViewPosition(Vec3 nativePosition, ControlledViewTarget.Target target) {
         return target == null ? nativePosition : target.entity().position();
     }
@@ -92,3 +97,4 @@ public final class ObserverTracking {
                 actualCenter, actualRadius);
     }
 }
+

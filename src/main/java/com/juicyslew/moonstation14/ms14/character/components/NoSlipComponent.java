@@ -15,3 +15,4 @@ public record NoSlipComponent() implements CharacterComponent {
 
     @Override public String type() { return TYPE; }
 }
+

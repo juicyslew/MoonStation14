@@ -117,3 +117,4 @@ public final class GrenadeDetonationService {
         return state.isAir() && state.getDestroySpeed(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) >= 0;
     }
 }
+

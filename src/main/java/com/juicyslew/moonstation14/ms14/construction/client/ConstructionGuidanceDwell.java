@@ -54,3 +54,4 @@ public final class ConstructionGuidanceDwell {
     public void reset() { target = null; startedAt = 0; requested = false; }
     public Target target() { return target; }
 }
+

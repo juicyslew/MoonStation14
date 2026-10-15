@@ -176,3 +176,4 @@ public final class CharacterControlSystem {
                 && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
     }
 }
+

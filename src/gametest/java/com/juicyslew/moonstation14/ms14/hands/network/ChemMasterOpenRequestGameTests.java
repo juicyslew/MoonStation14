@@ -27,7 +27,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class ChemMasterOpenRequestGameTests {
     private ChemMasterOpenRequestGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", batch = "chemmaster_admission_retention", timeoutTicks = 600)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", batch = "chemmaster_admission_workspace_retention", timeoutTicks = 600)
     public static void ordinaryAdmittedUseOpensAndRefreshesChemMasterWorkspace(GameTestHelper helper) {
         RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(
                 helper.getLevel(), "readiness-chem-open");
@@ -60,7 +60,12 @@ public final class ChemMasterOpenRequestGameTests {
                                 // and intervening APC out of the actual body-to-machine ray.
                                  // Stay on the fixture's clear south approach but within the
                                  // resolved ChemMaster's two-block body interaction range.
-                                  var bodyHit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
+                                 // The platform floor is one block below the machine. Keep the
+                                 // controlled body on that floor instead of floating above it;
+                                 // otherwise gravity carries it out of the machine's UI range
+                                 // during the retained-session ticks below.
+                                 body.setPos(machinePos.getX() + 0.5, origin.getY() + 1, machinePos.getZ() - 0.5);
+                                 var bodyHit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
                                  require(bodyHit.getBlockPos().equals(machinePos)
                                                  && level.getBlockEntity(bodyHit.getBlockPos()) instanceof ChemMasterBlockEntity,
                                          "ordinary admitted target is the actual ChemMaster root: " + bodyHit.getBlockPos());
@@ -175,15 +180,14 @@ public final class ChemMasterOpenRequestGameTests {
                                          var stunnedQuery = request(refreshed.state(), 2,
                                                  ChemMasterControlRequest.Operation.QUERY, refreshed.state().mode());
                                          ChemMasterSessionService.handle(fixture.player(), stunnedQuery);
-                                           ChemMasterWindowUpdate retained = takeOptionalWindowUpdate(fixture);
-                                           requireOriginalResponse(retained, opened.state(), 2, "stun-query",
-                                                   powerSamples, invalidations, helper, level, machinePos);
+                                          ChemMasterWindowUpdate retained = takeWindowUpdateForRequest(fixture, 2);
+                                        requireOriginalResponse(retained, opened.state(), 2, "stun-query", powerSamples, invalidations, helper, level, machinePos);
                                           require(retained.state().open()
-                                                         && retained.state().sessionId().equals(opened.state().sessionId())
-                                                         && retained.state().acknowledgedRequestId() == 2
-                                                         && retained.state().closeReason().isEmpty(),
-                                                   "server ticks and QUERY retain the same session while stunned: retained="
-                                                           + retained.state());
+                                                  && retained.state().sessionId().equals(opened.state().sessionId())
+                                                  && retained.state().acknowledgedRequestId() == 2
+                                                  && retained.state().closeReason().isEmpty(),
+                                                  "server ticks and QUERY retain the same session while stunned: "
+                                                          + retained.state());
 
                                          var unchangedMode = retained.state().mode();
                                          var requestedMode = unchangedMode == ChemMasterControlRequest.Mode.TRANSFER
@@ -285,6 +289,22 @@ public final class ChemMasterOpenRequestGameTests {
         throw new GameTestAssertException("no ChemMasterWindowUpdate outbound; packet types=" + packetTypes);
     }
 
+    private static ChemMasterWindowUpdate takeWindowUpdateForRequest(RegisteredServerPlayerFixture fixture, long requestId) {
+        Object outbound;
+        java.util.ArrayList<String> packetTypes = new java.util.ArrayList<>();
+        ChemMasterWindowUpdate latest = null;
+        while ((outbound = fixture.pollOutbound()) != null) {
+            ChemMasterWindowUpdate update = findWindowUpdate(outbound, packetTypes);
+            if (update != null) {
+                latest = update;
+                if (update.state().acknowledgedRequestId() == requestId) return update;
+            }
+        }
+        throw new GameTestAssertException("no ChemMasterWindowUpdate outbound for request " + requestId
+                + "; latestAck=" + (latest == null ? "none" : latest.state().acknowledgedRequestId())
+                + "; packet types=" + packetTypes);
+    }
+
     private static ChemMasterWindowUpdate takeOptionalWindowUpdate(RegisteredServerPlayerFixture fixture) {
         Object outbound;
         java.util.ArrayList<String> packetTypes = new java.util.ArrayList<>();
@@ -319,7 +339,8 @@ public final class ChemMasterOpenRequestGameTests {
             long requestId, String stage, java.util.ArrayDeque<String> samples,
             java.util.List<ChemMasterSessionService.InvalidationDiagnostic> invalidations,
             GameTestHelper helper, ServerLevel level, BlockPos machinePos) {
-        if (update == null || !update.state().open() || !original.sessionId().equals(update.state().sessionId())) {
+        if (update == null || update.state().acknowledgedRequestId() != requestId || !update.state().open()
+                || !original.sessionId().equals(update.state().sessionId())) {
             samplePower(samples, stage + "-original-session-lost", helper, level, machinePos, original.sessionId());
             dumpPowerSamples(samples, invalidations);
             require(false, "original ChemMaster session lost at " + stage + " request " + requestId);

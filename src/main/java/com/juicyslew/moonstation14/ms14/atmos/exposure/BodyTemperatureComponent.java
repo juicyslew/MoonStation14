@@ -49,3 +49,4 @@ public record BodyTemperatureComponent(double kelvin)
         return STREAM_CODEC;
     }
 }
+

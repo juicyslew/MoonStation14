@@ -10,3 +10,4 @@ public final class BodyConstructionOutcomePolicy {
                 ? BodyBlockUseResult.Outcome.PLACED : BodyBlockUseResult.Outcome.NO_CHANGE;
     }
 }
+

@@ -46,3 +46,4 @@ public final class StripSlotAvailability {
                 ||equipmentEnabled(snapshot,template,catalog,projection.id());
     }
 }
+

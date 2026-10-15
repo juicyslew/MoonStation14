@@ -118,3 +118,4 @@ public final class CableVisualClientCache {
     private record ChunkVisual(long revision, List<CableChunkData.Record> records, boolean tombstone) { }
     public record VisibleRecord(double x, double y, double z, CableChunkData.Record record) { }
 }
+

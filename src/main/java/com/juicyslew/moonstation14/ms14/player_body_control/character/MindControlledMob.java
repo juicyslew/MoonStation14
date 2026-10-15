@@ -6,3 +6,4 @@ public interface MindControlledMob {
 
     void moonstation14$setMovementOwned(boolean owned);
 }
+

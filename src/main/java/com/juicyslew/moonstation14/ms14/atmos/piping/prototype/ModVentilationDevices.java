@@ -97,3 +97,4 @@ public final class ModVentilationDevices {
             throw new IllegalArgumentException("missing or invalid required ventilation prototype: " + id);
     }
 }
+

@@ -33,3 +33,4 @@ public final class ObserverNetworking {
         if(c.player() instanceof ServerPlayer player) ObserverSystem.submitIntent(player,p.epoch(),new ObserverIntent(p.strafe(),p.forward(),p.vertical(),p.sprint(),p.yaw()));
     }
 }
+

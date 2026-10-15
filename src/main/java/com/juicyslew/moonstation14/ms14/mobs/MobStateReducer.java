@@ -33,3 +33,4 @@ public final class MobStateReducer {
         return new Transition(new State(desired, Math.addExact(current.revision(), 1)), true);
     }
 }
+

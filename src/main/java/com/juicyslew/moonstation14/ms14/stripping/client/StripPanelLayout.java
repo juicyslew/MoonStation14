@@ -86,3 +86,4 @@ public final class StripPanelLayout {
         return row + (handIds.size() + 2) / 3;
     }
 }
+

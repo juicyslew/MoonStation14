@@ -8,3 +8,4 @@ public record BodyAttachment(BodyState state) {
     public static final Codec<BodyAttachment> CODEC = BodyState.CODEC.xmap(BodyAttachment::new, BodyAttachment::state);
     public BodyAttachment { Objects.requireNonNull(state, "state"); }
 }
+

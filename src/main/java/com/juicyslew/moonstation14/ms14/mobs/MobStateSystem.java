@@ -169,3 +169,4 @@ public final class MobStateSystem {
         return MobStateComponent.State.ALIVE;
     }
 }
+

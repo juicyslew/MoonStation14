@@ -155,3 +155,4 @@ public final class PowerAllocation {
         return Double.isNaN(value) ? 1.0e-9 : Math.max(1.0e-9, Math.min(nonNegative(value), 1));
     }
 }
+

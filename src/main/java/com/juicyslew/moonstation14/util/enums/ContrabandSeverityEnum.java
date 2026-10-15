@@ -38,3 +38,4 @@ public enum ContrabandSeverityEnum implements StringRepresentable {
     public static final Codec<ContrabandSeverityEnum> CODEC =
             StringRepresentable.fromEnum(ContrabandSeverityEnum::values);
 }
+

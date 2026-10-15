@@ -28,3 +28,4 @@ final class ChemMasterDumpCaptureState<T> {
     }
     void clear() { captures.clear(); }
 }
+

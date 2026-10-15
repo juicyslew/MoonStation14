@@ -8,3 +8,4 @@ final class AirlockFeedbackPolicy {
         return supplyKnown && powered && !quiet;
     }
 }
+

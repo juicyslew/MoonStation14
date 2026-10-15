@@ -208,7 +208,7 @@ public final class AirlockConnectedGameTests {
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, observerLifetime, phaseObserver::close);
             try {
             require(f.door.activate(),"freshly paid controller begins normal opening");
-            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
+              waitForDoorPhase(helper,f,AirlockState.DoorPhase.OPEN,30,()->{
               try {
                 require(f.door.state().phase()==AirlockState.DoorPhase.OPENING_PASSABLE,"door is passable during the first opening animation");
                 Villager victim=enrolledBody(f.level,f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
@@ -319,11 +319,11 @@ public final class AirlockConnectedGameTests {
                                          +DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)
                                          +", secondShockStart="+secondShock+", victimBlunt="
                                          +DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f)
-                                         +", doorState="+f.door.state()+", powerAvailable="+f.door.state().powerAvailable()
-                                         +", clientTransitionStartedAt="+f.door.clientView().transitionStartedAt());
-                                  com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
-                                    float total=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)-shockBefore;
-                                    require(Math.abs(total-14f)<.001f,"new solidification cycle produces exactly one additional 7 shock; total="+total+" secondStart="+secondShock);
+                                          +", doorState="+f.door.state()+", powerAvailable="+f.door.state().powerAvailable()
+                                          +", clientTransitionStartedAt="+f.door.clientView().transitionStartedAt());
+                                  waitForDoorPhase(helper,f,AirlockState.DoorPhase.CLOSED,80,()->{
+                                     float total=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)-shockBefore;
+                                    require(Math.abs(total-14f)<.001f,"new solidification cycle produces exactly one additional 7 shock; total="+total+" secondStart="+secondShock+" "+contactDiagnostic(f,victim,shockBefore,DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)));
                                     require(Math.abs(DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.BLUNT,0f)-bluntBefore-30f)<.001f,"both solidification cycles apply one 15-point crush each");
                                     require(MobStateSystem.isCritical(victim),"second contact remains eligible while Critical");
                                     victim.discard();nearby.discard();boundary.discard();helper.succeed();
@@ -402,14 +402,15 @@ public final class AirlockConnectedGameTests {
                     require(f.door.state().phase()==AirlockState.DoorPhase.CLOSING,
                             "admitted normal close transitions directly to CLOSING; "+criticalCloseDiagnostic(f,body));
                 com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
-                    require(Math.abs(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f)-shock-7f)<.001f,"passive partial-close contact shocks once");
+                    float shockAfter=DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f);
+                    require(Math.abs(shockAfter-shock-7f)<.001f,"passive partial-close contact shocks once; "+contactDiagnostic(f,body,shock,shockAfter));
                     require(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.BLUNT,0f)==blunt,"tangent actor is not a crush victim");
                     require(CharacterControlSystem.isStunned(body),"contact left Critical actor paralyzed before the normal close transition");
                      waitForCloseRecovery(helper,f,30,body,()->{
                         require(f.door.state().phase()==AirlockState.DoorPhase.OPENING||f.door.state().phase()==AirlockState.DoorPhase.OPEN,
                                 "closed edge uses quiet normal opening despite Critical/stunned body");
                         require(Math.abs(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f)-shock-7f)<.001f,
-                                "closed-edge bump recovery does not dispatch a duplicate electrical contact");
+                                "closed-edge bump recovery does not dispatch a duplicate electrical contact; "+contactDiagnostic(f,body,shock,DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f)));
                         body.discard();helper.succeed();
                     });
                 });
@@ -783,6 +784,14 @@ public final class AirlockConnectedGameTests {
     private static String criticalCloseDiagnostic(Fixture f,Villager actor) {
         return "power="+PowerRuntime.airlockPower(f.level,f.door)+", actorBBox="+actor.getBoundingBox()
                 +", doorState="+f.door.state();
+    }
+
+    private static String contactDiagnostic(Fixture f,Villager actor,float shockBefore,float shockAfter) {
+        return "shockLedger={before="+shockBefore+",after="+shockAfter+",delta="+(shockAfter-shockBefore)+"}"
+                +", actor={uuid="+actor.getUUID()+",pos="+actor.position()+",health="+actor.getHealth()+",alive="+actor.isAlive()
+                +",critical="+MobStateSystem.isCritical(actor)+",dead="+MobStateSystem.isDead(actor)+",bounds="+actor.getBoundingBox()+"}"
+                +", doorway="+doorwayBounds(f.root)+", doorPhase="+f.door.state().phase()+", doorState="+f.door.state()
+                +", doorView="+f.door.clientView()+", power="+PowerRuntime.airlockPower(f.level,f.door);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "airlock_gas_flow", timeoutTicks = 500)

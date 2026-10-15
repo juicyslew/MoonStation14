@@ -10,3 +10,4 @@ public record AirlockWireClose(int windowId, UUID session) implements CustomPack
     public AirlockWireClose { if(windowId<0||session==null) throw new IllegalArgumentException("invalid wire window"); }
     public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

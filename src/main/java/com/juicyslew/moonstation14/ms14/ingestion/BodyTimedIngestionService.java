@@ -121,9 +121,17 @@ public final class BodyTimedIngestionService {
                 profile.delayTicks(), true, false,
                 () -> TimedIngestionAccess.valid(body, admitted, authority),
                  () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(),
-                         profile.edible().kind() == IngestionProfile.Kind.FOOD, authority)) {
+                          profile.edible().kind() == IngestionProfile.Kind.FOOD, authority,
+                          cents -> IngestionReceiptObserver.publish(new IngestionReceiptObserver.Receipt(
+                                  owner == null ? null : owner.getUUID(), body.getUUID(), admitted.sourceKey(), cents)))) {
                     case COMMITTED_REPEAT -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.REPEAT; }
                     case COMMITTED_STOP -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.STOP; }
+                    case CANNOT_INGEST -> {
+                        if (owner != null && profile.consumeSource()) owner.displayClientMessage(
+                                net.minecraft.network.chat.Component.translatable("ingestion-you-cannot-ingest-any-more",
+                                        net.minecraft.network.chat.Component.translatable("ingestion-verb-swallow")), true);
+                        yield TimedInteractionSystem.Completion.DENIED;
+                    }
                     case DENIED -> TimedInteractionSystem.Completion.DENIED;
                     case RECOVERY_REQUIRED -> TimedInteractionSystem.Completion.RECOVERY_REQUIRED;
                 });

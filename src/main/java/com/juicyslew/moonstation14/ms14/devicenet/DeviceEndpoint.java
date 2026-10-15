@@ -22,3 +22,4 @@ public interface DeviceEndpoint {
  /** Optional endpoint-side BeforePacketSent gate after network/range eligibility is established. */
  default boolean beforePacketReceived(DeviceEndpoint sender, DeviceNetworkPacket packet) { return true; }
 }
+

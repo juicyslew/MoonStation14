@@ -9,3 +9,4 @@ public class MapOperations {
         return total;
     }
 }
+

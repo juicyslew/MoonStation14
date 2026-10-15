@@ -49,3 +49,4 @@ public final class DisposalUnitMenu extends AbstractContainerMenu {
     HandActorAuthority.Snapshot authority(){return authority;}
     @Override public ItemStack quickMoveStack(Player player,int index){return ItemStack.EMPTY;}
 }
+

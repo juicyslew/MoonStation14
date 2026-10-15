@@ -421,3 +421,4 @@ public final class BodyContainmentService implements AutoCloseable {
     /** Immutable original entity flags captured before containment first began. */
     public record ContainedBodyFlags(boolean invisible, boolean noPhysics, boolean noGravity) { }
 }
+

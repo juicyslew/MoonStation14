@@ -82,3 +82,4 @@ public final class CelestialSceneGeometry {
     private static Vec3 local(Matrix4f matrix, Vec3 v) { Vector3f r=matrix.transformPosition((float)v.x,(float)v.y,(float)v.z,new Vector3f()); return new Vec3(r.x,r.y,r.z); }
     private static Vec3 localDirection(Matrix4f matrix, Vec3 v) { Vector3f r=matrix.transformDirection((float)v.x,(float)v.y,(float)v.z,new Vector3f()); return new Vec3(r.x,r.y,r.z); }
 }
+

@@ -107,3 +107,4 @@ public final class OwnedCorpsePhysics {
         return Double.isFinite(value.x) && Double.isFinite(value.y) && Double.isFinite(value.z);
     }
 }
+

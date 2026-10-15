@@ -65,3 +65,4 @@ public final class DisposalMeshGeometry {
     private static Quad outward(Vertex a,Vertex b,Vertex c,Vertex d,boolean dark){double ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;double cx=uy*vz-uz*vy,cy=uz*vx-ux*vz,cz=ux*vy-uy*vx;double dot=cx*a.nx+cy*a.ny+cz*a.nz;if(dot<0)return new Quad(a,d,c,b,dark);return new Quad(a,b,c,d,dark);}
     private static Vertex v(double x,double y,double z,double u,double vv,double nx,double ny,double nz){double length=Math.sqrt(nx*nx+ny*ny+nz*nz);return new Vertex(x,y,z,u,vv,length==0?0:nx/length,length==0?0:ny/length,length==0?0:nz/length);}
 }
+

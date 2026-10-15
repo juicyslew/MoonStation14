@@ -9,3 +9,4 @@ public enum EffectResult {
     SKIPPED_UNSUPPORTED,
     FAILED
 }
+

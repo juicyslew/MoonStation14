@@ -22,3 +22,4 @@ public final class ExamineDetailPolicy {
                 examiner, state, ghost, distance, true, true);
     }
 }
+

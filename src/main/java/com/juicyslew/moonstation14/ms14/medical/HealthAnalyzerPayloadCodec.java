@@ -40,3 +40,4 @@ final class HealthAnalyzerPayloadCodec {
         return resolved;
     }
 }
+

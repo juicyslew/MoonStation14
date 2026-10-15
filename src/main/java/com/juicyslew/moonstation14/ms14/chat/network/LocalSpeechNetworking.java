@@ -35,3 +35,4 @@ public final class LocalSpeechNetworking {
         PacketDistributor.sendToPlayer(player, payload);
     }
 }
+

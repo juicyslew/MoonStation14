@@ -50,3 +50,4 @@ public final class DisposalTubeGeometryCache {
     private record Key(long diameter, int ports) { }
     public record Products(List<AABB> boxes, VoxelShape shape, List<DisposalMeshGeometry.Quad> mesh) { }
 }
+

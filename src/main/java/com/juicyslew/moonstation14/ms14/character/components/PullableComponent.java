@@ -14,3 +14,4 @@ public record PullableComponent() implements CharacterComponent {
     }));
     @Override public String type() { return TYPE; }
 }
+

@@ -45,3 +45,4 @@ public record ToolPrototypeData(Set<Quality> qualities, double speedModifier, Op
         this(qualities, speedModifier, welder, Optional.empty());
     }
 }
+

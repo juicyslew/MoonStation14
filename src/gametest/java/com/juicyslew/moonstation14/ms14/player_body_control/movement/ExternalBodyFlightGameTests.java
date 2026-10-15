@@ -296,27 +296,39 @@ public final class ExternalBodyFlightGameTests {
             UUID id, Object binding, Object hands, int elapsed) {
         if (body.onGround()) {
             long firstLandingTime = helper.getLevel().getGameTime();
+            double landingHorizontalSpeed = body.getDeltaMovement().horizontalDistance();
             if (body.getDeltaMovement().horizontalDistanceSqr() >= .001)
                 require(ExternalBodyFlight.tracked(body),
                         "flight remains tracked at first landing until grounded friction runs");
             helper.runAfterDelay(1, () -> {
                 require(helper.getLevel().getGameTime() > firstLandingTime,
                         "a subsequent world post-hook had an opportunity to run");
-                require(body.onGround() && body.getDeltaMovement().horizontalDistanceSqr() < .001,
-                        "normal grounded idle friction settles horizontal flight velocity");
-                require(body.getUUID().equals(id) && body.playerCharacterBinding().equals(binding)
-                                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands,
-                        "settling preserves original body identity, binding, and hands");
-                require(((MindControlledMob) (Object) body).moonstation14$isMovementOwned(),
-                        "passive flight settling preserves movement ownership");
-                require(!ExternalBodyFlight.tracked(body),
-                        "flight tracking is cleaned up after grounded friction settles");
-                helper.succeed();
+                require(body.getDeltaMovement().horizontalDistance() < landingHorizontalSpeed * .31,
+                        "three resolved 60 Hz friction substeps strongly damp horizontal flight velocity");
+                awaitSettled(helper, body, id, binding, hands, 20);
             });
             return;
         }
         if (elapsed >= 25) throw new GameTestAssertException("ordinary gravity did not land the body within the bounded wait");
         helper.runAfterDelay(1, () -> pollForLanding(helper, body, id, binding, hands, elapsed + 1));
+    }
+
+    private static void awaitSettled(GameTestHelper helper,
+            com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity body,
+            UUID id, Object binding, Object hands, int remaining) {
+        if (!ExternalBodyFlight.tracked(body)) {
+            require(body.onGround() && body.getDeltaMovement().horizontalDistanceSqr() < .001,
+                    "grounded substep friction eventually settles horizontal flight velocity");
+            require(body.getUUID().equals(id) && body.playerCharacterBinding().equals(binding)
+                            && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands,
+                    "settling preserves original body identity, binding, and hands");
+            require(((MindControlledMob) (Object) body).moonstation14$isMovementOwned(),
+                    "passive flight settling preserves movement ownership");
+            helper.succeed();
+            return;
+        }
+        if (remaining <= 0) throw new GameTestAssertException("ground friction did not settle flight before bounded deadline");
+        helper.runAfterDelay(1, () -> awaitSettled(helper, body, id, binding, hands, remaining - 1));
     }
 
     private static void bindAndPrepare(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity body,

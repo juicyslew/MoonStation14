@@ -40,3 +40,4 @@ public record TemperatureComponent(double massKg, double specificHeatJoulesPerKg
     public ThermalExposureMath.TemperatureProfile toProfile() { return new ThermalExposureMath.TemperatureProfile(massKg, specificHeatJoulesPerKgKelvin, atmosphereTransferEfficiency); }
     public ThermalExposureMath.VacuumPolicy toVacuumPolicy() { return new ThermalExposureMath.VacuumPolicy(spaceHeatCapacityJoulesPerKelvin, spaceHeatScale, spaceTemperatureKelvin); }
 }
+

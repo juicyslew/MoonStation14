@@ -34,3 +34,4 @@ public final class MedicalPortraitSnapshot {
         return com.juicyslew.moonstation14.ms14.character.CharacterVisualService.same(a, b);
     }
 }
+

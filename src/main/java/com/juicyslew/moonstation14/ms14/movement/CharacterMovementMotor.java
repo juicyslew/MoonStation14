@@ -33,40 +33,48 @@ public final class CharacterMovementMotor {
         MovementVector velocity = state.velocity().add(environment.externalImpulse());
         CharacterMovementCommand effective = command.withStun(stunned);
 
-        // SS14 applies a linear per-tick friction factor, clamped to [0, 1].
-        // Minecraft's collision, gravity and jump values are deliberately injected by the adapter.
-        if (state.onGround() && !externalFlight) {
-            boolean hasWish = effective.wishX() != 0d || effective.wishZ() != 0d;
-            double friction = hasWish ? policy.groundFrictionWithInputPerSecond()
-                    : policy.groundFrictionNoInputPerSecond();
-            double frictionFactor = Math.max(0d, Math.min(1d,
-                    1d - friction * environment.surfaceMovementFactor() * dt));
-            double horizontalSpeed = Math.hypot(velocity.x(), velocity.z());
-            if (horizontalSpeed >= policy.minimumFrictionSpeed()) {
-                velocity = new MovementVector(velocity.x() * frictionFactor,
-                        velocity.y(), velocity.z() * frictionFactor);
-            }
-        }
-
-        if (!externalFlight && (effective.wishX() != 0d || effective.wishZ() != 0d)) {
-            double requestedSpeed = (effective.sprint() ? policy.sprintSpeedPerSecond() : policy.walkSpeedPerSecond())
-                    * environment.voluntarySpeedFactor();
-            double targetWishX = effective.wishX() * requestedSpeed;
-            double targetWishZ = effective.wishZ() * requestedSpeed;
-            double wishSpeed = Math.hypot(targetWishX, targetWishZ);
-            if (wishSpeed > 0d) {
-                double wishDirectionX = targetWishX / wishSpeed;
-                double wishDirectionZ = targetWishZ / wishSpeed;
-                double currentSpeed = velocity.x() * wishDirectionX + velocity.z() * wishDirectionZ;
-                double addSpeed = wishSpeed - currentSpeed;
-                if (addSpeed > 0d) {
-                    double surfaceFactor = state.onGround() ? environment.surfaceMovementFactor() : 1d;
-                    double acceleration = Math.min(policy.accelerationPerSecondSquared() * surfaceFactor * dt * wishSpeed,
-                            addSpeed);
-                    velocity = new MovementVector(velocity.x() + acceleration * wishDirectionX, velocity.y(),
-                            velocity.z() + acceleration * wishDirectionZ);
+        // SS14's grounded friction/wish motor runs at 60 Hz, while the Minecraft
+        // adapter invokes this kernel at 20 Hz. Integrate only grounded horizontal
+        // motor behavior in bounded substeps; retain one native collision sweep.
+        double horizontalX = 0d, horizontalZ = 0d;
+        int horizontalSubsteps = state.onGround() && !externalFlight
+                ? Math.max(1, (int) Math.ceil(dt * 60d)) : 1;
+        double horizontalDt = dt / horizontalSubsteps;
+        for (int substep = 0; substep < horizontalSubsteps; substep++) {
+            if (state.onGround() && !externalFlight) {
+                boolean hasWish = effective.wishX() != 0d || effective.wishZ() != 0d;
+                double friction = hasWish ? policy.groundFrictionWithInputPerSecond()
+                        : policy.groundFrictionNoInputPerSecond();
+                double frictionFactor = Math.max(0d, Math.min(1d,
+                        1d - friction * environment.surfaceMovementFactor() * horizontalDt));
+                double horizontalSpeed = Math.hypot(velocity.x(), velocity.z());
+                if (horizontalSpeed >= policy.minimumFrictionSpeed()) {
+                    velocity = new MovementVector(velocity.x() * frictionFactor, velocity.y(),
+                            velocity.z() * frictionFactor);
                 }
             }
+            if (!externalFlight && (effective.wishX() != 0d || effective.wishZ() != 0d)) {
+                double requestedSpeed = (effective.sprint() ? policy.sprintSpeedPerSecond() : policy.walkSpeedPerSecond())
+                        * environment.voluntarySpeedFactor();
+                double targetWishX = effective.wishX() * requestedSpeed;
+                double targetWishZ = effective.wishZ() * requestedSpeed;
+                double wishSpeed = Math.hypot(targetWishX, targetWishZ);
+                if (wishSpeed > 0d) {
+                    double wishDirectionX = targetWishX / wishSpeed;
+                    double wishDirectionZ = targetWishZ / wishSpeed;
+                    double currentSpeed = velocity.x() * wishDirectionX + velocity.z() * wishDirectionZ;
+                    double addSpeed = wishSpeed - currentSpeed;
+                    if (addSpeed > 0d) {
+                        double surfaceFactor = state.onGround() ? environment.surfaceMovementFactor() : 1d;
+                        double acceleration = Math.min(policy.accelerationPerSecondSquared() * surfaceFactor
+                                * horizontalDt * wishSpeed, addSpeed);
+                        velocity = new MovementVector(velocity.x() + acceleration * wishDirectionX, velocity.y(),
+                                velocity.z() + acceleration * wishDirectionZ);
+                    }
+                }
+            }
+            horizontalX += velocity.x() * horizontalDt;
+            horizontalZ += velocity.z() * horizontalDt;
         }
 
         if (!externalFlight && effective.jumpRequested() && state.onGround()) {
@@ -77,7 +85,8 @@ public final class CharacterMovementMotor {
         // Entity.travel moves using the current velocity, then applies gravity and vertical drag
         // for the next tick. Jump velocity therefore contributes its full first-tick displacement.
         MovementVector movementRequested = velocity.scale(dt);
-        MovementVector requested = movementRequested;
+        MovementVector requested = new MovementVector(horizontalX + environment.constraintImpulse().x() * dt,
+                movementRequested.y(), horizontalZ + environment.constraintImpulse().z() * dt);
         // Vanilla Entity.move only refreshes its grounded flag after a clipped downward request.
         // Probe just below a stationary grounded entity so real floor collision retains support.
         // Do not probe during jumps or upward impulses, and let an unsupported probe fall normally.
@@ -96,17 +105,25 @@ public final class CharacterMovementMotor {
 
         // A blocked axis cannot retain velocity into the blocking surface. The resolver reports displacement,
         // so compare each axis to the requested displacement rather than fabricating collision response.
-        double vx = blocked(state.position().x(), requested.x(), actual.x()) ? 0d : velocity.x();
+        boolean blockedX = blocked(state.position().x(), requested.x(), actual.x());
+        double vx = blockedX && pointsIntoBlockedHorizontalAxis(requested.x(), velocity.x()) ? 0d : velocity.x();
         double vy = movementRequested.y() != 0d
                 && blocked(state.position().y(), movementRequested.y(), actual.y()) ? 0d
                 : (velocity.y() - environment.gravityPerSecondSquared() * dt) * environment.verticalDrag();
-        double vz = blocked(state.position().z(), requested.z(), actual.z()) ? 0d : velocity.z();
+        boolean blockedZ = blocked(state.position().z(), requested.z(), actual.z());
+        double vz = blockedZ && pointsIntoBlockedHorizontalAxis(requested.z(), velocity.z()) ? 0d : velocity.z();
         if (resolved.onGround() && vy < 0d) vy = 0d;
         return new CharacterMovementState(position, new MovementVector(vx, vy, vz), resolved.onGround());
     }
 
     private static boolean blocked(double position, double requested, double actual) {
         return Math.abs(requested - actual) > roundingAllowance(position, requested);
+    }
+
+    /** The sweep follows average substep displacement; only erase terminal velocity into that wall. */
+    private static boolean pointsIntoBlockedHorizontalAxis(double requestedDisplacement, double terminalVelocity) {
+        return requestedDisplacement != 0d && terminalVelocity != 0d
+                && Math.signum(requestedDisplacement) == Math.signum(terminalVelocity);
     }
 
     private static void ensureBoundedResolution(MovementVector position, MovementVector requested, MovementVector actual,
@@ -147,3 +164,4 @@ public final class CharacterMovementMotor {
         return Math.min(Math.ulp(position) + Math.ulp(endpoint), MAX_WORLD_COORDINATE_ULP);
     }
 }
+

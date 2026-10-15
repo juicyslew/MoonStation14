@@ -32,3 +32,4 @@ public enum StatusEffectBehavior {
         return serializedName;
     }
 }
+

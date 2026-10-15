@@ -67,3 +67,4 @@ public record FireStackComponent(float stacks, boolean ignited)
         return STREAM_CODEC;
     }
 }
+

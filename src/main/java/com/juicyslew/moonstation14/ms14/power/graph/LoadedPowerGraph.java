@@ -40,6 +40,9 @@ public final class LoadedPowerGraph {
 
     public enum Knowledge { UNKNOWN, KNOWN }
     public record NodeState(Knowledge knowledge, int componentId) { }
+    /** Read-only explanation of a node's current fail-closed graph state. */
+    public record NodeDiagnostics(NodeState state, boolean rebuilding, boolean nodeIndexed,
+                                  List<net.minecraft.world.level.ChunkPos> unloadedPotentialNeighborChunks) { }
     public record BuildProgress(boolean dirty, long revision, boolean indexed, int chunkCursor,
                                 int nodeCursor, int indexedNodes, int frontierNodes, int visitedNodes,
                                 int loadedNodes, int loadedChunks) { }
@@ -181,6 +184,19 @@ public final class LoadedPowerGraph {
                 ? new NodeState(Knowledge.UNKNOWN, id) : new NodeState(Knowledge.KNOWN, id);
     }
 
+    /** Reports stored component frontier data; does not infer neighbors or change graph state. */
+    public NodeDiagnostics diagnostics(CableFaceNode node) {
+        NodeState current = state(node);
+        Integer id = components.get(node);
+        ComponentInfo info = id == null ? null : componentInfo.get(id);
+        List<net.minecraft.world.level.ChunkPos> missing = new ArrayList<>();
+        if (info != null) for (long key : info.potentialNeighborChunks)
+            if (!loadedChunks.contains(key)) missing.add(new net.minecraft.world.level.ChunkPos(key));
+        missing.sort(java.util.Comparator.comparingInt((net.minecraft.world.level.ChunkPos pos) -> pos.x)
+                .thenComparingInt(pos -> pos.z));
+        return new NodeDiagnostics(current, dirty, indexed && nodeIndex.contains(node), List.copyOf(missing));
+    }
+
     public int loadedNodeCount() { return chunks.values().stream().mapToInt(List::size).sum(); }
     public long revision() { return revision; }
 
@@ -255,3 +271,4 @@ public final class LoadedPowerGraph {
     }
 
 }
+

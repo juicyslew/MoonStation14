@@ -5,3 +5,4 @@ public final class BodyPullPolicy {
     public static final double VOLUNTARY_MOVEMENT_FACTOR = 0.95d;
     private BodyPullPolicy() { }
 }
+

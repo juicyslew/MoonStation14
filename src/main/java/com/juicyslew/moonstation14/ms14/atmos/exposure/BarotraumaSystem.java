@@ -60,3 +60,4 @@ public final class BarotraumaSystem {
                 .isRetainedNonAliveBody(entity);
     }
 }
+

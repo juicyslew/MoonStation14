@@ -27,3 +27,4 @@ public final class ItemLocationSnapshot {
         return Optional.ofNullable(locations.get(Objects.requireNonNull(token, "token")));
     }
 }
+

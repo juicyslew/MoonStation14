@@ -10,3 +10,4 @@ public interface LivingEntityImmobileInvoker {
     @Invoker("isImmobile")
     boolean moonstation14$callIsImmobile();
 }
+

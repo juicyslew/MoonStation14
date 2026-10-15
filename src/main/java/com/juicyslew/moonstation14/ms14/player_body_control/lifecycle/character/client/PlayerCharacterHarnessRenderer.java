@@ -151,3 +151,4 @@ public final class PlayerCharacterHarnessRenderer
                 PlayerCharacterHarnessRenderer::new);
     }
 }
+

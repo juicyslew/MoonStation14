@@ -52,3 +52,4 @@ public class DamageHooks {
         DamageSystem.applyVanillaHealing(target, acceptedAmount);
     }
 }
+

@@ -379,3 +379,4 @@ public final class BodyWorldGridTransfer {
 
     private static boolean same(ItemStack a, ItemStack b) { return ItemStack.matches(a, b); }
 }
+

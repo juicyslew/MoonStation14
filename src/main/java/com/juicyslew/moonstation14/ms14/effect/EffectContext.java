@@ -58,3 +58,4 @@ public record EffectContext(
         return new EffectContext(level, entity, scale, random, conditions, cause, reagentContext);
     }
 }
+

@@ -9,3 +9,4 @@ public record MindId(UUID value) {
         Objects.requireNonNull(value, "value");
     }
 }
+

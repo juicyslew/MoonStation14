@@ -9,3 +9,4 @@ public record MobHarness(MobHarnessId id, MobHarnessKind kind) {
         Objects.requireNonNull(kind, "kind");
     }
 }
+

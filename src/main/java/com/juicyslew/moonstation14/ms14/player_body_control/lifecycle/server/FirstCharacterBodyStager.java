@@ -178,3 +178,4 @@ public final class FirstCharacterBodyStager {
     public enum Outcome { FAILED, PREPARED }
 
 }
+

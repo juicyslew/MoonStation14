@@ -137,3 +137,4 @@ public final class ConstructionCraftNetworking {
     private static void send(ServerPlayer p,long seq,long epoch,UUID body,String recipe,int n,String message){PacketDistributor.sendToPlayer(p,new ConstructionCraftState(epoch,seq,body,recipe,n,message));}
     private static void stopped(ServerStoppedEvent event){QUEUES.clear();SEQUENCES.clear();}
 }
+

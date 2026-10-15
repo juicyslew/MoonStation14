@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-sealed interface PlantMetabolismData permits
+public sealed interface PlantMetabolismData permits
         PlantMetabolismData.PlantAdjustNutrition,
         PlantMetabolismData.PlantAdjustWeeds,
         PlantMetabolismData.PlantAdjustPests,
@@ -199,3 +199,4 @@ sealed interface PlantMetabolismData permits
         @Override public String type() { return "PlantAdjustPotency"; }
     }
 }
+

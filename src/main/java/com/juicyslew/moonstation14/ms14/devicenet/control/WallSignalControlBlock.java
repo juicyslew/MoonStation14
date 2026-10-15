@@ -52,3 +52,4 @@ public final class WallSignalControlBlock extends Block implements EntityBlock {
         super.onRemove(state,level,pos,newState,moved);
     }
 }
+

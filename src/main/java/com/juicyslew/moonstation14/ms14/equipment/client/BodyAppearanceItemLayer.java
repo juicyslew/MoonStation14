@@ -82,3 +82,4 @@ public final class BodyAppearanceItemLayer extends RenderLayer<PlayerCharacterHa
         } finally { pose.popPose(); }
     }
 }
+

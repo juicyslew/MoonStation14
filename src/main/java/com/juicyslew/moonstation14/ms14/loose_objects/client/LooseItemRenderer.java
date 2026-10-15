@@ -64,6 +64,8 @@ public final class LooseItemRenderer extends EntityRenderer<LooseItemEntity> {
         } else {
             pose.pushPose();
             try {
+                // Render-only local depth separation; never alters the entity's native pose/physics.
+                pose.translate(0, LooseItemRenderLayers.offset(entity), 0);
                 pose.mulPose(com.mojang.math.Axis.YP.rotation(entity.getRotationAngle(partialTick)));
                 if ("flat_sprite".equals(profile.renderKind())) {
                     // Generated item sprites are vertical quads in NONE context. Lay that plane
@@ -99,3 +101,4 @@ public final class LooseItemRenderer extends EntityRenderer<LooseItemEntity> {
         return net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS;
     }
 }
+

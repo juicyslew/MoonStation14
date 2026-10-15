@@ -20,3 +20,4 @@ public final class NetworkDeviceItemMergeStrategy implements PrototypeMergeStrat
         source.entrySet().forEach(e -> target.add(e.getKey(), e.getValue().deepCopy()));
     }
 }
+

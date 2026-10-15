@@ -12,3 +12,4 @@ public final class CraftWorkSchedule {
         return (int)Math.min(Integer.MAX_VALUE,Math.max(1,Math.ceil(seconds*20)));
     }
 }
+

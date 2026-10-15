@@ -83,3 +83,4 @@ public abstract class LivingEntityMedicalCorpseMixin {
         }
     }
 }
+

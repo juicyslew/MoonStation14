@@ -50,3 +50,4 @@ public final class SpeechModePolicy {
         return new Result(mode, text, channel);
     }
 }
+

@@ -27,3 +27,4 @@ public final class ExamineSelector {
                 .map(c -> new Candidate(c.target(), c.hitPoint(), c.distance(), c.publicName(), c.box(), c.transparent())).toList();
     }
 }
+

@@ -62,3 +62,4 @@ public final class FireStackAttachment implements IMS14Attachment<FireStackAttac
         return state.hashCode();
     }
 }
+

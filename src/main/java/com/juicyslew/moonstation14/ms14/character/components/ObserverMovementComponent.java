@@ -24,3 +24,4 @@ public record ObserverMovementComponent(double walkSpeed, double sprintSpeed) im
     }
     @Override public String type() { return TYPE; }
 }
+

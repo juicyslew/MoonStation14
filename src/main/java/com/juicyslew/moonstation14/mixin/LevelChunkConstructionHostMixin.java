@@ -19,3 +19,4 @@ public abstract class LevelChunkConstructionHostMixin {
         if (level instanceof net.minecraft.server.level.ServerLevel server) ConstructionWorldData.invalidateExternalBlockWrite(server, pos);
     }
 }
+

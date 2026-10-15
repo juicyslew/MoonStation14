@@ -193,3 +193,4 @@ public final class VentilationFixtureService {
         return be.compareAndSetSettings(current.revision(), settings);
     }
 }
+

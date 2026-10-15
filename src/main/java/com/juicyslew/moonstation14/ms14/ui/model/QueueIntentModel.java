@@ -54,3 +54,4 @@ public final class QueueIntentModel {
     public Entry presetAt(int index) { return presets.get(index); }
     public long revision() { return revision; }
 }
+

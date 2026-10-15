@@ -30,6 +30,7 @@
     "LivingEntityMindHarnessTravelMixin",
     "EntityAirlockBumpMixin",
     "BlockCollisionsAirlockPassageMixin",
+    "EntityGasCanisterRemovalMixin",
     "LivingEntityDeathStateAccessor",
     "LivingEntityMedicalCorpseMixin",
     "LivingEntityPostureMovementMixin",
@@ -45,6 +46,7 @@
     "ChunkMapObserverCenterMixin"
   ],
   "client": [
+    "client.EditBoxDisplayAccessor",
     "client.MinecraftStunInputMixin",
     "client.ChatComponentUnifiedViewMixin",
     "client.ChatScreenReviewPagingMixin",
@@ -66,6 +68,11 @@
     "client.ContainedBodyCameraMixin",
     "client.ContainedPerspectiveLockMixin",
     "client.ContainedOwnerPickMixin"
+    ,"client.VertexBufferSingularityDiagnosticMixin"
+    ,"client.ProgramSingularityLensMixin"
+    ,"client.ShaderInstanceSingularityLensMixin"
+    ,"client.LevelRendererSingularityLensMixin"
+    ,"client.FrustumSingularityLensMixin"
   ],
   "injectors": {
     "defaultRequire": 1

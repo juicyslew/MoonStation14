@@ -270,3 +270,4 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 }
+

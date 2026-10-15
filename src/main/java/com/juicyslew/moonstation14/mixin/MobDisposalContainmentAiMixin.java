@@ -17,3 +17,4 @@ public abstract class MobDisposalContainmentAiMixin {
                 && BodyContainmentService.forLevel(level).ownerOf(mob).isPresent()) callback.cancel();
     }
 }
+

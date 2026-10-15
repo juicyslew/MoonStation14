@@ -127,3 +127,4 @@ public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String a
                 buf.readByte(), buf.readByte(), buf.readEnum(DistanceTier.class), cue);
     }
 }
+

@@ -39,3 +39,4 @@ public record RespiratorComponent(RespiratorPolicy policy) implements CharacterC
         }
     });
 }
+

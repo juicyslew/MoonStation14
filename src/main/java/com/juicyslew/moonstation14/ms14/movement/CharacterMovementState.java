@@ -9,3 +9,4 @@ public record CharacterMovementState(MovementVector position, MovementVector vel
         Objects.requireNonNull(velocity, "velocity");
     }
 }
+

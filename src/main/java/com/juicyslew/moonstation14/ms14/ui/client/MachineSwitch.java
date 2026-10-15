@@ -86,3 +86,4 @@ public final class MachineSwitch extends net.minecraft.client.gui.components.Abs
         }
     }
 }
+

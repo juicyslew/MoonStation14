@@ -60,3 +60,4 @@ public final class BoundedViewportModel {
     public double zoom() { return zoom; }
     public long revision() { return revision; }
 }
+

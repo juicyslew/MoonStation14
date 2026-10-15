@@ -174,3 +174,4 @@ public final class ExternalBodyFlight {
     record Boundary(ResourceKey<Level> dimension, int chunkX, int chunkZ) { }
     private record State(ServerLevel level, long endTick, long lastAdvancedTick, Boundary lastBoundary) { }
 }
+

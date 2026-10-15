@@ -1,0 +1,11 @@
+containment_field.png and containment_field.meta.json are imported from Space Station 14,
+Resources/Textures/Structures/Power/Generation/Singularity/containment_field.rsi/{field.png,meta.json}.
+SS14 source checkout revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91.
+Imported field.png SHA-256: 12FFF0E7E7D1D397E1F657A6E659695D96CC16915347E7685321A2BB9163B7B1.
+Source metadata attribution: Taken from tgstation at
+https://github.com/tgstation/tgstation/commit/da354ba4e28fcaf73002d25cab0da4815808be60
+License: CC-BY-SA-3.0.
+
+The full original 256x256 sheet and metadata are retained. The renderer uses a 3D tiling
+adaptation and explicitly selects direction strip 0; this is not a claim of camera-facing
+Robust RSI direction mapping. Texture appearance under GPU drivers/Fabulous requires manual review.

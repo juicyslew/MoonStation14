@@ -117,3 +117,4 @@ public final class DisposalConstructionPreview {
     }
     static boolean materialMatches(ItemStack stack,String material){var id=ResourceLocation.tryParse(material);return id!=null&&net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(id)&&stack.is(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id));}
 }
+

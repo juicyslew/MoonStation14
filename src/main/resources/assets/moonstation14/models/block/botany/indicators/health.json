@@ -1,0 +1,35 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/botany/indicators/health",
+    "particle": "moonstation14:block/botany/indicators/health"
+  },
+  "elements": [
+    {
+      "name": "status_health_display",
+      "from": [
+        9.4,
+        1.3,
+        2.4800000000000004
+      ],
+      "to": [
+        11.4,
+        2.8,
+        2.4800000000000004
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            4.0,
+            4.0,
+            12.0,
+            10.0
+          ]
+        }
+      }
+    }
+  ],
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

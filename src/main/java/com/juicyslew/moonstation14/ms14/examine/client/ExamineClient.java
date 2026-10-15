@@ -616,6 +616,12 @@ public final class ExamineClient {
     }
 
     public static boolean hasPopup() { return POPUP.target() != null && !popupDismissed; }
+    /** A correlated authoritative world mutation may invalidate the currently latched block's cached details. */
+    public static void worldMutationConfirmed(net.minecraft.core.BlockPos position) {
+        if (position == null || requestedTarget == null || popupDismissed
+                || requestedTarget.kind() != ExamineTarget.Kind.BLOCK || !requestedTarget.blockPos().equals(position)) return;
+        request(requestedTarget, false);
+    }
     public static boolean mouseClick(double x, double y, int button) {
         Minecraft mc = Minecraft.getInstance();
         boolean storageHost = mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen;
@@ -647,3 +653,4 @@ public final class ExamineClient {
     public static boolean escape() { if (!hasPopup() || !POPUP.escape()) return false; dismiss(); return true; }
     public static void dismiss() { popupDismissed = true; detailGateInitialized = false; detailRetryAt = 0; POPUP.clear(); clearResponseState(); }
 }
+

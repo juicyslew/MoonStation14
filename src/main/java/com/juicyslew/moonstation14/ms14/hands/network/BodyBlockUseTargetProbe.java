@@ -155,3 +155,4 @@ public final class BodyBlockUseTargetProbe {
         @Override public int getMinBuildHeight() { return level.getMinBuildHeight(); }
     }
 }
+

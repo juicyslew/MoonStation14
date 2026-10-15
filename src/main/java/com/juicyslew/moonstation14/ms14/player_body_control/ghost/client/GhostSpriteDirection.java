@@ -11,3 +11,4 @@ final class GhostSpriteDirection {
         return RSI_DIRECTION_BY_QUARTER_TURN[quarterTurn];
     }
 }
+

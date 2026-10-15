@@ -727,9 +727,13 @@ public final class GhostControlClient {
                 body.onGround());
         float surface = Math.max(0f, Math.min(64f, latestSurfaceFactor));
         float voluntary = Math.max(0f, Math.min(8f, latestVoluntaryFactor));
+        Vec3 pulse = com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
+                .deltaVelocity(body.level(), initialPosition, body.level().getGameTime());
+        MovementVector gravityPulse = new MovementVector(pulse.x, pulse.y, pulse.z);
+        double impulseBound = Math.max(32d, Math.hypot(Math.hypot(gravityPulse.x(), gravityPulse.y()), gravityPulse.z()));
         CharacterMovementEnvironment environment = new CharacterMovementEnvironment(GroundedHarnessPhysics.TICK_SECONDS,
                 GroundedHarnessPhysics.GRAVITY_PER_SECOND_SQUARED, GroundedHarnessPhysics.JUMP_VELOCITY_PER_SECOND,
-                GroundedHarnessPhysics.VERTICAL_DRAG, MovementVector.ZERO, 32d,
+                GroundedHarnessPhysics.VERTICAL_DRAG, gravityPulse, impulseBound,
                 body.maxUpStep(), (before, requested, wasOnGround) -> {
                     Vec3 old = body.position();
                     body.move(MoverType.SELF, new Vec3(requested.x(), requested.y(), requested.z()));
@@ -767,3 +771,4 @@ public final class GhostControlClient {
         body.yHeadRotO = yaw;
     }
 }
+

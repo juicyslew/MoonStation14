@@ -31,7 +31,7 @@ public final class TimedIngestionAccess {
     private static final ResourceLocation PUDDLE_PROFILE = ResourceLocation.fromNamespaceAndPath("moonstation14", "puddle");
     private TimedIngestionAccess() { }
 
-    public enum Completion { COMMITTED_REPEAT, COMMITTED_STOP, DENIED, RECOVERY_REQUIRED }
+    public enum Completion { COMMITTED_REPEAT, COMMITTED_STOP, CANNOT_INGEST, DENIED, RECOVERY_REQUIRED }
     public enum WorldAdmissionFailure { NONE, SERVER_CONTEXT, NULL_TARGET, HAND_UNAVAILABLE, NOT_VISIBLE,
         WRONG_SOURCE_KIND, CLAIMED, PICKUP_DELAY, NOT_REAGENT, EMPTY_SOURCE, NO_STOMACH_ROOM, HYDRATION_BLOCKED,
         OUT_OF_REACH_OR_OCCLUDED, AUTHORITY_REJECTED }
@@ -182,18 +182,43 @@ public final class TimedIngestionAccess {
 
     public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty,
                                       boolean food, BooleanSupplier authority) {
+        return complete(body, admission, doseCents, destroyOnEmpty, food, authority, ignored -> { });
+    }
+
+    public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty,
+                                      boolean food, BooleanSupplier authority, java.util.function.LongConsumer receipt) {
+        if (receipt == null) return Completion.DENIED;
         if(doseCents<=0||!valid(body,admission,authority)) return Completion.DENIED;
+        IngestionProfile resolvedProfile = ModIngestionProfiles.serverLookup(admission.profileId);
         LiveHands hands=liveHands(body);
         String hand=admission.kind==Kind.HELD?findTokenHand(hands,admission.token):hands==null?null:hands.activeHand();
         if(admission.kind==Kind.HELD&&hand==null || hands==null&&!OralAccess.handless(body))return Completion.DENIED;
         long revision=hands==null?0:hands.revision(); long available=availableStomach(body,admission.level);
+        if (resolvedProfile != null && resolvedProfile.consumeSource()) {
+            // Whole-source ingestion is only supported for an authenticated held source.
+            if (admission.kind != Kind.HELD || hands == null || hand == null) return Completion.DENIED;
+            ItemStack pill = hands.stackCopy(hand).orElse(null);
+            long fullDose = sourceCents(pill, admission.level);
+            if (fullDose <= 0 || fullDose > Integer.MAX_VALUE) return Completion.DENIED;
+            BodyLiquidInteraction.Result consumed = BodyLiquidInteraction.consumeTimedEdibleOwned(body, hand,
+                    admission.token, revision, (int) fullDose, authority, resolvedProfile.completionSound(),
+                    resolvedProfile.completionVolumeDb(), resolvedProfile.completionPitchVariation());
+            if (consumed == BodyLiquidInteraction.Result.SUCCESS) receipt.accept(fullDose);
+            return consumed == BodyLiquidInteraction.Result.SUCCESS ? Completion.COMMITTED_STOP
+                    : consumed == BodyLiquidInteraction.Result.CANNOT_INGEST ? Completion.CANNOT_INGEST
+                    : consumed == BodyLiquidInteraction.Result.RECOVERY_REQUIRED ? Completion.RECOVERY_REQUIRED : Completion.DENIED;
+        }
         if(available<=0)return Completion.DENIED;
         BodyLiquidInteraction.Result result;
-        if(admission.kind==Kind.PUDDLE) result=BodyPuddleDrinkService.finishTimed(body,admission.pos,admission.puddle,doseCents,destroyOnEmpty,authority);
+        if(admission.kind==Kind.PUDDLE) result=BodyPuddleDrinkService.finishTimed(body,admission.pos,admission.puddle,doseCents,destroyOnEmpty,authority,receipt);
         else result=BodyLiquidInteraction.sipTimedOwned(body,admission.kind==Kind.WORLD?admission.worldId:null,
-                hand,admission.kind==Kind.HELD?admission.token:null,revision,doseCents,destroyOnEmpty,food,authority);
+                hand,admission.kind==Kind.HELD?admission.token:null,revision,doseCents,destroyOnEmpty,food,authority,
+                resolvedProfile == null ? null : resolvedProfile.completionSound(),
+                resolvedProfile == null ? -2f : resolvedProfile.completionVolumeDb(),
+                resolvedProfile == null ? .25f : resolvedProfile.completionPitchVariation(), receipt);
         return switch(result) {
             case DENIED -> Completion.DENIED;
+            case CANNOT_INGEST -> Completion.CANNOT_INGEST;
             case RECOVERY_REQUIRED -> Completion.RECOVERY_REQUIRED;
             // Decide repetition from the state produced by this committed dose, not just
             // the pre-transaction room. A drink that reaches max hydration is a terminal
@@ -204,6 +229,17 @@ public final class TimedIngestionAccess {
                     && !blockedByHydration(body, admission.profileId)
                     ?Completion.COMMITTED_REPEAT:Completion.COMMITTED_STOP;
         };
+    }
+
+    private static long sourceCents(ItemStack stack, ServerLevel level) {
+        try {
+            if (!reagent(stack)) return 0;
+            var bridge = ReagentSystem.bridgeForHolder(stack);
+            if (bridge == null) return 0;
+            var component = MS14Provider.getDetached(stack, bridge);
+            if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(component.getMap(), level, "whole-dose pill")) return 0;
+            return ReagentUnits.fromMap(component.getMap()).values().stream().mapToLong(Long::longValue).sum();
+        } catch (RuntimeException invalid) { return 0; }
     }
 
     /** Identifies an active ingestion journal entry as a voluntary drink from its live source. */

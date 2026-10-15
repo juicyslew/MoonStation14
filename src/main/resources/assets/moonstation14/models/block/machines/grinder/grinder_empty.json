@@ -1,0 +1,13 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/machines/grinder/grinder_empty.obj",
+  "textures": {
+    "atlas": "moonstation14:block/machines/grinder/grinder_empty",
+    "particle": "moonstation14:block/machines/grinder/grinder_empty"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "ambientocclusion": true,
+  "render_type": "minecraft:translucent"
+}

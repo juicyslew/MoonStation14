@@ -20,6 +20,7 @@ public class ModSounds {
     public static final Supplier<SoundEvent> TOOL_WELDER = registerSoundEvent("ss14/tools/welder");
     public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
+    public static final Supplier<SoundEvent> BOTANY_GRINDER = registerSoundEvent("botany/grinder/blender");
     public static final Supplier<SoundEvent> CHEMMASTER_CLICK = registerSoundEvent("chemistry/chemmaster/click");
     public static final Supplier<SoundEvent> CHEMMASTER_INSERT = registerSoundEvent("chemistry/chemmaster/insert");
     public static final Supplier<SoundEvent> CHEMMASTER_EJECT = registerSoundEvent("chemistry/chemmaster/eject");
@@ -38,6 +39,7 @@ public class ModSounds {
     public static final Supplier<SoundEvent> AIRLOCK_ELECTRIFY_OFF = registerSoundEvent("airlock/airlock_electrify_off");
     public static final Supplier<SoundEvent> AIRLOCK_SHOCK = registerSoundEvent("airlock/shock");
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
+    public static final Supplier<SoundEvent> PILL = registerSoundEvent("ss14/items/pill");
     public static final Supplier<SoundEvent> EAT = registerSoundEvent("ss14/items/eat");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
@@ -59,6 +61,16 @@ public class ModSounds {
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE = registerFixedRangeSoundEvent("grenade/explode", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE_FAR = registerSoundEvent("grenade/explode_far");
+    public static final Supplier<SoundEvent> PA_PARTICLE_HIT = registerSoundEvent("pa_particle_hit");
+    public static final Supplier<SoundEvent> SINGULARITY_AMBIENT = registerFixedRangeSoundEvent("singularity/ambient", 14.0F);
+    public static final Supplier<SoundEvent> SINGULARITY_COMPONENT_AMBIENT = registerFixedRangeSoundEvent("singularity/component_ambient", 20.0F);
+    public static final Supplier<SoundEvent> SINGULARITY_FORM = registerSoundEvent("singularity/form");
+    public static final Supplier<SoundEvent> SINGULARITY_DISSIPATE = registerSoundEvent("singularity/dissipate");
+    public static final Supplier<SoundEvent> EMITTER_FIRE = registerSoundEvent("emitter/fire");
+    public static final Supplier<SoundEvent> PROJECTILE_FLY_BY = registerSoundEvent("projectile/fly_by");
+    public static final Supplier<SoundEvent> ITEM_SLOT_INSERT = registerSoundEvent("item_slot_insert");
+    public static final Supplier<SoundEvent> ITEM_SLOT_EJECT = registerSoundEvent("item_slot_eject");
+    public static final Supplier<SoundEvent> GAS_VALVE_TOGGLE = registerSoundEvent("gas_valve_toggle");
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),
             java.util.Map.entry("crying", registerSoundEvent("emote/crying")),
@@ -91,3 +103,4 @@ public class ModSounds {
         SOUND_EVENTS.register(eventBus);
     }
 }
+

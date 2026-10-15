@@ -14,8 +14,11 @@ public final class ControlledSoundDispatch {
         emit(level, sound, x, y, z, 1f);
     }
     public static void emit(ServerLevel level, ResourceLocation sound, double x, double y, double z, float volume) {
+        emit(level, sound, x, y, z, volume, 1f);
+    }
+    public static void emit(ServerLevel level, ResourceLocation sound, double x, double y, double z, float volume, float pitch) {
         if (level == null || sound == null || level.getServer() == null) return;
-        var payload = new ControlledSoundPayload(level.dimension().location(), sound, x, y, z, volume);
+        var payload = new ControlledSoundPayload(level.dimension().location(), sound, x, y, z, volume, pitch);
         var players = level.getServer().getPlayerList();
         for (ServerPlayer player : players.getPlayers()) {
             if (player instanceof FakePlayer || player.isRemoved() || players.getPlayer(player.getUUID()) != player
@@ -33,3 +36,4 @@ public final class ControlledSoundDispatch {
         return dx * dx + dy * dy + dz * dz <= RADIUS * RADIUS;
     }
 }
+

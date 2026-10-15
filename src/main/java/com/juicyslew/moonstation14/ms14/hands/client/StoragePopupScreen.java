@@ -673,9 +673,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         // Wire and registered overlays use one click-promoted family z-order, matching paint.
         boolean storageWins=!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
                 &&(popupAtPress!=null||sw!=null||mw!=null);
-        if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.routeWorkspaceClick(
-                mouseX,mouseY,button,storageWins,wireHit,()->wire!=null&&wire.workspaceMouseClicked(mouseX,mouseY,button))) {
-            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.clearTextFocus();
+        if(routeRegisteredWorkspaceClick(mouseX,mouseY,button,storageWins,wireHit,
+                ()->wire!=null&&wire.workspaceMouseClicked(mouseX,mouseY,button))) {
             return true;
         }
         if(popupAtPress!=null)com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront(false);
@@ -874,6 +873,12 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             workspace.beginDrag(w.key(), null, null, new GridGeometry.Cell(cx, cy), GridGeometry.Rotation.DEG_0, active.token(), true, active.itemId(), active.count());
         }
         return true;
+    }
+
+    boolean routeRegisteredWorkspaceClick(double mouseX,double mouseY,int button,boolean storageWins,
+                                          boolean wireHit,java.util.function.BooleanSupplier wireClick){
+        return com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.routeWorkspaceClick(
+                mouseX,mouseY,button,storageWins,wireHit,wireClick);
     }
 
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
@@ -1466,3 +1471,4 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public boolean isPauseScreen() { return false; }
 }
+

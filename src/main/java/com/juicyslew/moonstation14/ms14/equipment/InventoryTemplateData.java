@@ -45,3 +45,4 @@ public record InventoryTemplateData(List<Slot> slots) {
         public Slot { if(id==null||displayName==null||displayName.isBlank()||icon==null||!Set.of("Default","MainHotbar","SecondHotbar").contains(group)||!Double.isFinite(stripTime)||stripTime<0) throw new IllegalArgumentException("invalid slot metadata"); flags=List.copyOf(flags);dependsOn=List.copyOf(dependsOn);blacklist=List.copyOf(blacklist);if(new java.util.HashSet<>(flags).size()!=flags.size()||new java.util.HashSet<>(dependsOn).size()!=dependsOn.size()||new java.util.HashSet<>(blacklist).size()!=blacklist.size())throw new IllegalArgumentException("duplicate slot policy value"); }
     }
 }
+

@@ -60,3 +60,4 @@ public final class SyringeTransferModeTransition {
         return new SyringeStackData(targetId, dose);
     }
 }
+

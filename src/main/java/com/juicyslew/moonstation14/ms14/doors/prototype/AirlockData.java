@@ -156,3 +156,4 @@ public record AirlockData(Door door, Airlock airlock, DoorBolt doorBolt,
     private static void nested(JsonObject o,String name,Set<String> allowed) { if(!o.has(name)||!o.get(name).isJsonObject()) throw new IllegalArgumentException("missing/invalid "+name); fields(o.getAsJsonObject(name),allowed); }
     private static void fields(JsonObject o,Set<String> allowed) { for(String k:o.keySet()) if(!allowed.contains(k)||o.get(k).isJsonNull()) throw new IllegalArgumentException("unknown or null airlock field: "+k); }
 }
+

@@ -13,3 +13,4 @@ public record StatusEffectTickResult(
         Objects.requireNonNull(next, "next");
     }
 }
+

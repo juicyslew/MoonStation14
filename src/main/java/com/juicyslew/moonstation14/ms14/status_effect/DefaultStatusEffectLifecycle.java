@@ -117,3 +117,4 @@ public class DefaultStatusEffectLifecycle implements StatusEffectLifecycle {
         // Client jitter is intentionally not projected from the server yet.
     }
 }
+

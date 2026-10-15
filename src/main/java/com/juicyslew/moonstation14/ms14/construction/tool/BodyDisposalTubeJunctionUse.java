@@ -37,3 +37,4 @@ public final class BodyDisposalTubeJunctionUse {
         return DisposalBuildMenuService.openEdit(actor, editRequest, admission);
     }
 }
+

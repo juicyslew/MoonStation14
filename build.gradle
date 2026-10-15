@@ -207,6 +207,10 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    useJUnitPlatform {
+        if (project.hasProperty('ms14NativeShaderCompile')) includeTags 'native-shader-compile'
+        else if (!project.hasProperty('ms14IncludeNativeShaderCompile')) excludeTags 'native-shader-compile'
+    }
     systemProperty 'moonstation14.projectDir', projectDir.toString()
     systemProperty 'moonstation14.gametestClasses', sourceSets.gametest.output.classesDirs.singleFile.toString()
     classpath += sourceSets.gametest.output
@@ -216,7 +220,7 @@ test {
 def readinessCatalog = [
     ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
     interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest'],
-    prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest'],
+    prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest'],
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]
 if (project.hasProperty('ms14Readiness')) {
@@ -308,15 +312,16 @@ if (project.hasProperty('ms14Readiness')) {
                 def expectedViewports = [[320, 240], [640, 360]]
                 def failures = []
                 if (!manifest.source?.contains('ChemMasterPaint.paint') || !manifest.source?.contains('AirlockWirePaint.paint')) failures << 'source does not identify both production painters'
-                if (fullCases.size() != 48) failures << "expected 48 full cases, found ${fullCases.size()}"
+                if (fullCases.size() != 72) failures << "expected 72 full cases, found ${fullCases.size()}"
                 if (fullCases.collect { it.screen }.toSet() != (['chemmaster', 'airlock-wire'] as Set)) failures << 'full cases do not cover both expected screens'
                 if (fullCases.collect { it.guiScale as int }.toSet() != ([1, 2, 3] as Set)) failures << 'full cases do not cover GUI scales 1–3'
                 if (fullCases.collect { it.viewport }.toSet() != expectedViewports.collect { it as List }.toSet()) failures << 'full cases do not cover both expected viewports'
                 def groups = fullCases.groupBy { [it.screen, it.guiScale as int, it.viewport] }
-                if (groups.size() != 12 || fullCases.size() != groups.size() * 4 || groups.any { key, entries ->
+                if (groups.size() != 12 || groups.any { key, entries ->
                     def states = entries.collect { it.state }
-                    states.any { !(it instanceof String) || it.isBlank() } || states.toSet().size() != 4
-                }) failures << 'expected four distinct, named generated states for every screen/scale/viewport combination'
+                    def expected = key[0] == 'chemmaster' ? 8 : 4
+                    states.any { !(it instanceof String) || it.isBlank() } || states.toSet().size() != expected || entries.size() != expected
+                }) failures << 'expected eight ChemMaster and four wire distinct, named states for every screen/scale/viewport combination'
                 if (sheets.size() != 2) failures << "expected two contact sheets, found ${sheets.size()}"
                 def previewRoot = new File(readinessProjectRoot, 'build/reports/feature-readiness/previews').canonicalFile.toPath()
                 def imageCount = 0
@@ -351,7 +356,7 @@ if (project.hasProperty('ms14Readiness')) {
                     }
                 }
                 previewValidation = failures ? 'FAIL' : 'PASS'
-                previewDetails = failures ? failures.join('; ') : "48 full cases and 2 contact sheets; ${imageCount} listed PNGs exist and decode under preview output"
+                previewDetails = failures ? failures.join('; ') : "72 full cases and 2 contact sheets; ${imageCount} listed PNGs exist and decode under preview output"
                 previewStatus = "${previewValidation}: manifest `${previewManifestFile}`; ${previewDetails}. This validates generated artifacts, not visual/aesthetic acceptance."
             } else if (selected.contains('preview') && suitesByClass.containsKey(previewSuite) && (suitesByClass[previewSuite].failures || suitesByClass[previewSuite].errors)) {
                 previewValidation = 'FAIL'

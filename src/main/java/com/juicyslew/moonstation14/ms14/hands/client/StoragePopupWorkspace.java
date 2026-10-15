@@ -282,3 +282,4 @@ public final class StoragePopupWorkspace {
         return new Preview(PreviewFlag.PERMITTED, PreviewColor.GREEN, true);
     }
 }
+

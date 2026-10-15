@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "tray": "moonstation14:block/botany/hydroponics_tray",
+  "plants": {
+    "wheat": {
+      "stage-1": "moonstation14:block/botany/plants/wheat/stage-1",
+      "stage-2": "moonstation14:block/botany/plants/wheat/stage-2",
+      "stage-3": "moonstation14:block/botany/plants/wheat/stage-3",
+      "stage-4": "moonstation14:block/botany/plants/wheat/stage-4",
+      "stage-5": "moonstation14:block/botany/plants/wheat/stage-5",
+      "stage-6": "moonstation14:block/botany/plants/wheat/stage-6",
+      "harvest": "moonstation14:block/botany/plants/wheat/harvest",
+      "dead": "moonstation14:block/botany/plants/wheat/dead"
+    },
+    "tomato": {
+      "stage-1": "moonstation14:block/botany/plants/tomato/stage-1",
+      "stage-2": "moonstation14:block/botany/plants/tomato/stage-2",
+      "stage-3": "moonstation14:block/botany/plants/tomato/stage-3",
+      "stage-4": "moonstation14:block/botany/plants/tomato/stage-4",
+      "stage-5": "moonstation14:block/botany/plants/tomato/stage-5",
+      "stage-6": "moonstation14:block/botany/plants/tomato/stage-6",
+      "harvest": "moonstation14:block/botany/plants/tomato/harvest",
+      "dead": "moonstation14:block/botany/plants/tomato/dead"
+    },
+    "potato": {
+      "stage-1": "moonstation14:block/botany/plants/potato/stage-1",
+      "stage-2": "moonstation14:block/botany/plants/potato/stage-2",
+      "stage-3": "moonstation14:block/botany/plants/potato/stage-3",
+      "stage-4": "moonstation14:block/botany/plants/potato/stage-4",
+      "harvest": "moonstation14:block/botany/plants/potato/harvest",
+      "dead": "moonstation14:block/botany/plants/potato/dead"
+    },
+    "poppy": {
+      "stage-1": "moonstation14:block/botany/plants/poppy/stage-1",
+      "stage-2": "moonstation14:block/botany/plants/poppy/stage-2",
+      "stage-3": "moonstation14:block/botany/plants/poppy/stage-3",
+      "harvest": "moonstation14:block/botany/plants/poppy/harvest",
+      "dead": "moonstation14:block/botany/plants/poppy/dead"
+    },
+    "aloe": {
+      "stage-1": "moonstation14:block/botany/plants/aloe/stage-1",
+      "stage-2": "moonstation14:block/botany/plants/aloe/stage-2",
+      "stage-3": "moonstation14:block/botany/plants/aloe/stage-3",
+      "stage-4": "moonstation14:block/botany/plants/aloe/stage-4",
+      "stage-5": "moonstation14:block/botany/plants/aloe/stage-5",
+      "harvest": "moonstation14:block/botany/plants/aloe/harvest",
+      "dead": "moonstation14:block/botany/plants/aloe/dead"
+    }
+  }
+}

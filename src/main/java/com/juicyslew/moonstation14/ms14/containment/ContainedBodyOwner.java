@@ -56,3 +56,4 @@ public interface ContainedBodyOwner {
     /** Controlled-input provenance; autonomous and legacy callers use sequence zero by default. */
     default boolean tryEscape(LivingEntity body, long originSequence) { return tryEscape(body); }
 }
+

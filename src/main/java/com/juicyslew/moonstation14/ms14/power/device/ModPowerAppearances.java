@@ -25,3 +25,4 @@ public final class ModPowerAppearances {
     }
     private static ResourceLocation id(String s) { return ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID,s); }
 }
+

@@ -30,3 +30,4 @@ public final class ActiveCharacterPolicy {
         return GhostMobHarnessControl.activeCharacterBody(player);
     }
 }
+

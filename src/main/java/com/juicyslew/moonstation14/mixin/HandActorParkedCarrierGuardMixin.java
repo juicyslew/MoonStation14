@@ -19,3 +19,4 @@ public abstract class HandActorParkedCarrierGuardMixin {
         if (!CarrierHandInventoryGate.allows(actor)) callback.setReturnValue(Optional.empty());
     }
 }
+

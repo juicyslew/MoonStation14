@@ -355,3 +355,4 @@ public final class ObserverClient {
     @SubscribeEvent public static void levelLeaving(ClientPlayerNetworkEvent.LoggingOut event) { reset(); lastEpoch = -1; }
     @SubscribeEvent public static void levelEntering(ClientPlayerNetworkEvent.LoggingIn event) { reset(); lastEpoch = -1; }
 }
+

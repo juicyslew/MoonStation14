@@ -78,3 +78,4 @@ public record CharacterMovementPolicy(double accelerationPerSecondSquared,
         }
     }
 }
+

@@ -23,3 +23,4 @@ abstract class GameRendererDamageFeedbackMixin {
                         DamageFeedbackClientState.feedbackActive(living))) ci.cancel();
     }
 }
+

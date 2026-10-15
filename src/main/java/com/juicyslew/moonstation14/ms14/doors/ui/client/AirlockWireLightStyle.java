@@ -16,3 +16,4 @@ public final class AirlockWireLightStyle {
                 && tick % 20 < 10;
     }
 }
+
