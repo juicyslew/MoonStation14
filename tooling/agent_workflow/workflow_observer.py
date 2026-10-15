@@ -1,0 +1,147 @@
+"""Single bounded scheduler for owner feedback and registered gate liveness."""
+import argparse
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+def _component(name):
+    """Resolve siblings in this module's own layout, never a competing flat module."""
+    if __package__:
+        from importlib import import_module
+        return import_module('.' + name, __package__)
+    return __import__(name)
+
+
+def _workflow():
+    owner_attention = _component('owner_attention')
+    return owner_attention._load_workflow()
+
+
+def ensure_started(root, workflow=None):
+    root = Path(root).resolve()
+    script = Path(__file__).resolve()
+    args = [sys.executable, str(script), '--exchange', str(root), '--watch']
+    try:
+        return subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0,
+            start_new_session=os.name != 'nt')
+    except OSError:
+        return None
+
+
+def _render(root):
+    gate_progress = _component('gate_progress')
+    gate_progress.render(root)
+
+
+def reconcile_components(root, workflow, request, *, now=None, refresh=True):
+    """One bounded pass; component failures are isolated and represented in health."""
+    owner_feedback = _component('owner_feedback')
+    now = time.time() if now is None else now
+    try: owner = owner_feedback.reconcile(root, workflow=workflow, request=request, now=now, refresh=refresh, render=False)
+    except Exception as exc:
+        # Unknown owner state must fail closed: only a successful read can prove idle.
+        owner = {'sessions': 0, 'pending_owner': 1, 'unknown_work': True, 'errors': [str(exc)[:250]]}
+    try: gate = _gate_reconcile(root, workflow, request, now)
+    except Exception as exc: gate = {'pending': 1, 'active': 0, 'errors': [str(exc)[:250]]}
+    errors = list(owner.get('errors', [])) + list(gate.get('errors', []))
+    try: _render(root)
+    except Exception as exc: errors.append('board render failed: ' + str(exc)[:200])
+    return owner, gate, errors
+
+
+def watch(root, workflow=None, request=None, *, clock=time.monotonic, sleep=time.sleep):
+    root = Path(root).resolve()
+    wf = workflow or _workflow()
+    lock = wf.gate_lock(root / 'workflow-observer', nonblocking=True)
+    try:
+        if request is None:
+            gate_dispatch = _component('gate_dispatch')
+            request = gate_dispatch._request
+        interval_owner, interval_gate, idle_grace = 10, 30, 60
+        now = time.time()
+        owner_stats, gate_stats, render_errors = reconcile_components(root, wf, request, now=now, refresh=True)
+        last_owner = last_readiness = last_gate = clock()
+        idle_since = None
+        while True:
+            tick = clock()
+            if tick - last_owner >= interval_owner:
+                owner_feedback = _component('owner_feedback')
+                try: owner_stats = owner_feedback.reconcile(root, workflow=wf, request=request,
+                        refresh=(tick-last_readiness >= 30), render=False)
+                except Exception as exc:
+                    # Retain known open owner work across transient poll failures.
+                    owner_stats = {'errors': [str(exc)[:250]], 'sessions': 0,
+                                   'pending_owner': max(1, owner_stats.get('pending_owner', 0)),
+                                   'unknown_work': True}
+                if tick-last_readiness >= 30: last_readiness = tick
+                last_owner = tick
+            if tick - last_gate >= interval_gate:
+                try: gate_stats = _gate_reconcile(root, wf, request, time.time())
+                except Exception as exc: gate_stats = {'errors': [str(exc)[:250]], 'pending': 1}
+                last_gate = tick
+            errors = list(owner_stats.get('errors', [])) + list(gate_stats.get('errors', [])) + render_errors
+            active = bool(owner_stats.get('sessions') or owner_stats.get('pending_owner') or gate_stats.get('pending') or gate_stats.get('active'))
+            idle_since = None if active else (clock() if idle_since is None else idle_since)
+            status = 'error' if errors else ('active' if active else 'idle')
+            health = {'pid': os.getpid(), 'updated_at': time.time(), 'status': status,
+                      'components': {'owner_feedback': owner_stats, 'gate_liveness': gate_stats}, 'errors': errors}
+            try: wf.writejson(root / 'workflow-observer.json', health)
+            except Exception: pass
+            if not active and idle_since is not None and clock()-idle_since >= idle_grace:
+                health.update(status='stopped', updated_at=time.time())
+                try: wf.writejson(root / 'workflow-observer.json', health)
+                except Exception: pass
+                return 0
+            try: _render(root); render_errors = []
+            except Exception as exc: render_errors = ['board render failed: ' + str(exc)[:200]]
+            sleep(1)
+    finally: lock.close()
+
+
+def _gate_reconcile(root, workflow, request, now):
+    if __package__:
+        try:
+            module = _component('gate_liveness')
+            return module.reconcile(root, workflow=workflow, request=request, now=now)
+        except ModuleNotFoundError:
+            pass
+    module = None
+    for name in ('gate_liveness', 'tooling.agent_workflow.gate_liveness'):
+        try:
+            module = __import__(name, fromlist=['reconcile']); break
+        except ModuleNotFoundError: continue
+    if module is None:
+        path = Path(__file__).resolve().with_name('gate_liveness.py')
+        if not path.is_file(): return {'pending': 0, 'active': 0, 'errors': []}
+        spec = importlib.util.spec_from_file_location('_observer_gate_liveness', path)
+        module = importlib.util.module_from_spec(spec); sys.modules[spec.name] = module; spec.loader.exec_module(module)
+    return module.reconcile(root, workflow=workflow, request=request, now=now)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--exchange', type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--once', action='store_true'); mode.add_argument('--watch', action='store_true'); mode.add_argument('--ensure-started', action='store_true')
+    args = parser.parse_args(argv)
+    if args.ensure_started:
+        proc = ensure_started(args.exchange)
+        print(json.dumps({'status': 'started' if proc else 'unavailable', 'pid': getattr(proc, 'pid', None)}))
+        return 0 if proc else 1
+    if args.once:
+        wf = _workflow()
+        gate_dispatch = _component('gate_dispatch')
+        owner, gate, errors = reconcile_components(args.exchange, wf, gate_dispatch._request, now=time.time(), refresh=True)
+        stats = {'owner_feedback': owner, 'gate_liveness': gate, 'errors': errors}
+        print(json.dumps(stats)); return 1 if errors else 0
+    try: return watch(args.exchange)
+    except (BlockingIOError, TimeoutError): return 0
+
+
+if __name__ == '__main__': raise SystemExit(main())

@@ -1,9 +1,9 @@
-import base64, importlib.util, json, os, shutil, subprocess, sys, tempfile, unittest, time, io, contextlib
+import base64, importlib.util, json, os, shutil, subprocess, sys, tempfile, unittest, time, io, contextlib, re
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
 
-SCRIPT=Path(__file__).with_name('workflow.py').resolve()
+SCRIPT=Path(__file__).with_name('workflow_runtime.py').resolve()
 spec=importlib.util.spec_from_file_location('agent_workflow',SCRIPT); wf=importlib.util.module_from_spec(spec); spec.loader.exec_module(wf)
 PNG=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4n8AAAAASUVORK5CYII=')
 
@@ -31,7 +31,9 @@ class WorkflowTests(unittest.TestCase):
     def cli(self,*args,ok=True,repo=None,override=True):
         cmd=[sys.executable,str(SCRIPT)]
         if override: cmd+=['--asset-workspace',str(self.root)]
-        cmd+=['--repo',str(repo or self.repo),*map(str,args)]
+        args=list(map(str,args))
+        if args and args[0]=='submit' and '--sprint' not in args: args+=['--sprint','fixture-sprint']
+        cmd+=['--repo',str(repo or self.repo),*args]
         x=subprocess.run(cmd,capture_output=True,text=True)
         if ok and x.returncode: self.fail(x.stderr)
         if not ok and x.returncode==0: self.fail('expected refusal')
@@ -244,14 +246,14 @@ class WorkflowTests(unittest.TestCase):
         self.cli('candidate-review','candidate-1','--reviewer','reviewer','--report',report,'--result','ready_for_owner')
         (self.repo/'dirty name.txt').write_text('changed after submit')
         self.cli('candidate-review','candidate-1','--reviewer','reviewer','--report',report,'--result','ready_for_owner',ok=False)
-        status=self.cli('status').stdout; self.assertIn('code candidate-1: STALE/BLOCKED',status)
+        status=self.cli('status','--verify').stdout; self.assertIn('code candidate-1: STALE/BLOCKED',status)
 
     def test_gate_plan_validation_and_runner_records_exact_check(self):
         plan={'title':'Gate fixture','kind':'bugfix','acceptance_criteria':['exit recorded'],'fixture':'seed.txt','manual_steps':['Inspect fixture'],'checks':[{'argv':[sys.executable,'-c','print("gate-ok")'],'rationale':'focused fixture check','covers':['exit recorded']}]}
         planfile=self.root/'gate.json'; planfile.write_text(json.dumps(plan))
         self.cli('submit','gate-1','--agent','author','--base-ref',self.base,'--build-identity','python fixture','--steps','manual fixture','--unverified','game runtime not tested','--gate-plan',planfile)
         self.cli('gate-preflight','gate-1'); self.cli('gate-validate','gate-1','--actor','integration-lead')
-        report=json.loads((self.root/'work/agent_exchange/gate-reports/gate-1.json').read_text())
+        report=json.loads((self.repo/'build/agent-workflow/fixture-sprint/reports/gate-1-gate-validation.json').read_text())
         self.assertTrue(report['passed']); self.assertEqual(report['checks'][0]['exit_code'],0)
         self.assertIn('gate-ok',(self.root/'work/agent_exchange'/report['checks'][0]['log']).read_text())
 
@@ -260,19 +262,165 @@ class WorkflowTests(unittest.TestCase):
         planfile=self.root/'cycle.json'; planfile.write_text(json.dumps(plan))
         self.cli('submit','cycle-1','--agent','author','--base-ref',self.base,'--build-identity','fixture build','--steps','manual','--unverified','runtime not exercised','--gate-plan',planfile)
         cpath=self.root/'work/agent_exchange/candidates/cycle-1.json'; c=json.loads(cpath.read_text())
+        c['gate_request']={'origin_session_id':'owner-session'}; wf.writejson(cpath,c)
         review=self.assets/'cycle-review.json'; data={'candidate_id':'cycle-1','snapshot_key':c['snapshot_key'],'reviewer':'lead','decision':'ready_for_owner','findings':['manual owner check remains'],'viewed_images':[]}; review.write_text(json.dumps(data))
         self.cli('candidate-review','cycle-1','--reviewer','lead','--report',review,'--result','ready_for_owner')
         self.cli('gate-validate','cycle-1','--actor','integration-lead')
-        with mock.patch.object(wf,'native_notify',return_value='delivered_to_os; user visibility is not guaranteed') as notify:
+        from tooling.agent_workflow import gate_dispatch
+        order=[]
+        queue_root=self.root/'work'/'agent_exchange'; lock_paths=[]; original_lock=wf.gate_lock
+        def cheap_only_lock(path,*args,**kwargs):
+            resolved=Path(path).resolve(); lock_paths.append(resolved)
+            if resolved==queue_root.resolve(): raise AssertionError('manual publication must not wait on expensive gate-validation mutex')
+            return original_lock(path,*args,**kwargs)
+        with mock.patch.object(wf,'gate_lock',side_effect=cheap_only_lock), mock.patch.object(gate_dispatch,'deliver_gate_completion',side_effect=lambda *args,**kwargs: order.append('author') or {'status':'unavailable'}), mock.patch.object(wf,'_ensure_owner_feedback',return_value={'status':'started'}), mock.patch.object(wf,'native_notify',side_effect=lambda *args: order.append('balloon') or 'delivered_to_os; user visibility is not guaranteed') as notify:
             wf.cmd_gate_finish(Namespace(id='cycle-1',result='ready_for_owner',report=str(review)),self.root/'work/agent_exchange')
             self.cli('gate-finish','cycle-1','--result','ready_for_owner','--report',review)
+        self.assertTrue(any(p==queue_root.resolve()/'manual-publication' for p in lock_paths))
         notify.assert_called_once()
+        self.assertEqual(order[:2],['author','balloon'])
         index=(self.root/'work/agent_exchange/manual-tests.md').read_text()
         self.assertIn('cycle-1 (open)',index); self.assertIn('fixture build',index); self.assertIn(str(self.repo),index)
         self.assertIsNone(json.loads(cpath.read_text()).get('owner_decision'))
         receipt=self.root/'cycle-owner.json'; receipt.write_text(json.dumps({'candidate_id':'cycle-1','snapshot_key':c['snapshot_key'],'decision':'accepted','owner_reference':'explicit fixture owner','note':'record only'}))
         self.cli('candidate-decision','cycle-1','--owner-receipt',receipt)
         self.assertIn('cycle-1 (owner_accepted)',(self.root/'work/agent_exchange/manual-tests.md').read_text())
+
+    def test_native_notification_hides_terminal_window(self):
+        with mock.patch.object(wf.os,'name','nt'),mock.patch.object(wf.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:
+            wf.native_notify(self.root/'manual-tests.md','fixture','specific candidate body')
+        self.assertEqual(run.call_args.kwargs['creationflags'],getattr(subprocess,'CREATE_NO_WINDOW',0))
+        self.assertIn('specific candidate body',run.call_args.args[0][-1])
+
+    def test_manual_notification_titles_are_specific_and_candidate_bound(self):
+        generic={'id':'gas-mutation','sprint_id':'botany','revision_sequence':3,'worktree':{'worktree':str(self.root/'MoonStation14-agent-04')},
+                 'gate_plan':{'title':'Visual testing fixture'}}
+        title=wf.manual_notification_title(generic)
+        self.assertIn('Botany',title); self.assertIn('agent-04',title); self.assertIn('ready',title)
+        specific=dict(generic,id='gas-mutation-2',gate_plan={'title':'Botany · gas mutation'})
+        self.assertIn('Botany · gas mutation',wf.manual_notification_title(specific))
+        self.assertNotEqual(wf.manual_notification_title(generic),wf.manual_notification_title(specific))
+
+    def test_manual_notification_requires_current_unanswered_owner_handoff(self):
+        root=self.root/'work'/'agent_exchange'; (root/'candidates').mkdir(parents=True)
+        candidate={'id':'notify-1','snapshot_key':'snap','sprint_id':'notify-sprint','revision_sequence':2,
+            'worktree':{'worktree':str(self.repo)},'base_ref':self.base,'gate_plan':{'title':'Visual testing fixture','manual_steps':['Check target mutation']},
+            'gate_outcome':{'result':'ready_for_owner','manual_entry':'notify-1','notification':'pending'},
+            'review':{'report_path':str(self.assets/'independent-review.json'),'report_sha256':'report-hash'},'owner_review':{'state':'awaiting_owner','candidate_id':'notify-1',
+                'snapshot_key':'snap','origin_session_id':'owner-session'}}
+        path=root/'candidates/notify-1.json'; wf.writejson(path,candidate)
+        with mock.patch.object(wf,'verify_gate',return_value=(self.repo,candidate['gate_plan'])), \
+             mock.patch.object(wf,'verify_publication'), mock.patch.object(wf,'native_notify',return_value='delivered_to_os; user visibility is not guaranteed') as notify:
+            result=wf.send_manual_notification(path,root)
+        self.assertIn('delivered_to_os',result); notify.assert_called_once()
+        receipt=wf.readjson(path)['gate_outcome']['notification_receipt']
+        self.assertEqual(receipt['candidate_id'],'notify-1'); self.assertEqual(receipt['snapshot_key'],'snap')
+        self.assertEqual(receipt['report_sha256'],'report-hash'); self.assertIn('repo',receipt['title'])
+        self.assertIn('notify-1',receipt['message']); self.assertEqual(receipt['status'],'delivered_to_os')
+        self.assertIn('Check target mutation',receipt['message'])
+        self.assertIn('snap',receipt['message']); self.assertIn('review report-h',receipt['message'])
+        self.assertIn(str(self.assets/'independent-review.json'),receipt['report_path'])
+        self.assertIn('review '+'report-hash'[:8],receipt['message'])
+        self.assertEqual(notify.call_args.args[2],receipt['message'])
+        notify.reset_mock(); changed=wf.readjson(path); changed['owner_review']['state']='feedback_received'; wf.writejson(path,changed)
+        with mock.patch.object(wf,'verify_gate',return_value=(self.repo,candidate['gate_plan'])):
+            with self.assertRaisesRegex(ValueError,'current owner-review handoff'): wf.send_manual_notification(path,root)
+        notify.assert_not_called()
+
+    def test_manual_notification_retry_reuses_exact_persisted_body(self):
+        root=self.root/'work'/'agent_exchange'; folder=root/'candidates'; folder.mkdir(parents=True)
+        c={'id':'notify-retry','snapshot_key':'retry-snapshot','sprint_id':'notify-retry','revision_sequence':1,
+            'worktree':{'worktree':str(self.repo)},'base_ref':self.base,
+            'gate_plan':{'title':'Botany gas mutation','manual_steps':['Inspect atmosphere status','Confirm valve response']},
+            'gate_outcome':{'result':'ready_for_owner','manual_entry':'notify-retry','notification':'pending'},
+            'review':{'report_path':str(self.assets/'review.json'),'report_sha256':'abc123def456'},
+            'owner_review':{'state':'awaiting_owner','candidate_id':'notify-retry','snapshot_key':'retry-snapshot','origin_session_id':'owner'}}
+        path=folder/'notify-retry.json'; wf.writejson(path,c); sent=[]
+        with mock.patch.object(wf,'verify_gate',return_value=(self.repo,c['gate_plan'])),mock.patch.object(wf,'verify_publication'), \
+             mock.patch.object(wf,'native_notify',side_effect=lambda *args: sent.append(args) or 'delivered_to_os; user visibility is not guaranteed'):
+            wf.send_manual_notification(path,root)
+            saved=wf.readjson(path); original_body=saved['gate_outcome']['notification_receipt']['message']
+            saved['gate_plan']['manual_steps']=['Changed later, must not alter retry payload']; wf.writejson(path,saved)
+            # A failed prior OS attempt may retry, but the same bound candidate must reuse its persisted text.
+            saved['gate_outcome']['notification']='failed: transient'; saved['gate_outcome']['notification_receipt']['status']='failed'; wf.writejson(path,saved)
+            wf.send_manual_notification(path,root)
+        self.assertEqual(sent[0][2],original_body); self.assertEqual(sent[1][2],original_body)
+        self.assertIn('Inspect atmosphere status',original_body); self.assertNotIn('Changed later',original_body)
+
+    def test_long_notification_keeps_visible_candidate_snapshot_step_and_review_hash(self):
+        root=self.root/'work'/'agent_exchange'; folder=root/'candidates'; folder.mkdir(parents=True)
+        ident='candidate-'+'x'*70; snapshot='a'*64; report_path=str(self.assets/('review-'+('long-path-'*15)+'.json'))
+        steps=['Verify the chemical release valve closes after the gas mutation is applied.','Check the recorded console status.']
+        c={'id':ident,'snapshot_key':snapshot,'sprint_id':'botany','revision_sequence':4,
+           'worktree':{'worktree':str(self.root/'MoonStation14-agent-09')},'base_ref':self.base,
+           'gate_plan':{'title':'Botany · chemical gas mutation','manual_steps':steps},
+           'gate_outcome':{'result':'ready_for_owner','manual_entry':ident,'notification':'pending'},
+           'review':{'report_path':report_path,'report_sha256':'b'*64},
+           'owner_review':{'state':'awaiting_owner','candidate_id':ident,'snapshot_key':snapshot,'origin_session_id':'owner'}}
+        path=folder/(ident+'.json'); wf.writejson(path,c); sent=[]
+        with mock.patch.object(wf,'verify_gate',return_value=(Path(c['worktree']['worktree']),c['gate_plan'])), \
+             mock.patch.object(wf,'verify_publication'),mock.patch.object(wf,'native_notify',side_effect=lambda *args: sent.append(args) or 'delivered_to_os; user visibility is not guaranteed'):
+            wf.send_manual_notification(path,root)
+        title,message=sent[0][1:3]
+        self.assertLessEqual(len(message),255); self.assertIn(ident,message); self.assertIn(snapshot[:8],message)
+        self.assertIn('b'*8,message); self.assertIn('Verify the chemical release valve closes',message)
+        receipt=wf.readjson(path)['gate_outcome']['notification_receipt']
+        self.assertEqual(receipt['report_path'],report_path); self.assertEqual(receipt['manual_steps'],steps)
+        self.assertIn('Botany',title); self.assertIn('agent-09',title)
+        with mock.patch.object(wf.os,'name','nt'),mock.patch.object(wf.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:
+            wf.native_notify(root/'manual-tests.md',title,message)
+        script=run.call_args.args[0][-1]
+        captured=re.search(r"\$n\.BalloonTipText='((?:''|[^'])*)';",script).group(1).replace("''", "'")
+        self.assertEqual(captured,message); self.assertLessEqual(len(captured),255)
+
+    def test_manual_notification_refuses_stale_or_superseded_candidate(self):
+        root=self.root/'work'/'agent_exchange'; folder=root/'candidates'; folder.mkdir(parents=True)
+        base={'snapshot_key':'snap','sprint_id':'notify-sprint','revision_sequence':2,'worktree':{'worktree':str(self.repo)},
+            'gate_plan':{'title':'Botany mutation'},'gate_outcome':{'result':'ready_for_owner','notification':'pending'},
+            'review':{'report_sha256':'hash'},'owner_review':{'state':'awaiting_owner','candidate_id':'notify-old','snapshot_key':'snap','origin_session_id':'owner'}}
+        old=dict(base,id='notify-old'); path=folder/'notify-old.json'; wf.writejson(path,old)
+        newer=dict(base,id='notify-new',revision_sequence=3); wf.writejson(folder/'notify-new.json',newer)
+        with mock.patch.object(wf,'verify_gate',return_value=(self.repo,base['gate_plan'])),mock.patch.object(wf,'verify_publication'), \
+             mock.patch.object(wf,'native_notify') as notify:
+            with self.assertRaisesRegex(ValueError,'no longer the current'):
+                wf.send_manual_notification(path,root)
+            notify.assert_not_called()
+        old['id']='notify-stale'; old['owner_review'].update(candidate_id='notify-stale',snapshot_key='snap')
+        old['gate_outcome']['notification']='pending'; stale=folder/'notify-stale.json'; wf.writejson(stale,old)
+        with mock.patch.object(wf,'verify_gate',side_effect=ValueError('candidate source stale')),mock.patch.object(wf,'native_notify') as notify:
+            with self.assertRaisesRegex(ValueError,'candidate source stale'): wf.send_manual_notification(stale,root)
+            notify.assert_not_called()
+
+    def test_status_defaults_to_metadata_and_candidate_selector_verifies_only_one_record(self):
+        root=self.root/'work'/'agent_exchange'; folder=root/'candidates'; folder.mkdir(parents=True)
+        report=self.assets/'saved-needs-report.json'; report.write_text('saved report bytes')
+        for ident in ('fast-a','fast-b','fast-c'):
+            digest=wf.sha(report)
+            c={'id':ident,'status':'candidate','snapshot_key':'snap-'+ident,'review':{'result':'needs_changes',
+                'report_path':str(report),'report_sha256':digest},'gate_outcome':{'result':'needs_changes',
+                'findings':['First exact actionable finding.','Second exact actionable finding.'],'report_sha256':digest}}
+            wf.writejson(folder/f'{ident}.json',c)
+        output=io.StringIO()
+        with mock.patch.object(wf,'verify_candidate',side_effect=AssertionError('default status must not verify history')),contextlib.redirect_stdout(output):
+            wf.cmd_status(Namespace(candidate=None,verify=False),root)
+        self.assertEqual(output.getvalue().count('freshness not checked'),3)
+        calls=[]; output=io.StringIO()
+        with mock.patch.object(wf,'verify_candidate',side_effect=lambda c: calls.append(c['id']) or c),contextlib.redirect_stdout(output):
+            wf.cmd_status(Namespace(candidate='fast-b',verify=True),root)
+        self.assertEqual(calls,['fast-b'])
+        self.assertIn('First exact actionable finding.',output.getvalue())
+        self.assertIn('Second exact actionable finding.',output.getvalue())
+        self.assertIn(str(report),output.getvalue())
+
+    def test_status_marks_historical_ready_stale_instead_of_current_ready(self):
+        root=self.root/'work'/'agent_exchange'; folder=root/'candidates'; folder.mkdir(parents=True)
+        c={'id':'stale-ready','status':'candidate','snapshot_key':'snap','gate_outcome':{'result':'ready_for_owner'},
+           'review':{'result':'ready_for_owner','report_path':'/missing/report','report_sha256':'hash'}}
+        wf.writejson(folder/'stale-ready.json',c); output=io.StringIO()
+        with mock.patch.object(wf,'verify_candidate',side_effect=ValueError('author source changed')),contextlib.redirect_stdout(output):
+            wf.cmd_status(Namespace(candidate='stale-ready',verify=True),root)
+        self.assertIn('STALE/BLOCKED',output.getvalue()); self.assertIn('recorded ready_for_owner',output.getvalue())
+        self.assertNotIn('ready_for_owner (verified current)',output.getvalue())
 
     def test_shared_gate_mutex_serializes_processes(self):
         queue=self.root/'shared-exchange'; script=("import importlib.util,time,pathlib; "+
@@ -291,7 +439,7 @@ class WorkflowTests(unittest.TestCase):
         planfile=self.root/'timeout.json'; planfile.write_text(json.dumps(plan))
         self.cli('submit','timeout-1','--agent','author','--base-ref',self.base,'--build-identity','process fixture','--steps','timeout','--unverified','runtime not tested','--gate-plan',planfile)
         self.cli('gate-validate','timeout-1','--actor','integration-lead','--timeout','1',ok=False)
-        report=json.loads((self.root/'work/agent_exchange/gate-reports/timeout-1.json').read_text())
+        report=json.loads((self.repo/'build/agent-workflow/fixture-sprint/reports/timeout-1-gate-validation.json').read_text())
         self.assertEqual(report['checks'][0]['exit_code'],124)
         import time; time.sleep(2.2); self.assertFalse(marker.exists())
         lock=wf.gate_lock(self.root/'work/agent_exchange'); lock.close()
@@ -300,14 +448,15 @@ class WorkflowTests(unittest.TestCase):
         plan={'title':'Quarantine fixture','kind':'bugfix','acceptance_criteria':['bounded cleanup'],'fixture':'seed.txt','manual_steps':['Inspect blocker'],'checks':[{'argv':[sys.executable,'-c','pass'],'rationale':'bounded process stop','covers':['bounded cleanup']}]}
         planfile=self.root/'blocked.json'; planfile.write_text(json.dumps(plan))
         self.cli('submit','blocked-1','--agent','author','--base-ref',self.base,'--build-identity','process fixture','--steps','cleanup','--unverified','not runtime','--gate-plan',planfile)
-        child=mock.Mock(pid=54321,wait=mock.Mock(side_effect=[subprocess.TimeoutExpired('child',1),subprocess.TimeoutExpired('child',1)]))
+        child=mock.Mock(pid=54321,wait=mock.Mock(side_effect=lambda *args,**kwargs: (_ for _ in ()).throw(subprocess.TimeoutExpired('child',1))))
         root=self.root/'work/agent_exchange'
-        with mock.patch.object(wf,'verify_gate',return_value=(self.repo,plan)), mock.patch.object(wf.subprocess,'Popen',return_value=child), mock.patch.object(wf,'stop_owned_tree',side_effect=wf.GateTreeBlocked(54321,'taskkill timeout/failure')):
+        report_folder=self.repo/'build/agent-workflow/fixture-sprint/reports'
+        with mock.patch.object(wf,'verify_gate',return_value=(self.repo,plan)), mock.patch.object(wf,'author_report_dir',return_value=report_folder), mock.patch.object(wf.subprocess,'Popen',return_value=child), mock.patch.object(wf,'stop_owned_tree',side_effect=wf.GateTreeBlocked(54321,'taskkill timeout/failure')):
             with self.assertRaisesRegex(ValueError,'gate checks failed'):
                 wf.cmd_gate_validate(Namespace(id='blocked-1',actor='integration-lead',timeout=1),root)
         blocker=json.loads((root/'gate-blocker.json').read_text())
         self.assertEqual(blocker['pid'],54321)
-        self.assertEqual(json.loads((root/'gate-reports/blocked-1.json').read_text())['checks'][0]['tree_cleanup'],'unverified')
+        self.assertEqual(json.loads((self.repo/'build/agent-workflow/fixture-sprint/reports/blocked-1-gate-validation.json').read_text())['checks'][0]['tree_cleanup'],'unverified')
         with self.assertRaisesRegex(ValueError,'gate quarantined'):
             wf.cmd_gate_validate(Namespace(id='blocked-1',actor='integration-lead',timeout=1),root)
         with self.assertRaisesRegex(ValueError,'PID does not match'):
@@ -349,7 +498,7 @@ class WorkflowTests(unittest.TestCase):
         planfile=self.root/'smoke.json'; planfile.write_text(json.dumps(plan))
         self.cli('submit','smoke-1','--agent','author','--base-ref',self.base,'--build-identity','python fixture only','--steps','not Minecraft','--unverified','No GPU, real client input, or gameplay consumer was tested','--gate-plan',planfile)
         self.cli('gate-validate','smoke-1','--actor','integration-lead','--timeout','10')
-        report=json.loads((self.root/'work/agent_exchange/gate-reports/smoke-1.json').read_text())
+        report=json.loads((self.repo/'build/agent-workflow/fixture-sprint/reports/smoke-1-gate-validation.json').read_text())
         item=report['checks'][0]
         self.assertTrue(report['passed']); self.assertTrue(item['controlled_stop']); self.assertEqual(item['evidence']['status'],'PASS')
         self.assertIn('HTTP READY: port=8080',(self.repo/'build/gate-smoke.log').read_text())
@@ -361,7 +510,7 @@ class WorkflowTests(unittest.TestCase):
         path=self.root/'missing-smoke.json'; path.write_text(json.dumps(plan))
         self.cli('submit','smoke-missing','--agent','author','--base-ref',self.base,'--build-identity','fixture','--steps','check missing marker','--unverified','runtime not tested','--gate-plan',path)
         self.cli('gate-validate','smoke-missing','--actor','integration-lead',ok=False)
-        report=json.loads((self.root/'work/agent_exchange/gate-reports/smoke-missing.json').read_text())
+        report=json.loads((self.repo/'build/agent-workflow/fixture-sprint/reports/smoke-missing-gate-validation.json').read_text())
         self.assertFalse(report['passed']); self.assertEqual(report['checks'][0]['exit_code'],1)
         self.assertEqual(report['checks'][0]['evidence']['status'],'FAIL')
 
@@ -372,14 +521,14 @@ class WorkflowTests(unittest.TestCase):
         self.cli('candidate-review','code-1','--reviewer','reviewer','--report',report,'--result','ready_for_owner')
         self.assertIn('code code-1: ready_for_owner',self.cli('status').stdout)
         stable=report.read_text(); report.write_text(stable+' ')
-        self.assertIn('code code-1: STALE/BLOCKED',self.cli('status').stdout)
+        self.assertIn('code code-1: STALE/BLOCKED',self.cli('status','--verify').stdout)
         report.write_text(stable)
         self.assertIn('code code-1: ready_for_owner',self.cli('status').stdout)
         owner=self.root/'owner-decision.json'; ownerdata={'candidate_id':'code-1','snapshot_key':saved['snapshot_key'],'decision':'accepted','owner_reference':'William explicitly accepted this candidate','note':'Owner acceptance only; not a test result.'}; owner.write_text(json.dumps(ownerdata))
         self.cli('candidate-decision','code-1','--owner-receipt',owner)
         self.assertIn('code code-1: owner_accepted',self.cli('status').stdout)
         owner_bytes=owner.read_bytes(); owner.write_text(owner.read_text()+' ')
-        self.assertIn('code code-1: STALE/BLOCKED (owner_accepted recorded)',self.cli('status').stdout)
+        self.assertIn('code code-1: STALE/BLOCKED (owner_accepted recorded)',self.cli('status','--verify').stdout)
         owner.write_bytes(owner_bytes)
 
         self.cli('submit','code-evidence','--agent','author','--base-ref',self.base,'--build-identity','stdlib test','--steps','not run','--unverified','runtime','--evidence','evidence.png')
@@ -388,8 +537,8 @@ class WorkflowTests(unittest.TestCase):
         self.cli('candidate-review','code-evidence','--reviewer','reviewer','--report',evidence_report,'--result','ready_for_owner')
         self.assertIn('code code-evidence: ready_for_owner',self.cli('status').stdout)
         (self.repo/'evidence.png').write_bytes(PNG+b'changed')
-        self.assertIn('code code-evidence: STALE/BLOCKED',self.cli('status').stdout)
-        self.assertIn('code code-1: STALE/BLOCKED (owner_accepted recorded)',self.cli('status').stdout)
+        self.assertIn('code code-evidence: STALE/BLOCKED',self.cli('status','--verify').stdout)
+        self.assertIn('code code-1: STALE/BLOCKED (owner_accepted recorded)',self.cli('status','--verify').stdout)
 
         self.cli('submit','code-needs-changes','--agent','author','--base-ref',self.base,'--build-identity','stdlib test','--steps','not run','--unverified','runtime')
         needs=json.loads((self.root/'work/agent_exchange/candidates/code-needs-changes.json').read_text())
@@ -410,6 +559,139 @@ class WorkflowTests(unittest.TestCase):
         self.cli('candidate-review','visual-1','--reviewer','reviewer','--report',vr,'--result','needs_changes',repo=visual_repo)
         self.assertIn('code visual-1: needs_changes',self.cli('status').stdout)
 
+    def test_integration_lead_report_uses_author_folder_and_preserves_candidate_freshness(self):
+        self.cli('submit','lead-report','--agent','author','--sprint','sprint-a','--base-ref',self.base,
+                 '--build-identity','python fixture','--steps','not run','--unverified','runtime not tested')
+        record=json.loads((self.root/'work/agent_exchange/candidates/lead-report.json').read_text())
+        snapshot=record['snapshot_key']; folder=self.repo/'build/agent-workflow/sprint-a/reports'
+        self.cli('gate-report','lead-report','--actor','author','--result','needs_changes','--finding','Not allowed.',ok=False)
+        self.cli('gate-report','lead-report','--actor','integration-lead','--result','ready_for_owner','--finding',' ',ok=False)
+        self.cli('gate-report','lead-report','--actor','integration-lead','--result','needs_changes','--finding','Fix the fixture.')
+        report=folder/'lead-report-integration-lead-review.json'
+        self.assertTrue(report.is_file())
+        self.assertEqual(json.loads(report.read_text())['reviewer'],'integration-lead')
+        after=json.loads((self.root/'work/agent_exchange/candidates/lead-report.json').read_text())
+        self.assertEqual(after['snapshot_key'],snapshot)
+        self.assertEqual(after['review']['report_path'],str(report.resolve()))
+        self.assertEqual(wf.verify_candidate(after)['snapshot_key'],snapshot)
+
+    def test_non_git_central_rejects_stale_author_before_api(self):
+        self.cli('submit','stale-author','--agent','author','--sprint','sprint-a','--base-ref',self.base,
+                 '--build-identity','fixture','--steps','not run','--unverified','runtime not tested')
+        (self.repo/'seed.txt').write_text('author changed after submission')
+        from tooling.agent_workflow import gate_dispatch
+        args=Namespace(id='stale-author',central_worktree=str(self.root/'MoonStation14-agent-05'),
+                       origin_session='session',server='http://unused',wait_timeout=1)
+        with mock.patch.object(wf,'gate_lock',return_value=mock.Mock(close=mock.Mock())), \
+             mock.patch.object(gate_dispatch,'_request',side_effect=AssertionError('API must not be called')):
+            with self.assertRaisesRegex(ValueError,'candidate stale'):
+                gate_dispatch.request_gate(args,self.root/'work/agent_exchange',workflow=wf)
+
+    def _visual_candidate_with_scoped_receipt(self,ident='visual-lead'):
+        plan={'title':'Visual coding fixture','kind':'feature','acceptance_criteria':['review image binding'],
+              'fixture':'seed.txt','manual_steps':['Inspect report'],'checks':[{'argv':[sys.executable,'-c','print("gate-ok")'],
+              'rationale':'bounded stdlib fixture','covers':['review image binding']}]}
+        planfile=self.root/f'{ident}-plan.json'; planfile.write_text(json.dumps(plan))
+        self.cli('submit',ident,'--agent','author','--sprint','visual-sprint','--base-ref',self.base,
+                 '--build-identity','python fixture','--steps','inspect scoped PNG','--unverified','Minecraft not run',
+                 '--visual-review-required','--evidence','evidence.png','--gate-plan',planfile)
+        candidate_path=self.root/'work/agent_exchange/candidates'/f'{ident}.json'; candidate=json.loads(candidate_path.read_text())
+        folder=self.repo/'build/agent-workflow/visual-sprint/reports'; copied=folder/ident/'fidelity-reviewer/images/1.png'
+        copied.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(self.repo/'evidence.png',copied)
+        relative=copied.relative_to(folder).as_posix(); digest=wf.sha(copied)
+        scoped={'candidate_id':ident,'snapshot_key':candidate['snapshot_key'],'reviewer':'fidelity-reviewer',
+                'decision':'ready_for_owner','findings':['Scoped reviewer examined the candidate image.'],
+                'viewed_images':[{'path':relative,'sha256':digest}],
+                'original_images':[{'path':relative,'sha256':digest,'original_path':str((self.repo/'evidence.png').resolve()),
+                                    'original_sha256':digest,'png_dimensions':[1,1]}]}
+        scoped_path=folder/f'{ident}-fidelity-reviewer.json'; scoped_path.write_text(json.dumps(scoped))
+        candidate['scoped_reviews']={'fidelity-reviewer':{'session_id':'mock-review','snapshot_key':candidate['snapshot_key'],
+            'prompt_admitted':True,'report_path':str(scoped_path),'report_sha256':wf.sha(scoped_path),
+            'original_images':scoped['original_images']}}
+        wf.writejson(candidate_path,candidate)
+        return candidate_path,folder,scoped_path,copied
+
+    def test_visual_gate_report_binds_scoped_review_then_finishes_without_api(self):
+        path,folder,scoped_path,scoped_copy=self._visual_candidate_with_scoped_receipt()
+        self.cli('gate-validate','visual-lead','--actor','integration-lead')
+        out=self.cli('gate-report','visual-lead','--actor','integration-lead','--result','ready_for_owner',
+                     '--finding','Scoped fidelity reviewer verified the candidate image and source binding.',
+                     '--scoped-review','fidelity-reviewer')
+        report_path=Path(out.stdout.strip()); report=json.loads(report_path.read_text())
+        self.assertTrue(report['scoped_review']['integration_lead_personally_viewed'] is False)
+        self.assertEqual(report['scoped_review']['inspection_by'],'fidelity-reviewer')
+        self.assertTrue(report['original_images']); self.assertTrue(report['viewed_images'])
+        c=json.loads(path.read_text()); self.assertEqual(c['review']['result'],'ready_for_owner')
+        self.assertEqual(wf.verify_candidate(c)['review']['result'],'ready_for_owner')
+        c['gate_request']={'origin_session_id':'visual-owner-session'}; wf.writejson(path,c)
+        from tooling.agent_workflow import gate_dispatch
+        with mock.patch.object(wf,'_ensure_owner_feedback',return_value={'status':'started'}), \
+             mock.patch.object(wf,'native_notify',return_value='delivered_to_os; user visibility is not guaranteed'), \
+             mock.patch.object(gate_dispatch,'deliver_gate_completion',return_value={'status':'unavailable'}):
+            wf.cmd_gate_finish(Namespace(id='visual-lead',result='ready_for_owner',report=str(report_path)),self.root/'work/agent_exchange')
+        closed=json.loads(path.read_text()); before=path.read_bytes(); report_before=report_path.read_bytes()
+        lead_image=folder/'reviewed-images'/('visual-lead-1-'+wf.sha(scoped_copy)[:16]+'.png'); image_before=lead_image.read_bytes()
+        # Published decisions are immutable before any writer-side report replacement.
+        rejected=self.cli('gate-report','visual-lead','--actor','integration-lead','--result','needs_changes','--finding','late change',ok=False)
+        self.assertIn('immutable',rejected.stderr)
+        self.assertEqual(path.read_bytes(),before); self.assertEqual(report_path.read_bytes(),report_before)
+        self.assertEqual(lead_image.read_bytes(),image_before)
+
+    def test_visual_failed_gate_report_retry_preserves_bound_report_and_images(self):
+        path,folder,scoped_path,scoped_copy=self._visual_candidate_with_scoped_receipt('visual-retry')
+        self.cli('gate-report','visual-retry','--actor','integration-lead','--result','ready_for_owner',
+                 '--finding','Scoped reviewer verified the image.','--scoped-review','fidelity-reviewer')
+        target=folder/'visual-retry-integration-lead-review.json'
+        candidate_before=path.read_bytes(); report_before=target.read_bytes()
+        scoped_report_before=scoped_path.read_bytes()
+        lead_image=folder/'reviewed-images'/('visual-retry-1-'+wf.sha(scoped_copy)[:16]+'.png'); image_before=lead_image.read_bytes()
+        # A reviewer identity mismatch and changed copied evidence both fail before touching prior bindings.
+        self.cli('gate-report','visual-retry','--actor','integration-lead','--result','ready_for_owner',
+                 '--finding','wrong reviewer','--scoped-review','review',ok=False)
+        scoped_bytes=scoped_copy.read_bytes(); scoped_copy.write_bytes(b'tampered copy')
+        self.cli('gate-report','visual-retry','--actor','integration-lead','--result','ready_for_owner',
+                 '--finding','stale evidence','--scoped-review','fidelity-reviewer',ok=False)
+        self.assertEqual(path.read_bytes(),candidate_before); self.assertEqual(target.read_bytes(),report_before)
+        self.assertEqual(lead_image.read_bytes(),image_before)
+        scoped_copy.write_bytes(scoped_bytes)
+        scoped_report=json.loads(scoped_path.read_text()); scoped_report['candidate_id']='different-candidate'
+        scoped_path.write_text(json.dumps(scoped_report))
+        identity_candidate=json.loads(candidate_before); identity_candidate['scoped_reviews']['fidelity-reviewer']['report_sha256']=wf.sha(scoped_path)
+        wf.writejson(path,identity_candidate)
+        self.cli('gate-report','visual-retry','--actor','integration-lead','--result','ready_for_owner',
+                 '--finding','identity mismatch','--scoped-review','fidelity-reviewer',ok=False)
+        self.assertEqual(target.read_bytes(),report_before)
+        self.assertEqual(lead_image.read_bytes(),image_before)
+        scoped_path.write_bytes(scoped_report_before)
+        path.write_bytes(candidate_before)
+        scoped_path.write_bytes(scoped_report_before+b' ')
+        # Receipt hash mismatch remains a rejection until the durable binding is current again.
+        self.cli('gate-report','visual-retry','--actor','integration-lead','--result','ready_for_owner',
+                 '--finding','stale receipt hash','--scoped-review','fidelity-reviewer',ok=False)
+        self.assertEqual(path.read_bytes(),candidate_before); self.assertEqual(target.read_bytes(),report_before)
+        scoped_path.write_bytes(scoped_report_before)
+        source=self.repo/'evidence.png'; source_bytes=source.read_bytes(); source.write_bytes(b'tampered original')
+        self.cli('gate-report','visual-retry','--actor','integration-lead','--result','ready_for_owner',
+                 '--finding','stale source image','--scoped-review','fidelity-reviewer',ok=False)
+        source.write_bytes(source_bytes)
+        self.cli('gate-report','visual-retry','--actor','integration-lead','--result','needs_changes',
+                 '--finding','decision differs from scoped review','--scoped-review','fidelity-reviewer',ok=False)
+        blank=self.cli('gate-report','visual-retry','--actor','integration-lead','--result','ready_for_owner',
+                       '--finding',' ', '--scoped-review','fidelity-reviewer',ok=False)
+        self.assertNotEqual(blank.returncode,0)
+        self.assertEqual(path.read_bytes(),candidate_before); self.assertEqual(target.read_bytes(),report_before)
+        self.assertEqual(lead_image.read_bytes(),image_before)
+
+    def test_gate_report_rejects_owner_disposition_without_writing(self):
+        self.cli('submit','lead-owner','--agent','author','--sprint','sprint-owner','--base-ref',self.base,
+                 '--build-identity','fixture','--steps','not run','--unverified','runtime not tested')
+        path=self.root/'work/agent_exchange/candidates/lead-owner.json'; c=json.loads(path.read_text())
+        c['owner_decision']={'decision':'deferred'}; wf.writejson(path,c); before=path.read_bytes()
+        folder=self.repo/'build/agent-workflow/sprint-owner/reports'
+        self.cli('gate-report','lead-owner','--actor','integration-lead','--result','needs_changes',
+                 '--finding','late',ok=False)
+        self.assertEqual(path.read_bytes(),before); self.assertFalse(folder.exists())
+
     def test_owner_decision_without_ready_review_refuses_acceptance_but_allows_defer(self):
         self.cli('submit','unreviewed','--agent','author','--base-ref',self.base,'--build-identity','stdlib test','--steps','not run','--unverified','visual review not performed')
         c=json.loads((self.root/'work/agent_exchange/candidates/unreviewed.json').read_text())
@@ -420,7 +702,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('code unreviewed: owner_deferred',self.cli('status').stdout)
         data['snapshot_key']='0'*64; receipt.write_text(json.dumps(data))
         self.cli('candidate-decision','unreviewed','--owner-receipt',receipt,ok=False)
-        self.assertIn('code unreviewed: STALE/BLOCKED (owner_deferred recorded)',self.cli('status').stdout)
+        self.assertIn('code unreviewed: STALE/BLOCKED (owner_deferred recorded)',self.cli('status','--verify').stdout)
 
 
 if __name__=='__main__': unittest.main()

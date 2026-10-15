@@ -19,6 +19,7 @@ permission:
     "*workflow.py*gate-clear-blocker*": allow
     "*workflow.py*candidate-review*": allow
     "*workflow.py*gate-finish*": allow
+    "*workflow.py*gate-deliver*": allow
     "*workflow.py*gate-scope-review*": allow
     "*workflow.py*manual-tests*": allow
     "*workflow.py*manual-notify*": allow

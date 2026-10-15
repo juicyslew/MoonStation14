@@ -3,15 +3,22 @@ param(
     [switch] $Apply,
     [switch] $BindWorktrees,
     [string] $PreviousReceipt,
-    [string] $TestFixtureRoot
+    [string] $TestFixtureRoot,
+    [switch] $StageNeutral05
 )
 
 $ErrorActionPreference = 'Stop'
 $script:SharedSources = @(
-    'tooling/agent_workflow/workflow.py',
+    'tooling/agent_workflow/gate_liveness.py',
+    'tooling/agent_workflow/workflow_observer.py',
+    'tooling/agent_workflow/owner_attention.py',
+    'tooling/agent_workflow/owner_feedback.py',
+    'tooling/agent_workflow/gate_progress.py',
     'tooling/agent_workflow/validation_evidence.py',
+    'tooling/agent_workflow/admission.py',
     'tooling/agent_workflow/gate_dispatch.py',
-    'docs/development-workflow/README.md',
+    'tooling/agent_workflow/workflow_runtime.py',
+    'docs/development-workflow/README.runtime.md',
     'docs/development-workflow/CLI.md',
     'docs/development-workflow/coordinator.md',
     'docs/development-workflow/source-fidelity.md',
@@ -26,6 +33,10 @@ $script:SharedSources = @(
     'AGENTS.md',
     'opencode.jsonc'
 )
+$script:SourceMap = @{
+    'tooling/agent_workflow/workflow_runtime.py' = 'tooling/agent_workflow/workflow.py'
+    'docs/development-workflow/README.runtime.md' = 'docs/development-workflow/README.md'
+}
 $script:DeleteOnBind = @(
     'tooling/agent_workflow/validation_evidence.py',
     'tooling/agent_workflow/gate_dispatch.py',
@@ -150,6 +161,10 @@ function Get-TailoredProjectConfig([byte[]] $Bytes, [string] $SharedRoot, [strin
         Add-Rule $config.agents[$role] 'edit' $shared 'deny'
     }
     if ($TargetNumber -eq 5) {
+        Add-Rule $config.agents['integration-lead'] 'shell' '*workflow.py*gate-report*' 'allow'
+        Add-Rule $config.agents['integration-lead'] 'shell' '*workflow.py*gate-deliver*' 'allow'
+        $mainReports = Join-Path $WorkspaceParent 'MoonStation14/build/agent-workflow'
+        Add-Rule $config.agents['integration-lead'] 'external_directory' ($mainReports.Replace('\', '/') + '/**') 'allow'
         foreach ($number in 1..4) {
             $peer = Join-Path $WorkspaceParent ('MoonStation14-agent-{0:D2}' -f $number)
             Add-Rule $config.agents['integration-lead'] 'external_directory' ($peer.Replace('\', '/') + '/**') 'allow'
@@ -169,11 +184,23 @@ function Get-TailoredIntegrationProfile([byte[]] $Bytes, [string] $WorkspacePare
     $data = Get-TextData $Bytes
     $nl = if ($data.Text.Contains("`r`n")) { "`r`n" } else { "`n" }
     $mainGrant = '    "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14/**": allow'
-    if (-not $data.Text.Contains($mainGrant)) { throw 'Integration profile lacks its known MAIN grant.' }
     $text = $data.Text.Replace($mainGrant + "`r`n", '').Replace($mainGrant + "`n", '')
     if ($TargetNumber -eq 5) {
+        $gateReportGrant = '    "*workflow.py*gate-report*": allow'
+        if (-not $text.Contains($gateReportGrant)) {
+            $anchor = '    "*workflow.py*gate-validate*": allow'
+            if (-not $text.Contains($anchor)) { throw 'Integration profile lacks its approved gate-validate command grant.' }
+            $text = $text.Replace($anchor, $anchor + $nl + $gateReportGrant)
+        }
+        $gateDeliverGrant = '    "*workflow.py*gate-deliver*": allow'
+        if (-not $text.Contains($gateDeliverGrant)) {
+            $text = $text.Replace($gateReportGrant, $gateReportGrant + $nl + $gateDeliverGrant)
+        }
         $assetAnchor = '    "C:/Users/William/Documents/Minecraft Mod Dev Files/Asset Building Workspace/**": allow'
         if (-not $text.Contains($assetAnchor)) { throw 'Integration profile lacks its approved asset-workspace grant.' }
+        $mainReports = (Join-Path $WorkspaceParent 'MoonStation14/build/agent-workflow').Replace('\', '/')
+        $reportsGrant = '    "' + $mainReports + '/**": allow'
+        if (-not $text.Contains($reportsGrant)) { $text = $text.Replace($assetAnchor, $assetAnchor + $nl + $reportsGrant) }
         $peers = foreach ($number in 1..4) { '    "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-{0:D2}/**": allow' -f $number }
         $text = $text.Replace($assetAnchor, $assetAnchor + $nl + ($peers -join $nl))
     }
@@ -185,6 +212,50 @@ function Get-TailoredFidelityProfile([byte[]] $Bytes) {
     $mainGrant = '    "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14/**": allow'
     $text = $data.Text.Replace($mainGrant + "`r`n", '').Replace($mainGrant + "`n", '')
     return ConvertTo-TextBytes $text $data
+}
+
+function Get-NeutralCoordinatorEntrypoint([byte[]] $Bytes) {
+    $data = Get-TextData $Bytes
+    $text = $data.Text
+    $anchor = 'if __name__ == "__main__":' + "`n" + '    raise SystemExit(_MODULE.main())'
+    if (-not $text.Contains($anchor)) { $anchor = 'if __name__ == "__main__":' + "`r`n" + '    raise SystemExit(_MODULE.main())' }
+    if (-not $text.Contains($anchor)) { throw 'Workflow entrypoint lacks the known main guard; refusing coordinator specialization.' }
+    $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $replacement = 'if __name__ == "__main__":' + $nl +
+        '    if not any(arg == "--asset-workspace" or arg.startswith("--asset-workspace=") for arg in sys.argv[1:]):' + $nl +
+        '        sys.argv[1:1] = ["--asset-workspace", str(Path(__file__).resolve().parents[3] / "Asset Building Workspace")]' + $nl +
+        '    raise SystemExit(_MODULE.main())'
+    return ConvertTo-TextBytes ($text.Replace($anchor, $replacement)) $data
+}
+
+function Get-NeutralCoordinatorConfig([byte[]] $ConfigBytes, [byte[]] $LeadProfile, [byte[]] $FidelityProfile, [string] $SharedRoot, [string] $WorkspaceParent) {
+    $tailored = Get-TailoredProjectConfig $ConfigBytes $SharedRoot $WorkspaceParent 5
+    $config = (Get-TextData $tailored).Text | ConvertFrom-Json -AsHashtable
+    $config.agents = [ordered]@{
+        'integration-lead' = $config.agents['integration-lead']
+        'fidelity-reviewer' = $config.agents['fidelity-reviewer']
+    }
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-CanonicalConfigJson $config) + "`n")
+    return ,$bytes
+}
+
+function Write-NeutralCoordinatorStage([string] $MainRoot, [string] $SharedRoot, [byte[]] $Entrypoint, [byte[]] $ConfigBytes, [byte[]] $LeadProfile, [byte[]] $FidelityProfile) {
+    $stage = Join-Path $MainRoot 'build/reports/neutral-cutover/bindings'
+    $workspaceParent = Split-Path -Parent $MainRoot
+    $outputs = [ordered]@{
+        'AGENTS.md' = [System.Text.UTF8Encoding]::new($false).GetBytes("# Neutral integration coordinator`n`nThis directory coordinates serialized integration gates; it is not a Git worktree or feature-author checkout. Follow the shared [workflow guide]($SharedRoot/docs/development-workflow/README.md), [coordinator guide]($SharedRoot/docs/development-workflow/coordinator.md), and [integration-lead contract]($SharedRoot/docs/development-workflow/roles/integration-lead.md).`n`nUse the installed CLI and its help. Review candidates read-only in their author worktrees; coding gate receipts and scoped-review evidence are written to the CLI-computed author report paths. Do not edit candidate sources, create another queue, run unrequested expensive jobs, accept, merge, commit, or release. The caller controls readiness-contract scope and serialized validation; preserve that authority.`n")
+        'opencode.jsonc' = Get-NeutralCoordinatorConfig $ConfigBytes $LeadProfile $FidelityProfile $SharedRoot $workspaceParent
+        '.opencode/agents/integration-lead.md' = [System.Text.UTF8Encoding]::new($false).GetBytes(((Get-TextData (Get-TailoredIntegrationProfile $LeadProfile $workspaceParent 5)).Text))
+        '.opencode/agents/fidelity-reviewer.md' = [System.Text.UTF8Encoding]::new($false).GetBytes(((Get-TextData (Get-TailoredFidelityProfile $FidelityProfile)).Text))
+        'tooling/agent_workflow/workflow.py' = Get-NeutralCoordinatorEntrypoint $Entrypoint
+    }
+    foreach ($relative in $outputs.Keys) {
+        $path = Join-Path $stage ($relative.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+        New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($path, $outputs[$relative])
+        '{0}  sha256:{1}' -f (Join-Path $stage $relative), (Get-Sha256 $outputs[$relative])
+    }
+    return $stage
 }
 
 $mainRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
@@ -206,6 +277,10 @@ foreach ($relative in $script:SharedSources) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing shared workflow source: $relative" }
     $sourceBytes[$relative] = [System.IO.File]::ReadAllBytes($path)
     $sourceHashes[$relative] = Get-Sha256 $sourceBytes[$relative]
+}
+if ($StageNeutral05) {
+    $stagePath = Write-NeutralCoordinatorStage $mainRoot $sharedRoot $sourceBytes['tooling/agent_workflow/workflow_entry.py'] $sourceBytes['opencode.jsonc'] $sourceBytes['.opencode/agents/integration-lead.md'] $sourceBytes['.opencode/agents/fidelity-reviewer.md']
+    "Neutral coordinator bindings staged (not installed): $stagePath"
 }
 $previous = $null
 if ($PreviousReceipt) {
@@ -232,7 +307,8 @@ $roleFiles = [ordered]@{
 foreach ($relative in $script:SharedSources) {
     if ($relative -in @('AGENTS.md','opencode.jsonc','.opencode/agents/integration-lead.md','.opencode/agents/fidelity-reviewer.md','tooling/agent_workflow/workflow_entry.py')) { continue }
     if ($relative -match '^docs/development-workflow/roles/') { continue }
-    $plans.Add([pscustomobject]@{ Target = 'shared'; Path = (Join-Path $sharedRoot ($relative.Replace('/', [System.IO.Path]::DirectorySeparatorChar))); Relative = $relative; Action = 'publish'; Bytes = $sourceBytes[$relative]; Delete = $false })
+    $destination = if ($script:SourceMap.ContainsKey($relative)) { $script:SourceMap[$relative] } else { $relative }
+    $plans.Add([pscustomobject]@{ Target = 'shared'; Path = (Join-Path $sharedRoot ($destination.Replace('/', [System.IO.Path]::DirectorySeparatorChar))); Relative = $destination; Action = 'publish'; Bytes = $sourceBytes[$relative]; Delete = $false })
 }
 foreach ($contract in $roleFiles.Keys) {
     $text = (Get-TextData $sourceBytes[$roleFiles[$contract]]).Text.Replace('@SHARED_ROOT@', $sharedRoot.Replace('\', '/'))

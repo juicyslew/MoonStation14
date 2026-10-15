@@ -66,6 +66,16 @@
           "action": "external_directory",
           "effect": "allow",
           "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-05/**"
+        },
+        {
+          "action": "shell",
+          "resource": "python tooling/agent_workflow/workflow.py submit *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python tooling/agent_workflow/workflow.py --repo * submit *",
+          "effect": "allow"
         }
       ]
     },
@@ -406,6 +416,16 @@
           "action": "external_directory",
           "effect": "allow",
           "resource": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-05/**"
+        },
+        {
+          "action": "shell",
+          "resource": "python tooling/agent_workflow/workflow.py submit *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python tooling/agent_workflow/workflow.py --repo * submit *",
+          "effect": "allow"
         }
       ]
     },
