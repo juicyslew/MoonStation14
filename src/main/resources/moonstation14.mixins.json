@@ -29,6 +29,7 @@
     "MobDisposalContainmentAiMixin",
     "LivingEntityMindHarnessTravelMixin",
     "EntityAirlockBumpMixin",
+    "BlockCollisionsAirlockPassageMixin",
     "LivingEntityDeathStateAccessor",
     "LivingEntityMedicalCorpseMixin",
     "LivingEntityPostureMovementMixin",

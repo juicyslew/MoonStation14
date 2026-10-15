@@ -1,0 +1,63 @@
+{
+  "title": "Jump escape and primary outline: grounded carrier fixture correction",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/PlayerControlledPortableMouseEscapeGameTests.java",
+  "acceptance_criteria": [
+    "Escape uses the root frame that produced its latest canonical body pin; carrier jumps retain five-second progress, while real relative displacement, damage, incapacity and stale custody still cancel.",
+    "A bounded neutral-input warm-up establishes real carrier grounding using the carrier epoch; a subsequent production jump creates the old mixed-frame delta above 0.3 while canonical coordinates remain stable and the same escape completes for the original mouse.",
+    "Ordinary clicks, gameplay-window clicks and outlines consume one primary target resolver, highlighting held medical item recipients generically and preserving item/block fallback and pickup priority.",
+    "Canonical pinning, strict release validation and containment lifecycle cleanup remain shared; r38 camera behavior and prototype capabilities are unchanged.",
+    "Fresh focused JVM, full native, UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outline/input and optional observer landing presentation remain unverified."
+  ],
+  "manual_steps": [
+    "Start escaping as a held playable mouse while the holder repeatedly jumps and moves. Five-second progress should complete, not restart; check backpack escape too.",
+    "Aim a held bruise pack, analyzer or syringe at a mouse and another supported body. Check that the white outline matches the clicked body; unrelated held items should retain their appropriate item/block recipient.",
+    "Recheck damage/incapacity/drop interruption and smooth held camera motion. Same-holder physical hand-transfer escape and continuous-jump observer landings are not claimed fixed."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*PrimaryWorldGestureTest", "--tests", "*TimedInteractionPacketScheduleTest", "--tests", "*TimedInteractionClockPolicyTest", "--tests", "*ContainedCameraPolicyTest", "--rerun-tasks", "--console=plain"],
+      "rationale": "Fresh route priority/fallback, timed feedback and retained camera policy evidence; not live input or outline proof.",
+      "covers": [
+        "Ordinary clicks, gameplay-window clicks and outlines consume one primary target resolver, highlighting held medical item recipients generically and preserving item/block fallback and pickup priority.",
+        "Fresh focused JVM, full native, UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outline/input and optional observer landing presentation remain unverified."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-escape-outline-r40", "--rerun-tasks", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-escape-outline-r40/native.log",
+      "rationale": "Fresh full suite including the corrected r39 jump fixture, genuine displacement/drop cancellation and shared containment/medical/disposal consumers.",
+      "covers": [
+        "Escape uses the root frame that produced its latest canonical body pin; carrier jumps retain five-second progress, while real relative displacement, damage, incapacity and stale custody still cancel.",
+        "A bounded neutral-input warm-up establishes real carrier grounding using the carrier epoch; a subsequent production jump creates the old mixed-frame delta above 0.3 while canonical coordinates remain stable and the same escape completes for the original mouse.",
+        "Canonical pinning, strict release validation and containment lifecycle cleanup remain shared; r38 camera behavior and prototype capabilities are unchanged."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Affected gameplay-window click, admission and timed presentation contracts; no authenticated or visual acceptance claim.",
+      "covers": ["Fresh focused JVM, full native, UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outline/input and optional observer landing presentation remain unverified."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-escape-outline-r40", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-escape-outline-r40/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Serial isolated client bootstrap with controlled stop of only its owned tree; not connected outline or held-POV visual proof.",
+      "covers": ["Fresh focused JVM, full native, UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outline/input and optional observer landing presentation remain unverified."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Record packaged artifact only after all checks pass; no deployment or owner acceptance.",
+      "covers": ["Fresh focused JVM, full native, UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outline/input and optional observer landing presentation remain unverified."]
+    }
+  ]
+}

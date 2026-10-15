@@ -136,10 +136,32 @@ public final class ApcOverloadGameTests {
 
     private static void awaitDebugFixture(GameTestHelper helper, DebugFixture fixture, Runnable ready) {
         PowerFixtureReadiness.await(helper, fixture.level(), 600,
-                () -> debugFixturePortsKnown(fixture)
+                () -> debugFixtureFrontierChunksFull(helper, fixture)
+                        && debugFixturePortsKnown(fixture)
                         && PowerRuntime.apcVisualState(fixture.level(), fixture.apc())
-                        != com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState.UNKNOWN,
+                        != com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState.UNKNOWN
+                        && fixture.lit(0),
                 () -> debugState(fixture) + ", topologyReady=" + PowerGraphService.topologyReady(fixture.level()), ready);
+    }
+
+    /** The complete one-block candidate-edge halo must be loaded before graph knownness is authoritative. */
+    private static boolean debugFixtureFrontierChunksFull(GameTestHelper helper, DebugFixture fixture) {
+        // The authored fixture footprint is relative x=2..5,z=2..7. Its one-block
+        // candidate-host halo is x=1..6,z=1..8; check every covered chunk, including
+        // seams at either end, without loading chunks from this readiness predicate.
+        BlockPos first = helper.absolutePos(new BlockPos(1, 0, 1));
+        BlockPos last = helper.absolutePos(new BlockPos(6, 1, 8));
+        int minChunkX = Math.min(first.getX(), last.getX()) >> 4;
+        int maxChunkX = Math.max(first.getX(), last.getX()) >> 4;
+        int minChunkZ = Math.min(first.getZ(), last.getZ()) >> 4;
+        int maxChunkZ = Math.max(first.getZ(), last.getZ()) >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                var chunk = fixture.level().getChunkSource().getChunkNow(chunkX, chunkZ);
+                // In this MC API getChunkNow returns only loaded LevelChunks (FULL), or null.
+                if (chunk == null) return false;
+            }
+        return true;
     }
 
     private static boolean debugFixturePortsKnown(DebugFixture fixture) {
@@ -243,7 +265,7 @@ public final class ApcOverloadGameTests {
     /** Compact version of the established source -> HV -> substation -> MV -> APC -> floor-cable path. */
     private static DebugFixture debugFixture(GameTestHelper helper, boolean twoLamps) {
         var ticket = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 0, 2)),
-                helper.absolutePos(new BlockPos(5, 1, 7)), 0);
+                helper.absolutePos(new BlockPos(5, 1, 7)), 1);
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = debugPos(helper, 3, 1, 2);
         BlockPos sub = debugPos(helper, 3, 1, 4);

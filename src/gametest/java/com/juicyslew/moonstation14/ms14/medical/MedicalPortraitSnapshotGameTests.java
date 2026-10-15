@@ -6,9 +6,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -17,6 +19,74 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class MedicalPortraitSnapshotGameTests {
     private MedicalPortraitSnapshotGameTests() { }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    public static void everyResolvedProjectCharacterHostOwnsVisualSnapshot(GameTestHelper helper) {
+        var catalog = com.juicyslew.moonstation14.ms14.character.ModCharacters.catalog(helper.getLevel());
+        var seen = new java.util.HashSet<net.minecraft.resources.ResourceLocation>();
+        for (var data : catalog.asMap().values()) for (var hostId : data.hostEntityTypes()) {
+            var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getOptional(hostId).orElseThrow(
+                    () -> new net.minecraft.gametest.framework.GameTestAssertException("unregistered project character host: " + hostId));
+            if (!isMedicalHost(data)) continue;
+            // Observer/non-medical and abstract hosts are not portrait candidates. Concrete
+            // resolved project medical hosts, however, must never be silently skipped.
+            var made = type == EntityType.PLAYER
+                    ? com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration
+                        .getEntityType().create(helper.getLevel())
+                    : type.create(helper.getLevel());
+            require(made instanceof net.minecraft.world.entity.LivingEntity,
+                    "resolved project medical host factory must create LivingEntity: " + hostId);
+            var source = (net.minecraft.world.entity.LivingEntity) made;
+            verifyMedicalHostAppearance(hostId, source);
+            seen.add(hostId);
+            var copy = MedicalPortraitSnapshot.create(source);
+            require(copy != null && copy.getType() == source.getType(), "medical host has detached renderer copy: " + hostId);
+            require(MedicalPortraitSnapshot.sameAppearance(source, copy), "medical host snapshot compares equal: " + hostId);
+            require(helper.getLevel().getEntity(copy.getId()) == null, "medical host copy remains detached: " + hostId);
+        }
+        require(!seen.isEmpty(), "resolved project character hosts exercised");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    public static void futureVanillaHostWithoutVisualContractFailsValidation(GameTestHelper helper) {
+        var futureHostId = ResourceLocation.withDefaultNamespace("fox");
+        var fox = EntityType.FOX.create(helper.getLevel());
+        require(fox != null, "native fox created for future-host contract negative fixture");
+        try {
+            verifyMedicalHostAppearance(futureHostId, fox);
+            throw new net.minecraft.gametest.framework.GameTestAssertException("missing visual contract was accepted");
+        } catch (net.minecraft.gametest.framework.GameTestAssertException expected) {
+            require(expected.getMessage().contains(futureHostId.toString()), "failure identifies future project host id");
+        }
+        helper.succeed();
+    }
+
+    private static boolean isMedicalHost(com.juicyslew.moonstation14.component.codec.json.CharacterData data) {
+        return data.component(com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.class).isPresent()
+                && data.component(com.juicyslew.moonstation14.ms14.character.components.MobThresholdsComponent.class).isPresent();
+    }
+
+    private static void verifyMedicalHostAppearance(ResourceLocation hostId, net.minecraft.world.entity.LivingEntity source) {
+        require(com.juicyslew.moonstation14.ms14.character.CharacterVisualService.hasExplicitVisualState(source),
+                "medical host must preserve complete visual appearance (host " + hostId + ", entity "
+                        + source.getType() + ")");
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    public static void unlistedNativeLivingPortraitUsesGenericPath(GameTestHelper helper) {
+        var source = EntityType.COW.create(helper.getLevel());
+        require(source != null, "native cow created");
+        source.setBaby(true);
+        var copy = MedicalPortraitSnapshot.create(source);
+        require(copy != null && copy.getType() == EntityType.COW && copy.isBaby(),
+                "unlisted native living entity uses generic detached snapshot path");
+        require(MedicalPortraitSnapshot.sameAppearance(source, copy), "generic native appearance retained");
+        source.setBaby(false);
+        require(!MedicalPortraitSnapshot.sameAppearance(source, copy), "native mutation invalidates appearance snapshot");
+        require(helper.getLevel().getEntity(copy.getId()) == null, "native snapshot remains detached");
+        helper.succeed();
+    }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
     public static void pigPortraitIsDetachedAndPreservesAppearance(GameTestHelper helper) {
@@ -58,6 +128,54 @@ public final class MedicalPortraitSnapshotGameTests {
         require(source.isBaby() && source.getPose() == Pose.SLEEPING && source.getXRot() == 22
                 && source.getYRot() == 39 && source.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD) == sourceEquipment,
                 "source unchanged");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    public static void sheepPortraitPreservesNativeRendererAppearance(GameTestHelper helper) {
+        Sheep source = EntityType.SHEEP.create(helper.getLevel());
+        require(source != null, "sheep created");
+        source.setColor(net.minecraft.world.item.DyeColor.BLUE);
+        source.setSheared(true);
+        source.setBaby(true);
+        source.setPose(Pose.SLEEPING);
+        source.setHealth(source.getMaxHealth() / 2);
+        var health = source.getHealth();
+        var copy = MedicalPortraitSnapshot.create(source);
+        require(copy instanceof Sheep, "sheep snapshot supported");
+        Sheep sheep = (Sheep) copy;
+        require(sheep.getColor() == net.minecraft.world.item.DyeColor.BLUE && sheep.isSheared() && sheep.isBaby(),
+                "sheep color, sheared wool, and age retained");
+        require(sheep.isAlive() && sheep.getPose() == Pose.STANDING && sheep.getHealth() == sheep.getMaxHealth(),
+                "portrait normalized without changing source");
+        require(MedicalPortraitSnapshot.sameAppearance(source, copy), "sheep appearance compares equal");
+        source.setColor(net.minecraft.world.item.DyeColor.RED);
+        require(!MedicalPortraitSnapshot.sameAppearance(source, copy), "sheep color mutation invalidates appearance snapshot");
+        require(source.getColor() == net.minecraft.world.item.DyeColor.RED && source.isSheared() && source.isBaby()
+                        && source.getPose() == Pose.SLEEPING && source.getHealth() == health
+                        && helper.getLevel().getEntity(copy.getId()) == null,
+                "patient unchanged and detached snapshot is not registered");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    public static void nativeMousePortraitUsesDetachedLivingEntityPath(GameTestHelper helper) {
+        var source = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(helper.getLevel());
+        require(source != null, "mouse created");
+        source.setAppearance(com.juicyslew.moonstation14.ms14.character.components.MouseAppearanceComponent.Variant.BROWN);
+        source.setPose(Pose.SLEEPING);
+        source.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, namedGear());
+        var equipment = source.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
+        var copy = MedicalPortraitSnapshot.create(source);
+        require(copy != null && copy.getType() == source.getType(), "native mouse renderer source created");
+        require(((com.juicyslew.moonstation14.entities.MouseMob) copy).appearance() == source.appearance(), "resolved synced coat retained");
+        require(copy.isAlive() && copy.getPose() == Pose.STANDING, "mouse portrait normalized");
+        assertGearAndNeutralState(source, copy);
+        source.setAppearance(com.juicyslew.moonstation14.ms14.character.components.MouseAppearanceComponent.Variant.GRAY);
+        require(!MedicalPortraitSnapshot.sameAppearance(source, copy), "mouse coat mutation invalidates cached appearance");
+        require(helper.getLevel().getEntity(copy.getId()) == null, "mouse snapshot remains detached");
+        require(source.getPose() == Pose.SLEEPING && source.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD) == equipment,
+                "mouse patient unchanged");
         helper.succeed();
     }
 

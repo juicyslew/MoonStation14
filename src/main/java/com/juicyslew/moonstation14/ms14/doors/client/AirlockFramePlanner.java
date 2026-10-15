@@ -4,7 +4,7 @@ import com.juicyslew.moonstation14.ms14.doors.AirlockState;
 
 /** Maps synchronized door state to authored, static native visual overlays. */
 final class AirlockFramePlanner {
-    record Plan(boolean maintenanceWires, String headerOverlay, String readerOverlay) { }
+    record Plan(boolean maintenanceWires, boolean headerLamps, String headerOverlay, String readerOverlay) { }
 
     private AirlockFramePlanner() { }
 
@@ -16,6 +16,6 @@ final class AirlockFramePlanner {
                         phase == AirlockState.DoorPhase.CLOSED ? "closed_unlit" : "opening_unlit";
         String header = state == null ? null : state;
         String reader = state != null && (state.equals("opening_unlit") || state.equals("deny_unlit")) ? state : null;
-        return new Plan(wires, header, reader);
+        return new Plan(wires, powered, header, reader);
     }
 }

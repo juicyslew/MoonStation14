@@ -18,6 +18,7 @@ public final class EmoteRegistry {
             "honk", new EmoteSpec("honk"),
             "laugh", new EmoteSpec("laugh"),
             "scream", new EmoteSpec("scream"),
+            "squeak", new EmoteSpec("mouse_squeak", 0.125f),
             "weh", new EmoteSpec("weh"),
             "whistle", new EmoteSpec("whistle"),
             "yawn", new EmoteSpec("yawn"));
@@ -34,5 +35,7 @@ public final class EmoteRegistry {
                 : DataResult.error(() -> "Unknown emote id '" + id + "'; expected one of " + ids());
     }
 
-    public record EmoteSpec(String sound) { }
+    public record EmoteSpec(String sound, float pitchVariation) {
+        public EmoteSpec(String sound) { this(sound, 0f); }
+    }
 }

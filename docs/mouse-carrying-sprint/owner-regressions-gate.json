@@ -1,0 +1,80 @@
+{
+  "title": "Mouse character integration and owner regressions",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/PlayerControlledPortableMouseEscapeGameTests.java",
+  "acceptance_criteria": [
+    "Pickup/drop all mouse medical states through normal requests; preserve UUID, Mind, flags and stale-token denial.",
+    "Client pickup/hover use resolved projection and shared eligibility, retaining item priority and occupied-hand routing.",
+    "Shared flight retains gravity, drag, collision and authority; one-tick packets are not GPU smoothness proof.",
+    "Names retain Components/custom priority; generic hand HUD consumes presented hover names; chunk logs deduplicate.",
+    "Five-second player/AI escape retains input sequence and operation during carrier motion/hand selection; relative movement, damage and physical transfer cancel; backpack escape/control/flee persist.",
+    "Autonomous mouse travel uses resolved sprint speed; player gait is unchanged.",
+    "Playable throws preserve complete flight leases, production codec snapshots and committed identity/control through expiry; valid retained dead bodies share corpse flight.",
+    "Inherited Pullable uses normal human pull/stop for alive/critical/dead mice; mice remain handless non-pullers.",
+    "Held camera restores native placement; disposal unit shares human-height view across occupants; transit alignment remains separate. GPU placement is unverified.",
+    "Held-jump traces capture grounded starts and vanilla packets; remote-client landing presentation remains unverified.",
+    "Fresh counted JVM, focused/full native and affected readiness checks pass before packaging; no owner acceptance or deployment is implied."
+  ],
+  "manual_steps": [
+    "Provide a concise checklist with each validated build; automated evidence is not owner acceptance.",
+    "Drag, pick up, drop and throw alive/critical/dead mice; verify original identity and playable control.",
+    "Check readable hand/examine names, restored held camera, above-bin view and successful disposal flush/outlet.",
+    "Check five-second escape with moving captor and active-hand changes, backpack escape and immediate AI fleeing. Only the escaping actor sees contained progress in standard SS14.",
+    "Watch sustained jumping from another client for visible landings; check autonomous travel and retained throw smoothness. These GPU/input boundaries are not proved by server fixtures."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks", "--console=plain"],
+      "rationale": "One full fresh JVM run; avoid overwriting bound XML with a later focused run.",
+      "covers": [
+        "Client pickup/hover use resolved projection and shared eligibility, retaining item priority and occupied-hand routing.",
+        "Shared flight retains gravity, drag, collision and authority; one-tick packets are not GPU smoothness proof.",
+        "Names retain Components/custom priority; generic hand HUD consumes presented hover names; chunk logs deduplicate.",
+        "Autonomous mouse travel uses resolved sprint speed; player gait is unchanged.",
+        "Playable throws preserve complete flight leases, production codec snapshots and committed identity/control through expiry; valid retained dead bodies share corpse flight.",
+        "Inherited Pullable uses normal human pull/stop for alive/critical/dead mice; mice remain handless non-pullers.",
+        "Held camera restores native placement; disposal unit shares human-height view across occupants; transit alignment remains separate. GPU placement is unverified.",
+        "Fresh counted JVM, focused/full native and affected readiness checks pass before packaging; no owner acceptance or deployment is implied."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=hands,pulling,jump-regression,portable-escape,portable-escape-motion,portable-name,npc-flight,portable-throw,portable-disposal,medical-state,mouse-ai,examination,airlock_stationary_contact,ingestion,chemmaster-admission-regression,power_receiver_preflight", "-Pms14GameTestDir=build/gametest-owner-regressions-gate-focused-r34", "--rerun-tasks", "--console=plain"],
+      "log": "build/gate-owner-regressions-focused-r34.log",
+      "rationale": "Fresh world and forced compilation; normal requests/live consumers including new drag, corpse throw, viewpoint and jump probes. No synthetic-input/GPU claims.",
+      "covers": [
+        "Pickup/drop all mouse medical states through normal requests; preserve UUID, Mind, flags and stale-token denial.",
+        "Shared flight retains gravity, drag, collision and authority; one-tick packets are not GPU smoothness proof.",
+        "Names retain Components/custom priority; generic hand HUD consumes presented hover names; chunk logs deduplicate.",
+        "Five-second player/AI escape retains input sequence and operation during carrier motion/hand selection; relative movement, damage and physical transfer cancel; backpack escape/control/flee persist.",
+        "Autonomous mouse travel uses resolved sprint speed; player gait is unchanged.",
+        "Playable throws preserve complete flight leases, production codec snapshots and committed identity/control through expiry; valid retained dead bodies share corpse flight.",
+        "Inherited Pullable uses normal human pull/stop for alive/critical/dead mice; mice remain handless non-pullers.",
+        "Held camera restores native placement; disposal unit shares human-height view across occupants; transit alignment remains separate. GPU placement is unverified.",
+        "Held-jump traces capture grounded starts and vanilla packets; remote-client landing presentation remains unverified."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--rerun-tasks", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Affected UI/admission/timed-feedback contracts; not authenticated transport or GPU proof.",
+      "covers": ["Fresh counted JVM, focused/full native and affected readiness checks pass before packaging; no owner acceptance or deployment is implied."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-owner-regressions-gate-full-r34", "--console=plain"],
+      "log": "build/gate-owner-regressions-full-r34.log",
+      "rationale": "Full fresh native regression coverage; previous failures are not waived.",
+      "covers": ["Fresh counted JVM, focused/full native and affected readiness checks pass before packaging; no owner acceptance or deployment is implied."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Package only after gates pass and record artifact identity; no deployment.",
+      "covers": ["Fresh counted JVM, focused/full native and affected readiness checks pass before packaging; no owner acceptance or deployment is implied."]
+    }
+  ]
+}

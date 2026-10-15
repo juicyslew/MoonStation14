@@ -10,6 +10,19 @@ public final class HandEquipmentGesture {
 
     record Drag(HandBarLayout.Layout.Tile source, String sourceSlotId, String handId, String token, String itemId,
                 int count, UUID accountId, UUID bodyId, long epoch, long revision) { }
+    /** Exact captured source membership, deliberately independent of transient presentation/pending state. */
+    static boolean sourceStillCurrent(Drag drag, BodyHandStateSnapshot proof) {
+        if (drag == null || proof == null || proof.reason() != BodyHandStateSnapshot.Reason.OK
+                || !proof.accountId().equals(drag.accountId()) || !proof.bodyId().equals(drag.bodyId())
+                || proof.epoch() != drag.epoch()) return false;
+        if (drag.sourceSlotId() != null)
+            return proof.equipment().stream().anyMatch(s -> s.id().equals(drag.sourceSlotId())
+                    && java.util.Objects.equals(s.token(), drag.token())
+                    && java.util.Objects.equals(s.itemId(), drag.itemId()) && s.count() == drag.count());
+        return proof.hands().stream().anyMatch(h -> h.id().equals(drag.handId())
+                && java.util.Objects.equals(h.token(), drag.token())
+                && java.util.Objects.equals(h.itemId(), drag.itemId()) && h.count() == drag.count());
+    }
     record Plan(BodyHandActionRequest.Action action, String handId) { }
     public record SlotPlan(BodyHandActionRequest.Action action, String handId, String slotId, String expectedToken) { }
     public record GearMovePlan(String sourceSlotId, String destinationSlotId, String handId, String expectedToken,

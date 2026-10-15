@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BarotraumaSystem;
+import com.juicyslew.moonstation14.ms14.atmos.exposure.BarotraumaAtmospherePolicy;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
@@ -31,6 +32,30 @@ import java.util.Set;
 @GameTestTags({"atmosphere", "physiology"})
 public final class PressureGameTests {
     private PressureGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
+    @GameTestTags({"corpse-damage"})
+    public static void retainedDeadPigContinuesPressureExposure(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var vacuum = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        Pig pig = helper.spawn(EntityType.PIG, new BlockPos(2, 1, 2));
+        pig.setNoAi(true);
+        require(DamageSystem.applyHealthChange(pig, Map.of("heat", 200f), 1f, true)
+                        == DamageSystem.Result.APPLIED
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(pig)
+                        && !pig.isAlive() && pig.getHealth() == 0,
+                "pressure fixture is a retained medical-dead zero-health pig");
+        BlockPos sky = new BlockPos(2, level.getMaxBuildHeight() - 10, 2);
+        level.getChunk(sky);
+        pig.setPos(sky.getX() + 0.5, sky.getY() - pig.getEyeHeight(), sky.getZ() + 0.5);
+        require(vacuum.sample(level, BlockPos.containing(pig.getEyePosition())).isPresent(), "known exterior sample");
+        // The lethal setup hit owns vanilla's hurt-resistance window; this fixture
+        // isolates the subsequent pressure producer rather than testing cooldown.
+        pig.invulnerableTime = 0;
+        require(BarotraumaSystem.tickIfDue(pig, -pig.getId(), vacuum), "retained corpse remains pressure-exposed");
+        require(typedBlunt(pig) > 0, "pressure producer submits typed damage to corpse route");
+        helper.succeed();
+    }
 
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 80)
     public static void boundPigReadsCommittedIsolatedComponentSnapshots(GameTestHelper helper) {
@@ -162,7 +187,11 @@ public final class PressureGameTests {
         var crossed = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap();
         require(Math.abs(crossed.get("blunt") - (before + 0.6f)) < 0.001f,
                 "the full pig hit must cross the 200 ceiling");
-        require(!BarotraumaSystem.tickIfDue(pig, -pig.getId(), vacuum)
+        require(!pig.isAlive() && DamageSystem.existingOrVanillaBaseline(pig).equals(crossed),
+                "a dead retained body exposes its existing ledger without importing a health baseline");
+        // Advance to the next cadence slot; repeating the exact same gameTime
+        // is intentionally due again (the runtime invokes at most once per tick).
+        require(!BarotraumaSystem.tickIfDue(pig, -pig.getId() + BarotraumaAtmospherePolicy.CADENCE_TICKS, vacuum)
                         && pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().equals(crossed),
                 "next due update must stop at current matching damage above ceiling");
 
@@ -170,7 +199,7 @@ public final class PressureGameTests {
                         == DamageSystem.Result.APPLIED, "heal matching damage below ceiling");
         require(com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.explicitRevive(pig),
                 "healing below the pressure ceiling must permit explicit revival from pressure-caused death");
-        require(BarotraumaSystem.tickIfDue(pig, -pig.getId(), vacuum),
+        require(BarotraumaSystem.tickIfDue(pig, -pig.getId() + 2L * BarotraumaAtmospherePolicy.CADENCE_TICKS, vacuum),
                 "healing must reopen pressure damage headroom");
         var resumed = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap();
         require(Math.abs(resumed.get("blunt") - (crossed.get("blunt") - 2.4f)) < 0.001f,

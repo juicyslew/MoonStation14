@@ -932,24 +932,12 @@ public final class BodyHandClient {
         if (cameraBody == null) return;
         var block = aimedWorldBlock();
         if (com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained()) event.setCanceled(true);
-        var medicalKind = active.token() == null ? MedicalUseGesturePolicy.Kind.NONE : medicalKind(active.itemId());
-        UUID bodyTarget = medicalKind == MedicalUseGesturePolicy.Kind.NONE || controlDown()
-                ? null : aimedMedicalBody(cameraBody, medicalKind == MedicalUseGesturePolicy.Kind.HEALTH_ANALYZER
-                        ? resolvedAnalyzerRange(active.itemId()) : 2.0);
-        boolean medicalTarget = MedicalUseGesturePolicy.primaryBodyUse(medicalKind, bodyTarget != null,
-                controlDown(), POPUPS.pointerMode());
-        UUID target = medicalTarget ? null : lookTarget(cameraBody);
-        var route = PrimaryWorldGesture.route(true,
-                block != null && block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, active.token() != null,
-                target != null, medicalTarget);
-        if (route == PrimaryWorldGesture.Route.BLOCK_USE) {
+        var decision = resolvePrimaryWorldTarget(cameraBody, active, block != null
+                && block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, true);
+        if (decision.route() == PrimaryWorldGesture.Route.BLOCK_USE) {
             requestBlockUse(BodyBlockUseRequest.Intent.USE);
         } else {
-            var action = PrimaryWorldGesture.action(route);
-            if (action == BodyHandActionRequest.Action.PICKUP && target != null)
-                action = BodyHandActionRequest.Action.PICKUP_SELECTED;
-            if (action == BodyHandActionRequest.Action.USE_BODY) request(action, bodyTarget);
-            else if (action != null) request(action);
+            if (decision.action() != null) request(decision.action(), decision.target());
         }
         event.setCanceled(true);
     }
@@ -982,18 +970,12 @@ public final class BodyHandClient {
         var view = POLICY.inventoryView();
         if (view == null) return;
         var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
-        UUID target = lookTarget(cameraBody);
-        var start = cameraBody.getEyePosition();
-        var end = start.add(cameraBody.getLookAngle().scale(BodyBlockUseTargetProbe.MAX_REACH));
-        var block = cameraBody.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraBody));
-        var route = PrimaryWorldGesture.route(true, block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK,
-                active.token() != null, target != null);
-        if (route == PrimaryWorldGesture.Route.BLOCK_USE) requestBlockUse(BodyBlockUseRequest.Intent.USE);
+        var block = aimedWorldBlock();
+        var decision = resolvePrimaryWorldTarget(cameraBody, active, block != null
+                && block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, true);
+        if (decision.route() == PrimaryWorldGesture.Route.BLOCK_USE) requestBlockUse(BodyBlockUseRequest.Intent.USE);
         else {
-            var action = PrimaryWorldGesture.action(route);
-            if (action == BodyHandActionRequest.Action.PICKUP && target != null)
-                action = BodyHandActionRequest.Action.PICKUP_SELECTED;
-            if (action != null) request(action);
+            if (decision.action() != null) request(decision.action(), decision.target());
         }
     }
 
@@ -1469,6 +1451,20 @@ public final class BodyHandClient {
         else if (GhostControlClient.committedGhostContext() != null && !POPUPS.pointerMode()) {
             pointerGhostOwner = GhostControlClient.committedGhostContext(); POINTER.manualOpen(); pointerMode(true);
         }
+    }
+
+    private static PrimaryWorldGesture.ClickDecision resolvePrimaryWorldTarget(Mob body,
+            BodyHandStateSnapshot.Hand active, boolean aimedBlock, boolean worldInputAllowed) {
+        boolean occupied = active.token() != null;
+        var kind = occupied ? medicalKind(active.itemId()) : MedicalUseGesturePolicy.Kind.NONE;
+        UUID medical = kind == MedicalUseGesturePolicy.Kind.NONE || controlDown() || !worldInputAllowed
+                ? null : aimedMedicalBody(body, kind == MedicalUseGesturePolicy.Kind.HEALTH_ANALYZER
+                        ? resolvedAnalyzerRange(active.itemId()) : 2.0);
+        boolean medicalTarget = MedicalUseGesturePolicy.primaryBodyUse(kind, medical != null,
+                controlDown(), POPUPS.pointerMode());
+        UUID loose = medicalTarget ? null : lookTarget(body);
+        UUID portable = !medicalTarget && !occupied ? portableLivingTarget(body) : null;
+        return PrimaryWorldGesture.resolve(aimedBlock, occupied, loose, portable, medicalTarget, medical);
     }
 
     /** Clears character-owned state without revoking a separately committed ghost pointer owner. */
@@ -2193,7 +2189,9 @@ public final class BodyHandClient {
         switch (action) {
             case PICKUP, PICKUP_SELECTED -> {
                 if (active.token() != null || !BodyHandClientPolicy.handAvailableForItemAction(active)) return false;
-                target = lookTarget(cameraBody);
+                target = action == BodyHandActionRequest.Action.PICKUP_SELECTED
+                        ? nominatedBody != null ? nominatedBody : pickupTarget(cameraBody)
+                        : lookTarget(cameraBody);
                 expectedToken = null;
             }
             case USE_TARGET -> {
@@ -2273,6 +2271,53 @@ public final class BodyHandClient {
         return PILE.update(pileItems.stream().map(ItemEntity::getUUID).toList());
     }
 
+    /** Pickup nomination only: ordinary piles retain priority, otherwise nominate a resolved portable living target. */
+    private static UUID pickupTarget(Mob body) {
+        UUID item = lookTarget(body);
+        return item != null ? item : portableLivingTarget(body);
+    }
+
+    /** Client-side nomination only; the server repeats identity, reach and occlusion checks. */
+    private static UUID portableLivingTarget(Mob body) {
+        var target = portableLivingEntityTarget(body);
+        return target == null ? null : target.getUUID();
+    }
+
+    private static net.minecraft.world.entity.LivingEntity portableLivingEntityTarget(Mob body) {
+        if (body == null || com.juicyslew.moonstation14.ms14.player_body_control.client
+                .ContainedCharacterClientView.isContained()) return null;
+        var from = body.getEyePosition();
+        var look = body.getLookAngle();
+        var to = from.add(look.scale(BodyItemTargetProbe.MAX_REACH));
+        var block = body.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, body));
+        double blocker = block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                ? from.distanceTo(block.getLocation()) : BodyItemTargetProbe.MAX_REACH;
+        return body.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+                        new net.minecraft.world.phys.AABB(from, to).inflate(.2), candidate -> candidate != body
+                                && !candidate.isRemoved() && candidate.isAddedToLevel()
+                                && candidate.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments
+                                .PORTABLE_BODY_CONTAINMENT.get()) == null
+                                && resolvedPortableProfile(candidate))
+                .stream().filter(candidate -> BodyItemTargetProbe.withinPhysicalReach(from,
+                                candidate.getBoundingBox(), BodyItemTargetProbe.MAX_REACH)
+                        && candidate.getBoundingBox().inflate(.2).clip(from, to)
+                        .map(hit -> from.distanceTo(hit) < blocker).orElse(false))
+                .min(java.util.Comparator.comparingDouble(candidate -> from.distanceToSqr(
+                        candidate.getBoundingBox().inflate(.2).clip(from, to).orElse(to)))).orElse(null);
+    }
+
+    private static boolean resolvedPortableProfile(net.minecraft.world.entity.LivingEntity candidate) {
+        var projectedCharacter = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem
+                .projectForActor(candidate).orElse(null);
+        var capability = PortableLivingClientTargetPolicy.portableCapability(projectedCharacter).orElse(null);
+        if (capability == null) return false;
+        try {
+            com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile.resolveClient(capability.profileId());
+            return true;
+        } catch (RuntimeException unresolved) { return false; }
+    }
+
     /** Resolve the UUID only from the existing bounded client pile nomination. */
     private static ItemEntity findAimedLoose(UUID target) {
         if (target == null || cameraBody == null) return null;
@@ -2325,7 +2370,7 @@ public final class BodyHandClient {
         double blocker = block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
                 ? start.distanceTo(block.getLocation()) : reach;
         return body.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
-                        new AABB(start, end).inflate(1.0), entity -> entity != body && !(entity instanceof net.minecraft.world.entity.player.Player)
+                         new AABB(start, end).inflate(1.0), entity -> entity != body
                                 && !entity.isRemoved() && entity.level() == body.level()
                                 && com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(entity)
                                 .flatMap(com.juicyslew.moonstation14.ms14.mobs.MobStatePolicy::from).isPresent())
@@ -2342,7 +2387,7 @@ public final class BodyHandClient {
         UUID loose = body instanceof Mob mob ? lookTarget(mob) : null;
         if (loose != null) return loose;
         Vec3 start = body.getEyePosition();
-        Vec3 end = start.add(body.getLookAngle().scale(5));
+        Vec3 end = start.add(body.getLookAngle().scale(BodyItemTargetProbe.MAX_REACH));
         var block = body.level().clip(new ClipContext(start, end, ClipContext.Block.COLLIDER,
                 ClipContext.Fluid.NONE, body));
         double blocker = block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
@@ -2445,6 +2490,7 @@ public final class BodyHandClient {
                 new AABB(start, end).inflate(BodyItemTargetProbe.TARGET_MARGIN),
                 entity -> entity.isAlive() && !entity.getItem().isEmpty())) {
             var box = item.getBoundingBox();
+            if (!BodyItemTargetProbe.withinPhysicalReach(start, box, BodyItemTargetProbe.MAX_REACH)) continue;
             Vec3 hit = LooseItemRayGeometry.entry(box, start, end);
             if (hit == null) continue;
             Vec3 look = body.getLookAngle();
@@ -2464,7 +2510,7 @@ public final class BodyHandClient {
     }
 
     /** Fresh client-only outline nomination; action eligibility and pending policy never affect observation. */
-    public static ItemEntity selectedItemForOutline() {
+    public static net.minecraft.world.entity.Entity selectedEntityForOutline() {
         var mc = net.minecraft.client.Minecraft.getInstance();
         Mob body = currentBody();
         if (DUMP_GESTURE.active() && body != null && body.getUUID().equals(dumpBody)
@@ -2475,13 +2521,31 @@ public final class BodyHandClient {
         if (mc.screen != null || !mc.mouseHandler.isMouseGrabbed() || body == null
                 || body != cameraBody || GhostControlClient.committedCharacterEpoch() != cameraEpoch
                 || cameraEpoch == 0 || body.level() != mc.level) return null;
-        refreshPile(body);
-        var ids = pileItems.stream().map(ItemEntity::getUUID).toList();
-        UUID selected = PILE.update(ids);
-        if (selected == null) return null;
-        for (ItemEntity item : pileItems)
-            if (item.getUUID().equals(selected) && item.isAlive()) return item;
-        return null;
+        var view = POLICY.inventoryView();
+        if (view == null) return null;
+        var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
+        var block = aimedWorldBlock();
+        var decision = resolvePrimaryWorldTarget(body, active, block != null
+                && block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, true);
+        if (decision.target() != null) {
+            var living = body.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+                    new AABB(body.blockPosition()).inflate(32), entity -> entity.getUUID().equals(decision.target()))
+                    .stream().findFirst().orElse(null);
+            if (living != null) return living;
+            ItemEntity item = looseEntity(decision.target());
+            if (item != null && item.isAlive()) return item;
+        }
+        boolean handAvailable = BodyHandClientPolicy.handAvailableForItemAction(active);
+        if (!handAvailable || active.token() != null
+                || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isClientActionBlocked(body)) return null;
+        var portable = portableLivingEntityTarget(body);
+        return PrimaryWorldGesture.outlineTarget(handAvailable, active.token() != null, null,
+                portable == null ? null : portable.getUUID()) == null ? null : portable;
+    }
+
+    public static ItemEntity selectedItemForOutline() {
+        var selected = selectedEntityForOutline();
+        return selected instanceof ItemEntity item ? item : null;
     }
 
     private static void onSnapshot(BodyHandStateSnapshot snapshot) {
@@ -2497,8 +2561,7 @@ public final class BodyHandClient {
                 if (!WORLD.canAct(world.target())) WORLD.query(world.target(), settled.revision(),
                         nonWorldWindowCount(), clock).ifPresent(PacketDistributor::sendToServer);
             var view = POLICY.presentationView();
-            if (settled != null) POPUPS.validateHandSources(settled.hands().stream()
-                    .map(BodyHandStateSnapshot.Hand::token).filter(java.util.Objects::nonNull).toList());
+            if (settled != null) POPUPS.validateHandSourceProof(settled.hands());
             boolean hadWindows = !POPUPS.windows().isEmpty();
             StoragePopupLifecycle.reconcile(POPUPS, view != null && !POLICY.presentationPending(),
                     token -> StoragePopupLifecycle.resolveBody(token, view, key -> popupGrid(view, key, true)),
@@ -2887,8 +2950,9 @@ public final class BodyHandClient {
         else {
             var id = net.minecraft.resources.ResourceLocation.tryParse(hand.itemId() == null ? "" : hand.itemId());
             var item = id == null ? null : net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(id).orElse(null);
-            name = item == null ? net.minecraft.network.chat.Component.translatable("gui.moonstation14.hands.empty").getString()
-                    : item.getDescription().getString();
+            var fallback = item == null ? net.minecraft.network.chat.Component.translatable("gui.moonstation14.hands.empty")
+                    : item.getDescription();
+            name = handDisplayName(hand.presentation(), fallback).getString();
             if (hand.count() > 1) name += " ×" + hand.count();
         }
         float scale = 0.76f;
@@ -2903,6 +2967,12 @@ public final class BodyHandClient {
         pose.scale(scale, scale, 1);
         g.drawString(mc.font, name, 0, 0, enabled ? 0xffe2e8e9 : 0xff858b8d, false);
         pose.popPose();
+    }
+
+    /** Prefer the cached, appearance-only stack name for every item; registry names are a fallback. */
+    static Component handDisplayName(com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation presentation,
+                                     Component fallback) {
+        return presentation == null ? fallback : presentation.stack().getHoverName();
     }
 
     private static void drawEquipmentTile(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.Minecraft mc,

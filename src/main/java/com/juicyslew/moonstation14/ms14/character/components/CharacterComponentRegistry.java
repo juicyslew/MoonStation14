@@ -27,13 +27,16 @@ public final class CharacterComponentRegistry {
     }
 
     private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
+            Map.entry(AmbientVocalizationComponent.TYPE, new Entry<>(AmbientVocalizationComponent.class, AmbientVocalizationComponent.CODEC)),
             Map.entry(DamageableComponent.TYPE, new Entry<>(DamageableComponent.class, DamageableComponent.CODEC)),
             Map.entry(HumanoidProfileComponent.TYPE, new Entry<>(HumanoidProfileComponent.class, HumanoidProfileComponent.CODEC)),
+            Map.entry(SpeciesComponent.TYPE, new Entry<>(SpeciesComponent.class, SpeciesComponent.CODEC)),
             Map.entry(GhostRoleComponent.TYPE, new Entry<>(GhostRoleComponent.class, GhostRoleComponent.CODEC)),
             Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),
             Map.entry(ExaminerComponent.TYPE, new Entry<>(ExaminerComponent.class, ExaminerComponent.CODEC)),
             Map.entry(ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC)),
             Map.entry(DoorBumpOpenerComponent.TYPE, new Entry<>(DoorBumpOpenerComponent.class, DoorBumpOpenerComponent.CODEC)),
+            Map.entry(CollisionProfileComponent.TYPE, new Entry<>(CollisionProfileComponent.class, CollisionProfileComponent.CODEC)),
             Map.entry(BlindablePrototypeComponent.TYPE, new Entry<>(BlindablePrototypeComponent.class, BlindablePrototypeComponent.CODEC)),
             Map.entry(BloodstreamComponent.TYPE, new Entry<>(BloodstreamComponent.class, BloodstreamComponent.CODEC)),
             Map.entry(BodyComponent.TYPE, new Entry<>(BodyComponent.class, BodyComponent.CODEC)),
@@ -66,6 +69,10 @@ public final class CharacterComponentRegistry {
             Map.entry(ThirstPrototypeComponent.TYPE, new Entry<>(ThirstPrototypeComponent.class, ThirstPrototypeComponent.CODEC)),
             Map.entry(TemperatureComponent.TYPE, new Entry<>(TemperatureComponent.class, TemperatureComponent.CODEC)),
             Map.entry(TemperatureDamageComponent.TYPE, new Entry<>(TemperatureDamageComponent.class, TemperatureDamageComponent.CODEC)),
+            Map.entry(NpcBehaviorComponent.TYPE, new Entry<>(NpcBehaviorComponent.class, NpcBehaviorComponent.CODEC)),
+            Map.entry(NpcIdleAttentionComponent.TYPE, new Entry<>(NpcIdleAttentionComponent.class, NpcIdleAttentionComponent.CODEC)),
+            Map.entry(PortableBodyComponent.TYPE, new Entry<>(PortableBodyComponent.class, PortableBodyComponent.CODEC)),
+            Map.entry(CanEscapeInventoryComponent.TYPE, new Entry<>(CanEscapeInventoryComponent.class, CanEscapeInventoryComponent.CODEC)),
             Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }

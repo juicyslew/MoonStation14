@@ -658,7 +658,7 @@ public final class BodyWorldGridService {
         var projected = entries.stream().map(e -> new BodyWorldGridSnapshot.Entry(e.token(),
                 BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString(), e.stack().getCount(),
                 e.x(), e.y(), e.rotation().degrees(), e.stack().get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get()),
-                ItemPresentation.fromStack(e.stack()))).toList();
+                ItemPresentation.fromStack(e.stack(), body.level()))).toList();
         return new BodyWorldGridSnapshot(q.epoch(), q.sequence(), BodyWorldGridSnapshot.Reason.OK,
                 actor.getUUID(), body.getUUID(), q.epoch(), revision, target, bag ? "bag" : "belt",
                 bag ? 7 : 8, bag ? 4 : 2, projected, nonce, hostRevision);

@@ -31,6 +31,11 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MoonStation14.MOD_ID);
+    /** Internal transport key only; valid instances must also carry PORTABLE_BODY_REFERENCE. */
+    public static final DeferredItem<Item> PORTABLE_BODY_KEY = ITEMS.register("portable_body_key",
+            () -> new Item(new Item.Properties().stacksTo(1).component(
+                    com.juicyslew.moonstation14.component.ModDataComponents.LOOSE_OBJECT_PROFILE.get(),
+                    com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile.PORTABLE_BODY_KEY_ID)));
     // Force the equipment item declarations to register on the same native item registry.
     private static final Object EQUIPMENT_ITEMS = ModEquipmentItems.GREY_CAP;
 

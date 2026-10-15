@@ -13,6 +13,16 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void handHudUsesPresentedNameForAnyNamedItemAndFallsBackWithoutPresentation() {
+        var fallback = net.minecraft.network.chat.Component.translatable("item.minecraft.paper");
+        assertSame(fallback, BodyHandClient.handDisplayName(null, fallback));
+        var stack = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PAPER);
+        var custom = net.minecraft.network.chat.Component.literal("Scout");
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, custom);
+        var presentation = com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(stack);
+        assertEquals(custom, BodyHandClient.handDisplayName(presentation, fallback));
+    }
+
     @Test void noCharacterReconciliationPreservesOnlyExactCommittedGhostPointerOwner() {
         var ghost = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 12);
         var otherEpoch = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 13);
@@ -111,6 +121,23 @@ class BodyHandClientPolicyTest {
         String source = Files.readString(root.resolve(relative));
         assertTrue(source.contains(".projectForActor(entity)"));
         assertFalse(source.contains(".resolveForActor(entity)"));
+    }
+
+    @Test void portablePickupNominationUsesClientProjectionAndTypedCapabilityConsumer() throws Exception {
+        Path relative = Path.of("src/main/java/com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java");
+        Path root = Path.of("").toAbsolutePath();
+        while (root != null && !Files.isRegularFile(root.resolve(relative))) root = root.getParent();
+        assertNotNull(root, "BodyHandClient source must be available for projection audit");
+        String source = Files.readString(root.resolve(relative));
+        int start = source.indexOf("private static boolean resolvedPortableProfile(");
+        assertTrue(start >= 0, "portable nomination has a named client projection consumer");
+        int end = source.indexOf("\n    }", start);
+        assertTrue(end > start, "portable projection consumer body is present");
+        String consumer = source.substring(start, end);
+        assertTrue(consumer.contains("CharacterIdentitySystem") && consumer.contains("projectForActor(candidate)"));
+        assertTrue(consumer.contains("PortableLivingClientTargetPolicy.portableCapability(projectedCharacter)"));
+        assertFalse(consumer.contains("PortableBodyCarrying.resolvedPortableBodyCapability"),
+                "client nominations must not call the server-only actor resolver");
     }
 
     @Test void mappedGesturesSelectDistinctRoutes() {

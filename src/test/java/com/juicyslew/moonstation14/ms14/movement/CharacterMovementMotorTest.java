@@ -217,6 +217,68 @@ class CharacterMovementMotorTest {
     }
 
     @Test
+    void activeExternalFlightSuppressesSteeringAndGroundFrictionButNotGravityOrVerticalDrag() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 0d, .98d,
+                MovementVector.ZERO, 0d, 0d, OPEN);
+        CharacterMovementCommand steering = new CharacterMovementCommand(1d, 0d, false, false);
+        CharacterMovementState flight = state(MovementVector.ZERO, new MovementVector(2d, .5d, 1d), false);
+        double expectedVerticalVelocity = .5d;
+
+        for (int tick = 0; tick < 3; tick++) {
+            flight = motor.tick(flight, steering, environment, false, true);
+            expectedVerticalVelocity = (expectedVerticalVelocity - 32d * .05d) * .98d;
+            assertEquals(2d, flight.velocity().x(), 1e-12);
+            assertEquals(1d, flight.velocity().z(), 1e-12);
+            assertEquals(.1d * (tick + 1), flight.position().x(), 1e-12);
+            assertEquals(.05d * (tick + 1), flight.position().z(), 1e-12);
+            assertEquals(expectedVerticalVelocity, flight.velocity().y(), 1e-12,
+                    "each tick moves at current velocity, then applies gravity and drag for the next tick");
+        }
+        assertTrue(flight.velocity().y() < .5d, "external flight integrates ordinary gravity during the lease");
+    }
+
+    @Test
+    void resolvedMouseAutonomousSpeedIsAbsoluteRatherThanAMultiplierOfMinecraftSprintBaseline() throws IOException {
+        CharacterMovementPolicy mouse = CharacterMovementPolicy.fromCharacterData(
+                readCharacterComponentData("mouse.json", "MovementSpeedModifier"));
+        CharacterMovementMotor motor = new CharacterMovementMotor(mouse);
+        double wish = .917d;
+
+        assertAutonomousSpeed(motor, mouse, wish, 5d);
+        assertEquals(3.125d, mouse.walkSpeedPerSecond(), 1e-12);
+        assertEquals(6.25d, mouse.sprintSpeedPerSecond(), 1e-12);
+    }
+
+    private static void assertAutonomousSpeed(CharacterMovementMotor motor, CharacterMovementPolicy policy,
+                                               double wish, double absoluteSpeed) {
+        double factor = policy.factorForAbsoluteSpeed(absoluteSpeed, true);
+        CharacterMovementEnvironment scaled = envWithVoluntarySpeed(.05d, 0d, 0d, factor, OPEN);
+        CharacterMovementState state = state(MovementVector.ZERO, MovementVector.ZERO, false);
+        CharacterMovementCommand command = new CharacterMovementCommand(0d, wish, false, true);
+        for (int tick = 0; tick < 120; tick++) state = motor.tick(state, command, scaled, false);
+        assertEquals(absoluteSpeed * wish, state.velocity().z(), 1e-9,
+                "resolved task rate is an absolute speed before intent magnitude");
+    }
+
+    private static CharacterData readCharacterComponentData(String name, String componentType) throws IOException {
+        String path = "data/moonstation14/moonstation14/character/" + name;
+        try (var stream = CharacterMovementMotorTest.class.getClassLoader().getResourceAsStream(path)) {
+            if (stream == null) throw new IOException("Missing resource " + path);
+            JsonObject source = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+            var components = new com.google.gson.JsonArray();
+            for (var value : source.getAsJsonArray("components")) {
+                JsonObject component = value.getAsJsonObject();
+                if (componentType.equals(component.get("type").getAsString())) components.add(component.deepCopy());
+            }
+            if (components.size() != 1) throw new IOException("Expected one " + componentType + " component in " + path);
+            JsonObject typedData = new JsonObject();
+            typedData.add("components", components);
+            return CharacterData.CODEC.parse(JsonOps.INSTANCE, typedData).getOrThrow();
+        }
+    }
+
+    @Test
     void humanNeutralGroundFrictionStopsOnTheNextTwentyHertzNoWishTick() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         CharacterMovementState result = motor.tick(
@@ -924,7 +986,7 @@ class CharacterMovementMotorTest {
     }
 
     @Test
-    void externalFlightRetainsVerticalLaunchMomentumThenResumesAdapterGravity() {
+    void externalFlightIntegratesGravityDuringLeaseAndAfterward() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d, .98d,
                 MovementVector.ZERO, 0d, 0d, OPEN);
@@ -932,14 +994,16 @@ class CharacterMovementMotorTest {
         CharacterMovementCommand noInput = new CharacterMovementCommand(0d, 0d, false, false);
 
         for (int tick = 0; tick < 6; tick++) {
+            double before = current.velocity().y();
             current = motor.tick(current, noInput, environment, false, true);
-            assertEquals(10d, current.velocity().y(), 0d, "flight lease retains vertical launch momentum");
+            assertEquals((before - 32d * .05d) * .98d, current.velocity().y(), 1e-12);
         }
-        assertEquals(3d, current.position().y(), 1e-12);
+        assertTrue(current.velocity().y() < 10d, "flight lease applies ordinary gravity and drag");
 
+        double beforeExpiryStep = current.velocity().y();
         current = motor.tick(current, noInput, environment, false, false);
-        assertEquals(8.232d, current.velocity().y(), 1e-12,
-                "adapter gravity and vertical drag resume when the lease expires");
+        assertEquals((beforeExpiryStep - 32d * .05d) * .98d, current.velocity().y(), 1e-12,
+                "adapter gravity continues when the lease expires");
     }
 
     @Test

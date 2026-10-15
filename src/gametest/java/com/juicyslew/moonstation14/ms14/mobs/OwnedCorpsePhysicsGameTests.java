@@ -21,17 +21,128 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /** Integration coverage for server travel of movement-owned retained corpses. */
-@GameTestTags({"medical-state", "death", "posture", "containment", "movement"})
+@GameTestTags({"medical-state", "death", "posture", "containment", "movement", "corpse-damage"})
 @PrefixGameTestTemplate(false)
 public final class OwnedCorpsePhysicsGameTests {
     private OwnedCorpsePhysicsGameTests() { }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    public static void nativeDamageEntersCanonicalLedgerForRetainedCorpse(GameTestHelper helper) {
+        PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
+        require(body != null, "harness is created");
+        body.setPos(helper.absolutePos(new BlockPos(3, 2, 3)).getCenter());
+        body.setNoAi(true);
+        require(helper.getLevel().addFreshEntity(body), "harness joins world");
+        require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "corpse-damage",
+                UUID.randomUUID(), ModCharacters.HUMAN_ID), "harness binds as human");
+        require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 200f), 1f, true)
+                == DamageSystem.Result.APPLIED && MobStateSystem.isDead(body), "typed hit creates retained corpse");
+        UUID id = body.getUUID();
+        float before = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                .getMap().get(DamageKeys.BLUNT);
+        body.invulnerableTime = 0;
+        require(body.hurt(helper.getLevel().damageSources().generic(), 2f), "native hit is admitted");
+        float after = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                .getMap().get(DamageKeys.BLUNT);
+        require(after > before, "native hit is observed into canonical ledger");
+        body.invulnerableTime = 0;
+        float piercingBefore = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                .getMap().getOrDefault(DamageKeys.PIERCING, 0f);
+        require(body.hurt(helper.getLevel().damageSources().arrow(null, null), 1f), "native projectile hit is admitted");
+        float piercingAfter = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                .getMap().getOrDefault(DamageKeys.PIERCING, 0f);
+        require(piercingAfter > piercingBefore, "projectile damage is classified as piercing");
+        body.invulnerableTime = 0;
+        float heatBefore = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                .getMap().getOrDefault(DamageKeys.HEAT, 0f);
+        require(body.hurt(helper.getLevel().damageSources().onFire(), 1f), "native fire hit is admitted");
+        float heatAfter = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                .getMap().getOrDefault(DamageKeys.HEAT, 0f);
+        require(heatAfter > heatBefore, "fire damage is classified as heat");
+        require(helper.getLevel().getEntity(id) == body && !body.isRemoved() && body.getHealth() == 0f
+                        && MobStateSystem.isDead(body), "damage preserves retained native corpse identity and state");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags("corpse-damage")
+    public static void canceledTypedDamageDoesNotPartiallyCommitRetainedCorpse(GameTestHelper helper) {
+        PlayerCharacterHarnessEntity body = retainedDeadHuman(helper, "canceled-corpse-damage");
+        var ledger = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get()).getMap();
+        require(ledger.containsKey(DamageKeys.HEAT), "initial ledger contains heat for exact whole-map comparison");
+        float bluntBefore = ledger.getOrDefault(DamageKeys.BLUNT, 0f);
+        Map<String, Float> before = Map.copyOf(ledger);
+        Consumer<LivingIncomingDamageEvent> listener = event -> {
+            if (event.getEntity() == body) event.setCanceled(true);
+        };
+        NeoForge.EVENT_BUS.addListener(listener);
+        try {
+            require(DamageSystem.applyHealthChange(body,
+                    Map.of(DamageKeys.BLUNT, 10f, DamageKeys.HEAT, -5f), 1f, false)
+                    == DamageSystem.Result.APPLIED, "typed mutation attempt completes despite native cancellation");
+        } finally {
+            NeoForge.EVENT_BUS.unregister(listener);
+        }
+        require(before.equals(body.getExistingDataOrNull(
+                        com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get()).getMap()),
+                "canceled positive event leaves the entire typed ledger unchanged");
+        require(body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                        .getMap().getOrDefault(DamageKeys.BLUNT, 0f) == bluntBefore,
+                "no positive partial commit");
+        body.invulnerableTime = 0;
+        require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 10f), 1f, false)
+                == DamageSystem.Result.APPLIED, "accepted typed hit applies after listener removal");
+        require(body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                        .getMap().get(DamageKeys.BLUNT) == bluntBefore + 10f,
+                "accepted hit increments blunt exactly once");
+        require(body.getHealth() == 0f && MobStateSystem.isDead(body)
+                        && helper.getLevel().getEntity(body.getUUID()) == body,
+                "accepted typed hit preserves retained zero-health DEAD identity");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags("corpse-damage")
+    public static void nativeHitDoesNotAdmitUnretainedDeadCow(GameTestHelper helper) {
+        var cow = helper.spawn(net.minecraft.world.entity.EntityType.COW, new BlockPos(3, 2, 3));
+        require(DamageSystem.applyHealthChange(cow, Map.of(DamageKeys.BLUNT, 1000f), 1f, true)
+                == DamageSystem.Result.APPLIED && MobStateSystem.isDead(cow), "native cow reaches dead state");
+        Map<String, Float> before = Map.copyOf(cow.getExistingDataOrNull(
+                com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get()).getMap());
+        cow.invulnerableTime = 0;
+        require(!cow.hurt(helper.getLevel().damageSources().generic(), 1f),
+                "generic native hit is rejected for an unretained dead cow");
+        require(before.equals(cow.getExistingDataOrNull(
+                        com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get()).getMap()),
+                "rejected native hit stores no typed increment");
+        helper.succeed();
+    }
+
+    private static PlayerCharacterHarnessEntity retainedDeadHuman(GameTestHelper helper, String label) {
+        PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
+        require(body != null, "harness is created");
+        body.setPos(helper.absolutePos(new BlockPos(3, 2, 3)).getCenter());
+        body.setNoAi(true);
+        require(helper.getLevel().addFreshEntity(body), "harness joins world");
+        require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), label,
+                UUID.randomUUID(), ModCharacters.HUMAN_ID), "harness binds as human");
+        require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.HEAT, 20f), 1f, true)
+                == DamageSystem.Result.APPLIED, "heat ledger is seeded");
+        require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 200f), 1f, true)
+                == DamageSystem.Result.APPLIED && MobStateSystem.isDead(body), "typed damage creates retained corpse");
+        body.invulnerableTime = 0;
+        return body;
+    }
 
     @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 80)
     public static void ownedMedicalCorpseFallsAndSettlesWithNativeTicks(GameTestHelper helper) {
@@ -64,17 +175,24 @@ public final class OwnedCorpsePhysicsGameTests {
                 "real damage produces a natively confirmed, downed medical corpse");
         require(((MindControlledMob) (Object) body).moonstation14$isMovementOwned() && body.isNoAi(),
                 "death retains movement ownership and disabled AI");
+        float bluntBeforeFall = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                .getMap().get(DamageKeys.BLUNT);
 
         int startingTick = body.tickCount;
         double initialY = body.getY();
         helper.runAfterDelay(30, () -> {
+            float bluntAfterFall = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get())
+                    .getMap().get(DamageKeys.BLUNT);
             require(helper.getLevel().getEntity(id) == body && !body.isRemoved(),
                     "same corpse remains registered");
+            require(bluntAfterFall > bluntBeforeFall, "native fall damage producer reaches retained corpse ledger");
             require(body.getY() < initialY - 4d, "normal server ticks move the corpse down from midair");
             require(body.onGround(), "corpse settles on supporting floor");
             require(body.tickCount - startingTick >= 30, "native actor ticks advance throughout fall");
             require(body.getItemBySlot(EquipmentSlot.HEAD).getItem() == Items.LEATHER_HELMET,
                     "corpse retains worn equipment");
+            require(body.getHealth() == 0f && MobStateSystem.isDead(body),
+                    "native fall preserves zero-health DEAD state");
             require(((MindControlledMob) (Object) body).moonstation14$isMovementOwned() && body.isNoAi(),
                     "settled corpse remains owned with AI disabled");
             tickets.close();

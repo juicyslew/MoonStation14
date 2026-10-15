@@ -188,6 +188,12 @@ public final class ElasticBodyPullGameTests {
                 () -> actor.onGround() && body.onGround(), "puller and live target grounded", () -> {
             kill(body);
             PullFixtureAim.aimAtVisibleInteractionPoint(actor, body);
+            require(BodyPullService.probeSelected(helper.getLevel(), actor, body.getUUID()) == body,
+                    "generic harness body is nominatable on the server aim ray");
+            actor.setYRot(actor.getYRot() + 90);
+            actor.setYHeadRot(actor.getYRot());
+            require(BodyPullService.probeSelected(helper.getLevel(), actor, body.getUUID()) == body,
+                    "same generic harness nomination remains admitted after aim ray moves away");
             attach(actor, body);
             ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(false);
             double startX = body.getX();

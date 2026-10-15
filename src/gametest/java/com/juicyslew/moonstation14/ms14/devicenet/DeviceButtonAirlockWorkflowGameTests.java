@@ -43,9 +43,14 @@ public final class DeviceButtonAirlockWorkflowGameTests {
         var network=endpoint==null?null:endpoint.composition().network().orElse(null);
         boolean connected=network!=null&&runtime.transport().isConnected(endpoint.identity(),network.networkId());
         if(door.state().powerAvailable()&&connected){runPoweredButtonWorkflow(helper,fixture,buttonPos);return;}
-        if(remaining<=0)throw new GameTestAssertException("button readiness timeout: fresh="+com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(helper.getLevel(),door)
-                +" doorPhase="+door.state().phase()+" cachedPower="+door.state().powerAvailable()+" targetNetworkConnected="+connected
-                +" targetNetwork="+(network==null?"missing":network.networkId())+" queued="+runtime.transport().queuedPackets());
+        if(remaining<=0){
+            String diagnostic="fresh="+com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(helper.getLevel(),door)
+                    +" doorPhase="+door.state().phase()+" cachedPower="+door.state().powerAvailable()+" targetNetworkConnected="+connected
+                    +" targetNetwork="+(network==null?"missing":network.networkId())+" queued="+runtime.transport().queuedPackets();
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error("[button airlock GameTest readiness exhausted] {}",diagnostic);
+            throw new GameTestAssertException("button readiness timeout: doorPhase="+door.state().phase()
+                    +" cachedPower="+door.state().powerAvailable()+" targetNetworkConnected="+connected);
+        }
         com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->waitForButtonReady(helper,fixture,buttonPos,remaining-1));
     }
 

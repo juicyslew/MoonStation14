@@ -23,9 +23,21 @@ public final class ChemMasterSessionService {
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
     private static final Map<UUID, Long> FRAMES = new HashMap<>();
     private static final Map<UUID, Long> LAST_REQUEST = new HashMap<>();
+    private static java.util.function.Consumer<InvalidationDiagnostic> testInvalidationObserver;
     private record Session(UUID id, ServerPlayer player, UUID machine, ResourceLocation dimension,
                            net.minecraft.core.BlockPos pos, UUID body, long epoch) { }
+    public record InvalidationDiagnostic(UUID player, UUID sessionId, String reason, long tick,
+                                         UUID sessionBody, long sessionEpoch,
+                                         UUID currentBody, long currentEpoch, boolean authorityRevalidated,
+                                         boolean machineLoaded, UUID sessionPlacement, UUID currentPlacement,
+                                         double distanceSquared, double uiRange,
+                                         com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.ChemMasterPowerDiagnostic power) { }
     private ChemMasterSessionService() { }
+
+    /** Narrow fixture seam: reports the exact validation predicates immediately before invalidation. */
+    public static void setTestInvalidationObserver(java.util.function.Consumer<InvalidationDiagnostic> observer) {
+        testInvalidationObserver = observer;
+    }
 
     public static boolean opensWorkspace(com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent intent,
             boolean emptyHand, boolean sneaking) {
@@ -214,9 +226,27 @@ public final class ChemMasterSessionService {
                 && be.placementIdentity().equals(s.machine()) ? be : null;
     }
     private static void invalidate(Session s, String reason) {
+        var observer = testInvalidationObserver;
+        if (observer != null) observer.accept(invalidationDiagnostic(s, reason));
         if (SESSIONS.remove(s.id()) != null) {
             LAST_REQUEST.remove(s.id()); closeFrame(s, reason); FRAMES.remove(s.id());
         }
+    }
+    private static InvalidationDiagnostic invalidationDiagnostic(Session s, String reason) {
+        var authority = BodyActionAuthority.resolve(s.player()).orElse(null);
+        ServerLevel level = s.player().level() instanceof ServerLevel server ? server : null;
+        var machine = loadedMachine(s.player(), s);
+        boolean authorityMatches = authority != null && authority.body().getUUID().equals(s.body())
+                && authority.identity().epoch() == s.epoch() && BodyActionAuthority.revalidate(s.player(), authority);
+        double distance = authority == null || machine == null ? Double.NaN
+                : authority.body().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(machine.getBlockPos()));
+        double range = machine == null || machine.prototype() == null ? Double.NaN : machine.prototype().uiRange();
+        var power = com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime
+                .chemMasterPowerDiagnostic(level, machine);
+        return new InvalidationDiagnostic(s.player().getUUID(), s.id(), reason, level == null ? -1 : level.getGameTime(),
+                s.body(), s.epoch(), authority == null ? null : authority.body().getUUID(),
+                authority == null ? -1 : authority.identity().epoch(), authorityMatches, machine != null,
+                s.machine(), machine == null ? null : machine.placementIdentity(), distance, range, power);
     }
     private static void closeFrame(Session s, String reason) {
         // Closed payload retains exact session identity, so it cannot close a replacement workspace.

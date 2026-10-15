@@ -20,6 +20,29 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GhostControlPayloadsTest {
+    @Test void snapshotCodecCarriesOptionalRenderParentWithoutChangingViewFields() {
+        var parent = new ContainedBodyView.RenderParent(73, java.util.UUID.randomUUID(),
+                new net.minecraft.world.phys.Vec3(0.125, 0.3, -0.25));
+        var view = new ContainedBodyView(java.util.UUID.randomUUID(), java.util.Optional.of(new BlockPos(4, 5, 6)),
+                false, java.util.Optional.of(parent));
+        var snapshot = new GhostControlPayloads.Snapshot(2, 10, MobHarnessKind.CHARACTER, 15, 9,
+                1, 2, 3, 4, 5, 0, 0, 0, false, 1, 1, false, 0,
+                GhostControlPayloads.Snapshot.MovementMode.UNIT, java.util.Optional.of(view));
+        var decoded = roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, snapshot);
+        assertEquals(view, decoded.containedView().orElseThrow());
+        assertEquals(java.util.Optional.of(parent), decoded.containedView().orElseThrow().renderParent());
+
+        var absent = new ContainedBodyView(java.util.UUID.randomUUID(), java.util.Optional.of(new BlockPos(1, 2, 3)), true);
+        var noParent = new GhostControlPayloads.Snapshot(2, 10, MobHarnessKind.CHARACTER, 15, 9,
+                1, 2, 3, 4, 5, 0, 0, 0, false, 1, 1, false, 0,
+                GhostControlPayloads.Snapshot.MovementMode.UNIT, java.util.Optional.of(absent));
+        var decodedAbsent = roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, noParent).containedView().orElseThrow();
+        assertEquals(absent.ownerIdentity(), decodedAbsent.ownerIdentity());
+        assertEquals(absent.worldTarget(), decodedAbsent.worldTarget());
+        assertEquals(absent.cameraCollision(), decodedAbsent.cameraCollision());
+        assertTrue(decodedAbsent.renderParent().isEmpty());
+    }
+
     @Test
     void allEightPayloadsHaveDistinctIdsAndRoundTrip() {
         var begin = new GhostControlPayloads.Begin(1, 42);
@@ -58,6 +81,12 @@ class GhostControlPayloadsTest {
                 1, 2, 3, 4, 5, 6.5, -7.5, 8.5, true, 1, 1, false, 6,
                 GhostControlPayloads.Snapshot.MovementMode.GROUNDED, java.util.Optional.empty());
         assertEquals(6, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, flightSnapshot).externalFlightTicks());
+        for (int ticks : new int[]{0, 7, 15, Integer.MAX_VALUE}) {
+            var leaseSnapshot = new GhostControlPayloads.Snapshot(10, 44, MobHarnessKind.CHARACTER, 11, 8,
+                    1, 2, 3, 4, 5, 0, 0, 0, false, 1, 1, false, ticks,
+                    GhostControlPayloads.Snapshot.MovementMode.GROUNDED, java.util.Optional.empty());
+            assertEquals(ticks, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, leaseSnapshot).externalFlightTicks());
+        }
         assertEquals(MobHarnessKind.GHOST, begin.harnessKind());
         assertEquals(42, begin.harnessEntityId());
         assertEquals(42, begin.ghostEntityId());

@@ -121,6 +121,23 @@ public final class BodyControlRegistry {
         return Optional.of(state.snapshot());
     }
 
+    /** Exact inverse for a failed, never-activated OFFLINE restore through the lifecycle facade. */
+    public synchronized boolean rollbackRestoredOfflineCharacterMind(UUID accountId, MindId mindId,
+            MobHarnessId bodyId, long restoredEpoch, LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || accountId == null || mindId == null || bodyId == null
+                || restoredEpoch < 0) return false;
+        MindState state = minds.get(mindId);
+        if (state == null || !state.lifecycleOwned || state.connected || state.epoch != restoredEpoch
+                || !bodyId.equals(state.harnessId) || !mindId.equals(mindsBySession.get(accountId))
+                || !mindId.equals(ownersByHarness.get(bodyId))) return false;
+        MobHarness harness = harnesses.get(bodyId);
+        if (harness == null || harness.kind() != MobHarnessKind.CHARACTER) return false;
+        mindsBySession.remove(accountId);
+        minds.remove(mindId);
+        ownersByHarness.remove(bodyId);
+        return true;
+    }
+
     /** Stages a first-enrollment Mind on its reserved body without granting network authority. */
     public synchronized Optional<MindSnapshot> stageFirstCharacterMind(UUID accountId, MindId mindId,
             MobHarnessId bodyId, long durableGenerationFloor, TargetEligibility eligibility,

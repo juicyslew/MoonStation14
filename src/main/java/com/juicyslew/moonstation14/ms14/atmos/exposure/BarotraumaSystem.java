@@ -21,7 +21,7 @@ public final class BarotraumaSystem {
 
     /** Same resolution path for production and isolated-atmosphere tests. */
     public static boolean tickIfDue(LivingEntity entity, long gameTime, AtmosphereService service) {
-        if (entity == null || !(entity.level() instanceof ServerLevel level) || !entity.isAlive()
+        if (entity == null || !(entity.level() instanceof ServerLevel level) || !physicalSourceEligible(entity)
                 || service == null) return false;
         return tickIfDue(entity, gameTime, service, ModCharacters.catalog(level));
     }
@@ -29,7 +29,7 @@ public final class BarotraumaSystem {
     /** Read one explicit, immutable character snapshot without changing the production catalog. */
     public static boolean tickIfDue(LivingEntity entity, long gameTime, AtmosphereService service,
                                     PrototypeCatalog<CharacterData> snapshot) {
-        if (entity == null || !(entity.level() instanceof ServerLevel level) || !entity.isAlive()
+        if (entity == null || !(entity.level() instanceof ServerLevel level) || !physicalSourceEligible(entity)
                 || service == null || snapshot == null) return false;
         var component = CharacterIdentitySystem.resolveForActor(entity, snapshot)
                 .flatMap(data -> data.component(BarotraumaComponent.class));
@@ -53,5 +53,10 @@ public final class BarotraumaSystem {
                 DamageSystem.existingOrVanillaBaseline(entity), component.get());
         return !damage.isEmpty() && DamageSystem.applyHealthChange(entity, damage, 1f, true, DamageSystem.Cause.RESPIRATION)
                 == DamageSystem.Result.APPLIED;
+    }
+
+    private static boolean physicalSourceEligible(LivingEntity entity) {
+        return entity.isAlive() || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem
+                .isRetainedNonAliveBody(entity);
     }
 }

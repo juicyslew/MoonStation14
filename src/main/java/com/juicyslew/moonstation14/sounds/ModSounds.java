@@ -65,6 +65,7 @@ public class ModSounds {
             java.util.Map.entry("hew", registerSoundEvent("emote/hew")),
             java.util.Map.entry("honk", registerSoundEvent("emote/honk")),
             java.util.Map.entry("laugh", registerSoundEvent("emote/laugh")),
+            java.util.Map.entry("mouse_squeak", MOUSE_SQUEAK),
             java.util.Map.entry("scream", registerSoundEvent("emote/scream")),
             java.util.Map.entry("weh", registerSoundEvent("emote/weh")),
             java.util.Map.entry("whistle", registerSoundEvent("emote/whistle")),

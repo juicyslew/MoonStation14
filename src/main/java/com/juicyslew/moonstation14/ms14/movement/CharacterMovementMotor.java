@@ -99,7 +99,6 @@ public final class CharacterMovementMotor {
         double vx = blocked(state.position().x(), requested.x(), actual.x()) ? 0d : velocity.x();
         double vy = movementRequested.y() != 0d
                 && blocked(state.position().y(), movementRequested.y(), actual.y()) ? 0d
-                : externalFlight ? velocity.y()
                 : (velocity.y() - environment.gravityPerSecondSquared() * dt) * environment.verticalDrag();
         double vz = blocked(state.position().z(), requested.z(), actual.z()) ? 0d : velocity.z();
         if (resolved.onGround() && vy < 0d) vy = 0d;

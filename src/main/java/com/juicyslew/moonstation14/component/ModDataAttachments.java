@@ -25,6 +25,7 @@ import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.PortableBodyContainmentRelation;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
@@ -187,6 +188,13 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<EntityActivityAttachment>> ACTIVE_SYSTEMS = ATTACHMENT_TYPES.register(
             "active_systems", () -> AttachmentType.builder((Supplier<EntityActivityAttachment>) EntityActivityAttachment::new).build()
     );
+
+    /** Persisted relation hint used only to reconcile a loaded body with its real portable root ledger. */
+    public static final Supplier<AttachmentType<PortableBodyContainmentRelation>> PORTABLE_BODY_CONTAINMENT =
+            ATTACHMENT_TYPES.register("portable_body_containment", () -> AttachmentType.builder(
+                    (Supplier<PortableBodyContainmentRelation>) () -> null)
+                    .serialize(PortableBodyContainmentRelation.CODEC)
+                    .sync(PortableBodyContainmentRelation.STREAM_CODEC).build());
 
     /** Volatile actor-owned timed actions; runtime callbacks are held by the server system, never serialized. */
     public static final Supplier<AttachmentType<TimedOperationState>> TIMED_OPERATIONS = ATTACHMENT_TYPES.register(

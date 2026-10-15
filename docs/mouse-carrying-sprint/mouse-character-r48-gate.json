@@ -1,0 +1,46 @@
+{
+  "title": "Stop labeling ordinary medically dead characters permanently unrevivable",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/medical/HealthAnalyzerReadingsGameTests.java",
+  "acceptance_criteria": [
+    "Analyzer readings do not infer permanent unrevivability from Dead state, damage totals or disabled ordinary-healing revival; default Human and Mouse consumers cover the correction.",
+    "Medical state, typed treatment, ordinary-healing death retention and explicit revival rules remain unchanged; no defibrillator, permanent-marker component or new gameplay policy is introduced.",
+    "Focused analyzer JVM/native checks, UI readiness and packaged artifact pass; connected UI review and owner acceptance remain separate."
+  ],
+  "manual_steps": [
+    "Scan a healthy, critical and dead Mouse; repeat with Human/Pig. A normally dead body must show Dead without the false Unrevivable warning.",
+    "Use bruise packs on a physically damaged corpse and scan again: damage decreases, but treatment alone must not automatically revive it."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*HealthAnalyzer*Test", "--tests", "*MobStatePolicyTest", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "rationale": "Focused analyzer serialization/layout and existing medical-state policy regression coverage; no broad subsystem changes.",
+      "covers": ["Medical state, typed treatment, ordinary-healing death retention and explicit revival rules remain unchanged; no defibrillator, permanent-marker component or new gameplay policy is introduced."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=health-analyzer", "-Pms14GameTestDir=build/gametest-mouse-character-r48", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r48/native.log",
+      "rationale": "Narrow production-reading correction: focused analyzer consumer fixtures, with fresh counts and required-pass marker; no full native rerun required for unchanged damage/interaction/power systems.",
+      "covers": [
+        "Analyzer readings do not infer permanent unrevivability from Dead state, damage totals or disabled ordinary-healing revival; default Human and Mouse consumers cover the correction.",
+        "Medical state, typed treatment, ordinary-healing death retention and explicit revival rules remain unchanged; no defibrillator, permanent-marker component or new gameplay policy is introduced."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui", "--console=plain"],
+      "selectors": ["ui"],
+      "rationale": "Only displayed warning data changes; no interaction, prediction or painting implementation changes.",
+      "covers": ["Focused analyzer JVM/native checks, UI readiness and packaged artifact pass; connected UI review and owner acceptance remain separate."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Bind corrected package after focused checks; no deployment or owner acceptance.",
+      "covers": ["Focused analyzer JVM/native checks, UI readiness and packaged artifact pass; connected UI review and owner acceptance remain separate."]
+    }
+  ]
+}

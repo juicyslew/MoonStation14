@@ -214,8 +214,8 @@ test {
 
 // Opt-in bounded catalog; never falls back to the complete JUnit suite.
 def readinessCatalog = [
-    ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
-    interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest'],
+    ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
+    interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest'],
     prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest'],
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]
@@ -411,16 +411,15 @@ Per-invocation report. This task clears its own XML result directory before exec
     }
 }
 
-if (project.hasProperty('ms14GameTestTags')) {
-    def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {
-        dependsOn tasks.named('compileGametestJava')
-        classpath = sourceSets.gametest.runtimeClasspath
-        mainClass = 'com.juicyslew.moonstation14.gametest.support.GameTestTagPreflight'
-        args sourceSets.gametest.output.classesDirs.singleFile.absolutePath, project.property('ms14GameTestTags').toString()
-    }
-    tasks.named('runGameTestServer').configure {
-        dependsOn gameTestTagPreflight
-    }
+def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {
+    dependsOn tasks.named('compileGametestJava')
+    classpath = sourceSets.gametest.runtimeClasspath
+    mainClass = 'com.juicyslew.moonstation14.gametest.support.GameTestTagPreflight'
+    args sourceSets.gametest.output.classesDirs.singleFile.absolutePath
+    if (project.hasProperty('ms14GameTestTags')) args project.property('ms14GameTestTags').toString()
+}
+tasks.named('runGameTestServer').configure {
+    dependsOn gameTestTagPreflight
 }
 
 neoForge {

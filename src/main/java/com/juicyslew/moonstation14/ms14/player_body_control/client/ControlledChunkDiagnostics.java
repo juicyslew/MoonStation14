@@ -58,7 +58,6 @@ public final class ControlledChunkDiagnostics {
         boolean cached = minecraft.level.getChunkSource()
                 .getChunk(cameraChunk.x, cameraChunk.z, ChunkStatus.FULL, false) != null;
         String state = minecraft.player.getUUID() + ":" + camera.getUUID() + ":" + cameraChunk + ":"
-                + renderPosition + ":"
                 + carrierChunk + ":" + (hasCenter ? centerX + "," + centerZ : "unknown") + ":" + cached;
         if (state.equals(lastState)) return;
         lastState = state;

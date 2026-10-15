@@ -198,9 +198,17 @@ public final class BodyHandActionNetworking {
                                        request.intent(), held == null, request.sneaking())
                                        && com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService.open(actor, chemMaster)
                                        ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
-                          } else if (held != null && targetEntity instanceof DisposalUnitBlockEntity unit) {
-                             boolean inserted = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.revalidate(actor, admission.authority())
-                                     && DisposalUnitHandAdapter.insert(body, request.handId(), request.expectedRevision(), unit);
+                            } else if (held != null && targetEntity instanceof DisposalUnitBlockEntity unit) {
+                              var admittedBlockUse = admission;
+                              boolean inserted = com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys.isKey(held)
+                                      ? DisposalUnitHandAdapter.insertPortableBody(actor, admittedBlockUse.authority(), request.handId(),
+                                      request.expectedToken(), request.expectedRevision(), admittedBlockUse.hit().pos(),
+                                      admittedBlockUse.hit().face(), () -> com.juicyslew.moonstation14.ms14.hands.HandActorAuthority
+                                      .revalidate(actor, admittedBlockUse.authority())
+                                      && com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
+                                      .canAct(admittedBlockUse.authority().body()), unit)
+                                      : com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.revalidate(actor, admittedBlockUse.authority())
+                                      && DisposalUnitHandAdapter.insert(body, request.handId(), request.expectedRevision(), unit);
                              outcome = inserted ? BodyBlockUseResult.Outcome.PLACED : BodyBlockUseResult.Outcome.DENIED;
                            } else if (held != null && held.is(ModItems.WRENCH.get())) {
                                outcome = BodyDisposalTubeAnchorUse.begin(actor, request, admission)

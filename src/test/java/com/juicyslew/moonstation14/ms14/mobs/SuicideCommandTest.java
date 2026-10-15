@@ -26,8 +26,9 @@ class SuicideCommandTest {
                 ModCharacters.HUMAN_ID, resource("human"),
                 id("pig"), resource("pig"),
                 id("mouse"), resource("mouse"),
-                id("supported_simple_mob"), resource("supported_simple_mob"),
-                id("supported_animal"), resource("supported_animal")));
+                 id("supported_simple_mob"), resource("supported_simple_mob"),
+                 id("supported_animal"), resource("supported_animal"),
+                 id("supported_npc"), resource("supported_npc")));
         var catalog = manager.snapshot(ModCharacters.CHARACTER_TYPE);
         for (var prototype : Set.of(ModCharacters.HUMAN_ID, id("pig"), id("mouse"))) {
             var character = catalog.get(prototype);

@@ -111,8 +111,13 @@ public final class LifecycleGhostSessionControl {
         return null;
     }
 
-    private static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
-        if (!(context.player() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) return;
+    static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        onPayload(payload, player);
+    }
+
+    static void onPayload(CustomPacketPayload payload, ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level)) return;
         MinecraftServer server = level.getServer();
         Session session = session(server, player.getUUID());
         if (session == null || session.player != player || !connectedExact(server, player)) return;

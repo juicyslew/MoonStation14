@@ -29,6 +29,34 @@ public final class MouseGhostRoleGameTests {
     private MouseGhostRoleGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTestTags({"mouse-ai", "npc-physics"})
+    public static void sharedGroundedNpcMotionRequiresNpcAuthorityAndSuppressesVanillaTravel(GameTestHelper helper) {
+        var mouse = mouse(helper);
+        var owner = (com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob) (Object) mouse;
+        var driven = (com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven) (Object) mouse;
+        require(!driven.moonstation14$isNpcMovementDriven(), "synced NPC movement marker defaults false");
+        var stepper = new com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep();
+        var start = mouse.position();
+        require(stepper.stepNpc(mouse, 0, 1000, false, false, 0f, () -> true).isEmpty()
+                && mouse.position().equals(start), "unflagged NPC is rejected without motion");
+        driven.moonstation14$setNpcMovementDriven(true);
+        require(stepper.stepNpc(mouse, 0, 1000, false, false, 0f, () -> false).isEmpty()
+                && mouse.position().equals(start), "false authority rejects without motion");
+        owner.moonstation14$setMovementOwned(true);
+        require(stepper.stepNpc(mouse, 0, 1000, false, false, 0f, () -> true).isEmpty()
+                && mouse.position().equals(start), "player claim wins over NPC marker");
+        require(stepper.step(mouse, 0, 1000, false, false, 0f).isEmpty()
+                && mouse.position().equals(start), "player entry retains its exact ownership admission despite NPC marker");
+        owner.moonstation14$setMovementOwned(false);
+        require(stepper.stepNpc(mouse, 0, 1000, false, false, 0f, () -> true).isPresent()
+                && mouse.getZ() > start.z, "authorized unclaimed NPC uses shared grounded workload");
+        var after = mouse.position();
+        mouse.travel(net.minecraft.world.phys.Vec3.ZERO);
+        require(mouse.position().equals(after), "NPC-driven flag suppresses vanilla travel after shared movement");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     @GameTestTags({"mouse-appearance"})
     public static void mouseAppearanceUsesResolvedVariantsAndPersists(GameTestHelper helper) {
         var mouse = mouse(helper);

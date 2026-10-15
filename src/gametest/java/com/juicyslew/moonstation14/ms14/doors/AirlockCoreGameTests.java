@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.block.ModBlockEntities;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -28,16 +29,100 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class AirlockCoreGameTests {
     private static volatile java.util.Map<net.minecraft.resources.ResourceLocation,com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData> originalAirlockCatalog;
-    private static final java.util.Set<Long> CORE_FORCED_CHUNKS=new java.util.HashSet<>();
-    private static final java.util.Set<Long> OVERRIDE_FORCED_CHUNKS=new java.util.HashSet<>();
-    private static final java.util.Set<Long> UNLOAD_FORCED_CHUNKS=new java.util.HashSet<>();
     private AirlockCoreGameTests() { }
-    @AfterBatch(batch="airlock_core") public static void releaseCoreChunks(ServerLevel level){unforceFixtureChunks(level,CORE_FORCED_CHUNKS);}
-    @AfterBatch(batch="airlock_unload_lifecycle") public static void releaseUnloadChunks(ServerLevel level){unforceFixtureChunks(level,UNLOAD_FORCED_CHUNKS);}
+    @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",batch="airlock_core",timeoutTicks=100)
+    @GameTestTags({"mouse-ai","airlock","physics"})
+    public static void resolvedMousePassesClosedAirlockButVanillaRayAndWallRemainSolid(GameTestHelper helper) {
+        ServerLevel level=helper.getLevel();BlockPos root=helper.absolutePos(new BlockPos(3,1,3));
+        var lower=ModBlocks.AIRLOCK.get().defaultBlockState();level.setBlock(root,lower,3);
+        level.setBlock(root.above(),lower.setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER),3);
+        AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);
+        require(door.applyWire(door.identity(),door.state().revision(),AirlockState.Wire.BOLT,AirlockState.WireAction.PULSE),"fixture deploys bolts without requiring power");
+        var mouse=com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(mouse!=null,"registered mouse created");mouse.setPos(root.getX()-.5,root.getY(),root.getZ()+.5);level.addFreshEntity(mouse);
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(mouse,level);
+        var character=com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(mouse).orElseThrow();
+        var profile=character.component(com.juicyslew.moonstation14.ms14.character.components.CollisionProfileComponent.class).orElseThrow();
+        require(!AirlockPassagePolicy.pairCollides(mouse,door),"resolved mouse profile and inherited fixture defaults have disjoint intersections");
+        require(door.state().boltsDown()&&!door.state().powerAvailable(),"fixture is closed, bolted, and unpowered");
+        for(int x=root.getX()-2;x<=root.getX()+2;x++) {
+            level.setBlock(new BlockPos(x,root.getY(),root.getZ()-1),net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(),3);
+            level.setBlock(new BlockPos(x,root.getY(),root.getZ()+1),net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(),3);
+        }
+        for(int i=0;i<20;i++)mouse.move(net.minecraft.world.entity.MoverType.SELF,new net.minecraft.world.phys.Vec3(.12,0,0));
+        require(mouse.getX()>root.getX()+1,"native Entity.move crosses closed unbolted unpowered airlock");
+        var ray=level.clip(new net.minecraft.world.level.ClipContext(new net.minecraft.world.phys.Vec3(root.getX()-.5,root.getY()+.5,root.getZ()+.5),
+                new net.minecraft.world.phys.Vec3(root.getX()+.5,root.getY()+.5,root.getZ()+.5),net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE,mouse));
+        require(ray.getBlockPos().equals(root),"COLLIDER interaction ray still hits the closed door");
+        var human=net.minecraft.world.entity.EntityType.VILLAGER.create(level);
+        require(human!=null,"native human host created");human.setNoAi(true);human.setPos(root.getX()-1.4,root.getY(),root.getZ()+.5);
+        level.addFreshEntity(human);com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(human,level);
+        double humanBefore=human.getX();for(int i=0;i<12;i++)human.move(net.minecraft.world.entity.MoverType.SELF,new net.minecraft.world.phys.Vec3(.12,0,0));
+        require(human.getX()<root.getX()&&human.getX()>humanBefore,"unprofiled human remains blocked by original closed-door collision");human.discard();
+        BlockPos wall=root.east().east();level.setBlock(wall,Blocks.STONE.defaultBlockState(),3);
+        mouse.setPos(wall.getX()-.5,wall.getY(),wall.getZ()+.5);double before=mouse.getX();
+        for(int i=0;i<8;i++)mouse.move(net.minecraft.world.entity.MoverType.SELF,new net.minecraft.world.phys.Vec3(.12,0,0));
+        require(mouse.getX()<wall.getX(),"native wall collision remains solid for mouse");
+        mouse.discard();helper.succeed();
+    }
+    @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",timeoutTicks=60)
+    @GameTestTags({"mouse-ai","npc-physics","airlock"})
+    public static void mousePassesPlainPoweredClosedAirlockWithoutBumpOpening(GameTestHelper helper) {
+        ServerLevel level=helper.getLevel();BlockPos root=helper.absolutePos(new BlockPos(3,1,3));
+        var lower=ModBlocks.AIRLOCK.get().defaultBlockState();level.setBlock(root,lower,3);
+        level.setBlock(root.above(),lower.setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER),3);
+        AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);
+        require(door.setPowered(true)&&door.state().powerAvailable()&&!door.state().boltsDown(),
+                "fixture is powered with ordinary bolts-up closed state");
+        var mouse=com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(mouse!=null,"registered mouse created");mouse.setPos(root.getX()-.5,root.getY(),root.getZ()+.5);
+        require(level.addFreshEntity(mouse),"mouse added to powered airlock lane");
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(mouse,level);
+        require(!AirlockPassagePolicy.collides(mouse,root),"resolved mouse fixture policy permits closed passage");
+        for(int i=0;i<20;i++)mouse.move(net.minecraft.world.entity.MoverType.SELF,new net.minecraft.world.phys.Vec3(.12,0,0));
+        require(mouse.getX()>root.getX()+1,"native movement passes powered closed airlock");
+        require(door.state().phase()==AirlockState.DoorPhase.CLOSED
+                        &&!level.getBlockState(root).getValue(AirlockBlock.OPEN),
+                "physical passage does not dispatch bump opening or change closed state");
+        mouse.discard();helper.succeed();
+    }
+    @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",batch="airlock_core",timeoutTicks=80)
+    @GameTestTags({"mouse-ai","npc-physics","airlock"})
+    public static void npcSurfaceSearchDoesNotUsePassableAirlockAsSupport(GameTestHelper helper) {
+        ServerLevel level=helper.getLevel();BlockPos root=helper.absolutePos(new BlockPos(3,1,3));
+        for(int x=-2;x<=4;x++) for(int z=-2;z<=2;z++)
+            level.setBlock(root.offset(x,0,z),Blocks.STONE.defaultBlockState(),3);
+        level.setBlock(root,ModBlocks.AIRLOCK.get().defaultBlockState(),3);
+        level.setBlock(root.above(),ModBlocks.AIRLOCK.get().defaultBlockState()
+                .setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER),3);
+        require(level.getBlockState(root).is(ModBlocks.AIRLOCK.get())
+                        &&level.getBlockState(root.above()).is(ModBlocks.AIRLOCK.get()),
+                "both expected airlock halves occupy the footprint");
+        var mouse=com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(mouse!=null,"registered mouse created");mouse.setNoAi(true);mouse.setPos(root.getX()-.5,root.getY()+1,root.getZ()+.5);
+        require(level.addFreshEntity(mouse),"mouse added beside passable airlock support fixture");
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(mouse,level);
+        var context=net.minecraft.world.phys.shapes.CollisionContext.of(mouse);
+        var upper=level.getBlockState(root.above());
+        require(com.juicyslew.moonstation14.ms14.doors.AirlockPassagePolicy
+                        .physicalShape(mouse,upper,level,root.above(),context).isEmpty(),
+                "resolved physical collision policy removes closed airlock shape for mouse");
+        require(com.juicyslew.moonstation14.ms14.doors.AirlockPassagePolicy
+                        .physicalShape(mouse,level.getBlockState(root),level,root,context).isEmpty(),
+                "resolved physical collision policy removes lower airlock shape used by support search");
+        var planner=new com.juicyslew.moonstation14.ms14.mobs.GroundNpcRoutePlanner();
+        require(!planner.hasSupportedSurface(mouse,new net.minecraft.world.phys.Vec3(root.getX()+.5,root.getY()+1,root.getZ()+.5)),
+                "shared surface query excludes upper airlock despite its static block collision shape");
+        var route=planner.route(mouse,new net.minecraft.world.phys.Vec3(root.getX()+2.5,root.getY()+1,root.getZ()+.5));
+        require(!route.isEmpty(),"planner finds supported route in adjacent platform fixture");
+        require(route.stream().allMatch(point->planner.hasSupportedSurface(mouse,point.position())),
+                "every emitted route point still resolves to actor-specific physical support: "+route);
+        mouse.discard();helper.succeed();
+    }
     @AfterBatch(batch="airlock_prototype_power_override")
     public static void restorePrototypeCatalogAfterOverrideBatch(ServerLevel level) {
-        try { restorePrototypeCatalog(); }
-        finally { unforceFixtureChunks(level,OVERRIDE_FORCED_CHUNKS); }
+        restorePrototypeCatalog();
     }
     @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",batch="airlock_core",timeoutTicks=100)
     public static void twoTileRootResolvesPrototypeAndBothClosedCellsSeal(GameTestHelper helper) {
@@ -157,7 +242,7 @@ public final class AirlockCoreGameTests {
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=300)
      @GameTestTags({"airlock_power_cycle"})
      public static void liveApcMeterDrivesScheduledTwoPhaseDoorAndAutoclose(GameTestHelper helper) {
-        Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
+        Fixture f=poweredAirlock(helper);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
             var sample=PowerRuntime.airlockPower(level,door);
             require(sample.known()&&sample.deliveredWatts()==door.prototype().apcPowerReceiver().requestedWatts(),"fresh solver meter supplies resolved receiver demand");
@@ -183,7 +268,7 @@ public final class AirlockCoreGameTests {
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     @GameTestTags({"suite-stabilization"})
     public static void obstructionUsesExactlyTwoDoorwayCellsAndSafetyDeniesCloseActor(GameTestHelper helper) {
-        Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
+        Fixture f=poweredAirlock(helper);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets.around(helper,f.root().offset(-2,0,-2),f.root().offset(2,2,2),1);
         waitForFullPower(helper,f,120,()->{
             var occupant=new net.minecraft.world.entity.player.Player(level,f.root(),0,new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(),"airlock-occupant")){
@@ -215,7 +300,7 @@ public final class AirlockCoreGameTests {
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     public static void receiverRequiresFullResolvedWattsAndBoltsGateNormalActivation(GameTestHelper helper) {
-        Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
+        Fixture f=poweredAirlock(helper);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
             require(PowerRuntime.airlockPower(level,door).deliveredWatts()==door.prototype().apcPowerReceiver().requestedWatts(),"meter is full before control test");
             var revision=door.state().revision();
@@ -252,7 +337,7 @@ public final class AirlockCoreGameTests {
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=850)
      @GameTestTags({"airlock_log_pulse", "suite-stabilization"})
     public static void logPulseDisablesLampAndRestoresAtResolvedDeadline(GameTestHelper helper) {
-        Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);AirlockBlockEntity door=f.door();
+        Fixture f=poweredAirlock(helper);AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
             require(door.activate()&&door.state().powered(),"freshly paid receiver admits root activation");
             require(door.applyWire(door.identity(),door.state().revision(),AirlockState.Wire.LOG,AirlockState.WireAction.PULSE),"log pulse accepted");
@@ -291,7 +376,7 @@ public final class AirlockCoreGameTests {
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     @GameTestTags({"movement","airlock_bump"})
     public static void enrolledHumanHostBumpsPoweredAirlockThroughEntityMoveWithoutPda(GameTestHelper helper) {
-        Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
+        Fixture f=poweredAirlock(helper);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
             var actor=net.minecraft.world.entity.EntityType.VILLAGER.create(level);
             require(actor!=null,"registered character host created");
@@ -321,7 +406,7 @@ public final class AirlockCoreGameTests {
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     @GameTestTags({"airlock_electrified_open", "airlock_shock_posture"})
     public static void electrifiedBumpAppliesShockAndStillStartsDoorOpening(GameTestHelper helper) {
-        Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
+        Fixture f=poweredAirlock(helper);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         require(door.applyWire(door.identity(),door.state().revision(),AirlockState.Wire.POWER_ONE,AirlockState.WireAction.CUT),
                 "actorless fixture setup cuts one power wire and enables electrification without shocking the actor");
         waitForFullPower(helper,f,120,()->{
@@ -352,7 +437,7 @@ public final class AirlockCoreGameTests {
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_core",timeoutTicks=180)
     @GameTestTags({"movement","airlock_bump","airlock_seam"})
     public static void oneEntityMoveOpensBothSeamAdjacentPaidAirlocks(GameTestHelper helper) {
-        Fixture f=poweredAirlock(helper,CORE_FORCED_CHUNKS);ServerLevel level=f.level();
+        Fixture f=poweredAirlock(helper);ServerLevel level=f.level();
         waitForFullPower(helper,f,120,()->{
             BlockPos adjacent=f.root().east();
             // Free the neighboring airlock root; the existing paid west-facing APC
@@ -452,7 +537,7 @@ public final class AirlockCoreGameTests {
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_prototype_power_override",timeoutTicks=280)
     @GameTestTags({"airlock_override"})
     public static void inheritedThirtyFiveWattOverrideInvalidatesAndRefreshesLiveMeter(GameTestHelper helper){
-        Fixture f=poweredAirlock(helper,OVERRIDE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
+        Fixture f=poweredAirlock(helper);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
             require(PowerRuntime.airlockPower(level,door).known()&&PowerRuntime.airlockPower(level,door).deliveredWatts()==20,"original inherited 20 W demand has a fresh sample");
             var manager=com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager();
@@ -479,10 +564,13 @@ public final class AirlockCoreGameTests {
     }
     public record Fixture(ServerLevel level,BlockPos root,AirlockBlockEntity door) { }
     /** Shared powered two-tile airlock fixture for native cross-system GameTests. */
-    public static Fixture poweredAirlock(GameTestHelper helper){ return poweredAirlock(helper,CORE_FORCED_CHUNKS); }
-    private static Fixture poweredAirlock(GameTestHelper helper,java.util.Set<Long> forcedChunks){
+    public static Fixture poweredAirlock(GameTestHelper helper){
         ServerLevel level=helper.getLevel();
         BlockPos root=helper.absolutePos(new BlockPos(3,1,9));
+        var lower=ModBlocks.AIRLOCK.get().defaultBlockState();level.setBlock(root,lower,3);level.setBlock(root.above(),lower.setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER),3);
+        AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);require(door!=null,"airlock BE exists");
+        acquirePowerFixtureTickets(helper,root,helper.absolutePos(new BlockPos(2,1,2)),helper.absolutePos(new BlockPos(4,1,9)),
+                door.prototype().extensionCableReceiver().localReachBlocks());
         for(int z=2;z<=9;z++)level.setBlock(helper.absolutePos(new BlockPos(4,1,z)),Blocks.STONE.defaultBlockState(),3);
         for(int z=4;z<=6;z++)level.setBlock(helper.absolutePos(new BlockPos(2,1,z)),Blocks.STONE.defaultBlockState(),3);
         placePowerDevice(level,helper.absolutePos(new BlockPos(3,1,2)),PowerDeviceKind.HV_SOURCE,Direction.EAST);
@@ -491,23 +579,13 @@ public final class AirlockCoreGameTests {
         for(int z=2;z<=4;z++)require(CableStorage.place(level,helper.absolutePos(new BlockPos(4,1,z)),Direction.WEST,CableTier.HV),"HV cable");
         for(int z=4;z<=6;z++)require(CableStorage.place(level,helper.absolutePos(new BlockPos(2,1,z)),Direction.EAST,CableTier.MV),"MV cable");
         for(int z=6;z<=9;z++)require(CableStorage.place(level,helper.absolutePos(new BlockPos(4,1,z)),Direction.WEST,CableTier.APC),"APC cable");
-        var lower=ModBlocks.AIRLOCK.get().defaultBlockState();level.setBlock(root,lower,3);level.setBlock(root.above(),lower.setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER),3);
-        AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);require(door!=null,"airlock BE exists");
-        forcePowerFixtureChunks(level,root,helper.absolutePos(new BlockPos(2,1,2)),helper.absolutePos(new BlockPos(4,1,9)),
-                door.prototype().extensionCableReceiver().localReachBlocks(),forcedChunks);
         return new Fixture(level,root,door);
     }
-    private static void forcePowerFixtureChunks(ServerLevel level,BlockPos root,BlockPos networkMin,BlockPos networkMax,int reach,java.util.Set<Long> newlyForced){
+    private static void acquirePowerFixtureTickets(GameTestHelper helper,BlockPos root,BlockPos networkMin,BlockPos networkMax,int reach){
         int minX=Math.min(root.getX()-reach,networkMin.getX())-1,maxX=Math.max(root.getX()+reach,networkMax.getX())+1;
         int minZ=Math.min(root.getZ()-reach,networkMin.getZ())-1,maxZ=Math.max(root.getZ()+reach,networkMax.getZ())+1;
-        for(int cx=(minX>>4);cx<=(maxX>>4);cx++)for(int cz=(minZ>>4);cz<=(maxZ>>4);cz++){
-            long key=net.minecraft.world.level.ChunkPos.asLong(cx,cz);
-            if(!level.getForcedChunks().contains(key)){level.setChunkForced(cx,cz,true);newlyForced.add(key);}
-            level.getChunk(cx,cz);
-        }
-    }
-    private static void unforceFixtureChunks(ServerLevel level,java.util.Set<Long> chunks){
-        for(long key:chunks){var pos=new net.minecraft.world.level.ChunkPos(key);level.setChunkForced(pos.x,pos.z,false);}chunks.clear();
+        FixtureChunkTickets.acquire(helper,new net.minecraft.world.phys.AABB(minX,root.getY(),minZ,
+                Math.nextDown(maxX+1.0),root.getY()+3,Math.nextDown(maxZ+1.0)));
     }
     private static void placePowerDevice(ServerLevel level,BlockPos pos,PowerDeviceKind kind,Direction facing){
         if(kind==PowerDeviceKind.APC){require(com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement.placeApc(level,pos,facing),"place supported APC");return;}
@@ -537,14 +615,23 @@ public final class AirlockCoreGameTests {
     public static void waitForFullPower(GameTestHelper helper,Fixture f,int remaining,Runnable ready){
         var sample=PowerRuntime.airlockPower(f.level(),f.door());
         double demand=f.door().prototype().apcPowerReceiver().requestedWatts();
-        if(sample.known()&&sample.deliveredWatts()==demand){ready.run();return;}
-        if(remaining<=0)throw new GameTestAssertException("airlock fixture never reached fresh full-power readiness: known="+sample.known()
+        boolean fixtureEntityTicking=java.util.stream.Stream.of(f.root(),f.root().offset(0,0,-7),f.root().offset(0,0,-5),
+                f.root().offset(0,0,-3),f.root().offset(1,0,-7),f.root().offset(-1,0,-5),f.root().offset(1,0,0))
+                .allMatch(f.level()::isPositionEntityTicking);
+        if(sample.known()&&sample.deliveredWatts()==demand&&fixtureEntityTicking){ready.run();return;}
+        if(remaining<=0){
+            String diagnostic="known="+sample.known()
                 +" delivered="+sample.deliveredWatts()+" resolvedDemand="+demand+" topologyReady="+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyReady(f.level())
                  +" rootCurrent="+(f.level().getBlockEntity(f.root())==f.door())+" phase="+f.door().state().phase()+" gameTime="+f.level().getGameTime()
                   +" "+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.diagnosticSnapshot(f.level())
-                 +" solve="+PowerRuntime.lastSolveSummary(f.level())
-                 +" meterGate="+PowerRuntime.airlockPowerDiagnostic(f.level(),f.door())
-                 +" receiverTopology="+airlockReceiverDiagnostic(f));
+                  +" solve="+PowerRuntime.lastSolveSummary(f.level())
+                  +" meterGate="+PowerRuntime.airlockPowerDiagnostic(f.level(),f.door())
+                  +" receiverTopology="+airlockReceiverDiagnostic(f)+" fixtureEntityTicking="+fixtureEntityTicking;
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error("[airlock core GameTest power wait exhausted] {}",diagnostic);
+            throw new GameTestAssertException("airlock fixture never reached fresh full-power readiness: known="+sample.known()
+                    +" delivered="+sample.deliveredWatts()+" demand="+demand+" phase="+f.door().state().phase()
+                    +" gameTime="+f.level().getGameTime());
+        }
         com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->waitForFullPower(helper,f,remaining-1,ready));
     }
     private static String airlockReceiverDiagnostic(Fixture f){

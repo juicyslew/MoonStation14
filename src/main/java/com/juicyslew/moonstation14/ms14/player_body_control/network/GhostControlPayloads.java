@@ -161,8 +161,13 @@ public final class GhostControlPayloads {
                     buf.writeBoolean(value.onGround); buf.writeFloat(value.surfaceFactor);
                      buf.writeFloat(value.voluntarySpeedFactor); buf.writeBoolean(value.movementBlocked); buf.writeVarInt(value.externalFlightTicks); buf.writeEnum(value.movementMode);
                      buf.writeBoolean(value.containedView.isPresent());
-                     value.containedView.ifPresent(view -> { buf.writeUUID(view.ownerIdentity()); buf.writeBoolean(view.worldTarget().isPresent());
-                         view.worldTarget().ifPresent(pos -> buf.writeBlockPos(pos)); buf.writeBoolean(view.cameraCollision()); });
+                       value.containedView.ifPresent(view -> { buf.writeUUID(view.ownerIdentity()); buf.writeBoolean(view.worldTarget().isPresent());
+                           view.worldTarget().ifPresent(pos -> buf.writeBlockPos(pos)); buf.writeBoolean(view.cameraCollision());
+                           buf.writeBoolean(view.renderParent().isPresent()); view.renderParent().ifPresent(parent -> {
+                               buf.writeInt(parent.entityId()); buf.writeUUID(parent.entityUuid());
+                               buf.writeDouble(parent.bodyFeetOffset().x); buf.writeDouble(parent.bodyFeetOffset().y); buf.writeDouble(parent.bodyFeetOffset().z);
+                           });
+                       });
                 }, buf -> new Snapshot(readEpoch(buf), readNonNegativeEntityId(buf), readHarnessKind(buf),
                         readNonNegative(buf, "server game tick"), readNonNegative(buf, "acknowledged applied sequence"),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readFloat(),
@@ -178,7 +183,7 @@ public final class GhostControlPayloads {
                 throw new IllegalArgumentException("invalid movement mode for harness kind");
             requireNonNegative(serverGameTick, "server game tick");
             requireNonNegative(acknowledgedAppliedSequence, "acknowledged applied sequence");
-            if (externalFlightTicks < 0 || externalFlightTicks > 6) throw new IllegalArgumentException("external flight ticks must be within [0,6]");
+            if (externalFlightTicks < 0) throw new IllegalArgumentException("external flight ticks must be nonnegative");
             if ((harnessKind == MobHarnessKind.GHOST || movementMode != MovementMode.GROUNDED) && externalFlightTicks != 0)
                 throw new IllegalArgumentException("external flight requires a grounded character harness");
             requireWorldCoordinate(x, "x");
@@ -235,12 +240,16 @@ public final class GhostControlPayloads {
         if (!buf.readBoolean()) return java.util.Optional.empty();
         java.util.UUID owner = buf.readUUID();
         java.util.Optional<BlockPos> target = buf.readBoolean() ? java.util.Optional.of(buf.readBlockPos().immutable()) : java.util.Optional.empty();
-        return java.util.Optional.of(new ContainedBodyView(owner, target, buf.readBoolean()));
+        boolean collision = buf.readBoolean();
+        java.util.Optional<ContainedBodyView.RenderParent> parent = java.util.Optional.empty();
+        if (buf.readBoolean()) parent = java.util.Optional.of(new ContainedBodyView.RenderParent(readNonNegativeEntityId(buf), buf.readUUID(),
+                new net.minecraft.world.phys.Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble())));
+        return java.util.Optional.of(new ContainedBodyView(owner, target, collision, parent));
     }
 
     private static int readExternalFlightTicks(RegistryFriendlyByteBuf buf) {
         int ticks = buf.readVarInt();
-        if (ticks < 0 || ticks > 6) throw new IllegalArgumentException("external flight ticks must be within [0,6]");
+        if (ticks < 0) throw new IllegalArgumentException("external flight ticks must be nonnegative");
         return ticks;
     }
 

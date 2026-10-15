@@ -46,6 +46,8 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
     public static final ResourceLocation JUG_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "jug");
     public static final ResourceLocation GRENADE_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "grenade");
     public static final ResourceLocation BLOCK_MODEL_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "block_model");
+    public static final ResourceLocation PORTABLE_BODY_KEY_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "portable_body_key");
+    public static final ResourceLocation MOUSE_TINY_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse_tiny");
     public static final Codec<LooseObjectProfile> CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.FLOAT.fieldOf("mass").forGetter(LooseObjectProfile::mass),
             Codec.FLOAT.fieldOf("friction").forGetter(LooseObjectProfile::friction),

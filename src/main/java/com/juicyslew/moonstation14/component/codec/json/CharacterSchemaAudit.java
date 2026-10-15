@@ -289,6 +289,39 @@ public final class CharacterSchemaAudit {
             fail(path + ".type", "expected string discriminator");
         String type = discriminator.getAsString();
         if (!CharacterComponentRegistry.registered(type)) fail(path + ".type", "unknown component type");
+        if ("NpcBehavior".equals(type)) {
+            checkFields(object, Set.of("type", "tasks", "visionRange", "mealRange", "idleRange",
+                    "planIntervalTicks", "idleMinimumTicks", "idleMaximumTicks"), path);
+            return;
+        }
+        if ("PortableBody".equals(type)) {
+            checkFields(object, Set.of("type", "profile"), path);
+            if (complete || object.has("profile")) {
+                JsonElement profile = object.get("profile");
+                ResourceLocation parsed = profile != null && profile.isJsonPrimitive()
+                        && profile.getAsJsonPrimitive().isString() ? ResourceLocation.tryParse(profile.getAsString()) : null;
+                if (parsed == null || !profile.getAsString().contains(":") || !profile.getAsString().equals(parsed.toString()))
+                    fail(path + ".profile", "expected canonical namespaced loose-object profile ID");
+            }
+            return;
+        }
+        if ("CanEscapeInventory".equals(type)) {
+            checkFields(object, Set.of("type", "baseResistTime"), path);
+            if (object.has("baseResistTime")) {
+                JsonElement duration = object.get("baseResistTime");
+                if (!finiteNumber(duration) || duration.getAsDouble() <= 0 || duration.getAsDouble() > 86_400)
+                    fail(path + ".baseResistTime", "expected finite positive duration at most 86400 seconds");
+            }
+            return;
+        }
+        if ("NpcIdleAttention".equals(type)) {
+            checkFields(object, Set.of("type", "range", "minimumProbeTicks", "maximumProbeTicks", "minimumDurationTicks", "maximumDurationTicks"), path);
+            return;
+        }
+        if ("AmbientVocalization".equals(type)) {
+            checkFields(object, Set.of("type", "minimumIntervalTicks", "maximumIntervalTicks", "volume"), path);
+            return;
+        }
         if ("MouseAppearance".equals(type)) {
             checkFields(object, Set.of("type", "variants"), path);
             if (object.has("variants")) {
@@ -361,13 +394,17 @@ public final class CharacterSchemaAudit {
             auditMovement(object, path, complete);
             return;
         }
+        if (com.juicyslew.moonstation14.ms14.character.components.CollisionProfileComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "mask", "layer"), path);
+            return;
+        }
         if ("NoSlip".equals(type) || "Stunnable".equals(type) || "Pullable".equals(type)
                 || com.juicyslew.moonstation14.ms14.character.components.DoorBumpOpenerComponent.TYPE.equals(type)) {
             checkFields(object, Set.of("type"), path);
             return;
         }
         if ("Speech".equals(type)) {
-            checkFields(object, Set.of("type", "accent", "speechSound"), path);
+            checkFields(object, Set.of("type", "accent", "speechSound", "allowedEmotes"), path);
             if (object.has("accent") && (!object.get("accent").isJsonPrimitive()
                     || !object.getAsJsonPrimitive("accent").isString()
                     || !Set.of("", "mouse").contains(object.get("accent").getAsString())))
@@ -483,6 +520,14 @@ public final class CharacterSchemaAudit {
             checkFields(object, Set.of("type", "hands", "can_be_stripped"), path);
             if (complete || object.has("hands")) auditHands(object.get("hands"), path + ".hands");
             if (object.has("can_be_stripped")) auditBoolean(object.get("can_be_stripped"), path + ".can_be_stripped");
+            return;
+        }
+        if ("Species".equals(type)) {
+            checkFields(object, Set.of("type", "label"), path);
+            JsonElement label = object.get("label");
+            if (label == null || !label.isJsonPrimitive() || !label.getAsJsonPrimitive().isString()
+                    || label.getAsString().isBlank() || label.getAsString().length() > 64)
+                fail(path + ".label", "expected nonblank species label of at most 64 characters");
             return;
         }
         if ("GhostRole".equals(type)) {

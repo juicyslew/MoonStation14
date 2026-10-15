@@ -1473,7 +1473,7 @@ public final class GhostMobHarnessControl {
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
                     !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
                             ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
-                    movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view));
+                    movementMode, java.util.Optional.ofNullable(owner).map(value -> value.viewFor(body)));
             session.lastSnapshotTick = tick;
             GhostControlNetworking.sendToPlayer(session.player, snapshot);
         } catch (IllegalArgumentException failure) {

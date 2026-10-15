@@ -543,14 +543,13 @@ public final class LifecycleCharacterSessionControl {
             try {
                 var result = CHARACTER_WORLD_STEP.step(body, intent.wishX(), intent.wishZ(),
                         (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
-                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw());
+                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw(), intent.sequence());
                 if (result.isEmpty()) {
                     fail(server, session, FailureReason.WORLD_STEP_REJECTED);
                     return;
                 }
-                body.setYRot(intent.yaw());
-                body.setXRot(intent.pitch());
-                body.setYHeadRot(intent.yaw());
+                com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
+                        .applyVoluntaryLook(body, intent.yaw(), intent.pitch());
                 session.lastAppliedSequence = intent.sequence();
                 session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
                 session.appliedIntentTick = level.getGameTime();
@@ -870,7 +869,7 @@ public final class LifecycleCharacterSessionControl {
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
                     !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
                             ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
-                    movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view));
+                    movementMode, java.util.Optional.ofNullable(owner).map(value -> value.viewFor(body)));
             if (!snapshotBoundToSession(snapshot, session.epoch, body.getId())) {
                 fail(server, session, FailureReason.SNAPSHOT_BINDING_MISMATCH);
                 return;
@@ -878,6 +877,12 @@ public final class LifecycleCharacterSessionControl {
             session.lastSnapshotTick = tick;
             GhostControlNetworking.sendToPlayer(session.player, snapshot);
         } catch (RuntimeException failure) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                    "Character snapshot construction failed: epoch={} player={} body={} tick={} flightTicks={} mode={}",
+                    session.epoch, session.player.getUUID(), body.getUUID(), tick,
+                    movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
+                            ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
+                    movementMode, failure);
             fail(server, session, FailureReason.SNAPSHOT_SEND_ERROR);
         }
     }

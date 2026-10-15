@@ -30,6 +30,41 @@ class CharacterComponentMergeStrategyTest {
             .replace("[\"moonstation14:blood\"]", "[\"moonstation14:sulfurblood\"]");
 
     @Test
+    void npcBehaviorDiscriminatorRoundTripsAndInheritsResolvedDefaults() {
+        var resolved = resolve(
+                entry("npc_base", "{\"abstract\":true,\"components\":[{\"type\":\"NpcBehavior\","
+                        + "\"tasks\":[\"FOOD\",\"DRINK\",\"IDLE\"],\"visionRange\":10,\"mealRange\":1,"
+                        + "\"idleRange\":7,\"planIntervalTicks\":9,\"idleMinimumTicks\":40,\"idleMaximumTicks\":140}] }"),
+                entry("mouse_ai", "{\"parent\":\"npc_base\",\"components\":[{\"type\":\"NpcBehavior\",\"planIntervalTicks\":12}]}"));
+        JsonObject component = component(resolved.get(id("mouse_ai")));
+        var policy = (com.juicyslew.moonstation14.ms14.character.components.NpcBehaviorComponent)
+                CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, component).getOrThrow();
+        assertEquals(List.of(com.juicyslew.moonstation14.ms14.character.components.NpcBehaviorComponent.Task.FOOD,
+                com.juicyslew.moonstation14.ms14.character.components.NpcBehaviorComponent.Task.DRINK,
+                com.juicyslew.moonstation14.ms14.character.components.NpcBehaviorComponent.Task.IDLE), policy.tasks());
+        assertEquals(10f, policy.visionRange());
+        assertEquals(12, policy.planIntervalTicks());
+        var encoded = CharacterComponentRegistry.CODEC.encodeStart(JsonOps.INSTANCE, policy).getOrThrow();
+        assertEquals(policy, CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
+    }
+
+    @Test
+    void ambientVocalizationIsTypedInheritedAndRoundTripsItsLocalDefaults() {
+        var resolved = resolve(
+                entry("ambient_base", "{\"abstract\":true,\"components\":[{\"type\":\"AmbientVocalization\","
+                        + "\"minimumIntervalTicks\":160,\"maximumIntervalTicks\":400,\"volume\":0.4}]}"),
+                entry("mouse_ambient", "{\"parent\":\"ambient_base\"}"));
+        JsonObject component = component(resolved.get(id("mouse_ambient")));
+        var policy = (com.juicyslew.moonstation14.ms14.character.components.AmbientVocalizationComponent)
+                CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, component).getOrThrow();
+        assertEquals(160, policy.minimumIntervalTicks());
+        assertEquals(400, policy.maximumIntervalTicks());
+        assertEquals(0.4f, policy.volume());
+        var encoded = CharacterComponentRegistry.CODEC.encodeStart(JsonOps.INSTANCE, policy).getOrThrow();
+        assertEquals(policy, CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
+    }
+
+    @Test
     void handsFragmentsReplaceOrderedListAndRejectLegacyOnAbstractParents() {
         var resolved = resolve(
                 entry("base", "{\"abstract\":true,\"components\":[{\"type\":\"Hands\",\"hands\":[\"left\",\"right\"]}]}"),
