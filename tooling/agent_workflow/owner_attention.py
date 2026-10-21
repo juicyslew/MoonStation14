@@ -161,9 +161,10 @@ def collect(root, *, workflow=None, refresh=False):
                     workflow.verify_gate(c); workflow.verify_publication(c, root)
                     if c.get('gate_outcome', {}).get('result') != 'ready_for_owner' or review.get('candidate_id') != c['id'] or review.get('snapshot_key') != c.get('snapshot_key'):
                         raise ValueError('owner request identity/verdict mismatch')
-                except (ValueError, OSError, KeyError, TypeError, subprocess.CalledProcessError):
-                    _save_readiness(root, c, review, False, workflow, 'readiness evidence stale or owner request identity invalid; revalidation required')
-                    groups['agent_work'].append(_item(c, 'readiness evidence stale or owner request identity invalid; revalidation required'))
+                except (ValueError, OSError, KeyError, TypeError, subprocess.CalledProcessError) as exc:
+                    reason = f'readiness evidence stale or owner request identity invalid; revalidation required: {str(exc)[:240]}'
+                    _save_readiness(root, c, review, False, workflow, reason)
+                    groups['agent_work'].append(_item(c, reason))
                     continue
                 else:
                     _save_readiness(root, c, review, True, workflow, None)

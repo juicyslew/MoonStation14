@@ -1,0 +1,2450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonstation14.local/workflow/protocol.schema.json",
+  "title": "Workflow protocol v1 static contracts",
+  "description": "Standalone structural contracts; cross-record transaction and identity invariants require coordinator validation.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/submission_request"
+    },
+    {
+      "$ref": "#/$defs/submission_response"
+    },
+    {
+      "$ref": "#/$defs/run"
+    },
+    {
+      "$ref": "#/$defs/attempt"
+    },
+    {
+      "$ref": "#/$defs/task"
+    },
+    {
+      "$ref": "#/$defs/artifact"
+    },
+    {
+      "$ref": "#/$defs/review_result"
+    },
+    {
+      "$ref": "#/$defs/task_claim"
+    },
+    {
+      "$ref": "#/$defs/command_receipt"
+    },
+    {
+      "$ref": "#/$defs/task_error"
+    },
+    {
+      "$ref": "#/$defs/result_available"
+    },
+    {
+      "$ref": "#/$defs/feedback_ack"
+    },
+    {
+      "$ref": "#/$defs/cancellation_command"
+    },
+    {
+      "$ref": "#/$defs/cancellation_receipt"
+    },
+    {
+      "$ref": "#/$defs/incident"
+    },
+    {
+      "$ref": "#/$defs/owner_decision"
+    },
+    {
+      "$ref": "#/$defs/regression_job"
+    },
+    {
+      "$ref": "#/$defs/delivery"
+    },
+    {
+      "$ref": "#/$defs/dispatch_envelope"
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "time": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "worktree",
+        "role"
+      ],
+      "properties": {
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worktree": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": [
+            "author",
+            "reviewer",
+            "owner"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "author",
+                  "reviewer"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "session_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "owner"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "session_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion_id",
+        "category",
+        "message",
+        "location",
+        "evidence_refs"
+      ],
+      "properties": {
+        "criterion_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "IMPLEMENTATION",
+            "PARITY_COMPOSITION",
+            "COVERAGE",
+            "FIDELITY"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "required_change": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "submission_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "idempotency_key",
+        "sprint_id",
+        "feature_label",
+        "author",
+        "source_worktree",
+        "input_digest",
+        "plan_digest",
+        "policy_digest",
+        "purpose",
+        "implementation_complete",
+        "criteria",
+        "manual_steps",
+        "check_packs"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sprint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "feature_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "author": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "author"
+                },
+                "session_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "source_worktree": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "plan_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "purpose": {
+          "const": "OWNER_READY"
+        },
+        "implementation_complete": {
+          "const": true
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "criterion_id",
+              "status",
+              "evidence_refs"
+            ],
+            "properties": {
+              "criterion_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "const": "COMPLETE"
+              },
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/ref"
+                }
+              }
+            }
+          }
+        },
+        "manual_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "check_packs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pack_id",
+              "kind",
+              "selectors"
+            ],
+            "properties": {
+              "pack_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "unit",
+                  "readiness",
+                  "focused_gametest",
+                  "full_gametest",
+                  "package",
+                  "provenance"
+                ]
+              },
+              "selectors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "owner_exception_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replaces_run_id": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "submission_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "status",
+        "next_action"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "status": {
+          "enum": [
+            "ACCEPTED",
+            "REJECTED"
+          ]
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "next_action": {
+          "enum": [
+            "WAIT_FOR_RESULT",
+            "FIX_FINDINGS",
+            "WAIT_FOR_RECOVERY"
+          ]
+        },
+        "result": {
+          "enum": [
+            "FAIL",
+            "ERROR"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "required_change": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "incident_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "ACCEPTED"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "run_id",
+              "generation"
+            ],
+            "properties": {
+              "next_action": {
+                "const": "WAIT_FOR_RESULT"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "result"
+                  ]
+                },
+                {
+                  "required": [
+                    "code"
+                  ]
+                },
+                {
+                  "required": [
+                    "incident_ref"
+                  ]
+                },
+                {
+                  "required": [
+                    "findings"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "REJECTED"
+              },
+              "result": {
+                "const": "FAIL"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "result",
+              "code",
+              "findings"
+            ],
+            "properties": {
+              "next_action": {
+                "const": "FIX_FINDINGS"
+              },
+              "findings": {
+                "minItems": 1,
+                "items": {
+                  "required": [
+                    "required_change"
+                  ]
+                }
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "run_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "generation"
+                  ]
+                },
+                {
+                  "required": [
+                    "incident_ref"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "REJECTED"
+              },
+              "result": {
+                "const": "ERROR"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "result",
+              "code",
+              "incident_ref"
+            ],
+            "properties": {
+              "next_action": {
+                "const": "WAIT_FOR_RECOVERY"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "run_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "generation"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "run_id",
+        "sprint_id",
+        "run_kind",
+        "input_digest",
+        "plan_digest",
+        "policy_digest",
+        "author",
+        "current_attempt",
+        "sequence"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "sprint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_kind": {
+          "enum": [
+            "FEATURE_GATE",
+            "POST_ACCEPTANCE_REGRESSION"
+          ]
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "plan_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "author": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "author"
+                },
+                "session_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "current_attempt": {
+          "$ref": "#/$defs/generation"
+        },
+        "sequence": {
+          "$ref": "#/$defs/sequence"
+        },
+        "owner_acceptance_id": {
+          "type": "string",
+          "pattern": "^accept_.+"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "run_kind": {
+                "const": "POST_ACCEPTANCE_REGRESSION"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "owner_acceptance_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "run_kind": {
+                "const": "FEATURE_GATE"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "owner_acceptance_id"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "run_id",
+        "generation",
+        "phase",
+        "result",
+        "closure",
+        "proposed_result",
+        "cleanup_state",
+        "pause_reason",
+        "proposed_closure"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "phase": {
+          "enum": [
+            "QUEUED",
+            "CHECKING",
+            "REVIEWING",
+            "STOPPING",
+            "DECIDED",
+            "CLOSED"
+          ]
+        },
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "ERROR",
+            null
+          ]
+        },
+        "closure": {
+          "enum": [
+            "CANCELLED",
+            "SUPERSEDED",
+            null
+          ]
+        },
+        "proposed_result": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "ERROR",
+            null
+          ]
+        },
+        "cleanup_state": {
+          "enum": [
+            "NOT_REQUIRED",
+            "PENDING",
+            "CONFIRMED",
+            "UNRESOLVED"
+          ]
+        },
+        "recovery_from_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "POLICY",
+                "OWNER"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "pause_reason": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "proposed_closure": {
+          "enum": [
+            "CANCELLED",
+            "SUPERSEDED",
+            null
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "generation": {
+                "const": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "recovery_from_generation": {
+                "type": "null"
+              }
+            },
+            "not": {
+              "required": [
+                "authorization"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "generation": {
+                "minimum": 2
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "recovery_from_generation",
+              "authorization"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "STOPPING"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "result",
+              "closure",
+              "proposed_result",
+              "proposed_closure"
+            ],
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "closure": {
+                "type": "null"
+              }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "proposed_result": {
+                    "enum": [
+                      "PASS",
+                      "FAIL",
+                      "ERROR"
+                    ]
+                  },
+                  "proposed_closure": {
+                    "type": "null"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "proposed_result": {
+                    "type": "null"
+                  },
+                  "proposed_closure": {
+                    "enum": [
+                      "CANCELLED",
+                      "SUPERSEDED"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "enum": [
+                  "QUEUED",
+                  "CHECKING",
+                  "REVIEWING",
+                  "DECIDED",
+                  "CLOSED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposed_result": {
+                "type": "null"
+              },
+              "proposed_closure": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "DECIDED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "ERROR"
+                ]
+              },
+              "closure": {
+                "type": "null"
+              },
+              "proposed_result": {
+                "type": "null"
+              },
+              "proposed_closure": {
+                "type": "null"
+              }
+            },
+            "if": {
+              "properties": {
+                "result": {
+                  "enum": [
+                    "PASS",
+                    "FAIL"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "cleanup_state": {
+                  "enum": [
+                    "NOT_REQUIRED",
+                    "CONFIRMED"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "CLOSED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "closure": {
+                "enum": [
+                  "CANCELLED",
+                  "SUPERSEDED"
+                ]
+              },
+              "result": {
+                "type": "null"
+              },
+              "cleanup_state": {
+                "enum": [
+                  "NOT_REQUIRED",
+                  "CONFIRMED"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "proposed_result": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "ERROR"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposed_closure": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "proposed_closure": {
+                "enum": [
+                  "CANCELLED",
+                  "SUPERSEDED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposed_result": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "task_id",
+        "run_id",
+        "evaluation_generation",
+        "kind",
+        "dependency_ids",
+        "input_digest",
+        "state",
+        "assignment_generation",
+        "assigned_session_id",
+        "deadline_ms",
+        "result"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "kind": {
+          "enum": [
+            "CHECK",
+            "REVIEW",
+            "REGRESSION"
+          ]
+        },
+        "dependency_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^task_.+"
+          }
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "state": {
+          "enum": [
+            "QUEUED",
+            "DISPATCHING",
+            "CLAIMED",
+            "RUNNING",
+            "COMPLETED",
+            "CANCEL_REQUESTED",
+            "CANCELLED"
+          ]
+        },
+        "assignment_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "assigned_session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline_ms": {
+          "$ref": "#/$defs/time"
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "decision",
+            "findings",
+            "artifact_refs"
+          ],
+          "properties": {
+            "decision": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "ERROR"
+              ]
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/finding"
+              }
+            },
+            "artifact_refs": {
+              "$ref": "#/$defs/refs"
+            }
+          }
+        },
+        "process_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pid",
+            "created_ms"
+          ],
+          "properties": {
+            "pid": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "created_ms": {
+              "$ref": "#/$defs/time"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "COMPLETED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "CANCELLED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "QUEUED",
+                  "DISPATCHING",
+                  "CLAIMED",
+                  "RUNNING",
+                  "CANCEL_REQUESTED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "artifact_id",
+        "run_id",
+        "type",
+        "path",
+        "sha256",
+        "size_bytes",
+        "immutable",
+        "producer_kind",
+        "producer_id"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^artifact_.+"
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^run_.+"
+        },
+        "producer_task_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^task_.+"
+        },
+        "type": {
+          "enum": [
+            "SOURCE_MANIFEST",
+            "CHECK_RECEIPT",
+            "REVIEW_REPORT",
+            "LOG",
+            "BUILD",
+            "PROVENANCE",
+            "OWNER_EVIDENCE"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "immutable": {
+          "const": true
+        },
+        "submission_id": {
+          "type": "string",
+          "pattern": "^submit_.+"
+        },
+        "producer_kind": {
+          "enum": [
+            "SUBMISSION",
+            "TASK",
+            "OWNER"
+          ]
+        },
+        "producer_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "producer_kind": {
+                "const": "SUBMISSION"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "submission_id"
+            ],
+            "properties": {
+              "producer_task_id": {
+                "type": "null"
+              },
+              "run_id": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "producer_kind": {
+                "enum": [
+                  "TASK",
+                  "OWNER"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "run_id"
+            ],
+            "properties": {
+              "submission_id": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "producer_kind": {
+                "const": "TASK"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "producer_task_id"
+            ],
+            "properties": {
+              "producer_id": {
+                "pattern": "^task_.+"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "producer_kind": {
+                "const": "SUBMISSION"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "producer_id": {
+                "pattern": "^submit_.+"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "producer_kind": {
+                "const": "OWNER"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "producer_id": {
+                "pattern": "^accept_.+"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "review_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "task_id",
+        "run_id",
+        "evaluation_generation",
+        "assignment_generation",
+        "input_digest",
+        "decision",
+        "findings",
+        "inspected_refs"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "assignment_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "decision": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "inspected_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "FAIL"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "findings": {
+                "minItems": 1,
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/finding"
+                    },
+                    {
+                      "required": [
+                        "required_change"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "PASS"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "findings": {
+                "minItems": 1,
+                "items": {
+                  "not": {
+                    "required": [
+                      "required_change"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "task_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "command_id",
+        "task_id",
+        "run_id",
+        "evaluation_generation",
+        "assignment_generation",
+        "input_digest",
+        "session_id"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "assignment_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "command_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "result_id",
+        "result_digest",
+        "sequence",
+        "next_action",
+        "disposition"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "result_id": {
+          "type": "string",
+          "pattern": "^event_.+"
+        },
+        "result_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "sequence": {
+          "$ref": "#/$defs/sequence"
+        },
+        "next_action": {
+          "enum": [
+            "PERFORM_REVIEW",
+            "STOP",
+            "FIX_PROTOCOL",
+            "FIX_FINDINGS",
+            "WAIT_FOR_OWNER_TEST",
+            "WAIT_FOR_RECOVERY",
+            "WAIT_FOR_AUTHOR",
+            "VIEW_REGRESSION"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "ACCEPTED",
+            "REPLAYED"
+          ]
+        }
+      }
+    },
+    "task_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "task_id",
+        "run_id",
+        "evaluation_generation",
+        "assignment_generation",
+        "input_digest",
+        "error_code",
+        "message",
+        "artifact_refs"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "assignment_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "result_available": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "event_id",
+        "run_id",
+        "evaluation_generation",
+        "input_digest",
+        "result",
+        "result_id",
+        "result_digest",
+        "findings",
+        "artifact_refs",
+        "next_action"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^event_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "ERROR"
+          ]
+        },
+        "result_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^event_.+"
+        },
+        "result_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "artifact_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "next_action": {
+          "enum": [
+            "FIX_FINDINGS",
+            "WAIT_FOR_OWNER_TEST",
+            "WAIT_FOR_RECOVERY"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "error_message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "incident_ref": {
+          "type": "string",
+          "pattern": "^incident_.+"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "const": "FAIL"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "findings"
+            ],
+            "properties": {
+              "findings": {
+                "minItems": 1,
+                "items": {
+                  "required": [
+                    "required_change"
+                  ]
+                }
+              },
+              "next_action": {
+                "const": "FIX_FINDINGS"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "error_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "error_message"
+                  ]
+                },
+                {
+                  "required": [
+                    "incident_ref"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "const": "PASS"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "next_action": {
+                "const": "WAIT_FOR_OWNER_TEST"
+              },
+              "findings": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "required_change"
+                    ]
+                  }
+                }
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "error_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "error_message"
+                  ]
+                },
+                {
+                  "required": [
+                    "incident_ref"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "const": "ERROR"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "error_code",
+              "error_message",
+              "incident_ref"
+            ],
+            "properties": {
+              "next_action": {
+                "const": "WAIT_FOR_RECOVERY"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "feedback_ack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "event_id",
+        "run_id",
+        "evaluation_generation",
+        "result_id",
+        "result_digest",
+        "author_session_id",
+        "command_id"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^event_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "result_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^event_.+"
+        },
+        "result_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "author_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "cancellation_command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "command_id",
+        "run_id",
+        "evaluation_generation",
+        "actor",
+        "reason",
+        "expected_sequence"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "actor": {
+          "enum": [
+            "OWNER",
+            "SYSTEM"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "CANCELLED",
+            "SUPERSEDED",
+            "FAIL_FAST",
+            "ERROR_STOP"
+          ]
+        },
+        "expected_sequence": {
+          "$ref": "#/$defs/sequence"
+        }
+      }
+    },
+    "cancellation_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "cancellation_id",
+        "run_id",
+        "evaluation_generation",
+        "state",
+        "child_ids",
+        "cleanup_refs"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "cancellation_id": {
+          "type": "string",
+          "pattern": "^event_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "state": {
+          "enum": [
+            "REQUESTED",
+            "STOPPING",
+            "CONFIRMED",
+            "UNRESOLVED"
+          ]
+        },
+        "child_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cleanup_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "incident": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "incident_id",
+        "code",
+        "message",
+        "recovery_owner",
+        "state",
+        "owner_action_required",
+        "artifact_refs"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "incident_id": {
+          "type": "string",
+          "pattern": "^incident_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recovery_owner": {
+          "enum": [
+            "SYSTEM",
+            "OWNER"
+          ]
+        },
+        "state": {
+          "enum": [
+            "OPEN",
+            "RECOVERING",
+            "RESOLVED"
+          ]
+        },
+        "owner_action_required": {
+          "type": "boolean"
+        },
+        "artifact_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "owner_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "command_id",
+        "run_id",
+        "evaluation_generation",
+        "input_digest",
+        "owner",
+        "kind",
+        "decision",
+        "findings",
+        "expected_sequence"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptance_id": {
+          "type": "string",
+          "pattern": "^accept_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "owner": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "owner"
+                }
+              }
+            }
+          ]
+        },
+        "kind": {
+          "const": "LOCAL_OWNER"
+        },
+        "decision": {
+          "enum": [
+            "ACCEPT",
+            "REQUEST_CHANGES",
+            "CANCEL"
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "expected_sequence": {
+          "$ref": "#/$defs/sequence"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "ACCEPT"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "acceptance_id"
+            ],
+            "properties": {
+              "findings": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "enum": [
+                  "REQUEST_CHANGES",
+                  "CANCEL"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "acceptance_id"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "REQUEST_CHANGES"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "findings": {
+                "minItems": 1,
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/finding"
+                    },
+                    {
+                      "required": [
+                        "required_change"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "owner": {
+              "properties": {
+                "role": {
+                  "const": "owner"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "regression_job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "regression_id",
+        "acceptance_id",
+        "run_id",
+        "source_input_digest",
+        "task_id",
+        "status",
+        "result"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "regression_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "acceptance_id": {
+          "type": "string",
+          "pattern": "^accept_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "source_input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "status": {
+          "enum": [
+            "QUEUED",
+            "RUNNING",
+            "DECIDED"
+          ]
+        },
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "ERROR",
+            null
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "DECIDED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "ERROR"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "QUEUED",
+                  "RUNNING"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "event_id",
+        "payload_digest",
+        "target_kind",
+        "state",
+        "delivery_attempt_count",
+        "ack_digest",
+        "delivery_id",
+        "recipient"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^event_.+"
+        },
+        "payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "target_kind": {
+          "enum": [
+            "AUTHOR",
+            "WEBPAGE"
+          ]
+        },
+        "state": {
+          "enum": [
+            "PENDING",
+            "TRANSPORT_ACCEPTED",
+            "ACKNOWLEDGED"
+          ]
+        },
+        "delivery_attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ack_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delivery_id": {
+          "type": "string",
+          "pattern": "^delivery_.+"
+        },
+        "recipient": {
+          "$ref": "#/$defs/binding"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "target_kind": {
+                "const": "AUTHOR"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "recipient": {
+                "properties": {
+                  "role": {
+                    "const": "author"
+                  },
+                  "session_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "target_kind": {
+                "const": "WEBPAGE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "recipient": {
+                "properties": {
+                  "role": {
+                    "const": "owner"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "ACKNOWLEDGED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ack_digest": {
+                "$ref": "#/$defs/digest"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "PENDING",
+                  "TRANSPORT_ACCEPTED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ack_digest": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dispatch_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "event_id",
+        "run_id",
+        "evaluation_generation",
+        "task_id",
+        "assignment_generation",
+        "input_digest",
+        "recipient_binding",
+        "artifact_refs",
+        "deadline_ms",
+        "required_next_action"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^event_.+"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_.+"
+        },
+        "evaluation_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^task_.+"
+        },
+        "assignment_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "recipient_binding": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "reviewer"
+                }
+              }
+            }
+          ]
+        },
+        "artifact_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "deadline_ms": {
+          "$ref": "#/$defs/time"
+        },
+        "required_next_action": {
+          "const": "TASK_ASSIGNMENT"
+        }
+      }
+    }
+  }
+}

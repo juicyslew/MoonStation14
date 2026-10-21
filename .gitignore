@@ -40,3 +40,4 @@ repo/
 !**/src/**/repo/
 /logbuild/
 /work/gate-reports/
+/.opencode/workflow/

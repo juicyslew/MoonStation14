@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "files": [
+    {"source":"docs/development-workflow-redesign/package/README.runtime.md","target":"docs/development-workflow/README.md"},
+    {"source":"docs/development-workflow-redesign/package/CLI.md","target":"docs/development-workflow/CLI.md"},
+    {"source":"docs/development-workflow-redesign/package/coordinator.md","target":"docs/development-workflow/coordinator.md"},
+    {"source":"docs/development-workflow-redesign/package/recovery.md","target":"docs/development-workflow/recovery.md"},
+    {"source":"docs/development-workflow-redesign/package/roles/author.md","target":"docs/development-workflow/roles/author.md"},
+    {"source":"docs/development-workflow-redesign/package/roles/reviewer.md","target":"docs/development-workflow/roles/reviewer.md"},
+    {"source":"docs/development-workflow-redesign/package/roles/reviewer.md","target":"docs/development-workflow/roles/fidelity-reviewer.md"},
+    {"source":"docs/development-workflow-redesign/package/roles/integration-lead-retired.md","target":"docs/development-workflow/roles/integration-lead.md"},
+    {"source":"docs/development-workflow-redesign/package/agents-workflow.md","target":"docs/development-workflow/agents-workflow.md"},
+    {"source":"docs/development-workflow-redesign/package/templates/coordinator.example.json","target":"docs/development-workflow/examples/coordinator.example.json"},
+    {"source":"docs/development-workflow-redesign/package/templates/context.example.json","target":"docs/development-workflow/examples/context.example.json"},
+    {"source":"docs/development-workflow-redesign/package/templates/mcp-bindings.example.json","target":"docs/development-workflow/examples/mcp-bindings.example.json"},
+    {"source":"docs/development-workflow-redesign/package/templates/binding-plan.example.json","target":"docs/development-workflow/examples/binding-plan.example.json"}
+  ]
+}

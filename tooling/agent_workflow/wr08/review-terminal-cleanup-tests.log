@@ -1,0 +1,27 @@
+native-dispatch-identities:{'launcher_pid': 8416, 'worker_identity': {'created_ms': 1792200606619, 'pid': 30056}}
+F
+======================================================================
+FAIL: test_terminal_error_retries_only_completed_unknown_review_resources (__main__.TerminalReviewCleanupTests.test_terminal_error_retries_only_completed_unknown_review_resources)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_review_terminal_cleanup.py", line 54, in test_terminal_error_retries_only_completed_unknown_review_resources
+    self.assertEqual('UNKNOWN', store.get_task_resources(task['task_id'])[0]['state'])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'UNKNOWN' != 'HELD'
+- UNKNOWN
++ HELD
+
+
+----------------------------------------------------------------------
+Ran 1 test in 2.979s
+
+FAILED (failures=1)
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_review_cleanup_service.py:93: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient
+native-dispatch-identities:{'launcher_pid': 24152, 'worker_identity': {'created_ms': 1792200610446, 'pid': 22104}}
+native-dispatch-identities:{'launcher_pid': 30348, 'worker_identity': {'created_ms': 1792200613818, 'pid': 22952}}
+..
+----------------------------------------------------------------------
+Ran 2 tests in 6.915s
+
+OK

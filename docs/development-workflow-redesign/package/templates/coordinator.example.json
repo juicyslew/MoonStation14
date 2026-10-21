@@ -1,0 +1,20 @@
+{
+  "disabled": true,
+  "configuration": {
+    "database": "<external-private-path>/workflow.sqlite3",
+    "artifact_dir": "<external-private-path>/artifacts",
+    "opencode_server": "<local-loopback-endpoint>",
+    "bindings": [
+      {"token_file":"<external-private-author-token>","caller":"fixture-author","context_file":"<external-private-context>"}
+    ],
+    "reviewers": {
+      "implementation": {"worktree":"<configured-worktree>","agent":"workflow-reviewer-implementation","token_file":"<external-private-implementation-token>","caller":"fixture-review-implementation"},
+      "parity": {"worktree":"<configured-worktree>","agent":"workflow-reviewer-parity","token_file":"<external-private-parity-token>","caller":"fixture-review-parity"},
+      "coverage": {"worktree":"<configured-worktree>","agent":"workflow-reviewer-coverage","token_file":"<external-private-coverage-token>","caller":"fixture-review-coverage"},
+      "fidelity": {"worktree":"<configured-worktree>","agent":"workflow-reviewer-fidelity","token_file":"<external-private-fidelity-token>","caller":"fixture-review-fidelity"}
+    },
+    "owners": [
+      {"token_file":"<external-private-owner-token>","caller":"fixture-owner","worktree":"<configured-worktree>","session_id":null}
+    ]
+  }
+}

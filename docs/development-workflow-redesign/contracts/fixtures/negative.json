@@ -1,0 +1,486 @@
+[
+  {
+    "contract_version": 1,
+    "task_id": "task_a",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "assignment_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "decision": "PENDING",
+    "findings": [],
+    "inspected_refs": [
+      "artifact_a"
+    ]
+  },
+  {
+    "contract_version": 1,
+    "status": "REJECTED",
+    "run_id": "run_a",
+    "result": "FAIL",
+    "code": "INCOMPLETE",
+    "next_action": "FIX_FINDINGS"
+  },
+  {
+    "contract_version": 1,
+    "task_id": "task_a",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "assignment_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "decision": "FAIL",
+    "findings": [
+      {
+        "criterion_id": "C1",
+        "category": "IMPLEMENTATION",
+        "message": "Not fixed.",
+        "location": "src/",
+        "evidence_refs": [
+          "artifact_a"
+        ]
+      }
+    ],
+    "inspected_refs": [
+      "artifact_a"
+    ]
+  },
+  {
+    "contract_version": 1,
+    "event_id": "event_result",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "result": "ERROR",
+    "result_id": "result_a",
+    "result_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "findings": [],
+    "artifact_refs": [],
+    "next_action": "FIX_FINDINGS"
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "DECIDED",
+    "result": null,
+    "closure": null,
+    "proposed_result": null,
+    "cleanup_state": "CONFIRMED",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "CLOSED",
+    "result": "PASS",
+    "closure": "CANCELLED",
+    "proposed_result": "PASS",
+    "cleanup_state": "CONFIRMED",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "event_id": "event_result",
+    "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target_kind": "WEBPAGE",
+    "state": "PENDING",
+    "delivery_attempt_count": 0,
+    "ack_digest": null,
+    "mystery": true
+  },
+  {
+    "contract_version": 1,
+    "task_id": "task_old_generation",
+    "run_id": "run_a",
+    "evaluation_generation": 0,
+    "kind": "REVIEW",
+    "dependency_ids": [],
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "state": "QUEUED",
+    "assignment_generation": 1,
+    "assigned_session_id": null,
+    "deadline_ms": 1800000000000,
+    "result": null
+  },
+  {
+    "contract_version": 1,
+    "status": "REJECTED",
+    "result": "FAIL",
+    "code": "BAD",
+    "findings": [],
+    "next_action": "WAIT_FOR_RESULT"
+  },
+  {
+    "contract_version": 1,
+    "status": "REJECTED",
+    "result": "ERROR",
+    "code": "FAULT",
+    "next_action": "FIX_FINDINGS"
+  },
+  {
+    "contract_version": 1,
+    "status": "ACCEPTED",
+    "run_id": "run_a",
+    "generation": 1,
+    "next_action": "WAIT_FOR_RESULT",
+    "findings": []
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_x",
+    "sprint_id": "s",
+    "run_kind": "POST_ACCEPTANCE_REGRESSION",
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "plan_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "author": {
+      "session_id": "s-author",
+      "worktree": "w",
+      "role": "author"
+    },
+    "current_attempt": 1,
+    "sequence": 0
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_x",
+    "sprint_id": "s",
+    "run_kind": "FEATURE_GATE",
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "plan_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "author": {
+      "session_id": "s-author",
+      "worktree": "w",
+      "role": "author"
+    },
+    "current_attempt": 1,
+    "sequence": 0,
+    "owner_acceptance_id": "accept_a"
+  },
+  {
+    "contract_version": 1,
+    "command_id": "owner-x",
+    "acceptance_id": "accept_x",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "owner": {
+      "session_id": "s-author",
+      "worktree": "w",
+      "role": "author"
+    },
+    "kind": "LOCAL_OWNER",
+    "decision": "CANCEL",
+    "findings": [],
+    "expected_sequence": 0
+  },
+  {
+    "contract_version": 1,
+    "cancellation_id": "event_cancel",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "state": "CONFIRMED",
+    "child_ids": [],
+    "cleanup_refs": [],
+    "result": "PASS"
+  },
+  {
+    "contract_version": 1,
+    "task_id": "task_review",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "assignment_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "decision": "PASS",
+    "findings": [
+      {
+        "criterion_id": "C1",
+        "category": "COVERAGE",
+        "message": "Reviewed.",
+        "location": "src/",
+        "evidence_refs": [
+          "artifact_a"
+        ],
+        "required_change": "incorrect on pass"
+      }
+    ],
+    "inspected_refs": [
+      "artifact_a"
+    ]
+  },
+  {
+    "contract_version": 1,
+    "event_id": "event_ack",
+    "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target_kind": "AUTHOR",
+    "state": "ACKNOWLEDGED",
+    "delivery_attempt_count": 1,
+    "ack_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "delivery_id": "delivery_author",
+    "recipient": {
+      "session_id": null,
+      "worktree": "agent-01",
+      "role": "author"
+    }
+  },
+  {
+    "contract_version": 1,
+    "event_id": "event_badrole",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "task_id": "task_a",
+    "assignment_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recipient_binding": {
+      "session_id": "s-author",
+      "worktree": "agent-01",
+      "role": "author"
+    },
+    "artifact_refs": [],
+    "deadline_ms": 1,
+    "required_next_action": "TASK_ASSIGNMENT"
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "DECIDED",
+    "result": "PASS",
+    "closure": null,
+    "proposed_result": null,
+    "proposed_closure": null,
+    "cleanup_state": "PENDING",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "STOPPING",
+    "result": null,
+    "closure": null,
+    "proposed_result": "PASS",
+    "proposed_closure": "CANCELLED",
+    "cleanup_state": "PENDING",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "QUEUED",
+    "result": null,
+    "closure": null,
+    "proposed_result": "PASS",
+    "proposed_closure": null,
+    "cleanup_state": "NOT_REQUIRED",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "event_id": "event_fail",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "result": "FAIL",
+    "result_id": "event_failres",
+    "result_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "findings": [
+      {
+        "criterion_id": "C1",
+        "category": "IMPLEMENTATION",
+        "message": "Bad",
+        "location": "src/",
+        "evidence_refs": [
+          "artifact_a"
+        ]
+      }
+    ],
+    "artifact_refs": [],
+    "next_action": "FIX_FINDINGS"
+  },
+  {
+    "contract_version": 1,
+    "event_id": "event_err",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "result": "ERROR",
+    "result_id": "event_errres",
+    "result_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "findings": [],
+    "artifact_refs": [],
+    "next_action": "WAIT_FOR_RECOVERY",
+    "error_code": "FAULT",
+    "error_message": "Oops"
+  },
+  {
+    "contract_version": 1,
+    "event_id": "event_ack",
+    "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target_kind": "WEBPAGE",
+    "state": "PENDING",
+    "delivery_attempt_count": 0,
+    "ack_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "delivery_id": "delivery_page",
+    "recipient": {
+      "session_id": null,
+      "worktree": "owner-page",
+      "role": "owner"
+    }
+  },
+  {
+    "contract_version": 1,
+    "task_id": "task_rev",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "assignment_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "decision": "FAIL",
+    "findings": [
+      {
+        "criterion_id": "C1",
+        "category": "IMPLEMENTATION",
+        "message": "bad",
+        "location": "src/",
+        "evidence_refs": [
+          "artifact_a"
+        ],
+        "required_change": "fix"
+      }
+    ],
+    "inspected_refs": [
+      "artifact_a"
+    ],
+    "tests_pending": true
+  },
+  {
+    "contract_version": 1,
+    "command_id": "own",
+    "acceptance_id": "accept_bad",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "owner": {
+      "session_id": null,
+      "worktree": "web",
+      "role": "owner"
+    },
+    "kind": "LOCAL_OWNER",
+    "decision": "CANCEL",
+    "findings": [],
+    "expected_sequence": 0,
+    "extra": true
+  },
+  {
+    "contract_version": 1,
+    "command_id": "owner-wrong-role",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "owner": {
+      "session_id": "s-author",
+      "worktree": "agent-01",
+      "role": "author"
+    },
+    "kind": "LOCAL_OWNER",
+    "decision": "CANCEL",
+    "findings": [],
+    "expected_sequence": 1
+  },
+  {
+    "contract_version": 1,
+    "command_id": "owner-changes-missing-fix",
+    "run_id": "run_a",
+    "evaluation_generation": 1,
+    "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "owner": {
+      "session_id": null,
+      "worktree": "owner-page",
+      "role": "owner"
+    },
+    "kind": "LOCAL_OWNER",
+    "decision": "REQUEST_CHANGES",
+    "findings": [
+      {
+        "criterion_id": "C1",
+        "category": "IMPLEMENTATION",
+        "message": "Needs correction.",
+        "location": "src/",
+        "evidence_refs": [
+          "artifact_a"
+        ]
+      }
+    ],
+    "expected_sequence": 3
+  },
+  {
+    "contract_version": 1,
+    "result_id": "event_receipt",
+    "result_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sequence": 4,
+    "disposition": "ACCEPTED",
+    "next_action": "continue_other_work"
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "STOPPING",
+    "result": null,
+    "closure": null,
+    "proposed_result": "PASS",
+    "proposed_closure": "CANCELLED",
+    "cleanup_state": "PENDING",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "STOPPING",
+    "result": null,
+    "closure": null,
+    "proposed_result": null,
+    "proposed_closure": null,
+    "cleanup_state": "PENDING",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "STOPPING",
+    "result": "PASS",
+    "closure": null,
+    "proposed_result": "FAIL",
+    "proposed_closure": null,
+    "cleanup_state": "PENDING",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "STOPPING",
+    "result": null,
+    "closure": "CANCELLED",
+    "proposed_result": null,
+    "proposed_closure": "SUPERSEDED",
+    "cleanup_state": "PENDING",
+    "pause_reason": null
+  },
+  {
+    "contract_version": 1,
+    "run_id": "run_a",
+    "generation": 1,
+    "phase": "STOPPING",
+    "result": null,
+    "closure": null,
+    "proposed_result": "BOGUS",
+    "proposed_closure": null,
+    "cleanup_state": "PENDING",
+    "pause_reason": null
+  }
+]

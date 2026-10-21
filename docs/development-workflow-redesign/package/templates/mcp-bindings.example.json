@@ -1,0 +1,36 @@
+{
+  "disabled": true,
+  "configuration": {
+   "mcp": {
+    "servers": {
+      "ms14_workflow": {
+        "type":"local", "command":["<current-pinned-python>","<installed-root>/tooling/agent_workflow/workflow_coordinator_mcp.py","--repo","<configured-worktree>","--endpoint","<coordinator-listener-http-loopback-distinct-from-opencode-api>","--token-file","<external-author-token>","--profile","author"],
+        "cwd":"<configured-worktree>", "environment":{}, "disabled":true, "codemode":false, "protocol":"legacy", "timeout":{"startup":15000,"catalog":15000,"execution":300000}
+      },
+      "ms14_workflow_review_implementation": {
+        "type":"local", "command":["<current-pinned-python>","<installed-root>/tooling/agent_workflow/workflow_coordinator_mcp.py","--repo","<configured-worktree>","--endpoint","<coordinator-listener-http-loopback-distinct-from-opencode-api>","--token-file","<external-implementation-token>","--profile","reviewer"],
+        "cwd":"<configured-worktree>", "environment":{}, "disabled":true, "codemode":false, "protocol":"legacy", "timeout":{"startup":15000,"catalog":15000,"execution":300000}
+      },
+      "ms14_workflow_review_parity": {
+        "type":"local", "command":["<current-pinned-python>","<installed-root>/tooling/agent_workflow/workflow_coordinator_mcp.py","--repo","<configured-worktree>","--endpoint","<coordinator-listener-http-loopback-distinct-from-opencode-api>","--token-file","<external-parity-token>","--profile","reviewer"],
+        "cwd":"<configured-worktree>", "environment":{}, "disabled":true, "codemode":false, "protocol":"legacy", "timeout":{"startup":15000,"catalog":15000,"execution":300000}
+      },
+      "ms14_workflow_review_coverage": {
+        "type":"local", "command":["<current-pinned-python>","<installed-root>/tooling/agent_workflow/workflow_coordinator_mcp.py","--repo","<configured-worktree>","--endpoint","<coordinator-listener-http-loopback-distinct-from-opencode-api>","--token-file","<external-coverage-token>","--profile","reviewer"],
+        "cwd":"<configured-worktree>", "environment":{}, "disabled":true, "codemode":false, "protocol":"legacy", "timeout":{"startup":15000,"catalog":15000,"execution":300000}
+      },
+      "ms14_workflow_review_fidelity": {
+        "type":"local", "command":["<current-pinned-python>","<installed-root>/tooling/agent_workflow/workflow_coordinator_mcp.py","--repo","<configured-worktree>","--endpoint","<coordinator-listener-http-loopback-distinct-from-opencode-api>","--token-file","<external-fidelity-token>","--profile","reviewer"],
+        "cwd":"<configured-worktree>", "environment":{}, "disabled":true, "codemode":false, "protocol":"legacy", "timeout":{"startup":15000,"catalog":15000,"execution":300000}
+      }
+    }
+   },
+   "agents": {
+    "<explicit-existing-author-agent>": {"permissions":[{"action":"ms14_workflow_submit","effect":"allow","resource":"*"},{"action":"ms14_workflow_status","effect":"allow","resource":"*"},{"action":"ms14_workflow_acknowledge_result","effect":"allow","resource":"*"}]},
+     "workflow-reviewer-implementation": {"permissions":[{"action":"ms14_workflow_review_implementation_claim_task","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_implementation_complete_review","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_implementation_report_error","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_implementation_status","effect":"allow","resource":"*"}]},
+     "workflow-reviewer-parity": {"permissions":[{"action":"ms14_workflow_review_parity_claim_task","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_parity_complete_review","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_parity_report_error","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_parity_status","effect":"allow","resource":"*"}]},
+     "workflow-reviewer-coverage": {"permissions":[{"action":"ms14_workflow_review_coverage_claim_task","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_coverage_complete_review","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_coverage_report_error","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_coverage_status","effect":"allow","resource":"*"}]},
+     "workflow-reviewer-fidelity": {"permissions":[{"action":"ms14_workflow_review_fidelity_claim_task","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_fidelity_complete_review","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_fidelity_report_error","effect":"allow","resource":"*"},{"action":"ms14_workflow_review_fidelity_status","effect":"allow","resource":"*"}]}
+   }
+  }
+}

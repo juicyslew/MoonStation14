@@ -89,7 +89,8 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
             prior = before.get(key)
             artifacts.append({"path": str(path), "sha256": digest, "size": path.stat().st_size,
                               "preexisting": prior is not None,
-                              "changed_this_run": prior is None or prior.get("sha256") != digest})
+                              "changed_this_run": prior is None or prior.get("sha256") != digest,
+                              "observed_fresh_this_run": _fresh(path, before, started, finished, hash_file)})
 
     if kind in ("junit", "readiness"):
         if kind == "junit":
@@ -160,9 +161,12 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
             if not path.is_file(): findings.append(f"build artifact missing: {item}")
             else: add(path)
     elif kind in ("gametest", "launch-smoke"):
-        if not log_path.is_file() or not _fresh(log_path, before, started, finished, hash_file): findings.append("producer log missing or stale")
+        if not log_path.is_file() or not _fresh(log_path, {}, started, finished, hash_file): findings.append("captured coordinator log missing or stale")
         else:
             add(log_path)
+            producer = safe_path(repo, check["log"]) if check.get("log") else None
+            producer_fresh = bool(producer and producer.is_file() and _fresh(producer, before, started, finished, hash_file))
+            if producer_fresh: add(producer)
             if kind == "gametest":
                 pre = re.compile(r"GameTest tag preflight:\s*(\d+)/(\d+) fixtures selected")
                 complete = re.compile(r"All\s+(\d+) required tests passed", re.I)
@@ -187,7 +191,8 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
                 if not saw_pre: findings.append("native GameTest selection preflight absent")
                 if counts["selected"] == 0: findings.append("native GameTest selected no fixtures")
             else:
-                text = log_path.read_text(encoding="utf-8", errors="replace")
+                if not producer_fresh: findings.append("producer log missing or stale")
+                text = producer.read_text(encoding="utf-8", errors="replace") if producer_fresh else ""
                 patterns = check.get("ready_patterns", [])
                 if not patterns or any(p not in text for p in patterns): findings.append("required launch readiness marker absent")
                 if any(p in text for p in check.get("error_patterns", [])): findings.append("configured launch error marker present")

@@ -25,10 +25,10 @@ class StatusTests(unittest.TestCase):
    tmp,fam,root,wf,notes=self.fixture()
    with patch.object(agent_status,'_dispatch',wraps=agent_status._dispatch):
     stats=agent_status.reconcile(root,wf,self.request({}),100,rows=[],attention={},notify=False)
-   self.assertEqual(stats['core_monitored'],4); self.assertEqual(stats['monitored'],5)
+    self.assertEqual(stats['core_monitored'],4); self.assertEqual(stats['monitored'],5)
    cards=agent_status.project(root,[],{},100)['agents']
    self.assertEqual(sum(x['worktree'].casefold()==str(fam/'MoonStation14-agent-01').casefold() for x in cards),1)
-   self.assertEqual([x['label'] for x in cards],['Main consultant','Agent 01','Agent 02','Agent 03','Agent 04'])
+   self.assertEqual([x['label'] for x in cards],['Agent 01','Agent 02','Agent 03','Agent 04'])
    tmp.cleanup()
  def test_candidate_and_old_snapshot_cannot_restore_lead_card(self):
    tmp,fam,root,wf,notes=self.fixture(); lead=str(fam/'MoonStation14-agent-05')
@@ -86,10 +86,72 @@ class StatusTests(unittest.TestCase):
   feedback={'agent_work':[],'awaiting_owner':[]}
   self.assertEqual(next(c for c in agent_status.project(root,[],feedback,101)['agents'] if c['label']=='Agent 01')['column'],'working')
   tmp.cleanup()
+ def test_reconcile_roundtrip_keeps_hidden_idle_observation_and_restores_active_or_unknown(self):
+  tmp,fam,root,wf,notes=self.fixture(); main=str(fam/'MoonStation14').casefold()
+  idle_req=self.request({})
+  agent_status.reconcile(root,wf,idle_req,100,rows=[],attention={},notify=True)
+  saved=json.loads((root/agent_status.SNAPSHOT).read_text())
+  self.assertIn(main,[card['id'] for card in saved['agents']])
+  self.assertEqual(next(card for card in saved['agents'] if card['id']==main)['activity'],'idle')
+  self.assertNotIn(main,[card['id'] for card in agent_status.project(root,[],{},100)['agents']])
+  active_req=self.request({'m':{'type':'running'}},{'m':{'id':'m','location':{'directory':str(fam/'MoonStation14')},'title':'Main active'}})
+  agent_status.reconcile(root,wf,active_req,101,rows=[],attention={},notify=True)
+  self.assertIn(main,[card['id'] for card in agent_status.project(root,[],{},101)['agents']])
+  agent_status.reconcile(root,wf,idle_req,102,rows=[],attention={},notify=True)
+  stale=json.loads((root/agent_status.SNAPSHOT).read_text()); stale['checked_at']=1
+  wf.writejson(root/agent_status.SNAPSHOT,stale)
+  projected=agent_status.project(root,[],{},102)['agents']
+  self.assertIn(main,[card['id'] for card in projected])
+  self.assertEqual(next(card for card in projected if card['id']==main)['activity'],'unknown')
+  self.assertEqual(len(notes),0)
+  tmp.cleanup()
  def test_stale_snapshot_unknown_and_not_ready(self):
   tmp,fam,root,wf,notes=self.fixture(); wf.writejson(root/agent_status.SNAPSHOT,{'checked_at':1,'agents':[{'id':str(fam/'MoonStation14-agent-01').casefold(),'activity':'idle','column':'ready_manual'}]})
   card=next(c for c in agent_status.project(root,[],{},100)['agents'] if c['label']=='Agent 01')
   self.assertEqual(card['activity'],'unknown'); self.assertEqual(card['column'],'working')
+  tmp.cleanup()
+ def test_idle_noncore_hidden_only_for_confirmed_idle_working_projection(self):
+  tmp,fam,root,wf,notes=self.fixture(); main=str(fam/'MoonStation14').casefold()
+  snapshot={'checked_at':100,'agents':[{'id':main,'activity':'idle'}, {'id':str(fam/'MoonStation14-agent-01').casefold(),'activity':'idle'}]}
+  wf.writejson(root/agent_status.SNAPSHOT,snapshot)
+  self.assertNotIn(main,[c['id'] for c in agent_status.project(root,[],{},100)['agents']])
+  snapshot['agents'][0]['activity']='working'; wf.writejson(root/agent_status.SNAPSHOT,snapshot)
+  self.assertIn(main,[c['id'] for c in agent_status.project(root,[],{},100)['agents']])
+  snapshot['agents'][0]['activity']='unknown'; wf.writejson(root/agent_status.SNAPSHOT,snapshot)
+  self.assertIn(main,[c['id'] for c in agent_status.project(root,[],{},100)['agents']])
+  snapshot['agents'][0]['activity']='idle'; wf.writejson(root/agent_status.SNAPSHOT,snapshot)
+  for column,rows,attention in (
+   ('active_validation',[{'author':str(fam/'MoonStation14'),'state':'running','validation_active':True}],{}),
+   ('ready_manual',[],{'awaiting_owner':[{'worktree':str(fam/'MoonStation14'),'title':'Review'}]})):
+   card=next(c for c in agent_status.project(root,rows,attention,100)['agents'] if c['id']==main)
+   self.assertEqual(card['column'],column)
+  queued={'id':'main-candidate','worktree':{'worktree':str(fam/'MoonStation14')},'sprint_id':'main-project'}
+  row={'id':'main-candidate','author':str(fam/'MoonStation14'),'state':'queued','validation_active':False,'health':{'state':'active'}}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':queued}]):
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['id']==main)
+  self.assertEqual(card['column'],'waiting_validation')
+  cards=agent_status.project(root,[],{},100)['agents']
+  self.assertIn(str(fam/'MoonStation14-agent-01').casefold(),[c['id'] for c in cards])
+  self.assertNotIn(str(fam/'MoonStation14-agent-05').casefold(),[c['id'] for c in cards])
+  stale=dict(snapshot,checked_at=1); wf.writejson(root/agent_status.SNAPSHOT,stale)
+  self.assertIn(main,[c['id'] for c in agent_status.project(root,[],{},100)['agents']])
+  tmp.cleanup()
+ def test_stale_owner_readiness_explains_current_work_without_promoting_to_manual(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
+  head={'id':'candidate','worktree':{'worktree':p},'sprint_id':'s','gate_plan':{'title':'Project'},
+        'owner_review':{'state':'awaiting_owner','readiness':{'eligible':False}}}
+  blocked={'candidate_id':'candidate','reason':'candidate stale: docs/s/OPERATOR.md'}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   wf.writejson(root/agent_status.SNAPSHOT,{'checked_at':100,'agents':[]})
+   card=next(c for c in agent_status.project(root,[],{'agent_work':[blocked]},100)['agents'] if c['label']=='Agent 01')
+  self.assertEqual(card['column'],'working')
+  self.assertEqual(card['detail'],'candidate stale: docs/s/OPERATOR.md')
+  self.assertEqual(card['manual_steps'],[])
+  fresh={'candidate_id':'ready','worktree':p,'title':'Legitimate handoff','manual_steps':['Inspect panel']}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[],{'awaiting_owner':[fresh]},100)['agents'] if c['label']=='Agent 01')
+  self.assertEqual(card['column'],'ready_manual')
+  self.assertEqual(card['manual_steps'],['Inspect panel'])
   tmp.cleanup()
  def test_api_failure_and_missing_header_do_not_claim_idle_or_alert(self):
   tmp,fam,root,wf,notes=self.fixture()
@@ -185,6 +247,55 @@ class StatusTests(unittest.TestCase):
    rows[0]['health']={'state':'active'}
    c=next(c for c in agent_status.project(root,rows,{},100)['agents'] if c['label']=='Agent 01')
    self.assertEqual(c['column'],'waiting_validation')
+   tmp.cleanup()
+ def test_bound_admitted_intake_waits_even_when_health_reports_blocked(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
+  head={'id':'candidate','snapshot_key':'snap','worktree':{'worktree':p},'gate_request':{'session_id':'lead','origin_session_id':'author','snapshot_key':'snap','central_worktree':str(fam/'MoonStation14-agent-05'),'prompt_admitted':True,'dispatch_state':'admitted'},'gate_plan':{'title':'Current task'}}
+  row={'id':'candidate','author':p,'state':'admitted','health':{'state':'blocked','reason':'recovery acknowledged but no model execution followed; author action required'},'validation_active':False}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   wf.writejson(root/agent_status.SNAPSHOT,{'checked_at':100,'agents':[{'id':p.casefold(),'activity':'idle'}]})
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+   self.assertEqual(card['column'],'waiting_validation')
+   self.assertIn('Validation blocked',card['detail'])
+   self.assertIn('author action required',card['detail'])
+  self.assertEqual(card['activity'],'idle')
+  tmp.cleanup()
+ def test_durable_dispatch_pending_without_progress_waits_and_invalid_bindings_do_not(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
+  good={'session_id':None,'origin_session_id':'author','snapshot_key':'snap','central_worktree':str(fam/'MoonStation14-agent-05'),'dispatch_pending':True}
+  head={'id':'candidate','snapshot_key':'snap','worktree':{'worktree':p},'gate_request':good}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[],{},100)['agents'] if c['label']=='Agent 01')
+  self.assertEqual(card['column'],'waiting_validation')
+  for request in (dict(good,snapshot_key='old'),dict(good,origin_session_id=' '),{'session_id':'old-session'}):
+   head['gate_request']=request
+   with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+    card=next(c for c in agent_status.project(root,[],{},100)['agents'] if c['label']=='Agent 01')
+    self.assertNotEqual(card['column'],'waiting_validation',request)
+  tmp.cleanup()
+
+ def test_waiting_roundtrip_suppresses_idle_episode_until_work_clears(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
+  head={'id':'candidate','snapshot_key':'snap','worktree':{'worktree':p},'gate_request':{'session_id':None,'origin_session_id':'author','snapshot_key':'snap','central_worktree':str(fam/'MoonStation14-agent-05'),'dispatch_pending':True}}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   agent_status.reconcile(root,wf,self.request({}),100,rows=[],attention={},notify=True)
+   saved=agent_status.project(root,[],{},101)['agents']
+   self.assertEqual(next(c for c in saved if c['label']=='Agent 01')['column'],'waiting_validation')
+   agent_status.reconcile(root,wf,self.request({}),110,rows=[],attention={},notify=True)
+   self.assertTrue(all('Agent 01' not in note[2] for note in notes))
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[]):
+   agent_status.reconcile(root,wf,self.request({}),120,rows=[],attention={},notify=True)
+   agent_status.reconcile(root,wf,self.request({}),130,rows=[],attention={},notify=True)
+   self.assertTrue(any('Agent 01' in note[2] for note in notes))
+  tmp.cleanup()
+ def test_terminal_gate_outcomes_do_not_wait(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
+  for outcome in ('diagnostic_complete','superseded','needs_changes'):
+   head={'id':'candidate','snapshot_key':'snap','worktree':{'worktree':p},'gate_request':{'session_id':'lead','origin_session_id':'author','snapshot_key':'snap','central_worktree':str(fam/'MoonStation14-agent-05'),'prompt_admitted':True},'gate_outcome':{'result':outcome}}
+   row={'id':'candidate','author':p,'state':'admitted','validation_active':False}
+   with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+    card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+   self.assertNotEqual(card['column'],'waiting_validation',outcome)
   tmp.cleanup()
  def test_current_queued_runner_pid_alive_without_health_is_waiting(self):
   tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
@@ -241,6 +352,92 @@ class StatusTests(unittest.TestCase):
   with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]), patch('tooling.agent_workflow.gate_progress._pid_alive',return_value=True):
    agent_status.reconcile(root,wf,req,100,rows=[row],attention={},notify=False)
    card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
-  self.assertEqual(card['column'],'waiting_validation'); self.assertIsNone(card['validation_stage']); tmp.cleanup()
+   self.assertEqual(card['column'],'waiting_validation'); self.assertIsNone(card['validation_stage']); tmp.cleanup()
+
+ def test_admitted_pending_and_terminal_diagnostic_do_not_mask_bound_active_lead(self):
+  tmp,fam,root,wf,notes=self.fixture(); author=fam/'MoonStation14-agent-01'; lead=fam/'MoonStation14-agent-05'; p=str(author)
+  req={'session_id':'gate','snapshot_key':'snap','origin_session_id':'author','central_worktree':str(lead),'prompt_admitted':True}
+  head={'id':'candidate','snapshot_key':'snap','worktree':{'worktree':p},'gate_request':req,'gate_plan':{'title':'Review'},'gate_outcome':{}}
+  session={'id':'gate','metadata':{'candidate_id':'candidate','snapshot_key':'snap','author_worktree':p,'workflow_gate':True}}
+  row={'id':'candidate','author':p,'state':'admitted','validation_active':False}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   wf.writejson(root/agent_status.SNAPSHOT,{'checked_at':100,'agents':[{'id':p.casefold(),'activity':'idle'}],'active_sessions':{'gate':session}})
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+  self.assertEqual((card['column'],card['validation_stage']),('active_validation','review'))
+  head['gate_outcome']={'result':'diagnostic_complete'}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+   self.assertNotEqual(card['column'],'active_validation')
+   tmp.cleanup()
+
+ def _write_requested_job(self,root,ident,snapshot,lead,state='requested'):
+  from tooling.agent_workflow import gate_execution
+  gate_execution._write(gate_execution._path(root,ident),{
+   'job_id':ident,'candidate_id':ident,'snapshot_key':snapshot,
+   'lead_session_id':lead,'origin_session_id':'author','state':state,
+   'claim':'a'*64,'attempt':0})
+
+ def test_terminal_blocked_admission_without_job_is_not_waiting(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14')
+  head={'id':'obsolete','snapshot_key':'snap','worktree':{'worktree':p},
+        'gate_request':{'session_id':'lead','origin_session_id':'author','snapshot_key':'snap',
+                        'central_worktree':str(fam/'MoonStation14-agent-05'),'prompt_admitted':True}}
+  row={'id':'obsolete','author':p,'phase':'blocked','state':'OPERATIONAL BLOCKED',
+       'validation_active':False,'health':{'state':'blocked','reason':'source-stale'}}
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Main consultant')
+  self.assertEqual(card['column'],'working')
+  tmp.cleanup()
+
+ def test_requested_bound_job_overrides_terminal_gate_outcome_but_not_bad_binding_or_completion(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
+  base_req={'session_id':'lead','origin_session_id':'author','snapshot_key':'snap',
+            'central_worktree':str(fam/'MoonStation14-agent-05'),'prompt_admitted':True}
+  row={'id':'candidate','author':p,'phase':'needs_changes','state':'needs_changes','validation_active':False}
+  head={'id':'candidate','snapshot_key':'snap','worktree':{'worktree':p},'gate_request':base_req,
+        'gate_outcome':{'result':'needs_changes'},'gate_plan':{'title':'Queued checks'}}
+  self._write_requested_job(root,'candidate','snap','lead')
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+  self.assertEqual(card['column'],'waiting_validation')
+  # A real requested job remains waiting even if admission-progress says blocked.
+  row.update(phase='blocked',state='OPERATIONAL BLOCKED')
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+  self.assertEqual(card['column'],'waiting_validation')
+  for job_fields in (
+   {'snapshot_key':'other','lead_session_id':'lead','state':'requested'},
+   {'snapshot_key':'snap','lead_session_id':'other-lead','state':'requested'},
+   {'snapshot_key':'snap','lead_session_id':'lead','state':'completed'},
+  ):
+   self._write_requested_job(root,'candidate',job_fields['snapshot_key'],job_fields['lead_session_id'],job_fields['state'])
+   with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+    card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+   self.assertNotEqual(card['column'],'waiting_validation',job_fields)
+  # Terminal diagnostic history cannot be revived by a completed job.
+  head['gate_outcome']={'result':'diagnostic_complete'}
+  self._write_requested_job(root,'candidate','snap','lead','completed')
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[row],{},100)['agents'] if c['label']=='Agent 01')
+  self.assertNotEqual(card['column'],'waiting_validation')
+  tmp.cleanup()
+
+ def test_requested_job_waiting_does_not_alert_idle_core_and_live_worker_remains_active(self):
+  tmp,fam,root,wf,notes=self.fixture(); p=str(fam/'MoonStation14-agent-01')
+  head={'id':'queued','snapshot_key':'snap','worktree':{'worktree':p},
+        'gate_request':{'session_id':'lead','origin_session_id':'author','snapshot_key':'snap',
+                        'central_worktree':str(fam/'MoonStation14-agent-05'),'prompt_admitted':True},
+        'gate_outcome':{'result':'needs_changes'}}
+  row={'id':'queued','author':p,'phase':'needs_changes','state':'needs_changes','validation_active':False}
+  self._write_requested_job(root,'queued','snap','lead')
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   agent_status.reconcile(root,wf,self.request({}),100,rows=[row],attention={},notify=True)
+   agent_status.reconcile(root,wf,self.request({}),110,rows=[row],attention={},notify=True)
+  self.assertTrue(all('Agent 01' not in note[2] for note in notes))
+  row['validation_active']=True
+  with patch('tooling.agent_workflow.owner_attention.current_work',return_value=[{'head':head}]):
+   card=next(c for c in agent_status.project(root,[row],{},111)['agents'] if c['label']=='Agent 01')
+  self.assertEqual((card['column'],card['validation_stage']),('active_validation','checks'))
+  tmp.cleanup()
 
  if __name__=='__main__': unittest.main()
