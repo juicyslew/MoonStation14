@@ -40,6 +40,15 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
     private UUID sourceEmitter;
     private ParticleAcceleratorStrengthProfile strength;
     private final Set<UUID> overlaps = new HashSet<>();
+    private boolean diagnosticsEnabled;
+    private ContactReceipt contactReceipt;
+    public void enableCommissioningDiagnostics() { diagnosticsEnabled = true; }
+    public ContactReceipt commissioningContactReceipt() { return contactReceipt; }
+    public record ContactReceipt(long tick, String outcome, Vec3 position, UUID target, int foodRequested,
+                                 double sourceEnergyBefore, double sourceEnergyAfter) { }
+    private void recordContact(String outcome, Vec3 at, UUID target, int food, double before, double after) {
+        if (diagnosticsEnabled) contactReceipt = new ContactReceipt(level().getGameTime(), outcome, at, target, food, before, after);
+    }
 
     public ParticleAcceleratorParticleEntity(EntityType<? extends ParticleAcceleratorParticleEntity> type, Level level) {
         super(type, level);
@@ -87,8 +96,8 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
         super.tick();
         if (!(level() instanceof ServerLevel server)) return;
         ParticleAcceleratorParticleProfile p = resolvedProfile();
-        if (p == null) { discard(); return; }
-        if (++age >= p.lifetimeTicks()) { discard(); return; }
+        if (p == null) { recordContact("invalid-profile-removal", position(), null, 0, 0, 0); discard(); return; }
+        if (++age >= p.lifetimeTicks()) { recordContact("lifetime-expiry", position(), null, 0, 0, 0); discard(); return; }
         Vec3 from = position(), to = from.add(getDeltaMovement());
         if (!ProjectileLoadedSweep.isLoadedSpan(server, from, to, p.halfExtent())) {
             overlaps.clear();
@@ -108,7 +117,7 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
             LivingEntity living = (LivingEntity)e;
             if (!living.isAlive() || living.isSpectator() || (sourceEmitter != null && sourceEmitter.equals(living.getUUID()))) continue;
             entryPoint(living.getBoundingBox().inflate(p.halfExtent()), from, to).ifPresent(hit ->
-                    contacts.add(new Contact(from.distanceToSqr(hit), living.getUUID(), () -> hitLiving(living, p))));
+                    contacts.add(new Contact(from.distanceToSqr(hit), living.getUUID(), () -> { recordContact("living-hit", hit, living.getUUID(), 0, 0, 0); hitLiving(living, p); })));
         }
         double maxEventHorizon = ModSingularityGameplay.catalog(level()).values().stream()
                 .mapToDouble(profile -> profile.eventHorizonRadiusAtLevel(profile.levelThresholds().size() - 1)).max().orElse(0);
@@ -117,7 +126,10 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
             double radius = singularity.gravityProfile().eventHorizonRadiusAtLevel(singularity.singularityLevel());
             double t = sphereEntry(from, to, singularity.position(), radius + p.halfExtent());
             if (t >= 0) contacts.add(new Contact(t * t * from.distanceToSqr(to), singularity.getUUID(), () -> {
-                if (strength != null) singularity.feed(strength.singularityFood());
+                int food = strength == null ? 0 : strength.singularityFood();
+                double before = singularity.energy();
+                if (strength != null) singularity.feed(food);
+                recordContact("singularity-feed", from.lerp(to, t), singularity.getUUID(), food, before, singularity.energy());
                 discard();
             }));
         }
@@ -126,6 +138,7 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
             if (server.getBlockEntity(pos) instanceof SingularityGeneratorBlockEntity generator) {
                 AABB cell = new AABB(pos).inflate(p.halfExtent());
                 cell.clip(from,to).ifPresent(hit -> contacts.add(new Contact(from.distanceToSqr(hit), generator.placementIdentity(), () -> {
+                    recordContact("generator-hit", hit, generator.placementIdentity(), 0, 0, 0);
                     if (strength != null) generator.receiveParticle(strength);
                     emitImpact(p, hit, ParticleAcceleratorImpactAudio.Contact.GENERATOR, false, false);
                     discard(); // even cooldown, inert, invalid-profile, or zero-charge collisions consume the particle

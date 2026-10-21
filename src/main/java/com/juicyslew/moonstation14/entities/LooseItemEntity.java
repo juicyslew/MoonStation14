@@ -27,7 +27,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
 
 /** Persistent loose object with independent motion; it deliberately has no ItemEntity pickup/merge/lifespan behavior. */
-public class LooseItemEntity extends ItemEntity {
+public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     private static final EntityDataAccessor<Float> ROTATION = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> SETTLED = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.BOOLEAN);
     private float angularVelocity;
@@ -186,7 +186,8 @@ public class LooseItemEntity extends ItemEntity {
         // detached/preview instances that happen to execute a presentation tick.
         if (level().getEntity(getId()) == this) {
             Vec3 gravity = com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
-                    .deltaVelocity(level(), position(), level().getGameTime()).scale(.05);
+                    .deltaVelocity(level(), position(), level().getGameTime())
+                    .scale(com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion.SECONDS_PER_TICK);
             if (gravity.lengthSqr() > 0) applyPullVelocityChange(gravity);
         }
         if (settled()) {

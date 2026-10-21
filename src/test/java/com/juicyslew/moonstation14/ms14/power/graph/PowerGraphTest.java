@@ -328,6 +328,46 @@ final class PowerGraphTest {
         assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.state(left).knowledge());
     }
 
+    @Test void staleChunkUnloadPreservesReplacementStateAndRealUnloadCleansIt() {
+        PowerGraphService.LevelState state = new PowerGraphService.LevelState();
+        ChunkPos pos = new ChunkPos(-1, -668060);
+        CableFaceNode cable = new CableFaceNode(new BlockPos(pos.getMinBlockX() + 8, 0,
+                pos.getMinBlockZ() + 8), Direction.UP, CableTier.HV);
+        state.graph.replaceChunk(pos, List.of(cable));
+        finish(state.graph, 32);
+        assertEquals(LoadedPowerGraph.Knowledge.KNOWN, state.graph.state(cable).knowledge());
+        state.indexed.put(pos, List.of(cable));
+        state.pending.add(pos);
+        state.validation.schedule(pos);
+        state.deferredLoads.add(pos);
+        BlockPos lamp = new BlockPos(pos.getMinBlockX(), 0, pos.getMinBlockZ());
+        state.lampChoices.put(lamp, new PowerGraphService.CachedLampNode(state.graph.revision(), 3, cable));
+        long generation = state.topologyGeneration;
+        Object unloading = new Object();
+        Object replacement = new Object();
+
+        assertFalse(PowerGraphService.processChunkUnload(state, pos, replacement, unloading, true));
+        assertTrue(state.graph.isChunkLoaded(pos));
+        assertEquals(LoadedPowerGraph.Knowledge.KNOWN, state.graph.state(cable).knowledge());
+        assertTrue(state.pending.contains(pos));
+        assertEquals(pos, state.validation.poll());
+        assertTrue(state.deferredLoads.contains(pos));
+        assertTrue(state.indexed.containsKey(pos));
+        assertTrue(state.lampChoices.containsKey(lamp));
+        assertEquals(generation, state.topologyGeneration);
+
+        assertTrue(PowerGraphService.processChunkUnload(state, pos, null, unloading, true),
+                "an absent current chunk still follows genuine-unload cleanup");
+        assertFalse(state.graph.isChunkLoaded(pos));
+        assertEquals(LoadedPowerGraph.Knowledge.UNKNOWN, state.graph.state(cable).knowledge());
+        assertFalse(state.pending.contains(pos));
+        assertNull(state.validation.poll());
+        assertFalse(state.deferredLoads.contains(pos));
+        assertFalse(state.indexed.containsKey(pos));
+        assertFalse(state.lampChoices.containsKey(lamp));
+        assertTrue(state.topologyGeneration > generation);
+    }
+
     @Test void diagnosticsExposeStoredMissingFrontierAndClearWhenNeighborLoads() {
         LoadedPowerGraph graph = new LoadedPowerGraph();
         CableFaceNode left = new CableFaceNode(new BlockPos(15, 0, 8), Direction.UP, CableTier.HV);
@@ -344,6 +384,70 @@ final class PowerGraphTest {
         graph.setChunkLoaded(rightChunk, true);
         assertTrue(graph.diagnostics(left).unloadedPotentialNeighborChunks().isEmpty());
         assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.diagnostics(left).state().knowledge());
+    }
+
+    @Test void boundedFrontierAdmissionQueuesOnlyFullChunksAndRotatesPastAbsentPrefix() {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        List<CableFaceNode> chain = new ArrayList<>();
+        for (int x = 15; x <= 15 + 12 * 16; x++)
+            chain.add(new CableFaceNode(new BlockPos(x, 0, 8), Direction.UP, CableTier.HV));
+        for (int x = 0; x <= 12; x++) {
+            int chunkX = x;
+            graph.replaceChunk(new ChunkPos(x, 0), chain.stream()
+                    .filter(node -> (node.host().getX() >> 4) == chunkX).toList());
+        }
+        finish(graph, 4096);
+        CableFaceNode first = chain.get(0);
+        assertEquals(LoadedPowerGraph.Knowledge.UNKNOWN, graph.state(first).knowledge());
+        PowerGraphService.LevelState state = new PowerGraphService.LevelState();
+        state.graph.replaceChunk(new ChunkPos(0, 0), List.of(first));
+        // Exercise the production queue-admission seam: absent frontiers remain untouched,
+        // while repeated full admission changes generation exactly once.
+        ChunkPos missing = new ChunkPos(20, 0);
+        assertFalse(PowerGraphService.admitFullFrontier(state, missing, false));
+        long before = state.topologyGeneration;
+        assertTrue(PowerGraphService.admitFullFrontier(state, missing, true));
+        assertEquals(before + 1, state.topologyGeneration);
+        assertFalse(PowerGraphService.admitFullFrontier(state, missing, true));
+        assertEquals(before + 1, state.topologyGeneration);
+
+        // Scans are limited to eight stored keys; repeated queries advance rather than
+        // starving a later loaded key behind an absent prefix.
+        List<ChunkPos> firstBatch = graph.missingFrontierBatch(first, 8);
+        List<ChunkPos> laterBatch = graph.missingFrontierBatch(first, 8);
+        assertTrue(firstBatch.size() <= 8);
+        assertTrue(laterBatch.size() <= 8);
+        assertFalse(firstBatch.containsAll(laterBatch));
+        ChunkPos laterFull = laterBatch.get(0);
+        assertFalse(PowerGraphService.admitFullFrontier(state, laterFull, false));
+        assertTrue(PowerGraphService.admitFullFrontier(state, laterFull, true));
+    }
+
+    @Test void packedMinimumFrontierKeyIsNotMistakenForUnsetCursor() throws Exception {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        CableFaceNode cable = node(15, CableTier.HV);
+        graph.replaceChunk(new ChunkPos(0, 0), List.of(cable));
+        finish(graph, 16);
+        int component = graph.state(cable).componentId();
+        var infosField = LoadedPowerGraph.class.getDeclaredField("componentInfo");
+        infosField.setAccessible(true);
+        var infos = (java.util.Map<?, ?>) infosField.get(graph);
+        Object info = infos.get(component);
+        var frontierField = info.getClass().getDeclaredField("potentialNeighborChunks");
+        frontierField.setAccessible(true);
+        @SuppressWarnings("unchecked") var frontier = (java.util.Set<Long>) frontierField.get(info);
+        frontier.clear();
+        frontier.add(Long.MIN_VALUE);
+        frontier.add(1L);
+
+        var batch = graph.missingFrontierBatch(cable, 1);
+        assertEquals(List.of(new ChunkPos(Long.MIN_VALUE)), batch);
+        PowerGraphService.LevelState state = new PowerGraphService.LevelState();
+        assertTrue(PowerGraphService.admitFullFrontier(state, batch.get(0), true));
+        long generation = state.topologyGeneration;
+        assertFalse(PowerGraphService.admitFullFrontier(state, batch.get(0), true));
+        assertEquals(generation, state.topologyGeneration);
+        assertEquals(List.of(new ChunkPos(1, 0)), graph.missingFrontierBatch(cable, 1));
     }
 
     @Test void periodicValidationRotatesAcrossMoreThanFourChunksWithoutInvalidatingKnownGraph() {

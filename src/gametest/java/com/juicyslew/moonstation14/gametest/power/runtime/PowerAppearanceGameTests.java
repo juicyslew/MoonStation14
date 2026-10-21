@@ -55,9 +55,10 @@ public final class PowerAppearanceGameTests {
                 ()->PowerFixtureReadiness.topologyReadyWithKnownPorts(level,sourceHv,subHv,subMv,apcMv,apcOutput)
                         &&level.getBlockState(source).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.FIXED_ON
                         &&level.getBlockState(sub).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.FULL
-                         &&level.getBlockState(apc).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.CHARGING
-                         &&level.getBlockState(apc).getValue(PowerDeviceBlock.GLOW)
-                        &&level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT),
+                          &&level.getBlockState(apc).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.CHARGING
+                          &&level.getBlockState(apc).getValue(PowerDeviceBlock.GLOW)
+                          &&level.getBrightness(LightLayer.BLOCK,apc.above())>0
+                         &&level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT),
                 ()->"source="+PowerGraphService.state(level,sourceHv)+", subHV="+PowerGraphService.state(level,subHv)
                         +", subMV="+PowerGraphService.state(level,subMv)+", apcMV="+PowerGraphService.state(level,apcMv)
                         +", output="+PowerGraphService.state(level,apcOutput)+", solve="+PowerRuntime.lastSolveDiagnostic(level),()->{

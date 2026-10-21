@@ -23,7 +23,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
-public final class FieldGeneratorBlock extends Block implements EntityBlock {
+public final class FieldGeneratorBlock extends Block implements EntityBlock, com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     // Accepted model's metal foot is x/z 3..13 and y 0..2 model units.
     private static final VoxelShape METAL_FOOT = Block.box(3, 0, 3, 13, 2, 13);
     private static final VoxelShape METAL_BODY = Shapes.or(METAL_FOOT, Block.box(6, 2, 6, 10, 20, 10));

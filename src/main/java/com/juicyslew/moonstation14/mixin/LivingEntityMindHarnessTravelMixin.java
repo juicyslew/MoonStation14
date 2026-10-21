@@ -19,11 +19,11 @@ public abstract class LivingEntityMindHarnessTravelMixin {
         if (entity instanceof LivingEntity living && !living.level().isClientSide
                 && !living.isPassenger() && !living.isDeadOrDying() && !living.isSpectator() && !living.noPhysics
                 && (!(entity instanceof Mob mob) || !((MindControlledMob) mob).moonstation14$isMovementOwned())) {
-            Vec3 perSecond = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
-                    .deltaVelocityPerSecond(living);
-            perSecond = perSecond.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
-                    .deltaVelocity(living.level(), living.position(), living.level().getGameTime()));
-            Vec3 delta = perSecond.scale(.05);
+            Vec3 delta = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
+                    .deltaVelocityPerSecond(living).scale(.05);
+            delta = delta.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
+                    .deltaVelocity(living.level(), living.position(), living.level().getGameTime())
+                    .scale(com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion.SECONDS_PER_TICK));
             if (delta.lengthSqr() > 0) living.setDeltaMovement(living.getDeltaMovement().add(delta));
         }
     }

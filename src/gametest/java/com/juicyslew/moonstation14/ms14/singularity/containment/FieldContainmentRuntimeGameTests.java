@@ -120,6 +120,31 @@ public final class FieldContainmentRuntimeGameTests {
         h.succeed();
     }
 
+    @GameTestTags({"reactor-models", "containment"})
+    @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",timeoutTicks=40)
+    public static void emitterAndFieldGeneratorDoNotOccludeGroundTopQuad(GameTestHelper h) {
+        var level=h.getLevel();
+        var ground=h.absolutePos(new BlockPos(2,1,2));
+        var machine=ground.above();
+        level.setBlock(ground,Blocks.STONE.defaultBlockState(),3);
+        for(var block:List.of(ModBlocks.EMITTER.get(),ModBlocks.FIELD_GENERATOR.get())) {
+            var state=block.defaultBlockState();
+            level.setBlock(machine,state,3);
+            check(h,!state.canOcclude(),block.getDescriptionId()+" actual registered state is non-occluding");
+            check(h,net.minecraft.world.level.block.Block.shouldRenderFace(
+                    Blocks.STONE.defaultBlockState(),level,ground,net.minecraft.core.Direction.UP,machine),
+                    block.getDescriptionId()+" preserves the ground top quad from above");
+            var outline=state.getShape(level,machine,net.minecraft.world.phys.shapes.CollisionContext.empty());
+            var collision=state.getCollisionShape(level,machine,net.minecraft.world.phys.shapes.CollisionContext.empty());
+            check(h,!outline.isEmpty()&&!collision.isEmpty(),block.getDescriptionId()+" retains physical outline and collision geometry");
+        }
+        level.setBlock(machine,Blocks.STONE.defaultBlockState(),3);
+        check(h,!net.minecraft.world.level.block.Block.shouldRenderFace(
+                Blocks.STONE.defaultBlockState(),level,ground,net.minecraft.core.Direction.UP,machine),
+                "ground top quad culls against opaque stone control above");
+        h.succeed();
+    }
+
     @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",timeoutTicks=40)
     public static void loadedRegisteredCornersDeriveSixFacesAndPersistLinksUntilBothLow(GameTestHelper h) {
         var generators=ContainmentFixture.placeBox(h); var level=h.getLevel(); var local=new LocalView(h,generators); FieldContainmentRuntime.refresh(level);

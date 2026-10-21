@@ -32,7 +32,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import javax.annotation.Nullable;
 
 /** Visible, static power device. This class only defines ports and APC interaction; no allocation. */
-public class PowerDeviceBlock extends Block implements EntityBlock {
+public class PowerDeviceBlock extends Block implements EntityBlock, com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
     public static final BooleanProperty LIT = BooleanProperty.create("lit");
     public static final BooleanProperty GLOW = BooleanProperty.create("glow");

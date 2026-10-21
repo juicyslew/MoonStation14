@@ -36,7 +36,7 @@ class EmoteResourcesTest {
         var files = Files.walk(emotes).filter(path -> path.toString().endsWith(".ogg")).toList();
         assertEquals(34, files.size());
         assertFalse(Files.exists(emotes.resolve("whistle/whistle_4.ogg")));
-        String manifest = Files.readString(project.resolve("docs/third-party-emote-audio.md"));
+        String manifest = Files.readString(project.resolve("docs/audio/third-party-emote-audio.md"));
         Map<String, String> manifestHashes = new HashMap<>();
         for (String line : manifest.lines().toList()) {
             if (!line.startsWith("| ") || !line.endsWith(" |")) continue;

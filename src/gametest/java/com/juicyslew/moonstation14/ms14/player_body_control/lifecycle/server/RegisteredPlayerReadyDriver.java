@@ -21,17 +21,13 @@ public final class RegisteredPlayerReadyDriver {
     public record Active(LivingEntity body, long epoch, BodyHandStateSnapshot initialHands) { }
 
     public static Active readyAndQuery(RegisteredServerPlayerFixture fixture) {
-        GhostControlPayloads.Begin begin = null;
-        Object outbound;
-        while ((outbound = fixture.pollOutbound()) != null) {
-            if (outbound instanceof ClientboundCustomPayloadPacket packet
-                    && packet.payload() instanceof GhostControlPayloads.Begin captured
-                    && captured.harnessKind() == MobHarnessKind.CHARACTER) {
-                begin = captured;
-                break;
-            }
-        }
+        GhostControlPayloads.Begin begin = takeBegin(fixture, MobHarnessKind.CHARACTER);
         if (begin == null) throw new IllegalStateException("normal lifecycle login emitted no CHARACTER Begin");
+        return readyAndQuery(fixture, begin);
+    }
+
+    public static Active readyAndQuery(RegisteredServerPlayerFixture fixture, GhostControlPayloads.Begin begin) {
+        if (begin.harnessKind() != MobHarnessKind.CHARACTER) throw new IllegalArgumentException("expected CHARACTER Begin");
         LifecycleCharacterSessionControl.onPayload(new GhostControlPayloads.Ready(begin.mindEpoch()), fixture.player());
         var active = LifecycleCharacterSessionControl.activeCharacterBody(fixture.player())
                 .orElseThrow(() -> new IllegalStateException("normal Ready did not establish active body"));
@@ -40,6 +36,35 @@ public final class RegisteredPlayerReadyDriver {
             throw new IllegalStateException("full hand query denied after Ready: " + snapshot.reason());
         BodyHandStateService.requireFreshQuery(fixture.player());
         return new Active(active.body(), active.epoch(), snapshot);
+    }
+
+    public static void readyGhost(RegisteredServerPlayerFixture fixture, GhostControlPayloads.Begin begin) {
+        if (begin.harnessKind() != MobHarnessKind.GHOST) throw new IllegalArgumentException("expected GHOST Begin");
+        var listener = (net.minecraft.server.network.ServerGamePacketListenerImpl) fixture.connection().getPacketListener();
+        listener.handleCustomPayload(new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(
+                new GhostControlPayloads.Ready(begin.mindEpoch())));
+        if (LifecycleGhostSessionControl.canonicalGhost(fixture.player()).isEmpty())
+            throw new IllegalStateException("production GHOST Ready did not commit canonical ghost session");
+    }
+
+    private static GhostControlPayloads.Begin takeBegin(RegisteredServerPlayerFixture fixture, MobHarnessKind kind) {
+        GhostControlPayloads.Begin begin = null;
+        Object outbound;
+        while ((outbound = fixture.pollOutbound()) != null) {
+            if (outbound instanceof ClientboundCustomPayloadPacket packet
+                    && packet.payload() instanceof GhostControlPayloads.Begin captured
+                    && captured.harnessKind() == kind) {
+                begin = captured;
+                break;
+            }
+        }
+        return begin;
+    }
+
+    /** Submits one ordinary neutral movement frame through the registered lifecycle's canonical payload path. */
+    public static void submitNeutralMovement(RegisteredServerPlayerFixture fixture, Active active, long sequence) {
+        LifecycleCharacterSessionControl.onPayload(new GhostControlPayloads.Intent(active.epoch(), sequence,
+                (short) 0, (short) 0, (byte) 0, 0, active.body().getYRot(), active.body().getXRot()), fixture.player());
     }
 
     /** Aims at a real outline hit and returns its actual face for an ordinary nominated block request. */

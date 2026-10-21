@@ -249,6 +249,31 @@ public final class SingularityFixtureLayoutGameTests {
 
     private static void check(boolean ok,String why){if(!ok)throw new GameTestAssertException(why);}
 
+    @GameTestTags({"singuloosing", "singularity-fixture"})
+    @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", batch="singuloosing_fixture", timeoutTicks=120)
+    public static void breachActionRemovesOnlyOwnedCorner(GameTestHelper h) {
+        ServerLevel level=(ServerLevel)h.getLevel(); BlockPos origin=h.absolutePos(new BlockPos(1,1,1));
+        var lease=FixtureChunkTickets.acquire(h,new net.minecraft.world.phys.AABB(origin.getX()-1,origin.getY(),origin.getZ()-1,
+                origin.getX()+28,origin.getY()+12,origin.getZ()+20));
+        var owned=new java.util.ArrayList<BlockPos>(); cleanupOnEnd(h,level,owned);
+        FixtureChunkTickets.awaitEntityTicking(h,lease,80,()->{
+            var built=SingularityFixtureService.buildWideInactive(level,origin);
+            check(built.successful(),"wide fixture builds: "+built.error());
+            var record=built.record(); var layout=record.placed();
+            owned.addAll(layout.occupiedPositions()); owned.addAll(record.bootstrap().devices()); record.bootstrap().nodes().forEach(n->owned.add(n.host()));
+            owned.addAll(record.export().devices()); record.export().nodes().forEach(n->owned.add(n.host())); owned.addAll(record.kit().accessBlocks());
+            record.kit().provisionedEntities().forEach(id->{var entity=level.getEntity(id);if(entity!=null)entity.discard();});
+            BlockPos corner=layout.fieldGenerators().get(0), unrelated=origin.offset(26,10,18);
+            check(SingularityFixtureService.breachOwnedCorner(level,unrelated).startsWith("Refused"),"unowned breach refused");
+            check(SingularityFixtureService.breachOwnedCorner(level,corner).startsWith("Removed"),"owned corner breach succeeds");
+            check(level.getBlockState(corner).isAir(),"selected owned corner removed");
+            check(layout.fieldGenerators().stream().filter(p->!p.equals(corner)).allMatch(p->level.getBlockEntity(p) instanceof FieldGeneratorBlockEntity),"other seven generators retained");
+            check(level.getBlockEntity(layout.startupGenerator()) instanceof SingularityGeneratorBlockEntity,"reactor remains untouched");
+            check(FieldContainmentRuntime.closedVolumes(level).stream().noneMatch(v->v.min().equals(origin.offset(3,1,5))&&v.max().equals(origin.offset(11,9,13))),"broken corner no longer produces the closed wide volume");
+            SingularityFixtureService.forget(level,origin); h.succeed();
+        },origin,origin.offset(26,11,18));
+    }
+
     @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", batch="singularity_fixture_layout", timeoutTicks=100)
     public static void refusesOccupiedReservedCellWithoutMutation(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
@@ -315,7 +340,7 @@ public final class SingularityFixtureLayoutGameTests {
         ServerLevel level=(ServerLevel)h.getLevel();
         BlockPos origin=h.absolutePos(new BlockPos(1,1,1));
         var lease=FixtureChunkTickets.acquire(h,new net.minecraft.world.phys.AABB(
-                origin.getX()-1,origin.getY(),origin.getZ()-1,origin.getX()+28,origin.getY()+12,origin.getZ()+20));
+                origin.getX()-1,origin.getY(),origin.getZ()-1,origin.getX()+28,origin.getY()+12,origin.getZ()+20).inflate(16));
         var owned=new java.util.ArrayList<BlockPos>();
         cleanupOnEnd(h,level,owned);
         FixtureChunkTickets.awaitEntityTicking(h,lease,80,()->{
@@ -448,7 +473,7 @@ public final class SingularityFixtureLayoutGameTests {
     private static final class ReactorGenerationRun {
         private final GameTestHelper h; private final ServerLevel level; private final SingularityFixtureLayout.Placed layout;
         private final BlockPos apcPos,lamp,origin; private final double[] fuel;
-        private int elapsed,measurementTicks,readyElapsed,positiveEnergyJumps; private boolean measuring;
+        private int elapsed,measurementTicks,readyElapsed,positiveEnergyJumps; private boolean measuring,startupConsumed;
         private double previousEnergy;
         private double minOutput=Double.POSITIVE_INFINITY,maxOutput,minOffer=Double.POSITIVE_INFINITY,maxOffer,minEnergy=Double.POSITIVE_INFINITY,maxEnergy,energyGains;
         private int minLevel=Integer.MAX_VALUE,maxLevel;
@@ -491,11 +516,12 @@ public final class SingularityFixtureLayoutGameTests {
                 var singularities=capturedSingularityIds.stream().map(level::getEntity)
                         .filter(SingularityEntity.class::isInstance).map(SingularityEntity.class::cast).toList();
                 boolean sing=singularities.size()==1; var singularity=sing?singularities.get(0):null;
-                var generator=(SingularityGeneratorBlockEntity)level.getBlockEntity(layout.startupGenerator());
                 boolean lit=level.getBlockState(lamp).hasProperty(com.juicyslew.moonstation14.block.custom.PowerDeviceBlock.LIT)
                         &&level.getBlockState(lamp).getValue(com.juicyslew.moonstation14.block.custom.PowerDeviceBlock.LIT);
                 var readiness=SingularityFixtureService.readinessSnapshot(level,origin);
-                boolean ready=readiness!=null && readiness.jobState()==SingularityFixtureService.JobState.READY && generator.startupInert() && sing && singularity.energy()>0 && singularity.singularityLevel()>=1 && closed(level,layout)
+                startupConsumed|=readiness!=null&&readiness.generatorInert()
+                        &&!(level.getBlockEntity(layout.startupGenerator()) instanceof SingularityGeneratorBlockEntity);
+                boolean ready=readiness!=null && readiness.jobState()==SingularityFixtureService.JobState.READY && readiness.generatorInert() && sing && singularity.energy()>0 && singularity.singularityLevel()>=1 && readiness.containmentClosed()
                          &&layout.fieldGenerators().stream().allMatch(p->((FieldGeneratorBlockEntity)level.getBlockEntity(p)).connectionEligible())
                          &&fixtureFaces(level,layout)==6
                         &&layout.emitters().stream().allMatch(p->level.getBlockEntity(p) instanceof EmitterBlockEntity e&&e.firingPowered())
@@ -510,7 +536,7 @@ public final class SingularityFixtureLayoutGameTests {
                                         +",removed="+s.isRemoved()+",alive="+s.isAlive()+",reason="+s.getRemovalReason();}).toList()
                             +" currentByUUID="+capturedSingularityIds.stream().map(id->{var e=level.getEntity(id);
                                 return "uuid="+id+",present="+(e!=null)+(e instanceof SingularityEntity s?",energy="+s.energy()+",level="+s.singularityLevel()+",position="+s.position()+",removed="+s.isRemoved()+",alive="+s.isAlive():"");}).toList()
-                            +" readinessUUID="+(readiness==null?null:readiness.singularityId())+" sing="+sing+" APC="+observation+" lit="+lit+" offers="+offers+" consumed="+consumed+" closed="+closed(level,layout));
+                            +" readinessUUID="+(readiness==null?null:readiness.singularityId())+" sing="+sing+" APC="+observation+" lit="+lit+" offers="+offers+" consumed="+consumed+" closed="+(readiness!=null&&readiness.containmentClosed()));
                     double energyJump=singularity.energy()-previousEnergy;
                     previousEnergy=singularity.energy();
                     if(energyJump>0){positiveEnergyJumps++;energyGains+=energyJump;}
@@ -519,6 +545,7 @@ public final class SingularityFixtureLayoutGameTests {
                     if(measurementTicks>=6000){double delta=0;for(int i=0;i<fuel.length;i++){var c=(RadiationCollectorBlockEntity)level.getBlockEntity(layout.collectors().get(i));delta+=fuel[i]-GasTankItem.contents(c.tankSlot().snapshot().stack(),level).orElseThrow().mixture().moles(GasType.PLASMA);}
                         LOGGER.info("reactor generation ended startupElapsed="+readyElapsed+" window="+measurementTicks+" energy="+minEnergy+".."+maxEnergy+" endEnergy="+singularity.energy()+" level="+minLevel+".."+maxLevel+" endLevel="+singularity.singularityLevel()+" position="+singularity.position()+" removed="+singularity.isRemoved()+" positiveJumps="+positiveEnergyJumps+" energyGains="+energyGains+" output="+minOutput+".."+maxOutput+" offers="+minOffer+".."+maxOffer+" fuelDelta="+delta);
                         if(positiveEnergyJumps==0||energyGains<=0)throw new GameTestAssertException("no positive natural capture-energy increments during sustained run");
+                        check(startupConsumed,"normal horizon consumption removes the inert startup machine while the fixture readiness proof remains valid");
                         var control=(ParticleAcceleratorPartBlockEntity)level.getBlockEntity(layout.acceleratorControl());
                         check(control.strength()==ParticleAcceleratorStrength.LEVEL_0,
                                 "compact running fixture returns to the accepted one-time Level 0 upkeep preset");
@@ -529,13 +556,19 @@ public final class SingularityFixtureLayoutGameTests {
                         h.succeed();return;}
                 }
                 if(elapsed>=13990) {
-                    String startup=SingularityFixtureService.status(level,origin);
-                    if(startup.length()>500)startup=startup.substring(0,500);
-                    throw new GameTestAssertException("reactor generation timeout job="+readiness+" startup="
-                        +startup+" measuring="+measuring+" measured="+measurementTicks
-                        +" capturedSingularity="+singularities.stream().map(s->"energy="+s.energy()+",level="+s.singularityLevel()
-                        +",position="+s.position()+",removed="+s.isRemoved()+",alive="+s.isAlive()).toList()+" genCharge="
-                        +fieldDiagnostic(level,layout)+" APC="+observation+" offers="+offers);
+                    var signals=SingularityFixtureService.readinessSnapshot(level,origin);
+                    var fieldCharge=layout.fieldGenerators().stream().map(pos->level.getBlockEntity(pos) instanceof FieldGeneratorBlockEntity field
+                            ?field.snapshot().charge():-1).toList();
+                    var gen=level.getBlockEntity(layout.startupGenerator());
+                    String failure="reactor generation timeout state="+(readiness==null?"UNKNOWN":readiness.jobState())
+                            +" measuring="+measuring+" measured="+measurementTicks+" signal="+signals
+                            +" singularities="+singularities.stream().map(s->s.getUUID()+":"+s.energy()+"/L"+s.singularityLevel()).toList()
+                            +" generatorInert="+(gen instanceof SingularityGeneratorBlockEntity g&&g.startupInert())
+                            +" fieldCharge="+fieldCharge+" APC="+observation+" offers="+offers;
+                    // GameTest failures are serialized into a writable book; keep this one line within
+                    // vanilla's page limit so the useful readiness conjuncts survive the failure path.
+                    if(failure.length()>900)failure=failure.substring(0,900);
+                    throw new GameTestAssertException(failure);
                 }
                 BoundedGameTestWait.safeDelay(h,1,this::tick);
             } catch(RuntimeException e) { throw e; }

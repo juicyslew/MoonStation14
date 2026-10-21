@@ -70,6 +70,8 @@ public final class CreateSingularityFixtureStartup {
     }
     public Phase phase() { return phase; }
     public String error() { return error; }
+    /** Original owned startup machine retained for one-shot proof if horizon consumption removes its block. */
+    com.juicyslew.moonstation14.block.block_entity.SingularityGeneratorBlockEntity startupGenerator() { return generator; }
     private boolean owned(net.minecraft.world.level.block.entity.BlockEntity be) {
         if (!be.isRemoved() && be.getLevel() == level && level.getBlockEntity(be.getBlockPos()) == be) return true;
         fail("owned machine missing, replaced, or unloaded at " + be.getBlockPos()); return false;

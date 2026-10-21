@@ -113,6 +113,11 @@ public final class HandlessIngestionGameTests {
         var item=LooseItemEntity.create(level,at,new ItemStack(ModItems.CHEESE_SLICE.get()));
         require(level.addFreshEntity(item),"prototype cheese spawned"); face(mouse,item);
         require(item.getItem().get(ModDataComponents.REAGENT.get())==null,"fresh cheese begins without hardcoded reagent data");
+        var acceptedCents = new java.util.concurrent.atomic.AtomicLong(-1);
+        AutoCloseable receiptSubscription = IngestionReceiptObserver.observe(receipt -> {
+            if (receipt.bodyId().equals(mouse.getUUID()) && receipt.sourceKey().equals("world:" + item.getUUID()))
+                acceptedCents.set(receipt.acceptedCents());
+        });
         waitForNonMetabolismCompletionTick(h, mouse, () -> {
             require(BodyTimedIngestionService.startWorldOwned(mouse,item.getUUID(),null,0,101,()->true).name().equals("OK"),
                     "resolved FOOD remains edible at maximum hydration");
@@ -120,9 +125,9 @@ public final class HandlessIngestionGameTests {
                     "resolved cheese prototype initializes 3.75 units exactly once");
             h.runAfterDelay(21,()->{
                 require(item.isRemoved(),"fully consumed cheese is destroyed");
-                require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider.get(mouse,
-                        com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(NUTRIMENT,0f))==375,
+                require(acceptedCents.get()==375,
                         "timed mouse ingestion transferred the full 3.75-unit source");
+                try { receiptSubscription.close(); } catch (Exception e) { throw new GameTestAssertException("receipt observer cleanup failed: " + e); }
                 h.succeed();
             });
         });

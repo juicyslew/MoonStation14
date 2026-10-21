@@ -1,0 +1,11 @@
+{
+  "source_repository": "https://github.com/space-wizards/space-station-14",
+  "source_revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "source_path": "Resources/Textures/Objects/Devices/singularity_beacon.rsi/icon.png",
+  "source_sha256": "3E8A20C0EC4C896C97D1FF84AB42C627B37C934542CCE463EC7AE3349BE78C16",
+  "imported_path": "assets/moonstation14/textures/block/singularity_beacon.png",
+  "imported_sha256": "EB22724CDBB115C1F9D1245C8371A52551FA3DD4A3D4B3A13EFE52D7684ED63D",
+  "license": "CC-BY-SA-3.0",
+  "credits": "TGStation icon (https://github.com/tgstation/tgstation/blob/c46d689e2b300bdc8c5b153855b1a5bbb2c5b168/icons/obj/singularity.dmi); in-hand art by mubururu_ (GitHub), retained in adjacent source metadata.",
+  "conversion": "Lossless frame re-layout from two 32x32 horizontal RSI frames to a vertically stacked 32x64 Minecraft animation sheet; each frame is 2 ticks (0.1 seconds). No resampling or color conversion intended."
+}

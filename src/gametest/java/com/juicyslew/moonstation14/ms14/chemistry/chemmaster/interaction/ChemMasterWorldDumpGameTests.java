@@ -43,12 +43,8 @@ public final class ChemMasterWorldDumpGameTests {
         level.setBlock(barrier,Blocks.STONE.defaultBlockState(),3);
         h.assertTrue(ChemMasterDumpService.nominatesChemMaster(level,target),
                 "client target nomination is not gaze/LOS authority; shared transaction validates access");
-        BlockPos unloaded=null;
-        for (int chunkOffset=32;chunkOffset<256&&unloaded==null;chunkOffset+=16) {
-            BlockPos candidate=target.offset(chunkOffset,0,0);
-            if (level.getChunkSource().getChunkNow(candidate.getX()>>4,candidate.getZ()>>4)==null) unloaded=candidate;
-        }
-        h.assertTrue(unloaded!=null && level.getChunkSource().getChunkNow(unloaded.getX()>>4,unloaded.getZ()>>4)==null,
+        BlockPos unloaded=findUnloadedProbe(level,target);
+        h.assertTrue(level.getChunkSource().getChunkNow(unloaded.getX()>>4,unloaded.getZ()>>4)==null,
                 "fixture found an actually unloaded chunk without loading it");
         h.assertTrue(!ChemMasterDumpService.nominatesChemMaster(level,unloaded)
                         && level.getChunkSource().getChunkNow(unloaded.getX()>>4,unloaded.getZ()>>4)==null,
@@ -116,19 +112,33 @@ public final class ChemMasterWorldDumpGameTests {
             ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(gesture,ChemMasterDumpRequest.Phase.BEGIN,
                     owner.epoch(),3,source.getUUID(),dimension,java.util.Optional.empty()));
             requireDumpAck(fixture,gesture,ChemMasterDumpRequest.Phase.BEGIN,true);
+            BlockPos unloadedTarget=findUnloadedProbe(level,machinePos);
+            h.assertTrue(level.getChunkSource().getChunkNow(unloadedTarget.getX()>>4,unloadedTarget.getZ()>>4)==null,
+                    "handler probe starts outside loaded chunk set");
+            var beforeUnloadedRelease=source.getItem().copy();
+            ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(gesture,ChemMasterDumpRequest.Phase.RELEASE,
+                    owner.epoch(),4,source.getUUID(),dimension,java.util.Optional.of(unloadedTarget)));
+            requireDumpAck(fixture,gesture,ChemMasterDumpRequest.Phase.RELEASE,false);
+            h.assertTrue(source.isAlive()&&ItemStack.isSameItemSameComponents(source.getItem(),beforeUnloadedRelease)
+                            &&level.getChunkSource().getChunkNow(unloadedTarget.getX()>>4,unloadedTarget.getZ()>>4)==null,
+                    "authenticated release denies unloaded target before mutation without loading it");
+            var validGesture=java.util.UUID.randomUUID();
+            ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(validGesture,ChemMasterDumpRequest.Phase.BEGIN,
+                    owner.epoch(),5,source.getUUID(),dimension,java.util.Optional.empty()));
+            requireDumpAck(fixture,validGesture,ChemMasterDumpRequest.Phase.BEGIN,true);
             long slotRevision=machine.inputSlot().snapshot().revision();
             long bufferRevision=machine.bufferRevision();
-            var release=new ChemMasterDumpRequest(gesture,ChemMasterDumpRequest.Phase.RELEASE,owner.epoch(),4,
+            var release=new ChemMasterDumpRequest(validGesture,ChemMasterDumpRequest.Phase.RELEASE,owner.epoch(),6,
                     source.getUUID(),dimension,java.util.Optional.of(machinePos));
             ChemMasterDumpService.handle(fixture.player(),release);
-            requireDumpAck(fixture,gesture,ChemMasterDumpRequest.Phase.RELEASE,true);
+            requireDumpAck(fixture,validGesture,ChemMasterDumpRequest.Phase.RELEASE,true);
             h.assertTrue(machine.buffer().quantities().getOrDefault(water,0L)==200
                     &&machine.bufferRevision()==bufferRevision+1&&machine.inputSlot().snapshot().revision()==slotRevision
                     &&source.isAlive()&&source.getItem().get(ModDataComponents.REAGENT.get())==null,
                     "authenticated release transfers exact 2u once, keeps jug entity and input slot unchanged");
-            ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(gesture,ChemMasterDumpRequest.Phase.RELEASE,
-                    owner.epoch(),5,source.getUUID(),dimension,java.util.Optional.of(machinePos)));
-            requireDumpAck(fixture,gesture,ChemMasterDumpRequest.Phase.RELEASE,false);
+            ChemMasterDumpService.handle(fixture.player(),new ChemMasterDumpRequest(validGesture,ChemMasterDumpRequest.Phase.RELEASE,
+                    owner.epoch(),6,source.getUUID(),dimension,java.util.Optional.of(machinePos)));
+            requireDumpAck(fixture,validGesture,ChemMasterDumpRequest.Phase.RELEASE,false);
             h.assertTrue(machine.buffer().quantities().getOrDefault(water,0L)==200&&machine.bufferRevision()==bufferRevision+1,
                     "duplicate release cannot consume/add source again");
             h.succeed();
@@ -149,6 +159,19 @@ public final class ChemMasterWorldDumpGameTests {
             }
         }
         throw new net.minecraft.gametest.framework.GameTestAssertException("missing dump acknowledgement phase="+phase);
+    }
+
+    private static BlockPos findUnloadedProbe(ServerLevel level,BlockPos relativeOrigin) {
+        int[][] directions={{1,0},{-1,0},{0,1},{0,-1},{1,1},{1,-1},{-1,1},{-1,-1}};
+        for(int radius=1;radius<=4;radius++) {
+            int stride=radius*4096;
+            for(int[] direction:directions) {
+                BlockPos candidate=relativeOrigin.offset(direction[0]*stride,0,direction[1]*stride);
+                if(level.getChunkSource().getChunkNow(candidate.getX()>>4,candidate.getZ()>>4)==null) return candidate;
+            }
+        }
+        throw new net.minecraft.gametest.framework.GameTestAssertException(
+                "no unloaded probe among 32 read-only candidates around origin="+relativeOrigin);
     }
 
     @GameTest(template="empty",templateNamespace="moonstation14",timeoutTicks=30)

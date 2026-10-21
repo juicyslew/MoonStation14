@@ -34,15 +34,47 @@ public final class ChemMasterOpenRequestGameTests {
                 var owner = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
                 ServerLevel level = (ServerLevel) helper.getLevel();
                 BlockPos origin = helper.absolutePos(new BlockPos(3, 1, 2));
-                require(ChemMasterFixtureService.build(level, origin).startsWith("Built open-air"),
-                        "reuse existing real powered ChemMaster fixture builder");
-                BlockPos machinePos = origin.offset(3, 1, 8);
-                PowerFixtureReadiness.await(helper, level, 400,
-                        () -> level.getBlockEntity(machinePos) instanceof ChemMasterBlockEntity machine
-                                && PowerRuntime.hasFullFreshChemMasterPower(level, machine, machine.placementIdentity()),
-                        () -> "ChemMaster is waiting for its existing fixture's resolved fresh power", () -> {
-                            try {
-                                var body = owner.body();
+                 require(ChemMasterFixtureService.build(level, origin).startsWith("Built open-air"),
+                         "reuse existing real powered ChemMaster fixture builder");
+                 BlockPos machinePos = origin.offset(3, 1, 8);
+                 var body = owner.body();
+                 // Establish actor residency in the fixture approach before asking power
+                 // readiness: the move can load chunks and invalidate graph topology.
+                 body.setPos(machinePos.getX() + 0.5, origin.getY() + 1, machinePos.getZ() - 0.5);
+                  long[] stableStart = {-1};
+                  long[] stableGeneration = {-1};
+                  java.util.ArrayDeque<String> transitions = new java.util.ArrayDeque<>();
+                  String[] previous = {""};
+                  PowerFixtureReadiness.await(helper, level, 400,
+                          () -> {
+                              long generation = com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(level);
+                              ChemMasterBlockEntity machine = level.getBlockEntity(machinePos) instanceof ChemMasterBlockEntity found ? found : null;
+                              boolean topologyReady = PowerFixtureReadiness.topologyReadyWithKnownPorts(level);
+                              boolean meterReady = machine != null && PowerRuntime.hasFullFreshChemMasterPower(level, machine, machine.placementIdentity());
+                              boolean ready = machine != null && topologyReady && meterReady;
+                              String state = "topologyReady=" + topologyReady + " meterReady=" + meterReady + " generation=" + generation
+                                      + (machine == null ? " machine=absent" : " " + PowerRuntime.chemMasterMeterDiagnostic(level, machine));
+                              if (!state.equals(previous[0])) {
+                                  previous[0] = state;
+                                  if (transitions.size() == 8) transitions.removeFirst();
+                                  transitions.addLast("t=" + level.getGameTime() + " " + state);
+                                  System.out.println("[ChemMaster readiness] " + transitions.getLast());
+                              }
+                               if (!ready) {
+                                   stableGeneration[0] = generation;
+                                   stableStart[0] = -1;
+                               } else if (stableStart[0] < 0 || stableGeneration[0] != generation) {
+                                   stableGeneration[0] = generation;
+                                   stableStart[0] = level.getGameTime();
+                               }
+                             return ready && stableStart[0] >= 0
+                                     && level.getGameTime() - stableStart[0] >= 3L * PowerRuntime.TICKS_PER_SOLVE;
+                          },
+                           () -> "ChemMaster fixture requires three fresh solve intervals after actor relocation; generation="
+                                   + stableGeneration[0] + " start=" + stableStart[0] + " elapsed="
+                                   + (stableStart[0] < 0 ? -1 : level.getGameTime() - stableStart[0])
+                                   + " latest=" + previous[0], () -> {
+                          try {
                                 // Stand on the fixture APC's top, south of the machine. This is
                                 // inside the existing loaded approach and keeps the service wall
                                 // and intervening APC out of the actual body-to-machine ray.
@@ -52,8 +84,7 @@ public final class ChemMasterOpenRequestGameTests {
                                  // controlled body on that floor instead of floating above it;
                                  // otherwise gravity carries it out of the machine's UI range
                                  // during the retained-session ticks below.
-                                 body.setPos(machinePos.getX() + 0.5, origin.getY() + 1, machinePos.getZ() - 0.5);
-                                 var bodyHit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
+                                  var bodyHit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
                                  require(bodyHit.getBlockPos().equals(machinePos)
                                                  && level.getBlockEntity(bodyHit.getBlockPos()) instanceof ChemMasterBlockEntity,
                                          "ordinary admitted target is the actual ChemMaster root: " + bodyHit.getBlockPos());
@@ -188,11 +219,28 @@ public final class ChemMasterOpenRequestGameTests {
                                                          "ordinary status ticking expires the finite stun");
                                                  ChemMasterSessionService.handle(fixture.player(), request(denied.state(), 4,
                                                          ChemMasterControlRequest.Operation.QUERY, denied.state().mode()));
-                                                 ChemMasterWindowUpdate recovered = takeWindowUpdate(fixture);
-                                                 require(recovered.state().open()
-                                                                 && recovered.state().sessionId().equals(opened.state().sessionId())
-                                                                 && recovered.state().acknowledgedRequestId() == 4,
-                                                         "same session still answers QUERY after stun expiry");
+                                                  ChemMasterWindowUpdate recovered = takeWindowUpdateForRequest(fixture, 4);
+                                                   require(recovered.state().open()
+                                                                   && recovered.state().sessionId().equals(opened.state().sessionId())
+                                                                   && recovered.state().acknowledgedRequestId() == 4,
+                                                            "same session still answers QUERY after stun expiry: response="
+                                                                    + "session=" + recovered.state().sessionId()
+                                                                    + " open=" + recovered.state().open()
+                                                                    + " ack=" + recovered.state().acknowledgedRequestId()
+                                                                    + " closeReason=" + recovered.state().closeReason()
+                                                                    + " bodyPos=" + body.position()
+                                                                   + " gameTime=" + level.getGameTime() + " target=" + machinePos
+                                                                   + " authority=" + com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionAuthority
+                                                                   .resolve(fixture.player()).map(snapshot -> "sameBody="
+                                                                           + snapshot.body().equals(body) + ",epoch="
+                                                                           + snapshot.identity().epoch()).orElse("absent")
+                                                                   + " stunned=" + com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.isStunned(body)
+                                                                   + " machineValid=" + ((ChemMasterBlockEntity) level.getBlockEntity(machinePos)).isLoadedValid()
+                                                                   + " power=" + PowerRuntime.hasFullFreshChemMasterPower(level,
+                                                                           (ChemMasterBlockEntity) level.getBlockEntity(machinePos),
+                                                                           ((ChemMasterBlockEntity) level.getBlockEntity(machinePos)).placementIdentity())
+                                                                   + " rangeSquared=" + body.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(machinePos))
+                                                                   + "/" + Math.pow(((ChemMasterBlockEntity) level.getBlockEntity(machinePos)).prototype().uiRange(), 2));
                                                  ChemMasterControlRequest.Mode recoveredMode = recovered.state().mode()
                                                          == ChemMasterControlRequest.Mode.TRANSFER
                                                          ? ChemMasterControlRequest.Mode.DISCARD : ChemMasterControlRequest.Mode.TRANSFER;

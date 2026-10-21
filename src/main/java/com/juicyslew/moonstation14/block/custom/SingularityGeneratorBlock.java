@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import javax.annotation.Nullable;
 
 /** Static Minecraft adaptation of SS14's anchored singularity-startup machine. */
-public final class SingularityGeneratorBlock extends Block implements EntityBlock {
+public final class SingularityGeneratorBlock extends Block implements EntityBlock, com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     public SingularityGeneratorBlock(Properties properties) { super(properties); }
 
     @Nullable @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
