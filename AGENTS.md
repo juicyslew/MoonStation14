@@ -15,6 +15,13 @@ For relevant work, reuse existing shared owners matching the contract and run ap
 
 Pure bugfixes that do not design or extend a feature need not repeat the upstream prototype audit; do not use that exception to bypass the audit for new behavior.
 
+## Keep documentation lightweight
+
+- Do not place models or large files in `docs/`, including model-source/export copies, asset bundles, archives, binaries, recordings, profiler captures, or bulk generated output. Documentation is not an asset backup or evidence dump.
+- Keep game assets in their canonical runtime/resource or asset-source locations. In docs, reference those paths and relevant prototype IDs instead of duplicating the files.
+- Do not archive uninstalled or unwired models in docs or present them as delivered. Integrate and verify them through the normal asset workflow, or explicitly report the missing integration.
+- Keep raw test/capture output in ignored build output or the coordinator-managed evidence archive. Docs should contain concise summaries and references to that evidence, not copies of large artifacts.
+
 ## GameTest guidance
 
 Add `@GameTestTags` to relevant fixture classes or methods and use `./gradlew runGameTestServer "-Pms14GameTestTags=<tag[,tag...]>"` for focused checks. For server validation, prefer a separate directory (`-Pms14GameTestDir=build/gametest-tags-fixture`) so owner run configuration cannot alter fixture assumptions; never overwrite owner configuration. Preserve failed artifacts when useful. Report filtered/full status and selected/total plus pass/failure counts; tags do not provide isolation. Run/report the full GameTest suite for broad changes. See `docs/gametest-tags.md` for current usage and selectors.
