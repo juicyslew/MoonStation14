@@ -25,6 +25,7 @@ public final class SingularityGeneratorBlockEntity extends BlockEntity {
             INERT="StartupInert", FAILSAFE_TICK="FailsafeTick", IDENTITY="PlacementIdentity";
     private ResourceLocation profileId=ModSingularityGenerators.DEFAULT_ID;
     private UUID placementIdentity=UUID.randomUUID();
+    private UUID spawnedSingularityIdentity;
     private SingularityGeneratorStartup startup;
     private double savedCharge;
     private boolean savedInert;
@@ -64,7 +65,10 @@ public final class SingularityGeneratorBlockEntity extends BlockEntity {
         if(singularity==null) return;
         singularity.moveTo(worldPosition.getX()+.5,worldPosition.getY()+.5,worldPosition.getZ()+.5,0,0);
         singularity.initializeFromGenerator(profile.spawnProfile());
-        server.addFreshEntity(singularity);
+        if(server.addFreshEntity(singularity)) {
+            spawnedSingularityIdentity=singularity.getUUID();
+            setChanged();
+        }
     }
 
     public UUID placementIdentity() { return placementIdentity; }
@@ -72,11 +76,14 @@ public final class SingularityGeneratorBlockEntity extends BlockEntity {
     public boolean startupInert() { return startup==null?savedInert:startup.inert(); }
     public long startupNextFailsafeTick() { return startup==null?savedFailsafeTick:startup.nextFailsafeTick(); }
     public ResourceLocation profileId() { return profileId; }
+    /** Exact entity accepted by the level from this generator's one-shot spawn. */
+    public UUID spawnedSingularityIdentity() { return spawnedSingularityIdentity; }
 
     @Override protected void saveAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         super.saveAdditional(tag,registries);
         if(startup!=null) { var snapshot=startup.snapshot(); savedCharge=snapshot.charge(); savedInert=snapshot.inert(); savedFailsafeTick=snapshot.nextFailsafeTick(); savedStatePresent=true; }
         tag.putString(PROFILE,profileId.toString()); tag.putUUID(IDENTITY,placementIdentity);
+        if(spawnedSingularityIdentity!=null)tag.putUUID("SpawnedSingularityIdentity",spawnedSingularityIdentity);
         tag.putBoolean(STATE_PRESENT,savedStatePresent); tag.putDouble(CHARGE,savedCharge);
         tag.putBoolean(INERT,savedInert); tag.putLong(FAILSAFE_TICK,savedFailsafeTick);
     }
@@ -84,6 +91,7 @@ public final class SingularityGeneratorBlockEntity extends BlockEntity {
         super.loadAdditional(tag,registries);
         if(tag.contains(PROFILE)) { ResourceLocation parsed=ResourceLocation.tryParse(tag.getString(PROFILE)); if(parsed!=null) profileId=parsed; }
         if(tag.hasUUID(IDENTITY)) placementIdentity=tag.getUUID(IDENTITY);
+        spawnedSingularityIdentity=tag.hasUUID("SpawnedSingularityIdentity")?tag.getUUID("SpawnedSingularityIdentity"):null;
         savedStatePresent=tag.getBoolean(STATE_PRESENT); savedCharge=Math.max(0,tag.getDouble(CHARGE));
         savedInert=tag.getBoolean(INERT); savedFailsafeTick=Math.max(0,tag.getLong(FAILSAFE_TICK)); startup=null;
     }

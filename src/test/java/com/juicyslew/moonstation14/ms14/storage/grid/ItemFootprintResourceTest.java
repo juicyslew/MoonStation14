@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(65, raw.size());
+        assertEquals(66, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(60, resolved.size());
+        assertEquals(61, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -52,7 +52,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(60, catalog.size());
+        assertEquals(61, catalog.size());
         for (String item : new String[]{"wheat_seeds", "tomato_seeds", "potato_seeds", "poppy_seeds", "aloe_seeds"})
             assertEquals(1, catalog.get(id(item)).cells().size(), item + " resolves Tiny footprint");
         for (String item : new String[]{"wheat_bushel", "tomato", "potato", "poppy", "aloe"})

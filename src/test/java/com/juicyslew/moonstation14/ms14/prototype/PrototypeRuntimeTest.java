@@ -146,6 +146,7 @@ class PrototypeRuntimeTest {
          expectedTypes.add(com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -283,12 +284,17 @@ class PrototypeRuntimeTest {
                         com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.BASE_WALLMOUNT_METALLIC, fixture("signal_control", "base_wallmount_metallic"),
                         com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_BUTTON, fixture("signal_control", "signal_button"),
                         com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_SWITCH, fixture("signal_control", "signal_switch")));
-        server.reload(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE,
+         server.reload(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE,
                 Map.of(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("localbase"), fixture("network_device_item", "localbase"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("standardwireless15"), fixture("network_device_item", "standardwireless15"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("configurator"), fixture("network_device_item", "configurator"),
-                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
-        Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
+                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
+         server.reload(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE, Map.of(
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.BASE_ID,
+                 fixture("singularity_beacon", "singularity_beacon_base"),
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID,
+                 fixture("singularity_beacon", "singularity_beacon")));
+         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
@@ -329,7 +335,8 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId()), exported.keySet());
+                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -348,14 +355,22 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
         assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
         assertTrue(exported.get(ModDamageFeedback.TYPE.typeId()).containsKey(id("damage-feedback-test")));
-        assertTrue(exported.get(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE.typeId())
-                .containsKey(id("level_1")), "singularity visual profile family is registered and exported");
+         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE.typeId())
+                 .containsKey(id("level_1")), "singularity visual profile family is registered and exported");
         ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
         server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("source-test"), source));
         exported = server.encodePublishedCatalogs();
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
-        client.publishEncodedCatalogs(exported);
+         client.publishEncodedCatalogs(exported);
+         var serverBeacon = PrototypeRuntime.serverSingularityBeacons().get(
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID);
+         var clientBeacon = PrototypeRuntime.clientSingularityBeacons().get(
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID);
+         assertEquals(120, serverBeacon.foodEnergy());
+         assertEquals(5000, serverBeacon.powerWatts());
+         assertEquals(serverBeacon, clientBeacon);
+         assertNotSame(serverBeacon, clientBeacon);
         var serverWelder = PrototypeRuntime.serverTools().get(ModTools.WELDER);
         assertEquals(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));
         assertNotSame(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));

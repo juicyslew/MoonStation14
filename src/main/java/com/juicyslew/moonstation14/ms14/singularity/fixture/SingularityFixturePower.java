@@ -74,7 +74,8 @@ public final class SingularityFixturePower {
         List<DevicePort> mvGroup=new ArrayList<>(); mvGroup.add(new DevicePort(sub,Direction.WEST,CableTier.MV)); mvGroup.add(new DevicePort(apc,Direction.WEST,CableTier.MV));
         List<DevicePort> apcGroup=new ArrayList<>(); apcGroup.add(new DevicePort(apc,Direction.EAST,CableTier.APC));
         for(DevicePort p:ports) { if(p.tier()==CableTier.MV&&!p.device().equals(sub)) mvGroup.add(p); if(p.tier()==CableTier.APC&&!p.device().equals(apc)) apcGroup.add(p); }
-        if(!validatePlannedComponents(nodes,ports,hvGroup,mvGroup,apcGroup)) throw new IllegalStateException("planned fixture power topology is disconnected");
+        String diagnostic=plannedComponentDiagnostic(nodes,ports,hvGroup,mvGroup,apcGroup);
+        if(!diagnostic.isEmpty()) throw new IllegalStateException("planned fixture power topology is disconnected: "+diagnostic);
         for(BlockPos p:hosts) if(level.getBlockState(p).isAir()) level.setBlock(p,isRearWall(o,p)?Blocks.GLASS.defaultBlockState():Blocks.STONE.defaultBlockState(),3);
         level.setBlock(src,ModBlocks.HV_SOURCE.get().defaultBlockState().setValue(PowerDeviceBlock.FACING,Direction.EAST),3);
         level.setBlock(sub,ModBlocks.HV_MV_SUBSTATION.get().defaultBlockState().setValue(PowerDeviceBlock.FACING,Direction.EAST),3);
@@ -88,6 +89,12 @@ public final class SingularityFixturePower {
 
     /** Adds the isolated collector export plane without touching the bootstrap recipe. */
     public static Circuit export(ServerLevel level, SingularityFixtureLayout.Placed placed) {
+        return export(level,placed,PowerDeviceKind.DEBUG_LOAD_LAMP);
+    }
+    /** Explicit low-load collector export variant reserved for the powered-beacon demo. */
+    public static Circuit export(ServerLevel level,SingularityFixtureLayout.Placed placed,PowerDeviceKind lampKind) {
+        if(lampKind!=PowerDeviceKind.DEBUG_LOAD_LAMP&&lampKind!=PowerDeviceKind.LAMP)
+            throw new IllegalArgumentException("fixture export requires a lamp load");
         BlockPos o=placed.origin();
         LinkedHashSet<CableFaceNode> planned=new LinkedHashSet<>();
         for(int x:new int[]{2,12}) for(int z:new int[]{7,9}) for(int y=1;y<=2;y++) add(planned,o,x,y,z,Direction.SOUTH,CableTier.HV);
@@ -106,7 +113,7 @@ public final class SingularityFixturePower {
         Direction substationFacing=Direction.NORTH;
         ports.addAll(PowerDeviceKind.HV_MV_SUBSTATION.ports(sub,substationFacing));
         ports.addAll(PowerDeviceKind.APC.ports(apc,Direction.WEST));
-        ports.addAll(PowerDeviceKind.DEBUG_LOAD_LAMP.ports(lamp,Direction.NORTH));
+        ports.addAll(lampKind.ports(lamp,Direction.NORTH));
         for(BlockPos collector:placed.collectors()) {
             if(!(level.getBlockEntity(collector) instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity be)) throw new IllegalStateException("expected radiation collector missing at "+collector);
             ports.addAll(be.powerRuntimePorts());
@@ -120,7 +127,8 @@ public final class SingularityFixturePower {
         for(BlockPos p:hosts) if(level.getBlockState(p).isAir()) level.setBlock(p,Blocks.STONE.defaultBlockState(),3);
         level.setBlock(sub,ModBlocks.HV_MV_SUBSTATION.get().defaultBlockState().setValue(PowerDeviceBlock.FACING,substationFacing),3);
         if(!PowerDeviceFixturePlacement.placeApc(level,apc,Direction.WEST)) throw new IllegalStateException("export APC support/placement failed at "+apc);
-        level.setBlock(lamp,ModBlocks.HIGH_LOAD_TEST_LAMP.get().defaultBlockState().setValue(PowerDeviceBlock.FACING,Direction.NORTH),3);
+         level.setBlock(lamp,(lampKind==PowerDeviceKind.DEBUG_LOAD_LAMP?ModBlocks.HIGH_LOAD_TEST_LAMP.get():ModBlocks.POWER_LAMP.get())
+                 .defaultBlockState().setValue(PowerDeviceBlock.FACING,Direction.NORTH),3);
         for(CableFaceNode n:nodes) if(!CableStorage.place(level,n.host(),n.face(),n.tier())) throw new IllegalStateException("export cable placement failed at "+n);
         for(CableFaceNode n:nodes) if(!CableStorage.has(level,n.host(),n.face(),n.tier())) throw new IllegalStateException("export cable record missing at "+n);
         return new Circuit(devices,nodes,ports,true);
@@ -135,14 +143,19 @@ public final class SingularityFixturePower {
     }
 
     /** Validates every consumer/supplier port and the explicitly required isolated tier groups. */
-    private static boolean validatePlannedComponents(List<CableFaceNode> nodes,List<DevicePort> ports,List<DevicePort>... requiredGroups) {
+    static boolean validatePlannedComponents(List<CableFaceNode> nodes,List<DevicePort> ports,List<DevicePort>... requiredGroups) {
+        return plannedComponentDiagnostic(nodes,ports,requiredGroups).isEmpty();
+    }
+    static String plannedComponentDiagnostic(List<CableFaceNode> nodes,List<DevicePort> ports,List<DevicePort>... requiredGroups) {
         Map<CableFaceNode,Set<CableFaceNode>> graph=new HashMap<>(); for(CableFaceNode n:nodes) graph.put(n,new HashSet<>());
         for(int i=0;i<nodes.size();i++) for(int j=i+1;j<nodes.size();j++) if(PowerTopology.cableEdge(nodes.get(i),nodes.get(j)).isPresent()){graph.get(nodes.get(i)).add(nodes.get(j));graph.get(nodes.get(j)).add(nodes.get(i));}
         Map<CableFaceNode,Integer> component=new HashMap<>(); int id=0;
         for(CableFaceNode start:nodes) if(!component.containsKey(start)){ArrayDeque<CableFaceNode> q=new ArrayDeque<>();q.add(start);component.put(start,id);while(!q.isEmpty()){var n=q.remove();for(var next:graph.get(n))if(!component.containsKey(next)){component.put(next,id);q.add(next);}}id++;}
-        Map<DevicePort,Integer> roots=new HashMap<>(); for(DevicePort p:ports){CableFaceNode n=nodes.stream().filter(c->PowerTopology.deviceAdjacent(p,c)).findFirst().orElse(null);if(n==null)return false;roots.put(p,component.get(n));}
-        for(List<DevicePort> group:requiredGroups) { Integer root=null; for(DevicePort p:group){Integer c=roots.get(p);if(c==null)return false;if(root==null)root=c;else if(!root.equals(c))return false;} }
-        return true;
+        Map<DevicePort,Integer> roots=new HashMap<>(); List<String> problems=new ArrayList<>();
+        for(DevicePort p:ports){CableFaceNode n=nodes.stream().filter(c->PowerTopology.deviceAdjacent(p,c)).findFirst().orElse(null);if(n==null)problems.add("unmatched port "+p);else roots.put(p,component.get(n));}
+        for(int i=0;i<requiredGroups.length;i++) { List<DevicePort> group=requiredGroups[i]; Integer root=null; List<String> ids=new ArrayList<>(); for(DevicePort p:group){Integer c=roots.get(p); ids.add(p.toString()+"=component"+(c==null?"?":c)); if(c!=null){if(root==null)root=c;else if(!root.equals(c)){problems.add("required group "+i+" split: "+String.join(", ",ids));root=-1;}}} }
+        String result=String.join("; ",problems);
+        return result.length()>680?result.substring(0,677)+"...":result;
     }
     private static void add(Set<CableFaceNode> out,BlockPos o,int x,int y,int z,Direction face,CableTier tier) { out.add(new CableFaceNode(o.offset(x,y,z),face,tier)); }
     private static boolean isRearWall(BlockPos origin,BlockPos host) {

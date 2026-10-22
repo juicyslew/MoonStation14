@@ -25,7 +25,15 @@ import java.util.List;
 /** Shared, preflighted placement recipe; deliberately leaves wiring and operation to its caller. */
 public final class SingularityFixtureLayout {
     private SingularityFixtureLayout() { }
-    public enum Enclosure { COMPACT(2), WIDE(4); private final int halfSpan; Enclosure(int halfSpan){this.halfSpan=halfSpan;} }
+    // Singuloosing's low field leaves startup strictly inside the cage; resolved PA lanes
+    // cover the complete L1 spawn region.
+    public enum Enclosure { COMPACT(2,2,2), WIDE(4,4,4), SINGULOOSING(2,2,1); private final int halfSpan, halfHeight, halfDepth; Enclosure(int halfSpan,int halfHeight,int halfDepth){this.halfSpan=halfSpan;this.halfHeight=halfHeight;this.halfDepth=halfDepth;} public int halfHeight(){return halfHeight;} public int halfDepth(){return halfDepth;} }
+    record FieldBounds(BlockPos min, BlockPos max) { }
+    static FieldBounds fieldBounds(BlockPos origin, Enclosure enclosure) {
+        int half=enclosure.halfSpan;
+        return new FieldBounds(origin.offset(7-half,enclosure==Enclosure.SINGULOOSING?4:5-enclosure.halfHeight,9-enclosure.halfDepth),
+                origin.offset(7+half,enclosure==Enclosure.SINGULOOSING?6:5+enclosure.halfHeight,enclosure==Enclosure.SINGULOOSING?11:9+enclosure.halfDepth));
+    }
 
     public record Placed(BlockPos origin, BlockPos reservedMin, BlockPos reservedMax, List<BlockPos> occupiedPositions, List<BlockPos> fieldGenerators,
                          BlockPos startupGenerator, List<BlockPos> emitters,
@@ -46,9 +54,11 @@ public final class SingularityFixtureLayout {
         List<BlockPos> field = new java.util.ArrayList<>(), emitters = new java.util.ArrayList<>(), collectors = new java.util.ArrayList<>();
         // Both geometries share the original startup center; only the explicit wide
         // preset expands the field edge span for larger-stage movement.
-        int half=enclosure.halfSpan;
-        int minX=7-half,maxX=7+half,minY=5-half,maxY=5+half,minZ=9-half,maxZ=9+half;
-        for (int x : new int[]{minX, maxX}) for (int z : new int[]{minZ, maxZ}) for (int y : new int[]{minY, maxY}) field.add(origin.offset(x,y,z));
+        var bounds=fieldBounds(origin,enclosure);
+        int minX=bounds.min().getX(),maxX=bounds.max().getX(),minY=bounds.min().getY(),maxY=bounds.max().getY(),minZ=bounds.min().getZ(),maxZ=bounds.max().getZ();
+        // fieldBounds is expressed in world coordinates; do not translate its
+        // absolute coordinates a second time (origins need not be near zero).
+        for (int x : new int[]{minX, maxX}) for (int z : new int[]{minZ, maxZ}) for (int y : new int[]{minY, maxY}) field.add(new BlockPos(x,y,z));
         BlockPos startup=origin.offset(7,5,9), control=origin.offset(19,5,8);
         // Each ray shares Y/Z with a canonical corner and targets the first generator
         // on its inward X path. Keep emitter lane coordinates derived from the corners.

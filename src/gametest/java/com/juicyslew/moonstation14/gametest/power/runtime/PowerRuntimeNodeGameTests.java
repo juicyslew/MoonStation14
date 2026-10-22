@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 import com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
@@ -35,6 +36,7 @@ public final class PowerRuntimeNodeGameTests {
     @GameTestTags("power-runtime-node-meter")
     public static void indexedRuntimeNodeSupplierFeedsRealMvNetworkAndIdentityBoundMeter(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
+        FixtureChunkTickets.Lease lease = FixtureChunkTickets.acquire(helper, helper.getBounds().inflate(16));
         BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
         BlockPos substation = helper.absolutePos(new BlockPos(3, 1, 4));
         BlockPos receiver = helper.absolutePos(new BlockPos(3, 1, 6));

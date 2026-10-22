@@ -46,6 +46,7 @@ public final class GameTestTagRegistrar {
 
         Set<String> requested = GameTestTagSelector.parse(System.getProperty("moonstation14.gameTestTags"));
         RegistrationSummary summary = registerMethods(methods, requested, callbacks, event::register);
+        LogManager.getLogger().info(selectionPreflight(summary, methods.size()));
         LogManager.getLogger().info("GameTests {}: requested tags={}, available tags={}, selected/discovered={}, untagged={}",
                 requested.isEmpty() ? "FULL" : "FILTERED", requested.isEmpty() ? "<all>" : requested, summary.availableTags(),
                 summary.selected() + "/" + methods.size(), summary.untagged());
@@ -99,4 +100,8 @@ public final class GameTestTagRegistrar {
     }
 
     public record RegistrationSummary(Set<String> availableTags, int selected, int untagged) {}
+
+    public static String selectionPreflight(RegistrationSummary summary, int discovered) {
+        return "GameTest tag preflight: %d/%d fixtures selected".formatted(summary.selected(), discovered);
+    }
 }
