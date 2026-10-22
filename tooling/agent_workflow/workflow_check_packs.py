@@ -1,6 +1,7 @@
 """Resolve the finite, typed check-pack registry into an existing gate plan."""
 from pathlib import Path
 import re
+import workflow_native_fixtures as native_fixtures
 
 from workflow_store import ProtocolError, canonical_json
 from workflow_runtime import resolve_gate_plan, validate_gate_plan, safe
@@ -47,6 +48,51 @@ def _repo_path(repo, value, field):
         return safe(repo, value)
     except Exception as exc:
         _fail(f'{field} must remain inside the repository: {exc}')
+
+
+def resolve_diagnostic_plan(request, *, repo, policy):
+    """Resolve a narrow diagnostic plan against trusted criterion IDs."""
+    if not isinstance(request, dict) or request.get('purpose') != 'DIAGNOSTIC' or request.get('implementation_complete') is not False:
+        _fail('diagnostic plans require purpose DIAGNOSTIC and implementation_complete=false')
+    if not isinstance(request.get('diagnostic_rationale'), str) or not request['diagnostic_rationale'].strip():
+        _fail('diagnostic_rationale must be non-empty')
+    plan = request.get('diagnostic_plan')
+    if not isinstance(plan, dict) or plan.get('kind') != 'diagnostic' or plan.get('manual_steps') != []:
+        _fail('diagnostic_plan must be a typed diagnostic plan with no manual steps')
+    policy_ids = policy.get('criteria')
+    if not isinstance(policy_ids, list) or not policy_ids:
+        _fail('trusted policy criteria must be non-empty')
+    criteria = request.get('criteria')
+    if not isinstance(criteria, list) or not criteria or any(not isinstance(c, dict) or c.get('status') != 'DIAGNOSTIC' for c in criteria):
+        _fail('diagnostic criteria must use DIAGNOSTIC status')
+    ids = [c.get('criterion_id') for c in criteria]
+    if len(ids) != len(set(ids)) or set(ids) != set(policy_ids):
+        _fail('diagnostic criteria must exactly match trusted policy criteria')
+    accept = plan.get('acceptance_criteria')
+    if not isinstance(accept, list) or not accept or any(not isinstance(x, str) or not x.strip() for x in accept) or not set(accept).issubset(policy_ids):
+        _fail('diagnostic plan criteria must be a non-empty subset of trusted criteria')
+    if not isinstance(plan.get('checks'), list) or not plan['checks']:
+        _fail('diagnostic plans require checks')
+    for check in plan['checks']:
+        if not isinstance(check, dict) or not isinstance(check.get('covers'), list) or not check['covers'] or not set(check['covers']).issubset(accept):
+            _fail('diagnostic check coverage must be a non-empty subset of plan criteria')
+    try:
+        resolved = resolve_gate_plan(plan, Path(repo))
+        for index, check in enumerate(resolved.get('checks', [])):
+            if check.get('kind') == 'gametest':
+                try:
+                    native_fixtures.accepted_binding(check, request.get('input_digest', ''), index)
+                except (ValueError, TypeError, AttributeError) as exc:
+                    fixture = f"build/workflow-fixtures/{str(request.get('input_digest', ''))[:12]}"
+                    raise ProtocolError('diagnostic GameTest fixture binding is invalid.',
+                        field=f'diagnostic_plan.checks.{index}',
+                        recovery=f'Require exactly -Pms14GameTestDir={fixture} and log {fixture}/logs/latest.log; recompute the plan digest, then prepare a fresh scope and submission key.') from exc
+    except ProtocolError:
+        raise
+    except Exception as exc:
+        _fail(f'diagnostic plan rejected: {exc}')
+    return {'registry_version': REGISTRY_VERSION, 'packs': [], 'plan': resolved,
+            'program_checks': ['managed_config_provenance']}
 
 
 def resolve_check_packs(request, *, repo, policy):

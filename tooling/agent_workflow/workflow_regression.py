@@ -63,6 +63,14 @@ def aggregate_regression(store, run_id):
         raise ValueError('unknown regression run')
     if saved['run'].get('run_kind') != 'POST_ACCEPTANCE_REGRESSION':
         raise ValueError('run is not a post-acceptance regression')
+    return aggregate_checks(store, run_id)
+
+
+def aggregate_checks(store, run_id):
+    """Aggregate native CHECK outcomes without feature/review judgement."""
+    saved = store.get_run(run_id)
+    if saved is None:
+        raise ValueError('unknown check run')
     tasks = store.list_tasks(run_id, saved['attempt']['generation'])
     checks = [task for task in tasks if task['kind'] == 'CHECK']
     if not checks:

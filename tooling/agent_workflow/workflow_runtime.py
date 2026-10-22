@@ -565,7 +565,15 @@ def validate_gate_plan(plan,repo):
     if any(not isinstance(x,str) or not x.strip() for x in plan['acceptance_criteria']+plan['manual_steps']): raise ValueError('criteria/manual steps must be non-empty text')
     for check in plan['checks']:
         allowed_check={'argv','rationale','covers','kind','selectors','artifacts','ready_patterns','error_patterns','log'}
+        if diagnostic: allowed_check.add('artifact_globs')
         if set(check)-allowed_check: raise ValueError(f'unsupported check orchestration keys: {sorted(set(check)-allowed_check)}')
+        if 'artifact_globs' in check:
+            patterns=check['artifact_globs']
+            if not diagnostic or not isinstance(patterns,list) or not patterns: raise ValueError('artifact_globs are only allowed as a non-empty diagnostic list')
+            for pattern in patterns:
+                if (not isinstance(pattern,str) or not pattern.strip() or Path(pattern).is_absolute() or '\\' in pattern or
+                    any(part in ('','..','.') for part in pattern.split('/'))):
+                    raise ValueError('artifact_globs must be safe repo-relative patterns')
         if not isinstance(check,dict) or not isinstance(check.get('argv'),list) or not check['argv'] or any(not isinstance(x,str) or not x.strip() for x in check['argv']) or not isinstance(check.get('rationale'),str) or not check['rationale'].strip() or not check.get('covers'):
             raise ValueError('checks require argv, rationale and covered criteria')
         if not isinstance(check['covers'],list) or any(x not in plan['acceptance_criteria'] for x in check['covers']): raise ValueError('check covers must reference acceptance criteria')

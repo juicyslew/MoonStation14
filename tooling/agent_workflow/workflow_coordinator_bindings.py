@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import stat
 import shutil
+import subprocess
 import urllib.parse
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +31,125 @@ REVIEWER_ROLE_GUIDANCE = {
     "coverage": "Check whether acceptance criteria and changed behavior have relevant, adequate test evidence.",
     "fidelity": "For applicable bound visual work, compare submitted visuals to the specified reference and evidence.",
 }
+
+
+def _index_digest(root: Path) -> str:
+    """Hash the semantic stage-0 index entries without mutating the index."""
+    raw = subprocess.run(["git", "-C", str(root), "ls-files", "--stage", "-z"],
+                         check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+    entries = []
+    for entry in raw.split(b"\0"):
+        if entry:
+            metadata, path = entry.split(b"\t", 1)
+            entries.append(metadata + b"\t" + path)
+    return hashlib.sha256(b"\0".join(sorted(entries)) + (b"\0" if entries else b"")).hexdigest()
+
+
+def validate_shared_config_plan_shape(plan):
+    """Validate exact public plan contract, reusable by package/deploy validators."""
+    if not isinstance(plan, dict) or set(plan) != {"version", "mode", "template", "initialize", "untrack_generated", "targets"}:
+        raise ValueError("shared config plan has unknown or missing fields")
+    if type(plan["version"]) is not int or plan["version"] != 1 or plan["mode"] != "shared-opencode-config":
+        raise ValueError("shared config plan mode/version is invalid")
+    if type(plan["initialize"]) is not bool or type(plan["untrack_generated"]) is not bool:
+        raise ValueError("shared config flags must be booleans")
+    template = plan["template"]
+    if (not isinstance(template, dict) or set(template) != {"path", "sha256"} or
+            not isinstance(template["path"], str) or not Path(template["path"]).is_absolute() or
+            not isinstance(template["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", template["sha256"])):
+        raise ValueError("shared config template must bind an absolute path and SHA-256")
+    names = {"main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))}
+    rows = plan["targets"]
+    required = {"target", "expected_config_sha256", "expected_local_sha256", "expected_gitignore_sha256", "expected_index_digest"}
+    if not isinstance(rows, list) or len(rows) != 5 or any(
+            not isinstance(row, dict) or set(row) != required or row.get("target") not in names or
+            any((row.get(k) is None if k != "expected_local_sha256" else False) or
+                (row.get(k) is not None and (not isinstance(row[k], str) or not re.fullmatch(r"[0-9a-f]{64}", row[k])))
+                for k in required - {"target"}) for row in rows) or {r["target"] for r in rows if isinstance(r, dict)} != names:
+        raise ValueError("shared config plan must bind MAIN and agents 01..04 exactly once")
+    return plan
+
+
+def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, main_root: Path, shared_root: Path) -> dict:
+    """Receipt-owned, read-only staging for the canonical shared OpenCode template."""
+    raw = binding_plan.read_bytes()
+    plan = validate_shared_config_plan_shape(json.loads(raw.decode("utf-8-sig")))
+    main_root = Path(main_root)
+    template_path = Path(plan["template"]["path"])
+    expected_template = (main_root / "tooling/opencode/shared-config.jsonc").resolve()
+    if (not main_root.is_absolute() or main_root.name != "MoonStation14" or not main_root.is_dir() or
+            template_path != expected_template or template_path.is_symlink() or not template_path.is_file()):
+        raise ValueError("template must be the canonical regular MAIN shared-config file")
+    _assert_no_reparse(Path(main_root.anchor), template_path)
+    template_bytes = template_path.read_bytes()
+    if hashlib.sha256(template_bytes).hexdigest() != plan["template"]["sha256"]:
+        raise ValueError("shared template hash changed")
+    from workflow_opencode_config import (load_template, extract_local_overlay, render_config,
+                                           preserve_existing_bytes, serialize_config, configs_equivalent)
+    template = load_template(template_bytes)
+    stage.mkdir(parents=True, exist_ok=True)
+    variables = {"shared_root": shared_root.as_posix(), "workspace_parent": main_root.parent.as_posix(),
+                 "ss14_root": (Path.home() / "Documents/SS14-dev/space-station-14").as_posix()}
+    staged_files = {}
+    for row in plan["targets"]:
+        name = row["target"]
+        root = main_root if name == "main" else main_root.parent / name
+        if not root.is_dir(): raise ValueError(f"shared config target does not exist: {name}")
+        _assert_no_reparse(Path(root.anchor), root)
+        cfg = root / "opencode.jsonc"; overlay_path = root / ".opencode/workflow/opencode-local.json"; ignore_path = root / ".gitignore"
+        for path in (cfg, overlay_path, ignore_path): _assert_no_reparse(root, path)
+        cfg_bytes = cfg.read_bytes(); cfg_sha = hashlib.sha256(cfg_bytes).hexdigest()
+        owners = [r for r in receipt.get("files", []) if r.get("target") == name and r.get("path") == "opencode.jsonc" and not r.get("deleted")]
+        if len(owners) != 1 or owners[0].get("new_sha256") != cfg_sha or row["expected_config_sha256"] != cfg_sha:
+            raise ValueError(f"config is stale or not receipt-owned: {name}")
+        local_exists = overlay_path.is_file()
+        local_bytes = overlay_path.read_bytes() if local_exists else None
+        local_sha = hashlib.sha256(local_bytes).hexdigest() if local_exists else None
+        if local_sha != row["expected_local_sha256"]: raise ValueError(f"local overlay hash mismatch: {name}")
+        if plan["initialize"] and local_exists:
+            raise ValueError(f"initialization requires all local overlays to be absent: {name}")
+        if not plan["initialize"] and not local_exists:
+            raise ValueError(f"non-initializing plan requires a current receipt-owned local overlay: {name}")
+        if local_exists:
+            local_owners = [r for r in receipt.get("files", []) if r.get("target") == name and r.get("path") == ".opencode/workflow/opencode-local.json" and not r.get("deleted")]
+            if len(local_owners) != 1 or local_owners[0].get("new_sha256") != local_sha:
+                raise ValueError(f"existing local overlay is unknown/unowned: {name}")
+            import workflow_opencode_config as oc
+            overlay = oc._overlay(local_bytes)
+            if overlay["variables"] != variables: raise ValueError(f"local overlay variables differ: {name}")
+        else:
+            if row["expected_local_sha256"] is not None: raise ValueError("planned local overlay is absent")
+            overlay = extract_local_overlay(template, cfg_bytes, variables)
+        desired = render_config(template, overlay)
+        after = cfg_bytes if configs_equivalent(__import__("workflow_opencode_config")._loads(cfg_bytes), desired) else serialize_config(desired).encode()
+        ignore_bytes = ignore_path.read_bytes() if ignore_path.exists() else b""
+        ignore_sha = hashlib.sha256(ignore_bytes).hexdigest()
+        if ignore_sha != row["expected_gitignore_sha256"]: raise ValueError(f"gitignore hash mismatch: {name}")
+        ignore_after = ignore_bytes
+        for pattern in ("/opencode.jsonc", "/.opencode/workflow/"):
+            if pattern not in ignore_bytes.decode("utf-8-sig").splitlines():
+                if ignore_after and not ignore_after.endswith((b"\n", b"\r")): ignore_after += b"\n"
+                ignore_after += (pattern + "\n").encode()
+        index = _index_digest(root)
+        if index != row["expected_index_digest"]: raise ValueError(f"git index drift: {name}")
+        config_scope = {**owners[0].get("config_scope", {}), "shared_template": {"path": str(template_path), "sha256": plan["template"]["sha256"]}, "local_overlay": {"path": ".opencode/workflow/opencode-local.json", "sha256": hashlib.sha256(serialize_config(overlay).encode()).hexdigest()}}
+        for rel, before, output, receipt_sha, scope in (
+            ("opencode.jsonc", cfg_bytes, after, owners[0]["new_sha256"], config_scope),
+            (".opencode/workflow/opencode-local.json", local_bytes, (serialize_config(overlay).encode() if not local_exists else local_bytes), local_sha, None),
+            (".gitignore", ignore_bytes, ignore_after, None, None)):
+            if before == output and not (scope is not None and owners[0].get("config_scope") != scope): continue
+            br = Path("bindings/backups") / name / rel; sr = Path("bindings") / name / rel
+            for p in (stage / br, stage / sr): _assert_no_reparse(stage, p); p.parent.mkdir(parents=True, exist_ok=True)
+            if before is not None: (stage / br).write_bytes(before)
+            (stage / sr).write_bytes(output)
+            new_hash=hashlib.sha256(output).hexdigest(); item={"target":name,"path":rel,"old_sha256":hashlib.sha256(before).hexdigest() if before is not None else None,"new_sha256":new_hash,"receipt_sha256":receipt_sha,"staged_path":sr.as_posix(),"staged_sha256":new_hash,"source":str(root/rel),"source_sha256":hashlib.sha256(before).hexdigest() if before is not None else None}
+            if before is not None: item.update({"backup_path":br.as_posix(),"backup_sha256":item["old_sha256"]})
+            if scope is not None: item["config_scope"]=scope
+            staged_files[f"{name}/{rel}"]=item
+    plan_rel="bindings/binding-plan.json"; (stage/plan_rel).parent.mkdir(parents=True,exist_ok=True); (stage/plan_rel).write_bytes(raw)
+    result={"version":1,"mode":"shared-opencode-config","source_plan":str(binding_plan.resolve()),"source_plan_sha256":hashlib.sha256(raw).hexdigest(),"staged_plan":plan_rel,"staged_plan_sha256":hashlib.sha256(raw).hexdigest(),"receipt_path":receipt["_path"],"receipt_sha256":receipt["_sha256"],"targets":sorted(r["target"] for r in plan["targets"]),"files":staged_files,"metadata":{"index_transition":{"untrack_generated":plan["untrack_generated"],"expected_index_digests":{r["target"]:r["expected_index_digest"] for r in plan["targets"]}}}}
+    m=stage/"bindings/binding-manifest.json";m.write_text(json.dumps(result,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+    return result
 
 
 def materialize_remote_authorization(entry: dict, *, endpoint: str, profile: str,
@@ -1216,6 +1336,35 @@ def stage_binding_plan(binding_plan: Path, stage: Path, receipt: dict, *, main_r
                 if not receipt.get("stage"):
                     raise ValueError(f"receipt-owned coordinator config lacks binding scope: {name}") from exc
                 raise
+        shared_template = prior_scope.get("shared_template")
+        shared_overlay_meta = prior_scope.get("local_overlay")
+        shared_overlay = None
+        if shared_template is not None or shared_overlay_meta is not None:
+            if (not isinstance(shared_template, dict) or set(shared_template) != {"path", "sha256"} or
+                    not isinstance(shared_overlay_meta, dict) or set(shared_overlay_meta) != {"path", "sha256"}):
+                raise ValueError(f"shared OpenCode ownership metadata is malformed: {name}")
+            shared_path = Path(shared_template["path"])
+            canonical = (main_root / "tooling/opencode/shared-config.jsonc").resolve()
+            if shared_path != canonical or shared_path.is_symlink() or not shared_path.is_file():
+                raise ValueError("shared config template path is not canonical MAIN")
+            template_bytes = shared_path.read_bytes()
+            if hashlib.sha256(template_bytes).hexdigest() != shared_template["sha256"]:
+                raise ValueError("shared config template changed; apply shared config first")
+            overlay_path = root / shared_overlay_meta["path"]
+            if shared_overlay_meta["path"] != ".opencode/workflow/opencode-local.json":
+                raise ValueError("shared local overlay path is not canonical")
+            _assert_no_reparse(root, overlay_path)
+            if not overlay_path.is_file() or overlay_path.is_symlink():
+                raise ValueError("receipt-owned shared local overlay is missing")
+            overlay_bytes = overlay_path.read_bytes(); overlay_sha = hashlib.sha256(overlay_bytes).hexdigest()
+            if overlay_sha != shared_overlay_meta["sha256"]:
+                raise ValueError("shared local overlay changed outside receipt")
+            overlay_receipts = [x for x in receipt["files"] if x.get("target") == name and x.get("path") == shared_overlay_meta["path"] and not x.get("deleted")]
+            if len(overlay_receipts) != 1 or overlay_receipts[0].get("new_sha256") != overlay_sha:
+                raise ValueError("shared local overlay is not uniquely receipt-owned")
+            import workflow_opencode_config as oc
+            existing_overlay = oc._overlay(overlay_bytes)
+            shared_overlay = existing_overlay
         prior_server_keys = prior_scope.get("server_keys", [])
         prior_agents = prior_scope.get("agents", [])
         if (not isinstance(prior_server_keys, list) or not all(isinstance(x, str) for x in prior_server_keys)
@@ -1379,15 +1528,26 @@ def stage_binding_plan(binding_plan: Path, stage: Path, receipt: dict, *, main_r
             raise ValueError(f"unowned OpenCode config semantics changed for {name}")
         output = []
         config_new = (json.dumps(new_config, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
-        scope = {"server_keys": ["ms14_workflow" if r["role"] == "author" else f"ms14_workflow_review_{r['role']}" for r in role_rows],
+        scope = {**prior_scope, "server_keys": ["ms14_workflow" if r["role"] == "author" else f"ms14_workflow_review_{r['role']}" for r in role_rows],
                  "transport": "http",
                  "agents": sorted({r["agent"] for r in role_rows}),
                  "legacy_rules": [{"action":a,"resource":r,"effect":e} for a,r,e in owned_rules],
                  **({"tool_output_read": True, "tool_output_path": str(output_root), "tool_output_rules": [
                      {"action":a,"resource":r,"effect":e} for a,r,e in tool_output_rules],
                      "tool_output_agents": tool_output_agents} if tool_output_read else {}),
-                 "reviewer_agents": {role: manifest_reviewer_agents[role] for role in (d["role"] for d in target_reviewer_agents.values())}}
+                  "reviewer_agents": {role: manifest_reviewer_agents[role] for role in (d["role"] for d in target_reviewer_agents.values())}}
+        if shared_overlay is not None:
+            from workflow_opencode_config import load_template, extract_local_overlay, render_config, configs_equivalent, serialize_config
+            shared_overlay = extract_local_overlay(load_template(template_bytes), new_config, existing_overlay["variables"])
+            rendered = render_config(load_template(template_bytes), shared_overlay)
+            if not configs_equivalent(new_config, rendered):
+                raise ValueError("binding update cannot roundtrip through shared local overlay")
+            overlay_new_bytes = serialize_config(shared_overlay).encode("utf-8")
+            scope["shared_template"] = shared_template
+            scope["local_overlay"] = {"path": shared_overlay_meta["path"], "sha256": hashlib.sha256(overlay_new_bytes).hexdigest()}
         output.append(("opencode.jsonc", config_bytes, config_new, target_rows[0], scope))
+        if shared_overlay is not None:
+            output.append((shared_overlay_meta["path"], overlay_bytes, overlay_new_bytes, overlay_receipts[0], None))
         for relative, profile_plan in profile_plans.items():
             profile_row = next(x for x in receipt["files"] if x.get("target") == name and x.get("path") == relative)
             output.append((relative, profile_plan["old_bytes"], profile_plan["new_bytes"], profile_row, None))

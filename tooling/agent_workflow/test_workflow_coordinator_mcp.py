@@ -101,6 +101,16 @@ class CoordinatorMCPTests(unittest.TestCase):
 
     def test_catalog_and_unknown_args(self):
         self.assertEqual({x["name"] for x in self.client.tools()}, {"submit", "status", "acknowledge_result", "register_scope", "scope_status"})
+        catalog={tool['name']:tool for tool in self.client.tools()}
+        for name in ('submit','register_scope'):
+            description=catalog[name]['description']
+            self.assertIn('DIAGNOSTIC',description)
+            self.assertIn('OWNER_READY',description)
+            self.assertIn('implementation_complete=false',description)
+            self.assertIn('at any development stage',description)
+            self.assertIn('not feature readiness',description)
+        self.assertIn('FEATURE FAIL only',catalog['submit']['description'])
+        self.assertIn('DIAGNOSTIC submissions never replace a run',catalog['submit']['description'])
         reviewer=CoordinatorClient("http://127.0.0.1:9000","reviewer",self.repo,transport=self.client.transport,profile='reviewer')
         self.assertFalse({'register_scope','scope_status'} & {x['name'] for x in reviewer.tools()})
         self.assertEqual(self.client.call("submit", {"request_path":"request.json", "idempotency_key":"k", "extra":1})['code'],'INVALID_TOOL_ARGUMENTS')

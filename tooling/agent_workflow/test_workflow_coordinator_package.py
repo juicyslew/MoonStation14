@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,76 @@ import workflow_coordinator_package as package
 
 
 class PackageTests(unittest.TestCase):
+    def test_opencode_config_helper_is_packaged_and_imports_from_installed_tree(self):
+        import hashlib
+        with tempfile.TemporaryDirectory(dir=Path(os.environ["LOCALAPPDATA"])/"Temp/opencode") as directory:
+            root=Path(directory); shared=root/"shared"; shared.mkdir()
+            receipt=root/"receipt.json"; receipt.write_text(json.dumps({"files":[],"source_hashes":{},"shared_root":str(shared)}))
+            stage=root/"stage"; manifest=package.build(stage,receipt)
+            key="tooling/agent_workflow/workflow_opencode_config.py"
+            self.assertIn(key,manifest["files"])
+            staged=stage/manifest["files"][key]["target"]
+            self.assertEqual(hashlib.sha256((package.ROOT/key).read_bytes()).hexdigest(),hashlib.sha256(staged.read_bytes()).hexdigest())
+            installed=shared/key; installed.parent.mkdir(parents=True,exist_ok=True); installed.write_bytes(staged.read_bytes())
+            script=("import sys; sys.path.insert(0, r'"+str(shared/"tooling/agent_workflow")+
+                    "'); import workflow_opencode_config as m; print(m.__file__)")
+            result=subprocess.run([sys.executable,"-I","-c",script],cwd=root,capture_output=True,text=True,check=True)
+            self.assertEqual(installed.resolve(),Path(result.stdout.strip()).resolve())
+
+    def test_shared_config_plan_builds_and_publishes_receipt_owned_rows(self):
+        import hashlib
+        import workflow_coordinator_bindings as bindings
+        import workflow_opencode_config as oc
+        with tempfile.TemporaryDirectory(dir=Path(os.environ["LOCALAPPDATA"])/"Temp/opencode") as directory:
+            base=Path(directory); main=base/"MoonStation14"; main.mkdir(); shared=base/"shared"; shared.mkdir()
+            template=(package.ROOT/"tooling/opencode/shared-config.jsonc").read_bytes()
+            template_path=main/"tooling/opencode/shared-config.jsonc"; template_path.parent.mkdir(parents=True); template_path.write_bytes(template)
+            variables={"shared_root":shared.as_posix(),"workspace_parent":main.parent.as_posix(),"ss14_root":(Path.home()/"Documents/SS14-dev/space-station-14").as_posix()}
+            names=["main",*(f"MoonStation14-agent-0{i}" for i in range(1,5))]; roots={"main":main}; rows=[]; targets=[]
+            local_config={"version":1,"variables":variables,"config":{"mcp":{"servers":{"private":{"url":"keep"}}},"agents":{"implement":{"model":"private-model"}}}}
+            for name in names:
+                root=main if name=="main" else main.parent/name
+                if name!="main": root.mkdir()
+                roots[name]=root; (root/".gitignore").write_bytes(b"# retain\ncustom\n")
+                (root/".opencode/workflow").mkdir(parents=True,exist_ok=True)
+                config=oc.serialize_config(oc.render_config(oc.load_template(template),local_config)).encode()
+                (root/"opencode.jsonc").write_bytes(config)
+                subprocess.run(["git","init","-q",str(root)],check=True)
+                subprocess.run(["git","-C",str(root),"add","opencode.jsonc",".gitignore"],check=True)
+                subprocess.run(["git","-C",str(root),"-c","user.name=test","-c","user.email=test@local","commit","-qm","fixture"],check=True)
+                ch=hashlib.sha256(config).hexdigest(); rows.append({"target":name,"path":"opencode.jsonc","new_sha256":ch,"deleted":False,"config_scope":{"preserved":"yes"}})
+                targets.append({"target":name,"expected_config_sha256":ch,"expected_local_sha256":None,
+                    "expected_gitignore_sha256":hashlib.sha256((root/".gitignore").read_bytes()).hexdigest(),"expected_index_digest":bindings._index_digest(root)})
+            receipt=base/"previous.json"; receipt.write_text(json.dumps({"files":rows,"source_hashes":{},"shared_root":str(shared),"main_root":str(main)}))
+            plan={"version":1,"mode":"shared-opencode-config","template":{"path":str(template_path),"sha256":hashlib.sha256(template).hexdigest()},"initialize":True,"untrack_generated":False,"targets":targets}
+            planpath=base/"plan.json"; planpath.write_text(json.dumps(plan))
+            stage=base/"stage"; built=package.build(stage,receipt,binding_plan=planpath)
+            pointer=main/package.POINTER_RELATIVE; pointer.parent.mkdir(parents=True,exist_ok=True); pointer.write_text(json.dumps({"receipt":str(receipt)}))
+            result=package.publish(stage,receipt,base/"published.json",pointer_path=pointer,expected_pointer_sha256=hashlib.sha256(pointer.read_bytes()).hexdigest())
+            self.assertEqual("applied",result["status"])
+            for name in names:
+                configrow=next(r for r in result["files"] if r["target"]==name and r["path"]=="opencode.jsonc")
+                overlayrow=next(r for r in result["files"] if r["target"]==name and r["path"]==".opencode/workflow/opencode-local.json")
+                self.assertEqual(configrow["config_scope"]["local_overlay"]["sha256"],overlayrow["new_sha256"])
+                self.assertEqual("private-model",json.loads((roots[name]/"opencode.jsonc").read_text())["agents"]["implement"]["model"])
+                self.assertTrue((roots[name]/".gitignore").read_text().endswith("/.opencode/workflow/\n"))
+
+    def test_preserve_bindings_rejects_drift_in_config_scoped_overlay(self):
+        import hashlib
+        with tempfile.TemporaryDirectory(dir=Path(os.environ["LOCALAPPDATA"])/"Temp/opencode") as directory:
+            root=Path(directory); shared=root/"shared"; shared.mkdir(); main=root/"MoonStation14"; main.mkdir()
+            cfg=main/"opencode.jsonc"; cfg.write_bytes(b'{"agents":{}}')
+            overlay=main/".opencode/workflow/opencode-local.json"; overlay.parent.mkdir(parents=True); overlay.write_bytes(b'{"version":1}\n')
+            ch=hashlib.sha256(cfg.read_bytes()).hexdigest(); oh=hashlib.sha256(overlay.read_bytes()).hexdigest()
+            receipt=root/"receipt.json"; receipt.write_text(json.dumps({"files":[
+                {"target":"main","path":"opencode.jsonc","new_sha256":ch,"deleted":False,
+                 "config_scope":{"local_overlay":{"path":".opencode/workflow/opencode-local.json","sha256":oh}}},
+                {"target":"main","path":".opencode/workflow/opencode-local.json","new_sha256":oh,"deleted":False}],
+                "source_hashes":{},"shared_root":str(shared),"main_root":str(main)}))
+            overlay.write_bytes(b'{"version":2}\n')
+            with self.assertRaisesRegex(ValueError,"receipt-owned local overlay changed"):
+                package.build(root/"stage",receipt,preserve_bindings=True)
+
     def test_reviewer_search_plan_build_validate_and_publish_receipt_owned_main(self):
         import hashlib
         import workflow_coordinator_bindings as bindings
@@ -90,6 +161,26 @@ class PackageTests(unittest.TestCase):
             self.assertEqual("applied",result["status"])
             for key in selected_keys:self.assertEqual((package.ROOT/key).read_bytes(),(shared/key).read_bytes())
             self.assertEqual(baseline_dirty,(shared/dirty_key).read_bytes())
+
+    def test_scoped_update_omits_new_unselected_catalog_member(self):
+        import hashlib
+        with tempfile.TemporaryDirectory(dir=Path(os.environ["LOCALAPPDATA"])/"Temp/opencode") as directory:
+            root=Path(directory);shared=root/"shared";shared.mkdir();receipt=root/"receipt.json"
+            main=root/"main";main.mkdir();config=main/"opencode.jsonc";config.write_text("{}")
+            receipt.write_text(json.dumps({"files":[{"target":"main","path":"opencode.jsonc","new_sha256":__import__("hashlib").sha256(config.read_bytes()).hexdigest(),"deleted":False}],"source_hashes":{},"shared_root":str(shared),"main_root":str(main)}))
+            bootstrap=root/"bootstrap";bootstrap_manifest=package.build(bootstrap,receipt)
+            rows=[]
+            for key,item in bootstrap_manifest["files"].items():
+                live=shared/key;live.parent.mkdir(parents=True,exist_ok=True)
+                data=(bootstrap/item["target"]).read_bytes();live.write_bytes(data)
+                rows.append({"target":"shared","path":key,"new_sha256":hashlib.sha256(data).hexdigest(),"deleted":False})
+            rows.append({"target":"main","path":"opencode.jsonc","new_sha256":hashlib.sha256(config.read_bytes()).hexdigest(),"deleted":False})
+            receipt.write_text(json.dumps({"files":rows,"source_hashes":{},"shared_root":str(shared),"main_root":str(main)}))
+            member="tooling/agent_workflow/new_unreviewed_catalog_member.py"
+            with __import__("unittest.mock",fromlist=["patch"]).patch.object(package,"SOURCES",(*package.SOURCES,"new_unreviewed_catalog_member.py")):
+                manifest=package.build(root/"stage",receipt,reviewed_source_hashes={"tooling/agent_workflow/workflow_coordinator.py":hashlib.sha256((package.ROOT/"tooling/agent_workflow/workflow_coordinator.py").read_bytes()).hexdigest()})
+            self.assertNotIn(member,manifest["files"])
+            self.assertFalse((root/"stage"/member).exists())
 
     def test_explicit_inactive_manifest_and_stage_collision(self):
         with tempfile.TemporaryDirectory(dir=Path(os.environ["LOCALAPPDATA"]) / "Temp/opencode") as directory:

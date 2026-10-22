@@ -79,6 +79,33 @@ class OwnerBinding:
     session_id: str | None = None
 
 
+def _diagnostic_continuation(store, run_id):
+    """Project current diagnostic guidance without changing its immutable result event."""
+    saved = store.get_run(run_id)
+    if not saved or saved['run'].get('run_kind') != 'DIAGNOSTIC':
+        return None
+    attempt = saved.get('attempt') or {}
+    result = attempt.get('result')
+    if result != 'ERROR':
+        return 'FIX_FINDINGS' if result == 'FAIL' else 'REVIEW_DIAGNOSTIC_RESULTS'
+    if attempt.get('phase') != 'DECIDED' or attempt.get('cleanup_state') not in ('CONFIRMED', 'NOT_REQUIRED'):
+        return 'WAIT_FOR_RECOVERY'
+    try:
+        tasks = store.list_tasks(run_id, saved['run'].get('current_attempt'))
+        if any(task.get('state') not in ('COMPLETED', 'CANCELLED') for task in tasks):
+            return 'WAIT_FOR_RECOVERY'
+        all_tasks = store.list_tasks(run_id)
+        if any(resource.get('state') in ('HELD', 'UNKNOWN') for task in all_tasks
+               for resource in store.get_task_resources(task['task_id'])):
+            return 'WAIT_FOR_RECOVERY'
+        if any(scope.get('task', {}).get('run_id') == run_id and scope.get('state') != 'CLEANED'
+               for scope in store.list_native_scopes()):
+            return 'WAIT_FOR_RECOVERY'
+    except Exception:
+        return 'WAIT_FOR_RECOVERY'
+    return 'PREPARE_FRESH_DIAGNOSTIC'
+
+
 class OpenCodeIdentityVerifier:
     """Verify configured session identity using the existing OpenCode API helpers."""
     def __init__(self, server, *, session_lookup=None, role_lookup=None):
@@ -890,7 +917,12 @@ class ExplicitCoordinator:
                 if guidance is not None: response['submission_guidance']=guidance
                 return JSONResponse(response)
             response={"run": result['run'] if result else None, "attempt": result['attempt'] if result else None, "submission": receipt, "freshness": "not_checked", "coordinator": self.summary()}
-            if result and result['attempt'].get('result')=='ERROR':
+            if result:
+                response['run_kind'] = result['run'].get('run_kind', 'FEATURE_GATE')
+            if result and result['run'].get('run_kind') == 'DIAGNOSTIC':
+                response['continuation']={'next_action':await anyio.to_thread.run_sync(
+                    lambda:_diagnostic_continuation(self.store,run_id))}
+            elif result and result['attempt'].get('result')=='ERROR':
                 retired=await anyio.to_thread.run_sync(lambda:self.store.is_settled_error_head_retired(run_id))
                 head=await anyio.to_thread.run_sync(lambda:self.store.is_current_feature_head(run_id))
                 response['continuation']={'retired_head':retired,
@@ -954,7 +986,11 @@ class ExplicitCoordinator:
                 response={"accepted": True, "disposition": result["disposition"]}
                 saved_event=self.store.get_event(ack["event_id"])
                 if saved_event and (saved_event["payload"].get("control_kind") or saved_event["payload"].get("result_id")):
-                    response["next_action"]=saved_event["payload"].get("next_action") or result.get("next_action")
+                    payload=saved_event["payload"]
+                    current=(await anyio.to_thread.run_sync(
+                        lambda:_diagnostic_continuation(self.store,payload.get('run_id')))
+                        if payload.get('run_kind')=='DIAGNOSTIC' else None)
+                    response["next_action"]=current or payload.get("next_action") or result.get("next_action")
                 return JSONResponse(response)
             except (workflow_store.ProtocolError, ValueError, TypeError) as exc:
                 forged_session=isinstance(locals().get("body"),dict) and "author_session_id" in body

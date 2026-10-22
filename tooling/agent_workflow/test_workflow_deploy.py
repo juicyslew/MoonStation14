@@ -2,6 +2,9 @@ import json
 import sqlite3
 import tempfile
 import unittest
+import hashlib
+import os
+import subprocess
 from unittest import mock
 from contextlib import ExitStack
 from pathlib import Path
@@ -13,6 +16,181 @@ except ModuleNotFoundError:
 
 
 class DeployWorkflowTests(unittest.TestCase):
+    def test_shared_config_index_transition_five_isolated_git_roots(self):
+        import workflow_coordinator_bindings as bindings
+        names = ["main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))]
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td); roots = {}; targets = []; receipt = {"files": []}
+            for name in names:
+                root = base / name; root.mkdir(); roots[name] = root
+                def git(*args):
+                    return subprocess.run(["git", "-C", str(root), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+                git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "Fixture")
+                (root / "opencode.jsonc").write_bytes(b'{"generated":true}\n')
+                (root / ".gitignore").write_text("/opencode.jsonc\n/.opencode/workflow/\n")
+                (root / ".opencode/workflow").mkdir(parents=True); (root / ".opencode/workflow/opencode-local.json").write_text("{}\n")
+                (root / "other.txt").write_text("base\n"); git("add", "."); git("commit", "-qm", "base")
+                (root / "other.txt").write_text("staged\n"); git("add", "other.txt"); (root / "other.txt").write_text("working\n")
+                targets.append({"target": name, "expected_index_digest": bindings._index_digest(root)})
+                for path in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore"):
+                    data = (root / path).read_bytes()
+                    receipt["files"].append({"target": name, "path": path, "new_sha256": hashlib.sha256(data).hexdigest()})
+            stage = base / "stage"; stage.mkdir()
+            deploy.finalize_shared_config_index_transition(roots, {"targets": targets}, receipt, stage)
+            for root in roots.values():
+                git = lambda *args: subprocess.run(["git", "-C", str(root), *args], check=True, stdout=subprocess.PIPE).stdout
+                self.assertFalse(git("ls-files", "--", "opencode.jsonc").strip())
+                self.assertTrue((root / "opencode.jsonc").is_file())
+                self.assertIn(b"opencode.jsonc", git("check-ignore", "-v", "--", "opencode.jsonc"))
+                self.assertEqual(b"staged\n", git("show", ":other.txt"))
+                self.assertEqual("working\n", (root / "other.txt").read_text())
+
+    def test_shared_config_index_transition_rejects_digest_drift_before_any_mutation(self):
+        import workflow_coordinator_bindings as bindings
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); names = ["main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))]
+            roots = {}; targets = []
+            for name in names:
+                repo = root / name; repo.mkdir(); roots[name] = repo
+                subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+                (repo / "opencode.jsonc").write_text("{}\n")
+                subprocess.run(["git", "-C", str(repo), "add", "opencode.jsonc"], check=True)
+                targets.append({"target": name, "expected_index_digest": bindings._index_digest(repo)})
+            original = bindings._index_digest(roots["main"])
+            targets[0]["expected_index_digest"] = "0" * 64
+            with self.assertRaises(ValueError):
+                deploy.finalize_shared_config_index_transition(roots, {"targets": targets}, {"files": []}, root / "stage")
+            self.assertEqual(original, bindings._index_digest(roots["main"]))
+
+    def test_shared_config_prechecks_all_roots_before_first_index_mutation(self):
+        import workflow_coordinator_bindings as bindings
+        names = ["main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))]
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td); roots = {}; targets = []; receipt = {"files": []}
+            for name in names:
+                root = base / name; root.mkdir(); roots[name] = root
+                def git(*args): return subprocess.run(["git", "-C", str(root), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+                git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "Fixture")
+                (root / "opencode.jsonc").write_text("{}\n"); (root / ".gitignore").write_text("/opencode.jsonc\n/.opencode/workflow/\n")
+                (root / ".opencode/workflow").mkdir(parents=True); (root / ".opencode/workflow/opencode-local.json").write_text("{}\n")
+                git("add", "."); git("commit", "-qm", "base")
+                targets.append({"target": name, "expected_index_digest": bindings._index_digest(root)})
+                for path in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore"):
+                    receipt["files"].append({"target": name, "path": path, "new_sha256": hashlib.sha256((root / path).read_bytes()).hexdigest()})
+            initial = {n: bindings._index_digest(r) for n, r in roots.items()}
+            # Late target drift must be detected before any earlier target is removed.
+            (roots[names[-1]] / "other").write_text("drift")
+            subprocess.run(["git", "-C", str(roots[names[-1]]), "add", "other"], check=True)
+            with self.assertRaisesRegex(ValueError, "index drift"):
+                deploy.finalize_shared_config_index_transition(roots, {"targets": targets}, receipt, base / "stage")
+            for name in names[:-1]: self.assertEqual(initial[name], bindings._index_digest(roots[name]))
+
+    def test_shared_config_changed_materialization_rejects_before_index_mutation(self):
+        # A receipt-bound file edit is rejected before any index operation.
+        import workflow_coordinator_bindings as bindings
+        names = ["main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))]
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td); roots = {}; targets = []; receipt = {"files": []}
+            for name in names:
+                root = base / name; root.mkdir(); roots[name] = root
+                subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+                (root / "opencode.jsonc").write_text("{}\n"); (root / ".gitignore").write_text("/opencode.jsonc\n/.opencode/workflow/\n")
+                (root / ".opencode/workflow").mkdir(parents=True); (root / ".opencode/workflow/opencode-local.json").write_text("{}\n")
+                subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+                targets.append({"target": name, "expected_index_digest": bindings._index_digest(root)})
+                for path in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore"):
+                    receipt["files"].append({"target": name, "path": path, "new_sha256": hashlib.sha256((root / path).read_bytes()).hexdigest()})
+            before = {n: bindings._index_digest(r) for n, r in roots.items()}
+            (roots[names[-1]] / "opencode.jsonc").write_text("changed\n")
+            with self.assertRaisesRegex(ValueError, "materialization differs"):
+                deploy.finalize_shared_config_index_transition(roots, {"targets": targets}, receipt, base / "stage")
+            self.assertEqual(before, {n: bindings._index_digest(r) for n, r in roots.items()})
+
+    def test_shared_config_index_conflict_prechecks_staged_and_unmerged_entries(self):
+        import workflow_coordinator_bindings as bindings
+        names = ["main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))]
+        for conflict in ("staged", "unmerged"):
+            with self.subTest(conflict=conflict), tempfile.TemporaryDirectory() as td:
+                base = Path(td); roots = {}; targets = []; receipt = {"files": []}
+                for name in names:
+                    root = base / name; root.mkdir(); roots[name] = root
+                    def git(*args): return subprocess.run(["git", "-C", str(root), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+                    git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "Fixture")
+                    (root / "opencode.jsonc").write_text("{}\n"); (root / ".gitignore").write_text("/opencode.jsonc\n/.opencode/workflow/\n")
+                    (root / ".opencode/workflow").mkdir(parents=True); (root / ".opencode/workflow/opencode-local.json").write_text("{}\n")
+                    git("add", "."); git("add", "-f", "opencode.jsonc"); git("commit", "-qm", "base")
+                    targets.append({"target": name, "expected_index_digest": bindings._index_digest(root)})
+                    for path in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore"):
+                        receipt["files"].append({"target": name, "path": path, "new_sha256": hashlib.sha256((root / path).read_bytes()).hexdigest()})
+                bad = roots[names[-1]]
+                if conflict == "staged":
+                    (bad / "opencode.jsonc").write_text('{"staged":true}\n'); subprocess.run(["git", "-C", str(bad), "add", "-f", "opencode.jsonc"], check=True)
+                    targets[-1]["expected_index_digest"] = bindings._index_digest(bad)
+                else:
+                    blob = subprocess.run(["git", "-C", str(bad), "hash-object", "-w", "--stdin"], input=b"conflict", check=True, stdout=subprocess.PIPE).stdout.strip().decode()
+                    info = f"100644 {blob} 1\topencode.jsonc\n100644 {blob} 2\topencode.jsonc\n100644 {blob} 3\topencode.jsonc\n"
+                    subprocess.run(["git", "-C", str(bad), "update-index", "--index-info"], input=info.encode(), check=True)
+                    targets[-1]["expected_index_digest"] = bindings._index_digest(bad)
+                before = {n: bindings._index_digest(r) for n, r in roots.items()}
+                with self.assertRaises(ValueError):
+                    deploy.finalize_shared_config_index_transition(roots, {"targets": targets}, receipt, base / "stage")
+                self.assertEqual(before, {n: bindings._index_digest(r) for n, r in roots.items()})
+
+    def test_shared_config_rechecks_overlay_and_ignore_immediately_before_removal(self):
+        import workflow_coordinator_bindings as bindings
+        names = ["main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))]
+        for changed in ("overlay", "ignore"):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as td:
+                base = Path(td); roots = {}; targets = []; receipt = {"files": []}
+                for name in names:
+                    root = base / name; root.mkdir(); roots[name] = root
+                    def git(*args): return subprocess.run(["git", "-C", str(root), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+                    git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "Fixture")
+                    (root / "opencode.jsonc").write_text("{}\n"); (root / ".gitignore").write_text("/opencode.jsonc\n/.opencode/workflow/\n")
+                    (root / ".opencode/workflow").mkdir(parents=True); (root / ".opencode/workflow/opencode-local.json").write_text("{}\n")
+                    git("add", "."); git("add", "-f", "opencode.jsonc"); git("commit", "-qm", "base")
+                    targets.append({"target": name, "expected_index_digest": bindings._index_digest(root)})
+                    for path in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore"):
+                        receipt["files"].append({"target": name, "path": path, "new_sha256": hashlib.sha256((root / path).read_bytes()).hexdigest()})
+                first = "MoonStation14-agent-01"
+                before = {n: bindings._index_digest(r) for n, r in roots.items()}
+                original_writer = deploy.package._atomic_write
+                mutated = False
+                def journal_then_mutate(path, data, *args, **kwargs):
+                    nonlocal mutated
+                    result = original_writer(path, data, *args, **kwargs)
+                    if not mutated:
+                        mutated = True
+                        member = ".opencode/workflow/opencode-local.json" if changed == "overlay" else ".gitignore"
+                        with (roots[first] / member).open("a", encoding="utf-8") as stream: stream.write("# concurrent change\n")
+                    return result
+                with mock.patch.object(deploy.package, "_atomic_write", side_effect=journal_then_mutate):
+                    with self.assertRaisesRegex(ValueError, "overlay or ignore rules changed"):
+                        deploy.finalize_shared_config_index_transition(roots, {"targets": targets}, receipt, base / "stage")
+                self.assertTrue(mutated)
+                self.assertEqual(before, {n: bindings._index_digest(r) for n, r in roots.items()})
+
+    def test_shared_config_finalizer_failure_keeps_deployer_hold(self):
+        with tempfile.TemporaryDirectory() as td:
+            calls = []
+            args, stack = self.run_fixture(td, calls=calls)
+            names = ["main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))]
+            plan = {"version": 1, "mode": "shared-opencode-config", "template": {
+                "path": str(Path(td) / "main/tooling/opencode/shared-config.jsonc"), "sha256": "a" * 64},
+                "initialize": True, "untrack_generated": True,
+                "targets": [{"target": n, "expected_config_sha256": "a" * 64,
+                    "expected_local_sha256": None, "expected_gitignore_sha256": "b" * 64,
+                    "expected_index_digest": "c" * 64} for n in names]}
+            plan_path = Path(td) / "shared-plan.json"; plan_path.write_text(json.dumps(plan))
+            args.binding_plan = plan_path; args.binding_plan_sha256 = deploy.sha256(plan_path.read_bytes())
+            with stack, mock.patch.object(deploy, "finalize_shared_config_index_transition", side_effect=ValueError("fixture failure")), \
+                    mock.patch("admission.resume_hold") as resume:
+                with self.assertRaisesRegex(ValueError, "fixture failure"):
+                    deploy.run(args)
+            resume.assert_not_called()
+            failure = json.loads((Path(td) / "main/.opencode/workflow/current-failure.json").read_text())
+            self.assertEqual("index_transition", failure["phase"])
+
     def test_reviewed_endpoint_is_strict_loopback_http(self):
         self.assertEqual("http://127.0.0.1:45278", deploy._reviewed_loopback_endpoint("http://127.0.0.1:45278"))
         for value in ("https://127.0.0.1:45278", "http://example.com:45278", "http://127.0.0.1",

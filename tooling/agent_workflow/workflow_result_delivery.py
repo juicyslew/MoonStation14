@@ -169,6 +169,22 @@ def _feedback_text(payload):
 
 
 def _feature_feedback_text(payload):
+    if payload.get('run_kind') == 'DIAGNOSTIC':
+        lines = [f"Diagnostic result: {payload['result']} (run {payload['run_id']}, generation {payload['evaluation_generation']}).",
+                 "This reports only selected diagnostic checks; it is not feature validation, manual testing, or acceptance."]
+        if payload.get('result') == 'ERROR':
+            lines.append("Diagnostic error; inspect workflow status and logs for details. If the request or configuration needs correction, correct it and register a fresh diagnostic scope/submission after cleanup settles; no owner approval is required. This does not complete or replace the feature.")
+        elif payload.get('result') == 'FAIL':
+            lines.append("Diagnostic checks failed; inspect the coded check findings and workflow status/logs.")
+        for finding in payload.get('findings', []):
+            lines.append("Finding: " + json.dumps(finding, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+        ack = {"contract_version": 1, "command_id": "ack_" + hashlib.sha256(payload["event_id"].encode()).hexdigest()[:24],
+               "event_id": payload["event_id"], "run_id": payload["run_id"],
+               "evaluation_generation": payload["evaluation_generation"], "result_id": payload["result_id"],
+               "result_digest": payload["result_digest"]}
+        lines.append("Next action: " + payload["next_action"] + ". Acknowledge using acknowledge_result with arguments: " +
+                     json.dumps(ack, sort_keys=True, separators=(",", ":")))
+        return "\n".join(lines)
     findings = payload.get("findings", [])
     lines = [f"Workflow result: {payload['result']} (run {payload['run_id']}, generation {payload['evaluation_generation']})."]
     if payload.get("result") == "ERROR":

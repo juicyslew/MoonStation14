@@ -24,6 +24,8 @@ class ReviewCoordinator:
         if saved is None:
             raise workflow_store.ProtocolError('unknown run')
         run, attempt = saved['run'], saved['attempt']
+        if run.get('run_kind') == 'DIAGNOSTIC':
+            return []
         if attempt['phase'] == 'QUEUED':
             return []
         if attempt['phase'] not in ('CHECKING', 'REVIEWING'):

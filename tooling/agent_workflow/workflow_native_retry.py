@@ -43,6 +43,8 @@ class NativeRetry:
                 continue
             run, attempt = saved['run'], saved['attempt']
             generation = run['current_attempt']
+            if run.get('run_kind') == 'DIAGNOSTIC' and attempt.get('result') == 'ERROR':
+                continue
             if generation > 1:
                 metadata = self.store.get_recovery_metadata(run_id, generation)
                 if (metadata and metadata.get('boundary', '').startswith('native:') and

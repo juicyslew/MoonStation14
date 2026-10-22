@@ -96,6 +96,7 @@ class ReviewPipeline:
         saved = self.store.get_run(run_id)
         attempt, run = saved['attempt'], saved['run']
         regression = run.get('run_kind') == 'POST_ACCEPTANCE_REGRESSION'
+        diagnostic = run.get('run_kind') == 'DIAGNOSTIC'
         if attempt['phase'] == 'DECIDED': return {'decision':attempt['result'],'waiting_task_ids':[]}
         if attempt['phase'] == 'STOPPING':
             if attempt.get('proposed_closure') in ('CANCELLED', 'SUPERSEDED'):
@@ -113,12 +114,12 @@ class ReviewPipeline:
             proposal = attempt['proposed_result']
             aggregate = {'decision':proposal,'findings':[]}
         else:
-            if regression:
+            if regression or diagnostic:
                 try:
                     import workflow_regression
                 except ModuleNotFoundError:
                     from tooling.agent_workflow import workflow_regression
-                aggregate = workflow_regression.aggregate_regression(self.store, run_id)
+                aggregate = workflow_regression.aggregate_checks(self.store, run_id)
             else:
                 self.planner.plan_reviews(run_id)
                 aggregate = self.results.aggregate(run_id, now_ms=now_ms)
@@ -161,5 +162,9 @@ class ReviewPipeline:
             return {'decision':None,'waiting_task_ids':[t['task_id'] for t in tasks if t['state'] not in ('COMPLETED','CANCELLED')]}
         terminal = self.store.transition_attempt(run_id, attempt['generation'], expected_sequence=sequence,
             phase='DECIDED', terminal_result=proposal, cleanup_state='UNRESOLVED' if unresolved else 'CONFIRMED', incident=incident)
+        if diagnostic:
+            saved_result = self.store.get_terminal_result(run_id, attempt['generation'])
+            aggregate['next_action'] = saved_result.get('next_action') if saved_result else aggregate.get('next_action')
+            aggregate['run_kind'] = 'DIAGNOSTIC'
         self.notify_committed(terminal)
         return aggregate

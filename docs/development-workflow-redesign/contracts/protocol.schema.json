@@ -270,10 +270,13 @@
           "$ref": "#/$defs/digest"
         },
         "purpose": {
-          "const": "OWNER_READY"
+          "enum": [
+            "OWNER_READY",
+            "DIAGNOSTIC"
+          ]
         },
         "implementation_complete": {
-          "const": true
+          "type": "boolean"
         },
         "criteria": {
           "type": "array",
@@ -292,7 +295,10 @@
                 "minLength": 1
               },
               "status": {
-                "const": "COMPLETE"
+                "enum": [
+                  "COMPLETE",
+                  "DIAGNOSTIC"
+                ]
               },
               "evidence_refs": {
                 "type": "array",
@@ -306,7 +312,6 @@
         },
         "manual_steps": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "type": "string",
             "minLength": 1
@@ -352,8 +357,142 @@
         },
         "replaces_run_id": {
           "$ref": "#/$defs/ref"
+        },
+        "diagnostic_rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "diagnostic_plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "title",
+            "kind",
+            "acceptance_criteria",
+            "fixture",
+            "manual_steps",
+            "checks"
+          ],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "const": "diagnostic"
+            },
+            "acceptance_criteria": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "fixture": {
+              "type": "string",
+              "minLength": 1
+            },
+            "manual_steps": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object"
+              }
+            },
+            "references": {
+              "type": "object"
+            }
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "OWNER_READY"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "implementation_complete": {
+                "const": true
+              },
+              "criteria": {
+                "items": {
+                  "properties": {
+                    "status": {
+                      "const": "COMPLETE"
+                    }
+                  }
+                }
+              },
+              "manual_steps": {
+                "minItems": 1
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "diagnostic_plan"
+                  ]
+                },
+                {
+                  "required": [
+                    "diagnostic_rationale"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "DIAGNOSTIC"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "diagnostic_plan",
+              "diagnostic_rationale"
+            ],
+            "properties": {
+              "implementation_complete": {
+                "const": false
+              },
+              "criteria": {
+                "items": {
+                  "properties": {
+                    "status": {
+                      "const": "DIAGNOSTIC"
+                    }
+                  }
+                }
+              },
+              "manual_steps": {
+                "maxItems": 0
+              },
+              "check_packs": {
+                "maxItems": 0
+              },
+              "diagnostic_rationale": {
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "submission_response": {
       "type": "object",
@@ -581,7 +720,8 @@
         "run_kind": {
           "enum": [
             "FEATURE_GATE",
-            "POST_ACCEPTANCE_REGRESSION"
+            "POST_ACCEPTANCE_REGRESSION",
+            "DIAGNOSTIC"
           ]
         },
         "input_digest": {
@@ -1664,7 +1804,9 @@
           "enum": [
             "FIX_FINDINGS",
             "WAIT_FOR_OWNER_TEST",
-            "WAIT_FOR_RECOVERY"
+            "WAIT_FOR_RECOVERY",
+            "REVIEW_DIAGNOSTIC_RESULTS",
+            "PREPARE_FRESH_DIAGNOSTIC"
           ]
         },
         "error_code": {
@@ -1678,6 +1820,13 @@
         "incident_ref": {
           "type": "string",
           "pattern": "^incident_.+"
+        },
+        "run_kind": {
+          "enum": [
+            "FEATURE_GATE",
+            "POST_ACCEPTANCE_REGRESSION",
+            "DIAGNOSTIC"
+          ]
         }
       },
       "allOf": [
@@ -1737,9 +1886,6 @@
           },
           "then": {
             "properties": {
-              "next_action": {
-                "const": "WAIT_FOR_OWNER_TEST"
-              },
               "findings": {
                 "items": {
                   "not": {
@@ -1784,13 +1930,40 @@
               "error_code",
               "error_message",
               "incident_ref"
-            ],
-            "properties": {
-              "next_action": {
-                "const": "WAIT_FOR_RECOVERY"
-              }
-            }
+            ]
           }
+        },
+        {
+          "if": {
+            "properties": {"result":{"const":"ERROR"},"run_kind":{"const":"DIAGNOSTIC"}},
+            "required": ["result","run_kind"]
+          },
+          "then": {"properties":{"next_action":{"enum":["PREPARE_FRESH_DIAGNOSTIC","WAIT_FOR_RECOVERY"]}}}
+        },
+        {
+          "if": {"properties":{"result":{"const":"ERROR"}},"required":["result"],"not":{"properties":{"run_kind":{"const":"DIAGNOSTIC"}},"required":["run_kind"]}},
+          "then": {"properties":{"next_action":{"const":"WAIT_FOR_RECOVERY"}}}
+        },
+        {
+          "if": {
+            "required": ["run_kind"],
+            "properties": {"run_kind": {"const": "DIAGNOSTIC"}, "result": {"const": "PASS"}}
+          },
+          "then": {"properties": {"next_action": {"const": "REVIEW_DIAGNOSTIC_RESULTS"}}}
+        },
+        {
+          "if": {
+            "required": ["run_kind"],
+            "properties": {"run_kind": {"enum": ["FEATURE_GATE", "POST_ACCEPTANCE_REGRESSION"]}, "result": {"const": "PASS"}}
+          },
+          "then": {"properties": {"next_action": {"const": "WAIT_FOR_OWNER_TEST"}}}
+        },
+        {
+          "if": {
+            "not": {"required": ["run_kind"]},
+            "properties": {"result": {"const": "PASS"}}
+          },
+          "then": {"properties": {"next_action": {"const": "WAIT_FOR_OWNER_TEST"}}}
         }
       ]
     },

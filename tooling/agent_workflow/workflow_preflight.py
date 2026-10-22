@@ -11,7 +11,7 @@ from pathlib import Path
 
 import workflow_store as store
 import workflow_runtime as runtime
-from workflow_check_packs import resolve_check_packs
+from workflow_check_packs import resolve_check_packs, resolve_diagnostic_plan
 from jsonschema import Draft202012Validator
 
 _PREFLIGHT_SCHEMA_PATH = Path(__file__).parents[2] / 'docs' / 'development-workflow-redesign' / 'contracts' / 'preflight.schema.json'
@@ -45,7 +45,8 @@ _CORRECTABLE_GUIDANCE = {
         'FIXTURE_MISSING': 'Add or correct the runnable fixture at the policy-declared path in the bound worktree.',
         'CRITERIA_MISMATCH': 'Use exactly the registered criteria IDs once each; request a new scope if criteria need correction.',
         'SOURCE_STALE': 'Refresh the source digest from the current worktree, register corrected evidence in a fresh scope, and submit with a fresh key.',
-        'CHECK_PACK_PLAN': 'Correct check-pack selectors/evidence to satisfy trusted coverage floors; do not lower the floors. Register a fresh scope and submit with a fresh key.',
+         'CHECK_PACK_PLAN': 'Correct check-pack selectors/evidence to satisfy trusted coverage floors; do not lower the floors. Register a fresh scope and submit with a fresh key.',
+         'DIAGNOSTIC_CHECK_PLAN': 'Correct diagnostic check argv/log fixture binding to the required input-digest path, recompute the plan digest, then prepare a fresh scope and submission key.',
         'PLAN_DIGEST': 'Recompute the plan digest from the resolved trusted check plan and submit corrected inputs using a fresh scope and key.',
         'CONFIG_CHANGED': 'Do not revert unrelated owner configuration or add an exception. Use existing trusted provenance, or wait for tooling to repair publication provenance.',
         'ARTIFACT_MISSING': 'Provide the referenced readable artifact and register its corrected metadata in a fresh scope; submit with a fresh key.',
@@ -156,9 +157,10 @@ def preflight(request, *, caller, context):
                 _error('POLICY_SCHEMA', 'policy', 'Trusted policy has unknown, missing, or unsupported fields.')
             if policy['sprint_id'] != req['sprint_id'] or policy['source_worktree'] != str(repo) or policy['author'] != context.authenticated_author:
                 _error('POLICY_BINDING', 'policy', 'Trusted policy does not bind this request.')
-            if req['implementation_complete'] is not True or req['purpose'] != 'OWNER_READY':
-                _error('INCOMPLETE', 'implementation_complete', 'Only complete OWNER_READY submissions are accepted.', 'FAIL')
-            if re.search(r'\b(TODO|FIXME)\b', '\n'.join(req['manual_steps']), re.I):
+            diagnostic = req['purpose'] == 'DIAGNOSTIC'
+            if (not diagnostic and (req['implementation_complete'] is not True or req['purpose'] != 'OWNER_READY')) or (diagnostic and req['implementation_complete'] is not False):
+                _error('INCOMPLETE', 'implementation_complete', 'Submission purpose/completion state is invalid.', 'FAIL')
+            if not diagnostic and re.search(r'\b(TODO|FIXME)\b', '\n'.join(req['manual_steps']), re.I):
                 _error('MANUAL_INCOMPLETE', 'manual_steps', 'Manual steps contain an explicit TODO/FIXME.', 'FAIL')
             fixture = (repo / policy['fixture']).resolve()
             if not fixture.is_relative_to(repo) or not fixture.is_file(): _error('FIXTURE_MISSING', 'policy.fixture', 'Runnable manual fixture is missing.', 'FAIL')
@@ -169,8 +171,12 @@ def preflight(request, *, caller, context):
                 _error('SOURCE_STALE', 'input_digest', 'Submitted source digest does not match current worktree.', 'FAIL')
             if store.digest(policy) != req['policy_digest']:
                 _error('POLICY_DIGEST', 'policy_digest', 'Trusted policy digest does not match request.', 'FAIL')
-            try: resolved = resolve_check_packs(req, repo=repo, policy=policy)
+            try: resolved = resolve_diagnostic_plan(req, repo=repo, policy=policy) if diagnostic else resolve_check_packs(req, repo=repo, policy=policy)
             except store.ProtocolError as exc:
+                if diagnostic:
+                    _error('DIAGNOSTIC_CHECK_PLAN', getattr(exc,'field',None) or 'diagnostic_plan',
+                           'Diagnostic plan could not be resolved against its contract.', 'FAIL',
+                           getattr(exc,'recovery',None) or 'Correct the typed diagnostic plan and recompute its plan digest; prepare a fresh scope and submission key.')
                 _error('CHECK_PACK_PLAN',getattr(exc,'field',None) or 'check_packs',
                        'Check-pack plan could not be resolved against trusted coverage.', 'FAIL',
                        _CORRECTABLE_GUIDANCE['CHECK_PACK_PLAN'])
@@ -227,7 +233,7 @@ def preflight(request, *, caller, context):
                     'worktree':str(repo),'artifact_refs':refs+['artifact_'+'x'*247],
                     'deadline_ms':9999999999999}
             review_inputs=[]
-            for role in roles:
+            for role in ([] if diagnostic else roles):
                 body=render_review_input(req,meta,role,summaries[role]); size=len(store.canonical_json(body).encode('utf-8'))
                 if size > limit: _error('REVIEW_ENVELOPE_OVERSIZE',f'review_inputs.{role}',f'{role} rendered envelope is {size} bytes; limit is {limit}.','FAIL',f'Reduce {role} objective or submission context to at most {limit} rendered bytes.')
                 review_inputs.append({'role':role,'body':body,'size_bytes':size,'body_sha256':hashlib.sha256(store.canonical_json(body).encode('utf-8')).hexdigest()})

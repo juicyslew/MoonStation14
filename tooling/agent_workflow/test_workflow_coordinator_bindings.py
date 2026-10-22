@@ -2,6 +2,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+import subprocess
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -10,6 +11,167 @@ import workflow_coordinator_bindings as bindings
 
 
 class BindingPlanTests(unittest.TestCase):
+    def test_author_binding_refreshes_owned_shared_overlay_and_future_template_keeps_entry(self):
+        with tempfile.TemporaryDirectory(dir=Path(__import__("os").environ["LOCALAPPDATA"])/"Temp/opencode") as temp:
+            base=Path(temp); main=base/'MoonStation14';main.mkdir();root=base/'MoonStation14-agent-01';shared=base/'shared';shared.mkdir()
+            coordinator,coord_path,_,config_path,_,_,target,rows=self.setup_target(root,[("author","orchestrate-ms14")])
+            template_path=main/'tooling/opencode/shared-config.jsonc';template_path.parent.mkdir(parents=True)
+            source_template=(Path(__file__).resolve().parents[1]/'opencode/shared-config.jsonc').read_bytes();template_path.write_bytes(source_template)
+            import workflow_opencode_config as oc
+            variables={'shared_root':shared.as_posix(),'workspace_parent':main.parent.as_posix(),'ss14_root':(Path.home()/'Documents/SS14-dev/space-station-14').as_posix()}
+            template=oc.load_template(source_template)
+            overlay={'version':1,'variables':variables,'config':{'mcp':{'servers':{'local-credential':{'url':'token-ref'}}},'agents':{'orchestrate-ms14':{'model':'private-model'}}}}
+            config_path.write_bytes(oc.serialize_config(oc.render_config(template,overlay)).encode())
+            overlay_path=root/'.opencode/workflow/opencode-local.json';overlay_path.parent.mkdir(parents=True);overlay_bytes=oc.serialize_config(overlay).encode();overlay_path.write_bytes(overlay_bytes)
+            config_row=next(x for x in rows if x['path']=='opencode.jsonc');config_row['new_sha256']=hashlib.sha256(config_path.read_bytes()).hexdigest()
+            config_row['config_scope']={'server_keys':[],'agents':[],'shared_template':{'path':str(template_path),'sha256':hashlib.sha256(source_template).hexdigest()},'local_overlay':{'path':'.opencode/workflow/opencode-local.json','sha256':hashlib.sha256(overlay_bytes).hexdigest()},'other_owned':'keep'}
+            rows.append({'target':root.name,'path':'.opencode/workflow/opencode-local.json','new_sha256':hashlib.sha256(overlay_bytes).hexdigest(),'deleted':False})
+            receipt={'files':rows,'_path':str(base/'receipt.json'),'_sha256':'c'*64}
+            role=target['roles'][0];role['token_file']=str(root/'author.token')
+            plan=base/'plan.json';plan.write_text(json.dumps({'version':1,'coordinator_endpoint':'http://127.0.0.1:49200','targets':[{'target':root.name,'coordinator_config':str(coord_path),'roles':[role]}]}))
+            stage=base/'stage';stage.mkdir();result=bindings.stage_binding_plan(plan,stage,receipt,main_root=main,shared_root=shared,adapter=shared/'adapter.py',python=shared/'python.exe')
+            config_stage=result['files'][f'{root.name}/opencode.jsonc'];overlay_stage=result['files'][f'{root.name}/.opencode/workflow/opencode-local.json']
+            self.assertEqual(config_stage['config_scope']['other_owned'],'keep')
+            self.assertEqual(config_stage['config_scope']['shared_template'],config_row['config_scope']['shared_template'])
+            staged_overlay=json.loads((stage/overlay_stage['staged_path']).read_bytes())
+            staged_config=json.loads((stage/config_stage['staged_path']).read_bytes())
+            self.assertEqual(staged_config['agents']['orchestrate-ms14']['model'],'private-model')
+            self.assertEqual(staged_config['mcp']['servers']['local-credential']['url'],'token-ref')
+            self.assertIn('ms14_workflow',staged_overlay['config']['mcp']['servers'])
+            self.assertEqual(staged_overlay['config']['mcp']['servers']['ms14_workflow']['url'],'http://127.0.0.1:49200/mcp/author-static')
+            revised=json.loads(source_template); revised['config']['system']=(revised['config'].get('system','')+' policy refresh')
+            rendered=oc.render_config(revised,staged_overlay)
+            self.assertIn('ms14_workflow',rendered['mcp']['servers'])
+            self.assertEqual(rendered['agents']['orchestrate-ms14']['model'],'private-model')
+
+    def test_shared_bound_normal_binding_rejects_overlay_tamper_and_pending_template(self):
+        with tempfile.TemporaryDirectory(dir=Path(__import__("os").environ["LOCALAPPDATA"])/"Temp/opencode") as temp:
+            base=Path(temp);main=base/'MoonStation14';main.mkdir();root=base/'MoonStation14-agent-01';shared=base/'shared';shared.mkdir()
+            coordinator,coord_path,_,config_path,_,_,target,rows=self.setup_target(root,[("author","orchestrate-ms14")])
+            template_path=main/'tooling/opencode/shared-config.jsonc';template_path.parent.mkdir(parents=True)
+            source=(Path(__file__).resolve().parents[1]/'opencode/shared-config.jsonc').read_bytes();template_path.write_bytes(source)
+            import workflow_opencode_config as oc
+            variables={'shared_root':shared.as_posix(),'workspace_parent':main.parent.as_posix(),'ss14_root':(Path.home()/'Documents/SS14-dev/space-station-14').as_posix()}
+            overlay={'version':1,'variables':variables,'config':{}}
+            config_path.write_bytes(oc.serialize_config(oc.render_config(oc.load_template(source),overlay)).encode())
+            local=root/'.opencode/workflow/opencode-local.json';local.parent.mkdir(parents=True);data=oc.serialize_config(overlay).encode();local.write_bytes(data)
+            row=next(x for x in rows if x['path']=='opencode.jsonc');row['new_sha256']=hashlib.sha256(config_path.read_bytes()).hexdigest();row['config_scope']={'server_keys':[],'agents':[],'shared_template':{'path':str(template_path),'sha256':hashlib.sha256(source).hexdigest()},'local_overlay':{'path':'.opencode/workflow/opencode-local.json','sha256':hashlib.sha256(data).hexdigest()}}
+            rows.append({'target':root.name,'path':'.opencode/workflow/opencode-local.json','new_sha256':hashlib.sha256(data).hexdigest()})
+            receipt={'files':rows,'_path':str(base/'receipt.json'),'_sha256':'d'*64};role=target['roles'][0]
+            plan=base/'plan.json';plan.write_text(json.dumps({'version':1,'coordinator_endpoint':'http://127.0.0.1:49200','targets':[{'target':root.name,'coordinator_config':str(coord_path),'roles':[role]}]}))
+            local.write_bytes(b'changed');next(x for x in rows if x['path']=='.opencode/workflow/opencode-local.json')['new_sha256']=hashlib.sha256(b'changed').hexdigest()
+            with self.assertRaises(ValueError):
+                bindings.stage_binding_plan(plan,base/'bad-overlay',receipt,main_root=main,shared_root=shared,adapter=shared/'adapter.py',python=shared/'python.exe')
+            local.write_bytes(data);next(x for x in rows if x['path']=='.opencode/workflow/opencode-local.json')['new_sha256']=hashlib.sha256(data).hexdigest();template_path.write_bytes(source+b' ')
+            with self.assertRaisesRegex(ValueError,'apply shared config first'):
+                bindings.stage_binding_plan(plan,base/'pending-template',receipt,main_root=main,shared_root=shared,adapter=shared/'adapter.py',python=shared/'python.exe')
+
+    def test_shared_config_stages_five_targets_then_receipt_owned_template_update(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base=Path(temp); main=base/'MoonStation14'; main.mkdir(); shared=base/'shared'; shared.mkdir()
+            template_path=main/'tooling/opencode/shared-config.jsonc'; template_path.parent.mkdir(parents=True)
+            repo_template=(Path(__file__).resolve().parents[1]/'opencode/shared-config.jsonc').read_bytes()
+            template_path.write_bytes(repo_template)
+            template=json.loads(repo_template)
+            roots={'main':main,**{f'MoonStation14-agent-0{i}':base/f'MoonStation14-agent-0{i}' for i in range(1,5)}}
+            names=list(roots); rows=[]
+            for name,root in roots.items():
+                root.mkdir(exist_ok=True); (root/'.gitignore').write_bytes(b'# keep comment\ncustom\n')
+                (root/'.opencode').mkdir(); (root/'.opencode/workflow').mkdir()
+                subprocess.run(['git','init','-q',str(root)],check=True)
+                import workflow_opencode_config as oc
+                fixture_variables={'shared_root':shared.as_posix(),'workspace_parent':main.parent.as_posix(),'ss14_root':(Path.home()/'Documents/SS14-dev/space-station-14').as_posix()}
+                (root/'opencode.jsonc').write_bytes(oc.serialize_config(oc.render_config(template,{'version':1,'variables':fixture_variables,'config':{'mcp':{'servers':{'local':{'url':'private'}}},'agents':{'implement':{'model':'private-model'}}}})).encode())
+                subprocess.run(['git','-C',str(root),'add','opencode.jsonc','.gitignore'],check=True)
+                subprocess.run(['git','-C',str(root),'-c','user.name=test','-c','user.email=test@local','commit','-qm','fixture'],check=True)
+                cfg=(root/'opencode.jsonc').read_bytes(); rows.append({'target':name,'path':'opencode.jsonc','new_sha256':hashlib.sha256(cfg).hexdigest(),'config_scope':{'prior':'retained'}})
+            receipt_path=base/'receipt.json'; receipt={'files':rows,'_path':str(receipt_path),'_sha256':'f'*64}
+            # The staging API accepts the verified receipt projection; fixture hashes bind all source bytes.
+            rows_by={r['target']:r for r in rows}
+            def plan_for(tpl, local_hashes=None):
+                out=[]
+                for name,root in roots.items():
+                    cfg=(root/'opencode.jsonc').read_bytes(); ign=(root/'.gitignore').read_bytes()
+                    out.append({'target':name,'expected_config_sha256':hashlib.sha256(cfg).hexdigest(),
+                      'expected_local_sha256':(local_hashes or {}).get(name),
+                      'expected_gitignore_sha256':hashlib.sha256(ign).hexdigest(),
+                      'expected_index_digest':bindings._index_digest(root)})
+                return {'version':1,'mode':'shared-opencode-config','template':{'path':str(template_path),'sha256':hashlib.sha256(tpl).hexdigest()},'initialize':True,'untrack_generated':False,'targets':out}
+            planfile=base/'plan.json'; plan=plan_for(repo_template); planfile.write_text(json.dumps(plan))
+            stage=base/'stage'; staged=bindings.stage_shared_config_plan(planfile,stage,receipt,main_root=main,shared_root=shared)
+            self.assertEqual(len(staged['files']),15)
+            self.assertEqual(set(staged['files']),{f'{n}/{p}' for n in names for p in ('opencode.jsonc','.opencode/workflow/opencode-local.json','.gitignore')})
+            self.assertEqual(staged['metadata']['index_transition']['expected_index_digests'],{n:r['expected_index_digest'] for n,r in zip(names,plan['targets'])})
+            for name in names:
+                cfgrow=staged['files'][f'{name}/opencode.jsonc']
+                self.assertEqual(cfgrow['old_sha256'],cfgrow['new_sha256'])
+                self.assertEqual(cfgrow['config_scope']['prior'],'retained')
+                self.assertEqual(cfgrow['config_scope']['local_overlay']['sha256'],staged['files'][f'{name}/.opencode/workflow/opencode-local.json']['new_sha256'])
+            overlays={}
+            for name,root in roots.items():
+                original=rows_by[name]['new_sha256']; staged_cfg=(root/'opencode.jsonc').read_bytes()
+                self.assertEqual(hashlib.sha256((root/'opencode.jsonc').read_bytes()).hexdigest(),original)
+                self.assertIn(b'# keep comment\ncustom\n/opencode.jsonc\n/.opencode/workflow/\n',(stage/'bindings'/name/'.gitignore').read_bytes())
+                local=(stage/'bindings'/name/'.opencode/workflow/opencode-local.json').read_bytes(); overlays[name]=local
+                local_value=json.loads(local); self.assertEqual(local_value['variables']['shared_root'],shared.as_posix())
+                self.assertEqual(local_value['config']['mcp']['servers']['local']['url'],'private')
+            # Model a finalized publication: both staged files now have truthful receipt ownership.
+            for name in names:
+                cfg=(roots[name]/'opencode.jsonc').read_bytes(); rows_by[name]['new_sha256']=hashlib.sha256(cfg).hexdigest()
+                rows_by[name]['config_scope']=staged['files'][f'{name}/opencode.jsonc']['config_scope']
+                (roots[name]/'.opencode/workflow/opencode-local.json').write_bytes(overlays[name])
+                (roots[name]/'.gitignore').write_bytes((stage/'bindings'/name/'.gitignore').read_bytes())
+                rows.append({'target':name,'path':'.opencode/workflow/opencode-local.json','new_sha256':hashlib.sha256(overlays[name]).hexdigest()})
+            changed=json.loads(repo_template); changed['config']['system']=(changed['config'].get('system','')+' policy-update')
+            revised=json.dumps(changed,indent=2).encode(); template_path.write_bytes(revised)
+            update_plan=plan_for(revised,{n:hashlib.sha256(overlays[n]).hexdigest() for n in names})
+            update_plan['initialize']=False; planfile.write_text(json.dumps(update_plan))
+            second=bindings.stage_shared_config_plan(planfile,base/'stage2',receipt,main_root=main,shared_root=shared)
+            self.assertEqual(len(second['files']),5)
+            for name in names:
+                value=json.loads((base/'stage2/bindings'/name/'opencode.jsonc').read_bytes())
+                self.assertIn('policy-update',value['system'])
+                self.assertTrue(any(k=='mcp' for k in value))
+                self.assertEqual(value['agents']['implement']['model'],'private-model')
+                self.assertEqual(second['files'][f'{name}/opencode.jsonc']['config_scope']['prior'],'retained')
+                self.assertEqual(bindings._index_digest(roots[name]),update_plan['targets'][names.index(name)]['expected_index_digest'])
+            repeat=bindings.stage_shared_config_plan(planfile,base/'stage3',receipt,main_root=main,shared_root=shared)
+            self.assertEqual({k:v['new_sha256'] for k,v in repeat['files'].items()}, {k:v['new_sha256'] for k,v in second['files'].items()})
+
+            def rejected(mutator):
+                bad=copy.deepcopy(update_plan); mutator(bad)
+                p=base/'bad-plan.json';p.write_text(json.dumps(bad))
+                with self.assertRaises(ValueError): bindings.stage_shared_config_plan(p,base/('bad-'+str(len(list(base.glob('bad-stage*'))))),receipt,main_root=main,shared_root=shared)
+            import copy
+            rejected(lambda p:p['targets'][0].update(expected_config_sha256='0'*64))
+            rejected(lambda p:p['targets'][0].update(target='MoonStation14-agent-05'))
+            rejected(lambda p:p['template'].update(path=str(base/'outside.jsonc')))
+            (roots['main']/'.opencode/workflow/opencode-local.json').write_bytes(b'foreign')
+            with self.assertRaises(ValueError): bindings.stage_shared_config_plan(planfile,base/'unknown-overlay',receipt,main_root=main,shared_root=shared)
+            (roots['main']/'.opencode/workflow/opencode-local.json').write_bytes(overlays['main'])
+            (roots['main']/'unrelated').write_text('index drift')
+            subprocess.run(['git','-C',str(main),'add','unrelated'],check=True)
+            with self.assertRaises(ValueError): bindings.stage_shared_config_plan(planfile,base/'index-drift',receipt,main_root=main,shared_root=shared)
+            missing=copy.deepcopy(update_plan); missing['targets'][0]['expected_local_sha256']=None
+            (roots['main']/'.opencode/workflow/opencode-local.json').unlink()
+            p=base/'missing-local.json';p.write_text(json.dumps(missing))
+            with self.assertRaises(ValueError): bindings.stage_shared_config_plan(p,base/'missing-local-stage',receipt,main_root=main,shared_root=shared)
+            invalid=copy.deepcopy(update_plan); invalid['targets'][0]['expected_gitignore_sha256']=None
+            with self.assertRaises(ValueError): bindings.validate_shared_config_plan_shape(invalid)
+
+    def test_shared_config_plan_shape_requires_exact_five_targets(self):
+        digest = "a" * 64
+        plan = {"version": 1, "mode": "shared-opencode-config",
+                "template": {"path": str(Path.cwd() / "tooling/opencode/shared-config.jsonc"), "sha256": digest},
+                "initialize": True, "untrack_generated": True,
+                "targets": [{"target": name, "expected_config_sha256": digest,
+                             "expected_local_sha256": None, "expected_gitignore_sha256": digest,
+                             "expected_index_digest": digest}
+                            for name in ("main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5)))]}
+        self.assertIs(bindings.validate_shared_config_plan_shape(plan), plan)
+        with self.assertRaises(ValueError):
+            bindings.validate_shared_config_plan_shape({**plan, "targets": plan["targets"] + [plan["targets"][0]]})
+
     def test_reviewer_search_plan_is_receipt_and_hash_bound_and_changes_only_search_rules(self):
         with tempfile.TemporaryDirectory() as temp:
             base=Path(temp); main=base/'MoonStation14'; main.mkdir(); shared=base/'shared'; shared.mkdir()

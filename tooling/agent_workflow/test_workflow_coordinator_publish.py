@@ -13,6 +13,17 @@ import workflow_coordinator_bindings as bindings
 from test_workflow_coordinator_bindings import BindingPlanTests
 
 
+def declared_shared_package_roster():
+    """Resolve the full shared target set from publisher declarations and doc map."""
+    roster={f"tooling/agent_workflow/{name}" for name in package.SOURCES}
+    roster.update(f"docs/development-workflow-redesign/{name}" for name in package.ASSETS)
+    roster.update(package.ROOT_ASSETS)
+    docs_index=json.loads((package.ROOT/"docs/development-workflow-redesign/package/package-docs.json").read_text(encoding="utf-8"))
+    roster.update(row["target"] for row in docs_index["files"])
+    roster.add("docs/development-workflow-redesign/package/package-docs.json")
+    return roster
+
+
 class CoordinatorPublishTests(unittest.TestCase):
     def test_inspection_safe_shell_five_target_publish_and_tamper_guards(self):
         with tempfile.TemporaryDirectory(dir=Path(os.environ["LOCALAPPDATA"])/"Temp/opencode") as temp:
@@ -108,7 +119,11 @@ class CoordinatorPublishTests(unittest.TestCase):
                 package.publish(stage2,receipt,output2,pointer_path=pointer,expected_pointer_sha256=hashlib.sha256(pointer.read_bytes()).hexdigest())
             self.assertFalse(output2.exists());changed.write_bytes(original["MoonStation14-agent-03"])
             output=base/"applied.json";result=package.publish(stage,receipt,output,pointer_path=pointer,expected_pointer_sha256=hashlib.sha256(pointer.read_bytes()).hexdigest())
-            self.assertEqual(71,len(result["actions"]))
+            expected_shared_paths=declared_shared_package_roster()
+            self.assertEqual(expected_shared_paths,{row["path"] for row in result["actions"] if row["target"]=="shared"})
+            main_actions=[row for row in result["actions"] if row["target"]=="main"]
+            self.assertEqual([package.POINTER_RELATIVE],[row["path"] for row in main_actions])
+            self.assertEqual(len(expected_shared_paths)+1,len(result["actions"]))
             for name,root in targets.items(): self.assertEqual(original[name],(root/"opencode.jsonc").read_bytes())
             self.assertEqual(receipt_before,receipt.read_bytes())
 
@@ -393,7 +408,11 @@ class CoordinatorPublishTests(unittest.TestCase):
                                    if row["receipt_target"]=="shared"}
             shared_actions={x["path"] for x in result["actions"] if x["target"]=="shared"}
             self.assertEqual(expected_shared_paths,shared_actions,"apply must match the staged package roster exactly")
-            self.assertEqual(70,len(expected_shared_paths),"current roster includes workflow_coordinator_http_mcp.py alongside history and author-scope helpers")
+            self.assertEqual(declared_shared_package_roster(),expected_shared_paths)
+            self.assertIn("tooling/agent_workflow/workflow_opencode_config.py",expected_shared_paths)
+            self.assertIn("tooling/opencode/shared-config.jsonc",expected_shared_paths)
+            self.assertNotIn("opencode.jsonc",expected_shared_paths,"target-local OpenCode configs are binding rows, never shared assets")
+            self.assertNotIn(".opencode/workflow/opencode-local.json",expected_shared_paths,"private overlays are target-local, never shared assets")
             self.assertIn("tooling/agent_workflow/workflow_coordinator_http_mcp.py",expected_shared_paths)
             self.assertEqual(expected_history_sha,hashlib.sha256(history_helper.read_bytes()).hexdigest())
             self.assertEqual(3,len([x for x in result["actions"] if x["target"]=="main"]))

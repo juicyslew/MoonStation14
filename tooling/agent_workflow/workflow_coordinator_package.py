@@ -20,7 +20,7 @@ SOURCES = (
     "transport_health.py", "validation_evidence.py", "workflow_board.py",
     "workflow_check_packs.py", "workflow_coordinator.py", "workflow_coordinator_mcp.py", "workflow_coordinator_http_mcp.py",
     "workflow_dependency.py", "workflow_error_recovery.py", "workflow_mcp.py",
-    "workflow_coordinator_bindings.py",
+    "workflow_coordinator_bindings.py", "workflow_opencode_config.py",
     "workflow_native_cancellation.py", "workflow_native_execution.py",
     "workflow_native_fixtures.py", "workflow_native_recovery.py", "workflow_native_retry.py",
     "workflow_native_worker.py", "workflow_owner.py", "workflow_preflight.py",
@@ -38,6 +38,7 @@ ROOT_ASSETS = (
     "tooling/agent_workflow/requirements-workflow-coordinator.txt",
     "tooling/agent_workflow/install_workflow_coordinator.ps1",
     "tooling/agent_workflow/workflow_coordinator_package.py",
+    "tooling/opencode/shared-config.jsonc",
 )
 
 
@@ -187,9 +188,10 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
     binding_status = manifest.get("bindings", {}).get("status")
     retirement = binding_status == "planned-legacy-retirement"
     preserve_current = binding_status == "preserve-current"
+    shared_config = binding_status == "planned-shared-opencode-config"
     shell_retirement = binding_status == "planned-inspection-safe-shell"
     reviewer_search = binding_status == "planned-reviewer-search-permissions"
-    if binding_status != "planned-explicit-targets" and not retirement and not preserve_current and not shell_retirement and not reviewer_search:
+    if binding_status != "planned-explicit-targets" and not retirement and not preserve_current and not shell_retirement and not reviewer_search and not shared_config:
         raise ValueError("coordinator package requires explicit complete role bindings")
     if retirement and (manifest.get("package") != "workflow-legacy-retirement" or manifest.get("files") != {}):
         raise ValueError("legacy retirement must be a config-only package with zero shared files")
@@ -230,6 +232,17 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
             root=Path(previous["main_root"]) if name=="main" else Path(previous["main_root"]).parent/name
             config=root/"opencode.jsonc"; assert_no_reparse(root,config)
             if _hash(config)!=sha: raise ValueError(f"preserved receipt-owned config changed: {name}/opencode.jsonc")
+            config_row=next(r for r in config_rows if r.get("target")==name)
+            scope=config_row.get("config_scope",{})
+            overlay_scope=scope.get("local_overlay") if isinstance(scope,dict) else None
+            if overlay_scope is not None:
+                if (not isinstance(overlay_scope,dict) or set(overlay_scope)!={"path","sha256"} or
+                        overlay_scope["path"]!=".opencode/workflow/opencode-local.json"):
+                    raise ValueError(f"preserved local overlay scope is malformed: {name}")
+                overlay=root/overlay_scope["path"]; assert_no_reparse(root,overlay)
+                overlay_rows=[r for r in previous["files"] if r.get("target")==name and r.get("path")==overlay_scope["path"] and not r.get("deleted")]
+                if len(overlay_rows)!=1 or overlay_rows[0].get("new_sha256")!=overlay_scope["sha256"] or _hash(overlay)!=overlay_scope["sha256"]:
+                    raise ValueError(f"preserved receipt-owned local overlay changed: {name}")
         target_names=list(expected)
     elif shell_retirement:
         if (bindings.get("mode") != "inspection-safe-shell" or plan_data.get("mode") != "inspection-safe-shell" or
@@ -272,15 +285,46 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
                 not isinstance(plan_data.get("targets"),list) or len(plan_data["targets"])!=1 or
                 plan_data["targets"][0].get("target")!="main" or set(bindings.get("files",{}))!={expected_key}):
             raise ValueError("reviewer search plan must bind MAIN only")
-        plan_row=plan_data["targets"][0]; item=bindings["files"][expected_key]
-        main=Path(previous["main_root"]); config_path=main/"opencode.jsonc"
-        if (not isinstance(plan_row,dict) or set(plan_row)!={"target","expected_config_sha256"} or
-                item.get("target")!="main" or item.get("path")!="opencode.jsonc" or
-                plan_row.get("expected_config_sha256")!=item.get("old_sha256") or _hash(config_path)!=item.get("old_sha256")):
-            raise ValueError("reviewer search config preimage is not the expected receipt-owned MAIN config")
-        original=_strict_ordered_json(item["backup_path"] and (stage/safe_relative(item["backup_path"],"binding backup")).read_bytes())
-        if _strict_ordered_json((stage/safe_relative(item["staged_path"],"staged binding")).read_bytes()) != transform_reviewer_search_permissions(original):
-            raise ValueError("staged reviewer search config has changes outside generated rules")
+    elif shared_config:
+        from workflow_coordinator_bindings import validate_shared_config_plan_shape
+        if set(bindings)!={"version","mode","source_plan","source_plan_sha256","staged_plan","staged_plan_sha256","receipt_path","receipt_sha256","targets","files","metadata"}:
+            raise ValueError("shared config binding manifest has unknown fields")
+        if (bindings.get("mode") != "shared-opencode-config" or
+                set(bindings.get("files", {})) != {f"{n}/{p}" for n in ("main", *(f"MoonStation14-agent-0{i}" for i in range(1,5))) for p in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore")}):
+            raise ValueError("shared config plan must bind exact MAIN and agents 01..04 files")
+        validate_shared_config_plan_shape(plan_data)
+        if bindings.get("targets")!=sorted(r["target"] for r in plan_data["targets"]):
+            raise ValueError("shared config binding target list differs from reviewed plan")
+        transition=bindings.get("metadata",{}).get("index_transition",{})
+        if transition.get("untrack_generated") is not plan_data["untrack_generated"] or transition.get("expected_index_digests")!={r["target"]:r["expected_index_digest"] for r in plan_data["targets"]}:
+            raise ValueError("shared config index transition metadata differs from reviewed plan")
+        # Re-derive every output against current source preimages immediately
+        # before applying. This binds template, config, overlay, ignore and index.
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="shared-config-verify-") as verify_dir:
+            from workflow_coordinator_bindings import stage_shared_config_plan
+            previous["_path"]=str(previous_receipt.resolve()); previous["_sha256"]=previous_hash
+            fresh=stage_shared_config_plan(source_plan,Path(verify_dir),previous,
+                main_root=Path(previous["main_root"]),shared_root=shared)
+            if set(fresh["files"])!=set(bindings["files"]): raise ValueError("shared config staged file set changed")
+            for key, expected in fresh["files"].items():
+                supplied=bindings["files"][key]
+                if supplied != expected:
+                    raise ValueError(f"shared config staged transformation changed: {key}")
+                for field in ("staged_path","backup_path"):
+                    rel=supplied.get(field); exp=expected.get(field)
+                    if rel is None or exp is None:
+                        if rel!=exp: raise ValueError(f"shared config stage ownership changed: {key}")
+                    elif digest(stage/safe_relative(rel,"shared config staged member")) != digest(Path(verify_dir)/safe_relative(exp,"verified shared config member")):
+                        raise ValueError(f"shared config staged bytes differ from rederived output: {key}")
+        allowed_members={"bindings/binding-plan.json","bindings/binding-manifest.json"}
+        for item in bindings["files"].values():
+            allowed_members.add(safe_relative(item["staged_path"],"shared config staged member").as_posix())
+            if item.get("backup_path") is not None:
+                allowed_members.add(safe_relative(item["backup_path"],"shared config backup").as_posix())
+        actual_members={p.relative_to(stage).as_posix() for p in (stage/"bindings").rglob("*") if p.is_file()}
+        if actual_members!=allowed_members:
+            raise ValueError("shared config stage contains unknown or missing binding members")
     elif not preserve_current and bindings.get("mode") == "legacy-retirement":
         raise ValueError("retirement binding manifest requires a config-only package")
     if preserve_current:
@@ -289,6 +333,8 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
         target_names=["main", *(f"MoonStation14-agent-0{i}" for i in range(1,5))]
     elif reviewer_search:
         target_names=["main"]
+    elif shared_config:
+        target_names=["main", *(f"MoonStation14-agent-0{i}" for i in range(1,5))]
     elif retirement:
         target_names = plan_data["targets"]
     else:
@@ -323,16 +369,20 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
         if row["target"] not in roots: raise ValueError("binding target outside explicit receipt roots")
         root = roots[row["target"]]; target = root / rel; src = stage / safe_relative(row["staged_path"], "staged binding")
         assert_no_reparse(root, target); assert_no_reparse(stage, src)
-        backup = stage / safe_relative(row["backup_path"], "binding backup")
-        assert_no_reparse(stage, backup)
+        backup = stage / safe_relative(row["backup_path"], "binding backup") if row.get("backup_path") is not None else None
+        if backup is not None: assert_no_reparse(stage, backup)
         source=Path(row["source"])
-        if not source.is_file() or digest(source)!=row["source_sha256"]:
+        if row.get("source_sha256") is None:
+            if source.exists(): raise ValueError(f"binding source appeared after staging: {key}")
+        elif not source.is_file() or digest(source)!=row["source_sha256"]:
             raise ValueError(f"binding source config changed: {key}")
-        if digest(src) != row["new_sha256"] or digest(backup) != row["backup_sha256"] or row["backup_sha256"] != row["old_sha256"]:
+        if digest(src) != row["new_sha256"] or (backup is not None and (digest(backup) != row["backup_sha256"] or row["backup_sha256"] != row["old_sha256"])) or (backup is None and (row.get("old_sha256") is not None or row.get("backup_sha256") is not None)):
             raise ValueError(f"binding staged bytes/backup mismatch: {key}")
         receipt_rows = [x for x in previous["files"] if x.get("target")==row["target"] and x.get("path")==row["path"]]
         formatted_main = shell_retirement and row.get("target")=="main" and row.get("formatting_preimage",{}).get("sha256")==row.get("receipt_sha256")
-        if len(receipt_rows)!=1 or receipt_rows[0].get("deleted") or receipt_rows[0].get("new_sha256") != row["receipt_sha256"] or (row["old_sha256"] != row["receipt_sha256"] and not formatted_main):
+        new_overlay = shared_config and row["path"] == ".opencode/workflow/opencode-local.json" and row["old_sha256"] is None and row["receipt_sha256"] is None
+        reviewed_ignore = shared_config and row["path"] == ".gitignore" and row.get("receipt_sha256") is None
+        if (not new_overlay and not reviewed_ignore and (len(receipt_rows)!=1 or receipt_rows[0].get("deleted") or receipt_rows[0].get("new_sha256") != row["receipt_sha256"] or (row["old_sha256"] != row["receipt_sha256"] and not formatted_main))):
             raise ValueError(f"binding target not owned by previous receipt: {key}")
         if shell_retirement and row.get("path")==".opencode/agents/fidelity-reviewer.md":
             from workflow_coordinator_bindings import retire_fidelity_shell_profile
@@ -387,8 +437,13 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
                         removed.append({"agent":agent,"action":identity[0],"resource":identity[1],"effect":identity[2]})
             expected_scope={**prior_scope,"shell_policy_retirement":True,"retired_shell_rules":removed}
             if row.get("config_scope")!=expected_scope: raise ValueError("shell retirement config scope changed")
+        elif shared_config:
+            if row["path"] == ".gitignore":
+                if row["old_sha256"] is not None and _hash(target) != row["old_sha256"]: raise ValueError(f"binding preimage mismatch: {key}")
+                if row["old_sha256"] is None and target.exists(): raise ValueError(f"unowned gitignore: {key}")
+            elif _hash(target) != row["old_sha256"]: raise ValueError(f"binding preimage mismatch: {key}")
         elif _hash(target) != row["old_sha256"]: raise ValueError(f"binding preimage mismatch: {key}")
-        action={"target":row["target"],"path":row["path"],"old_sha256":row["old_sha256"],"new_sha256":row["new_sha256"],"backup_path":row["backup_path"],"backup_sha256":row["backup_sha256"],"staged_path":row["staged_path"]}
+        action={"target":row["target"],"path":row["path"],"old_sha256":row["old_sha256"],"new_sha256":row["new_sha256"],"backup_path":row.get("backup_path"),"backup_sha256":row.get("backup_sha256"),"staged_path":row["staged_path"]}
         if row["path"] == "opencode.jsonc" and isinstance(row.get("config_scope"), dict):
             action["config_scope"] = deepcopy(row["config_scope"])
         if row["path"] == ".opencode/agents/fidelity-reviewer.md" and isinstance(row.get("profile_scope"),dict):
@@ -527,7 +582,7 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
                 "receipt_target": "shared", "receipt_path": key}
 
     used_sources=set()
-    def package_source(source_key: str, destination_key: str, root_source: Path) -> Path:
+    def package_source(source_key: str, destination_key: str, root_source: Path) -> Path | None:
         """Use reviewed checkout bytes only for explicitly selected sources."""
         used_sources.add(source_key)
         if selected is None:
@@ -540,6 +595,8 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
         dest=Path(destination_key)
         live=shared_root.joinpath(*dest.parts);assert_no_reparse(shared_root,live)
         owned=[r for r in receipt["files"] if r.get("target")=="shared" and r.get("path")==destination_key]
+        if not owned and not live.exists():
+            return None
         if len(owned)!=1 or owned[0].get("deleted") or not live.is_file() or live.is_symlink() or digest(live)!=owned[0].get("new_sha256"):
             raise ValueError(f"unselected package member lacks receipt-verified installed baseline: {destination_key}")
         return live
@@ -547,6 +604,7 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
     for name in SOURCES:
         key = f"tooling/agent_workflow/{name}"
         source = package_source(key,key,ROOT / key)
+        if source is None: continue
         if selected is None or key in selected: assert_no_reparse(ROOT, ROOT / key)
         if not source.is_file():
             raise ValueError(f"missing or linked source: {source}")
@@ -561,6 +619,7 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
     for name in ASSETS:
         key = f"docs/development-workflow-redesign/{name}"
         source = package_source(key,key,ROOT / key)
+        if source is None: continue
         if selected is None or key in selected: assert_no_reparse(ROOT, ROOT / key)
         target = stage / "docs/development-workflow-redesign" / name
         assert_no_reparse(stage, target)
@@ -572,6 +631,7 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
         files[key] = {"source": key, "target": key, "sha256": digest(target), **bind_destination(key, source, target)}
     for relative in ROOT_ASSETS:
         source = package_source(relative,relative,ROOT / relative)
+        if source is None: continue
         if selected is None or relative in selected: assert_no_reparse(ROOT, ROOT / relative)
         target = stage / relative
         assert_no_reparse(stage, target)
@@ -584,6 +644,8 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
     docs_index_root = ROOT / "docs/development-workflow-redesign/package/package-docs.json"
     docs_index_path = package_source("docs/development-workflow-redesign/package/package-docs.json",
         "docs/development-workflow-redesign/package/package-docs.json",docs_index_root)
+    if docs_index_path is None:
+        raise ValueError("package documentation index is not available")
     if selected is None or "docs/development-workflow-redesign/package/package-docs.json" in selected:
         assert_no_reparse(ROOT, docs_index_path)
     else:
@@ -595,6 +657,7 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
         source_relative = safe_relative(row["source"], "package documentation source")
         relative_target = safe_relative(row["target"], "package documentation target")
         source = package_source(row["source"],relative_target.as_posix(),ROOT / source_relative)
+        if source is None: continue
         if selected is None or row["source"] in selected: assert_no_reparse(ROOT, ROOT / source_relative)
         if not source.is_file() or source.is_symlink():
             raise ValueError(f"unsafe/missing package documentation member: {row}")
@@ -631,6 +694,16 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
             root=main_root if name=="main" else main_root.parent/name
             config=root/"opencode.jsonc"; assert_no_reparse(root,config)
             if _hash(config)!=sha: raise ValueError(f"receipt-owned config changed: {name}/opencode.jsonc")
+            config_row=next(row for row in config_rows if row.get("target")==name)
+            scope=config_row.get("config_scope",{})
+            overlay_scope=scope.get("local_overlay") if isinstance(scope,dict) else None
+            if overlay_scope is not None:
+                if not isinstance(overlay_scope,dict) or overlay_scope.get("path")!=".opencode/workflow/opencode-local.json" or not isinstance(overlay_scope.get("sha256"),str):
+                    raise ValueError(f"receipt local overlay scope is malformed: {name}")
+                overlay=root/overlay_scope["path"]; assert_no_reparse(root,overlay)
+                overlay_rows=[r for r in receipt["files"] if r.get("target")==name and r.get("path")==overlay_scope["path"] and not r.get("deleted")]
+                if len(overlay_rows)!=1 or overlay_rows[0].get("new_sha256")!=overlay_scope["sha256"] or _hash(overlay)!=overlay_scope["sha256"]:
+                    raise ValueError(f"receipt-owned local overlay changed: {name}")
         manifest["bindings"]={"status":"preserve-current","configs":configs}
     elif binding_plan is not None:
         from workflow_coordinator_bindings import stage_binding_plan
@@ -652,6 +725,13 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
             binding_manifest=stage_reviewer_search_permission_plan(binding_plan,stage,receipt,
                 main_root=Path(receipt.get("main_root", "")),shared_root=shared_root)
             manifest["bindings"]={"status":"planned-reviewer-search-permissions","manifest":"bindings/binding-manifest.json",
+                "sha256":digest(stage/"bindings/binding-manifest.json"),"source_plan":str(binding_plan.resolve()),
+                "source_plan_sha256":binding_manifest["source_plan_sha256"]}
+        elif plan_mode == "shared-opencode-config":
+            from workflow_coordinator_bindings import stage_shared_config_plan
+            binding_manifest=stage_shared_config_plan(binding_plan,stage,receipt,
+                main_root=Path(receipt.get("main_root", "")),shared_root=shared_root)
+            manifest["bindings"]={"status":"planned-shared-opencode-config","manifest":"bindings/binding-manifest.json",
                 "sha256":digest(stage/"bindings/binding-manifest.json"),"source_plan":str(binding_plan.resolve()),
                 "source_plan_sha256":binding_manifest["source_plan_sha256"]}
         else:

@@ -6,6 +6,7 @@
     {"source":"docs/development-workflow-redesign/package/coordinator.md","target":"docs/development-workflow/coordinator.md"},
     {"source":"docs/development-workflow-redesign/package/recovery.md","target":"docs/development-workflow/recovery.md"},
     {"source":"docs/development-workflow-redesign/package/roles/author.md","target":"docs/development-workflow/roles/author.md"},
+    {"source":"docs/development-workflow-redesign/package/diagnostic-validation.md","target":"docs/development-workflow/diagnostic-validation.md"},
     {"source":"docs/development-workflow-redesign/package/roles/reviewer.md","target":"docs/development-workflow/roles/reviewer.md"},
     {"source":"docs/development-workflow-redesign/package/roles/reviewer.md","target":"docs/development-workflow/roles/fidelity-reviewer.md"},
     {"source":"docs/development-workflow-redesign/package/roles/integration-lead-retired.md","target":"docs/development-workflow/roles/integration-lead.md"},

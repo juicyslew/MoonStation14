@@ -410,8 +410,39 @@ def project(raw, *, worktree, connection=None, author_activity=None):
         else:
             occupied=capacity["held"]+capacity["unknown"]>0
         pending_ids=_pending_native_task_ids(all_records,occupied)
-        for record in raw.get("records", []):
+        diagnostic_history_active=[]
+        for item in raw.get("history",[]):
+            if (item.get("run") or {}).get("run_kind")=="DIAGNOSTIC":
+                attempt=item.get("attempt") or {}; result=attempt.get("result") or (item.get("terminal_result") or {}).get("result")
+                if str(attempt.get("phase") or "").upper() not in ("DECIDED","CLOSED") and result not in ("PASS","FAIL","ERROR"):
+                    diagnostic_history_active.append(item)
+        diagnostic_history_ids={ (item.get("run") or {}).get("run_id") for item in diagnostic_history_active }
+        for record in list(raw.get("records", []))+diagnostic_history_active:
             run, attempt = record.get("run") or {}, record.get("attempt") or {}
+            if run.get("run_kind") == "DIAGNOSTIC":
+                phase, focused, boundary = _phase(record)
+                run_id = run.get("run_id")
+                request = record.get("request") or {}
+                label = _short("Diagnostic: " + str(request.get("feature_label") or request.get("title") or run.get("title") or "Workflow diagnostic"))
+                terminal_diagnostic=(str(attempt.get("phase") or "").upper() in ("DECIDED","CLOSED") or focused in ("PASS","FAIL","ERROR"))
+                if phase is None or terminal_diagnostic:
+                    history.append({"id":run_id,"run_id":run_id,"label":label,"phase":"Diagnostic results",
+                                    "details":{"title":request.get("title") or run.get("title"),"generation":run.get("current_attempt"),"focused_result":focused}})
+                    continue
+                phase = phase if phase in ("Queued", "Checking") else ("Checking" if boundary in ("CHECK", "STOPPING") else "Queued")
+                tasks = _current_tasks(record)
+                active = next((t for t in tasks if t.get("state") in ("RUNNING","CLAIMED","DISPATCHING","CANCEL_REQUESTED")), None)
+                columns[phase].append({"id":run_id,"run_id":run_id,"generation":run.get("current_attempt"),
+                    "sequence":run.get("sequence"),"input_digest":run.get("input_digest"),"label":label,"phase":phase,
+                    "agent":_author_label(request.get("author"),run.get("agent")),"revision":None,
+                    "step":str((active or {}).get("kind") or boundary or "DIAGNOSTIC"),"actor":"Diagnostic checks",
+                    "capabilities":["cancel_active"] if active else [],"is_running":bool(active),"bindings":{"run_id":run_id,"generation":run.get("current_attempt")},
+                    "next_action":"Complete diagnostic checks" if phase=="Checking" else "Wait for diagnostic checks",
+                    "next_actor":"Diagnostic checks","badge":"Diagnostic","focused_result":focused,"owner_state":None,
+                    "status_text":"Running diagnostic checks" if active else "Waiting for diagnostic checks","dismissible":False,
+                    "regression_state":None,"details":{"title":request.get("title") or run.get("title"),"kind":"DIAGNOSTIC",
+                    "tasks":[{"kind":t.get("kind"),"state":t.get("state"),"result":_result(t).get("decision")} for t in tasks]}})
+                continue
             tasks = _current_tasks(record)
             record_open_faults, record_resolved_faults = _record_faults(record,run.get("run_id"),worktree)
             faults.extend(record_open_faults)
@@ -519,6 +550,13 @@ def project(raw, *, worktree, connection=None, author_activity=None):
         for old in raw.get("history",[]):
             old_run = old.get("run",{})
             old_id = old_run.get("run_id")
+            if old_run.get("run_kind") == "DIAGNOSTIC":
+                if old_id in diagnostic_history_ids:
+                    continue
+                result = (old.get("terminal_result") or {}).get("result") or (old.get("attempt") or {}).get("result")
+                history.append({"id":old_id,"run_id":old_id,"label":_short("Diagnostic: " + str(old_run.get("title") or old.get("sprint"))),
+                                "phase":"Diagnostic results","details":{"title":old_run.get("title"),"generation":old_run.get("current_attempt"),"focused_result":result,"kind":"DIAGNOSTIC"}})
+                continue
             old_faults, old_resolved = _record_faults(old,old_id,worktree)
             faults.extend(old_faults)
             history.extend({"id":f.get("id"),"run_id":f.get("run_id"),"phase":"Resolved incident","details":f} for f in old_resolved)

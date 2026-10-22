@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "config": {
+    "agents": {
+      "3d-modeler": { "permissions": [
+        { "action": "subagent", "effect": "allow", "resource": "fidelity-reviewer" },
+        { "action": "subagent", "effect": "allow", "resource": "investigate" },
+        { "action": "subagent", "effect": "allow", "resource": "ss14-expert" },
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" },
+        { "action": "external_directory", "effect": "allow", "resource": "{{workspace_parent}}/MoonStation14-agent-05/**" }
+      ]},
+      "fidelity-reviewer": { "permissions": [
+        { "action": "external_directory", "effect": "allow", "resource": "{{workspace_parent}}/Asset Building Workspace/**" },
+        { "action": "external_directory", "effect": "allow", "resource": "{{ss14_root}}/**" },
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" }
+      ]},
+      "implement": { "permissions": [
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" }
+      ]},
+      "integration-lead": { "permissions": [
+        { "action": "subagent", "effect": "deny", "resource": "integration-lead" },
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" }
+      ]},
+      "investigate": { "permissions": [
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" }
+      ]},
+      "orchestrate-ms14": { "permissions": [
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" },
+        { "action": "external_directory", "effect": "allow", "resource": "{{workspace_parent}}/MoonStation14-agent-05/**" }
+      ]},
+      "review": { "permissions": [
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" }
+      ]},
+      "ss14-expert": { "permissions": [
+        { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" }
+      ]}
+    }
+  }
+}

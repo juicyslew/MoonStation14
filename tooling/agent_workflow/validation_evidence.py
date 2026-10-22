@@ -25,6 +25,20 @@ def _stat(path):
         return None
 
 
+def _glob_matches(repo, pattern, safe_path):
+    """Return safe repo-local files matching a diagnostic glob, or raise."""
+    candidate = Path(pattern)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"unsafe artifact glob: {pattern}")
+    matches = []
+    for match in repo.glob(pattern):
+        # Resolve every match through the shared path guard (also rejects symlinks
+        # escaping the repository), not just the user-provided pattern.
+        safe_match = Path(safe_path(repo, str(match.relative_to(repo))))
+        if safe_match.is_file(): matches.append(safe_match)
+    return sorted({str(p.resolve()): p for p in matches}.values(), key=lambda p: str(p))
+
+
 def snapshot_evidence(check, repo, *, hash_file, safe_path):
     repo = Path(repo)
     kind = check.get("kind", "command")
@@ -32,6 +46,10 @@ def snapshot_evidence(check, repo, *, hash_file, safe_path):
     elif kind == "readiness": paths = [repo / "build/reports/feature-readiness/readiness.md", repo / "build/reports/feature-readiness/current-run-started.txt", repo / "build/test-results/featureReadiness/xml"]
     elif kind == "build": paths = [safe_path(repo, p) for p in check.get("artifacts", [])]
     elif kind in ("gametest", "launch-smoke") and check.get("log"): paths = [safe_path(repo, check["log"])]
+    elif kind == "command":
+        paths = [safe_path(repo, p) for p in check.get("artifacts", [])]
+        for pattern in check.get("artifact_globs", []):
+            paths.extend(_glob_matches(repo, pattern, safe_path))
     else: paths = []
     result = {}
     for path in paths:
@@ -198,9 +216,28 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
                 if any(p in text for p in check.get("error_patterns", [])): findings.append("configured launch error marker present")
     elif kind == "command":
         selection = "unknown"
+        requested = check.get("artifacts", [])
+        for item in requested:
+            try: path = Path(safe_path(repo, item))
+            except (ValueError, OSError):
+                findings.append(f"unsafe declared artifact: {item}"); continue
+            if not path.is_file() or not _fresh(path, before, started, finished, hash_file):
+                findings.append(f"declared artifact missing or stale: {item}")
+            else: add(path)
+        seen = set()
+        for pattern in check.get("artifact_globs", []):
+            try: matches = _glob_matches(repo, pattern, safe_path)
+            except (ValueError, OSError):
+                findings.append(f"unsafe artifact glob: {pattern}"); continue
+            fresh = [p for p in matches if _fresh(p, before, started, finished, hash_file)]
+            if not fresh: findings.append(f"artifact glob produced no fresh files: {pattern}")
+            for path in fresh:
+                key = str(path.resolve())
+                if key not in seen:
+                    add(path); seen.add(key)
     else: findings.append(f"unsupported evidence kind: {kind}")
 
     failed = counts["failed"] not in (None, 0) or counts["errors"] not in (None, 0) or counts["skipped"] not in (None, 0)
     status = "FAIL" if check.get("exit_code", 0) != 0 or failed or any("reports FAIL" in f or "failure summary" in f or "reports failures" in f for f in findings) else "UNVERIFIED" if findings else "PASS"
-    if kind == "command": status = "PASS" if check.get("exit_code") == 0 else "FAIL"
+    if kind == "command": status = "FAIL" if check.get("exit_code") != 0 else "UNVERIFIED" if findings else "PASS"
     return {"status": status, "counts": counts, "selection": selection, "artifacts": artifacts, "findings": findings[:20]}

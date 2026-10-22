@@ -537,9 +537,19 @@ class WorkflowStore:
             if not isinstance(logical_task_key, str) or not logical_task_key.strip():
                 raise ProtocolError("logical_task_key is required for accepted work")
             outbox_event = _validate_internal_task_event(outbox_event, first_task)
+            diagnostic = request.get("purpose") == "DIAGNOSTIC"
+            if diagnostic != (run["run_kind"] == "DIAGNOSTIC"):
+                raise ProtocolError("submission purpose/run kind binding mismatch")
+            if diagnostic and request.get("replaces_run_id") is not None:
+                raise ProtocolError("diagnostic submissions cannot replace a feature run")
+            # Admission is nonterminal for every run kind. Diagnostic result
+            # actions are emitted only with the terminal result event.
             response = {"contract_version":1,"status":"ACCEPTED","run_id":run["run_id"],"generation":1,"next_action":"WAIT_FOR_RESULT"}
             validate(response, "submission_response")
-            if (run["run_kind"] != "FEATURE_GATE" or run["sprint_id"] != request["sprint_id"] or
+            if (run["run_kind"] not in ("FEATURE_GATE","DIAGNOSTIC") or
+                (run["run_kind"] == "FEATURE_GATE" and request.get("purpose") == "DIAGNOSTIC") or
+                (run["run_kind"] == "DIAGNOSTIC" and request.get("purpose") != "DIAGNOSTIC") or
+                run["sprint_id"] != request["sprint_id"] or
                 run["input_digest"] != request["input_digest"] or run["plan_digest"] != request["plan_digest"] or
                 run["policy_digest"] != request["policy_digest"] or run["author"] != request["author"] or
                 run["current_attempt"] != 1 or run["sequence"] != 0 or first_task["run_id"] != run["run_id"] or
@@ -552,11 +562,22 @@ class WorkflowStore:
                 outbox_event["input_digest"] != request["input_digest"]):
                 raise ProtocolError("submission/run/task binding mismatch")
             explicit_target=request.get("replaces_run_id")
-            if replace_head_run_id is not None and explicit_target is not None and replace_head_run_id != explicit_target:
+            if diagnostic:
+                # Diagnostics are independent history, never a feature-head
+                # successor. The global submission lane below still serializes
+                # physical native work across all run kinds.
+                explicit_target = None
+                replace_head_run_id = None
+            else:
+                head=db.execute("SELECT run_id FROM feature_heads WHERE worktree=? AND sprint=?",(request["source_worktree"],request["sprint_id"])).fetchone()
+            if not diagnostic and replace_head_run_id is not None and explicit_target is not None and replace_head_run_id != explicit_target:
                 raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
             author_request_target=explicit_target is not None
             target=explicit_target if author_request_target else replace_head_run_id
-            head=db.execute("SELECT run_id FROM feature_heads WHERE worktree=? AND sprint=?",(request["source_worktree"],request["sprint_id"])).fetchone()
+            if not diagnostic:
+                head=db.execute("SELECT run_id FROM feature_heads WHERE worktree=? AND sprint=?",(request["source_worktree"],request["sprint_id"])).fetchone()
+            else:
+                head=None
             if head:
                 if target is None: raise SubmissionHeadConflict(SubmissionHeadConflict.REPLACEMENT_REQUIRED)
                 if target!=head[0]: raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
@@ -587,11 +608,12 @@ class WorkflowStore:
                 if author_request_target:
                     if oldjson.get("result")!="FAIL" or oldjson.get("cleanup_state") not in ("NOT_REQUIRED","CONFIRMED"):
                         raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
-            elif target is not None:
+            elif not diagnostic and target is not None:
                 raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
             db.execute("INSERT INTO submissions VALUES(?,?,?,?,?,?,?)", ("submit_"+hashlib.sha256((caller+"\0submit\0"+request["idempotency_key"]).encode()).hexdigest()[:24],caller,"submit",request["idempotency_key"],request_digest,canonical_json(request),canonical_json(response)))
             db.execute("INSERT INTO runs VALUES(?,?,?,?,?,0)", (run["run_id"],run["sprint_id"],request["source_worktree"],canonical_json(run),1))
-            db.execute("INSERT INTO feature_heads(worktree,sprint,run_id) VALUES(?,?,?) ON CONFLICT(worktree,sprint) DO UPDATE SET run_id=excluded.run_id",(request["source_worktree"],request["sprint_id"],run["run_id"]))
+            if not diagnostic:
+                db.execute("INSERT INTO feature_heads(worktree,sprint,run_id) VALUES(?,?,?) ON CONFLICT(worktree,sprint) DO UPDATE SET run_id=excluded.run_id",(request["source_worktree"],request["sprint_id"],run["run_id"]))
             attempt = {"contract_version":1,"run_id":run["run_id"],"generation":1,"phase":"QUEUED","result":None,"closure":None,"proposed_result":None,"cleanup_state":"NOT_REQUIRED","pause_reason":None,"proposed_closure":None}
             validate(attempt,"attempt")
             db.execute("INSERT INTO attempts VALUES(?,?,?)", (run["run_id"],1,canonical_json(attempt)))
@@ -2347,8 +2369,12 @@ class WorkflowStore:
                         # IDs are deliberately excluded to avoid a circular digest.
                         sem={"run_id":run_id,"evaluation_generation":generation,"input_digest":run_value["input_digest"],"result":terminal_result,"findings":findings,"artifact_refs":refs}
                         result_digest=digest(sem); result_id="event_result_"+hashlib.sha256(result_digest.encode()).hexdigest()[:24]
-                        action={"PASS":"WAIT_FOR_OWNER_TEST","FAIL":"FIX_FINDINGS","ERROR":"WAIT_FOR_RECOVERY"}[terminal_result]
+                        action={"PASS":"REVIEW_DIAGNOSTIC_RESULTS" if run_value.get("run_kind")=="DIAGNOSTIC" else "WAIT_FOR_OWNER_TEST","FAIL":"FIX_FINDINGS","ERROR":"PREPARE_FRESH_DIAGNOSTIC" if run_value.get("run_kind")=="DIAGNOSTIC" else "WAIT_FOR_RECOVERY"}[terminal_result]
                         built={"contract_version":1,"event_id":result_id,"run_id":run_id,"evaluation_generation":generation,"input_digest":run_value["input_digest"],"result":terminal_result,"result_id":result_id,"result_digest":result_digest,"findings":findings,"artifact_refs":refs,"next_action":action}
+                        # Preserve the public FEATURE_GATE semantic digest exactly;
+                        # run kind is saved run authority and transport metadata.
+                        if run_value.get("run_kind")=="DIAGNOSTIC":
+                            built["run_kind"]="DIAGNOSTIC"
                         if terminal_result=="ERROR":
                             if incident is None: raise ProtocolError("ERROR requires incident")
                             built.update(error_code=incident["code"],error_message=incident["message"],incident_ref=incident["incident_id"])

@@ -280,6 +280,9 @@ def _durable_rejection(store, artifact_dir, caller, key, receipt_request, reques
 def _submit_verified(store,caller,idempotency_key,req,req_digest,context,base,replace_head_run_id):
     repo=Path(context.repo).resolve()
     bundle=workflow_preflight.preflight(req,caller=caller,context=context)
+    # Diagnostic admission is an explicit, validated request purpose; never infer
+    # it from a caller-supplied run kind or from a feature-head conflict.
+    run_kind='DIAGNOSTIC' if req.get('purpose')=='DIAGNOSTIC' else 'FEATURE_GATE'
     subid=bundle['submission_id']; metadata=[]
     for artifact in bundle['verified_artifacts']:
         workflow_runtime.check_operation_deadline()
@@ -317,7 +320,7 @@ def _submit_verified(store,caller,idempotency_key,req,req_digest,context,base,re
     workflow_runtime.check_operation_deadline()
     seed=hashlib.sha256((caller+'\0'+idempotency_key+'\0'+req_digest).encode()).hexdigest()
     runid='run_'+seed[:24]; taskid='task_'+seed[:24]; eventid='event_'+seed[:24]
-    run={'contract_version':1,'run_id':runid,'sprint_id':req['sprint_id'],'run_kind':'FEATURE_GATE',
+    run={'contract_version':1,'run_id':runid,'sprint_id':req['sprint_id'],'run_kind':run_kind,
          'input_digest':req['input_digest'],'plan_digest':req['plan_digest'],'policy_digest':req['policy_digest'],
          'author':req['author'],'current_attempt':1,'sequence':0}
     task={'contract_version':1,'task_id':taskid,'run_id':runid,'evaluation_generation':1,'kind':'CHECK',

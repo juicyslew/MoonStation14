@@ -29,6 +29,95 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def finalize_shared_config_index_transition(roots, plan: dict, receipt: dict, stage: Path) -> None:
+    """Remove only published generated configs from the five reviewed Git indexes."""
+    import workflow_coordinator_bindings as bindings
+    targets = {"main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5))}
+    if set(roots) != targets or {r.get("target") for r in plan.get("targets", [])} != targets:
+        raise ValueError("shared config index transition must name all five roots")
+    expected_digests = {r["target"]: r["expected_index_digest"] for r in plan["targets"]}
+    receipt_rows = {(r.get("target"), r.get("path")): r for r in receipt.get("files", []) if not r.get("deleted")}
+    prepared = []
+    for name in sorted(targets):
+        root = Path(roots[name]).resolve()
+        config = root / "opencode.jsonc"
+        config_row = receipt_rows.get((name, "opencode.jsonc"))
+        overlay_row = receipt_rows.get((name, ".opencode/workflow/opencode-local.json"))
+        ignore_row = receipt_rows.get((name, ".gitignore"))
+        if (not config_row or not overlay_row or not ignore_row or
+                config_row.get("new_sha256") != sha256(config.read_bytes()) or
+                overlay_row.get("new_sha256") != sha256((root / ".opencode/workflow/opencode-local.json").read_bytes()) or
+                ignore_row.get("new_sha256") != sha256((root / ".gitignore").read_bytes())):
+            raise ValueError(f"published shared config materialization differs: {name}")
+        ignored_lines = set((root / ".gitignore").read_text(encoding="utf-8").splitlines())
+        if not {"/opencode.jsonc", "/.opencode/workflow/"}.issubset(ignored_lines):
+            raise ValueError(f"required generated-config ignore rules missing: {name}")
+        unmerged = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "--diff-filter=U", "-z"],
+                                  check=True, stdout=subprocess.PIPE).stdout
+        if unmerged:
+            raise ValueError(f"unmerged git index entries: {name}")
+        merge_head = subprocess.run(["git", "-C", str(root), "rev-parse", "--git-path", "MERGE_HEAD"],
+                                    check=True, stdout=subprocess.PIPE).stdout.decode().strip()
+        merge_path = Path(merge_head)
+        if not merge_path.is_absolute(): merge_path = root / merge_path
+        if merge_path.exists():
+            raise ValueError(f"repository merge is in progress: {name}")
+        tracked = subprocess.run(["git", "-C", str(root), "ls-files", "--error-unmatch", "--", "opencode.jsonc"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if bindings._index_digest(root) != expected_digests[name]:
+            raise ValueError(f"git index drift: {name}")
+        if tracked.returncode != 0 and subprocess.run(["git", "-C", str(root), "check-ignore", "-q", "--", "opencode.jsonc"]).returncode != 0:
+            raise ValueError(f"generated config is neither tracked nor ignored: {name}")
+        index_path = Path(subprocess.run(["git", "-C", str(root), "rev-parse", "--git-path", "index"],
+                                         check=True, stdout=subprocess.PIPE).stdout.decode().strip())
+        if not index_path.is_absolute(): index_path = root / index_path
+        prepared.append((name, root, index_path, tracked.returncode == 0))
+    mutation_rows = []
+    for name, root, index_path, tracked in prepared:
+        if not tracked: continue
+        backup = stage / "control/index-backups" / name
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        backup.write_bytes(index_path.read_bytes())
+        journal = stage / "control/index-transition" / (name + ".json")
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        before = subprocess.run(["git", "-C", str(root), "ls-files", "--stage", "-z"], check=True, stdout=subprocess.PIPE).stdout
+        package._atomic_write(journal, json.dumps({"target": name, "state": "before", "index_backup": str(backup), "index_sha256": sha256(index_path.read_bytes())}, sort_keys=True).encode(), exclusive=True)
+        mutation_rows.append((name, root, before, journal, backup))
+    for name, root, before, journal, backup in mutation_rows:
+        config = root / "opencode.jsonc"
+        original = config.read_bytes()
+        config_row = receipt_rows[(name, "opencode.jsonc")]
+        if sha256(original) != config_row["new_sha256"]:
+            raise ValueError(f"published shared config changed immediately before index transition: {name}")
+        overlay_row = receipt_rows[(name, ".opencode/workflow/opencode-local.json")]
+        ignore_row = receipt_rows[(name, ".gitignore")]
+        overlay = root / ".opencode/workflow/opencode-local.json"
+        ignore_file = root / ".gitignore"
+        if (sha256(overlay.read_bytes()) != overlay_row["new_sha256"] or
+                sha256(ignore_file.read_bytes()) != ignore_row["new_sha256"] or
+                not {"/opencode.jsonc", "/.opencode/workflow/"}.issubset(
+                    set(ignore_file.read_text(encoding="utf-8").splitlines()))):
+            raise ValueError(f"published overlay or ignore rules changed immediately before index transition: {name}")
+        expected = expected_digests[name]
+        import workflow_coordinator_bindings as bindings
+        if bindings._index_digest(root) != expected:
+            raise ValueError(f"git index drift immediately before transition: {name}")
+        head = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD:opencode.jsonc"],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        index_blob = subprocess.run(["git", "-C", str(root), "rev-parse", ":opencode.jsonc"],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if head.returncode != 0 or index_blob.returncode != 0 or head.stdout.strip() != index_blob.stdout.strip():
+            raise ValueError(f"staged config conflict prevents safe untrack: {name}")
+        subprocess.run(["git", "-C", str(root), "rm", "--cached", "--", "opencode.jsonc"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        after = subprocess.run(["git", "-C", str(root), "ls-files", "--stage", "-z"], check=True, stdout=subprocess.PIPE).stdout
+        parse = lambda raw: sorted(x for x in raw.split(b"\0") if x and not x.split(b"\t", 1)[1] == b"opencode.jsonc")
+        if parse(before) != parse(after) or config.read_bytes() != original:
+            raise ValueError(f"index transition verification failed: {name}")
+        ignored = subprocess.run(["git", "-C", str(root), "check-ignore", "-q", "--", "opencode.jsonc"]).returncode == 0
+        if not ignored: raise ValueError(f"generated config is not ignored: {name}")
+        package._atomic_write(journal, json.dumps({"target": name, "state": "after", "index_backup": str(backup), "index_sha256_after": sha256((root / subprocess.run(["git", "-C", str(root), "rev-parse", "--git-path", "index"], check=True, stdout=subprocess.PIPE).stdout.decode().strip()).read_bytes())}, sort_keys=True).encode())
+
+
 def canonical_pointer_bytes(previous_pointer: bytes, receipt: Path, manifest_sha256: str) -> bytes:
     """Construct the publisher's pointer update in memory; never resurrect history."""
     value = json.loads(previous_pointer)
@@ -786,8 +875,14 @@ def run(args):
         allowed_targets = {f"MoonStation14-agent-0{i}" for i in range(1, 5)}
         targets = proposed.get("targets") if isinstance(proposed, dict) else None
         shell_mode = isinstance(proposed, dict) and proposed.get("mode") == "inspection-safe-shell"
+        shared_config_mode = isinstance(proposed, dict) and proposed.get("mode") == "shared-opencode-config"
         reviewer_search_mode = (isinstance(proposed, dict) and
                                 proposed.get("mode") == "reviewer-search-permissions")
+        if shared_config_mode:
+            import workflow_coordinator_bindings
+            workflow_coordinator_bindings.validate_shared_config_plan_shape(proposed)
+            if proposed["template"]["path"] != str((main_root / "tooling/opencode/shared-config.jsonc").resolve()):
+                raise ValueError("shared config template must be the canonical MAIN template")
         if reviewer_search_mode:
             if (set(proposed) != {"version", "mode", "targets"} or
                     proposed.get("version") != 1 or not isinstance(targets, list) or len(targets) != 1 or
@@ -820,7 +915,7 @@ def run(args):
                         {r["target"] for r in proposed["profiles"] if isinstance(r,dict)}!={f"MoonStation14-agent-0{i}" for i in range(1,4)} or
                         any(r.get("path")!=".opencode/agents/fidelity-reviewer.md" for r in proposed["profiles"])))):
                 raise ValueError("reviewed shell binding plan must name MAIN and agents 01..04 exactly")
-        elif not reviewer_search_mode and (not isinstance(proposed, dict) or set(proposed) != {"version", "coordinator_endpoint", "targets"} or
+        elif not reviewer_search_mode and not shared_config_mode and (not isinstance(proposed, dict) or set(proposed) != {"version", "coordinator_endpoint", "targets"} or
                 proposed.get("version") != 1 or not isinstance(targets, list) or len(targets) != 4 or
                 {row.get("target") for row in targets if isinstance(row, dict)} != allowed_targets or
                 any(not isinstance(row, dict) or row.get("tool_output_read") is not True or
@@ -996,6 +1091,12 @@ def run(args):
                 if after["logical_fingerprint"] != stopped_snapshot["logical_fingerprint"]:
                     raise ValueError("workflow state changed after paused coordinator startup")
             if config_path.read_bytes() != new_cfg_bytes: raise ValueError("configuration changed during update")
+            if binding_plan is not None and proposed.get("mode") == "shared-opencode-config" and proposed["untrack_generated"]:
+                phase = "index_transition"
+                import workflow_coordinator_bindings
+                roots = {"main": main_root}
+                roots.update({f"MoonStation14-agent-0{i}": main_root.parent / f"MoonStation14-agent-0{i}" for i in range(1, 5)})
+                finalize_shared_config_index_transition(roots, proposed, json.loads(new_receipt.read_text(encoding="utf-8")), stage)
             phase = "barrier_release"
         if barrier._hold is not None or barrier._locks or barrier._ownership_uncertain:
             raise RuntimeError("drain barrier release was not confirmed")
