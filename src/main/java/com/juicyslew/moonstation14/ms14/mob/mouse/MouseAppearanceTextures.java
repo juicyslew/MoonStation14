@@ -16,4 +16,18 @@ public final class MouseAppearanceTextures {
         return ResourceLocation.fromNamespaceAndPath("moonstation14", "textures/entity/mouse/mouse_"
                 + color + (dead ? "_dead" : "") + ".png");
     }
+
+    /** Minecraft held-model adaptation of the existing world mouse texture/pose policy. */
+    public static HeldPresentation heldPresentation(com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance view) {
+        var variant = switch (view.coat()) {
+            case WHITE -> MouseAppearanceComponent.Variant.WHITE;
+            case BROWN -> MouseAppearanceComponent.Variant.BROWN;
+            case GRAY -> MouseAppearanceComponent.Variant.GRAY;
+        };
+        boolean dead = view.state() == com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.DEAD;
+        boolean nonAlive = view.state() != com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.ALIVE;
+        return new HeldPresentation(texture(variant, dead), nonAlive ? "down_hold" : "rest", dead);
+    }
+
+    public record HeldPresentation(ResourceLocation texture, String pose, boolean dead) { }
 }

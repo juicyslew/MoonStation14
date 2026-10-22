@@ -73,7 +73,7 @@ public final class ServerExplosionService {
                 int remaining = MAX_ENTITIES_INSPECTED - inspected;
                 ArrayList<LivingEntity> cellEntities = new ArrayList<>(Math.min(remaining + 1, 16));
                 level.getEntities(EntityTypeTest.forClass(LivingEntity.class), new AABB(pos).inflate(0.001),
-                        LivingEntity::isAlive, cellEntities, remaining + 1);
+                        ServerExplosionService::eligibleForPhysicalHit, cellEntities, remaining + 1);
                 inspected += cellEntities.size();
                 if (inspected > MAX_ENTITIES_INSPECTED)
                     return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0);
@@ -221,8 +221,12 @@ public final class ServerExplosionService {
     }
     private static boolean intersects(AABB box, BlockPos pos) { return box.intersects(new AABB(pos)); }
     private static boolean eligibleForKnockback(LivingEntity entity) {
-        return entity.isAlive() && !entity.isRemoved() && !entity.noPhysics
+        return eligibleForPhysicalHit(entity) && !entity.noPhysics
                 && (!(entity instanceof Player player) || !player.isSpectator());
+    }
+    private static boolean eligibleForPhysicalHit(LivingEntity entity) {
+        return entity != null && !entity.isRemoved() && (entity.isAlive()
+                || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isRetainedNonAliveBody(entity));
     }
     private static Result result(Status status, int visited) { return new Result(status, visited, 0, 0, 0); }
     private record EntityHit(LivingEntity entity, double intensity) { }

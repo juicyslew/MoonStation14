@@ -109,7 +109,6 @@ public final class CharacterMovementMotor {
         double vx = blockedX && pointsIntoBlockedHorizontalAxis(requested.x(), velocity.x()) ? 0d : velocity.x();
         double vy = movementRequested.y() != 0d
                 && blocked(state.position().y(), movementRequested.y(), actual.y()) ? 0d
-                : externalFlight ? velocity.y()
                 : (velocity.y() - environment.gravityPerSecondSquared() * dt) * environment.verticalDrag();
         boolean blockedZ = blocked(state.position().z(), requested.z(), actual.z());
         double vz = blockedZ && pointsIntoBlockedHorizontalAxis(requested.z(), velocity.z()) ? 0d : velocity.z();

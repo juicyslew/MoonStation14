@@ -1,0 +1,61 @@
+{
+  "title": "Correct r44 native failures and revalidate shared character interactions and corpse damage",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/mobs/OwnedCorpsePhysicsGameTests.java",
+  "acceptance_criteria": [
+    "All required full native tests pass, including every r44 failure; player-backed fixtures reach authenticated gameplay assertions without lifecycle denial or closed-channel cascades.",
+    "Supported-host portrait coverage remains dynamic and complete, including explicit shared appearance support for the intentionally host-bound posture audio sheep fixture. Pressure cap coverage uses distinct due cadence slots and proves full-hit, cap-stop and healing-reopen behavior.",
+    "Pickup and pull retain shared nominated reach/LOS admission, action-specific policy and transactional custody; actual throw-to-pull, alive/critical/dead mouse pickup/pulling and reentrant pickup regressions pass without broadening automatic selection.",
+    "Retained corpse native hits, actual landing, typed transaction cancellation and pressure/blast damage pass through canonical damage events while preserving identity and Dead state; unsupported corpses and biological shutdown remain unchanged.",
+    "Full JVM, full native, affected readiness, controlled isolated client startup and JAR packaging pass; owner physical-input and GPU checks remain unverified."
+  ],
+  "manual_steps": [
+    "Throw a mouse horizontally, then immediately Ctrl-left-click to pull it. Compare pickup and repeat with critical/dead mice; walls and out-of-reach targets must still deny.",
+    "Compare analyzer damage before and after a dead body's fall; repeat on Mouse and Human/Pig. Check existing fire/blast exposure. The original body must remain Dead.",
+    "Check Mouse/Human/Pig analyzer state, species and portrait; confirm held-camera smoothness, escape across hand transfers, real-drop interruption and cursor cleanup."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "rationale": "Fresh complete JVM evidence for the corrected source snapshot and dynamic composition contracts.",
+      "covers": ["Supported-host portrait coverage remains dynamic and complete, including explicit shared appearance support for the intentionally host-bound posture audio sheep fixture. Pressure cap coverage uses distinct due cadence slots and proves full-hit, cap-stop and healing-reopen behavior."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-mouse-character-r45", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r45/native.log",
+      "rationale": "Full rerun is mandatory. Fresh isolation avoids persisted OFFLINE/DEAD_CLAIM lifecycle state in the reused r44 world; preserve that failed world and logs. Require fresh counts and the all-required-passed marker.",
+      "covers": [
+        "All required full native tests pass, including every r44 failure; player-backed fixtures reach authenticated gameplay assertions without lifecycle denial or closed-channel cascades.",
+        "Supported-host portrait coverage remains dynamic and complete, including explicit shared appearance support for the intentionally host-bound posture audio sheep fixture. Pressure cap coverage uses distinct due cadence slots and proves full-hit, cap-stop and healing-reopen behavior.",
+        "Pickup and pull retain shared nominated reach/LOS admission, action-specific policy and transactional custody; actual throw-to-pull, alive/critical/dead mouse pickup/pulling and reentrant pickup regressions pass without broadening automatic selection.",
+        "Retained corpse native hits, actual landing, typed transaction cancellation and pressure/blast damage pass through canonical damage events while preserving identity and Dead state; unsupported corpses and biological shutdown remain unchanged."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Affected presentation, interaction admission and prediction contracts; not connected input or visual acceptance.",
+      "covers": ["Full JVM, full native, affected readiness, controlled isolated client startup and JAR packaging pass; owner physical-input and GPU checks remain unverified."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-mouse-character-r45", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r45/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Fresh isolated startup and mixin application with controlled owned-process stop; no GPU/physical input claim.",
+      "covers": ["Full JVM, full native, affected readiness, controlled isolated client startup and JAR packaging pass; owner physical-input and GPU checks remain unverified."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Bind the packaged artifact after all required checks; no deployment or acceptance.",
+      "covers": ["Full JVM, full native, affected readiness, controlled isolated client startup and JAR packaging pass; owner physical-input and GPU checks remain unverified."]
+    }
+  ]
+}

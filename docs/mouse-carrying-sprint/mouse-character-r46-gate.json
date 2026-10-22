@@ -1,0 +1,59 @@
+{
+  "title": "Correct retained-ledger cap reads and remaining r45 native fixture failures",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/gametest/PressureGameTests.java",
+  "acceptance_criteria": [
+    "Fresh full native suite passes every required test, including all three r45 failures and the prior authenticated moving-target, pickup, portrait and corpse-damage regressions.",
+    "Read-only damage previews return an existing authoritative ledger after medical death without importing a zero-health vanilla baseline; pressure applies a full ceiling-crossing hit, stops above the cap, and reopens after healing.",
+    "Idle-mouse fixtures establish actual entity-ticking readiness at their assertion clock without skipping independent-direction or destination-movement assertions; nonpullable controls verify their resolved policy instead of treating supported Villagers as unpullable.",
+    "Full JVM, affected readiness, isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."
+  ],
+  "manual_steps": [
+    "Throw a mouse horizontally and immediately Ctrl-left-click to pull. Compare pickup; repeat with critical/dead mice. Walls and out-of-reach targets must still deny.",
+    "Compare analyzer damage before/after a corpse falls; repeat on Mouse and Human/Pig. Check existing fire/blast exposure; the original body must stay Dead.",
+    "Check analyzer state/species/portraits and retained smooth camera, escape across hand transfers, real-drop interruption and cursor cleanup."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "rationale": "Full fresh JVM suite covers the shared damage-query change and prototype/presentation contracts.",
+      "covers": ["Read-only damage previews return an existing authoritative ledger after medical death without importing a zero-health vanilla baseline; pressure applies a full ceiling-crossing hit, stops above the cap, and reopens after healing."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-mouse-character-r46", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r46/native.log",
+      "rationale": "Mandatory full rerun in fresh lifecycle isolation; preserve failed r44/r45 worlds and reports. Require all-required-passed marker and fresh selected/total/pass/failure counts.",
+      "covers": [
+        "Fresh full native suite passes every required test, including all three r45 failures and the prior authenticated moving-target, pickup, portrait and corpse-damage regressions.",
+        "Read-only damage previews return an existing authoritative ledger after medical death without importing a zero-health vanilla baseline; pressure applies a full ceiling-crossing hit, stops above the cap, and reopens after healing.",
+        "Idle-mouse fixtures establish actual entity-ticking readiness at their assertion clock without skipping independent-direction or destination-movement assertions; nonpullable controls verify their resolved policy instead of treating supported Villagers as unpullable."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Retain affected presentation, admission and prediction checks; not connected/GPU evidence.",
+      "covers": ["Full JVM, affected readiness, isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-mouse-character-r46", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r46/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Fresh isolated startup and controlled owned-tree stop; no live input/visual acceptance claim.",
+      "covers": ["Full JVM, affected readiness, isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Bind package after all checks pass; no deployment or acceptance.",
+      "covers": ["Full JVM, affected readiness, isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."]
+    }
+  ]
+}

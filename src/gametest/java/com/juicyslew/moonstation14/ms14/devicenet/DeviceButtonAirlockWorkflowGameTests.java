@@ -54,11 +54,19 @@ public final class DeviceButtonAirlockWorkflowGameTests {
                 &&tx.networkId()==rx.networkId()&&tx.transmitFrequency()==rx.receiveFrequency();
         double demand=door.prototype().apcPowerReceiver().requestedWatts();
         boolean freshFullPower=sample.known()&&sample.deliveredWatts()==demand;
-        if(freshFullPower&&receiverPowered&&linkReady){runPoweredButtonWorkflow(helper,fixture,buttonPos);return;}
-        if(remaining<=0)throw new GameTestAssertException("button readiness timeout: freshPower="+sample.known()+"/"+sample.deliveredWatts()+"/"+demand
-                +" cached="+door.state().powerAvailable()+" endpoints="+endpointDiagnostic(sender,tx)+" -> "+endpointDiagnostic(doorEndpoint,rx)
-                +" receiverPowered="+receiverPowered+" sampleTick="+levelGameTime(helper)+" topologyGeneration="+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(helper.getLevel())
-                +" link="+linkReady+" queued="+runtime.transport().queuedPackets());
+        if(freshFullPower&&door.state().powerAvailable()&&receiverPowered&&linkReady){runPoweredButtonWorkflow(helper,fixture,buttonPos);return;}
+        if(remaining<=0){
+            String diagnostic="fresh="+com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(helper.getLevel(),door)
+                    +" sample="+sample+" sampleTick="+levelGameTime(helper)+" topologyGeneration="
+                    +com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(helper.getLevel())
+                    +" cachedPower="+door.state().powerAvailable()+" endpoints="+endpointDiagnostic(sender,tx)+" -> "+endpointDiagnostic(doorEndpoint,rx)
+                    +" receiverPowered="+receiverPowered+" link="+linkReady+" queued="+runtime.transport().queuedPackets();
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error("[button airlock GameTest readiness exhausted] {}",diagnostic);
+            throw new GameTestAssertException("button readiness timeout: freshPower="+sample.known()+"/"+sample.deliveredWatts()+"/"+demand
+                    +" cached="+door.state().powerAvailable()+" endpoints="+endpointDiagnostic(sender,tx)+" -> "+endpointDiagnostic(doorEndpoint,rx)
+                    +" receiverPowered="+receiverPowered+" sampleTick="+levelGameTime(helper)+" topologyGeneration="
+                    +com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(helper.getLevel())+" link="+linkReady);
+        }
         com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->waitForButtonReady(helper,fixture,buttonPos,remaining-1));
     }
 

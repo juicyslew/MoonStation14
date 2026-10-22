@@ -69,7 +69,7 @@ public final class ExamineService {
 
         boolean detailsAllowed = ExaminationPolicy.detailsAllowed(policyExaminer, authority.state(),
                 authority.ghost(), resolved.distance(), true, visible);
-        Component nativeName = resolved.entity() != null ? resolved.entity().getDisplayName()
+        Component nativeName = resolved.entity() != null ? com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(resolved.entity())
                 : resolved.state().getBlock().getName();
         ExamineCollector collector = new ExamineCollector(detailsAllowed, nativeName);
         ExamineContext context = new ExamineContext(actor, level, request.target(), resolved.entity(),

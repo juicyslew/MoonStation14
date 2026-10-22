@@ -26,9 +26,9 @@ public record BodyAppearanceSnapshot(ResourceLocation dimension, int entityId, U
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     public static BodyAppearanceSnapshot from(Entity body, LiveHands state) {
         if (body == null || state == null || !state.compatible(body)) return null;
-        var handEntries=state.handIds().stream().map(id -> new Entry(id,state.stackCopy(id).map(s -> s.getCount()>1 ? s.copyWithCount(1) : s).map(ItemPresentation::fromStack).orElse(null))).toList();
+        var handEntries=state.handIds().stream().map(id -> new Entry(id,state.stackCopy(id).map(s -> s.getCount()>1 ? s.copyWithCount(1) : s).map(s -> ItemPresentation.fromStack(s, body.level())).orElse(null))).toList();
         var slots=LiveHands.equipmentSnapshot(body,state).orElse(null);
-        var equipment=slots==null ? List.<Entry>of() : slots.slots().stream().map(slot -> new Entry(slot.id(),slot.id().equals("pocket1") || slot.id().equals("pocket2") ? null : slot.stack().map(s -> s.getCount()>1 ? s.copyWithCount(1) : s).map(ItemPresentation::fromStack).orElse(null))).toList();
+        var equipment=slots==null ? List.<Entry>of() : slots.slots().stream().map(slot -> new Entry(slot.id(),slot.id().equals("pocket1") || slot.id().equals("pocket2") ? null : slot.stack().map(s -> s.getCount()>1 ? s.copyWithCount(1) : s).map(s -> ItemPresentation.fromStack(s, body.level())).orElse(null))).toList();
         return new BodyAppearanceSnapshot(body.level().dimension().location(),body.getId(),body.getUUID(),state.revision(),handEntries,equipment);
     }
 }

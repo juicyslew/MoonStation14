@@ -375,6 +375,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // Deliberately no super.render/background: the world and hand bar stay visible.
+        reconcileScreenLocalDrags();
         var snapshot=BodyHandClient.inventoryProof();
         if(snapshot!=null) BodyHandClient.drawEquipmentPanel(g,net.minecraft.client.Minecraft.getInstance(),snapshot,width,height,
                 !BodyHandClient.pendingSnapshot());
@@ -641,6 +642,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        reconcileScreenLocalDrags();
         // With the native cursor grabbed this host is transparent to world input. Keep
         // windows painted, but neither hit-test nor dismiss/reopen pointer mode.
         if(!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hostPointerAvailable(
@@ -833,7 +835,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                 beginItemPointer(mouseX, mouseY, cx - entry.x(), cy - entry.y());
                 workspace.beginDrag(w.key(), new GridGeometry.Cell(entry.x(), entry.y()),
                         GridGeometry.Rotation.values()[entry.rotation() / 90], new GridGeometry.Cell(entry.x(), entry.y()),
-                        GridGeometry.Rotation.values()[entry.rotation() / 90], entry.token(), false);
+                        GridGeometry.Rotation.values()[entry.rotation() / 90], entry.token(), false, entry.itemId(), entry.count());
             } else {
                 var view = BodyHandClient.inventoryView();
                 var hand = view == null ? null : view.activeHand().equals(view.first().id()) ? view.first() : view.second();
@@ -842,7 +844,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                     crossSource = null;
                     worldCrossSource = null;
                     beginItemPointer(mouseX, mouseY, 0, 0);
-                    workspace.beginDrag(w.key(), null, null, new GridGeometry.Cell(cx, cy), GridGeometry.Rotation.DEG_0, hand.token(), true);
+                    workspace.beginDrag(w.key(), null, null, new GridGeometry.Cell(cx, cy), GridGeometry.Rotation.DEG_0, hand.token(), true, hand.itemId(), hand.count());
                 }
             }
             return true;
@@ -862,13 +864,13 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             beginItemPointer(mouseX, mouseY, cx - entry.x(), cy - entry.y());
             workspace.beginDrag(w.key(), new GridGeometry.Cell(entry.x(), entry.y()),
                     GridGeometry.Rotation.values()[entry.rotation() / 90], new GridGeometry.Cell(entry.x(), entry.y()),
-                    GridGeometry.Rotation.values()[entry.rotation() / 90], entry.token(), false);
+                    GridGeometry.Rotation.values()[entry.rotation() / 90], entry.token(), false, entry.itemId(), entry.count());
         } else if (grid.canStore() && active != null && active.token() != null) {
             workspace.select(w.key(), active.token()); dragging = w.key(); fromHand = true;
             crossSource = null;
             worldCrossSource = null;
             beginItemPointer(mouseX, mouseY, 0, 0);
-            workspace.beginDrag(w.key(), null, null, new GridGeometry.Cell(cx, cy), GridGeometry.Rotation.DEG_0, active.token(), true);
+            workspace.beginDrag(w.key(), null, null, new GridGeometry.Cell(cx, cy), GridGeometry.Rotation.DEG_0, active.token(), true, active.itemId(), active.count());
         }
         return true;
     }
@@ -920,6 +922,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
     }
 
     @Override public boolean mouseReleased(double x, double y, int button) {
+        reconcileScreenLocalDrags();
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
         if(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.capturedRelease(button,
                 ()->wire!=null&&wire.workspaceOwnsPointerCapture(),
@@ -1353,10 +1356,45 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
 
     @Override public void tick() {
         super.tick();
+        reconcileScreenLocalDrags();
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (org.lwjgl.glfw.GLFW.glfwGetWindowAttrib(mc.getWindow().getWindow(),
                 org.lwjgl.glfw.GLFW.GLFW_FOCUSED) == org.lwjgl.glfw.GLFW.GLFW_FALSE
                 || !BodyHandClient.hasCommittedBody()) { clearMovement(); actionKeys.clear(); cancelPointer(); }
+    }
+
+    private void reconcileScreenLocalDrags() {
+        // Use the settled authority snapshot, not presentation overlays: a predicted empty
+        // hand during an outstanding transfer must not invalidate its still-proven source.
+        var proof = BodyHandClient.inventoryProof();
+        if (dragging != null && (crossSource != null || worldCrossSource != null)) {
+            var window = workspace.window(dragging);
+            if (window == null || window.drag() == null) {
+                crossSource = null; worldCrossSource = null; dragging = null;
+                fromHand = false; itemMoved = false;
+            } else {
+                boolean exact = true;
+                if (dragging.kind() == StoragePopupWorkspace.HostKind.WORLD) {
+                    var source = BodyHandClient.worldGrid(dragging.worldId());
+                    if (source != null && !source.stale()) exact = workspace.reconcileChildSource(dragging, true,
+                            source.entries().stream().map(e -> new StoragePopupWorkspace.SourceIdentity(e.token(), e.itemId(), e.count())).toList());
+                } else if (proof != null) {
+                    var host = proof.grids().stream().filter(g -> g.hostToken().equals(dragging.token())).findFirst().orElse(null);
+                    if (host != null) exact = workspace.reconcileChildSource(dragging, true,
+                            host.entries().stream().map(e -> new StoragePopupWorkspace.SourceIdentity(e.token(), e.itemId(), e.count())).toList());
+                }
+                if (!exact) {
+                    crossSource = null; worldCrossSource = null; dragging = null;
+                    fromHand = false; itemMoved = false;
+                }
+            }
+        }
+        if (proof == null) return;
+        if (equipmentDrag != null && !HandEquipmentGesture.sourceStillCurrent(equipmentDrag, proof)) equipmentDrag = null;
+        if (handGridDrag != null && !HandEquipmentGesture.sourceStillCurrent(handGridDrag, proof)) {
+            handGridDrag = null;
+            handGridWasInactive = false;
+        }
     }
 
     @Override public void removed() {

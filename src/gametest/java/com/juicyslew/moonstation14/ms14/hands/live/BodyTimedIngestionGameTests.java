@@ -271,6 +271,10 @@ public final class BodyTimedIngestionGameTests {
         require(level.addFreshEntity(mouse) && CharacterIdentitySystem.enroll(mouse, level,
                 ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse")) && BodySystem.reconcile(mouse),
                 "mouse enrolled with inherited stomach and thirst");
+        // This fixture drives explicit owned-body ingestion operations below; keep the NPC
+        // controller out through the same movement-owner lease used by live player control.
+        ((com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob) (Object) mouse)
+                .moonstation14$setMovementOwned(true);
         BlockPos pos = puddle(level, helper.absolutePos(new BlockPos(3, 1, 2)), 5f);
         aimAtPuddle(mouse, pos);
         require(BodyTimedIngestionService.startPuddleOwned(mouse, pos, null, 0, 42, () -> true)

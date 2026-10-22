@@ -119,6 +119,12 @@ final class BodyWorldCrossTransfer {
             if (drops.result() == BodyEquipmentTransfer.Result.DENIED) return Outcome.DENIED;
         }
 
+        if (action.direction() == BodyWorldCrossAction.Direction.BODY_TO_WORLD
+                && com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys.isKeyItem(child)) {
+            return bodyGridKeyToWorld(body, world, level, before, next, reference, copy, nextWorld, position,
+                    child, action.childToken(), authorityValid, publishBody, publishWorld);
+        }
+
         if (action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_BODY
                 || action.direction() == BodyWorldCrossAction.Direction.WORLD_TO_EQUIPMENT) {
             try { publishWorld.accept(world, nextWorld); }
@@ -163,6 +169,73 @@ final class BodyWorldCrossTransfer {
         Outcome result = worldStaged(world, level, published, nextWorld, position) && current(body) == next && next.compatible(body)
                 && authorityValid.getAsBoolean() ? Outcome.SUCCESS : Outcome.RECOVERY_REQUIRED;
         return cleanup(drops, result);
+    }
+
+    private static Outcome bodyGridKeyToWorld(LivingEntity body, ItemEntity world, ServerLevel level,
+            LiveHands before, LiveHands next, ItemStack reference, ItemStack copy, ItemStack nextWorld,
+            Vec3 position, ItemStack key, String childToken, BooleanSupplier authorityValid,
+            BiConsumer<LivingEntity, LiveHands> publishBody, BiConsumer<ItemEntity, ItemStack> publishWorld) {
+        if (!com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys.isKey(key)
+                || com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrying.containsPortableReferences(copy))
+            return Outcome.DENIED;
+        var portableRef = com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys.reference(key);
+        LivingEntity portableBody = portableRef == null || !portableRef.dimension().equals(level.dimension().location())
+                ? null : level.getEntity(portableRef.body()) instanceof LivingEntity living ? living : null;
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        var prior = portableBody == null ? null : containment.registeredOwnerOf(portableBody).orElse(null);
+        if (!(prior instanceof com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrierOwner owner)
+                || owner.carrier() != body || !owner.reference().equals(portableRef) || !owner.isValid()) return Outcome.DENIED;
+        try { publishWorld.accept(world, nextWorld); }
+        catch (RuntimeException failure) {
+            return unchangedWorld(world, level, reference, copy, position) && current(body) == before
+                    ? Outcome.DENIED : Outcome.RECOVERY_REQUIRED;
+        }
+        ItemStack stagedWorld = world.getItem();
+        if (!worldStaged(world, level, stagedWorld, nextWorld, position) || current(body) != before)
+            return Outcome.RECOVERY_REQUIRED;
+        var worldOwner = new com.juicyslew.moonstation14.ms14.hands.live.PortableWorldStorageOwner(
+                level, world.getUUID(), childToken, portableRef);
+        if (!containment.transfer(portableBody, prior, worldOwner))
+            return restoreWorld(world, level, stagedWorld, nextWorld, copy, body, before, position, publishWorld);
+        if (!safe(body, world, level, before, position, authorityValid))
+            return compensateBodyToWorld(body, world, level, before, next, portableBody, containment, prior,
+                    worldOwner, stagedWorld, nextWorld, copy, position, publishBody, publishWorld);
+        try { publishBody.accept(body, next); }
+        catch (RuntimeException failure) {
+            if (current(body) == before) return compensateBodyToWorld(body, world, level, before, next,
+                    portableBody, containment, prior, worldOwner, stagedWorld, nextWorld, copy, position,
+                    publishBody, publishWorld);
+            return Outcome.RECOVERY_REQUIRED;
+        }
+        return worldStaged(world, level, stagedWorld, nextWorld, position) && current(body) == next
+                && next.compatible(body) && containment.registeredOwnerOf(portableBody).orElse(null) == worldOwner
+                && authorityValid.getAsBoolean() ? Outcome.SUCCESS : Outcome.RECOVERY_REQUIRED;
+    }
+
+    private static Outcome compensateBodyToWorld(LivingEntity body, ItemEntity world, ServerLevel level,
+            LiveHands before, LiveHands stagedBody, LivingEntity portableBody,
+            com.juicyslew.moonstation14.ms14.containment.BodyContainmentService containment,
+            com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner previous,
+            com.juicyslew.moonstation14.ms14.hands.live.PortableWorldStorageOwner stagedOwner,
+            ItemStack stagedWorld, ItemStack expectedWorld, ItemStack originalWorld, Vec3 position,
+            BiConsumer<LivingEntity, LiveHands> publishBody, BiConsumer<ItemEntity, ItemStack> publishWorld) {
+        if (current(body) != before && current(body) != stagedBody
+                || !worldStaged(world, level, stagedWorld, expectedWorld, position)) return Outcome.RECOVERY_REQUIRED;
+        if (current(body) == stagedBody) {
+            var restored = stagedBody.restoreContents(stagedBody.revision(), before).orElse(null);
+            if (restored == null) return Outcome.RECOVERY_REQUIRED;
+            try { publishBody.accept(body, restored); }
+            catch (RuntimeException failure) { return Outcome.RECOVERY_REQUIRED; }
+            if (current(body) != restored) return Outcome.RECOVERY_REQUIRED;
+        }
+        if (containment.registeredOwnerOf(portableBody).orElse(null) == stagedOwner
+                && !containment.transfer(portableBody, stagedOwner, previous)) return Outcome.RECOVERY_REQUIRED;
+        try { publishWorld.accept(world, originalWorld.copy()); }
+        catch (RuntimeException failure) { return Outcome.RECOVERY_REQUIRED; }
+        return current(body) != before && current(body).revision() > before.revision()
+                && ItemStack.matches(originalWorld, world.getItem())
+                && containment.registeredOwnerOf(portableBody).orElse(null) == previous
+                ? Outcome.DENIED : Outcome.RECOVERY_REQUIRED;
     }
 
     private static Outcome restoreWorld(ItemEntity world, ServerLevel level, ItemStack staged, ItemStack expected,

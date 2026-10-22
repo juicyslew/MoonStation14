@@ -49,7 +49,8 @@ public final class AirlockBumpSystem {
             var state = level.getBlockState(pos);
             if (state.getBlock() instanceof AirlockBlock && !state.getValue(AirlockBlock.OPEN)) {
                 BlockPos root = state.getValue(AirlockBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER ? pos.below() : pos;
-                if (level.getBlockEntity(root) instanceof AirlockBlockEntity door) {
+                if (level.getBlockEntity(root) instanceof AirlockBlockEntity door
+                        && AirlockPassagePolicy.pairCollides(actor, door)) {
                     AABB shape = new AABB(root.getX(), root.getY(), root.getZ(), root.getX()+1, root.getY()+2, root.getZ()+1);
                     double t = timeOfImpact(start, horizontal, shape);
                     if (t >= 0 && t < first) { first = t; doors.clear(); doors.put(door.identity(), door); }

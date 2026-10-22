@@ -68,6 +68,10 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Contai
     public UUID identity() { return identity; }
     @Override public ServerLevel level() { return level instanceof ServerLevel server ? server : null; }
     @Override public Vec3 position() { return new Vec3(worldPosition.getX() + .5, worldPosition.getY(), worldPosition.getZ() + .5); }
+    /** Minecraft adaptation: align every occupant's native eye to one owner-authored bin viewpoint. */
+    @Override public Vec3 positionFor(net.minecraft.world.entity.LivingEntity body) {
+        return ContainedBodyOwner.positionForViewpoint(position(), body);
+    }
     @Override public com.juicyslew.moonstation14.ms14.containment.ContainedBodyView view() {
         boolean cameraCollision = resolvedData() == null || resolvedData().containedView().cameraCollision();
         return new com.juicyslew.moonstation14.ms14.containment.ContainedBodyView(identity,
@@ -125,13 +129,53 @@ public final class DisposalUnitBlockEntity extends BlockEntity implements Contai
         if (!ensureRuntime()) return false;
         advanceBeforeAction();
         if (!(level instanceof ServerLevel server) || !isValid()
-                || !BodyContainmentService.isValidBody(body, server)
-                || bodies.contains(body.getUUID())) return false;
+                || !bodyAdmissionAllowed(body, server)) return false;
         if (!BodyContainmentService.forLevel(server).bind(body, owner)) return false;
-        BodyContainmentService.forLevel(server).export(body, owner).ifPresent(flags -> bodyFlags.put(body.getUUID(), flags));
-         bodies.add(body.getUUID()); kernel().insert(1); setChanged();
-          com.juicyslew.moonstation14.ms14.disposal.DisposalAudio.playInsert(server, worldPosition, prototype());
-         return true;
+        var flags = BodyContainmentService.forLevel(server).export(body, owner).orElse(null);
+        if (flags == null) {
+            BodyContainmentService.forLevel(server).unbind(body, owner);
+            return false;
+        }
+        finishBodyAdmission(body, flags);
+        return true;
+    }
+
+    /** Transfers an already captured portable body directly from its exact key root to this unit. */
+    public boolean insertPortableBody(LivingEntity body,
+            com.juicyslew.moonstation14.ms14.hands.live.PortableBodyReleaseTransaction.Snapshot snapshot,
+            ContainedBodyFlags originalFlags, java.util.function.BooleanSupplier admissionGate) {
+        if (!ensureRuntime() || !(level instanceof ServerLevel server)) return false;
+        advanceBeforeAction();
+        if (!isValid() || !bodyAdmissionAllowed(body, server) || snapshot == null || originalFlags == null
+                || admissionGate == null || !admissionGate.getAsBoolean()) return false;
+        var result = com.juicyslew.moonstation14.ms14.hands.live.PortableBodyReleaseTransaction
+                .transfer(snapshot, owner, () -> ensureRuntime() && isValid() && bodyAdmissionAllowed(body, server)
+                        && admissionGate.getAsBoolean());
+        if (result != com.juicyslew.moonstation14.ms14.hands.live.PortableBodyReleaseTransaction.Result.SUCCESS)
+            return false;
+        if (BodyContainmentService.forLevel(server).registeredOwnerOf(body).orElse(null) != owner
+                || !bodyAdmissionAllowedAfterTransfer(body, server)) return false;
+        finishBodyAdmission(body, originalFlags);
+        return true;
+    }
+
+    private boolean bodyAdmissionAllowed(LivingEntity body, ServerLevel server) {
+        return server == level && isValid() && BodyContainmentService.isValidBody(body, server)
+                && !bodies.contains(body.getUUID());
+    }
+
+    private boolean bodyAdmissionAllowedAfterTransfer(LivingEntity body, ServerLevel server) {
+        return server == level && isValid() && body != null && !body.isRemoved() && body.isAddedToLevel()
+                && server.getEntity(body.getUUID()) == body && !bodies.contains(body.getUUID());
+    }
+
+    private void finishBodyAdmission(LivingEntity body, ContainedBodyFlags originalFlags) {
+        bodyFlags.put(body.getUUID(), originalFlags);
+        bodies.add(body.getUUID());
+        kernel().insert(1);
+        setChanged();
+        if (level instanceof ServerLevel server)
+            com.juicyslew.moonstation14.ms14.disposal.DisposalAudio.playInsert(server, worldPosition, prototype());
     }
     public boolean acceptWorldItem(ItemEntity source) {
         if (!ensureRuntime()) return false;

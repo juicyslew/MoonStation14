@@ -1,0 +1,18 @@
+{
+  "id": "moonstation14:portable_body_key",
+  "mass": 0.1,
+  "friction": 0.2,
+  "restitution": 0.0,
+  "throw_speed": 0.0,
+  "throw_spin": 0.0,
+  "geometry": "item",
+  "render_kind": "flat_sprite",
+  "break_on_impact": false,
+  "break_threshold": 0.0,
+  "throw_range": 1.0,
+  "minimum_throw_range": 0.0,
+  "throw_cooldown": 0,
+  "physical_width": 0.4,
+  "physical_height": 0.3,
+  "visual": {"sprite_scale_x": 0.25, "sprite_scale_y": 0.25, "sprite_offset_x": 0.0, "sprite_offset_y": 0.0, "model_scale": 0.25, "model_floor_offset": 0.0}
+}

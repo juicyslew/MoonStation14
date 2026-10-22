@@ -217,11 +217,14 @@ public final class DamageSystem {
 
     /** Previews the ledger a health change would start from, without creating damage state. */
     public static Map<String, Float> existingOrVanillaBaseline(LivingEntity entity) {
-        if (entity == null || entity.level().isClientSide() || !entity.isAlive()) {
+        if (entity == null || entity.level().isClientSide() || entity.isRemoved()) {
             return Map.of();
         }
         DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
-        return stored != null ? stored.getMap() : missingVanillaBaseline(entity);
+        // A retained medical corpse can have zero native health while its typed
+        // damage ledger remains authoritative. Never import a baseline for dead
+        // entities, but do keep exposing an already-existing ledger to consumers.
+        return stored != null ? stored.getMap() : entity.isAlive() ? missingVanillaBaseline(entity) : Map.of();
     }
 
     private static Map<String, Float> missingVanillaBaseline(LivingEntity entity) {

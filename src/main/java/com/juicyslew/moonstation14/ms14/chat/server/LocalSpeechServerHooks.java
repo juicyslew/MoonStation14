@@ -131,7 +131,18 @@ public final class LocalSpeechServerHooks {
         return attempted == SpeechModePolicy.Mode.RADIO_ATTEMPT ? SpeechModePolicy.Mode.WHISPER : attempted;
     }
 
-    private record Speaker(Entity body, String name, int rgb) { }
+    public record Speaker(Entity body, String name, int rgb) { }
+
+    /** Resolve the same committed-body authority used by local chat for other authenticated actions. */
+    public static Speaker authenticatedSpeaker(ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level) || player.isRemoved()
+                || player instanceof FakePlayer || level.getServer() == null
+                || level.getServer().getPlayerList().getPlayer(player.getUUID()) != player) return null;
+        var character = LifecycleCharacterSessionControl.committedControlSnapshot(player);
+        var ghost = LifecycleGhostSessionControl.committedControlSnapshot(player);
+        var debug = GhostMobHarnessControl.committedControlSnapshot(player);
+        return speaker(player, level, character, ghost, debug);
+    }
 
     /** Only one committed owner may speak; identity lookups never enroll or allocate. */
     private static Speaker speaker(ServerPlayer player, ServerLevel level,

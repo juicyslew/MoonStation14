@@ -64,10 +64,10 @@ public final class StoragePopupWorkspace {
     }
     public record Drag(GridGeometry.Cell oldAnchor, GridGeometry.Rotation oldRotation,
                        GridGeometry.Cell proposedAnchor, GridGeometry.Rotation proposedRotation,
-                       String sourceToken, boolean fromHand) {
+                       String sourceToken, boolean fromHand, String sourceItemId, int sourceCount) {
         public Drag(GridGeometry.Cell oldAnchor, GridGeometry.Rotation oldRotation,
                     GridGeometry.Cell proposedAnchor, GridGeometry.Rotation proposedRotation) {
-            this(oldAnchor, oldRotation, proposedAnchor, proposedRotation, null, false);
+            this(oldAnchor, oldRotation, proposedAnchor, proposedRotation, null, false, null, 0);
         }
     }
     public record Preview(PreviewFlag flag, PreviewColor color, boolean maySendAction) { }
@@ -188,23 +188,38 @@ public final class StoragePopupWorkspace {
                           GridGeometry.Cell proposal, GridGeometry.Rotation proposedRotation) {
         Window w = windows.get(key);
         beginDrag(key, oldAnchor, oldRotation, proposal, proposedRotation,
-                w == null ? null : w.selectedChild, false);
+                w == null ? null : w.selectedChild, false, null, 0);
     }
     public void beginDrag(HostKey key, GridGeometry.Cell oldAnchor, GridGeometry.Rotation oldRotation,
                           GridGeometry.Cell proposal, GridGeometry.Rotation proposedRotation,
                           String sourceToken, boolean fromHand) {
-        Window w=windows.get(key); if (w != null) w.drag=new Drag(oldAnchor, oldRotation, proposal, proposedRotation, sourceToken, fromHand);
+        beginDrag(key, oldAnchor, oldRotation, proposal, proposedRotation, sourceToken, fromHand, null, 0);
+    }
+    public void beginDrag(HostKey key, GridGeometry.Cell oldAnchor, GridGeometry.Rotation oldRotation,
+                          GridGeometry.Cell proposal, GridGeometry.Rotation proposedRotation,
+                          String sourceToken, boolean fromHand, String itemId, int count) {
+        Window w=windows.get(key); if (w != null) w.drag=new Drag(oldAnchor, oldRotation, proposal, proposedRotation, sourceToken, fromHand,itemId,count);
     }
     public void updateDrag(HostKey key, GridGeometry.Cell proposal, GridGeometry.Rotation rotation) {
         Window w=windows.get(key); if (w != null && w.drag != null)
             w.drag=new Drag(w.drag.oldAnchor(), w.drag.oldRotation(), proposal, rotation,
-                    w.drag.sourceToken(), w.drag.fromHand());
+                    w.drag.sourceToken(), w.drag.fromHand(), w.drag.sourceItemId(), w.drag.sourceCount());
     }
     public void clearDrag(HostKey key) { Window w=windows.get(key); if (w != null) w.drag=null; }
     /** A confirmed body snapshot is the authority for whether a captured hand source still exists. */
     public void validateHandSources(List<String> heldTokens) {
         for (Window w : windows.values())
             if (w.drag != null && w.drag.fromHand() && !heldTokens.contains(w.drag.sourceToken())) w.drag = null;
+    }
+    public void validateHandSourceProof(java.util.Collection<com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Hand> hands) {
+        for (Window w : windows.values()) {
+            var drag=w.drag;
+            if (drag == null || !drag.fromHand()) continue;
+            boolean exact=hands.stream().anyMatch(h -> java.util.Objects.equals(h.token(),drag.sourceToken())
+                    && (drag.sourceItemId()==null || java.util.Objects.equals(h.itemId(),drag.sourceItemId())
+                    && h.count()==drag.sourceCount()));
+            if(!exact) w.drag=null;
+        }
     }
 
     /** Apply a fresh host revision without disturbing user state for still-present child tokens. */
@@ -220,6 +235,18 @@ public final class StoragePopupWorkspace {
         if (confirmed && w.drag != null && w.drag.sourceToken() != null
                 && !w.drag.fromHand() && !childTokens.contains(w.drag.sourceToken())) w.drag=null;
         w.provisional=!confirmed;
+    }
+
+    /** Reconciles a captured grid child against settled source identity; unavailable proof is inert. */
+    public record SourceIdentity(String token, String itemId, int count) { }
+    public boolean reconcileChildSource(HostKey key, boolean proofAvailable, List<SourceIdentity> entries) {
+        Window w=windows.get(key);
+        if (!proofAvailable || w == null || w.drag == null || w.drag.fromHand() || w.drag.sourceToken() == null) return true;
+        var drag=w.drag;
+        boolean exact=entries != null && entries.stream().anyMatch(e -> drag.sourceToken().equals(e.token())
+                && drag.sourceItemId() != null && drag.sourceItemId().equals(e.itemId()) && drag.sourceCount() == e.count());
+        if (!exact) w.drag=null;
+        return exact;
     }
     public void authorityChanged() { clear(); }
 

@@ -38,6 +38,20 @@ class EntityActivityTest {
     }
 
     @Test
+    void metabolismHasTwoTickNonDueObservationWindows() {
+        for (int entityId = 0; entityId < 20; entityId++) {
+            int windows = 0;
+            for (int start = 0; start < 20; start++) {
+                if (!EntityActivity.REAGENT_METABOLISM.isDue(start + 20L, entityId)
+                        && !EntityActivity.REAGENT_METABOLISM.isDue(start + 21L, entityId)) {
+                    windows++;
+                }
+            }
+            assertEquals(18, windows, "entity " + entityId + " has 18 safe starts per metabolism period");
+        }
+    }
+
+    @Test
     void dueSchedulingIsSafeForNegativeInputs() {
         assertTrue(EntityActivity.REAGENT_METABOLISM.isDue(-1L, -19));
         assertFalse(EntityActivity.REAGENT_METABOLISM.isDue(-1L, 0));

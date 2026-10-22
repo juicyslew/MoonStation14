@@ -1,0 +1,151 @@
+{
+  "task_id": "task_review_2ae02e75650b876b0168ee41",
+  "run_id": "run_44de532f88ddc1c58c778172",
+  "evaluation_generation": 1,
+  "assignment_generation": 1,
+  "input_digest": "19bb338fc3e93d3f7544f41a570543550e9690da3db2e336b2edf5766e1d9ed6",
+  "assignment_artifact_refs": [
+    "artifact_evidence_27c559034cc1",
+    "artifact_task_44de532f88ddc1c58c778172_receipt_018b5f35adc82c9e7ad1"
+  ],
+  "instruction": "Return the canonical review_result JSON. inspected_refs must cite original assignment refs. FAIL findings require required_change.",
+  "review_contract": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$ref": "#/$defs/review_result",
+    "$defs": {
+      "digest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "finding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterion_id",
+          "category",
+          "message",
+          "location",
+          "evidence_refs"
+        ],
+        "properties": {
+          "criterion_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "IMPLEMENTATION",
+              "PARITY_COMPOSITION",
+              "COVERAGE",
+              "FIDELITY"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "required_change": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "generation": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "ref": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allowed_categories": [
+    "COVERAGE",
+    "FIDELITY",
+    "IMPLEMENTATION",
+    "PARITY_COMPOSITION"
+  ],
+  "evidence": [
+    {
+      "metadata": {
+        "artifact_id": "artifact_evidence_27c559034cc1",
+        "sha256": "ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e",
+        "size_bytes": 8,
+        "source_pointer": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\artifacts\\submit_cdda4c21cf29118a44e72f28\\ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e\\evidence.txt"
+      },
+      "verified_locator": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\artifacts\\submit_cdda4c21cf29118a44e72f28\\ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e\\evidence.txt",
+      "content_embedded": false
+    },
+    {
+      "metadata": {
+        "artifact_id": "artifact_task_44de532f88ddc1c58c778172_receipt_018b5f35adc82c9e7ad1",
+        "sha256": "018b5f35adc82c9e7ad103dfeb5c65c6b579432c566f391289ad281f3a8e39ee",
+        "size_bytes": 1748,
+        "source_pointer": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\artifacts\\immutable\\task_44de532f88ddc1c58c778172\\018b5f35adc82c9e7ad103dfeb5c65c6b579432c566f391289ad281f3a8e39ee-check-receipt.json"
+      },
+      "checks": {
+        "checks": [
+          {
+            "argv": [
+              "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\MoonStation14-shared\\.venv-workflow-coordinator\\Scripts\\python.exe",
+              "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\repo\\producer.py"
+            ],
+            "controlled_stop": false,
+            "covers": [
+              "c1"
+            ],
+            "evidence": {
+              "artifacts": [
+                {
+                  "artifact_ref": "artifact_task_44de532f88ddc1c58c778172_build_15bfe593831695f329ca",
+                  "changed_this_run": true,
+                  "path": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\artifacts\\immutable\\task_44de532f88ddc1c58c778172\\build-d74ff0ee8da3b9806b18c877dbf29bbde50b5bd8e4dad7a3a725000feb82e8f1",
+                  "preexisting": false,
+                  "sha256": "d74ff0ee8da3b9806b18c877dbf29bbde50b5bd8e4dad7a3a725000feb82e8f1",
+                  "size": 4,
+                  "source_path": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\repo\\build\\output.zip"
+                }
+              ],
+              "counts": {
+                "errors": null,
+                "failed": null,
+                "passed": null,
+                "selected": null,
+                "skipped": null,
+                "tests": null,
+                "total": null
+              },
+              "findings": [],
+              "selection": "unknown",
+              "status": "PASS"
+            },
+            "exit_code": 0,
+            "kind": "build",
+            "log": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\artifacts\\immutable\\task_44de532f88ddc1c58c778172\\log-e34cbec5f5e461d957241bdb7815dcf2998dd5b319d389339a4621db61aa96f2",
+            "log_sha256": "e34cbec5f5e461d957241bdb7815dcf2998dd5b319d389339a4621db61aa96f2",
+            "rationale": "fixture",
+            "source_log": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpivkkfibu\\artifacts\\task_44de532f88ddc1c58c778172\\logs\\1.log",
+            "tree_cleanup": "not_needed"
+          }
+        ],
+        "input_digest": "19bb338fc3e93d3f7544f41a570543550e9690da3db2e336b2edf5766e1d9ed6",
+        "plan_digest": "0e3520f32f23550108605364cfd9ddcb643bfbdb7f3dc93509b7278a8304af80",
+        "policy_digest": "83fc05a65a8118210bc4a41f5f129ccd81d743182651f6e7a1896d0d609a1e1d",
+        "run_id": "run_44de532f88ddc1c58c778172",
+        "task_id": "task_44de532f88ddc1c58c778172"
+      }
+    }
+  ]
+}

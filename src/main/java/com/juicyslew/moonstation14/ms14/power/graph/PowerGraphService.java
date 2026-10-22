@@ -65,6 +65,32 @@ public final class PowerGraphService {
                 + ",visited=" + progress.visitedNodes() + "}";
     }
 
+    /** Read-only receiver-footprint diagnostics; unlike receiver lookups this never reconciles or loads chunks. */
+    public static String diagnosticSnapshot(ServerLevel level,BlockPos center,int radius,
+                                             com.juicyslew.moonstation14.ms14.power.cable.CableTier tier) {
+        if(center==null||radius<0||radius>16||tier==null)return "receiverGraph{invalid-query}";
+        LevelState state=STATES.get(level);
+        if(state==null)return "receiverGraph{uninitialized,center="+center.toShortString()+",radius="+radius+"}";
+        int minChunkX=(center.getX()-radius)>>4,maxChunkX=(center.getX()+radius)>>4;
+        int minChunkZ=(center.getZ()-radius)>>4,maxChunkZ=(center.getZ()+radius)>>4;
+        java.util.List<String> footprint=new java.util.ArrayList<>();
+        for(int cx=minChunkX;cx<=maxChunkX;cx++)for(int cz=minChunkZ;cz<=maxChunkZ;cz++){
+            ChunkPos chunk=new ChunkPos(cx,cz);
+            boolean full=level.getChunkSource().getChunkNow(cx,cz) instanceof LevelChunk;
+            footprint.add(chunk.toString()+"{full="+full+",graphLoaded="+state.graph.isChunkLoaded(chunk)
+                    +",pending="+state.pending.contains(chunk)+"}");
+        }
+        java.util.List<CableFaceNode> nearby=state.pending.isEmpty()
+                ?state.graph.nodesNear(center,radius,tier):null;
+        String nodes=nearby==null?"unknown":nearby.stream().limit(8)
+                .map(node->node.host().toShortString()+"/"+node.face()+"="+state.graph.state(node)).toList().toString()
+                +" count="+nearby.size();
+        return "receiverGraph{center="+center.toShortString()+",tier="+tier+",radius="+radius
+                +",generation="+state.topologyGeneration+",pendingChunks="+state.pending.size()
+                +",graphDirty="+state.graph.isDirty()+",graphIndexed="+state.graph.buildProgress().indexed()
+                +",footprint="+footprint+",nearbyNodes="+nodes+"}";
+    }
+
     public static LoadedPowerGraph.NodeState state(ServerLevel level, CableFaceNode node) {
         LevelState state = STATES.get(level);
         if (state == null || !state.pending.isEmpty())
@@ -102,6 +128,14 @@ public final class PowerGraphService {
         if (state == null || !state.pending.isEmpty()) return null;
         if (!ensureLoadedFootprint(level, state, center, radius)) return null;
         return state.graph.nodesNear(center, radius, tier);
+    }
+
+    /** Reconcile a solve's receiver footprint without loading chunks. Call for every receiver before querying graph knowledge. */
+    public static boolean prepareLoadedFootprint(ServerLevel level, BlockPos center, int radius) {
+        LevelState state = STATES.get(level);
+        if (state == null) return false;
+        ensureLoadedFootprint(level, state, center, radius);
+        return state.pending.isEmpty();
     }
 
     /** Cached loaded-known APC extension receiver for lamps and local ventilation devices. */

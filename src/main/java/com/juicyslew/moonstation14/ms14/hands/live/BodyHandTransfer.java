@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -37,13 +38,28 @@ public final class BodyHandTransfer {
         if (!transition.succeeded() || !authorized.getAsBoolean() || !before.compatible(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || before.revision() != revision || !CharacterControlSystem.canAct(body)) return Result.DENIED;
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        var sourceStack = before.stackCopy(source).orElse(null);
+        var sourceReference = PortableBodyKeys.reference(sourceStack);
+        LivingEntity carriedBody = sourceReference == null
+                || !sourceReference.dimension().equals(level.dimension().location()) ? null
+                : level.getEntity(sourceReference.body()) instanceof LivingEntity living ? living : null;
+        var sourceOwner = carriedBody == null ? null : containment.registeredOwnerOf(carriedBody).orElse(null);
+        var refresh = sourceOwner instanceof PortableBodyCarrierOwner carrierOwner
+                && carrierOwner.carrier() == body && carrierOwner.reference().equals(sourceReference)
+                ? PortableBodyEscapeCustody.prepareTransfer(carrierOwner, carriedBody) : null;
         try { LiveHandsCommitGateway.commitOwned(body, next); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
                     ? Result.DENIED : Result.RECOVERY_REQUIRED;
         }
-        return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next && next.compatible(body)
-                ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+        if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next || !next.compatible(body))
+            return Result.RECOVERY_REQUIRED;
+        if (refresh != null) {
+            var nextOwner = containment.registeredOwnerOf(carriedBody).orElse(null);
+            if (nextOwner instanceof PortableBodyCarrierOwner portable) refresh.apply(portable);
+        }
+        return Result.SUCCESS;
     }
 }
 

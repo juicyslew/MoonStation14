@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.mixin.client;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.OwnedHarnessWalkAnimation;
 import net.minecraft.world.entity.Mob;
@@ -11,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Animates remotely tracked possessed mobs from their client-side tick displacement. */
+/** Animates remotely tracked possessed or NPC-driven mobs from their client-side tick displacement. */
 @Mixin(Mob.class)
 public abstract class MobMindHarnessWalkAnimationMixin {
     @Unique
@@ -29,7 +30,8 @@ public abstract class MobMindHarnessWalkAnimationMixin {
         Vec3 start = moonstation14$positionAtTickStart;
         moonstation14$positionAtTickStart = null;
         if (start == null || !mob.level().isClientSide
-                || !((MindControlledMob) mob).moonstation14$isMovementOwned()
+                || (!((MindControlledMob) mob).moonstation14$isMovementOwned()
+                && !((NpcMovementDriven) mob).moonstation14$isNpcMovementDriven())
                 || GhostControlClient.ownedHarnessForTracker(mob) != null) return;
 
         OwnedHarnessWalkAnimation.update(mob, mob.position().subtract(start));

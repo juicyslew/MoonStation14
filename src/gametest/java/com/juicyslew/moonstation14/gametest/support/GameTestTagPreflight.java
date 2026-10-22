@@ -19,8 +19,8 @@ public final class GameTestTagPreflight {
     private GameTestTagPreflight() { }
 
     public static void main(String[] args) throws IOException {
-        if (args.length != 2) throw new IllegalArgumentException("Expected compiled fixture directory and filter");
-        Catalogue catalogue = validate(Path.of(args[0]), args[1]);
+        if (args.length < 1 || args.length > 2) throw new IllegalArgumentException("Expected compiled fixture directory and optional filter");
+        Catalogue catalogue = validate(Path.of(args[0]), args.length == 2 ? args[1] : null);
         System.out.printf("GameTest tag preflight: %d/%d fixtures selected; available tags=%s%n", catalogue.selected(), catalogue.tests(), catalogue.availableTags());
     }
 

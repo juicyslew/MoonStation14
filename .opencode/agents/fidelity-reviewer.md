@@ -16,12 +16,44 @@ permission:
     "*runServer*": deny
     "*runClient*": deny
     "*featureReadiness*": deny
-    "*gradlew*build*": deny
-    "*gradlew*check*": deny
-    "*gradlew*test*": deny
     "*gate-validate*": deny
     "*gate-clear-blocker*": deny
-    "*gradlew*test*--tests*": allow
+    "*gradle* test": deny
+    "*gradle* test *": deny
+    "*gradle* :test": deny
+    "*gradle* :test *": deny
+    "*gradle* :*:test": deny
+    "*gradle* :*:test *": deny
+    "*gradle* *:test": deny
+    "*gradle* *:test *": deny
+    "*gradle* test *--tests *": allow
+    "*gradle* test *--tests=*": allow
+    "*gradle* :test *--tests *": allow
+    "*gradle* :test *--tests=*": allow
+    "*gradle* :*:test *--tests *": allow
+    "*gradle* :*:test *--tests=*": allow
+    "*gradle* *:test *--tests *": allow
+    "*gradle* *:test *--tests=*": allow
+    "*gradle* build": deny
+    "*gradle* build *": deny
+    "*gradle* :build": deny
+    "*gradle* :build *": deny
+    "*gradle* :*:build": deny
+    "*gradle* :*:build *": deny
+    "*gradle* *:build": deny
+    "*gradle* *:build *": deny
+    "*gradle* check": deny
+    "*gradle* check *": deny
+    "*gradle* :check": deny
+    "*gradle* :check *": deny
+    "*gradle* :*:check": deny
+    "*gradle* :*:check *": deny
+    "*gradle* *:check": deny
+    "*gradle* *:check *": deny
+    "*runGameTestServer*": deny
+    "*runServer*": deny
+    "*runClient*": deny
+    "*featureReadiness*": deny
   webfetch: allow
   websearch: allow
   lsp: allow

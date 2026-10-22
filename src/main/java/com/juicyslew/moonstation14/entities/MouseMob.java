@@ -13,7 +13,13 @@ import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.character.components.MouseAppearanceComponent;
 
 /** Player-controllable mouse Mob; no human inventory, profile, or voluntary AI. */
-public final class MouseMob extends Mob {
+public final class MouseMob extends Mob implements com.juicyslew.moonstation14.ms14.character.CharacterVisualState {
+    private record AppearanceSnapshot(com.juicyslew.moonstation14.ms14.character.components.MouseAppearanceComponent.Variant appearance)
+            implements com.juicyslew.moonstation14.ms14.character.CharacterVisualState.VisualSnapshot {
+        public void applyTo(net.minecraft.world.entity.LivingEntity detached) {
+            ((MouseMob) detached).setAppearance(appearance);
+        }
+    }
     private static final EntityDataAccessor<Integer> APPEARANCE = SynchedEntityData.defineId(MouseMob.class, EntityDataSerializers.INT);
     private static final String APPEARANCE_TAG = "MoonStation14MouseAppearance";
     public MouseMob(EntityType<? extends MouseMob> type, Level level) {
@@ -45,6 +51,12 @@ public final class MouseMob extends Mob {
         var variants = MouseAppearanceComponent.Variant.values();
         return value < 0 || value >= variants.length ? MouseAppearanceComponent.DEFAULT_VARIANT : variants[value];
     }
+
+    public void setAppearance(MouseAppearanceComponent.Variant appearance) {
+        entityData.set(APPEARANCE, java.util.Objects.requireNonNull(appearance).ordinal());
+    }
+
+    @Override public com.juicyslew.moonstation14.ms14.character.CharacterVisualState.VisualSnapshot captureVisualState() { return new AppearanceSnapshot(appearance()); }
 
     @Override public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);

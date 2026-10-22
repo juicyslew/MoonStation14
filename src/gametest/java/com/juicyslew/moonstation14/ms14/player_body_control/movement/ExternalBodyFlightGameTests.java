@@ -16,12 +16,24 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerEntity;
+import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
+import com.juicyslew.moonstation14.gametest.support.CommittedMouseRoleSetup;
+import com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture;
+import com.juicyslew.moonstation14.entities.MouseMob;
+import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleCharacterSessionControl;
 
 @com.juicyslew.moonstation14.gametest.support.GameTestTags({"movement", "character"})
 @PrefixGameTestTemplate(false)
@@ -101,6 +113,181 @@ public final class ExternalBodyFlightGameTests {
                         "ordinary passive gravity continues after the flight lease expires");
                 pollForLanding(helper, body, id, binding, hands, 0);
             });
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear",
+            batch = "disposals_external_flight", timeoutTicks = 30)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"npc-flight"})
+    public static void forcedFlightContinuesForStunnedBodyWithoutVoluntaryPermission(GameTestHelper helper) {
+        var level = helper.getLevel();
+        for (int x = 0; x <= 8; x++) for (int z = 0; z <= 6; z++)
+            level.setBlock(helper.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 3);
+        var body = PlayerCharacterHarnessRegistration.getEntityType().create(level);
+        require(body != null, "bound character harness is created");
+        BlockPos spawn = helper.absolutePos(new BlockPos(4, 1, 3));
+        body.setPos(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5);
+        require(level.addFreshEntity(body), "body joins level");
+        bindAndPrepare(body, level);
+        ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
+        require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.applyStun(body, 20),
+                "resolved human accepts typed stun");
+        require(!com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canMove(body),
+                "stun blocks voluntary movement permission");
+        Vec3 start = body.position();
+        ExternalBodyFlight.launch(body, new Vec3(.2, .15, 0), 6);
+        helper.runAfterDelay(2, () -> {
+            require(body.position().distanceToSqr(start) > .01,
+                    "external flight still advances the stunned body's physical momentum");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear",
+            batch = "disposals_external_flight", timeoutTicks = 50)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"npc-flight", "flight-packet-trace"})
+    public static void airborneLeaseSamplesServerFlightAndVanillaTrackingPackets(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        for (int x = 0; x <= 8; x++) for (int z = 0; z <= 8; z++)
+            level.setBlock(helper.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 3);
+        var body = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(body != null, "registered mouse constructor succeeds");
+        body.setPos(helper.absolutePos(new BlockPos(4, 30, 4)).getX() + .5,
+                helper.absolutePos(new BlockPos(4, 30, 4)).getY(),
+                helper.absolutePos(new BlockPos(4, 30, 4)).getZ() + .5);
+        body.setNoAi(true);
+        require(level.addFreshEntity(body), "ordinary mouse joins level");
+        com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(body, level);
+        require(com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(body).isPresent(),
+                "mouse flight uses its normally resolved character profile");
+        require(!body.isNoGravity() && !body.onGround(), "flight probe starts airborne with gravity");
+        require(ExternalBodyFlight.canLaunch(body), "normally enrolled mouse is a shared flight consumer");
+        require(body.getType().updateInterval() == 1, "mouse tracking cadence is one tick for its whole lifecycle");
+
+        List<String> emitted = new ArrayList<>();
+        List<Integer> movementPacketsPerTick = new ArrayList<>();
+        ServerEntity tracker = new ServerEntity(level, body, body.getType().updateInterval(),
+                body.getType().trackDeltas(), packet -> emitted.add(packet.getClass().getSimpleName()));
+        ExternalBodyFlight.launch(body, new Vec3(.5, .35, 0), 15);
+        List<String> samples = new ArrayList<>();
+        double startY = body.getY();
+        recordFlightSample(helper, body, tracker, emitted, movementPacketsPerTick, samples, startY,
+                new Vec3(.5, .35, 0), 0);
+    }
+
+    @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear",
+            batch = "disposals_external_flight", timeoutTicks = 120)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"movement", "jump-regression", "mouse-packet-trace"})
+    public static void committedMouseHeldJumpSamplesAuthoritativeLandingAndVanillaPackets(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        for (int x = 0; x <= 8; x++) for (int z = 0; z <= 8; z++)
+            level.setBlock(helper.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 3);
+        var fixture = RegisteredServerPlayerFixture.register(level, "held-jump-mouse");
+        MouseMob mouse = (MouseMob) com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+        require(mouse != null, "canonical mouse constructed");
+        BlockPos spawn = helper.absolutePos(new BlockPos(4, 1, 4));
+        mouse.setPos(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5);
+        require(level.addFreshEntity(mouse), "mouse joins ordinary level before canonical role adoption");
+        CommittedMouseRoleSetup.start(helper, fixture, mouse, committed -> {
+            long epoch = LifecycleCharacterSessionControl.activeCharacterBody(fixture.player()).orElseThrow().epoch();
+            List<String> packetTrace = new ArrayList<>();
+            ServerEntity tracker = new ServerEntity(level, committed, committed.getType().updateInterval(),
+                    committed.getType().trackDeltas(), packet -> packetTrace.add(packet.getClass().getSimpleName()
+                            + "@y=" + committed.getY() + "@ground=" + committed.onGround()));
+            heldMouseJumpSample(helper, fixture, committed, epoch, tracker, packetTrace,
+                    new ArrayList<>(), spawn.getY(), 1);
+        });
+    }
+
+    private static void heldMouseJumpSample(GameTestHelper helper, RegisteredServerPlayerFixture fixture, MouseMob mouse,
+            long epoch, ServerEntity tracker, List<String> packetTrace, List<String> samples, double floorY, int sequence) {
+        helper.runAfterDelay(1, () -> {
+            boolean groundBefore = mouse.onGround();
+            double yBefore = mouse.getY();
+            RegisteredPlayerReadyDriver.submitAcceptedIntent(fixture, new GhostControlPayloads.Intent(epoch, sequence,
+                    (short) 0, (short) 0, (byte) 0, GhostControlPayloads.BUTTON_JUMP,
+                    mouse.getYRot(), mouse.getXRot()));
+            Vec3 afterAcceptedStep = mouse.position();
+            Vec3 velocityAfterAcceptedStep = mouse.getDeltaMovement();
+            RegisteredPlayerReadyDriver.tickWithoutNewIntent(fixture);
+            require(mouse.position().equals(afterAcceptedStep)
+                            && mouse.getDeltaMovement().equals(velocityAfterAcceptedStep),
+                    "already-consumed registered-player intent is not replayed by another post-tick owner invocation");
+            int packetStart = packetTrace.size();
+            tracker.sendChanges();
+            boolean jumpStart = groundBefore && mouse.getDeltaMovement().y > 0;
+            samples.add("seq=" + sequence + " yBefore=" + yBefore + " y=" + mouse.getY()
+                    + " groundBefore=" + groundBefore + " groundAfter=" + mouse.onGround()
+                    + " jumpStart=" + jumpStart + " packets=" + List.copyOf(packetTrace.subList(packetStart, packetTrace.size())));
+            if (sequence < 70) {
+                heldMouseJumpSample(helper, fixture, mouse, epoch, tracker, packetTrace, samples, floorY, sequence + 1);
+                return;
+            }
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.info("Committed mouse held-jump server/vanilla trace: {}", samples);
+            long starts = samples.stream().filter(row -> row.contains("jumpStart=true")).count();
+            long landings = samples.stream().filter(row -> row.contains("groundAfter=true")).count();
+            require(starts >= 3, "committed mouse held jump starts=" + starts + " expected>=3; trace=" + samples);
+            require(landings >= 2, "committed mouse landings=" + landings + " expected>=2; trace=" + samples);
+            require(samples.stream().filter(row -> row.contains("jumpStart=true"))
+                    .allMatch(row -> Math.abs(Double.parseDouble(row.split("yBefore=")[1].split(" ")[0]) - floorY) < .03),
+                    "each jump begins from authoritative floor height; trace=" + samples);
+            require(packetTrace.stream().anyMatch(row -> row.contains("Pos") || row.contains("PosRot") || row.contains("Teleport")),
+                    "vanilla ServerEntity emits movement packet; trace=" + packetTrace);
+            require(packetTrace.stream().anyMatch(row -> row.contains("ground=true") && row.contains("y=" + floorY)),
+                    "vanilla packet samples authoritative landing at floor; trace=" + packetTrace);
+            fixture.close();
+            helper.succeed();
+        });
+    }
+
+    private static void recordFlightSample(GameTestHelper helper,
+            Mob body,
+            ServerEntity tracker, List<String> emitted, List<Integer> movementPacketsPerTick,
+            List<String> samples, double startY,
+            Vec3 previousVelocity, int index) {
+        helper.runAfterDelay(1, () -> {
+            long tick = helper.getLevel().getGameTime();
+            boolean active = ExternalBodyFlight.active(body);
+            boolean advanced = ExternalBodyFlight.alreadyAdvancedThisTick(body);
+            Vec3 position = body.position();
+            Vec3 velocity = body.getDeltaMovement();
+            int emittedBefore = emitted.size();
+            tracker.sendChanges();
+            List<String> tickPackets = List.copyOf(emitted.subList(emittedBefore, emitted.size()));
+            int movementPackets = (int) tickPackets.stream().filter(type -> type.equals("Pos") || type.equals("PosRot")
+                    || type.equals(ClientboundTeleportEntityPacket.class.getSimpleName())).count();
+            movementPacketsPerTick.add(movementPackets);
+            samples.add("t=" + tick + " active=" + active + " advanced=" + advanced
+                    + " pos=" + position + " vel=" + velocity + " packets=" + tickPackets);
+            double expectedVerticalVelocity = (previousVelocity.y * 20d - 32d * .05d) * .98d / 20d;
+            boolean verticalMatches = Math.abs(velocity.y - expectedVerticalVelocity) < 1e-8;
+            boolean horizontalMatches = Math.abs(velocity.x - .5d) < 1e-8;
+            if (!verticalMatches || !horizontalMatches)
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.error("Flight trace invariant mismatch: {}", samples);
+            require(verticalMatches, "flight sample " + index + " tick=" + tick + " expectedVy="
+                    + expectedVerticalVelocity + " actualVy=" + velocity.y);
+            require(horizontalMatches, "flight sample " + index + " tick=" + tick + " expectedVx=0.5 actualVx="
+                    + velocity.x);
+            if (index < 17) {
+                recordFlightSample(helper, body, tracker, emitted, movementPacketsPerTick, samples,
+                        startY, velocity, index + 1);
+                return;
+            }
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.info("Bounded vanilla flight tracking trace: {}", samples);
+            long activeSamples = samples.stream().filter(row -> row.contains("active=true")).count();
+            long advancedSamples = samples.stream().filter(row -> row.contains("advanced=true")).count();
+            require(samples.size() == 18, "flight trace sample count=" + samples.size() + " expected=18");
+            require(activeSamples >= 14, "active flight samples=" + activeSamples + " expected>=14");
+            require(advancedSamples == 18, "advanced flight samples=" + advancedSamples + " expected=18");
+            require(body.getY() < startY && body.getDeltaMovement().y < .35,
+                    "server flight endpoint y=" + body.getY() + " startY=" + startY
+                            + " vy=" + body.getDeltaMovement().y);
+            require(movementPacketsPerTick.size() == 18
+                            && (movementPacketsPerTick.get(0) == 0 || movementPacketsPerTick.get(0) == 1)
+                            && movementPacketsPerTick.subList(1, movementPacketsPerTick.size()).stream()
+                                    .allMatch(count -> count == 1),
+                    "movement packet counts per tick=" + movementPacketsPerTick);
+            helper.succeed();
         });
     }
 

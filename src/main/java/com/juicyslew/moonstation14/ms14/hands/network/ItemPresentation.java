@@ -32,6 +32,26 @@ public final class ItemPresentation {
         return new ItemPresentation(stack);
     }
 
+    /** Server snapshot path refreshes a key's cached visual state from its original loaded body. */
+    public static ItemPresentation fromStack(ItemStack stack, net.minecraft.world.level.Level level) {
+        if (stack == null || stack.isEmpty()) throw new IllegalArgumentException("Presentation requires a non-empty stack");
+        ItemStack view = stack;
+        var reference = com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys.reference(stack);
+        if (reference != null && level instanceof net.minecraft.server.level.ServerLevel serverLevel
+                && reference.dimension().equals(level.dimension().location())
+                && serverLevel.getEntity(reference.body()) instanceof net.minecraft.world.entity.LivingEntity body
+                && !body.isRemoved() && body.isAddedToLevel()) {
+            var owner = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(serverLevel)
+                    .registeredOwnerOf(body).orElse(null);
+            boolean exact = owner instanceof com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrierOwner carried
+                    && carried.reference().equals(reference)
+                    || owner instanceof com.juicyslew.moonstation14.ms14.hands.live.PortableWorldStorageOwner world
+                    && world.reference().equals(reference);
+            if (exact) view = com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.refresh(stack, body);
+        }
+        return new ItemPresentation(view);
+    }
+
     public ItemStack stack() { return value.copy(); }
 
     @Override public boolean equals(Object other) {

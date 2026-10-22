@@ -54,6 +54,11 @@ public final class EmoteGameTests {
         var line = EmoteEffect.plan("cough", true, living).chat();
         require(line.getContents() instanceof TranslatableContents translated
                 && translated.getKey().equals("moonstation14.emote.cough"), "localized per-emote key");
+        var squeak = EmoteEffect.plan("squeak", true, living);
+        require(squeak != null && squeak.sound().equals("mouse_squeak") && squeak.pitchVariation() == .125f,
+                "mouse emote uses existing squeak sound and verified pitch variation");
+        require(squeak.chat().getContents() instanceof TranslatableContents squeakText
+                && squeakText.getKey().equals("moonstation14.emote.squeak"), "squeak has visible emote wording");
         helper.succeed();
     }
 
