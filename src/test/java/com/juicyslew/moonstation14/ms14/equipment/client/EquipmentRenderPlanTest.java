@@ -15,6 +15,29 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EquipmentRenderPlanTest {
+    @Test void publicHandPlanRetainsSanitizedOrdinaryAndPortableStacksForAnyLivingRenderer() {
+        var animal = new ItemStack(com.juicyslew.moonstation14.item.ModItems.PORTABLE_BODY_KEY.get());
+        animal.set(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get(),
+                new com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance(
+                        ResourceLocation.fromNamespaceAndPath("moonstation14", "moproach_normal"), "Moproach",
+                        com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.Coat.NONE,
+                        com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.CRITICAL, "moproach"));
+        animal.set(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get(),
+                com.juicyslew.moonstation14.ms14.storage.grid.GridContents.empty());
+        var snapshot = new BodyAppearanceSnapshot(ResourceLocation.parse("minecraft:overworld"), 7,
+                java.util.UUID.randomUUID(), 3, List.of(
+                new BodyAppearanceSnapshot.Entry("left", ItemPresentation.fromStack(animal)),
+                new BodyAppearanceSnapshot.Entry("right", ItemPresentation.fromStack(new ItemStack(net.minecraft.world.item.Items.STICK)))),
+                List.of());
+        var plan = EquipmentRenderPlan.create(snapshot, ModEquipmentItems.clientCatalog());
+        assertEquals(List.of("left", "right"), plan.hands().stream().map(EquipmentRenderPlan.Hand::id).toList());
+        var sanitized = plan.hands().getFirst().stack();
+        assertNotNull(sanitized.get(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get()));
+        assertNull(sanitized.get(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get()));
+        assertFalse(BodyAppearanceItemRenderer.usesMouseAdapter(
+                sanitized.get(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get())));
+    }
+
     @Test void resolvedRadiationSuitFlowsIntoAuthoredGarmentPlanAndHoodStaysSeparate() throws Exception {
         var manager = new PrototypeManager();
         manager.register(ModEquipmentItems.TYPE);

@@ -87,22 +87,24 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
         var view = BodyHandClient.inventoryPresentation();
         var settled = BodyHandClient.inventoryView();
         firstId = view == null ? null : view.first().id();
-        secondId = view == null ? null : view.second().id();
+        secondId = view == null || view.second() == null ? null : view.second().id();
         var proof = settled == null ? null : BodyHandClient.inventoryProof();
         if (proof != null && proof.epoch() != selectionEpoch) {
             selectionEpoch = proof.epoch();
         }
         if (view != null && selectedRow >= 0 && (grid(view, selectedRow) == null
                 || !grid(view, selectedRow).host().hostToken().equals(selectionHost)
-                || placement && !selectionToken.equals((view.first().id().equals(view.activeHand()) ? view.first() : view.second()).token())
+                || placement && !selectionToken.equals(view.active().token())
                 || !placement && grid(view, selectedRow).host().entries().stream().noneMatch(e -> e.token().equals(selectionToken)))) {
             clearSelection();
         }
         label(first, view == null ? "—" : handLabel(view.first(), view.activeHand(), first.getWidth()));
-        label(second, view == null ? "—" : handLabel(view.second(), view.activeHand(), second.getWidth()));
+        label(second, view == null || view.second() == null ? "—" : handLabel(view.second(), view.activeHand(), second.getWidth()));
         place(first, 20); place(second, 20);
-        first.active = settled != null && !firstId.equals(settled.activeHand());
-        second.active = settled != null && !secondId.equals(settled.activeHand());
+        second.visible = view != null && view.second() != null;
+        if (view == null || view.second() == null) second.active = false;
+        first.active = settled != null && !java.util.Objects.equals(firstId, settled.activeHand());
+        second.active = settled != null && secondId != null && !secondId.equals(settled.activeHand());
         for (int row = 0; row < 2; row++) {
             var slot = settled == null ? null : row == 0 ? settled.belt() : settled.back();
             for (int i = 0; i < 4; i++) {
@@ -116,10 +118,10 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
                 };
             }
             var g = grid(view, row);
-            var active = view == null ? null : view.first().id().equals(view.activeHand()) ? view.first() : view.second();
+            var active = view == null ? null : view.active();
             boolean selected = g != null && selectedRow == row && selectionHost.equals(g.host().hostToken());
             var settledGrid = grid(settled, row);
-            var settledActive = settled == null ? null : settled.first().id().equals(settled.activeHand()) ? settled.first() : settled.second();
+            var settledActive = settled == null ? null : settled.active();
             boolean store = settledGrid != null && selected && placement && settledActive != null && selectionToken.equals(settledActive.token())
                     && settledGrid.proposed(settledActive.itemId(), settledActive.token(), rotation, cellX, cellY) != null;
             boolean take = settledGrid != null && selected && !placement && settledGrid.canTake() && settledGrid.entryAt(cellX, cellY) != null
@@ -152,7 +154,7 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
             line(graphics, "…", 66);
         } else {
             renderHandIcon(graphics, view.first(), first);
-            renderHandIcon(graphics, view.second(), second);
+            if (view.second() != null) renderHandIcon(graphics, view.second(), second);
             for (int row = 0; row < 2; row++) renderGrid(graphics, view, row);
             if (BodyHandClient.inventoryView() == null) graphics.drawString(font, "…", width - 18, 6, 0x999999, false);
         }
@@ -180,10 +182,10 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
         int size = cellSize(), left = gridLeft(g.host().width()), startY = top + 43 - scroll;
         java.util.List<GridGeometry.Cell> preview = java.util.List.of();
         if (selectedRow == row && placement) {
-            var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
-            if (active.token() != null && g.proposed(active.itemId(), active.token(), rotation, cellX, cellY) != null) {
+            var active = view.active();
+            if (active.token() != null && g.proposed(active.itemId(), active.token(), rotation, cellX, cellY, active.presentation()) != null) {
                 var id = ResourceLocation.tryParse(active.itemId());
-                if (id != null) preview = new GridGeometry.Placement<>(active.token(), ItemFootprints.clientForId(id),
+                if (id != null) preview = new GridGeometry.Placement<>(active.token(), ItemFootprints.clientForPresentation(id, active.presentation()),
                         new GridGeometry.Cell(cellX, cellY), GridGeometry.Rotation.values()[rotation / 90]).occupiedCells();
             }
         }
@@ -218,7 +220,7 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
                         || mouseY >= Math.min(viewportBottom(), top + g.host().height() * size)) continue;
                 int x = ((int) mouseX - left) / size, y = ((int) mouseY - top) / size;
                 var entry = g.entryAt(x, y);
-                var active = view.first().id().equals(view.activeHand()) ? view.first() : view.second();
+                var active = view.active();
                 clearSelection();
                 if (entry != null) {
                     selectedRow = row; selectionHost = g.host().hostToken(); selectionToken = entry.token();
@@ -270,4 +272,3 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 }
-

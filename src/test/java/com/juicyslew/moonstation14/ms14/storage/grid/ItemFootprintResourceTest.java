@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(65, raw.size());
+        assertEquals(67, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(60, resolved.size());
+        assertEquals(62, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -52,7 +52,11 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(60, catalog.size());
+        assertEquals(62, catalog.size());
+        assertEquals(4, catalog.get(id("mothroach_normal")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Normal), catalog.get(id("mothroach_normal")).itemSize());
+        assertEquals(1, catalog.get(id("hamster_tiny")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("hamster_tiny")).itemSize());
         for (String item : new String[]{"wheat_seeds", "tomato_seeds", "potato_seeds", "poppy_seeds", "aloe_seeds"})
             assertEquals(1, catalog.get(id(item)).cells().size(), item + " resolves Tiny footprint");
         for (String item : new String[]{"wheat_bushel", "tomato", "potato", "poppy", "aloe"})
@@ -105,6 +109,22 @@ class ItemFootprintResourceTest {
         assertFalse(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(template, "pocket1",
                 normal, 1, 64, java.util.Set.of()));
         assertEquals(java.util.Optional.empty(), unitGeometryWithoutSize.itemSize());
+    }
+
+    @Test void portableBodyFootprintsKeepCarrierGeometryBodySpecificForGridAdmission() throws IOException {
+        var raw = loadResources();
+        var resolved = PrototypeResolver.resolve(raw);
+        var mothroach = new ItemFootprintProfile(resolved.get(id("mothroach_normal")).getAsJsonObject().getAsJsonArray("cells")
+                .asList().stream().map(cell -> new GridGeometry.Cell(cell.getAsJsonObject().get("x").getAsInt(),
+                        cell.getAsJsonObject().get("y").getAsInt())).toList());
+        var hamster = new ItemFootprintProfile(resolved.get(id("hamster_tiny")).getAsJsonObject().getAsJsonArray("cells")
+                .asList().stream().map(cell -> new GridGeometry.Cell(cell.getAsJsonObject().get("x").getAsInt(),
+                        cell.getAsJsonObject().get("y").getAsInt())).toList());
+        var oneCell = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(1, 1));
+        assertFalse(oneCell.place("portable-key", mothroach.footprint(), new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0).accepted());
+        assertTrue(oneCell.place("portable-key", hamster.footprint(), new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0).accepted());
+        assertEquals(1, new ItemFootprintProfile(java.util.List.of(new GridGeometry.Cell(0, 0))).cells().size(),
+                "existing mouse-sized portable geometry remains one cell");
     }
 
     private static void assertCounts(PrototypeCatalog<JsonObject> catalog, int expected, String... ids) {

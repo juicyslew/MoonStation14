@@ -13,8 +13,26 @@ public final class ItemFootprints {
     private ItemFootprints() { }
 
     public static GridGeometry.Footprint forStack(ItemStack stack) {
-        ResourceLocation id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
-        return serverForId(id);
+        return forStack(stack, false);
+    }
+
+    /** Resolves body-key geometry by its bounded body profile, without granting overrides to arbitrary items. */
+    public static GridGeometry.Footprint forStack(ItemStack stack, boolean client) {
+        ResourceLocation itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys.isKeyItem(stack)) {
+            var appearance = com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.fromStack(stack);
+            if (appearance != null) {
+                var catalog = client ? ModItemFootprints.clientCatalog() : ModItemFootprints.serverCatalog();
+                var bodyProfile = ModItemFootprints.get(catalog, appearance.profile());
+                if (bodyProfile != null) return bodyProfile.footprint();
+            }
+        }
+        return client ? clientForId(itemId) : serverForId(itemId);
+    }
+
+    public static GridGeometry.Footprint clientForPresentation(ResourceLocation itemId,
+            com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation presentation) {
+        return presentation == null ? clientForId(itemId) : forStack(presentation.stack(), true);
     }
 
     /** Pure legacy/test helper; production callers must select an explicit side. */
@@ -40,4 +58,3 @@ public final class ItemFootprints {
         return profile == null ? ONE : profile.footprint();
     }
 }
-

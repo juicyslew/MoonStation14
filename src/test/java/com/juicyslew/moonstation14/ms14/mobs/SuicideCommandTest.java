@@ -27,6 +27,7 @@ class SuicideCommandTest {
                 id("pig"), resource("pig"),
                 id("mouse"), resource("mouse"),
                  id("supported_simple_mob"), resource("supported_simple_mob"),
+                 id("supported_animal_core"), resource("supported_animal_core"),
                  id("supported_animal"), resource("supported_animal"),
                  id("supported_npc"), resource("supported_npc")));
         var catalog = manager.snapshot(ModCharacters.CHARACTER_TYPE);

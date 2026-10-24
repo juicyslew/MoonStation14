@@ -72,11 +72,23 @@ class GhostControlPayloadsTest {
         assertEquals(offerReady, roundTrip(GhostControlPayloads.OfferReady.STREAM_CODEC, offerReady));
         assertEquals(commit, roundTrip(GhostControlPayloads.Commit.STREAM_CODEC, commit));
         assertEquals(intent, roundTrip(GhostControlPayloads.Intent.STREAM_CODEC, intent));
+        var timedIntent = new GhostControlPayloads.Intent(4, 6, 1234, (short) 12, (short) -34,
+                (byte) 1, GhostControlPayloads.BUTTON_SNEAK, 45.0f, -30.0f);
+        assertEquals(timedIntent, roundTrip(GhostControlPayloads.Intent.STREAM_CODEC, timedIntent));
         assertEquals(stop, roundTrip(GhostControlPayloads.Stop.STREAM_CODEC, stop));
         assertEquals(snapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, snapshot));
         assertEquals(characterBegin, roundTrip(GhostControlPayloads.Begin.STREAM_CODEC, characterBegin));
         assertEquals(configuredGhostBegin, roundTrip(GhostControlPayloads.Begin.STREAM_CODEC, configuredGhostBegin));
         assertEquals(characterSnapshot, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, characterSnapshot));
+        var held = new GhostControlState((short) 123, (short) -456, (byte) -1,
+                GhostControlPayloads.BUTTON_JUMP | GhostControlPayloads.BUTTON_SPRINT, 32.5f, -22.0f);
+        var heldSnapshot = new GhostControlPayloads.Snapshot(10, 44, MobHarnessKind.CHARACTER, 19, 8,
+                1, 2, 3, 4, 5, 6.5, -7.5, 8.5, true, 1.5f, 1.5f, true, 0,
+                GhostControlPayloads.Snapshot.MovementMode.GROUNDED, java.util.Optional.empty(), held,
+                com.juicyslew.moonstation14.ms14.animals.flight.FlightState.LANDING);
+        assertEquals(held, roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, heldSnapshot).heldControlState());
+        assertEquals(com.juicyslew.moonstation14.ms14.animals.flight.FlightState.LANDING,
+                roundTrip(GhostControlPayloads.Snapshot.STREAM_CODEC, heldSnapshot).naturalFlightState());
         var flightSnapshot = new GhostControlPayloads.Snapshot(10, 44, MobHarnessKind.CHARACTER, 11, 8,
                 1, 2, 3, 4, 5, 6.5, -7.5, 8.5, true, 1, 1, false, 6,
                 GhostControlPayloads.Snapshot.MovementMode.GROUNDED, java.util.Optional.empty());
@@ -196,7 +208,7 @@ class GhostControlPayloadsTest {
 
         RegistryFriendlyByteBuf malformedIntent = buffer();
         try {
-            malformedIntent.writeLong(1); malformedIntent.writeLong(1);
+             malformedIntent.writeLong(1); malformedIntent.writeLong(1); malformedIntent.writeLong(0);
             malformedIntent.writeShort(0); malformedIntent.writeShort(0); malformedIntent.writeByte(0);
             malformedIntent.writeByte(8); malformedIntent.writeFloat(0); malformedIntent.writeFloat(0);
             assertThrows(IllegalArgumentException.class, () -> GhostControlPayloads.Intent.STREAM_CODEC.decode(malformedIntent));
@@ -233,7 +245,7 @@ class GhostControlPayloadsTest {
     void clientPayloadsContainNoUuidOrPositionOrArbitraryBodyTarget() {
         Set<String> componentNames = Arrays.stream(GhostControlPayloads.Intent.class.getRecordComponents())
                 .map(component -> component.getName()).collect(Collectors.toSet());
-        assertEquals(Set.of("epoch", "sequence", "wishX", "wishZ", "verticalWish", "buttons", "yaw", "pitch"),
+         assertEquals(Set.of("epoch", "sequence", "intendedSimulationTick", "wishX", "wishZ", "verticalWish", "buttons", "yaw", "pitch"),
                 componentNames);
         assertEquals(Set.of("epoch"), Arrays.stream(GhostControlPayloads.Stop.class.getRecordComponents())
                 .map(component -> component.getName()).collect(Collectors.toSet()));

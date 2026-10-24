@@ -8,6 +8,7 @@ import com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleRoleAvailability;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
+import com.juicyslew.moonstation14.entities.AnimalMob;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,6 +20,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
@@ -35,6 +37,11 @@ public final class GhostRoleCatalog {
 
     /** Snapshot eligible roles currently loaded on this server; first use performs the sole world scan. */
     public static List<GhostRolePayloads.Entry> snapshot(MinecraftServer server) {
+        return snapshot(server, false);
+    }
+
+    /** Operator snapshot includes only resolved local animal hosts as development-only offers. */
+    public static List<GhostRolePayloads.Entry> snapshot(MinecraftServer server, boolean operator) {
         if (server == null || !server.isSameThread()) return List.of();
         Set<java.util.UUID> index;
         synchronized (CATALOGS) {
@@ -56,11 +63,25 @@ public final class GhostRoleCatalog {
                     }
                 }
                 if (entity == null || entity.isRemoved()) { iterator.remove(); continue; }
-                GhostRolePayloads.Entry entry = currentlyAvailable(server, entity);
+                GhostRolePayloads.Entry entry = currentlyAvailable(server, entity, operator);
                 if (entry != null) available.add(entry);
             }
-            return List.copyOf(available);
+            return boundSnapshot(available);
         }
+    }
+
+    static List<GhostRolePayloads.Entry> boundSnapshot(List<GhostRolePayloads.Entry> available) {
+        available.sort(Comparator.comparing(GhostRolePayloads.Entry::development)
+                    .thenComparing(GhostRolePayloads.Entry::roleId)
+                    .thenComparing(entry -> entry.target().toString()));
+        return List.copyOf(available.subList(0, Math.min(available.size(), GhostRolePayloads.MAX_ENTRIES)));
+    }
+
+    /** Resolve a requested target against current server state, independently of the bounded UI snapshot. */
+    public static GhostRolePayloads.Entry entryForTarget(MinecraftServer server, Entity target, boolean operator) {
+        if (server == null || target == null || !server.isSameThread()
+                || !(target.level() instanceof ServerLevel level) || level.getServer() != server) return null;
+        return currentlyAvailable(server, target, operator);
     }
 
     @SubscribeEvent
@@ -90,7 +111,7 @@ public final class GhostRoleCatalog {
         if (ModCharacters.characterForHost(level, id).isPresent()) index.add(entity.getUUID());
     }
 
-    private static GhostRolePayloads.Entry currentlyAvailable(MinecraftServer server, Entity entity) {
+    private static GhostRolePayloads.Entry currentlyAvailable(MinecraftServer server, Entity entity, boolean operator) {
         if (!(entity instanceof Mob mob) || !(entity.level() instanceof ServerLevel)
                 || entity.isRemoved() || !entity.isAddedToLevel()
                 || mob instanceof PlayerCharacterHarnessEntity
@@ -98,8 +119,10 @@ public final class GhostRoleCatalog {
                 || !LifecycleRoleAvailability.unclaimed(server, entity)) return null;
         var data = CharacterIdentitySystem.resolveForActor(mob).orElse(null);
         GhostRoleComponent role = data == null ? null : data.component(GhostRoleComponent.class).orElse(null);
-        if (role == null) return null;
         var id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
-        return new GhostRolePayloads.Entry(entity.getUUID(), id.toString(), role.name(), true, role.takeover());
+        if (role != null) return new GhostRolePayloads.Entry(entity.getUUID(), id.toString(), role.name(), true, role.takeover(), false);
+        if (operator && mob instanceof AnimalMob && ModCharacters.characterForHost((ServerLevel) entity.level(), id).isPresent())
+            return new GhostRolePayloads.Entry(entity.getUUID(), id.toString(), id.toString(), true, true, true);
+        return null;
     }
 }

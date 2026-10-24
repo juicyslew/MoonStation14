@@ -11,8 +11,9 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         ObserverMovementComponent, IncorporealComponent, GhostOnMoveComponent, PullerComponent, DoorBumpOpenerComponent,
         ExaminerComponent, DamageableComponent, HumanoidProfileComponent, StrippingPrototypeComponent,
         StrippablePrototypeComponent, GhostRoleComponent, MouseAppearanceComponent, CollisionProfileComponent,
-        NpcBehaviorComponent, AmbientVocalizationComponent, NpcIdleAttentionComponent, PortableBodyComponent,
-        CanEscapeInventoryComponent, SpeciesComponent {
+        NpcBehaviorComponent, AmbientVocalizationComponent, NpcIdleAttentionComponent, PortableBodyComponent, UdderComponent,
+        CanEscapeInventoryComponent, SpeciesComponent, AnimalAppearanceComponent, FlightComponent, NpcRetaliationComponent,
+        MeleeAttackComponent, ParrotListenerComponent, ParrotMemoryComponent, EggLayerComponent,
+        AbsorbentCleaningComponent {
     String type();
 }
-

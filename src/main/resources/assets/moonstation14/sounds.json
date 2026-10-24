@@ -322,6 +322,24 @@
       "moonstation14:mouse_squeak"
     ]
   },
+  "speech/cluck": { "sounds": ["moonstation14:animals/chicken_cluck_happy"] },
+  "speech/goat": { "sounds": ["moonstation14:animals/goat_bah"] },
+  "speech/monkey": { "sounds": ["moonstation14:animals/monkey_scream"] },
+  "speech/parrot": { "sounds": ["moonstation14:animals/parrot_raught"] },
+  "speech/cat": { "sounds": ["moonstation14:animals/cat_meow2", "moonstation14:animals/cat_meow"] },
+  "speech/dog": { "sounds": ["moonstation14:animals/dog_bark1", "moonstation14:animals/dog_bark2", "moonstation14:animals/dog_bark3"] },
+  "speech/lizard": { "sounds": ["moonstation14:animals/lizard"] },
+  "speech/lizard_ask": { "sounds": ["moonstation14:animals/lizard_ask"] },
+  "speech/lizard_exclaim": { "sounds": ["moonstation14:animals/lizard_exclaim"] },
+  "speech/arachnid": { "sounds": ["moonstation14:animals/arachnid"] },
+  "speech/arachnid_ask": { "sounds": ["moonstation14:animals/arachnid_ask"] },
+  "speech/arachnid_exclaim": { "sounds": ["moonstation14:animals/arachnid_exclaim"] },
+  "speech/alto": { "sounds": ["moonstation14:animals/alto"] },
+  "speech/alto_ask": { "sounds": ["moonstation14:animals/alto_ask"] },
+  "speech/alto_exclaim": { "sounds": ["moonstation14:animals/alto_exclaim"] },
+  "speech/wawa": { "sounds": ["moonstation14:animals/wawa_statement"] },
+  "speech/wawa_ask": { "sounds": ["moonstation14:animals/wawa_question"] },
+  "speech/wawa_exclaim": { "sounds": ["moonstation14:animals/wawa_exclaim"] },
   "botany/grinder/blender": {
     "sounds": [
       "moonstation14:botany/grinder/blender"

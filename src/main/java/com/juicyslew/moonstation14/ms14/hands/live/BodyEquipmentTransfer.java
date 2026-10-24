@@ -299,6 +299,8 @@ public final class BodyEquipmentTransfer {
                 .flatMap(value -> value.stack().stream()).map(value -> catalog.get(
                         net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(value.getItem())))
                 .anyMatch(value -> value != null && value.allowSuitStorage().isPresent());
+        if ("suitstorage".equals(slot) && template.slot(slot).map(value -> !value.whitelistComponents().isEmpty()).orElse(false))
+            return com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(level, template, slot, candidate, occupied);
         if ("suitstorage".equals(slot)) return com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(
                 template, slot, candidateData, occupied, outerAllows);
         return com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(level, template, slot, candidate, occupied);
@@ -309,4 +311,3 @@ public final class BodyEquipmentTransfer {
                 && level.getEntity(body.getUUID()) == body;
     }
 }
-

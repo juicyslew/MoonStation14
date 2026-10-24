@@ -42,6 +42,304 @@ public final class LifecycleRegisteredPlayerGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags("body-input-cadence")
+    public static void sameTickIntentBurstFoldsToHeldStateUntilExplicitRelease(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "input-cadence");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+                var startX = body.getX();
+                while (fixture.pollOutbound() != null) { }
+                var first = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                        active.epoch(), 1, (short) 0, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                var second = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                        active.epoch(), 2, (short) 1000, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                RegisteredPlayerReadyDriver.admitIntent(fixture, first);
+                RegisteredPlayerReadyDriver.admitIntent(fixture, second);
+                long burstInputTick = level.getGameTime();
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        long phaseTick = level.getGameTime();
+                        if (phaseTick <= burstInputTick) throw new GameTestAssertException("burst phase did not advance tick: " + phaseTick);
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var firstSnapshot = latestSnapshot(fixture, active.epoch(), body.getId());
+                        if (firstSnapshot == null || firstSnapshot.acknowledgedAppliedSequence() != 2
+                                || firstSnapshot.heldControlState().wishX() != 1000 || body.getX() <= startX)
+                            throw new GameTestAssertException("burst snapshot=" + (firstSnapshot != null)
+                                    + " ack=" + (firstSnapshot == null ? "none" : firstSnapshot.acknowledgedAppliedSequence())
+                                    + " heldX=" + (firstSnapshot == null ? "none" : firstSnapshot.heldControlState().wishX())
+                                    + " inputTick=" + burstInputTick + " now=" + level.getGameTime()
+                                    + " x=" + body.getX() + " startX=" + startX);
+                        double firstX = body.getX();
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        if (body.getX() != firstX) throw new GameTestAssertException("second frame consumed twice in same world tick");
+                        continueHeldBurst(helper, fixture, active, body, level, firstX, phaseTick);
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 60)
+    @GameTestTags({"gravity-air-steering", "body-input-cadence", "jump-regression"})
+    public static void registeredCharacterRetainsForwardMomentumAndSteersInAir(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "gravity-air-steering");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                admitSteeringIntent(fixture, active, 1, 0, 0, 0, body);
+                helper.runAfterDelay(1, () -> settleForAirSteering(helper, fixture, active, 15, 0));
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static void settleForAirSteering(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+            RegisteredPlayerReadyDriver.Active active, int remaining, int steps) {
+        var body = active.body();
+        try {
+            var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+            RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+            if (!body.onGround() && remaining > 1) {
+                helper.runAfterDelay(1, () -> settleForAirSteering(helper, fixture, active, remaining - 1, steps + 1));
+                return;
+            }
+            var settled = latestSnapshot(fixture, active.epoch(), body.getId());
+            require(body.onGround(), "registered character reached ordinary supported fixture floor: position="
+                    + body.position() + " velocity=" + body.getDeltaMovement() + " onGround=" + body.onGround()
+                    + " settleSteps=" + (steps + 1) + " ack=" + (settled == null ? "none" : settled.acknowledgedAppliedSequence())
+                    + " heldSeq=" + (settled == null ? "none" : settled.acknowledgedAppliedSequence())
+                    + " worldTick=" + level.getGameTime());
+            while (fixture.pollOutbound() != null) { }
+            admitSteeringIntent(fixture, active, 2, 0, 1000,
+                    com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_SPRINT, body);
+            warmForwardForSteering(helper, fixture, active, 3);
+        } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+    }
+
+    private static void warmForwardForSteering(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+            RegisteredPlayerReadyDriver.Active active, int remaining) {
+        helper.runAfterDelay(1, () -> {
+            try {
+                var body = active.body();
+                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                if (remaining > 1) { warmForwardForSteering(helper, fixture, active, remaining - 1); return; }
+                var groundedVelocity = body.getDeltaMovement();
+                require(body.onGround() && groundedVelocity.z > 0, "forward sprint reached grounded target before jumping: " + groundedVelocity);
+                admitSteeringIntent(fixture, active, 3, 0, 1000,
+                        com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_SPRINT
+                                | com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_JUMP, body);
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var airborneVelocity = body.getDeltaMovement();
+                require(!body.onGround() && airborneVelocity.y > 0, "sequence 3 jump produced an airborne body: " + airborneVelocity);
+                        require(airborneVelocity.z > 0, "jump began with forward momentum: " + airborneVelocity);
+                        var preSteerPosition = body.position();
+                admitSteeringIntent(fixture, active, 4, 1000, 0,
+                        com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_SPRINT, body);
+                        helper.runAfterDelay(1, () -> {
+                            try {
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                var steered = body.getDeltaMovement();
+                                var snapshot = latestSnapshot(fixture, active.epoch(), body.getId());
+                                require(!body.onGround() && steered.x > 0 && body.getX() > preSteerPosition.x,
+                                         "sequence 4 side wish caused first airborne lateral response/displacement: " + steered);
+                                require(steered.z > 0 && steered.z < airborneVelocity.z,
+                                        "air steering preserves but damps forward carry: before=" + airborneVelocity + " after=" + steered);
+                                require(snapshot != null && snapshot.acknowledgedAppliedSequence() == 4
+                                                && snapshot.heldControlState().wishX() == 1000 && snapshot.heldControlState().wishZ() == 0,
+                                        "actual public lifecycle owner snapshot confirms sequence 4 side wish");
+                                var after = body.position();
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                require(body.position().equals(after), "same-world-tick owner reentry does not step physics twice");
+                                fixture.close(); helper.succeed();
+                            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                        });
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static void admitSteeringIntent(RegisteredServerPlayerFixture fixture, RegisteredPlayerReadyDriver.Active active,
+            long sequence, int wishX, int wishZ, int buttons, net.minecraft.world.entity.LivingEntity body) {
+        RegisteredPlayerReadyDriver.admitIntent(fixture, new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                active.epoch(), sequence, ((net.minecraft.server.level.ServerLevel) body.level()).getGameTime() + 1,
+                (short) wishX, (short) wishZ, (byte) 0, buttons, body.getYRot(), body.getXRot()));
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags({"body-input-cadence", "lifecycle"})
+    public static void coldReadyWithoutInputKeepsRegisteredPlayerActive(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "cold-ready-input");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+                var body = active.body();
+                while (fixture.pollOutbound() != null) { }
+                long readyTick = level.getGameTime();
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        if (level.getGameTime() <= readyTick) throw new GameTestAssertException("no-input tick did not advance");
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var idle = latestSnapshot(fixture, active.epoch(), body.getId());
+                        require(idle != null && idle.acknowledgedAppliedSequence() == 0
+                                        && idle.heldControlState().equals(com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlState.neutral())
+                                        && idle.serverGameTick() == level.getGameTime(),
+                                "cold no-input snapshot must bootstrap clock with neutral state and ACK0");
+                        require(LifecycleCharacterSessionControl.activeCharacterBody(fixture.player()).isPresent()
+                                        && fixture.player().connection.isAcceptingMessages(),
+                                "no-input tick retains registered active session and connection");
+                        long idleTick = level.getGameTime();
+                        helper.runAfterDelay(1, () -> {
+                            try {
+                                if (level.getGameTime() <= idleTick) throw new GameTestAssertException("second no-input tick did not advance");
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                var stillIdle = latestSnapshot(fixture, active.epoch(), body.getId());
+                                require(stillIdle != null && stillIdle.acknowledgedAppliedSequence() == 0,
+                                        "second no-input tick remains connected without fabricated ACK");
+                                var input = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                                        active.epoch(), 1, (short) 1000, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                                RegisteredPlayerReadyDriver.admitIntent(fixture, input);
+                                helper.runAfterDelay(1, () -> {
+                                    try {
+                                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                        var applied = latestSnapshot(fixture, active.epoch(), body.getId());
+                                        require(applied != null && applied.acknowledgedAppliedSequence() == 1
+                                                        && applied.heldControlState().wishX() == 1000,
+                                                "first real sequence 1 input is applied and acknowledged");
+                                        fixture.close(); helper.succeed();
+                                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                                });
+                            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                        });
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags({"body-input-cadence", "lifecycle"})
+    public static void enabledMovementTraceObservesRegisteredServerGlue(GameTestHelper helper) {
+        var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "trace-server-glue");
+        helper.runAtTickTime(2, () -> {
+            try {
+                require(com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession.activeContext() == null,
+                        "fresh fixture must not inherit a foreign movement trace");
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+                var context = new com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceRecorder.Context(
+                        active.epoch(), body.getId(), body.getUUID(), level.dimension().location().toString(),
+                        com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER.name());
+                require(com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                        .start(context, System.nanoTime(), 10), "fixture starts its own bounded movement trace");
+                while (fixture.pollOutbound() != null) { }
+                long idleTick = level.getGameTime();
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var idle = latestSnapshot(fixture, active.epoch(), body.getId());
+                        require(idle != null && idle.acknowledgedAppliedSequence() == 0 && level.getGameTime() > idleTick,
+                                "registered no-input tick emits ACK0 snapshot on later world tick");
+                        var input = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                                active.epoch(), 1, (short) 1000, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                        RegisteredPlayerReadyDriver.admitIntent(fixture, input);
+                        helper.runAfterDelay(1, () -> {
+                            try {
+                                long stepTick = level.getGameTime();
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                double x = body.getX();
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                require(body.getX() == x, "manual duplicate tick guard does not apply a second step");
+                                var snapshot = latestSnapshot(fixture, active.epoch(), body.getId());
+                                require(snapshot != null && snapshot.acknowledgedAppliedSequence() == 1,
+                                        "real sequence-one input acknowledged in server snapshot");
+                                var trace = com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                        .stop("fixtureComplete", "server");
+                                require(com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                        .activeContext() == null, "trace stopped");
+                                var same = trace.samples().stream().filter(s -> s.epoch() == active.epoch()
+                                        && s.logicalTick() == stepTick).toList();
+                                require(same.stream().anyMatch(s -> s.kind().equals("SERVER_STEP") && s.sequence() == 1),
+                                        "enabled trace observes actual sequence-one SERVER_STEP");
+                                require(same.stream().anyMatch(s -> s.kind().equals("SERVER_SNAPSHOT") && s.sequence() == 1),
+                                        "enabled trace observes post-send-invocation snapshot ACK1");
+                                require(same.stream().filter(s -> s.kind().equals("SERVER_STEP")).count() == 1,
+                                        "one physical server step at most in the world tick");
+                                require(trace.samples().stream().noneMatch(s -> s.kind().equals("SERVER_STEP") && s.sequence() == 0),
+                                        "no fabricated physical step for pre-input sequence zero");
+                                helper.succeed();
+                            } catch (RuntimeException | Error failure) {
+                                com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                        .stop("fixtureFailure", "server");
+                                throw failure;
+                            }
+                            finally { fixture.close(); }
+                        });
+                    } catch (RuntimeException | Error failure) {
+                        com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                .stop("fixtureFailure", "server");
+                        fixture.close(); throw failure;
+                    }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static void continueHeldBurst(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+            RegisteredPlayerReadyDriver.Active active, net.minecraft.world.entity.LivingEntity body,
+            net.minecraft.server.level.ServerLevel level, double firstX, long previousTick) {
+        helper.runAfterDelay(1, () -> {
+            try {
+                long heldTick = level.getGameTime();
+                if (heldTick <= previousTick) throw new GameTestAssertException("held phase tick did not advance: " + heldTick);
+                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                if (body.getX() <= firstX) throw new GameTestAssertException("held wish did not continue: priorX=" + firstX + " x=" + body.getX());
+                var held = latestSnapshot(fixture, active.epoch(), body.getId());
+                if (held == null || held.acknowledgedAppliedSequence() != 2 || held.heldControlState().wishX() != 1000)
+                    throw new GameTestAssertException("held snapshot=" + (held != null) + " ack="
+                            + (held == null ? "none" : held.acknowledgedAppliedSequence()) + " heldX="
+                            + (held == null ? "none" : held.heldControlState().wishX()) + " tick=" + heldTick);
+                var release = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                        active.epoch(), 3, (short) 0, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                RegisteredPlayerReadyDriver.admitIntent(fixture, release);
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        long releaseTick = level.getGameTime();
+                        if (releaseTick <= heldTick) throw new GameTestAssertException("release phase tick did not advance: " + releaseTick);
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var released = latestSnapshot(fixture, active.epoch(), body.getId());
+                        if (released == null || released.acknowledgedAppliedSequence() != 3
+                                || released.heldControlState().wishX() != 0 || released.heldControlState().wishZ() != 0)
+                            throw new GameTestAssertException("release snapshot=" + (released != null)
+                                    + " ack=" + (released == null ? "none" : released.acknowledgedAppliedSequence())
+                                    + " held=" + (released == null ? "none" : released.heldControlState().wishX()
+                                    + "," + released.heldControlState().wishZ()) + " tick=" + releaseTick);
+                        fixture.close(); helper.succeed();
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot latestSnapshot(
+            RegisteredServerPlayerFixture fixture, long epoch, int bodyId) {
+        com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot latest = null;
+        Object packet;
+        while ((packet = fixture.pollOutbound()) != null)
+            if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
+                    && custom.payload() instanceof com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot snapshot
+                    && snapshot.epoch() == epoch && snapshot.harnessEntityId() == bodyId) latest = snapshot;
+        return latest;
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
     @GameTestTags({"hands", "portable-living-pickup"})
     public static void selectedPortableLivingRequestBindsExactTarget(GameTestHelper helper) {
         RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(

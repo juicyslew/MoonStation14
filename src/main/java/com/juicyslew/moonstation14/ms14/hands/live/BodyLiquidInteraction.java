@@ -52,6 +52,65 @@ public final class BodyLiquidInteraction {
         net.minecraft.world.phys.Vec3 position();
     }
 
+    /** CAS adapter for an entity-owned source solution; the held container remains the sole recipient. */
+    public interface EntitySolutionSource {
+        ReagentAttachment snapshot();
+        boolean matches(ReagentAttachment expected);
+        boolean replace(ReagentAttachment expected, ReagentAttachment replacement);
+        boolean valid();
+    }
+
+    /** Transfers an entity solution into the exact active owned hand, with the same staged hand commit used by pours. */
+    public static Result transferEntitySource(ServerPlayer actor, HandActorAuthority.Snapshot authority,
+            String hand, String token, long revision, EntitySolutionSource source) {
+        if (actor == null || authority == null || source == null || hand == null || token == null) return Result.DENIED;
+        LivingEntity body = authority.body();
+        if (body == null || !(body.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || !baseValid(body, level, authority, actor) || !source.valid()) return Result.DENIED;
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (before == null || !before.compatible(body) || before.revision() != revision
+                || !before.activeHand().equals(hand) || !before.token(hand).filter(token::equals).isPresent()) return Result.DENIED;
+        ItemToken owned;
+        try { owned = new ItemToken(token); } catch (RuntimeException ex) { return Result.DENIED; }
+        ItemStack held = before.stackCopy(hand).orElse(null);
+        if (!reagentStack(held) || !(held.getItem() instanceof IReagentTrait targetPolicy)) return Result.DENIED;
+        var refill = targetPolicy.refillableSolution(held, level);
+        var receiving = targetPolicy.solutionTransfer(held, level);
+        if (refill == null || !refill.enabled() || receiving == null || !receiving.enabled() || !receiving.canReceive()) return Result.DENIED;
+        ReagentAttachment sourceBefore = source.snapshot();
+        if (sourceBefore == null || !source.valid() || !source.matches(sourceBefore)) return Result.DENIED;
+        var targetBridge = ReagentSystem.bridgeForHolder(held);
+        if (targetBridge == null) return Result.DENIED;
+        ReagentAttachment targetBefore = MS14Provider.getDetached(held, targetBridge);
+        if (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(sourceBefore.getMap(), level, "entity liquid source")
+                || !ReagentCatalogValidation.hasOnlyKnownPositiveReagents(targetBefore.getMap(), level, "held liquid target")) return Result.DENIED;
+        long remaining = Math.max(0L, ReagentUnits.fromFloat(targetPolicy.getCapacity(held, level)) - targetBefore.totalUnits());
+        long request = Math.min(remaining, refill.maxRefill().map(ReagentUnits::fromFloat).orElse(Long.MAX_VALUE));
+        HeldLiquidTransferPlan plan;
+        try { plan = HeldLiquidTransferPlan.plan(sourceBefore, targetBefore,
+                ReagentUnits.fromFloat(targetPolicy.getCapacity(held, level)), targetPolicy.getCapacity(held, level), request, level); }
+        catch (RuntimeException ex) { return Result.DENIED; }
+        if (plan.admittedCents() <= 0) return Result.DENIED;
+        ItemStack staged = held.copy();
+        if (!publishStackReagents(staged, staged, plan.recipientAfter())) return Result.DENIED;
+        LiveHands next = before.replaceOwnedComponents(revision, hand, owned, staged).orElse(null);
+        BooleanSupplier stillOwned = () -> baseValid(body, level, authority, actor)
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                && before.compatible(body) && before.revision() == revision && before.activeHand().equals(hand)
+                && before.token(hand).filter(token::equals).isPresent()
+                && before.stackCopy(hand).filter(s -> same(held, s)).isPresent()
+                && source.valid() && source.matches(sourceBefore);
+        if (next == null || !stillOwned.getAsBoolean() || !source.replace(sourceBefore, plan.sourceAfter())) return Result.DENIED;
+        try { LiveHandsCommitGateway.commitOwned(body, next); } catch (RuntimeException ignored) { }
+        if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next) {
+            playPourReaction(level, body.position(), plan.recipientAfter());
+            return Result.SUCCESS;
+        }
+        if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
+                || !source.replace(plan.sourceAfter(), sourceBefore)) return Result.RECOVERY_REQUIRED;
+        return Result.DENIED;
+    }
+
     /** Held-source-only transfer. The caller supplies a recipient adapter bound to its admitted proof. */
     public static Result transferWorldRecipient(ServerPlayer actor, HandActorAuthority.Snapshot authority,
                                                  String hand, String token, long revision,

@@ -12,8 +12,16 @@ public final class EquipmentFitPolicy {
         if (level == null || template == null || slotId == null || stack == null || stack.isEmpty()) return false;
         var slot = template.slot(slotId).orElse(null);
         if (slot == null || slot.flags().contains(InventoryTemplateData.SlotFlag.PREVENTEQUIP)) return false;
+        if (!slot.whitelistComponents().isEmpty()) {
+            if (occupiedSlots == null || !slot.flags().contains(InventoryTemplateData.SlotFlag.SUITSTORAGE)
+                    || slot.whitelistComponents().size() != 1
+                    || !slot.whitelistComponents().contains(InventoryTemplateData.SlotComponent.GAS_TANK)
+                    || !com.juicyslew.moonstation14.item.custom.GasTankItem.contents(stack, level).isPresent()) return false;
+            return slot.dependsOn().stream().allMatch(occupiedSlots::contains);
+        }
         for (String dependency : slot.dependsOn()) if (!occupiedSlots.contains(dependency)) return false;
         var data = ModEquipmentItems.catalog(level).get(stack.getItem().builtInRegistryHolder().key().location());
+        if (!slot.whitelist().isEmpty() && (data == null || java.util.Collections.disjoint(slot.whitelist(), data.tags()))) return false;
         boolean pocket = slot.flags().contains(InventoryTemplateData.SlotFlag.POCKET);
         if (data == null) {
             var medical = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalogForSide(level.isClientSide())
@@ -73,11 +81,13 @@ public final class EquipmentFitPolicy {
         if (template == null || slotId == null || data == null || occupiedSlots == null) return false;
         var slot = template.slot(slotId).orElse(null);
         if (slot == null || slot.flags().contains(InventoryTemplateData.SlotFlag.PREVENTEQUIP)) return false;
+        if (!slot.whitelistComponents().isEmpty()) return false; // Requires a live typed item resolver.
         if (!dependenciesSatisfied(slot, occupiedSlots, outerAllowsSuitStorage)) return false;
         if (slot.flags().contains(InventoryTemplateData.SlotFlag.POCKET)) return fitsPocket(template, slotId, data.item().size(), 1, 1, occupiedSlots);
         var clothing = data.clothing().orElse(null);
         if (clothing == null) return false;
         if (slot.blacklist().stream().anyMatch(data.tags()::contains)) return false;
+        if (!slot.whitelist().isEmpty() && java.util.Collections.disjoint(slot.whitelist(), data.tags())) return false;
         if (java.util.Collections.disjoint(clothing.slotFlags(), slot.flags())) return false;
         return true;
     }
@@ -115,4 +125,3 @@ public final class EquipmentFitPolicy {
                 && ("Tiny".equals(size) || "Small".equals(size));
     }
 }
-

@@ -89,34 +89,76 @@ public final class LocalSpeechServerHooks {
                 ? CharacterIdentitySystem.resolveForActor(living).flatMap(data -> data.component(SpeechComponent.class)).orElse(null)
                 : null;
         String spokenText = speech == null ? parsed.body() : SpeechAccentPolicy.replace(speech.accent(), parsed.body());
-        String soundCue = speech != null && "mouse_squeak".equals(speech.speechSound()) ? "mouse_squeak" : "";
+        String soundCue = speech != null && com.juicyslew.moonstation14.sounds.ModSounds.hasSpeechSound(speech.speechSound())
+                ? speech.speechSound() : "";
+        if (body instanceof Mob sourceMob)
+            ParrotMemorySystem.listenToApprovedSpeech(level, sourceMob, spokenText, parsed.mode());
         LocalSpeechPayload clear = new LocalSpeechPayload(body.getId(), speakerUuid, speaker.name(), speaker.rgb(),
                 spokenText, position.x, position.y, position.z, body.level().dimension().location(), mode,
                 LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.DistanceTier.NONE, soundCue);
+        deliver(level, body, clear, parsed.body(), localMode, player);
+    }
+
+    /** Replay through the same local packet/recipient path; never allocates or invents NPC identities. */
+    static void dispatchNpcSpeech(ServerLevel level, Mob body, String phrase) {
+        if (level == null || body == null || body.level() != level || !body.isAlive() || body.isRemoved()
+                || level.getServer() == null || !level.getServer().isSameThread()
+                || body.isNoAi() || body.isPassenger()
+                || !LocalSpeechPolicy.validText(phrase)) return;
+        var character = CharacterIdentitySystem.resolveForActor(body).orElse(null);
+        var speech = character == null ? null : character.component(SpeechComponent.class).orElse(null);
+        if (speech == null || character.component(com.juicyslew.moonstation14.ms14.character.components.ParrotMemoryComponent.class).isEmpty()) return;
+        var overworld = level.getServer().overworld();
+        var identities = ChatIdentitySavedData.existing(overworld).orElse(null);
+        var identity = identities == null ? null : identities.npc(body.getUUID()).orElse(null);
+        if (identity == null) {
+            String displayType = character.component(com.juicyslew.moonstation14.ms14.character.components.SpeciesComponent.class)
+                    .map(com.juicyslew.moonstation14.ms14.character.components.SpeciesComponent::label).orElse(null);
+            if (displayType == null) return;
+            try {
+                identity = ChatIdentitySavedData.forFirstEnrollment(overworld)
+                        .allocateNpcDurably(overworld, body.getUUID(), displayType);
+            } catch (RuntimeException failure) {
+                MoonStation14.LOGGER.warn("Could not establish saved identity for autonomous parrot speech", failure);
+                return;
+            }
+        }
+        String spoken = SpeechAccentPolicy.replace(speech.accent(), phrase);
+        String soundCue = com.juicyslew.moonstation14.sounds.ModSounds.hasSpeechSound(speech.speechSound())
+                ? speech.speechSound() : "";
+        var pos = body.position();
+        if (!LocalSpeechPolicy.validPosition(pos.x, pos.y, pos.z)) return;
+        var payload = new LocalSpeechPayload(body.getId(), body.getUUID(), identity.name(), identity.rgb(), spoken,
+                pos.x, pos.y, pos.z, level.dimension().location(), LocalSpeechPayload.Mode.SAY,
+                LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.NO_BEARING,
+                LocalSpeechPayload.DistanceTier.NONE, soundCue);
+        deliver(level, body, payload, phrase, SpeechModePolicy.Mode.SAY, null);
+    }
+
+    private static void deliver(ServerLevel level, Entity body, LocalSpeechPayload clear, String sourceText,
+                                SpeechModePolicy.Mode mode, ServerPlayer sender) {
         String masked = null;
         for (ServerPlayer recipient : level.getServer().getPlayerList().getPlayers()) {
             if (recipient.isRemoved() || recipient instanceof FakePlayer) continue;
             Entity listener = recipient.getCamera();
             if (listener == null) continue;
-            SpeechRecipientPolicy.Delivery delivery = SpeechRecipientPolicy.classify(localMode, recipient == player,
+            SpeechRecipientPolicy.Delivery delivery = SpeechRecipientPolicy.classify(mode, recipient == sender,
                     recipient.level() == level && listener.level() == level,
-                    position.x, position.y, position.z, listener.getX(), listener.getY(), listener.getZ());
+                    clear.x(), clear.y(), clear.z(), listener.getX(), listener.getY(), listener.getZ());
             if (delivery == SpeechRecipientPolicy.Delivery.NONE) continue;
-            if (recipient != player && !LocalSpeechOcclusion.audible(level,
+            if (recipient != sender && !LocalSpeechOcclusion.audible(level,
                     body.getEyePosition(), listener.getEyePosition())) continue;
             try {
                 LocalSpeechPayload outgoing = clear;
                 if (delivery == SpeechRecipientPolicy.Delivery.MUFFLED) {
-                    if (masked == null) masked = SpeechRecipientPolicy.muffle(parsed.body());
-                    var bearing = SpeechRecipientPolicy.bearing(position.x, position.y, position.z,
+                    if (masked == null) masked = SpeechRecipientPolicy.muffle(sourceText);
+                    var bearing = SpeechRecipientPolicy.bearing(clear.x(), clear.y(), clear.z(),
                             listener.getX(), listener.getY(), listener.getZ());
-                    var distanceTier = SpeechRecipientPolicy.distanceTier(position.x, position.y, position.z,
+                    var distanceTier = SpeechRecipientPolicy.distanceTier(clear.x(), clear.y(), clear.z(),
                             listener.getX(), listener.getY(), listener.getZ());
-                    outgoing = new LocalSpeechPayload(body.getId(), speakerUuid, speaker.name(),
-                            LocalSpeechPayload.ANONYMOUS_RGB,
-                            masked, 0, 0, 0, body.level().dimension().location(),
-                            LocalSpeechPayload.Mode.W_MUFFLED, bearing.azimuthSector(), bearing.verticalBand(),
-                            distanceTier);
+                    outgoing = new LocalSpeechPayload(body.getId(), clear.speakerUuid(), clear.actualName(),
+                            LocalSpeechPayload.ANONYMOUS_RGB, masked, 0, 0, 0, clear.dimension(),
+                            LocalSpeechPayload.Mode.W_MUFFLED, bearing.azimuthSector(), bearing.verticalBand(), distanceTier);
                 }
                 LocalSpeechNetworking.send(recipient, outgoing);
             } catch (RuntimeException failure) {
@@ -187,4 +229,3 @@ public final class LocalSpeechServerHooks {
         return boundId != null && current.filter(CharacterData::canSpeakText).isPresent();
     }
 }
-

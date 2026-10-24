@@ -13,8 +13,10 @@ public record SpeechComponent(String accent, String speechSound, java.util.Set<S
             Codec.list(Codec.STRING).optionalFieldOf("allowedEmotes", java.util.List.of()).forGetter(value -> value.allowedEmotes().stream().sorted().toList())
     ).apply(instance, (type, accent, speechSound, allowedEmotes) -> {
         if (!TYPE.equals(type)) throw new IllegalArgumentException("unknown component type: " + type);
-        if (!accent.isEmpty() && !"mouse".equals(accent)) throw new IllegalArgumentException("unknown speech accent: " + accent);
-        if (!speechSound.isEmpty() && !"mouse_squeak".equals(speechSound)) throw new IllegalArgumentException("unknown speech sound: " + speechSound);
+        if (!accent.isEmpty() && !com.juicyslew.moonstation14.ms14.chat.server.SpeechAccentPolicy.supports(accent))
+            throw new IllegalArgumentException("unknown speech accent: " + accent);
+        if (!speechSound.isEmpty() && !com.juicyslew.moonstation14.sounds.ModSounds.hasSpeechSound(speechSound))
+            throw new IllegalArgumentException("unknown speech sound: " + speechSound);
         java.util.Set<String> emotes = java.util.Set.copyOf(allowedEmotes);
         if (emotes.size() != allowedEmotes.size() || emotes.stream().anyMatch(id -> !com.juicyslew.moonstation14.component.codec.json.EmoteRegistry.ids().contains(id)))
             throw new IllegalArgumentException("unknown or duplicate allowed emote");
@@ -26,4 +28,3 @@ public record SpeechComponent(String accent, String speechSound, java.util.Set<S
 
     @Override public String type() { return TYPE; }
 }
-

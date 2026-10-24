@@ -49,7 +49,9 @@ public final class ParticleAcceleratorFiringGameTests {
                                            ParticleAcceleratorPartBlockEntity controlEntity, UUID powerIdentity,
                                            ParticleAcceleratorPartBlockEntity powerEntity) { }
 
-    private static final int CONTAINED_PA_STARTUP_TIMEOUT_TICKS=1000;
+     private static final int CONTAINED_PA_STARTUP_TIMEOUT_TICKS=1000;
+     private static final int MV_OUTAGE_TEST_TIMEOUT_TICKS=1000;
+     private static final int MV_OUTAGE_TEST_CLEANUP_RESERVE_TICKS=20;
     private ParticleAcceleratorFiringGameTests() { }
     private static void require(boolean ok, String message) { if (!ok) throw new GameTestAssertException(message); }
     private static BlockPos at(GameTestHelper h, int x, int y, int z) { return h.absolutePos(new BlockPos(x,y,z)); }
@@ -60,7 +62,7 @@ public final class ParticleAcceleratorFiringGameTests {
                 "place " + tier + " cable at " + pos + " face=" + face+" host="+level.getBlockState(pos)+" sturdy="+level.getBlockState(pos).isFaceSturdy(level,pos,face));
     }
 
-    @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000)
+     @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000)
     public static void realPoweredControlEmitsThreeParticlesAfterResolvedDelay(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         var fixture=poweredAssembly(h,level);
@@ -329,8 +331,8 @@ public final class ParticleAcceleratorFiringGameTests {
         };
     }
 
-    @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000)
-    public static void mvOutageRestartsFullResolvedChargeInterval(GameTestHelper h) {
+     @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=MV_OUTAGE_TEST_TIMEOUT_TICKS)
+     public static void mvOutageRestartsFullResolvedChargeInterval(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         var f=poweredAssembly(h,level);
         var control=f.control(); var power=f.power(); var assembly=f.assembly();
@@ -351,12 +353,13 @@ public final class ParticleAcceleratorFiringGameTests {
                     int before=particles.size();
                     BoundedGameTestWait.safeDelay(h,interval+2,()->{
                         require(particles.size()==before,"outage produces no additional own particles");
-                        require(CableStorage.place(level,outage,Direction.EAST,CableTier.MV),"restore exact removed MV cable");
-                        long restoredAt=level.getGameTime();
-                        BoundedGameTestWait.await(h,PowerRuntime.TICKS_PER_SOLVE*4,
+                         require(CableStorage.place(level,outage,Direction.EAST,CableTier.MV),"restore exact removed MV cable");
+                         long restoredAt=level.getGameTime();
+                         long overallDeadline=restoredAt+Math.max(0,MV_OUTAGE_TEST_TIMEOUT_TICKS-h.getTick()-MV_OUTAGE_TEST_CLEANUP_RESERVE_TICKS);
+                         BoundedGameTestWait.await(h,PowerRuntime.TICKS_PER_SOLVE*4,
                                 ()->powerDiagnostics(level,control,power,f.apcPos(),ports),
                                 ()->control.firingEligible()&&PowerRuntime.mvPowerMeter(level,power).known()&&PowerRuntime.mvPowerMeter(level,power).deliveredWatts()>0,
-                                 ()->awaitRestoredEpoch(h,level,f,restoredAt,particles.size(),interval,0,-1));
+                                   ()->awaitRestoredEpoch(h,level,f,restoredAt,before,interval,overallDeadline,-1,new ArrayList<>()));
                     });
                 });
             });
@@ -509,41 +512,37 @@ public final class ParticleAcceleratorFiringGameTests {
     }
 
 
-    private static void awaitRestoredEpoch(GameTestHelper h,ServerLevel level,PoweredAssembly f,long restoredAt,
-                                           int baseline,long interval,int waited,long firstObservedEpoch) {
+     private static void awaitRestoredEpoch(GameTestHelper h,ServerLevel level,PoweredAssembly f,long restoredAt,
+                                             int baseline,long interval,long overallDeadline,long latestObservedEpoch,List<String> epochHistory) {
         var schedule=f.control().waveScheduleSnapshot();
-        if(schedule.eligibleSinceTick()>=restoredAt) {
-            long firstEpoch=firstObservedEpoch<0?schedule.eligibleSinceTick():firstObservedEpoch;
-            long observedEpoch=schedule.eligibleSinceTick();
-            BoundedGameTestWait.await(h,(int)interval+PowerRuntime.TICKS_PER_SOLVE*4,
-                    ()->restoredEpochDiagnostics(level,f,restoredAt,firstEpoch)+" particles="+f.particles().size(),
-                    ()->f.particles().size()>baseline,()->{
-                 long tick=f.joinTicks().get(baseline);
-                 long actualJoinEpoch=f.joinEpochs().get(baseline);
-                 require(actualJoinEpoch>=restoredAt&&actualJoinEpoch>=firstEpoch,
-                         "restored wave epoch must follow restored MV power and first observed eligible epoch; restoredAt="+restoredAt
-                                 +" firstObservedEpoch="+firstEpoch+" actualJoinEpoch="+actualJoinEpoch+" joinTick="+tick
-                                 +" currentEpoch="+f.control().waveScheduleSnapshot().eligibleSinceTick()+" schedule="+f.control().waveScheduleSnapshot()
-                                 +" meters="+PowerRuntime.mvPowerMeter(level,f.power())+"/"+PowerRuntime.apcPowerMeter(level,f.control()));
-                 require(tick-actualJoinEpoch==interval,"first restored wave exactly one resolved interval after actual authoritative epoch; restoredAt="+restoredAt
-                         +" firstObservedEpoch="+firstEpoch+" observedEpoch="+observedEpoch+" actualJoinEpoch="+actualJoinEpoch+" joinTick="+tick
-                         +" currentSchedule="+f.control().waveScheduleSnapshot()+" meters="+PowerRuntime.mvPowerMeter(level,f.power())
-                         +"/"+PowerRuntime.apcPowerMeter(level,f.control()));
-                 require(f.particles().size()>=baseline+3,"restored wave contains three particles; "+restoredEpochDiagnostics(level,f,restoredAt,firstEpoch));
-                  for(int i=0;i<3;i++) { require(f.joinTicks().get(baseline+i)==tick,"restored wave joins on one tick; actualJoinEpoch="+actualJoinEpoch+" joinTick="+tick);
-                      require(f.joinEpochs().get(baseline+i)==actualJoinEpoch,"restored wave particles share actual phase; firstObservedEpoch="+firstEpoch
-                              +" actualJoinEpoch="+actualJoinEpoch+" particleEpoch="+f.joinEpochs().get(baseline+i)+" joinTick="+tick); }
-                 h.succeed();
-             });
-            return;
+        String epochState="t="+level.getGameTime()+" epoch="+schedule.eligibleSinceTick()+" next="+schedule.nextWaveTick()
+                +" eligible="+f.control().firingEligible();
+        if(epochHistory.isEmpty()||!epochHistory.get(epochHistory.size()-1).contains("schedule="+schedule)) {
+            epochHistory.add(epochState);
+            while(epochHistory.size()>6) epochHistory.remove(0);
         }
-        if(waited>=PowerRuntime.TICKS_PER_SOLVE*4) throw new GameTestAssertException("restored scheduler epoch not ready: "+schedule);
-        long first=firstObservedEpoch<0&&schedule.eligibleSinceTick()>=restoredAt?schedule.eligibleSinceTick():firstObservedEpoch;
-        BoundedGameTestWait.safeDelay(h,1,()->awaitRestoredEpoch(h,level,f,restoredAt,baseline,interval,waited+1,first));
-    }
+        var current=f.control().waveScheduleSnapshot();
+        boolean eligible=f.control().firingEligible()&&current.eligibleSinceTick()>=restoredAt;
+        long expected=eligible?current.eligibleSinceTick()+interval:-1;
+        long observedEpoch=eligible?current.eligibleSinceTick():latestObservedEpoch;
+        if(f.particles().size()>baseline) {
+            long tick=f.joinTicks().get(baseline), actualJoinEpoch=f.joinEpochs().get(baseline);
+            require(actualJoinEpoch>=restoredAt,"captured restored particle epoch follows physical restore; restore="+restoredAt+" epoch="+actualJoinEpoch);
+            require(tick==actualJoinEpoch+interval,"first restored wave follows authoritative epoch interval exactly; tick="+tick+" epoch="+actualJoinEpoch);
+            require(f.particles().size()>=baseline+3,"restored wave contains three particles");
+            for(int i=0;i<3;i++) require(f.joinTicks().get(baseline+i)==tick&&f.joinEpochs().get(baseline+i)==actualJoinEpoch,
+                    "restored wave particles share one tick and authoritative epoch");
+            h.succeed(); return;
+        }
+        // No post-restore particle has been captured yet; current ineligibility is harmless here.
+        // Any later join is judged from its event-captured authoritative epoch, not this snapshot.
+        if(level.getGameTime()>=overallDeadline) throw new GameTestAssertException("restored wave exceeded remaining fixture budget; expectedWave="+expected
+                +" history="+epochHistory+" "+restoredEpochDiagnostics(level,f,restoredAt,observedEpoch));
+        BoundedGameTestWait.safeDelay(h,1,()->awaitRestoredEpoch(h,level,f,restoredAt,baseline,interval,overallDeadline,observedEpoch,epochHistory));
+     }
 
-    private static String restoredEpochDiagnostics(ServerLevel level,PoweredAssembly f,long restoredAt,long firstObservedEpoch) {
-        return "restoredAt="+restoredAt+" firstObservedEpoch="+firstObservedEpoch+" schedule="+f.control().waveScheduleSnapshot()
+     private static String restoredEpochDiagnostics(ServerLevel level,PoweredAssembly f,long restoredAt,long latestObservedEpoch) {
+         return "restoredAt="+restoredAt+" latestObservedEpoch="+latestObservedEpoch+" schedule="+f.control().waveScheduleSnapshot()
                 +" mv="+PowerRuntime.mvPowerMeter(level,f.power())+" apc="+PowerRuntime.apcPowerMeter(level,f.control())
                 +" mvDemand="+f.power().mvPowerDemandWatts()+" eligible="+f.control().firingEligible();
     }

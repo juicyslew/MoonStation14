@@ -1,0 +1,1 @@
+{"parent":"moonstation14:supported_nonhostile_animal","host_entity_types":["moonstation14:possum"],"components":[{"type":"Species","label":"Possum"},{"type":"AnimalAppearance","model_ids":["possum"]},{"type":"EquipmentSlots","template":"moonstation14:pet"}]}

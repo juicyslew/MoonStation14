@@ -20,6 +20,12 @@ public final class GameplayWindowMovementDispatch {
     public static GhostControlPayloads.Intent dispatch(long epoch,long sequence,MobHarnessKind kind,
             net.minecraft.client.gui.screens.Screen screen,PopupMovementIntent.State ordinaryInput,float yaw,float pitch,
             Predicate<GhostControlPayloads.Intent> beforeDispatch,Consumer<GhostControlPayloads.Intent> sink) {
+        return dispatch(epoch, sequence, 0, kind, screen, ordinaryInput, yaw, pitch, beforeDispatch, sink);
+    }
+
+    public static GhostControlPayloads.Intent dispatch(long epoch,long sequence,long intendedSimulationTick,MobHarnessKind kind,
+            net.minecraft.client.gui.screens.Screen screen,PopupMovementIntent.State ordinaryInput,float yaw,float pitch,
+            Predicate<GhostControlPayloads.Intent> beforeDispatch,Consumer<GhostControlPayloads.Intent> sink) {
         PopupMovementIntent.State movement;
         boolean neutral = false;
         if (kind == MobHarnessKind.CHARACTER && screen instanceof GameplayWindow window) {
@@ -30,13 +36,13 @@ public final class GameplayWindowMovementDispatch {
                     : screen instanceof BodyMovementIntentScreen source ? source.movementIntent() : ordinaryInput;
         } else movement = ordinaryInput;
         GhostControlPayloads.Intent intent=neutral
-                ? new GhostControlPayloads.Intent(epoch, sequence, (short) 0, (short) 0, (byte) 0, 0, yaw, pitch)
-                : intent(epoch,sequence,kind,movement,yaw,pitch);
+                ? new GhostControlPayloads.Intent(epoch, sequence, intendedSimulationTick, (short) 0, (short) 0, (byte) 0, 0, yaw, pitch)
+                : intent(epoch,sequence,intendedSimulationTick,kind,movement,yaw,pitch);
         if(beforeDispatch.test(intent))sink.accept(intent);
         return intent;
     }
 
-    private static GhostControlPayloads.Intent intent(long epoch,long sequence,MobHarnessKind kind,
+    private static GhostControlPayloads.Intent intent(long epoch,long sequence,long intendedSimulationTick,MobHarnessKind kind,
             PopupMovementIntent.State movement,float yaw,float pitch) {
         Objects.requireNonNull(movement);
         double strafe=movement.left(),forward=movement.forward(),length=Math.hypot(strafe,forward);
@@ -45,7 +51,7 @@ public final class GameplayWindowMovementDispatch {
         short wishZ=(short)Math.max(-1000,Math.min(1000,Math.round(forward*1000d)));
         byte vertical=(byte)((movement.jump()?1:0)-(movement.shift()?1:0));
         int buttons=GhostControlClient.intentButtons(kind,movement.jump(),movement.shift(),movement.sprint());
-        return new GhostControlPayloads.Intent(epoch,sequence,wishX,wishZ,vertical,buttons,yaw,pitch);
+        return new GhostControlPayloads.Intent(epoch,sequence,intendedSimulationTick,wishX,wishZ,vertical,buttons,yaw,pitch);
     }
 
 }

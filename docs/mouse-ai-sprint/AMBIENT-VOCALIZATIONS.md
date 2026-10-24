@@ -21,3 +21,17 @@ suppression, and exercises unload/rejoin timer cleanup using the normal entity
 leave/join lifecycle with a stable UUID.
 These native fixtures are added but were not run by the implementation worker.
 No new audio asset is added.
+
+## Explicit animal call policies
+
+This Minecraft adaptation opts in only species with an existing registered
+animal speech cue: bat, chicken, crab, Diona nymph, giant spider, goat, hamster,
+kobold, monkey, mothroach (and inherited descendants), mouse, parrot, and
+scurret. Each policy explicitly names that cue and uses a quiet randomized
+200–400 tick cadence; mouse retains its established 160–400 cadence. Cow remains
+quiet pending verification/import of its SS14 moo source audio. These are not SS14 idle
+vocalizations: upstream animal `Speech`/`EmoteSounds`/`Vocal` provide voice
+collections, not autonomous idle scheduling. Animals with no known call cue
+(including duck and kangaroo) remain quiet rather than receiving generic
+speech or invented audio. Existing assets and attribution remain in
+`assets/moonstation14/sounds/animals/ATTRIBUTION.md`.

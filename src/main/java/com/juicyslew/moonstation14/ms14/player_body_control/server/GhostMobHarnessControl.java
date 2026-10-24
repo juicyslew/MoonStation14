@@ -10,6 +10,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.TargetEligibility;
 import com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessRegistration;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMovementMotor;
+import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostControlInputAccumulator;
 import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
@@ -71,7 +72,7 @@ import java.util.UUID;
 @EventBusSubscriber(modid = MoonStation14.MOD_ID)
 public final class GhostMobHarnessControl {
     private static final long READY_TIMEOUT_TICKS = 100;
-    private static final int MAX_INTENTS_PER_TICK = 8;
+    private static final int MAX_INTENTS_PER_TICK = GhostControlPayloads.MAX_PENDING_INTENTS;
     private static final double WORLD_BOUND = 30_000_000.0;
     private static final GhostMovementMotor GHOST_MOVEMENT_MOTOR = new GhostMovementMotor();
     private static final GroundedHarnessWorldStep CHARACTER_WORLD_STEP = new GroundedHarnessWorldStep();
@@ -540,6 +541,7 @@ public final class GhostMobHarnessControl {
             session.offerId = null;
             session.offerLease = null;
             session.gate.reset();
+            session.controls.reset();
             session.lastAppliedSequence = 0;
             session.lastSnapshotTick = Long.MIN_VALUE;
             session.intentTick = Long.MIN_VALUE;
@@ -567,7 +569,7 @@ public final class GhostMobHarnessControl {
                 if (!recoverLostCharacterBody(state, session)) end(state, session, true);
                 return;
             }
-            session.gate.offer(intent.sequence(), tick, intent);
+            session.gate.offer(intent.sequence(), intent);
             if (session.gate.exhausted()) end(state, session, true);
         }
     }
@@ -609,7 +611,16 @@ public final class GhostMobHarnessControl {
             else handshakeExpired(state, session);
             return;
         }
-        GhostControlPayloads.Intent intent = session.gate.take();
+        long now = player.level().getGameTime();
+        for (GhostControlPayloads.Intent admitted : session.gate.takeBatch(now))
+            session.controls.accept(admitted.toControlState(), admitted.sequence());
+        GhostControlInputAccumulator.TickInput sampled = session.controls.consumeForTick(now);
+        if (sampled == null) return;
+        GhostControlPayloads.Intent intent = sampled == null || !sampled.receivedInput() ? null
+                : new GhostControlPayloads.Intent(session.epoch, sampled.sequence(), now,
+                sampled.effectiveState().wishX(), sampled.effectiveState().wishZ(), sampled.effectiveState().verticalWish(),
+                sampled.effectiveState().buttons(), sampled.effectiveState().yaw(), sampled.effectiveState().pitch());
+        var held = sampled.heldState();
         if (!session.committed) return;
         if (session.kind == MobHarnessKind.CHARACTER) {
             boolean incapacitated = com.juicyslew.moonstation14.ms14.mobs.MobStateSystem
@@ -625,39 +636,41 @@ public final class GhostMobHarnessControl {
             }
             // Travel is cancelled for every movement-owned character, so integrate the world
             // every server player tick. Missing fresh input means zero voluntary wish, not freeze.
+            var step = sampled.effectiveState();
             var result = CHARACTER_WORLD_STEP.step(session.body,
-                    intent == null ? 0 : intent.wishX(), intent == null ? 0 : intent.wishZ(),
-                    intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
-                    intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
-                    intent == null ? session.body.getYRot() : intent.yaw());
+                    step.wishX(), step.wishZ(),
+                    (step.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
+                    (step.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0,
+                    (step.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
+                    step.yaw(), sampled.sequence());
             if (result.isEmpty() && !eligibleCharacter(session, session.body, player)) {
                 MoonStation14.LOGGER.warn("[mind ghost] Character world step rejected an invalid body; ending possession player={} body={} sequence={} epoch={}",
                         player.getGameProfile().getName(), session.bodyId,
-                        intent == null ? session.lastAppliedSequence : intent.sequence(), session.epoch);
+                        sampled.receivedInput() ? sampled.sequence() : session.lastAppliedSequence, session.epoch);
                 if (!recoverLostCharacterBody(state, session)) end(state, session, true);
                 return;
             }
-            if (intent != null) {
+            if (sampled != null && sampled.receivedInput()) {
                 // The world step can partially move before returning empty; acknowledge it and never retry.
                 if (result.isPresent()) {
-                    session.lastAppliedSequence = intent.sequence();
-                    session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
+                    session.lastAppliedSequence = sampled.sequence();
+                    session.appliedSneak = (step.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
                     session.appliedIntentTick = player.level().getGameTime();
                 }
-                session.body.setYRot(intent.yaw());
-                session.body.setXRot(intent.pitch());
-                session.body.setYHeadRot(intent.yaw());
+                session.body.setYRot(step.yaw());
+                session.body.setXRot(step.pitch());
+                session.body.setYHeadRot(step.yaw());
             }
             sendCharacterSnapshot(state, session);
             return;
         }
-        if (intent != null) {
-            session.ghost.setYRot(intent.yaw());
-            session.ghost.setXRot(intent.pitch());
+        {
+            session.ghost.setYRot(held.yaw());
+            session.ghost.setXRot(held.pitch());
             session.ghost.setDeltaMovement(Vec3.ZERO);
             MovementVector beforeMove = movementPosition(session.ghost);
-            var resolved = GHOST_MOVEMENT_MOTOR.tick(beforeMove, intent.wishX(), intent.wishZ(), intent.verticalWish(),
-                    (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw(),
+            var resolved = GHOST_MOVEMENT_MOTOR.tick(beforeMove, held.wishX(), held.wishZ(), held.verticalWish(),
+                    (held.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, held.yaw(),
                     (position, requested, wasOnGround) -> {
                         Vec3 before = session.ghost.position();
                         session.ghost.move(MoverType.SELF, new Vec3(requested.x(), requested.y(), requested.z()));
@@ -667,7 +680,7 @@ public final class GhostMobHarnessControl {
                                 session.ghost.onGround());
                     });
             // The intent is acknowledged only after its one server-side motor/entity simulation completed.
-            session.lastAppliedSequence = intent.sequence();
+            if (sampled.receivedInput()) session.lastAppliedSequence = sampled.sequence();
             Vec3 accepted = session.ghost.position().subtract(new Vec3(beforeMove.x(), beforeMove.y(), beforeMove.z()));
             // Entity coordinates are authoritative; the returned pure state is based on the resolver's measured move.
             MovementVector actualPosition = movementPosition(session.ghost);
@@ -686,7 +699,7 @@ public final class GhostMobHarnessControl {
             if (!session.acceptedMovementLogged && boundedDisplacement(accepted) && accepted.lengthSqr() > 0) {
                 MoonStation14.LOGGER.info("[mind ghost] First server-owned ghost Entity.move accepted (not full collision parity): ghostUuid={} ghostEntityId={} displacement=({}, {}, {}) sequence={} epoch={}",
                         session.ghost.getUUID(), session.ghost.getId(), accepted.x, accepted.y, accepted.z,
-                        intent.sequence(), session.epoch);
+                        sampled.sequence(), session.epoch);
                 session.acceptedMovementLogged = true;
             }
             session.ghost.setDeltaMovement(Vec3.ZERO);
@@ -1111,6 +1124,7 @@ public final class GhostMobHarnessControl {
 
     private static void resetHandoff(Session session, ServerPlayer player) {
         session.gate.reset();
+        session.controls.reset();
         session.lastAppliedSequence = 0;
         session.lastSnapshotTick = Long.MIN_VALUE;
         session.intentTick = Long.MIN_VALUE;
@@ -1368,6 +1382,7 @@ public final class GhostMobHarnessControl {
         session.kind = MobHarnessKind.GHOST;
         session.epoch = state.registry.mind(session.player.getUUID()).orElseThrow().epoch();
         session.gate.reset();
+        session.controls.reset();
         session.lastAppliedSequence = 0;
         session.lastSnapshotTick = Long.MIN_VALUE;
         session.intentTick = Long.MIN_VALUE;
@@ -1436,8 +1451,10 @@ public final class GhostMobHarnessControl {
         pitch = Math.max(-90.0f, Math.min(90.0f, pitch));
         GhostControlPayloads.Snapshot snapshot;
         try {
-            snapshot = new GhostControlPayloads.Snapshot(session.epoch, session.ghost.getId(), serverGameTick,
-                    session.lastAppliedSequence, position.x, position.y, position.z, yaw, pitch);
+            snapshot = new GhostControlPayloads.Snapshot(session.epoch, session.ghost.getId(), MobHarnessKind.GHOST, serverGameTick,
+                    session.lastAppliedSequence, position.x, position.y, position.z, yaw, pitch,
+                    0, 0, 0, false, 1f, 1f, false, 0, GhostControlPayloads.Snapshot.MovementMode.GROUNDED,
+                    Optional.empty(), session.controls.heldState(), com.juicyslew.moonstation14.ms14.animals.flight.FlightState.GROUNDED);
         } catch (IllegalArgumentException exception) {
             // Defensive fail-closed path: malformed entity state must never terminate the server tick.
             MoonStation14.LOGGER.warn("[mind ghost] Could not construct authoritative snapshot; ending session player={} epoch={}",
@@ -1473,7 +1490,8 @@ public final class GhostMobHarnessControl {
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
                     !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
                             ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
-                    movementMode, java.util.Optional.ofNullable(owner).map(value -> value.viewFor(body)));
+                    movementMode, java.util.Optional.ofNullable(owner).map(value -> value.viewFor(body)),
+                    session.controls.heldState(), com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.state(body));
             session.lastSnapshotTick = tick;
             GhostControlNetworking.sendToPlayer(session.player, snapshot);
         } catch (IllegalArgumentException failure) {
@@ -1515,6 +1533,7 @@ public final class GhostMobHarnessControl {
         long epoch;
         long startedTick;
         final GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
+        final GhostControlInputAccumulator controls = new GhostControlInputAccumulator();
         boolean ready;
         boolean committed;
         final boolean modeChanged;
@@ -1548,4 +1567,3 @@ public final class GhostMobHarnessControl {
         }
     }
 }
-

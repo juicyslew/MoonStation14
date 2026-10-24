@@ -4,6 +4,11 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.item.ModEquipmentItems;
+import com.juicyslew.moonstation14.entities.AnimalMob;
+import com.juicyslew.moonstation14.entities.AnimalMobRegistration;
+import com.juicyslew.moonstation14.item.custom.GasTankItem;
+import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
@@ -17,6 +22,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -114,7 +120,7 @@ public final class BodyEquipmentTransferGameTests {
         });
     }
 
-    private static void put(Villager body,String hand,String token,ItemStack stack) {
+    private static void put(LivingEntity body,String hand,String token,ItemStack stack) {
         LiveHands before=body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         LiveHands next=before.putWhole(before.revision(),hand,new ItemToken(token),stack).state();
         require(LiveHandsCommitGateway.commitTrusted(body,before,next),"fixture ownership commit");
@@ -358,6 +364,93 @@ public final class BodyEquipmentTransferGameTests {
                             && stack.getCount() == 10).isPresent()), "existing small medical stack remains intact");
             helper.succeed();
         });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTestTags({"animals", "character", "hands", "equipment"})
+    public static void animalEquipmentTemplatesUseTypedAdmissionAndRespectHandCapability(GameTestHelper helper) {
+        var kobold = spawnAnimal(helper, "kobold", new BlockPos(1, 1, 1));
+        var pet = spawnAnimal(helper, "fox", new BlockPos(3, 1, 1));
+        helper.runAfterDelay(1, () -> {
+            CharacterIdentitySystem.enrollSupportedActor(kobold, helper.getLevel());
+            CharacterIdentitySystem.enrollSupportedActor(pet, helper.getLevel());
+            LiveHands hands = LiveHands.initialize(kobold).orElseThrow(() -> new GameTestAssertException(
+                    "kobold one-hand capability initializes"));
+            require(hands.handIds().equals(List.of("left")), "resolved kobold retains exactly its configured single hand");
+            var koboldTemplate = BodyEquipmentTransfer.templateForTransfer(kobold);
+            require(koboldTemplate != null && koboldTemplate.slot("head").isPresent(),
+                    "kobold resolves the shared monkey equipment template");
+            put(kobold, "left", "kobold-cap", new ItemStack(ModEquipmentItems.GREY_CAP.get()));
+            LiveHands before = kobold.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            var fitSnapshot = LiveHands.equipmentSnapshot(kobold).orElse(null);
+            var headSlot = koboldTemplate.slot("head").orElse(null);
+            var sourceStack = before.stackCopy("left").orElseThrow();
+            var itemData = com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems
+                    .catalog(helper.getLevel()).get(sourceStack.getItem().builtInRegistryHolder().key().location());
+            var occupied = fitSnapshot == null ? java.util.Set.<String>of() : fitSnapshot.slots().stream()
+                    .filter(candidate -> candidate.stack().isPresent())
+                    .map(LiveHands.EquipmentSlot::id).collect(java.util.stream.Collectors.toSet());
+            require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(kobold),
+                    "kobold is admitted to act before equipment transfer");
+            require(before.compatible(kobold), "kobold hand attachment is compatible before equipment transfer");
+            require(kobold.isAlive() && !kobold.isRemoved(), "kobold is live before equipment transfer");
+            require(fitSnapshot != null && headSlot != null && fitSnapshot.slots().stream()
+                            .anyMatch(candidate -> candidate.id().equals("head") && candidate.stack().isEmpty()
+                                    && candidate.token().isEmpty()),
+                    "resolved head slot exists and is empty; snapshot=" + fitSnapshot + ", slot=" + headSlot);
+            require(itemData != null && itemData.clothing().isPresent(),
+                    "grey cap resolves clothing equipment data; data=" + itemData);
+            require(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(
+                            helper.getLevel(), koboldTemplate, "head", sourceStack, occupied),
+                    "grey cap fits resolved kobold head slot; data=" + itemData + ", slot=" + headSlot
+                            + ", occupied=" + occupied);
+            var equipResult = BodyEquipmentTransfer.transferOwned(kobold, "left", "head", "kobold-cap",
+                    before.revision(), true, () -> true);
+            require(equipResult == BodyEquipmentTransfer.Result.SUCCESS,
+                    "one-handed kobold equips through shared equipment transfer; result=" + equipResult
+                            + ", hand=" + before.handIds() + ", source=" + before.stackCopy("left")
+                            + ", resolvedTemplateSlots=" + koboldTemplate.slots().stream()
+                            .map(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.Slot::id).toList()
+                            + ", representableBefore=" + com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService
+                            .representable(before, kobold));
+            var equipped = LiveHands.equipmentSnapshot(kobold).orElseThrow();
+            require(equipped.slots().stream().anyMatch(slot -> slot.id().equals("head")
+                    && slot.stack().filter(stack -> stack.is(ModEquipmentItems.GREY_CAP.get())).isPresent()),
+                    "equipped item is materialized in the resolved head slot");
+            LiveHands afterEquip = kobold.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(BodyEquipmentTransfer.transferOwned(kobold, "left", "head", "kobold-cap",
+                            afterEquip.revision(), false, () -> true) == BodyEquipmentTransfer.Result.SUCCESS
+                            && kobold.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).stackCopy("left")
+                            .filter(stack -> stack.is(ModEquipmentItems.GREY_CAP.get())).isPresent(),
+                    "same one-hand actor removes/equips back into its only hand for ordinary item use");
+            require(CharacterIdentitySystem.resolveForActor(pet).orElseThrow()
+                    .component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class).isEmpty(),
+                    "pet fixture is handless by resolved prototype");
+            var petTemplate = BodyEquipmentTransfer.templateForTransfer(pet);
+            require(petTemplate != null, "handless pet still resolves its inventory layout");
+            var tank = GasTankItem.createStack(helper.getLevel(), ModGasTanks.PLASMA_ID);
+            require(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(
+                    helper.getLevel(), petTemplate, "suitstorage", tank, java.util.Set.of()),
+                    "typed GasTank item is admitted by pet suit-storage whitelist without a fake tag");
+            require(!com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(
+                    helper.getLevel(), petTemplate, "suitstorage", new ItemStack(Items.DIAMOND), java.util.Set.of()),
+                    "untyped item is rejected by the pet suit-storage component whitelist");
+            require(!com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(
+                    helper.getLevel(), petTemplate, "mask", new ItemStack(ModEquipmentItems.BLACK_BANDANA.get()), java.util.Set.of()),
+                    "pet mask whitelist rejects unsupported bandana absent PetWearable provenance");
+            helper.succeed();
+        });
+    }
+
+    private static AnimalMob spawnAnimal(GameTestHelper helper, String model, BlockPos relative) {
+        var holder = AnimalMobRegistration.types().get(model);
+        require(holder != null, "registered animal host exists: " + model);
+        AnimalMob body = holder.get().create(helper.getLevel());
+        require(body != null, "animal host entity created: " + model);
+        body.moveTo(helper.absolutePos(relative).getX() + .5, helper.absolutePos(relative).getY(),
+                helper.absolutePos(relative).getZ() + .5, 0, 0);
+        require(helper.getLevel().addFreshEntity(body), "animal host enters live server level: " + model);
+        return body;
     }
 
     private static void equipFixture(Villager body, String hand, String token, ItemStack stack, String slot) {

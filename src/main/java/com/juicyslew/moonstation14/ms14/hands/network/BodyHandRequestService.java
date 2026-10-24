@@ -597,6 +597,14 @@ public final class BodyHandRequestService {
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
             if (ownedToken != null) {
                 var held = hands.stackCopy(request.handId()).orElse(null);
+                var targetEntity = request.pickupTarget() == null || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                        ? null : level.getEntity(request.pickupTarget());
+                if (targetEntity instanceof net.minecraft.world.entity.LivingEntity animal
+                        && com.juicyslew.moonstation14.ms14.animals.UdderSystem.capability(animal).isPresent()) {
+                    boolean started = com.juicyslew.moonstation14.ms14.animals.UdderSystem.startMilking(actor,
+                            authority.body(), animal, request.handId(), ownedToken, request.expectedRevision(), request.sequence());
+                    return result(request, started ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.DENIED, authority);
+                }
                 var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
                 try {
                     var medical = heldId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
@@ -987,4 +995,3 @@ public final class BodyHandRequestService {
         }
     }
 }
-

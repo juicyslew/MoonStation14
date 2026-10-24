@@ -1176,6 +1176,138 @@ public final class PortableBodyCarrierOwnerGameTests {
         helper.succeed();
     }
 
+    @net.minecraft.gametest.framework.GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 420)
+    @GameTestTags({"animals", "hands", "character", "portables"})
+    public static void actualHamsterPickupTransfersAndThreeSecondEscapePreserveBodyAndAppearance(GameTestHelper helper) {
+        testActualAnimalPortablePickup(helper, "hamster", true);
+    }
+
+    @net.minecraft.gametest.framework.GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
+    @GameTestTags({"animals", "hands", "character", "portables"})
+    public static void actualBeePickupPublishesCorrectAppearanceAndIsNotEscapeEligible(GameTestHelper helper) {
+        testActualAnimalPortablePickup(helper, "bee", false);
+    }
+
+    @net.minecraft.gametest.framework.GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
+    @GameTestTags({"animals", "hands", "character", "portables"})
+    public static void actualMoproachPickupCapturesItsResolvedNativeAppearance(GameTestHelper helper) {
+        testActualAnimalPortablePickup(helper, "moproach", null);
+    }
+
+    private static void testActualAnimalPortablePickup(GameTestHelper helper, String model, Boolean escape) {
+        var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+        Villager carrier = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
+        var type = com.juicyslew.moonstation14.entities.AnimalMobRegistration.types().get(model);
+        require(type != null, "registered actual animal host: " + model);
+        var animal = type.get().create(level);
+        require(animal != null, "actual " + model + " AnimalMob constructed");
+        animal.setNoAi(true);
+        animal.setPos(carrier.getX(), carrier.getY(), carrier.getZ() + 1.4);
+        require(level.addFreshEntity(animal), "original animal enters level");
+        CharacterIdentitySystem.enrollSupportedActor(animal, level);
+        helper.runAfterDelay(1, () -> {
+            LiveHands before = LiveHands.initialize(carrier).orElseThrow();
+            String hand = before.activeHand();
+            aimAt(carrier, animal.position().add(0, animal.getBbHeight() * .5, 0));
+            var containment = BodyContainmentService.forLevel(level);
+            var portableCapability = PortableBodyCarrying.resolvedPortableBodyCapability(animal);
+            var selectedProbe = BodyItemTargetProbe.probeSelectedDiagnostic(level, carrier, animal.getUUID(),
+                    BodyItemTargetProbe.MAX_REACH);
+            require(carrier.level() == animal.level() && carrier.isAddedToLevel() && !carrier.isRemoved()
+                            && level.getEntity(carrier.getUUID()) == carrier,
+                    "pickup carrier remains live in fixture level");
+            require(animal.level() == level && animal.isAddedToLevel() && !animal.isRemoved()
+                            && level.getEntity(animal.getUUID()) == animal,
+                    "pickup target remains live in fixture level");
+            require(com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(carrier),
+                    "pickup carrier can act");
+            require(before.compatible(carrier) && before.handIds().contains(hand)
+                            && before.stackCopy(hand).isEmpty(),
+                    "pickup hand is compatible and empty; hands=" + before.handIds()
+                            + ", hand=" + hand + ", stack=" + before.stackCopy(hand));
+            require(PortableBodyCarrying.eligibleLivingTarget(carrier, animal) && portableCapability.isPresent(),
+                    "target has resolved portable-body admission; capability=" + portableCapability
+                            + ", registeredOwner=" + containment.registeredOwnerOf(animal));
+            require(BodyItemTargetProbe.probeSelectedGeometry(level, carrier, animal, BodyItemTargetProbe.MAX_REACH),
+                    "target passes production selected-pickup reach/LOS geometry; probe=" + selectedProbe);
+            var pickupResult = BodyHandItemTransfer.pickupOwned(carrier, animal.getUUID(), hand, before.revision(), () -> true);
+            require(pickupResult == BodyHandItemTransfer.Result.SUCCESS,
+                    "production selected-body pickup succeeds for " + model + "; result=" + pickupResult
+                            + ", carrierPos=" + carrier.position() + ", targetPos=" + animal.position()
+                            + ", eye=" + carrier.getEyePosition() + ", look=" + carrier.getLookAngle()
+                            + ", targetBounds=" + animal.getBoundingBox() + ", targetAdded=" + animal.isAddedToLevel()
+                            + ", targetRemoved=" + animal.isRemoved());
+            require(level.getEntity(animal.getUUID()) == animal, "pickup retains exact original UUID/entity");
+            require(containment.ownerOf(animal).orElse(null) instanceof PortableBodyCarrierOwner,
+                    "pickup establishes canonical carrier custody");
+            LiveHands held = carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            String sourceToken = held.token(hand).orElseThrow();
+            ItemStack key = held.stackCopy(hand).orElseThrow();
+            var view = com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(key, level).stack();
+            var appearance = com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.fromStack(view);
+            require(appearance != null && appearance.visualKey().equals(model)
+                            && appearance.coat() == com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.Coat.NONE,
+                    "actual model has non-mouse portable appearance adapter");
+            require(com.juicyslew.moonstation14.ms14.hands.PortableBodyIconTextures.frame(appearance) != null,
+                    "appearance selects registered species icon, not mouse coat icon");
+            var profile = HandCapability.resolveCharacter(animal).orElseThrow()
+                    .component(com.juicyslew.moonstation14.ms14.character.components.PortableBodyComponent.class).orElseThrow();
+            require(appearance.profile().equals(profile.profileId()), "portable profile matches resolved character prototype");
+
+            String other = held.handIds().stream().filter(id -> !id.equals(hand)).findFirst().orElseThrow();
+            require(BodyHandTransfer.transferOwned(carrier, hand, other, sourceToken, held.revision(), () -> true)
+                            == BodyHandTransfer.Result.SUCCESS,
+                    "normal physical hand transfer succeeds");
+            LiveHands transferred = carrier.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            ItemStack transferredKey = transferred.stackCopy(other).orElseThrow();
+            var transferredAppearance = com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.fromStack(
+                    com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(transferredKey, level).stack());
+            require(transferredAppearance != null && transferredAppearance.profile().equals(appearance.profile())
+                            && transferredAppearance.visualKey().equals(model)
+                            && level.getEntity(animal.getUUID()) == animal
+                            && containment.ownerOf(animal).isPresent(),
+                    "transfer keeps the source profile/model and original canonical body");
+
+            if (Boolean.FALSE.equals(escape)) {
+                for (var state : List.of(com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL,
+                        com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD)) {
+                    animal.setData(ModDataAttachments.MOB_STATE.get(), new com.juicyslew.moonstation14.ms14.mobs.MobStateAttachment(
+                            new com.juicyslew.moonstation14.ms14.mobs.MobStateData(state, 1)));
+                    var refreshed = com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.fromStack(
+                            com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(transferredKey, level).stack());
+                    var expected = state == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL
+                            ? com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.CRITICAL
+                            : com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.DEAD;
+                    require(refreshed != null && refreshed.state() == expected
+                                    && refreshed.profile().equals(appearance.profile())
+                                    && level.getEntity(animal.getUUID()) == animal && containment.ownerOf(animal).isPresent(),
+                            "critical/dead presentation refresh preserves original body identity and custody");
+                }
+            }
+
+            if (Boolean.FALSE.equals(escape)) {
+                require(!containment.ownerOf(animal).orElseThrow().tryEscape(animal),
+                        "bee without CanEscapeInventory is not made escape-eligible");
+                animal.discard(); carrier.discard(); helper.succeed();
+                return;
+            }
+            if (escape == null) {
+                animal.discard(); carrier.discard(); helper.succeed();
+                return;
+            }
+            var owner = containment.ownerOf(animal).orElseThrow();
+            require(owner.tryEscape(animal), "hamster's resolved three-second escape starts after hand transfer");
+            helper.runAfterDelay(65, () -> {
+                require(level.getEntity(animal.getUUID()) == animal && containment.ownerOf(animal).isEmpty()
+                                && !animal.isInvisible() && !animal.noPhysics,
+                        "same hamster UUID escapes custody and resumes as world entity");
+                require(transferredAppearance.name().equals(com.juicyslew.moonstation14.ms14.character.CharacterPublicName
+                                .component(animal).getString()), "cached source public name remains bound to original body");
+                animal.discard(); carrier.discard(); helper.succeed();
+            });
+        });
+    }
+
     private static void aimAt(net.minecraft.world.entity.LivingEntity body, net.minecraft.world.phys.Vec3 point) {
         var delta = point.subtract(body.getEyePosition());
         body.setYRot((float) Math.toDegrees(Math.atan2(-delta.x, delta.z)));

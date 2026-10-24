@@ -1,0 +1,1 @@
+{"parent":"moonstation14:supported_nonhostile_animal","host_entity_types":["moonstation14:pig"],"components":[{"type":"Species","label":"Pig"},{"type":"AnimalAppearance","model_ids":["pig"]},{"type":"Speech","accent":"pig"},{"type":"EquipmentSlots","template":"moonstation14:pet"}]}

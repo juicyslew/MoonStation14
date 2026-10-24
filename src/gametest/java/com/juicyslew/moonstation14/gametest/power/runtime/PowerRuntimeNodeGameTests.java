@@ -65,20 +65,24 @@ public final class PowerRuntimeNodeGameTests {
         var subMvPort = new CableFaceNode(helper.absolutePos(new BlockPos(2, 1, 4)), Direction.EAST, CableTier.MV);
         var consumerPort = new CableFaceNode(helper.absolutePos(new BlockPos(2, 1, 6)), Direction.EAST, CableTier.MV);
         int[] stablePowerTicks = {0};
-        BoundedGameTestWait.await(helper, 500, () -> "meter=" + PowerRuntime.mvPowerMeter(level, consumer)
-                        + ", " + PowerRuntime.lastSolveDiagnostic(level),
-                () -> {
-                    var meter = PowerRuntime.mvPowerMeter(level, consumer);
-                    boolean ready = PowerFixtureReadiness.topologyReadyWithKnownPorts(level, sourcePort, subHvPort,
-                            subMvPort, consumerPort) && meter.known() && meter.deliveredWatts() == 5_000
-                            && consumer.graphKnown && consumer.allocation == 5_000;
+        PowerFixtureReadiness.await(helper, level, 500, () -> {
+                     var meter = PowerRuntime.mvPowerMeter(level, consumer);
+                     boolean ready = PowerFixtureReadiness.topologyReadyWithKnownPorts(level, sourcePort, subHvPort,
+                             subMvPort, consumerPort) && level.getBlockEntity(receiver) == consumer
+                             && meter.known() && meter.deliveredWatts() == 5_000
+                             && consumer.graphKnown && consumer.allocation == 5_000;
                     stablePowerTicks[0] = ready ? stablePowerTicks[0] + 1 : 0;
                     return stablePowerTicks[0] >= 10;
-                },
+                      },
+                () -> "meter=" + PowerRuntime.mvPowerMeter(level, consumer)
+                        + ", " + PowerRuntime.lastSolveDiagnostic(level),
                 () -> {
                     require(PowerRuntime.mvPowerMeter(level, consumer).deliveredWatts() == 5_000,
                             "actual MV allocation reaches the indexed runtime receiver: meter="
                                     + PowerRuntime.mvPowerMeter(level, consumer) + ", callback=" + consumer.allocation
+                                    + ", callbackKnown=" + consumer.graphKnown + ", callbackSampleTick=" + consumer.sampleTick
+                                    + ", receiverIdentityCurrent=" + (level.getBlockEntity(receiver) == consumer)
+                                    + ", topologyGeneration=" + PowerGraphService.topologyGeneration(level)
                                     + ", topology=" + PowerGraphService.state(level, sourcePort) + "/"
                                     + PowerGraphService.state(level, subHvPort) + "/"
                                     + PowerGraphService.state(level, subMvPort) + "/"
@@ -103,10 +107,7 @@ public final class PowerRuntimeNodeGameTests {
                     var hybridMvPort = new CableFaceNode(helper.absolutePos(new BlockPos(2, 1, 2)),
                             Direction.EAST, CableTier.MV);
                     int[] stableHybridTicks = {0};
-                    BoundedGameTestWait.await(helper, 300, () -> "hybrid=" + PowerRuntime.mvPowerMeter(level, hybrid)
-                                    + ", receiver=" + PowerRuntime.mvPowerMeter(level, replacement)
-                                    + ", " + PowerRuntime.lastSolveDiagnostic(level),
-                            () -> {
+                     PowerFixtureReadiness.await(helper, level, 300, () -> {
                                 boolean ready = PowerFixtureReadiness.topologyReadyWithKnownPorts(level, sourcePort, subHvPort,
                                     subMvPort, consumerPort, hybridMvPort)
                                     && !PowerRuntime.mvPowerMeter(level, hybrid).known()
@@ -115,14 +116,17 @@ public final class PowerRuntimeNodeGameTests {
                                     && !hybrid.graphKnown && hybrid.allocation == 0;
                                 stableHybridTicks[0] = ready ? stableHybridTicks[0] + 1 : 0;
                                 return stableHybridTicks[0] >= 10;
-                            },
+                             },
+                             () -> "hybrid=" + PowerRuntime.mvPowerMeter(level, hybrid)
+                                     + ", receiver=" + PowerRuntime.mvPowerMeter(level, replacement)
+                                     + ", " + PowerRuntime.lastSolveDiagnostic(level),
                             () -> {
                                 require(!hybrid.graphKnown && hybrid.allocation == 0,
                                         "mixed-role node receives neither MV grant nor graph-known meter");
                                 require(PowerRuntime.mvPowerMeter(level, replacement).deliveredWatts() == 0,
                                         "mixed-role source cannot inject an offer to downstream MV load");
                                 helper.succeed();
-                            });
+                     });
                 });
     }
 
@@ -133,6 +137,7 @@ public final class PowerRuntimeNodeGameTests {
         private final SupplierOffer offer = new SupplierOffer(41_300, 41_300);
         private double allocation;
         private boolean graphKnown;
+        private long sampleTick = Long.MIN_VALUE;
 
         private FixtureNode(BlockPos pos, net.minecraft.world.level.block.state.BlockState state,
                             boolean supplier, boolean receiver) {
@@ -152,6 +157,7 @@ public final class PowerRuntimeNodeGameTests {
         @Override public void receiveMvPowerAllocation(double actualWatts, boolean known, long sampleTick) {
             allocation = actualWatts;
             graphKnown = known;
+            this.sampleTick = sampleTick;
         }
     }
 

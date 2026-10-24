@@ -27,6 +27,12 @@ public final class CharacterComponentRegistry {
     }
 
     private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
+            Map.entry(AnimalAppearanceComponent.TYPE, new Entry<>(AnimalAppearanceComponent.class, AnimalAppearanceComponent.CODEC)),
+            Map.entry(FlightComponent.TYPE, new Entry<>(FlightComponent.class, FlightComponent.CODEC)),
+            Map.entry(NpcRetaliationComponent.TYPE, new Entry<>(NpcRetaliationComponent.class, NpcRetaliationComponent.CODEC)),
+            Map.entry(MeleeAttackComponent.TYPE, new Entry<>(MeleeAttackComponent.class, MeleeAttackComponent.CODEC)),
+            Map.entry(ParrotListenerComponent.TYPE, new Entry<>(ParrotListenerComponent.class, ParrotListenerComponent.CODEC)),
+            Map.entry(ParrotMemoryComponent.TYPE, new Entry<>(ParrotMemoryComponent.class, ParrotMemoryComponent.CODEC)),
             Map.entry(AmbientVocalizationComponent.TYPE, new Entry<>(AmbientVocalizationComponent.class, AmbientVocalizationComponent.CODEC)),
             Map.entry(DamageableComponent.TYPE, new Entry<>(DamageableComponent.class, DamageableComponent.CODEC)),
             Map.entry(HumanoidProfileComponent.TYPE, new Entry<>(HumanoidProfileComponent.class, HumanoidProfileComponent.CODEC)),
@@ -73,7 +79,11 @@ public final class CharacterComponentRegistry {
             Map.entry(NpcIdleAttentionComponent.TYPE, new Entry<>(NpcIdleAttentionComponent.class, NpcIdleAttentionComponent.CODEC)),
             Map.entry(PortableBodyComponent.TYPE, new Entry<>(PortableBodyComponent.class, PortableBodyComponent.CODEC)),
             Map.entry(CanEscapeInventoryComponent.TYPE, new Entry<>(CanEscapeInventoryComponent.class, CanEscapeInventoryComponent.CODEC)),
-            Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)));
+            Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)),
+            Map.entry(UdderComponent.TYPE, new Entry<>(UdderComponent.class, UdderComponent.CODEC)),
+            Map.entry(EggLayerComponent.TYPE, new Entry<>(EggLayerComponent.class, EggLayerComponent.CODEC)),
+            Map.entry(AbsorbentCleaningComponent.TYPE,
+                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }
 
@@ -98,4 +108,3 @@ public final class CharacterComponentRegistry {
         }
     });
 }
-

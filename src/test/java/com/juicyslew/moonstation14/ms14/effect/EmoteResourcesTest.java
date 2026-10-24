@@ -16,9 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class EmoteResourcesTest {
     @Test void soundCollectionsResolveEverySelectedResourceAndManifestCoversAllAssets() throws Exception {
-        Path project = Path.of(System.getProperty("user.dir"));
-        while (!Files.exists(project.resolve("src/main/resources/assets/moonstation14/sounds.json"))
-                && project.getParent() != null) project = project.getParent();
+        Path project = projectRoot();
         Path root = project.resolve("src/main/resources/assets/moonstation14");
         JsonObject sounds = JsonParser.parseString(Files.readString(root.resolve("sounds.json"))).getAsJsonObject();
         int references = 0;
@@ -36,7 +34,7 @@ class EmoteResourcesTest {
         var files = Files.walk(emotes).filter(path -> path.toString().endsWith(".ogg")).toList();
         assertEquals(34, files.size());
         assertFalse(Files.exists(emotes.resolve("whistle/whistle_4.ogg")));
-        String manifest = Files.readString(project.resolve("docs/third-party-emote-audio.md"));
+        String manifest = Files.readString(project.resolve("docs/audio/third-party-emote-audio.md"));
         Map<String, String> manifestHashes = new HashMap<>();
         for (String line : manifest.lines().toList()) {
             if (!line.startsWith("| ") || !line.endsWith(" |")) continue;
@@ -59,5 +57,13 @@ class EmoteResourcesTest {
             assertTrue(lang.has("sounds.moonstation14.emote." + id));
             assertTrue(lang.has("moonstation14.emote." + id));
         }
+    }
+
+    private static Path projectRoot() {
+        Path project = Path.of(System.getProperty("moonstation14.projectDir", System.getProperty("user.dir")))
+                .toAbsolutePath().normalize();
+        while (!Files.exists(project.resolve("src/main/resources/assets/moonstation14/sounds.json"))
+                && project.getParent() != null) project = project.getParent();
+        return project;
     }
 }

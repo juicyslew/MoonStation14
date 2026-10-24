@@ -15,6 +15,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
+
 @GameTestTags({"air-alarm", "ventilation"})
 @PrefixGameTestTemplate(false)
 public final class AirAlarmCandidatesGameTests {
@@ -22,6 +26,7 @@ public final class AirAlarmCandidatesGameTests {
 
     // The query is level-wide; nearby concurrent fixtures must not contribute indexed vents.
 @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "air_alarm_candidates_isolated")
+    @GameTestTags("air-alarm-candidate-query")
     public static void queryIsSortedBoundedAndDoesNotPair(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 2, 2));
@@ -45,11 +50,18 @@ public final class AirAlarmCandidatesGameTests {
         VentilationDeviceBlockEntity nearBE = (VentilationDeviceBlockEntity) level.getBlockEntity(near);
         var before = alarm.deviceLinks();
         var candidates = AirAlarmCandidates.query(level, alarm);
-        if (nearBE == null || nearBE.deviceId() == null || candidates.size() != 2
-                || !candidates.get(0).pos().equals(near) || !candidates.get(1).pos().equals(farther)
-                || !candidates.get(0).deviceId().equals(nearBE.deviceId())
-                || candidates.get(0).kind() != VentilationDeviceConfig.Kind.VENT
-                || candidates.get(1).kind() != VentilationDeviceConfig.Kind.SCRUBBER
+        int nearIndex = indexOf(candidates, near);
+        int fartherIndex = indexOf(candidates, farther);
+        if (nearBE == null || nearBE.deviceId() == null || candidates.size() < 2 || candidates.size() > 32
+                || nearIndex < 0 || fartherIndex <= nearIndex
+                || !candidates.get(nearIndex).deviceId().equals(nearBE.deviceId())
+                || candidates.get(nearIndex).kind() != VentilationDeviceConfig.Kind.VENT
+                || candidates.get(fartherIndex).kind() != VentilationDeviceConfig.Kind.SCRUBBER
+                || candidates.stream().anyMatch(candidate -> candidate.pos().equals(outside))
+                || candidates.stream().anyMatch(candidate -> candidate.pos().distSqr(origin)
+                        > AirAlarmCandidates.RANGE_BLOCKS * AirAlarmCandidates.RANGE_BLOCKS)
+                || !hasUniquePositionsAndIdentities(candidates)
+                || !isSorted(candidates, origin)
                 || candidates.stream().anyMatch(AirAlarmCandidates.Candidate::linked)
                 || !alarm.deviceLinks().equals(before) || !candidates.equals(AirAlarmCandidates.query(level, alarm)))
             throw new AssertionError("bounded indexed read must be deterministic, exact, and read-only: "
@@ -66,6 +78,31 @@ public final class AirAlarmCandidatesGameTests {
         level.setBlock(near, Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(near, ModBlocks.GAS_VENT.get().defaultBlockState(), 3);
         checkReplacement(helper, level, alarm, origin, near);
+    }
+
+    private static boolean hasUniquePositionsAndIdentities(java.util.List<AirAlarmCandidates.Candidate> candidates) {
+        Set<BlockPos> positions = new HashSet<>();
+        Set<java.util.UUID> identities = new HashSet<>();
+        for (AirAlarmCandidates.Candidate candidate : candidates)
+            if (!positions.add(candidate.pos()) || !identities.add(candidate.deviceId())) return false;
+        return true;
+    }
+
+    private static int indexOf(java.util.List<AirAlarmCandidates.Candidate> candidates, BlockPos pos) {
+        for (int i = 0; i < candidates.size(); i++)
+            if (candidates.get(i).pos().equals(pos)) return i;
+        return -1;
+    }
+
+    private static boolean isSorted(java.util.List<AirAlarmCandidates.Candidate> candidates, BlockPos origin) {
+        var comparator = Comparator.comparingDouble((AirAlarmCandidates.Candidate candidate) -> candidate.pos().distSqr(origin))
+                .thenComparingInt(candidate -> candidate.pos().getX())
+                .thenComparingInt(candidate -> candidate.pos().getY())
+                .thenComparingInt(candidate -> candidate.pos().getZ())
+                .thenComparing(candidate -> candidate.deviceId().toString());
+        for (int i = 1; i < candidates.size(); i++)
+            if (comparator.compare(candidates.get(i - 1), candidates.get(i)) > 0) return false;
+        return true;
     }
 
     private static void checkReplacement(GameTestHelper helper, ServerLevel level, AirAlarmBlockEntity alarm,

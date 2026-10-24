@@ -18,11 +18,12 @@ public final class PortableMouseIconTextures {
         return ResourceLocation.fromNamespaceAndPath("moonstation14", "textures/entity/mouse/icon/" + frame + "-" + variantColumn(coat) + ".png");
     }
     public static int variantColumn(PortableBodyAppearance.Coat coat) {
-        return switch (coat) { case WHITE -> 0; case BROWN -> 1; case GRAY -> 2; };
+        return switch (coat) { case WHITE -> 0; case BROWN -> 1; case GRAY -> 2; case NONE -> throw new IllegalArgumentException("mouse coat required"); };
     }
 
     /** Complete production icon blit selection, shared by the live renderer and CPU evidence. */
     public static Frame frame(PortableBodyAppearance view) {
+        if (!view.visualKey().isEmpty()) return com.juicyslew.moonstation14.ms14.hands.PortableBodyIconTextures.frame(view);
         var id = texture(view.state(), view.coat());
         return new Frame(id, 0, 0, 32, 32, 32, 32, 16, 16);
     }

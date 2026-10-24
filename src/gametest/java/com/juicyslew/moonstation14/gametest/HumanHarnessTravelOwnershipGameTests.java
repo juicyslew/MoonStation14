@@ -33,7 +33,7 @@ public final class HumanHarnessTravelOwnershipGameTests {
     private HumanHarnessTravelOwnershipGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 45)
-    @GameTestTags("repair-walk-animation")
+    @GameTestTags({"repair-walk-animation", "leased-walk-animation"})
     public static void leasedPigAndVillagerKeepVanillaWalkAnimation(GameTestHelper helper) {
         var tickets = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(1, 3, 1)),
                 helper.absolutePos(new BlockPos(8, 5, 6)), 1);
@@ -57,15 +57,25 @@ public final class HumanHarnessTravelOwnershipGameTests {
                 () -> tickets.entityTicking(ownedVillager.blockPosition()) && tickets.entityTicking(ownedPig.blockPosition())
                         && tickets.entityTicking(vanillaVillager.blockPosition()) && tickets.entityTicking(vanillaPig.blockPosition()), "all subjects entity ticking: villager="
                         + ownedVillager.position() + "/" + ownedVillager.onGround() + ", pig=" + ownedPig.position()
-                        + "/" + ownedPig.onGround() + ", floor=" + helper.getLevel().getBlockState(ownedPig.blockPosition().below()), () -> {
+                         + "/" + ownedPig.onGround() + ", floor=" + helper.getLevel().getBlockState(ownedPig.blockPosition().below()), () -> {
+            float villagerSpeedBeforeLease = ownedVillager.walkAnimation.speed(1f);
+            Vec3 villagerPositionBeforeLease = ownedVillager.position();
+            int villagerTickBeforeLease = ownedVillager.tickCount;
+            float pigSpeedBeforeLease = ownedPig.walkAnimation.speed(1f);
+            Vec3 pigPositionBeforeLease = ownedPig.position();
+            int pigTickBeforeLease = ownedPig.tickCount;
             GroundedHarnessLease villagerLease = GroundedHarnessLease.tryAcquire(ownedVillager).orElseThrow(
                     () -> new GameTestAssertException("enrolled marked Villager must acquire a real harness lease"));
             GroundedHarnessLease pigLease = GroundedHarnessLease.tryAcquire(ownedPig).orElseThrow(
                     () -> new GameTestAssertException("enrolled marked Pig must acquire a real harness lease"));
-             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
-                require(ownedVillager.walkAnimation.speed(1f) < 1e-4f
+                 com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
+                 require(ownedVillager.walkAnimation.speed(1f) < 1e-4f
                                 && ownedPig.walkAnimation.speed(1f) < 1e-4f,
-                        "stationary leased bodies must have near-zero walk animation speed");
+                         "stationary leased bodies must have near-zero walk animation speed; "
+                                + animationDiagnostic("villager", ownedVillager, villagerSpeedBeforeLease,
+                                villagerPositionBeforeLease, villagerTickBeforeLease)
+                                + "; " + animationDiagnostic("pig", ownedPig, pigSpeedBeforeLease,
+                                pigPositionBeforeLease, pigTickBeforeLease));
                 require(vanillaVillager.walkAnimation.speed(1f) < 1e-4f
                                 && vanillaPig.walkAnimation.speed(1f) < 1e-4f,
                         "stationary unowned controls must remain unanimated");
@@ -131,14 +141,19 @@ public final class HumanHarnessTravelOwnershipGameTests {
                 / Math.log(WALK_ANIMATION_DECAY_FACTOR));
     }
 
-    private static String animationDiagnostic(String name, Mob body, double previousX, Vec3 previousPosition,
-                                              int tickBaseline, boolean leaseValid) {
-        return name + "{speed=" + body.walkAnimation.speed(1f) + ",nativeTickDelta="
-                + (body.tickCount - tickBaseline) + ",position=" + body.position() + ",previousBaseline="
-                + previousPosition + ",actualXYZ=" + body.getX() + "," + body.getY() + "," + body.getZ()
-                + ",stepXBaseline=" + previousX + ",deltaMovement=" + body.getDeltaMovement()
-                + ",movementOwned=" + ((MindControlledMob) body).moonstation14$isMovementOwned()
-                + ",noAI=" + body.isNoAi() + ",leaseValid=" + leaseValid + "}";
+    private static String animationDiagnostic(String name, Mob body, float speedBeforeLease,
+                                              Vec3 positionBeforeLease, int tickBeforeLease) {
+        return name + "{speed=" + speedBeforeLease + ">" + body.walkAnimation.speed(1f)
+                + ",ticks=" + (body.tickCount - tickBeforeLease) + ",pos="
+                + compactPosition(positionBeforeLease) + ">" + compactPosition(body.position())
+                + ",delta=" + body.getDeltaMovement() + ",ground=" + body.onGround()
+                + ",owned=" + ((MindControlledMob) body).moonstation14$isMovementOwned()
+                + ",eligible=" + GroundedHarnessLease.isOwnedBodyEligible(body)
+                + ",noAI=" + body.isNoAi() + "}";
+    }
+
+    private static String compactPosition(Vec3 position) {
+        return String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", position.x, position.y, position.z);
     }
 
     /** Keep the animation observation independent of the real, staggered pressure hazard. */

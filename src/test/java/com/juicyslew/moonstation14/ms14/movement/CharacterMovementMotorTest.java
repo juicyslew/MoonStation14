@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -143,6 +144,57 @@ class CharacterMovementMotorTest {
         assertEquals(1, sweeps.get(), "horizontal math substeps must not multiply native Entity.move calls");
         assertEquals(40d / 81d, result.velocity().x(), 1e-12);
         assertEquals(19d / 486d, result.position().x(), 1e-12);
+    }
+
+    @Test
+    void naturalFlightUsesResolvedFrictionForReleaseTurningAndRestWithoutSurfaceFriction() throws IOException {
+        CharacterMovementPolicy bat = CharacterMovementPolicy.fromCharacterData(readResolvedCharacter("bat"));
+        assertEquals(20d, bat.groundFrictionWithInputPerSecond());
+        assertEquals(20d, bat.groundFrictionNoInputPerSecond());
+        assertEquals(.005d, bat.minimumFrictionSpeed());
+        assertEquals(3.75d, bat.walkSpeedPerSecond());
+        assertEquals(7.5d, bat.sprintSpeedPerSecond());
+        CharacterMovementMotor motor = new CharacterMovementMotor(bat);
+        CharacterMovementEnvironment environment = envWithSurface(.05d, 32d, 8.4d,
+                MovementVector.ZERO, 0d, .05d, OPEN);
+        CharacterMovementCommand noInput = new CharacterMovementCommand(0d, 0d, false, false);
+        CharacterMovementState released = state(MovementVector.ZERO, new MovementVector(3d, 0d, 2d), false);
+        for (int i = 0; i < 20; i++) released = motor.tick(released, noInput, environment, false, false, 0d, true);
+        assertTrue(released.velocity().horizontalLength() < Math.hypot(3d, 2d));
+        for (int i = 0; i < 100; i++) released = motor.tick(released, noInput, environment, false, false, 0d, true);
+        assertEquals(0d, released.velocity().x(), 0d);
+        assertEquals(0d, released.velocity().z(), 0d);
+        assertEquals(0d, released.velocity().y(), 0d);
+
+        for (boolean sprint : new boolean[]{false, true}) {
+            double target = sprint ? bat.sprintSpeedPerSecond() : bat.walkSpeedPerSecond();
+            CharacterMovementState turning = state(MovementVector.ZERO, new MovementVector(target, 0d, 0d), false);
+            for (int tick = 0; tick < 200; tick++) {
+                double angle = Math.toRadians(tick * 15d);
+                turning = motor.tick(turning, new CharacterMovementCommand(Math.cos(angle), Math.sin(angle), false, sprint),
+                        environment, false, false, 0d, true);
+                assertTrue(turning.velocity().horizontalLength() <= target + 1e-9);
+            }
+        }
+    }
+
+    @Test
+    void naturalFlightSettlesTinyResidualBeforeConstraintAndExternalFlightRemainsUndamped() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d, .98d,
+                MovementVector.ZERO, 1d, 0d, OPEN, 1d, 1d, new MovementVector(.25d, .5d, -.5d));
+        CharacterMovementState tiny = motor.tick(state(MovementVector.ZERO,
+                        new MovementVector(.002d, 0d, 0d), false),
+                new CharacterMovementCommand(0d, 0d, false, false), environment, false, false, 0d, true);
+        assertEquals(.25d, tiny.velocity().x(), 1e-12, "constraint impulse is applied after rest settling");
+        assertEquals(-.5d, tiny.velocity().z(), 1e-12);
+        assertEquals(.5d, tiny.velocity().y(), 1e-12);
+
+        CharacterMovementState launched = motor.tick(state(MovementVector.ZERO,
+                        new MovementVector(2d, 0d, 1d), false),
+                new CharacterMovementCommand(1d, 1d, false, false), environment, false, true, 0d, true);
+        assertEquals(2.25d, launched.velocity().x(), 0d, "external flight bypasses natural friction and steering");
+        assertEquals(.5d, launched.velocity().z(), 0d, "constraint still applies in its existing post-motor phase");
     }
 
     @Test
@@ -339,6 +391,31 @@ class CharacterMovementMotorTest {
         }
     }
 
+    private static CharacterData readResolvedCharacter(String id) throws IOException {
+        try {
+            Path root = Path.of(System.getProperty("moonstation14.projectDir"),
+                    "src/main/resources/data/moonstation14/moonstation14/character");
+            var raw = new java.util.LinkedHashMap<net.minecraft.resources.ResourceLocation, JsonObject>();
+            try (var paths = java.nio.file.Files.walk(root)) {
+                for (Path file : paths.filter(java.nio.file.Files::isRegularFile)
+                        .filter(path -> path.toString().endsWith(".json")).toList()) {
+                    String name = root.relativize(file).toString().replace('\\', '/');
+                    raw.put(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14",
+                                    name.substring(0, name.length() - 5)),
+                            JsonParser.parseString(java.nio.file.Files.readString(file)).getAsJsonObject());
+                }
+            }
+            var manager = new com.juicyslew.moonstation14.ms14.prototype.PrototypeManager();
+            manager.register(com.juicyslew.moonstation14.ms14.character.ModCharacters.CHARACTER_TYPE);
+            manager.reload(com.juicyslew.moonstation14.ms14.character.ModCharacters.CHARACTER_TYPE, raw);
+            var resolved = manager.snapshot(com.juicyslew.moonstation14.ms14.character.ModCharacters.CHARACTER_TYPE)
+                    .get(net.minecraft.resources.ResourceLocation.parse("moonstation14:" + id));
+            return resolved;
+        } catch (RuntimeException exception) {
+            throw new IOException("Failed to resolve character prototype " + id, exception);
+        }
+    }
+
     @Test
     void humanNeutralGroundFrictionStopsAtTwentyHertzAfterResolvedTwentyRate() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
@@ -531,6 +608,33 @@ class CharacterMovementMotorTest {
     }
 
     @Test
+    void ordinaryGravityAirSteeringCannotGrowHorizontalSpeedByRotatingWish() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment gravity = env(.05d, 32d, 8.4d, MovementVector.ZERO, 0d, OPEN);
+        for (boolean sprint : new boolean[]{false, true}) {
+            double target = sprint ? CharacterMovementPolicy.HUMAN.sprintSpeedPerSecond()
+                    : CharacterMovementPolicy.HUMAN.walkSpeedPerSecond();
+            CharacterMovementCommand straight = new CharacterMovementCommand(1d, 0d, false, sprint);
+            CharacterMovementState state = state(MovementVector.ZERO, new MovementVector(target, 0d, 0d), false);
+            state = motor.tick(state, straight, gravity, false);
+            assertEquals(target, state.velocity().horizontalLength(), 1e-12);
+
+            for (int angle : new int[]{10, 15}) {
+                state = state(MovementVector.ZERO, new MovementVector(target, 0d, 0d), false);
+                double cap = target;
+                for (int tick = 0; tick < 40; tick++) {
+                    double radians = Math.toRadians(tick * angle);
+                    state = motor.tick(state, new CharacterMovementCommand(Math.cos(radians),
+                            Math.sin(radians), false, sprint), gravity, false);
+                    assertTrue(Double.isFinite(state.velocity().horizontalLength()));
+                    assertTrue(state.velocity().horizontalLength() <= cap + 1e-12,
+                            "rotating gravity-air steering cannot add horizontal energy");
+                }
+            }
+        }
+    }
+
+    @Test
     void jumpingIntoOneBlockWallClipsBlockedAxisUntilClearanceButKeepsLateralMomentum() throws IOException {
         MovementCollisionResolver wallUntilOneBlockHigh = (position, requested, grounded) ->
                 new MovementCollisionResolver.CollisionResult(new MovementVector(
@@ -557,11 +661,12 @@ class CharacterMovementMotorTest {
             current = motor.tick(current, new CharacterMovementCommand(1d, 0d, false, true), environment, false);
             assertEquals(1.001336d, current.position().y(), 1e-12,
                     "third jump displacement crosses fixture clearance");
-            assertEquals(wish, current.velocity().x(), 1e-12, prototype + " projected wish after wall");
+            double expectedForwardSpeed = Math.sqrt(Math.max(wish, 3d) * Math.max(wish, 3d) - 9d);
+            assertEquals(expectedForwardSpeed, current.velocity().x(), 1e-12,
+                    prototype + " voluntary forward speed respects air-energy budget");
             assertEquals(3d, current.velocity().z(), 1e-12);
-            assertEquals(Math.hypot(wish, 3d), current.velocity().horizontalLength(), 1e-12,
-                    prototype + " resultant after clearance");
-            assertEquals(wish * .05d, current.position().x(), 1e-12);
+            assertTrue(current.velocity().horizontalLength() <= Math.max(wish, 3d) + 1e-12);
+            assertEquals(expectedForwardSpeed * .05d, current.position().x(), 1e-12);
             assertEquals(.3d, current.position().z(), 1e-12);
         }
     }

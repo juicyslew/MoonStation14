@@ -13,8 +13,11 @@ import javax.imageio.ImageIO;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PortableBodyAppearanceTest {
+    private static final java.util.List<PortableBodyAppearance.Coat> MOUSE_COATS = java.util.List.of(
+            PortableBodyAppearance.Coat.WHITE, PortableBodyAppearance.Coat.BROWN, PortableBodyAppearance.Coat.GRAY);
+
     @Test void itemPresentationCacheSelectsIconAndHeldWorldTextureForEveryVisualView() {
-        for (var coat : PortableBodyAppearance.Coat.values()) for (var state : PortableBodyAppearance.State.values()) {
+        for (var coat : MOUSE_COATS) for (var state : PortableBodyAppearance.State.values()) {
             var view = new PortableBodyAppearance(ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse"), "Mittens", coat, state);
             var source = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK);
             source.set(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get(), view);
@@ -24,25 +27,60 @@ class PortableBodyAppearanceTest {
             assertEquals(PortableMouseIconTextures.frame(view), PortableMouseIconTextures.frame(cached));
             var held = MouseAppearanceTextures.heldPresentation(cached);
             boolean dead = state == PortableBodyAppearance.State.DEAD;
-            String color = switch (coat) { case WHITE -> "white"; case BROWN -> "brown"; case GRAY -> "gray"; };
+            String color = switch (coat) { case WHITE -> "white"; case BROWN -> "brown"; case GRAY -> "gray";
+                case NONE -> throw new AssertionError("NONE is not a mouse coat"); };
             assertEquals(ResourceLocation.fromNamespaceAndPath("moonstation14", "textures/entity/mouse/mouse_"
                     + color + (dead ? "_dead" : "") + ".png"), held.texture());
             assertEquals(state == PortableBodyAppearance.State.ALIVE ? "rest" : "down_hold", held.pose());
             assertEquals(dead, held.dead());
         }
     }
+    @Test void noneCoatIsRejectedByMouseRendererAndUsedByAnimalDescriptor() {
+        var none = new PortableBodyAppearance(ResourceLocation.fromNamespaceAndPath("moonstation14", "moproach"),
+                "moproach", PortableBodyAppearance.Coat.NONE, PortableBodyAppearance.State.ALIVE, "moproach");
+        assertThrows(IllegalArgumentException.class, () -> MouseAppearanceTextures.heldPresentation(none));
+        assertNotNull(PortableBodyIconTextures.frame(none));
+    }
     @Test void appearanceCodecIsBoundedAndContainsOnlyVisualIdentity() {
         var view = new PortableBodyAppearance(ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse"),
                 "Mittens", PortableBodyAppearance.Coat.BROWN, PortableBodyAppearance.State.CRITICAL);
         var encoded = PortableBodyAppearance.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, view).result().orElseThrow();
         assertEquals(view, PortableBodyAppearance.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, encoded).result().orElseThrow());
-        assertEquals(java.util.Set.of("profile", "name", "coat", "state"),
+         assertEquals(java.util.Set.of("profile", "name", "coat", "state", "visualKey"),
                 java.util.Arrays.stream(PortableBodyAppearance.class.getRecordComponents()).map(java.lang.reflect.RecordComponent::getName).collect(java.util.stream.Collectors.toSet()));
         assertThrows(IllegalArgumentException.class, () -> new PortableBodyAppearance(view.profile(), "x".repeat(129), view.coat(), view.state()));
     }
 
+    @Test void registeredAnimalKeysSelectRealSourceFramesWithoutMouseFallback() throws Exception {
+        for (String key : java.util.List.of("hamster", "bee", "butterfly", "cockroach", "mothroach", "moproach")) {
+            assertTrue(PortableBodyIconTextures.isRegistered(key));
+            for (var state : PortableBodyAppearance.State.values()) {
+                var view = new PortableBodyAppearance(ResourceLocation.fromNamespaceAndPath("moonstation14", key), key,
+                        PortableBodyAppearance.Coat.NONE, state, key);
+                var frame = PortableBodyIconTextures.frame(view);
+                assertNotNull(frame);
+                var png = projectPath("src/main/resources/assets/moonstation14/" + frame.texture().getPath());
+                var image = ImageIO.read(png.toFile());
+                assertNotNull(image);
+                assertTrue(frame.sourceX() + frame.sourceWidth() <= image.getWidth());
+                assertTrue(frame.sourceY() + frame.sourceHeight() <= image.getHeight());
+                assertTrue(Files.isRegularFile(png.getParent().resolve("meta.json")));
+                BufferedImage selectedFrame = image.getSubimage(frame.sourceX(), frame.sourceY(), frame.sourceWidth(), frame.sourceHeight());
+                boolean hasVisiblePixel = false;
+                for (int y = 0; y < selectedFrame.getHeight() && !hasVisiblePixel; y++)
+                    for (int x = 0; x < selectedFrame.getWidth(); x++)
+                        if ((selectedFrame.getRGB(x, y) >>> 24) != 0) { hasVisiblePixel = true; break; }
+                assertTrue(hasVisiblePixel, key + "/" + state + " selected frame has visible pixels: " + png);
+            }
+        }
+        assertFalse(PortableBodyIconTextures.isRegistered("unknown_animal"));
+        var unknown = new PortableBodyAppearance(ResourceLocation.fromNamespaceAndPath("moonstation14", "unknown"), "unknown",
+                PortableBodyAppearance.Coat.NONE, PortableBodyAppearance.State.ALIVE, "unknown_animal");
+        assertNull(PortableBodyIconTextures.frame(unknown));
+    }
+
     @Test void productionDescriptorTargetsImportedSingleFrameIcons() throws Exception {
-        for (var coat : PortableBodyAppearance.Coat.values()) {
+        for (var coat : MOUSE_COATS) {
             assertEquals(coat.ordinal(), PortableMouseIconTextures.variantColumn(coat));
             for (var state : PortableBodyAppearance.State.values()) {
                 var view = new PortableBodyAppearance(ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse"), "Mittens", coat, state);
@@ -66,7 +104,7 @@ class PortableBodyAppearanceTest {
         graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         for (var state : PortableBodyAppearance.State.values()) {
             graphics.drawString(state.name().toLowerCase(), 4, 52 + state.ordinal() * 78);
-            for (var coat : PortableBodyAppearance.Coat.values()) {
+            for (var coat : MOUSE_COATS) {
                 var view = new PortableBodyAppearance(ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse"), "Mittens", coat, state);
                 var frame = PortableMouseIconTextures.frame(view);
                 var file = projectPath("src/main/resources/assets/moonstation14/" + frame.texture().getPath());

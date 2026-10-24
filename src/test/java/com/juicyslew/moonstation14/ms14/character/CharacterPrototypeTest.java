@@ -228,6 +228,7 @@ class CharacterPrototypeTest {
     void oralHandlessCapabilityComesFromResolvedMouthAndHandsCompositionNotMouseType() throws IOException {
         ResourceLocation simple = ResourceLocation.parse("moonstation14:supported_simple_mob");
         ResourceLocation animal = ResourceLocation.parse("moonstation14:supported_animal");
+        ResourceLocation animalCore = ResourceLocation.parse("moonstation14:supported_animal_core");
         ResourceLocation npc = ResourceLocation.parse("moonstation14:supported_npc");
         ResourceLocation fixture = ResourceLocation.parse("moonstation14:oral_test_animal");
         JsonObject fixtureJson = JsonParser.parseString("""
@@ -235,9 +236,10 @@ class CharacterPrototypeTest {
                 """).getAsJsonObject();
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
-        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(simple,
-                readResource("data/moonstation14/moonstation14/character/supported_simple_mob.json"), animal,
-                readResource("data/moonstation14/moonstation14/character/supported_animal.json"),
+         manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(simple,
+                 readResource("data/moonstation14/moonstation14/character/supported_simple_mob.json"),
+                 animalCore, readResource("data/moonstation14/moonstation14/character/supported_animal_core.json"),
+                 animal, readResource("data/moonstation14/moonstation14/character/supported_animal.json"),
                 npc, readResource("data/moonstation14/moonstation14/character/supported_npc.json"), fixture, fixtureJson));
         CharacterData resolved = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(fixture);
         assertTrue(com.juicyslew.moonstation14.ms14.ingestion.OralAccess.supportsHandlessOralAccess(resolved),

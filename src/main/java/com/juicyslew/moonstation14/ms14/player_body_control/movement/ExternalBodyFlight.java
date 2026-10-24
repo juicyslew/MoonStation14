@@ -36,11 +36,20 @@ public final class ExternalBodyFlight {
     }
 
     public static void launch(Mob body, Vec3 velocity, int durationTicks) {
+        launch(body, velocity, durationTicks, false);
+    }
+
+    /** Called only after canonical portable-body release commits. */
+    public static void launchPortableBodyThrow(Mob body, Vec3 velocity, int durationTicks) {
+        launch(body, velocity, durationTicks, true);
+    }
+
+    private static void launch(Mob body, Vec3 velocity, int durationTicks, boolean portableThrow) {
         if (body == null || !(body.level() instanceof ServerLevel level) || durationTicks <= 0
                 || velocity == null || !finite(velocity) || !canLaunch(body)) return;
         long now = level.getGameTime();
         body.setDeltaMovement(velocity);
-        FLIGHTS.put(body, new State(level, now + durationTicks, Long.MIN_VALUE,
+        FLIGHTS.put(body, new State(level, now, now + durationTicks, Long.MIN_VALUE, portableThrow, false,
                 boundary(level.dimension(), body.getX(), body.getZ())));
     }
 
@@ -63,7 +72,7 @@ public final class ExternalBodyFlight {
     public static void advanced(Mob body) {
         State state = FLIGHTS.get(body);
         if (state != null && state.level == body.level())
-            FLIGHTS.put(body, new State(state.level, state.endTick, state.level.getGameTime(), state.lastBoundary));
+            FLIGHTS.put(body, new State(state.level, state.launchTick, state.endTick, state.level.getGameTime(), state.portableThrow, state.released, state.lastBoundary));
     }
 
     public static boolean tracked(Mob body) {
@@ -94,6 +103,12 @@ public final class ExternalBodyFlight {
                 continue;
             }
             if (state.level != level) continue;
+            if (state.released) {
+                // endTick is fixed at release; ordinary movement may keep refreshing
+                // lastAdvancedTick and must not extend this one-tick dedup lease.
+                if (level.getGameTime() > state.endTick) cancel(body);
+                continue;
+            }
             boolean retainedCorpsePhysics = com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics
                     .eligible(body);
             if (body.level() != level || body.isRemoved() || !body.isAlive() && !retainedCorpsePhysics
@@ -124,6 +139,15 @@ public final class ExternalBodyFlight {
                     }
                 }
             }
+            State current = FLIGHTS.get(body);
+            if (current != null && current.portableThrow
+                    && level.getGameTime() - current.launchTick >= recoveryTicks(body)
+                    && !body.onGround()
+                    && com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.recoverPortableThrow(body)) {
+                // Retain the lease through this tick so every motor observes the advancement guard.
+                FLIGHTS.put(body, new State(current.level, current.launchTick, level.getGameTime(),
+                        level.getGameTime(), true, true, current.lastBoundary));
+            }
         }
     }
 
@@ -144,7 +168,7 @@ public final class ExternalBodyFlight {
         if (state.lastBoundary.equals(current)) return;
         // Update before persistence: even an ACTIVE/anonymous/stale body is attempted only once
         // per actual chunk/dimension transition, never once per physics frame.
-        State captured = new State(state.level, state.endTick, state.lastAdvancedTick, current);
+        State captured = new State(state.level, state.launchTick, state.endTick, state.lastAdvancedTick, state.portableThrow, state.released, current);
         FLIGHTS.put(body, captured);
         PlayerCharacterBinding binding = PlayerCharacterHarnessBinder.binding(body);
         if (binding == null) return;
@@ -172,6 +196,11 @@ public final class ExternalBodyFlight {
     }
 
     record Boundary(ResourceKey<Level> dimension, int chunkX, int chunkZ) { }
-    private record State(ServerLevel level, long endTick, long lastAdvancedTick, Boundary lastBoundary) { }
+    private static int recoveryTicks(Mob body) {
+        return com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.capability(body)
+                .map(com.juicyslew.moonstation14.ms14.character.components.FlightComponent::throwRecoveryTicks)
+                .orElse(Integer.MAX_VALUE);
+    }
+    private record State(ServerLevel level, long launchTick, long endTick, long lastAdvancedTick,
+                         boolean portableThrow, boolean released, Boundary lastBoundary) { }
 }
-

@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.radiation;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.juicyslew.moonstation14.resource.AcceptedAssetHash;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -110,12 +111,14 @@ class RadiationCollectorAtlasAdapterTest {
         String sourcePath = manifest.get("panelGeometrySource").getAsString();
         assertTrue(sourcePath.endsWith("generation_singularity_collector/default.json")
                 || sourcePath.endsWith("generation_singularity_collector\\default.json"));
-        assertEquals(sha256(bytes("/assets/moonstation14/models/block/power_collection/generation_singularity_collector/default.json")),
-                manifest.get("panelGeometrySourceSha256").getAsString());
+        assertTrue(AcceptedAssetHash.matchesAcceptedHash(
+                bytes("/assets/moonstation14/models/block/power_collection/generation_singularity_collector/default.json"),
+                "default.json", manifest.get("panelGeometrySourceSha256").getAsString()));
         JsonObject hashes = manifest.getAsJsonObject("derivedModelSha256");
         for (String name : new String[]{"panel_active.json", "panel_inactive.json"})
-            assertEquals(sha256(bytes("/assets/moonstation14/models/block/reactor_bindings/collector/" + name)),
-                    hashes.get(name).getAsString(), name + " provenance hash");
+            assertTrue(AcceptedAssetHash.matchesAcceptedHash(
+                    bytes("/assets/moonstation14/models/block/reactor_bindings/collector/" + name),
+                    name, hashes.get(name).getAsString()), name + " provenance hash");
     }
 
     private static JsonObject json(String path) throws Exception {
@@ -148,10 +151,6 @@ class RadiationCollectorAtlasAdapterTest {
             return in.readAllBytes();
         }
     }
-    private static String sha256(byte[] value) throws Exception {
-        return java.util.HexFormat.of().withUpperCase().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value));
-    }
-
     private static double[] numbers(JsonArray a) {
         double[] values = new double[a.size()];
         for (int i = 0; i < values.length; i++) values[i] = a.get(i).getAsDouble();

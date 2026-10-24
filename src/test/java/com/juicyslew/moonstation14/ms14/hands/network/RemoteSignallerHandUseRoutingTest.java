@@ -29,7 +29,7 @@ class RemoteSignallerHandUseRoutingTest {
     @Test void popupUseInHandFallsBackToTheSameHandActionForNonmedicalItems() throws IOException {
         String source = readSource("src/main/java/com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java");
         String popup = method(source, "static boolean popupUseInHand(");
-        assertTrue(popup.contains("var active=view.first().id().equals(view.activeHand())?view.first():view.second()"),
+        assertTrue(popup.contains("var active=view.active()"),
                 "popup dispatch must use the resolved active hand");
         assertTrue(popup.contains("HeldUseRequestDispatch.routeActivation("),
                 "popup Z dispatch must reuse shared storage/quick-equip/held-use routing");

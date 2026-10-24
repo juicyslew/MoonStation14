@@ -16,15 +16,23 @@ public final class PortableBodyAppearanceResolver {
     public static PortableBodyAppearance capture(LivingEntity body) {
         if (body == null || !(body.level() instanceof ServerLevel level) || body.isRemoved()
                 || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body) return null;
-        var capability = com.juicyslew.moonstation14.ms14.hands.HandCapability.resolveCharacter(body)
-                .flatMap(value -> value.component(PortableBodyComponent.class)).orElse(null);
+        var character = com.juicyslew.moonstation14.ms14.hands.HandCapability.resolveCharacter(body).orElse(null);
+        var capability = character == null ? null : character.component(PortableBodyComponent.class).orElse(null);
         if (capability == null) return null;
         var coat = body instanceof MouseMob mouse ? switch (mouse.appearance()) {
             case WHITE -> PortableBodyAppearance.Coat.WHITE;
             case BROWN -> PortableBodyAppearance.Coat.BROWN;
             case GRAY -> PortableBodyAppearance.Coat.GRAY;
-        } : null;
-        if (coat == null) return null; // no asset adapter exists for other profile models yet
+        } : body instanceof com.juicyslew.moonstation14.entities.AnimalMob
+                ? PortableBodyAppearance.Coat.NONE : null;
+        String visualKey = body instanceof com.juicyslew.moonstation14.entities.AnimalMob animal
+                ? animal.appearanceKey() : "";
+        if (body instanceof com.juicyslew.moonstation14.entities.AnimalMob animal) {
+            var models = character.component(com.juicyslew.moonstation14.ms14.character.components.AnimalAppearanceComponent.class).orElse(null);
+            if (models == null || !models.modelIds().contains(visualKey)
+                    || !PortableBodyIconTextures.isRegistered(visualKey)) return null;
+        }
+        if (coat == null) return null;
         var state = PortableBodyAppearance.State.ALIVE;
         var mob = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
         if (mob != null) state = switch (mob.data().state()) {
@@ -34,7 +42,7 @@ public final class PortableBodyAppearanceResolver {
         };
         String name = com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(body).getString();
         if (name.length() > 128) name = name.substring(0, 128);
-        try { return new PortableBodyAppearance(capability.profileId(), name, coat, state); }
+        try { return new PortableBodyAppearance(capability.profileId(), name, coat, state, visualKey); }
         catch (IllegalArgumentException invalid) { return null; }
     }
 

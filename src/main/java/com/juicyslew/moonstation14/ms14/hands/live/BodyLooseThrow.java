@@ -197,7 +197,7 @@ public final class BodyLooseThrow {
             return denyPortableThrow("release-transaction-" + released + ":"
                     + PortableBodyReleaseTransaction.lastDiagnostic());
         // canLaunch was checked immediately before the canonical release; launch is the same-body flight lease.
-        ExternalBodyFlight.launch(target, velocity, Math.max(1, profile.throwCooldown()));
+        ExternalBodyFlight.launchPortableBodyThrow(target, velocity, Math.max(1, profile.throwCooldown()));
         if (!ExternalBodyFlight.tracked(target) || !ExternalBodyFlight.active(target)
                 || !com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(target, level)
                 || target.position().distanceToSqr(launch) > 1.0e-10
@@ -243,4 +243,3 @@ public final class BodyLooseThrow {
     private static boolean same(ItemStack a, ItemStack b) { return b != null && a.getCount() == b.getCount()
             && ItemStack.isSameItemSameComponents(a, b); }
 }
-

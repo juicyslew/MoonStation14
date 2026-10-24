@@ -73,6 +73,13 @@ class NpcTaskPlannerTest {
     }
 
     @Test
+    void retaliationBranchCannotAcquireAnUnprovokedTarget() {
+        var policy = new NpcBehaviorComponent(List.of(NpcBehaviorComponent.Task.RETALIATE),
+                10, 1, 7, 9, 40, 140);
+        assertTrue(NpcTaskPlanner.select(policy, 0, 0, 15, 10, List.of()).isEmpty());
+    }
+
+    @Test
     void rejectedSourceCooldownsExpireWithoutSourceReappearingAndRemainBounded() {
         Map<UUID, Long> rejected = new HashMap<>();
         UUID first = null;

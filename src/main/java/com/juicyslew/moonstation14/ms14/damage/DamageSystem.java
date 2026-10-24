@@ -267,12 +267,14 @@ public final class DamageSystem {
             return;
         }
         String key = classify(source);
-        float typed = appliedDamage * TYPED_PER_HEALTH;
-        commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
-        com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
+        Map<String, Float> delta = DamageReducer.externalDamageDelta(key, appliedDamage, existing(entity));
+        if (delta.isEmpty()) return;
+        float typed = delta.get(key);
+        commit(entity, DamageReducer.applyDelta(existing(entity), delta));
+        com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, delta);
         NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed,
                 ModDamageFeedback.server(causeFor(source).profile)));
-        NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, Map.of(key, typed)));
+        NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, delta));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */
@@ -449,4 +451,3 @@ public final class DamageSystem {
 
     public record DamageApplication(Result status, boolean positiveDamageAdmitted) { }
 }
-

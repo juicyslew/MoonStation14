@@ -62,7 +62,8 @@ public class ModEntities {
                     .sized(0.4f, 0.3f).clientTrackingRange(8).updateInterval(1).build("mouse"));
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
+        AnimalMobRegistration.register(eventBus);
         eventBus.addListener((net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent event) ->
-                event.put(MOUSE.get(), MouseMob.createAttributes().build()));
+                { event.put(MOUSE.get(), MouseMob.createAttributes().build()); AnimalMobRegistration.registerAttributes(event); });
     }
 }

@@ -24,36 +24,56 @@ public final class CharacterMovementMotor {
 
     /** External flight preserves launch momentum while suppressing voluntary steering and ground damping. */
     public CharacterMovementState tick(CharacterMovementState state, CharacterMovementCommand command,
-                                       CharacterMovementEnvironment environment, boolean stunned,
-                                       boolean externalFlight) {
+                                        CharacterMovementEnvironment environment, boolean stunned,
+                                        boolean externalFlight) {
+        return tick(state, command, environment, stunned, externalFlight, 0d, false);
+    }
+
+    /** Natural flight remains in this motor/collision route; verticalWish is bounded speed, never a teleport. */
+    public CharacterMovementState tick(CharacterMovementState state, CharacterMovementCommand command,
+                                        CharacterMovementEnvironment environment, boolean stunned,
+                                        boolean externalFlight, double verticalWish, boolean naturalFlight) {
+        if (!Double.isFinite(verticalWish) || Math.abs(verticalWish) > 20d)
+            throw new IllegalArgumentException("vertical speed must be finite and bounded");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(command, "command");
         Objects.requireNonNull(environment, "environment");
         double dt = environment.secondsPerTick();
+        GravityAirControl gravityAirControl = !state.onGround() && !naturalFlight && !externalFlight
+                && environment.gravityPerSecondSquared() > 0d
+                ? environment.gravityAirControl().orElse(null) : null;
+        double horizontalRetention = gravityAirControl == null ? 1d : gravityAirControl.retentionFor(dt);
         MovementVector velocity = state.velocity().add(environment.externalImpulse());
         CharacterMovementCommand effective = command.withStun(stunned);
 
-        // SS14's grounded friction/wish motor runs at 60 Hz, while the Minecraft
-        // adapter invokes this kernel at 20 Hz. Integrate only grounded horizontal
-        // motor behavior in bounded substeps; retain one native collision sweep.
+        // SS14's horizontal friction/wish motor runs at 60 Hz, while the Minecraft
+        // adapter invokes this kernel at 20 Hz. Integrate grounded and natural-flight
+        // horizontal behavior in bounded substeps; retain one native collision sweep.
         double horizontalX = 0d, horizontalZ = 0d;
-        int horizontalSubsteps = state.onGround() && !externalFlight
+        boolean dampHorizontal = (state.onGround() || naturalFlight) && !externalFlight;
+        int horizontalSubsteps = dampHorizontal
                 ? Math.max(1, (int) Math.ceil(dt * 60d)) : 1;
         double horizontalDt = dt / horizontalSubsteps;
         for (int substep = 0; substep < horizontalSubsteps; substep++) {
-            if (state.onGround() && !externalFlight) {
+            if (dampHorizontal) {
                 boolean hasWish = effective.wishX() != 0d || effective.wishZ() != 0d;
                 double friction = hasWish ? policy.groundFrictionWithInputPerSecond()
                         : policy.groundFrictionNoInputPerSecond();
+                double surfaceFrictionFactor = state.onGround() ? environment.surfaceMovementFactor() : 1d;
                 double frictionFactor = Math.max(0d, Math.min(1d,
-                        1d - friction * environment.surfaceMovementFactor() * horizontalDt));
+                        1d - friction * surfaceFrictionFactor * horizontalDt));
                 double horizontalSpeed = Math.hypot(velocity.x(), velocity.z());
                 if (horizontalSpeed >= policy.minimumFrictionSpeed()) {
                     velocity = new MovementVector(velocity.x() * frictionFactor, velocity.y(),
                             velocity.z() * frictionFactor);
+                } else if (naturalFlight && !externalFlight && !hasWish) {
+                    // The normal friction threshold intentionally avoids tiny-speed
+                    // damping. Natural flight must nevertheless settle at rest.
+                    velocity = new MovementVector(0d, velocity.y(), 0d);
                 }
             }
             if (!externalFlight && (effective.wishX() != 0d || effective.wishZ() != 0d)) {
+                double preSteeringSpeed = Math.hypot(velocity.x(), velocity.z());
                 double requestedSpeed = (effective.sprint() ? policy.sprintSpeedPerSecond() : policy.walkSpeedPerSecond())
                         * environment.voluntarySpeedFactor();
                 double targetWishX = effective.wishX() * requestedSpeed;
@@ -66,8 +86,21 @@ public final class CharacterMovementMotor {
                     double addSpeed = wishSpeed - currentSpeed;
                     if (addSpeed > 0d) {
                         double surfaceFactor = state.onGround() ? environment.surfaceMovementFactor() : 1d;
-                        double acceleration = Math.min(policy.accelerationPerSecondSquared() * surfaceFactor
-                                * horizontalDt * wishSpeed, addSpeed);
+                        double acceleration = gravityAirControl == null
+                                ? policy.accelerationPerSecondSquared() * surfaceFactor * horizontalDt * wishSpeed
+                                : gravityAirControl.inputAccelerationPerSecondSquared() * horizontalDt
+                                * Math.hypot(effective.wishX(), effective.wishZ()) * environment.voluntarySpeedFactor();
+                        acceleration = Math.min(acceleration, addSpeed);
+                        // The legacy empty-profile path preserves its original SS14 scalar budget.
+                        // Adapter gravity-air budgets account for the post-move damping that creates steering room.
+                        if (!state.onGround() && !naturalFlight && environment.gravityPerSecondSquared() > 0d) {
+                            double budget = Math.max(preSteeringSpeed, wishSpeed) / horizontalRetention;
+                            double remainingSquared = Math.max(0d, budget * budget
+                                    - velocity.x() * velocity.x() - velocity.z() * velocity.z());
+                            double allowableAcceleration = Math.max(0d,
+                                    Math.sqrt(currentSpeed * currentSpeed + remainingSquared) - currentSpeed);
+                            acceleration = Math.min(acceleration, allowableAcceleration);
+                        }
                         velocity = new MovementVector(velocity.x() + acceleration * wishDirectionX, velocity.y(),
                                 velocity.z() + acceleration * wishDirectionZ);
                     }
@@ -84,6 +117,13 @@ public final class CharacterMovementMotor {
         velocity = velocity.add(environment.constraintImpulse());
         // Entity.travel moves using the current velocity, then applies gravity and vertical drag
         // for the next tick. Jump velocity therefore contributes its full first-tick displacement.
+        if (naturalFlight && !externalFlight) {
+            // Flight suppresses ambient gravity below, not force owners. The vertical target replaces
+            // carried vertical momentum for stable hover, while adding each tick's singularity and
+            // tether impulses exactly once, just as the grounded/throw paths do.
+            velocity = new MovementVector(velocity.x(), verticalWish + environment.externalImpulse().y()
+                    + environment.constraintImpulse().y(), velocity.z());
+        }
         MovementVector movementRequested = velocity.scale(dt);
         MovementVector requested = new MovementVector(horizontalX + environment.constraintImpulse().x() * dt,
                 movementRequested.y(), horizontalZ + environment.constraintImpulse().z() * dt);
@@ -91,7 +131,7 @@ public final class CharacterMovementMotor {
         // Probe just below a stationary grounded entity so real floor collision retains support.
         // Do not probe during jumps or upward impulses, and let an unsupported probe fall normally.
         if (state.onGround() && !effective.jumpRequested() && velocity.y() == 0d
-                && environment.gravityPerSecondSquared() > 0d) {
+                && !naturalFlight && environment.gravityPerSecondSquared() > 0d) {
             requested = new MovementVector(requested.x(), requested.y() - GROUNDED_SUPPORT_PROBE_BLOCKS,
                     requested.z());
         }
@@ -109,9 +149,12 @@ public final class CharacterMovementMotor {
         double vx = blockedX && pointsIntoBlockedHorizontalAxis(requested.x(), velocity.x()) ? 0d : velocity.x();
         double vy = movementRequested.y() != 0d
                 && blocked(state.position().y(), movementRequested.y(), actual.y()) ? 0d
+                : naturalFlight ? velocity.y()
                 : (velocity.y() - environment.gravityPerSecondSquared() * dt) * environment.verticalDrag();
         boolean blockedZ = blocked(state.position().z(), requested.z(), actual.z());
         double vz = blockedZ && pointsIntoBlockedHorizontalAxis(requested.z(), velocity.z()) ? 0d : velocity.z();
+        vx *= horizontalRetention;
+        vz *= horizontalRetention;
         if (resolved.onGround() && vy < 0d) vy = 0d;
         return new CharacterMovementState(position, new MovementVector(vx, vy, vz), resolved.onGround());
     }
@@ -164,4 +207,3 @@ public final class CharacterMovementMotor {
         return Math.min(Math.ulp(position) + Math.ulp(endpoint), MAX_WORLD_COORDINATE_ULP);
     }
 }
-

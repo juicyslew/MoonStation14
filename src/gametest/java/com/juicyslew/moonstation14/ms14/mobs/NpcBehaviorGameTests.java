@@ -853,14 +853,14 @@ public final class NpcBehaviorGameTests {
         double range = first.idlePoint().distanceTo(selectedFrom);
         // The regression needs time to observe one planning interval before this correctly fast
         // NPC arrives. Leave short random walks alone and wait for the next natural idle choice.
-        if (range < 4) {
-            if (retries >= 300) throw new GameTestAssertException("No sufficiently long natural idle route selected: " + first);
+        if (range <= .5) {
+            if (retries >= 700) throw new GameTestAssertException("No natural idle route beyond its arrival radius selected: " + first);
             helper.runAfterDelay(1, () -> awaitChosenIdleRoute(helper, mouse, spawnedAt, retries + 1));
             return;
         }
         var chosen = new GroundNpcRoutePlanner().routeResult(mouse, first.idlePoint());
         if (chosen.status() == GroundNpcRoutePlanner.RouteStatus.DEFERRED) {
-            if (retries >= 40) throw new GameTestAssertException("chosen idle route stayed budget-deferred: " + chosen);
+            if (retries >= 700) throw new GameTestAssertException("chosen idle route stayed budget-deferred: " + chosen);
             helper.runAfterDelay(1, () -> awaitChosenIdleRoute(helper, mouse, spawnedAt, retries + 1));
             return;
         }

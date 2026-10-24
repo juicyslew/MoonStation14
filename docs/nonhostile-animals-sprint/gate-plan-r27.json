@@ -1,0 +1,79 @@
+{
+  "title": "Complete non-hostile animals with real-client join repair",
+  "kind": "sprint",
+  "acceptance_criteria": [
+    "Resolved inheritance/defaults drive animal enrollment, medical state and rendering.",
+    "Shipped character/reagent catalogs round-trip through production sync with character policies intact.",
+    "A real isolated client completes matching Ready/commit, camera/control binding and a connection hold.",
+    "All 36 hosts bind 40 appearances while preserving legacy mouse/pig/villager/sheep behavior.",
+    "Four flyers reuse movement/prediction for flight and landing with medical/containment gates; throw-flight stays separate.",
+    "Only monkey/kobold/scurret have one hand and ComplexInteraction; typed equipment and one-hand clients work.",
+    "Typed portability, storage and escape preserve creature identity.",
+    "Opt-in autonomous retaliation is provoked only; player-controlled melee remains excluded.",
+    "Milk, eggs, parrot memory, cleaning and speech use shared live services and native fixtures.",
+    "Fresh jar supports MANUAL.md checks with unsupported and manual-only boundaries explicit.",
+    "UI/interaction/prediction readiness passes without claiming connected gameplay or visuals."
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/MANUAL.md",
+  "manual_steps": [
+    "Join normally first: no inside-head view or readiness kick; move/jump/look control the character. Stop on failure without changing profiles/worlds.",
+    "Follow MANUAL.md setup/results for models/analyzer, possession, flight/landing, one-hand equipment, custody/escape, milk, eggs, parrot speech and cleaning.",
+    "Check original identity and second-player appearance/held items; physical input, prediction feel and native visuals remain manual."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-Command", "$ErrorActionPreference='Stop'; $jar='build/libs/moonstation14-0.0.1.jar'; if (Test-Path -LiteralPath $jar) { Remove-Item -LiteralPath $jar -Force }; if (Test-Path -LiteralPath $jar) { throw 'Previous candidate jar still exists' }"],
+      "rationale": "Remove only generated jar to establish fresh output.",
+      "covers": ["Fresh jar supports MANUAL.md checks with unsupported and manual-only boundaries explicit."]
+    },
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile all source sets and build owner candidate jar.",
+      "covers": ["Fresh jar supports MANUAL.md checks with unsupported and manual-only boundaries explicit."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Full JVM regression, including shipped-catalog production sync and empty-damage schema regression.",
+      "covers": [
+        "Resolved inheritance/defaults drive animal enrollment, medical state and rendering.",
+        "Shipped character/reagent catalogs round-trip through production sync with character policies intact.",
+        "All 36 hosts bind 40 appearances while preserving legacy mouse/pig/villager/sheep behavior.",
+        "Only monkey/kobold/scurret have one hand and ComplexInteraction; typed equipment and one-hand clients work.",
+        "Typed portability, storage and escape preserve creature identity.",
+        "Opt-in autonomous retaliation is provoked only; player-controlled melee remains excluded.",
+        "Milk, eggs, parrot memory, cleaning and speech use shared live services and native fixtures."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=ui,interaction,prediction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "All affected categories; not authentic join or visual evidence.",
+      "covers": ["UI/interaction/prediction readiness passes without claiming connected gameplay or visuals."],
+      "selectors": ["ui", "interaction", "prediction"]
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1"],
+      "rationale": "Real client/server sync and matching Ready/commit, camera/control activation, connection hold and verified owned-process shutdown in a fresh isolated fixture. Inspect proof log; no physical-input or camera-pixel claim.",
+      "covers": ["A real isolated client completes matching Ready/commit, camera/control binding and a connection hold."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "$ErrorActionPreference='Stop'; $base=(Join-Path (Get-Location) 'build/gametest-tags-fixture'); $baseFull=[IO.Path]::GetFullPath($base); $repoFull=[IO.Path]::GetFullPath((Get-Location).Path); if (-not $baseFull.StartsWith((Join-Path $repoFull 'build') + [IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Fixture root is outside repo/build' }; New-Item -ItemType Directory -Path $baseFull -Force | Out-Null; $fixture=Join-Path $baseFull ('fresh-'+[guid]::NewGuid().ToString('N')); $fixtureFull=[IO.Path]::GetFullPath($fixture); if (-not $fixtureFull.StartsWith($baseFull + [IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Generated GameTest directory escaped fixture root' }; ./gradlew.bat runGameTestServer \"-Pms14GameTestDir=$fixtureFull\" --no-configuration-cache --no-build-cache; $code=$LASTEXITCODE; if ($code -eq 0) { Remove-Item -LiteralPath $fixtureFull -Recurse -Force } else { Write-Host \"Failed GameTest directory retained: $fixtureFull\" }; exit $code"],
+      "rationale": "Full unfiltered native suite in fresh fixture state; retain failure artifacts and report selected/total/pass/fail counts.",
+      "covers": [
+        "All 36 hosts bind 40 appearances while preserving legacy mouse/pig/villager/sheep behavior.",
+        "Four flyers reuse movement/prediction for flight and landing with medical/containment gates; throw-flight stays separate.",
+        "Only monkey/kobold/scurret have one hand and ComplexInteraction; typed equipment and one-hand clients work.",
+        "Typed portability, storage and escape preserve creature identity.",
+        "Opt-in autonomous retaliation is provoked only; player-controlled melee remains excluded.",
+        "Milk, eggs, parrot memory, cleaning and speech use shared live services and native fixtures."
+      ],
+      "log": "build/reports/nonhostile-animals/full-gametest.log"
+    }
+  ]
+}

@@ -1134,6 +1134,7 @@ public final class PowerRuntime {
                     return new PowerLiveLoop.ProcessingLoad(processingIdentity(machine).toString(),
                             state == null ? -1 : state.componentId(), processingProviders.containsKey(machine), processingDemand(machine));
                 }).toList(), elapsedTicks);
+        long solveTopologyGeneration = PowerGraphService.topologyGeneration(level);
         PowerLiveLoop.Result result = PowerLiveLoop.solve(input);
         Map<BlockPos, MvRuntimeMeterSample> runtimeMeters = MV_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
         runtimeMeters.clear();
@@ -1268,7 +1269,23 @@ public final class PowerRuntime {
                     apc, apc.breakerRevision(), visual, sampleTick, PowerGraphService.topologyGeneration(level)));
         }
         projectPowerDeviceAppearances(level, devices, sources, substations, components, known, result);
-        LAST_DIAGNOSTIC.put(level, "sources=" + input.sources().size() + ",substations=" + input.substations().size()
+        String supply = " supply{src=" + input.sources().stream().sorted(java.util.Comparator.comparing(PowerLiveLoop.Source::id))
+                .limit(16).map(source -> source.id() + ":HVc" + source.component() + "/" + source.known()
+                        + "/offer" + source.watts() + "/rated" + source.ratedMaximumWatts()).toList()
+                + "/omitted" + Math.max(0, input.sources().size() - 16)
+                + ",sub=" + input.substations().stream().sorted(java.util.Comparator.comparing(PowerLiveLoop.Substation::id))
+                .limit(16).map(sub -> sub.id() + ":HVc" + sub.hvComponent() + "/" + sub.hvKnown()
+                        + "/actualHVin" + result.substationInputWatts().getOrDefault(sub.id(), 0.0)
+                        + "/MVc" + sub.mvComponent() + "/" + sub.mvKnown()).toList()
+                + "/omitted" + Math.max(0, input.substations().size() - 16)
+                + ",apc=" + input.apcs().stream().sorted(java.util.Comparator.comparing(PowerLiveLoop.Apc::id)).limit(16)
+                .map(apc -> apc.id() + ":MVc" + apc.mvComponent() + "/" + apc.mvKnown()
+                        + "/actualInput" + result.apcInputWatts().getOrDefault(apc.id(), 0.0)
+                         + "/actualOutput" + result.apcOutputWatts().getOrDefault(apc.id(), 0.0)).toList()
+                + "/omitted" + Math.max(0, input.apcs().size() - 16) + "}";
+        String diagnostic = "solveTick=" + sampleTick + ",topologyGeneration=" + solveTopologyGeneration
+                + supply
+                + ",sources=" + input.sources().size() + ",substations=" + input.substations().size()
                 + ",apcs=" + input.apcs().size() + ",disposal=" + disposalUnits.stream().map(unit -> {
                     var state = disposalStates.get(unit);
                     var receiver = PowerGraphService.nearestApcExtensionNode(level, unit.getBlockPos());
@@ -1284,7 +1301,11 @@ public final class PowerRuntime {
                                      + sample.topologyGeneration() + ":" + sample.deliveredWatts())
                              + "/gate" + disposalUnitMeterDiagnostic(level, unit)
                              + "/r" + unit.prototype().powerWatts();
-                }).limit(2).toList() + "," + PowerGraphService.diagnosticSnapshot(level));
+                   }).limit(2).toList() + "," + PowerGraphService.diagnosticSnapshot(level);
+        int maxDiagnosticLength = 4000;
+        String truncationMarker = "...TRUNCATED(originalLength=" + diagnostic.length() + ")";
+        LAST_DIAGNOSTIC.put(level, diagnostic.length() <= maxDiagnosticLength ? diagnostic
+                : diagnostic.substring(0, maxDiagnosticLength - truncationMarker.length()) + truncationMarker);
         for (PowerDeviceBlockEntity apc : apcs)
             apc.setEnergyJoules(result.batteryEnergyJoules().getOrDefault(id(apc), apc.energyJoules()));
         VentilationPaidInterval paid = PAID_INTERVALS.computeIfAbsent(level, ignored -> new VentilationPaidInterval());

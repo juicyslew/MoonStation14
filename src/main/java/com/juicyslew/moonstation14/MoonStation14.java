@@ -70,6 +70,7 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.fixture.VentilationFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.fixture.DisposalFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureCommands::registerCommands);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.animals.diagnostics.KoboldFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.fixture.ChemMasterFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.singularity.fixture.SingularityFixtureCommands::registerCommands);
         LocalSpeechServerHooks.register(NeoForge.EVENT_BUS);
@@ -261,6 +262,7 @@ public class MoonStation14 {
             com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).tick();
             com.juicyslew.moonstation14.ms14.disposal.transport.DisposalPendingAirSavedData.retryLoaded(level);
             com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.tick(level);
+            com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.tick(level);
         }
     }
 
@@ -273,4 +275,3 @@ public class MoonStation14 {
         }
     }
 }
-

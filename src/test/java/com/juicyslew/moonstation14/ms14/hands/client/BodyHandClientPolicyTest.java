@@ -188,6 +188,24 @@ class BodyHandClientPolicyTest {
                 account, body, epoch, 3, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)));
     }
 
+    @Test void oneHandSnapshotProducesUsableSingleSlotInventoryViewsWithoutInventingASecondHand() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        var controls = policy.inventoryView();
+        var presentation = policy.presentationView();
+        assertNotNull(controls);
+        assertNotNull(presentation);
+        assertEquals(1, controls.handCount());
+        assertEquals("left", controls.active().id());
+        assertNull(controls.second());
+        assertNull(controls.hand("right"));
+        assertNull(presentation.second());
+        assertNull(BodyHandClientPolicy.otherHandForSelection(policy.snapshot()),
+                "one-handed X selection is a no-op, not a fabricated right-hand request");
+        assertNotEquals(0, policy.action(2), "one-hand active item route still obtains action authority");
+    }
+
     @Test void pushedSnapshotsAdvanceWithoutStealingQueryOrActionCorrelations() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);

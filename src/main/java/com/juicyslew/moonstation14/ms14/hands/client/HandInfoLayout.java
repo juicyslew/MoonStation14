@@ -15,6 +15,14 @@ public final class HandInfoLayout {
         if (bar == null || width < 90 || height < 120) return null;
         var first = bar.leftHand();
         var second = bar.rightHand();
+        if (second.width() == 0) {
+            int panelWidth = Math.min(96, width - 6);
+            int panelHeight = 12;
+            int y = first.y() - panelHeight - 2;
+            if (panelWidth < 24 || y < 0) return null;
+            return new Layout(new HandBarLayout.Rect((width - panelWidth) / 2, y, panelWidth, panelHeight),
+                    null, Math.max(0, panelWidth - 6));
+        }
         int panelWidth = Math.min(96, Math.min(first.x() + first.width(), width - second.x()));
         if (panelWidth < 24) return null;
         int panelHeight = 12;
@@ -28,4 +36,3 @@ public final class HandInfoLayout {
                 new HandBarLayout.Rect(rightX, y, panelWidth, panelHeight), Math.max(0, panelWidth - 6));
     }
 }
-

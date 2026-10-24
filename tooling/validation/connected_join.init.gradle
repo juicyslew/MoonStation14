@@ -1,0 +1,81 @@
+import groovy.json.JsonOutput
+
+// Isolated connected-session preparation; deliberately does not alter run/ or
+// the normal dev-launcher manifest/configuration.
+gradle.projectsEvaluated {
+    def p = gradle.rootProject
+    if (!p.plugins.hasPlugin('net.neoforged.moddev'))
+        throw new GradleException('NeoForge ModDev plugin is not applied to the root project.')
+    def runs = p.extensions.getByName('neoForge').runs
+    def root = p.file(p.findProperty('ms14ConnectedJoinRoot') ?: 'build/connected-join-fixture').canonicalFile
+    def port = p.findProperty('ms14ConnectedJoinPort')
+    if (port == null) throw new GradleException('ms14ConnectedJoinPort is required.')
+    def server = runs.findByName('server')
+    def client = runs.findByName('client')
+    server.gameDirectory = new File(root, 'server')
+    client.gameDirectory = new File(root, 'client')
+    client.programArguments.addAll('--quickPlayMultiplayer', "127.0.0.1:${port}", '--username', 'JoinDiagnostic')
+    def populationScenario = p.findProperty('ms14AnimalPopulationScenario')
+    def flyerPoseProperty = p.findProperty('ms14AnimalFlyerPoseDiagnostic')
+    if (flyerPoseProperty != null && flyerPoseProperty != 'true') throw new GradleException('ms14AnimalFlyerPoseDiagnostic must be true when specified.')
+    if (flyerPoseProperty == 'true' && populationScenario != 'mixed') throw new GradleException('Flyer pose diagnostic requires mixed population scenario.')
+    def sustainedProperty = p.findProperty('ms14AnimalPopulationSustained')
+    if (sustainedProperty != null && !(sustainedProperty in ['true', 'false']))
+        throw new GradleException('ms14AnimalPopulationSustained must be the literal true or false.')
+    def populationSustained = sustainedProperty == 'true'
+    if (populationSustained && populationScenario == null)
+        throw new GradleException('ms14AnimalPopulationSustained=true requires ms14AnimalPopulationScenario.')
+    if (populationScenario != null) {
+        if (!(populationScenario in ['parrots', 'kobolds', 'mixed']))
+            throw new GradleException('ms14AnimalPopulationScenario must be parrots, kobolds, or mixed.')
+        def captureDir = p.findProperty('ms14AnimalPopulationCaptureDir')
+        if (captureDir == null || captureDir.toString().trim().isEmpty())
+            throw new GradleException('ms14AnimalPopulationCaptureDir is required for population capture.')
+        def capturePath = p.file(captureDir).canonicalPath
+        [server, client].each { run ->
+            run.jvmArguments.addAll('-Dms14.animalPopulationDiagnostic=true', "-Dms14.animalPopulationScenario=${populationScenario}",
+                "-Dms14.animalPopulationCaptureDir=${capturePath}",
+                '-XX:StartFlightRecording=name=ms14-population,settings=profile,dumponexit=true')
+            if (flyerPoseProperty == 'true') run.jvmArguments.add('-Dms14.animalFlyerPoseDiagnostic=true')
+            if (populationSustained)
+                run.jvmArguments.add('-Dms14.animalPopulationSustained=true')
+        }
+        server.jvmArguments.add('-Dms14.animalPopulationDiagnosticPlayer=JoinDiagnostic')
+        // Keep the population fixture world unmodified by the new-world station builder.
+        server.jvmArguments.add('-Dms14.starterStation.enabled=false')
+    }
+    def roles = ['server', 'client']
+    def tasks = roles.collect { p.tasks.named('create' + it.capitalize() + 'LaunchScript').get() }
+    def runTasks = roles.collect { role -> p.tasks.named('run' + role.capitalize()) }
+    def data = roles.collect { role ->
+        def task = p.tasks.named('create' + role.capitalize() + 'LaunchScript').get()
+        [role: role, script: task.launchScript.get().asFile.canonicalPath,
+         workingDirectory: task.workingDirectory.get().toString()]
+    }
+    def output = new File(root, 'launches.json')
+    p.tasks.register('ms14PrepareConnectedJoin') {
+        group = 'ms14 validation'
+        description = 'Prepares isolated ModDev launch scripts for connected join validation.'
+        dependsOn(tasks)
+        // Resolve run prerequisites only during task-graph dependency resolution,
+        // never from projectsEvaluated (the project state lock is not held there).
+        dependsOn {
+            runTasks.collectMany { provider ->
+                def runTask = provider.get()
+                runTask.taskDependencies.getDependencies(runTask)
+            }
+        }
+        doLast {
+            def launches = data.collect { entry ->
+                def script = new File(entry.script)
+                if (!script.isFile()) throw new GradleException("Missing ${entry.role} launch script: ${script}")
+                def dir = new File(entry.workingDirectory)
+                if (!dir.isDirectory() && !dir.mkdirs()) throw new GradleException("Cannot create run directory: ${dir}")
+                [role: entry.role, script: script.canonicalPath, workingDirectory: dir.canonicalPath]
+            }
+            output.parentFile.mkdirs()
+            output.setText(JsonOutput.prettyPrint(JsonOutput.toJson([launches: launches, port: port.toString()])), 'UTF-8')
+            println("MS14_CONNECTED_JOIN_MANIFEST=${output.canonicalPath}")
+        }
+    }
+}

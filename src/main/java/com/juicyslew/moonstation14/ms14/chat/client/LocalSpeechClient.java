@@ -97,10 +97,9 @@ public final class LocalSpeechClient {
             clear();
             world = level;
         }
-        if (!payload.soundCue().isEmpty() && payload.mode() != LocalSpeechPayload.Mode.W_MUFFLED
-                && "mouse_squeak".equals(payload.soundCue()))
+        if (!payload.soundCue().isEmpty() && payload.mode() != LocalSpeechPayload.Mode.W_MUFFLED)
             level.playLocalSound(payload.x(), payload.y(), payload.z(),
-                    com.juicyslew.moonstation14.sounds.ModSounds.MOUSE_SQUEAK.get(),
+                    com.juicyslew.moonstation14.sounds.ModSounds.speechSound(payload.soundCue(), payload.text()).get(),
                     net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f, false);
         long now = System.currentTimeMillis();
         boolean muffled = payload.mode() == LocalSpeechPayload.Mode.W_MUFFLED;
@@ -729,4 +728,3 @@ public final class LocalSpeechClient {
         return result;
     }
 }
-

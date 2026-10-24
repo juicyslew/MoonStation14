@@ -28,6 +28,10 @@ import com.juicyslew.moonstation14.MoonStation14;
 
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
+import com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem;
+import com.juicyslew.moonstation14.ms14.animals.flight.FlightState;
+import com.juicyslew.moonstation14.ms14.animals.flight.FlightTransitionPolicy;
+import com.juicyslew.moonstation14.ms14.character.components.FlightComponent;
 
 /** One explicit server-side collision-resolved step for an enrolled, movement-owned grounded mob. */
 public final class GroundedHarnessWorldStep {
@@ -45,6 +49,11 @@ public final class GroundedHarnessWorldStep {
     /** Controlled accepted input sequence is forwarded only to contained escape dispatch. */
     public Optional<CharacterMovementState> step(Mob body, int wishX, int wishZ,
                                                    boolean jump, boolean sprint, float yaw, long originSequence) {
+        return step(body, wishX, wishZ, jump, false, sprint, yaw, originSequence);
+    }
+
+    public Optional<CharacterMovementState> step(Mob body, int wishX, int wishZ,
+                                                   boolean jump, boolean sneak, boolean sprint, float yaw, long originSequence) {
         if (!(GroundedHarnessLease.isOwnedBodyEligible(body) || isOwnedPlayerCharacterEligible(body))
                 || !((MindControlledMob) body).moonstation14$isMovementOwned()
                 || wishX < -GroundedHarnessMotor.INPUT_QUANTIZATION
@@ -52,7 +61,7 @@ public final class GroundedHarnessWorldStep {
                 || wishZ < -GroundedHarnessMotor.INPUT_QUANTIZATION
                 || wishZ > GroundedHarnessMotor.INPUT_QUANTIZATION
                 || !Float.isFinite(yaw) || yaw < -180f || yaw > 180f) return Optional.empty();
-        return stepShared(body, wishX, wishZ, jump, sprint, yaw, originSequence, 0d, () -> true);
+        return stepShared(body, wishX, wishZ, jump, sneak, sprint, yaw, originSequence, 0d, () -> true);
     }
 
     /** NPC entry: authority is sampled again at the movement boundary; player claims always win. */
@@ -62,11 +71,37 @@ public final class GroundedHarnessWorldStep {
         return stepNpc(body, wishX, wishZ, jump, sprint, yaw, 0d, authority);
     }
 
+    /** NPC task movement with an explicit natural-flight mode independent of signed altitude wish. */
+    public Optional<CharacterMovementState> stepNpcAutonomousFlight(Mob body, int wishX, int wishZ,
+                                                       boolean jump, boolean sprint, float yaw,
+                                                       double desiredSpeedPerSecond, double verticalWish,
+                                                       FlightState flightIntent, BooleanSupplier authority) {
+        if (!FlightTransitionPolicy.autonomousIntentValid(flightIntent)) return Optional.empty();
+        return stepNpcInternal(body, wishX, wishZ, jump, sprint, yaw, desiredSpeedPerSecond,
+                verticalWish, flightIntent, authority);
+    }
+
     /** NPC task speed is absolute in prototype units and converted against the resolved movement policy. */
     public Optional<CharacterMovementState> stepNpc(Mob body, int wishX, int wishZ,
                                                        boolean jump, boolean sprint, float yaw,
                                                        double desiredSpeedPerSecond, BooleanSupplier authority) {
-        if (!Double.isFinite(desiredSpeedPerSecond) || desiredSpeedPerSecond < 0d) return Optional.empty();
+        return stepNpcInternal(body, wishX, wishZ, jump, sprint, yaw, desiredSpeedPerSecond, null, authority);
+    }
+
+    private Optional<CharacterMovementState> stepNpcInternal(Mob body, int wishX, int wishZ,
+                                                               boolean jump, boolean sprint, float yaw,
+                                                                double desiredSpeedPerSecond, Double npcVerticalWish,
+                                                                BooleanSupplier authority) {
+        return stepNpcInternal(body, wishX, wishZ, jump, sprint, yaw, desiredSpeedPerSecond, npcVerticalWish, null, authority);
+    }
+
+    private Optional<CharacterMovementState> stepNpcInternal(Mob body, int wishX, int wishZ,
+                                                                boolean jump, boolean sprint, float yaw,
+                                                                double desiredSpeedPerSecond, Double npcVerticalWish,
+                                                                FlightState npcFlightIntent, BooleanSupplier authority) {
+        if (!Double.isFinite(desiredSpeedPerSecond) || desiredSpeedPerSecond < 0d
+                || npcVerticalWish != null && (!Double.isFinite(npcVerticalWish)
+                || npcVerticalWish < -1d || npcVerticalWish > 1d)) return Optional.empty();
         if (body == null || authority == null || !(body instanceof NpcMovementDriven driven)
                 || !driven.moonstation14$isNpcMovementDriven()
                 || body instanceof MindControlledMob owner && owner.moonstation14$isMovementOwned()
@@ -78,14 +113,46 @@ public final class GroundedHarnessWorldStep {
                 || wishX < -GroundedHarnessMotor.INPUT_QUANTIZATION || wishX > GroundedHarnessMotor.INPUT_QUANTIZATION
                 || wishZ < -GroundedHarnessMotor.INPUT_QUANTIZATION || wishZ > GroundedHarnessMotor.INPUT_QUANTIZATION
                 || !Float.isFinite(yaw) || yaw < -180f || yaw > 180f || !authority.getAsBoolean()) return Optional.empty();
-        return stepShared(body, wishX, wishZ, jump, sprint, yaw, 0L, desiredSpeedPerSecond, authority);
+        return stepShared(body, wishX, wishZ, jump, false, sprint, yaw, 0L, desiredSpeedPerSecond, authority,
+                npcVerticalWish, npcFlightIntent);
+    }
+
+    /** NPC task speed plus normalized natural-flight altitude intent in [-1, 1]. */
+    public Optional<CharacterMovementState> stepNpc(Mob body, int wishX, int wishZ,
+                                                       boolean jump, boolean sprint, float yaw,
+                                                       double desiredSpeedPerSecond, double naturalFlightVerticalWish,
+                                                       BooleanSupplier authority) {
+        return stepNpcInternal(body, wishX, wishZ, jump, sprint, yaw, desiredSpeedPerSecond,
+                naturalFlightVerticalWish, authority);
     }
 
     /** Forced external momentum uses this resolved NPC motor without granting voluntary control. */
     public Optional<CharacterMovementState> stepNpcFlight(Mob body) {
         if (!isNpcFlightBodyEligible(body)) return Optional.empty();
-        return stepShared(body, 0, 0, false, false, body.getYRot(), 0L, 0d,
+        return stepShared(body, 0, 0, false, false, false, body.getYRot(), 0L, 0d,
                 () -> isNpcFlightBodyEligible(body));
+    }
+
+    /** Single-owner world tick for natural flyers not owned by player/NPC intent motors. */
+    public Optional<CharacterMovementState> stepNaturalFlight(Mob body) {
+        if (body == null || FlightSystem.capability(body).isEmpty() || !FlightSystem.isFlying(body)
+                || !isNaturalFlightBodyEligible(body)) return Optional.empty();
+        double verticalWish = FlightTransitionPolicy.naturalFlightVerticalWish(FlightSystem.state(body), body.onGround());
+        return stepShared(body, 0, 0, false, false, false, body.getYRot(), 0L, 0d,
+                () -> isNaturalFlightBodyEligible(body), verticalWish);
+    }
+
+    public static boolean isNaturalFlightBodyEligible(Mob body) {
+        if (body == null || body.isRemoved() || !body.isAlive() || body.isDeadOrDying()
+                || body.level().isClientSide || !(body.level() instanceof ServerLevel level)
+                || level.getServer() == null || !level.getServer().isSameThread() || !body.isAddedToLevel()
+                || level.getEntity(body.getUUID()) != body || body.isPassenger()
+                || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(body)
+                || com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                    .ownerOf(body).isPresent()
+                || com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.active(body)) return false;
+        if (body instanceof MindControlledMob owner && owner.moonstation14$isMovementOwned()) return false;
+        return !(body instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven());
     }
 
     public static boolean isNpcFlightBodyEligible(Mob body) {
@@ -118,11 +185,54 @@ public final class GroundedHarnessWorldStep {
     }
 
     private Optional<CharacterMovementState> stepShared(Mob body, int wishX, int wishZ,
-                                                          boolean jump, boolean sprint, float yaw, long originSequence,
+                                                          boolean jump, boolean sneak, boolean sprint, float yaw, long originSequence,
                                                           double desiredSpeedPerSecond, BooleanSupplier authority) {
+        return stepShared(body, wishX, wishZ, jump, sneak, sprint, yaw, originSequence, desiredSpeedPerSecond,
+                authority, null);
+    }
+
+    private Optional<CharacterMovementState> stepShared(Mob body, int wishX, int wishZ,
+                                                          boolean jump, boolean sneak, boolean sprint, float yaw, long originSequence,
+                                                          double desiredSpeedPerSecond, BooleanSupplier authority,
+                                                           Double npcVerticalWish) {
+        return stepShared(body, wishX, wishZ, jump, sneak, sprint, yaw, originSequence,
+                desiredSpeedPerSecond, authority, npcVerticalWish, null);
+    }
+
+    private Optional<CharacterMovementState> stepShared(Mob body, int wishX, int wishZ,
+                                                          boolean jump, boolean sneak, boolean sprint, float yaw, long originSequence,
+                                                          double desiredSpeedPerSecond, BooleanSupplier authority,
+                                                          Double npcVerticalWish, FlightState npcFlightIntent) {
 
         var data = CharacterIdentitySystem.resolveForActor(body).orElse(null);
         if (data == null) return Optional.empty();
+        FlightComponent flight = data.component(FlightComponent.class).orElse(null);
+        double flightSpeed = flight == null ? 0d : data.component(MovementSpeedModifierComponent.class)
+                .map(movement -> movement.walkSpeed() * CharacterMovementPolicy.MINECRAFT_GROUND_SPEED_SCALE)
+                .orElse(0d);
+        FlightState flightState = FlightSystem.state(body);
+        boolean naturalFlight = flight != null && FlightSystem.normalizeFlightEligibility(body);
+        flightState = FlightSystem.state(body);
+        if (flight != null && npcFlightIntent == null && (jump || npcVerticalWish != null && npcVerticalWish > 0d)
+                && body.onGround() && !naturalFlight) {
+            FlightSystem.requestTakeoff(body);
+            flightState = FlightSystem.state(body);
+            naturalFlight = FlightSystem.normalizeFlightEligibility(body);
+            flightState = FlightSystem.state(body);
+        }
+        if (flight != null && naturalFlight) {
+            FlightState desired = npcFlightIntent != null ? npcFlightIntent : npcVerticalWish != null
+                    ? FlightTransitionPolicy.explicitVerticalState(true, npcVerticalWish)
+                    : FlightTransitionPolicy.heldVerticalState(true, jump, sneak);
+            if (desired == FlightState.LANDING) FlightSystem.requestLanding(body);
+            else FlightSystem.setState(body, desired);
+            flightState = FlightSystem.state(body);
+        }
+        double verticalWish = !naturalFlight ? 0d
+                : npcFlightIntent == FlightState.LANDING ? -Math.max(0.1d, Math.abs(npcVerticalWish == null ? 1d : npcVerticalWish)) * flightSpeed
+                : npcFlightIntent == FlightState.FLYING ? npcVerticalWish * flightSpeed
+                : npcVerticalWish != null ? npcVerticalWish * flightSpeed
+                : FlightTransitionPolicy.verticalWish(flightState, jump, sneak, body.onGround(), flightSpeed);
         boolean trackedFlightMotion = ExternalBodyFlight.tracked(body);
         boolean externalFlight = ExternalBodyFlight.active(body);
         if (trackedFlightMotion && ExternalBodyFlight.alreadyAdvancedThisTick(body)) {
@@ -179,7 +289,8 @@ public final class GroundedHarnessWorldStep {
         double voluntaryFactor = com.juicyslew.moonstation14.ms14.movement.PullMovementPolicy
                 .voluntaryMovementFactor(CharacterControlSystem.isKnockedDown(body), down,
                         PostureSystem.crawlMultiplier(body), BodyPullService.movementMultiplier(body, sprint))
-                * taskSpeedFactor;
+                * taskSpeedFactor * com.juicyslew.moonstation14.ms14.animals.flight.FlightGroundSpeedPolicy
+                        .voluntaryFactor(flight, flightState, externalFlight);
         if (!com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isAlive(body)) voluntaryFactor = 0d;
         CharacterMovementState state = new CharacterMovementState(vector(initial),
                 new MovementVector(initialVelocity.x * 20d, initialVelocity.y * 20d, initialVelocity.z * 20d),
@@ -188,6 +299,7 @@ public final class GroundedHarnessWorldStep {
         MovementVector[] actualForDiagnostics = {MovementVector.ZERO};
         boolean wasGrounded = body.onGround();
         boolean[] authorityRejected = {false};
+        boolean naturalFlightStep = naturalFlight;
         MovementCollisionResolver resolver = (position, requested, wasOnGround) -> {
             requestedForDiagnostics[0] = requested;
             Vec3 before = body.position();
@@ -195,6 +307,10 @@ public final class GroundedHarnessWorldStep {
                 authorityRejected[0] = true;
                 return new MovementCollisionResolver.CollisionResult(MovementVector.ZERO, body.onGround());
             }
+            // Entity.move invokes checkFallDamage after collision resolution. Clear only for an
+            // alive, actively powered natural-flight step, before that callback (including landing).
+            if (naturalFlightStep && FlightSystem.isActivePoweredFlight(body))
+                body.fallDistance = 0f;
             body.move(MoverType.SELF, new Vec3(requested.x(), requested.y(), requested.z()));
             Vec3 accepted = body.position().subtract(before);
             actualForDiagnostics[0] = vector(accepted);
@@ -208,11 +324,11 @@ public final class GroundedHarnessWorldStep {
                 GroundedHarnessPhysics.JUMP_VELOCITY_PER_SECOND,
                 GroundedHarnessPhysics.VERTICAL_DRAG,
                 gravityPulse, impulseBound, body.maxUpStep(), resolver, surfaceFactor, voluntaryFactor,
-                tetherImpulse(body));
+                 tetherImpulse(body), GroundedHarnessPhysics.gravityAirControl(sprint));
         CharacterMovementState result;
         try {
-            result = new GroundedHarnessMotor(policy).tick(state, wishX, wishZ, jump, sprint, yaw, environment,
-                    !CharacterControlSystem.canMove(body), externalFlight);
+            result = new GroundedHarnessMotor(policy).tick(state, wishX, wishZ, jump && !naturalFlight, sprint, yaw, environment,
+                    !CharacterControlSystem.canMove(body), externalFlight, verticalWish, naturalFlight);
         } catch (IllegalArgumentException | NullPointerException exception) {
             MoonStation14.LOGGER.warn("Rejected grounded harness world step body={} before={} after={} velocity={} requested={} actual={} wasGrounded={} postGrounded={} maxStep={} jump={} wish=({}, {}) yaw={} reason={}",
                     body.getUUID(), initial, body.position(), initialVelocity, requestedForDiagnostics[0],
@@ -221,6 +337,10 @@ public final class GroundedHarnessWorldStep {
             return Optional.empty();
         }
         if (authorityRejected[0]) return Optional.empty();
+        if (flight != null && naturalFlight && body.onGround() && result.velocity().y() <= 0d) {
+            FlightSystem.setState(body, FlightState.GROUNDED);
+            naturalFlight = false;
+        }
         body.setDeltaMovement(result.velocity().x() / 20d, result.velocity().y() / 20d,
                 result.velocity().z() / 20d);
         if (trackedFlightMotion) {

@@ -87,7 +87,7 @@ final class PopupActionPlan {
                 || destination.entries().stream().anyMatch(e -> e.token().equals(captured.child()))) return null;
         var id = ResourceLocation.tryParse(captured.itemId());
         if (id == null || !StoragePopupWorkspace.preview(destination.geometry(), null,
-                ItemFootprints.clientForId(id), anchor, rotation, true).maySendAction()) return null;
+                ItemFootprints.clientForPresentation(id, child.presentation()), anchor, rotation, true).maySendAction()) return null;
         return new WorldWorldPlan(source.target(), destination.target(), child.token(), captured.oldAnchor(),
                 captured.oldRotation(), anchor, rotation);
     }
@@ -189,7 +189,7 @@ final class PopupActionPlan {
             for (var entry : bodyGrid.entries()) {
                 var entryId = ResourceLocation.tryParse(entry.itemId());
                 if (entryId == null) return null;
-                var placed = occupancy.place(entry.token(), ItemFootprints.clientForId(entryId),
+                var placed = occupancy.place(entry.token(), ItemFootprints.clientForPresentation(entryId, entry.presentation()),
                         new GridGeometry.Cell(entry.x(), entry.y()), GridGeometry.Rotation.values()[entry.rotation() / 90]);
                 if (!placed.accepted()) return null;
                 occupancy = placed.snapshot();
@@ -199,7 +199,7 @@ final class PopupActionPlan {
                     || world.entries().stream().anyMatch(e -> e.token().equals(source.child()))) return null;
             occupancy = world.geometry();
         }
-        if (!StoragePopupWorkspace.preview(occupancy, null, ItemFootprints.clientForId(item), anchor, rotation, true).maySendAction()) return null;
+        if (!StoragePopupWorkspace.preview(occupancy, null, ItemFootprints.clientForPresentation(item, source.presentation()), anchor, rotation, true).maySendAction()) return null;
         return new WorldCrossPlan(fromWorld ? BodyWorldCrossAction.Direction.WORLD_TO_BODY
                 : BodyWorldCrossAction.Direction.BODY_TO_WORLD, world.target(), worn(bodyHost), id,
                 bodyHost.token(), source.child(), source.oldAnchor(), source.oldRotation(), anchor, rotation);
@@ -245,7 +245,8 @@ final class PopupActionPlan {
         var id = ResourceLocation.tryParse(itemId);
         if (source.size() != 1 || captured != 1 || id == null || world.entries().size() >= GridGeometry.MAX_ENTRIES
                 || world.entries().stream().anyMatch(e -> token.equals(e.token()))) return null;
-        if (!StoragePopupWorkspace.preview(world.geometry(), null, ItemFootprints.clientForId(id), anchor, rotation, true).maySendAction()) return null;
+        if (!StoragePopupWorkspace.preview(world.geometry(), null,
+                ItemFootprints.clientForPresentation(id, source.getFirst().presentation()), anchor, rotation, true).maySendAction()) return null;
         return new WorldCrossPlan(BodyWorldCrossAction.Direction.EQUIPMENT_TO_WORLD, world.target(), true,
                 slotId, token, token, new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0, anchor, rotation);
     }
@@ -337,12 +338,12 @@ final class PopupActionPlan {
         for (var child : destination.entries()) {
             var childId = ResourceLocation.tryParse(child.itemId());
             if (childId == null) return null;
-            var placed = occupancy.place(child.token(), ItemFootprints.clientForId(childId),
+            var placed = occupancy.place(child.token(), ItemFootprints.clientForPresentation(childId, child.presentation()),
                     new GridGeometry.Cell(child.x(), child.y()), GridGeometry.Rotation.values()[child.rotation() / 90]);
             if (!placed.accepted()) return null;
             occupancy = placed.snapshot();
         }
-        if (!StoragePopupWorkspace.preview(occupancy, null, ItemFootprints.clientForId(id), anchor, rotation, true).maySendAction()) return null;
+        if (!StoragePopupWorkspace.preview(occupancy, null, ItemFootprints.clientForPresentation(id, entry.presentation()), anchor, rotation, true).maySendAction()) return null;
         boolean fromHeld = source.host().kind() == StoragePopupWorkspace.HostKind.HELD;
         boolean toHeld = target.kind() == StoragePopupWorkspace.HostKind.HELD;
         var action = fromHeld ? toHeld ? BodyHandActionRequest.Action.GRID_BODY_HELD_TO_HELD
@@ -399,12 +400,13 @@ final class PopupActionPlan {
         var occupancy = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(grid.width(), grid.height()));
         for (var entry : grid.entries()) {
             var entryId = ResourceLocation.tryParse(entry.itemId()); if (entryId == null) return null;
-            var placed = occupancy.place(entry.token(), ItemFootprints.clientForId(entryId),
+            var placed = occupancy.place(entry.token(), ItemFootprints.clientForPresentation(entryId, entry.presentation()),
                     new GridGeometry.Cell(entry.x(), entry.y()), GridGeometry.Rotation.values()[entry.rotation() / 90]);
             if (!placed.accepted()) return null;
             occupancy = placed.snapshot();
         }
-        if (!StoragePopupWorkspace.preview(occupancy, null, ItemFootprints.clientForId(id), anchor, rotation, true).maySendAction()) return null;
+        var sourcePresentation = proof.equipment().stream().filter(s -> sourceToken.equals(s.token())).map(BodyHandStateSnapshot.EquipmentSlot::presentation).findFirst().orElse(null);
+        if (!StoragePopupWorkspace.preview(occupancy, null, ItemFootprints.clientForPresentation(id, sourcePresentation), anchor, rotation, true).maySendAction()) return null;
         return new BodyHandActionRequest(BodyHandActionRequest.Action.GRID_EQUIPMENT_TO_BODY, proof.activeHand(),
                 proof.epoch(), sequence, proof.revision(), null, sourceToken, sourceToken, anchor.x(), anchor.y(),
                 rotation.degrees(), 0, 0, 0, destination.token(), sourceSlot, destinationId);
@@ -422,4 +424,3 @@ final class PopupActionPlan {
 
     private PopupActionPlan() { }
 }
-

@@ -50,9 +50,13 @@ class CharacterComponentMergeStrategyTest {
 
     @Test
     void ambientVocalizationIsTypedInheritedAndRoundTripsItsLocalDefaults() {
+        var legacyMousePolicy = CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE,
+                com.google.gson.JsonParser.parseString("{\"type\":\"AmbientVocalization\"}")).getOrThrow();
+        var legacyMouse = (com.juicyslew.moonstation14.ms14.character.components.AmbientVocalizationComponent) legacyMousePolicy;
+        assertEquals("mouse_squeak", legacyMouse.sound(), "legacy mouse policies retain their original cue by default");
         var resolved = resolve(
                 entry("ambient_base", "{\"abstract\":true,\"components\":[{\"type\":\"AmbientVocalization\","
-                        + "\"minimumIntervalTicks\":160,\"maximumIntervalTicks\":400,\"volume\":0.4}]}"),
+                        + "\"minimumIntervalTicks\":160,\"maximumIntervalTicks\":400,\"volume\":0.4,\"sound\":\"mouse_squeak\"}]}"),
                 entry("mouse_ambient", "{\"parent\":\"ambient_base\"}"));
         JsonObject component = component(resolved.get(id("mouse_ambient")));
         var policy = (com.juicyslew.moonstation14.ms14.character.components.AmbientVocalizationComponent)
@@ -60,6 +64,7 @@ class CharacterComponentMergeStrategyTest {
         assertEquals(160, policy.minimumIntervalTicks());
         assertEquals(400, policy.maximumIntervalTicks());
         assertEquals(0.4f, policy.volume());
+        assertEquals("mouse_squeak", policy.sound());
         var encoded = CharacterComponentRegistry.CODEC.encodeStart(JsonOps.INSTANCE, policy).getOrThrow();
         assertEquals(policy, CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
     }

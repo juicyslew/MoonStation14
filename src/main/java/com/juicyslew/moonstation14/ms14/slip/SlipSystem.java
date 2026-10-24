@@ -193,7 +193,8 @@ public final class SlipSystem {
         // StepTriggerSystem latches once speed/contact/CanSlip are satisfied. The later
         // slippery attempt, target NoSlip, and knockdown checks do not undo that latch.
         if (!latch(level, actorId, sourcePosition)) return;
-        if (character.component(NoSlipComponent.class).isPresent()) return;
+        if (character.component(NoSlipComponent.class).isPresent()
+                || character.component(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).isPresent()) return;
         boolean knockedDown = StatusEffectSystem.hasStatus(statusTrait.toHandleSelf(), level, KNOCKDOWN);
         if (knockedDown && !profile.superSlippery()) return;
         SlipAttempt attempt = new SlipAttempt(level, position.immutable(), puddle, target, profile, knockedDown);
@@ -391,4 +392,3 @@ public final class SlipSystem {
         private int latchCount;
     }
 }
-

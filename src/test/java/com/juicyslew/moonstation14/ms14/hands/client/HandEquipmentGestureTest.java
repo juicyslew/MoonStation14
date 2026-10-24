@@ -37,6 +37,26 @@ class HandEquipmentGestureTest {
                         back.token() != null && active.token() == null, false, false), null, null);
     }
 
+    @Test void oneHandedKoboldGesturesUseOnlyRealHandAndNeverNominateSecond() {
+        var left = new BodyHandStateSnapshot.Hand("left", "token", "moonstation14:grey_cap", 1);
+        var backSlot = new BodyHandStateSnapshot.EquipmentSlot("back", null, null, 0, null, null, 0);
+        var beltSlot = new BodyHandStateSnapshot.EquipmentSlot("belt", null, null, 0, null, null, 0);
+        var proof = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK,
+                UUID.randomUUID(), UUID.randomUUID(), 7, 3, "left", List.of(left), List.of(backSlot, beltSlot));
+        var oneHand = new BodyHandClientPolicy.InventoryView(left, null, "left",
+                new BodyHandClientPolicy.EquipmentView(beltSlot, false, false, false, false),
+                new BodyHandClientPolicy.EquipmentView(backSlot, true, false, false, false), null, null);
+        var drag = HandEquipmentGesture.beginAny(FIRST, oneHand, proof);
+        assertNotNull(drag);
+        assertEquals(new HandEquipmentGesture.Plan(BodyHandActionRequest.Action.EQUIP_BACK, "left"),
+                HandEquipmentGesture.plan(drag, BACK, oneHand, proof));
+        assertNull(HandEquipmentGesture.plan(drag, SECOND, oneHand, proof),
+                "one-hand UI cannot issue a request for a fabricated second hand");
+        assertNull(HandEquipmentGesture.dropOnHand(HandEquipmentGesture.beginSlot("back", oneHand, proof),
+                SECOND, oneHand, proof));
+        assertNull(oneHand.hand("right"));
+    }
+
     @Test void capturedDragSurvivesUnchangedAuthorityAndCancelsOnRemovalOrReplacement() {
         var proof = snapshot("left", BAG, null, false, false);
         var drag = HandEquipmentGesture.beginAny(FIRST, view(proof), proof);

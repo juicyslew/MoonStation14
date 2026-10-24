@@ -43,6 +43,28 @@ public class ModDataAttachments {
     // Create the DeferredRegister for attachment types
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, MoonStation14.MOD_ID);
 
+    /** Natural flight mode is retained across save/load and replicated for state-dependent presentation. */
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>> FLIGHT = ATTACHMENT_TYPES.register(
+            "flight", () -> AttachmentType.builder((Supplier<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>) com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment::new)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.CODEC)
+                    .sync(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.STREAM_CODEC)
+                    .build()
+    );
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.UdderAttachment>> UDDER = ATTACHMENT_TYPES.register(
+            "udder", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.UdderAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.UdderAttachment.CODEC)
+                    .build());
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment>> EGG_LAYER = ATTACHMENT_TYPES.register(
+            "egg_layer", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment.CODEC).build());
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment>> ABSORBENT_CLEANING = ATTACHMENT_TYPES.register(
+            "absorbent_cleaning", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment.CODEC,
+                            state -> state.nextUseTick() != 0 || state.nextCycleTick() != 0).build());
+
     public static final Supplier<AttachmentType<ReagentAttachment>> REAGENT = ATTACHMENT_TYPES.register(
             "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment())
                     .serialize(ReagentAttachment.CODEC, attachment -> !attachment.isEmpty())
@@ -261,4 +283,3 @@ public class ModDataAttachments {
         ATTACHMENT_TYPES.register(eventBus);
     }
 }
-

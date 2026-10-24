@@ -64,16 +64,21 @@ class PaControlWorkspacePolicyTest {
 
     @Test void replacementCloseThenOpenSelectsFreshSessionAndRejectsWrongAuthority() {
         var workspace=new PaControlWorkspace(); UUID body=UUID.randomUUID(),machine=UUID.randomUUID();
-        workspace.expectOpen(41,body,2,DIM,new BlockPos(0,4,7),machine,PROFILE,10);
-        var closed=new com.juicyslew.moonstation14.ms14.singularity.pa.control.PaControlSnapshot(UUID.randomUUID(),41,UUID.randomUUID(),body,2,DIM,0,0,0,PROFILE,-1,0,0,false,false,false,0,0,List.of(),new boolean[0],false,true);
-        workspace.receive(closed);
-        var fresh=snapshot(UUID.randomUUID(),41,machine,body,2,0,1,true);
-        var wrongBody=snapshot(UUID.randomUUID(),41,machine,UUID.randomUUID(),2,0,1,true);
-        var wrongEpoch=snapshot(UUID.randomUUID(),41,machine,body,3,0,1,true);
-        var wrongMachine=snapshot(UUID.randomUUID(),41,UUID.randomUUID(),body,2,0,1,true);
-        assertFalse(workspace.activateOpen(wrongBody)); assertFalse(workspace.activateOpen(wrongEpoch)); assertFalse(workspace.activateOpen(wrongMachine));
-        assertTrue(workspace.activateOpen(fresh));
-        assertEquals(fresh.sessionId(),workspace.session().sessionId()); assertNull(workspace.pendingCorrelation());
+        try {
+            workspace.expectOpen(41,body,2,DIM,new BlockPos(0,4,7),machine,PROFILE,10);
+            var closed=new com.juicyslew.moonstation14.ms14.singularity.pa.control.PaControlSnapshot(UUID.randomUUID(),41,UUID.randomUUID(),body,2,DIM,0,0,0,PROFILE,-1,0,0,false,false,false,0,0,List.of(),new boolean[0],false,true);
+            workspace.receive(closed);
+            var fresh=snapshot(UUID.randomUUID(),41,machine,body,2,0,1,true);
+            var wrongBody=snapshot(UUID.randomUUID(),41,machine,UUID.randomUUID(),2,0,1,true);
+            var wrongEpoch=snapshot(UUID.randomUUID(),41,machine,body,3,0,1,true);
+            var wrongMachine=snapshot(UUID.randomUUID(),41,UUID.randomUUID(),body,2,0,1,true);
+            assertFalse(workspace.activateOpen(wrongBody)); assertFalse(workspace.activateOpen(wrongEpoch)); assertFalse(workspace.activateOpen(wrongMachine));
+            assertTrue(workspace.activateOpen(fresh));
+            assertEquals(fresh.sessionId(),workspace.session().sessionId()); assertNull(workspace.pendingCorrelation());
+        } finally {
+            // activateOpen registers this fixture's overlay; retire it locally without a client packet.
+            workspace.closeLocal(false);
+        }
     }
 
     @Test void paGeometryPreservesTopLeftAcrossViewportAndSnapshotRefresh() {

@@ -53,6 +53,48 @@ public class ModSounds {
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
     public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
     public static final Supplier<SoundEvent> MOUSE_SQUEAK = registerSoundEvent("mouse_squeak");
+    private record SpeechSounds(Supplier<SoundEvent> say, Supplier<SoundEvent> ask, Supplier<SoundEvent> exclaim) {
+        SpeechSounds(Supplier<SoundEvent> all) { this(all, all, all); }
+    }
+    private static SpeechSounds speechCollection(String id) {
+        return new SpeechSounds(registerSoundEvent("speech/" + id),
+                registerSoundEvent("speech/" + id + "_ask"), registerSoundEvent("speech/" + id + "_exclaim"));
+    }
+    private static final java.util.Map<String, SpeechSounds> SPEECH_SOUNDS = java.util.Map.ofEntries(
+            java.util.Map.entry("Squeak", new SpeechSounds(MOUSE_SQUEAK)),
+            java.util.Map.entry("mouse_squeak", new SpeechSounds(MOUSE_SQUEAK)),
+            java.util.Map.entry("Cluck", new SpeechSounds(registerSoundEvent("speech/cluck"))),
+            java.util.Map.entry("Goat", new SpeechSounds(registerSoundEvent("speech/goat"))),
+            java.util.Map.entry("Monkey", new SpeechSounds(registerSoundEvent("speech/monkey"))),
+            java.util.Map.entry("Parrot", new SpeechSounds(registerSoundEvent("speech/parrot"))),
+            java.util.Map.entry("Cat", new SpeechSounds(registerSoundEvent("speech/cat"))),
+            java.util.Map.entry("Dog", new SpeechSounds(registerSoundEvent("speech/dog"))),
+            java.util.Map.entry("Lizard", speechCollection("lizard")),
+            java.util.Map.entry("Arachnid", speechCollection("arachnid")),
+            java.util.Map.entry("Alto", speechCollection("alto")),
+            java.util.Map.entry("Wawa", speechCollection("wawa")));
+
+    public static boolean hasSpeechSound(String id) { return SPEECH_SOUNDS.containsKey(id); }
+    /** Resolves an explicit ambient cue from registered animal voice collections. */
+    public static Supplier<SoundEvent> ambientSound(String id) {
+        SpeechSounds voice = SPEECH_SOUNDS.get(id);
+        if (voice != null) return voice.say();
+        return null;
+    }
+    public static Supplier<SoundEvent> speechSound(String id) {
+        return speechSounds(id).say();
+    }
+    public static Supplier<SoundEvent> speechSound(String id, String text) {
+        SpeechSounds sounds = speechSounds(id);
+        if (text != null && text.stripTrailing().endsWith("?")) return sounds.ask();
+        if (text != null && text.stripTrailing().endsWith("!")) return sounds.exclaim();
+        return sounds.say();
+    }
+    private static SpeechSounds speechSounds(String id) {
+        SpeechSounds sounds = SPEECH_SOUNDS.get(id);
+        if (sounds == null) throw new IllegalArgumentException("Unknown registered speech sound: " + id);
+        return sounds;
+    }
     // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     public static final Supplier<SoundEvent> DISPOSAL_FLUSH = registerSoundEvent("disposal/flush");
     public static final Supplier<SoundEvent> DISPOSAL_PIPE_CLANG = registerSoundEvent("disposal/pipe_clang");
@@ -89,6 +131,8 @@ public class ModSounds {
         return sound;
     }
 
+    public static boolean hasEmote(String id) { return EMOTES.containsKey(id); }
+
     private static Supplier<SoundEvent> registerSoundEvent(String name){
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));
@@ -103,4 +147,3 @@ public class ModSounds {
         SOUND_EVENTS.register(eventBus);
     }
 }
-

@@ -24,8 +24,9 @@ class PortableBodyPrototypeTest {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
         manager.reload(ModCharacters.CHARACTER_TYPE, java.util.Map.of(
-                id("supported_simple_mob"), read("supported_simple_mob"),
-                id("supported_animal"), read("supported_animal"),
+                 id("supported_simple_mob"), read("supported_simple_mob"),
+                 id("supported_animal_core"), read("supported_animal_core"),
+                 id("supported_animal"), read("supported_animal"),
                 id("supported_npc"), read("supported_npc"),
                 id("mouse"), read("mouse"), id("human"), read("human")));
         var chars = manager.snapshot(ModCharacters.CHARACTER_TYPE);
@@ -49,7 +50,22 @@ class PortableBodyPrototypeTest {
                 resolved.get(LooseObjectProfile.MOUSE_TINY_ID)).getOrThrow().physicalWidth());
         assertEquals(.3f, LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE,
                 resolved.get(LooseObjectProfile.MOUSE_TINY_ID)).getOrThrow().physicalHeight());
+        for (String profile : java.util.List.of("bee_tiny", "butterfly_tiny", "cockroach_tiny", "hamster_tiny", "mothroach_normal")) {
+            var id = id(profile);
+            var parsed = LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE, resolved.get(id)).getOrThrow();
+            assertTrue(parsed.physicalWidth() > 0 && parsed.physicalHeight() > 0, profile);
+            assertEquals("item", parsed.geometry(), profile);
+            assertEquals("flat_sprite", parsed.renderKind(), profile);
+        }
+        assertEquals(.4f, LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE,
+                resolved.get(id("hamster_tiny"))).getOrThrow().physicalWidth());
+        assertTrue(LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE,
+                resolved.get(id("mothroach_normal"))).getOrThrow().physicalWidth() > .4f);
         assertNotNull(resolved.get(LooseObjectProfile.PORTABLE_BODY_KEY_ID), "internal adapter has a supported resolved profile");
+        assertEquals(5f, CanEscapeInventoryComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"CanEscapeInventory\"}")).getOrThrow().baseResistTimeSeconds());
+        assertEquals(3f, CanEscapeInventoryComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"CanEscapeInventory\",\"baseResistTime\":3}")).getOrThrow().baseResistTimeSeconds());
     }
 
     private static ResourceLocation id(String path) { return ResourceLocation.parse("moonstation14:" + path); }
