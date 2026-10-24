@@ -16,6 +16,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HeldUseRequestDispatchTest {
+    @Test void configuredSpawnItemsUseIsInstantWithoutChangingOrdinaryDurations() {
+        assertEquals(0, HeldUseRequestDispatch.predictionDuration(true, 20));
+        assertEquals(20, HeldUseRequestDispatch.predictionDuration(false, 20));
+        assertEquals(0, HeldUseRequestDispatch.predictionDuration(false, 0));
+    }
+
     @Test void normalAndPopupZActivationShareQuickEquipThenHeldStorageTogglePrecedence() {
         var popup = new StoragePopupWorkspace(320, 240);
         var host = StoragePopupWorkspace.HostKey.held("same-host-token");

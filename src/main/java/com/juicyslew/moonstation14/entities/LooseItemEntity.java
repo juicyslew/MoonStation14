@@ -7,6 +7,7 @@ import com.juicyslew.moonstation14.ms14.explosion.grenade.server.GrenadeDetonati
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentSystem;
+import com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions;
 import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -25,6 +26,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
+import com.juicyslew.moonstation14.ms14.damage.ItemDamageState;
+import com.juicyslew.moonstation14.ms14.damage.ItemDamageKernel;
+import com.juicyslew.moonstation14.ms14.damage.DamageReducer;
 
 /** Persistent loose object with independent motion; it deliberately has no ItemEntity pickup/merge/lifespan behavior. */
 public class LooseItemEntity extends ItemEntity {
@@ -36,6 +40,8 @@ public class LooseItemEntity extends ItemEntity {
     private long nextSupportCheck;
     private boolean motionBlockedByUnloaded;
     private int creativePickupDelay;
+    private boolean pendingThrownLandingDamage;
+    private boolean damageDestructionStarted;
     private final LooseClientPositionInterpolation clientPosition = new LooseClientPositionInterpolation();
 
     public LooseItemEntity(EntityType<? extends LooseItemEntity> type, Level level) { super(type, level); }
@@ -100,6 +106,11 @@ public class LooseItemEntity extends ItemEntity {
         setDeltaMovement(clamp(velocity, 2.5));
         this.angularVelocity = Float.isFinite(angularVelocity) ? Math.max(-1.0f, Math.min(1.0f, angularVelocity)) : 0;
         setSettled(false);
+    }
+
+    /** Called only after BodyLooseThrow has successfully published the world-owned entity. */
+    public void markExplicitThrowForLanding() {
+        if (!level().isClientSide && !isRemoved() && isAddedToLevel()) pendingThrownLandingDamage = true;
     }
 
     public void applyImpulse(Vec3 impulse) {
@@ -209,6 +220,11 @@ public class LooseItemEntity extends ItemEntity {
         boolean hitX = Math.abs(actual.x - travel.x) > 1.0e-6;
         boolean hitY = Math.abs(actual.y - travel.y) > 1.0e-6;
         boolean hitZ = Math.abs(actual.z - travel.z) > 1.0e-6;
+        if ((hitX || hitZ) && applyHighSpeedImpact(velocity.horizontalDistance(), true)) return;
+        if (hitY && travel.y < 0 && pendingThrownLandingDamage) {
+            pendingThrownLandingDamage = false;
+            if (applyThrowLandDamage()) return;
+        }
         double approachSpeed = travel.length();
         double restitution = profile().restitution();
         double vx = hitX ? -travel.x * restitution : travel.x;
@@ -304,9 +320,9 @@ public class LooseItemEntity extends ItemEntity {
             return;
         }
         ReagentAttachment spill = new ReagentAttachment(contents.getMap());
-        BlockPos landing = findSpillSurface(server);
+        BlockPos landing = com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.findSpillSurface(server, getBoundingBox());
         if (landing == null) return;
-        ReagentSystem.handleSpillSolution(spill, server, landing);
+        spillAt(server, landing, spill);
         // The spill bridge removes only admitted quantity from its argument; keep any remainder authoritative.
         if (spill.isEmpty()) {
             getItem().remove(ModDataComponents.REAGENT.get());
@@ -316,25 +332,75 @@ public class LooseItemEntity extends ItemEntity {
     }
 
     /** Find the first loaded puddle surface or solid support below this contact, without loading chunks. */
-    private BlockPos findSpillSurface(ServerLevel server) {
-        int x = BlockPos.containing(getBoundingBox().getCenter()).getX();
-        int z = BlockPos.containing(getBoundingBox().getCenter()).getZ();
-        int startY = Mth.floor(getBoundingBox().minY - .001);
-        int minY = Math.max(server.getMinBuildHeight(), startY - 512);
-        for (int y = startY; y >= minY; y--) {
-            BlockPos pos = new BlockPos(x, y, z);
-            if (!server.hasChunkAt(pos)) return null;
-            var state = server.getBlockState(pos);
-            if (state.is(com.juicyslew.moonstation14.block.ModBlocks.PUDDLE.get())) return pos;
-            var shape = state.getCollisionShape(server, pos);
-            if (!shape.isEmpty()) {
-                for (var box : shape.toAabbs()) {
-                    if (box.maxY > 0 && box.minY < 1) return pos;
-                }
-                return null;
-            }
+    /** Shared loaded-only spill attempt; ReagentSystem retains its normal admitted-quantity policy. */
+    private static void spillAt(ServerLevel server, BlockPos landing, ReagentAttachment spill) {
+        ReagentSystem.handleSpillSolution(spill, server, landing);
+    }
+
+    private boolean applyHighSpeedImpact(double horizontalSpeedPerTick, boolean hardHorizontalContact) {
+        if (!(level() instanceof ServerLevel server)) return false;
+        var profile = profile().itemDamage();
+        if (profile == null || damageDestructionStarted) return false;
+        ItemStack ownedStack = getItem();
+        ItemDamageState old = ownedStack.getOrDefault(ModDataComponents.ITEM_DAMAGE_STATE.get(), ItemDamageState.EMPTY);
+        var impact = ItemDamageKernel.highSpeedImpact(old, profile.highSpeedImpact(), profile.allowedGroups(), profile.allowedTypes(),
+                profile.minimumImpactSpeed(), profile.impactFactor(), profile.impactCooldownTicks(),
+                server.getGameTime(), horizontalSpeedPerTick, hardHorizontalContact, profile.destructionThreshold(), profile.damageModifiers());
+        if (!impact.applied()) return false;
+        if (isRemoved() || getItem() != ownedStack) return false;
+        ownedStack.set(ModDataComponents.ITEM_DAMAGE_STATE.get(), impact.state());
+        if (impact.destructionDue()) destroyByItemDamage(server, profile, ownedStack);
+        return isRemoved();
+    }
+
+    private boolean applyThrowLandDamage() {
+        if (!(level() instanceof ServerLevel server)) return false;
+        var profile = profile().itemDamage();
+        if (profile == null || damageDestructionStarted || profile.throwLandDamage().isEmpty()) return false;
+        ItemStack ownedStack = getItem();
+        ItemDamageState old = ownedStack.getOrDefault(ModDataComponents.ITEM_DAMAGE_STATE.get(), ItemDamageState.EMPTY);
+        ItemDamageState next = ItemDamageKernel.apply(old, profile.throwLandDamage(), profile.allowedGroups(), profile.allowedTypes(), profile.damageModifiers());
+        if (isRemoved() || getItem() != ownedStack) return false;
+        ownedStack.set(ModDataComponents.ITEM_DAMAGE_STATE.get(), next);
+        if (DamageReducer.total(next.damage()) >= profile.destructionThreshold()) destroyByItemDamage(server, profile, ownedStack);
+        return isRemoved();
+    }
+
+    /** Positive typed damage from an external source; resistance bypass skips self modifiers, not damage gates. */
+    public boolean applyTypedItemDamage(ServerLevel server, java.util.Map<String, Float> raw, boolean ignoreResistances) {
+        if (server == null || server != level() || server.isClientSide || server.getServer() == null
+                || !server.getServer().isSameThread() || server.getEntity(getUUID()) != this
+                || isRemoved() || damageDestructionStarted || !isAddedToLevel() || raw == null) return false;
+        ItemStack ownedStack = getItem();
+        if (ownedStack == null || ownedStack.isEmpty()) return false;
+        LooseObjectProfile.ItemDamageComposition profile;
+        try { profile = profile().itemDamage(); } catch (RuntimeException unavailable) { return false; }
+        if (profile == null) return false;
+        ItemDamageState old = ownedStack.getOrDefault(ModDataComponents.ITEM_DAMAGE_STATE.get(), ItemDamageState.EMPTY);
+        ItemDamageState next;
+        try {
+            if (!raw.values().stream().anyMatch(value -> value != null && Float.isFinite(value) && value > 0)) return false;
+            var modifiers = ignoreResistances ? com.juicyslew.moonstation14.ms14.damage.DamageModifierData.EMPTY : profile.damageModifiers();
+            if (!ItemDamageKernel.hasApplicableDamage(raw, profile.allowedGroups(), profile.allowedTypes(), modifiers)) return false;
+            next = ItemDamageKernel.apply(old, raw, profile.allowedGroups(), profile.allowedTypes(), modifiers);
         }
-        return null;
+        catch (RuntimeException invalidDamage) { return false; }
+        if (isRemoved() || getItem() != ownedStack || damageDestructionStarted) return false;
+        ownedStack.set(ModDataComponents.ITEM_DAMAGE_STATE.get(), next);
+        if (DamageReducer.total(next.damage()) >= profile.destructionThreshold()) destroyByItemDamage(server, profile, ownedStack);
+        return true;
+    }
+
+    private void destroyByItemDamage(ServerLevel server, LooseObjectProfile.ItemDamageComposition profile, ItemStack ownedStack) {
+        if (damageDestructionStarted || isRemoved() || getItem() != ownedStack) return;
+        damageDestructionStarted = true;
+        Vec3 origin = new Vec3(getX(), getBoundingBox().minY, getZ());
+        BlockPos spillSurface = profile.spillCurrentReagents() ? com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.findSpillSurface(server, getBoundingBox()) : null;
+        var itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ownedStack.getItem());
+        com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.publish(server, origin, spillSurface,
+                ownedStack, profile, () -> !isRemoved() && getItem() == ownedStack
+                        && itemId.equals(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(getItem().getItem())),
+                () -> { discard(); return com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer.Result.SUCCESS; });
     }
 
     private void playJugBreakFeedback(ServerLevel server) {
@@ -374,6 +440,7 @@ public class LooseItemEntity extends ItemEntity {
         tag.putFloat("LooseRotation", getRotationAngle()); tag.putFloat("LooseAngularVelocity", angularVelocity);
         tag.putBoolean("LooseSettled", settled());
         if (creativePickupDelay > 0) tag.putInt("LooseCreativePickupDelay", creativePickupDelay);
+        if (pendingThrownLandingDamage) tag.putBoolean("LoosePendingThrownLandingDamage", true);
     }
     @Override public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
@@ -381,5 +448,6 @@ public class LooseItemEntity extends ItemEntity {
         angularVelocity = tag.contains("LooseAngularVelocity") && Float.isFinite(tag.getFloat("LooseAngularVelocity")) ? tag.getFloat("LooseAngularVelocity") : 0;
         setSettled(tag.getBoolean("LooseSettled"));
         creativePickupDelay = Math.max(0, Math.min(40, tag.getInt("LooseCreativePickupDelay")));
+        pendingThrownLandingDamage = tag.getBoolean("LoosePendingThrownLandingDamage");
     }
 }

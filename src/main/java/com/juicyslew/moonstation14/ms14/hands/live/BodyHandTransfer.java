@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import net.minecraft.server.level.ServerLevel;
@@ -37,6 +38,7 @@ public final class BodyHandTransfer {
         if (!transition.succeeded() || !authorized.getAsBoolean() || !before.compatible(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || before.revision() != revision || !CharacterControlSystem.canAct(body)) return Result.DENIED;
+        next = MeleeSelectionCooldown.stageSelectedInsertion(body, before, next);
         try { LiveHandsCommitGateway.commitOwned(body, next); }
         catch (RuntimeException failure) {
             return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before

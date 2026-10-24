@@ -1,0 +1,1 @@
+tasks=compileJava compileTestJava compileGametestJava test selectors exact; BEFORE=2026-10-20T21:42:07.4030139-07:00

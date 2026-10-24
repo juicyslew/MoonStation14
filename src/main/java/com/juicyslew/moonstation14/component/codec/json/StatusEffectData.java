@@ -27,7 +27,8 @@ public record StatusEffectData(
         int color,
         List<StatusEffectBehavior> behaviors,
         List<StatusEffectEligibility> eligibility,
-        Optional<Float> movementSpeedMultiplier
+        Optional<Float> movementSpeedMultiplier,
+        Optional<Float> friction
 ) {
     private static final Codec<Integer> COLOR_CODEC = Codec.STRING.comapFlatMap(
             StatusEffectData::decodeColor,
@@ -40,8 +41,10 @@ public record StatusEffectData(
                     COLOR_CODEC.fieldOf("color").forGetter(StatusEffectData::color),
                     Codec.list(StatusEffectBehavior.CODEC).fieldOf("behaviors").forGetter(StatusEffectData::behaviors),
                     Codec.list(StatusEffectEligibility.CODEC).fieldOf("eligibility").forGetter(StatusEffectData::eligibility),
-                    finiteNonnegativeFloat().optionalFieldOf("movement_speed_multiplier")
-                            .forGetter(StatusEffectData::movementSpeedMultiplier)
+                     finiteNonnegativeFloat().optionalFieldOf("movement_speed_multiplier")
+                             .forGetter(StatusEffectData::movementSpeedMultiplier),
+                     finiteNonnegativeFloat().optionalFieldOf("friction")
+                             .forGetter(StatusEffectData::friction)
             ).apply(instance, StatusEffectData::new));
 
     private static final Decoder<StatusEffectData> STRICT_DECODER = new Decoder<>() {
@@ -69,7 +72,13 @@ public record StatusEffectData(
     public StatusEffectData(String translationKey, boolean isBeneficial, int color,
                             List<StatusEffectBehavior> behaviors,
                             List<StatusEffectEligibility> eligibility) {
-        this(translationKey, isBeneficial, color, behaviors, eligibility, Optional.empty());
+        this(translationKey, isBeneficial, color, behaviors, eligibility, Optional.empty(), Optional.empty());
+    }
+
+    public StatusEffectData(String translationKey, boolean isBeneficial, int color,
+                            List<StatusEffectBehavior> behaviors, List<StatusEffectEligibility> eligibility,
+                            Optional<Float> movementSpeedMultiplier) {
+        this(translationKey, isBeneficial, color, behaviors, eligibility, movementSpeedMultiplier, Optional.empty());
     }
 
     public StatusEffectData {
@@ -77,6 +86,7 @@ public record StatusEffectData(
         Objects.requireNonNull(behaviors, "behaviors");
         Objects.requireNonNull(eligibility, "eligibility");
         Objects.requireNonNull(movementSpeedMultiplier, "movementSpeedMultiplier");
+        Objects.requireNonNull(friction, "friction");
         behaviors = copyDistinct(behaviors, "behaviors");
         eligibility = copyDistinct(eligibility, "eligibility");
         if (eligibility.isEmpty()) {
@@ -93,6 +103,27 @@ public record StatusEffectData(
                 throw new IllegalArgumentException("movementSpeedMultiplier must be finite and nonnegative");
             }
         });
+        boolean frictionBehavior = behaviors.contains(StatusEffectBehavior.FRICTION);
+        if (frictionBehavior != friction.isPresent()) {
+            throw new IllegalArgumentException(frictionBehavior ? "friction behavior requires friction" : "friction is only valid with friction behavior");
+        }
+        friction.ifPresent(value -> {
+            if (!Float.isFinite(value) || value < 0f) throw new IllegalArgumentException("friction must be finite and nonnegative");
+        });
+    }
+
+    /** Validates closed instance payloads only where this definition owns friction state. */
+    public boolean acceptsInstancePayload(com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPayload payload) {
+        Objects.requireNonNull(payload, "payload");
+        boolean frictionDefinition = behaviors.contains(StatusEffectBehavior.FRICTION);
+        if (!frictionDefinition && !(payload instanceof com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPayload.FrictionModifier)) {
+            return true;
+        }
+        if (payload.isNone()) return true;
+        if (payload instanceof com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPayload.FrictionModifier)
+            return frictionDefinition;
+        if (frictionDefinition) return false;
+        return true;
     }
 
     private static Codec<Float> finiteNonnegativeFloat() {

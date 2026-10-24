@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.effect;
 
 import com.juicyslew.moonstation14.component.codec.json.EffectData;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
@@ -10,12 +11,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.ChunkPos;
 
 import java.util.List;
 import java.util.Objects;
 
 /** Selection, audience, and presentation decisions for PopupMessage. */
-final class PopupMessageEffect {
+public final class PopupMessageEffect {
     private static final PopupMessageDelivery SERVER_ACTIONBAR = new PopupMessageDelivery() {
         @Override
         public void direct(ServerPlayer player, Component message) {
@@ -27,9 +29,55 @@ final class PopupMessageEffect {
             level.getChunkSource().broadcastAndSend(target,
                     new ClientboundSetActionBarTextPacket(message));
         }
+
+        @Override
+        public void broadcastCoordinates(ServerLevel level, Vec3 origin, Component message) {
+            var viewers = level.getChunkSource().chunkMap.getPlayers(
+                    new ChunkPos(BlockPos.containing(origin)), false);
+            for (ServerPlayer player : viewers) {
+                try {
+                    direct(player, message);
+                } catch (RuntimeException ignored) {
+                    // Best-effort presentation; never undo a committed gameplay effect.
+                }
+            }
+        }
     };
 
     private PopupMessageEffect() {
+    }
+
+    /** Best-effort coordinate popup via the established actionbar adapter, limited to chunk viewers. */
+    public static void showAt(ServerLevel level, Vec3 origin, String translationKey,
+                              EffectData.PopupVisualType visualType) {
+        showAt(level, origin, translationKey, visualType, SERVER_ACTIONBAR);
+    }
+
+    /** Best-effort private actionbar feedback using the standard popup presentation style. */
+    public static void showToPlayer(ServerPlayer player, String translationKey,
+                                    EffectData.PopupVisualType visualType) {
+        Objects.requireNonNull(player, "player");
+        Component message = Component.translatable(Objects.requireNonNull(translationKey, "translationKey"))
+                .withStyle(style(visualType));
+        try { SERVER_ACTIONBAR.direct(player, message); }
+        catch (RuntimeException ignored) { /* feedback must not disrupt the authoritative speech gate */ }
+    }
+
+    static void showAt(ServerLevel level, Vec3 origin, String translationKey,
+                       EffectData.PopupVisualType visualType, PopupMessageDelivery delivery) {
+        Objects.requireNonNull(level, "level");
+        Objects.requireNonNull(origin, "origin");
+        Component message = Component.translatable(Objects.requireNonNull(translationKey, "translationKey"))
+                .withStyle(style(visualType));
+        deliverCoordinates(level, origin, message, delivery);
+    }
+
+    static void deliverCoordinates(ServerLevel level, Vec3 origin, Component message,
+                                   PopupMessageDelivery delivery) {
+        Objects.requireNonNull(level, "level");
+        Objects.requireNonNull(origin, "origin");
+        Objects.requireNonNull(message, "message");
+        Objects.requireNonNull(delivery, "delivery").broadcastCoordinates(level, origin, message);
     }
 
     static EffectResult apply(EffectData.PopupMessage effect, EffectContext context) {
@@ -45,14 +93,13 @@ final class PopupMessageEffect {
         String key = selectMessage(effect.messages(), context.random());
         Component message = message(key, context.entity(), effect.visualType());
 
-        // Take this snapshot before sending anything. PopupCoordinates remains
-        // explicit metadata, but both methods intentionally collapse to the
-        // immediate actionbar backend because Minecraft has no anchored popup API.
         DeliveryPlan plan = plan(effect, context.level(), context.entity());
         if (plan.route() == DeliveryRoute.DIRECT_TARGET) {
             if (context.entity() instanceof ServerPlayer player) {
                 delivery.direct(player, message);
             }
+        } else if (plan.originKind() == OriginKind.COORDINATES) {
+            deliverCoordinates(context.level(), plan.origin(), message, delivery);
         } else {
             delivery.broadcast(context.level(), context.entity(), message);
         }
@@ -132,12 +179,13 @@ final class PopupMessageEffect {
         }
     }
 
-    @FunctionalInterface
     interface PopupMessageDelivery {
         void direct(ServerPlayer player, Component message);
 
         default void broadcast(ServerLevel level, Entity target, Component message) {
             throw new UnsupportedOperationException("broadcast delivery is not configured");
         }
+
+        void broadcastCoordinates(ServerLevel level, Vec3 origin, Component message);
     }
 }

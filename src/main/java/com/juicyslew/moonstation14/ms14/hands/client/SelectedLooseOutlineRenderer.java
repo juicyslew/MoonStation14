@@ -35,7 +35,12 @@ public final class SelectedLooseOutlineRenderer {
                 Mth.lerp(partialTick, entity.yOld, entity.getY()),
                 Mth.lerp(partialTick, entity.zOld, entity.getZ()));
         AABB b = interpolatedBounds(entity.getBoundingBox(), entity.position(), renderPosition, camera);
-        if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose)
+        boolean presentationBounds = false;
+        if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
+            AABB presentation = com.juicyslew.moonstation14.ms14.loose_objects.client.LoosePresentationBounds.flatProduce(loose, partialTick);
+            if (presentation != null) { b = presentation.move(-camera.x, -camera.y, -camera.z); presentationBounds = true; }
+        }
+        if (!presentationBounds && entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose)
             b = b.move(0, com.juicyslew.moonstation14.ms14.loose_objects.client.LooseItemRenderLayers.offset(loose), 0);
         PoseStack pose = event.getPoseStack();
         VertexConsumer lines = mc.renderBuffers().bufferSource().getBuffer(RenderType.lines());

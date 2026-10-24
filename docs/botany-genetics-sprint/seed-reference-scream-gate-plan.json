@@ -1,0 +1,65 @@
+{
+  "title": "Botany seed-reference identity and scream mutation",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Seed identity is an opaque stable reference with ID-only equality; its copy/codec preserves a detached current immutable snapshot, while genetic values remain immutable and unchanged.",
+    "COW occurs before valid genetic mutation effects, but only after full batch admission/validation; invalid batches have no COW identity side effects and sub-unit soil solutions still obey the 25-level boundary.",
+    "A unique seed remains unique through single-output non-repeat harvest, one-packet extraction, and replanting of the same cell; a retained reference handle observes in-place changes and identity replacement leaves its old captured cell stable. This does not establish a swab gameplay consumer.",
+    "Repeat and multi-output harvest mark the source shared only at commit; later mutation COWs, leaving prior references stable. Extraction marks shared only when producing multiple packets.",
+    "Carrier and packet genetic reads use the shared effective-genetics reader; current genetics never regenerate produce chemistry or refill depleted produce.",
+    "Species replacement creates a new identity even when the resulting species ID is unchanged; pollen crossing remains unimplemented.",
+    "Resolved scream default/toggle is copied, inherited, and codec-preserved. Server-tray audio uses the exact eleven reused clips and -10 dB gain, only after successful manual or automatic source commit, including the zero-output accepted branch; stale denial and failed publication produce no output/audio. Audio consumes no gameplay RNG.",
+    "Report pollen swab assets/request and capture/cross gameplay as open; do not claim complete pollen behavior, full catalog, full showcase, connected visual review, full suite, or owner acceptance.",
+    "Main, JVM-test, and native sources compile and runtime jar is produced."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantCareGameTests.java",
+  "manual_steps": [
+    "Existing `/ms14 botany_fixture` is partial and does not expose every mutation. Seed-reference internals are not a complete pollen-item or cross/showcase scenario; do not claim one or ask for repeated gas testing.",
+    "The existing fixture has no confirmed enabled-scream station or current owner scenario for M6. Manual scream inspection remains an explicit missing boundary until a suitable fixture exists; full sprint owner review remains outstanding."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --max-workers=1 --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Fresh serialized compile of all source sets and runtime jar after latest native-auth/auto-harvest edits; preserve owner configuration and artifacts.",
+      "covers": ["Main, JVM-test, and native sources compile and runtime jar is produced."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.atmos.core.GasMixtureTest --tests com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantChemicalMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantGasMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.SeedExtractorEligibilityTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest --tests com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.reagent.PlantReagentMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest --tests com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantCareMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSeedReferenceTest --tests com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSeedReferenceLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantScreamMutationTest --rerun --max-workers=1 --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Exact M5 20-class baseline plus four focused identity/carrier/lifecycle/scream classes: 24 unique classes total. PlantMutationCycleTest and PlantMutationTableTest are already in the baseline and are not duplicated. Require fresh XML discovery of exactly 24 classes, 129 tests, 0 failures/errors/skips.",
+      "covers": [
+        "Seed identity is an opaque stable reference with ID-only equality; its copy/codec preserves a detached current immutable snapshot, while genetic values remain immutable and unchanged.",
+        "COW occurs before valid genetic mutation effects, but only after full batch admission/validation; invalid batches have no COW identity side effects and sub-unit soil solutions still obey the 25-level boundary.",
+        "A unique seed remains unique through single-output non-repeat harvest, one-packet extraction, and replanting of the same cell; a retained reference handle observes in-place changes and identity replacement leaves its old captured cell stable. This does not establish a swab gameplay consumer.",
+        "Repeat and multi-output harvest mark the source shared only at commit; later mutation COWs, leaving prior references stable. Extraction marks shared only when producing multiple packets.",
+        "Carrier and packet genetic reads use the shared effective-genetics reader; current genetics never regenerate produce chemistry or refill depleted produce.",
+        "Species replacement creates a new identity even when the resulting species ID is unchanged; pollen crossing remains unimplemented.",
+        "Resolved scream default/toggle is copied, inherited, and codec-preserved. Server-tray audio uses the exact eleven reused clips and -10 dB gain, only after successful manual or automatic source commit, including the zero-output accepted branch; stale denial and failed publication produce no output/audio. Audio consumes no gameplay RNG."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --info --no-configuration-cache; exit $LASTEXITCODE"],
+      "selectors": ["interaction", "prediction"],
+      "rationale": "Relevant interaction and prediction checks; historical 101-test result is not current gate evidence.",
+      "covers": ["Report pollen swab assets/request and capture/cross gameplay as open; do not claim complete pollen behavior, full catalog, full showcase, connected visual review, full suite, or owner acceptance."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics,botany-chemical-mutation,botany-stat-mutation,botany-gas-mutation,botany-auto-harvest,harvest-placement,botany-species-mutation,botany-care,botany-scream,botany-seed-reference' '-Pms14GameTestDir=build/gametest-botany-seed-reference-scream-r1' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "selectors": ["botany", "botany-genetics", "botany-chemical-mutation", "botany-stat-mutation", "botany-gas-mutation", "botany-auto-harvest", "harvest-placement", "botany-species-mutation", "botany-care", "botany-scream", "botany-seed-reference"],
+      "rationale": "Reuse nine baseline tags and add seed-reference/scream selections in a fresh designated directory; preserve all prior worlds, logs, artifacts, and owner configuration. Require fresh discovery and report selected/total plus pass/failure counts; no count is asserted before gate execution.",
+      "log": "build/reports/botany-genetics/seed-reference-scream-native-r1.log",
+      "covers": [
+        "COW occurs before valid genetic mutation effects, but only after full batch admission/validation; invalid batches have no COW identity side effects and sub-unit soil solutions still obey the 25-level boundary.",
+        "A unique seed remains unique through single-output non-repeat harvest, one-packet extraction, and replanting of the same cell; a retained reference handle observes in-place changes and identity replacement leaves its old captured cell stable. This does not establish a swab gameplay consumer.",
+        "Repeat and multi-output harvest mark the source shared only at commit; later mutation COWs, leaving prior references stable. Extraction marks shared only when producing multiple packets.",
+        "Species replacement creates a new identity even when the resulting species ID is unchanged; pollen crossing remains unimplemented.",
+        "Resolved scream default/toggle is copied, inherited, and codec-preserved. Server-tray audio uses the exact eleven reused clips and -10 dB gain, only after successful manual or automatic source commit, including the zero-output accepted branch; stale denial and failed publication produce no output/audio. Audio consumes no gameplay RNG.",
+        "Report pollen swab assets/request and capture/cross gameplay as open; do not claim complete pollen behavior, full catalog, full showcase, connected visual review, full suite, or owner acceptance."
+      ]
+    }
+  ]
+}

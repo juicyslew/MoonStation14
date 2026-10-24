@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:pineapple",
+  "capacity_cents": 1600,
+  "contents_cents": {
+    "moonstation14:nutriment": 1000,
+    "moonstation14:vitamin": 200,
+    "moonstation14:water": 400
+  },
+  "refillable": true
+}

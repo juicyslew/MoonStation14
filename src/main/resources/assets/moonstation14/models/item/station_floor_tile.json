@@ -1,4 +1,6 @@
 {
   "parent": "minecraft:item/generated",
-  "textures": { "layer0": "moonstation14:item/steel" }
+  "textures": {
+    "layer0": "moonstation14:item/steel"
+  }
 }

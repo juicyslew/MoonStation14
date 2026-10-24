@@ -92,9 +92,11 @@ public sealed interface PlantMetabolismData permits
         @Override public String type() { return "PlantAdjustPests"; }
     }
 
-    record PlantAdjustHealth(float amount) implements PlantMetabolismData {
+    record PlantAdjustHealth(float probability, float amount) implements PlantMetabolismData {
+        public PlantAdjustHealth(float amount) { this(1f, amount); }
         public static final MapCodec<PlantAdjustHealth> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.FLOAT.fieldOf("amount").forGetter(PlantAdjustHealth::amount)
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantAdjustHealth::probability),
+                Codec.FLOAT.optionalFieldOf("amount", 1f).forGetter(PlantAdjustHealth::amount)
         ).apply(inst, PlantAdjustHealth::new));
 
         @Override public String type() { return "PlantAdjustHealth"; }
@@ -108,32 +110,41 @@ public sealed interface PlantMetabolismData permits
         @Override public String type() { return "PlantAdjustWater"; }
     }
 
-    record PlantAdjustToxins(float amount) implements PlantMetabolismData {
+    record PlantAdjustToxins(float probability, float amount) implements PlantMetabolismData {
+        public PlantAdjustToxins(float amount) { this(1f, amount); }
         public static final MapCodec<PlantAdjustToxins> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.FLOAT.fieldOf("amount").forGetter(PlantAdjustToxins::amount)
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantAdjustToxins::probability),
+                Codec.FLOAT.optionalFieldOf("amount", 1f).forGetter(PlantAdjustToxins::amount)
         ).apply(inst, PlantAdjustToxins::new));
 
         @Override public String type() { return "PlantAdjustToxins"; }
     }
 
-    record PlantCryoxadone() implements PlantMetabolismData {
-        public static final MapCodec<PlantCryoxadone> CODEC = MapCodec.unit(new PlantCryoxadone());
+    record PlantCryoxadone(float probability) implements PlantMetabolismData {
+        public PlantCryoxadone() { this(1f); }
+        public static final MapCodec<PlantCryoxadone> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantCryoxadone::probability)
+        ).apply(inst, PlantCryoxadone::new));
 
         @Override public String type() { return "PlantCryoxadone"; }
     }
 
 
     record PlantAffectGrowth(float probability, float amount) implements PlantMetabolismData {
+        public PlantAffectGrowth(float amount) { this(1f, amount); }
         public static final MapCodec<PlantAffectGrowth> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.FLOAT.fieldOf("probability").forGetter(PlantAffectGrowth::probability),
-                Codec.FLOAT.fieldOf("amount").forGetter(PlantAffectGrowth::amount)
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantAffectGrowth::probability),
+                Codec.FLOAT.optionalFieldOf("amount", 1f).forGetter(PlantAffectGrowth::amount)
         ).apply(inst, PlantAffectGrowth::new));
 
         @Override public String type() { return "PlantAffectGrowth"; }
     }
 
-    record PlantDiethylamine() implements PlantMetabolismData {
-        public static final MapCodec<PlantDiethylamine> CODEC = MapCodec.unit(new PlantDiethylamine());
+    record PlantDiethylamine(float probability) implements PlantMetabolismData {
+        public PlantDiethylamine() { this(1f); }
+        public static final MapCodec<PlantDiethylamine> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantDiethylamine::probability)
+        ).apply(inst, PlantDiethylamine::new));
 
         @Override public String type() { return "PlantDiethylamine"; }
     }
@@ -155,9 +166,11 @@ public sealed interface PlantMetabolismData permits
         @Override public String type() { return "PlantMutateChemicals"; }
     }
 
-    record PlantPhalanximine(float minScale) implements PlantMetabolismData {
+    record PlantPhalanximine(float probability, float minScale) implements PlantMetabolismData {
+        public PlantPhalanximine(float minScale) { this(1f, minScale); }
         public static final MapCodec<PlantPhalanximine> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.FLOAT.fieldOf("minscale").forGetter(PlantPhalanximine::minScale)
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantPhalanximine::probability),
+                Codec.FLOAT.optionalFieldOf("minscale", 0f).forGetter(PlantPhalanximine::minScale)
         ).apply(inst, PlantPhalanximine::new));
 
         @Override public String type() { return "PlantPhalanximine"; }
@@ -169,8 +182,15 @@ public sealed interface PlantMetabolismData permits
         @Override public String type() { return "PlantRemoveKudzu"; }
     }
 
-    record RobustHarvest() implements PlantMetabolismData {
-        public static final MapCodec<RobustHarvest> CODEC = MapCodec.unit(new RobustHarvest());
+    record RobustHarvest(float probability, float potencyLimit, float potencyIncrease, float potencySeedlessThreshold) implements PlantMetabolismData {
+        public RobustHarvest() { this(1f, 50f, 3f, 30f); }
+        public RobustHarvest(float potencyLimit, float potencyIncrease, float potencySeedlessThreshold) { this(1f, potencyLimit, potencyIncrease, potencySeedlessThreshold); }
+        public static final MapCodec<RobustHarvest> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(RobustHarvest::probability),
+                Codec.FLOAT.optionalFieldOf("potencylimit", 50f).forGetter(RobustHarvest::potencyLimit),
+                Codec.FLOAT.optionalFieldOf("potencyincrease", 3f).forGetter(RobustHarvest::potencyIncrease),
+                Codec.FLOAT.optionalFieldOf("potencyseedlessthreshold", 30f).forGetter(RobustHarvest::potencySeedlessThreshold)
+        ).apply(inst, RobustHarvest::new));
 
         @Override public String type() { return "RobustHarvest"; }
     }
@@ -185,15 +205,17 @@ public sealed interface PlantMetabolismData permits
 
     record PlantRestoreSeeds(float probability) implements PlantMetabolismData {
         public static final MapCodec<PlantRestoreSeeds> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.FLOAT.fieldOf("probability").forGetter(PlantRestoreSeeds::probability)
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantRestoreSeeds::probability)
         ).apply(inst, PlantRestoreSeeds::new));
 
         @Override public String type() { return "PlantRestoreSeeds"; }
     }
 
-    record PlantAdjustPotency(float amount) implements PlantMetabolismData {
+    record PlantAdjustPotency(float probability, float amount) implements PlantMetabolismData {
+        public PlantAdjustPotency(float amount) { this(1f, amount); }
         public static final MapCodec<PlantAdjustPotency> CODEC = RecordCodecBuilder.mapCodec(inst -> inst.group(
-                Codec.FLOAT.fieldOf("amount").forGetter(PlantAdjustPotency::amount)
+                Codec.FLOAT.optionalFieldOf("probability", 1f).forGetter(PlantAdjustPotency::probability),
+                Codec.FLOAT.optionalFieldOf("amount", 1f).forGetter(PlantAdjustPotency::amount)
         ).apply(inst, PlantAdjustPotency::new));
 
         @Override public String type() { return "PlantAdjustPotency"; }

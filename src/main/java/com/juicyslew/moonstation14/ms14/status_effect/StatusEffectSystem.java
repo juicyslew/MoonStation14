@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.status_effect;
 
 import com.juicyslew.moonstation14.component.codec.json.StatusEffectData;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.component.codec.json.StatusEffectBehavior;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
@@ -29,6 +30,36 @@ public class StatusEffectSystem {
     /** The bridge remains public for existing handlers and client queries. */
     public static com.juicyslew.moonstation14.util.SystemLink<StatusEffectAttachment, StatusEffectComponent> bridge =
             MS14Bridges.STATUS_EFFECT;
+
+    /** Read-only composed timed-friction projection; absent or invalid data is neutral. */
+    public static double frictionFactor(LivingEntity entity) {
+        if (entity == null || !(entity instanceof IAttachmentHolder holder)
+                || !holder.hasData(ModDataAttachments.STATUS_EFFECT.get())) return 1d;
+        try {
+            PrototypeCatalog<StatusEffectData> catalog = entity.level().isClientSide
+                    ? PrototypeRuntime.clientStatusEffects() : PrototypeRuntime.serverStatusEffects();
+            return frictionFactor(MS14Provider.get(holder, bridge), catalog);
+        } catch (RuntimeException exception) {
+            return 1d;
+        }
+    }
+
+    /** Pure projection over the existing attachment and resolved prototypes. */
+    public static double frictionFactor(StatusEffectAttachment attachment, PrototypeCatalog<StatusEffectData> catalog) {
+        double factor = 1d;
+        for (var entry : attachment.snapshot().entrySet()) {
+                StatusEffectInstance instance = entry.getValue();
+                StatusEffectData definition = catalog.get(entry.getKey().location());
+                if (!instance.isActive() || definition == null
+                        || !definition.behaviors().contains(StatusEffectBehavior.FRICTION)
+                        || !definition.eligibility().contains(com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility.LIVING_ENTITY)) continue;
+                double value = instance.payload() instanceof StatusEffectPayload.FrictionModifier payload
+                        ? payload.factor() : definition.friction().orElse(1f);
+                if (!Double.isFinite(value) || value < 0d) continue;
+                factor *= value;
+        }
+        return Double.isFinite(factor) && factor >= 0d ? factor : 1d;
+    }
 
     /**
      * Applies one typed operation. Unchanged reductions intentionally do not
@@ -113,6 +144,44 @@ public class StatusEffectSystem {
             return false;
         }
         return MS14Provider.get(holder, bridge).contains(statusEffect);
+    }
+
+    /** Read-only query: checks active state without materializing the status attachment. */
+    public static boolean isStatusActive(LivingEntity entity, ResourceKey<StatusEffectData> statusEffect) {
+        Objects.requireNonNull(entity, "entity");
+        Objects.requireNonNull(statusEffect, "status effect key");
+        if (!(entity instanceof IAttachmentHolder holder)
+                || !holder.hasData(ModDataAttachments.STATUS_EFFECT.get())) return false;
+        return MS14Provider.get(holder, bridge).isActive(statusEffect);
+    }
+
+    /** Read-only resolved behavior projection; does not materialize an absent attachment. */
+    public static boolean hasActiveBehavior(LivingEntity entity, StatusEffectBehavior behavior) {
+        Objects.requireNonNull(entity, "entity");
+        Objects.requireNonNull(behavior, "behavior");
+        if (!(entity instanceof IAttachmentHolder holder)
+                || !holder.hasData(ModDataAttachments.STATUS_EFFECT.get())) return false;
+        try {
+            var catalog = entity.level().isClientSide
+                    ? PrototypeRuntime.clientStatusEffects() : PrototypeRuntime.serverStatusEffects();
+            return hasActiveBehavior(MS14Provider.get(holder, bridge), catalog, behavior);
+        } catch (RuntimeException ignored) { return false; }
+    }
+
+    /** Pure status projection shared with the entity query and deterministic tests. */
+    public static boolean hasActiveBehavior(StatusEffectAttachment attachment,
+                                            PrototypeCatalog<StatusEffectData> catalog,
+                                            StatusEffectBehavior behavior) {
+        Objects.requireNonNull(attachment, "status effect attachment");
+        Objects.requireNonNull(catalog, "status effect catalog");
+        Objects.requireNonNull(behavior, "status effect behavior");
+        for (var entry : attachment.snapshot().entrySet()) {
+            StatusEffectData definition = catalog.get(entry.getKey().location());
+            if (entry.getValue().isActive() && definition != null
+                    && definition.behaviors().contains(behavior)
+                    && definition.eligibility().contains(com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility.LIVING_ENTITY)) return true;
+        }
+        return false;
     }
 
     /** Advances one living holder on the server and synchronizes only lifecycle transitions. */
@@ -270,6 +339,9 @@ public class StatusEffectSystem {
         // dangling reference is a caller/data error, not a lifecycle event.
         StatusEffectData definition = requireDefinition(catalog, checkedKey);
         Optional<StatusEffectInstance> current = attachment.get(checkedKey);
+        if (!definition.acceptsInstancePayload(payload)) {
+            return new StatusEffectReduction(StatusEffectChangeKind.UNCHANGED, current);
+        }
         StatusEffectReduction planned = StatusEffectReducer.reduce(
                 operation, current, durationTicks, delayTicks, payload);
 

@@ -1,0 +1,1 @@
+tasks=compileJava compileTestJava compileGametestJava test selectors *StatusDerivedEffectHandlerTest,*StatusEffectFrictionQueryTest,*StatusEffectPrototypeTest,*LocalSpeech*,*SpeechMode*; BEFORE=2026-10-20T21:42:53.0953122-07:00

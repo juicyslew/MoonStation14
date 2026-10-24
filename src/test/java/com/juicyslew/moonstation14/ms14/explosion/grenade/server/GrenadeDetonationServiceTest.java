@@ -60,8 +60,9 @@ class GrenadeDetonationServiceTest {
     }
 
     @Test
-    void outcomesDistinguishAppliedRejectedAndPartial() {
-        assertEquals(3, GrenadeDetonationService.Outcome.values().length);
+    void admissionOutcomesDoNotClaimWorldEffectsApplied() {
+        assertEquals(2, GrenadeDetonationService.Outcome.values().length);
+        assertEquals(GrenadeDetonationService.Outcome.QUEUED, GrenadeDetonationService.Outcome.values()[0]);
     }
 
     @Test

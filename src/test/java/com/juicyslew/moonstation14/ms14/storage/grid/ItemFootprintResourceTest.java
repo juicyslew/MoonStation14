@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(62, raw.size());
+        assertEquals(66, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(57, resolved.size());
+        assertEquals(61, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -52,11 +52,27 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(57, catalog.size());
-        for (String item : new String[]{"wheat_seeds", "tomato_seeds", "potato_seeds", "poppy_seeds", "aloe_seeds"})
+        assertEquals(61, catalog.size());
+        var pocket = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData(java.util.List.of(
+                new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.Slot("pocket1", "Pocket",
+                        ResourceLocation.withDefaultNamespace("test"), "Default", 0, 0, java.util.List.of(
+                        com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.POCKET),
+                        java.util.List.of(), java.util.List.of(), false)));
+        for (String item : new String[]{"wheat_seeds", "tomato_seeds", "potato_seeds", "poppy_seeds", "aloe_seeds"}) {
             assertEquals(1, catalog.get(id(item)).cells().size(), item + " resolves Tiny footprint");
-        for (String item : new String[]{"wheat_bushel", "tomato", "potato", "poppy", "aloe"})
+            assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id(item)).itemSize(), item);
+            assertTrue(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(pocket, "pocket1",
+                    catalog.get(id(item)), 1, 64, java.util.Set.of()), item + " fits pocket");
+        }
+        for (String item : new String[]{"wheat_bushel", "tomato", "potato", "poppy", "aloe"}) {
             assertEquals(2, catalog.get(id(item)).cells().size(), item + " resolves Small footprint");
+            assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(item)).itemSize(), item);
+            assertTrue(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(pocket, "pocket1",
+                    catalog.get(id(item)), 1, 64, java.util.Set.of()), item + " fits pocket");
+        }
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("poppy")).itemSize());
+        assertTrue(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(pocket, "pocket1",
+                catalog.get(id("poppy")), 1, 64, java.util.Set.of()));
         for (String item : new String[]{"pill", "pill_canister"}) {
             assertEquals(java.util.List.of(new GridGeometry.Cell(0, 0)), catalog.get(id(item)).cells(),
                     item + " resolves inherited tiny footprint");

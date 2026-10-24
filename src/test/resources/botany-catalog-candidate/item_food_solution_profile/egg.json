@@ -1,0 +1,8 @@
+{
+  "id": "moonstation14:egg",
+  "capacity_cents": 600,
+  "contents_cents": {
+    "moonstation14:egg": 600
+  },
+  "refillable": true
+}

@@ -256,6 +256,28 @@ class StatusEffectCoreTest {
     }
 
     @Test
+    void frictionPayloadIsValidatedAndUpdateReplacesItWithoutShorteningDuration() {
+        StatusEffectPayload.FrictionModifier half = new StatusEffectPayload.FrictionModifier(.5f);
+        StatusEffectPayload.FrictionModifier zero = new StatusEffectPayload.FrictionModifier(0f);
+        StatusEffectInstance current = StatusEffectInstance.activeFinite(10, half);
+        StatusEffectReduction updated = StatusEffectReducer.reduce(StatusEffectOperation.UPDATE,
+                Optional.of(current), OptionalInt.of(4), 0, zero);
+        assertEquals(10, updated.next().orElseThrow().remainingDurationTicks().orElseThrow());
+        assertEquals(zero, updated.next().orElseThrow().payload());
+        assertThrows(IllegalArgumentException.class, () -> new StatusEffectPayload.FrictionModifier(-1f));
+        assertThrows(IllegalArgumentException.class, () -> new StatusEffectPayload.FrictionModifier(Float.NaN));
+        for (float factor : new float[]{0f, .5f, 1f}) {
+            StatusEffectPayload value = new StatusEffectPayload.FrictionModifier(factor);
+            var json = StatusEffectPayload.CODEC.encodeStart(JsonOps.INSTANCE, value).getOrThrow();
+            assertEquals(value, StatusEffectPayload.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow());
+        }
+        assertTrue(StatusEffectPayload.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"friction\",\"factor\":-1}" )).error().isPresent());
+        assertTrue(StatusEffectPayload.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"friction\",\"factor\":0.5,\"multiplier\":1}" )).error().isPresent());
+    }
+
+    @Test
     void reductionKindAlwaysMatchesPresenceAndValueChange() {
         assertKindConsistency(Optional.empty(), reduce(StatusEffectOperation.REMOVE,
                 null, OptionalInt.empty(), 0));

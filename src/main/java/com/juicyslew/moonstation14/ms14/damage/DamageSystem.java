@@ -45,16 +45,29 @@ public final class DamageSystem {
     }
 
     public static Result applyHealthChange(LivingEntity entity, Map<String, Float> rawDelta,
-                                            float scale, boolean ignoreResistances, Cause cause) {
+                                             float scale, boolean ignoreResistances, Cause cause) {
+        return applyHealthChangeDetailed(entity, rawDelta, scale, ignoreResistances, cause).status();
+    }
+
+    public static ChangeResult applyHealthChangeDetailed(LivingEntity entity, Map<String, Float> rawDelta,
+                                             float scale, boolean ignoreResistances, Cause cause) {
+        return applyHealthChangeDetailed(entity, rawDelta, scale, ignoreResistances, cause, null);
+    }
+
+    public static ChangeResult applyHealthChangeDetailed(LivingEntity entity, Map<String, Float> rawDelta,
+                                             float scale, boolean ignoreResistances, Cause cause,
+                                             net.minecraft.world.entity.Entity origin) {
         if (entity == null || entity.level().isClientSide()) {
-            return Result.SKIPPED_UNSUPPORTED;
+            return new ChangeResult(Result.SKIPPED_UNSUPPORTED, Map.of());
         }
         if (!Float.isFinite(scale) || scale < 0f) {
-            return Result.FAILED;
+            return new ChangeResult(Result.FAILED, Map.of());
         }
         Map<String, Float> delta = scaleDelta(rawDelta, scale);
+        if (!ignoreResistances && !delta.isEmpty())
+            delta = com.juicyslew.moonstation14.ms14.equipment.EquipmentArmorSystem.apply(entity, delta);
         if (delta.isEmpty()) {
-            return Result.APPLIED;
+            return new ChangeResult(Result.APPLIED, Map.of());
         }
         ensureBaseline(entity);
 
@@ -70,24 +83,33 @@ public final class DamageSystem {
 
         if (!positives.isEmpty()) {
             DamageSource source = ignoreResistances
-                    ? reagentBypassSource(entity.level())
-                    : reagentSource(entity.level());
+                    ? reagentBypassSource(entity.level(), origin)
+                    : reagentSource(entity.level(), origin);
             PendingTransaction transaction = new PendingTransaction(positives, negatives,
                     ModDamageFeedback.server(cause.profile));
             DamageTransactionStack<DamageSource, PendingTransaction> stack = pendingFor(entity);
             stack.push(source, transaction);
             try {
-                entity.hurt(source, DamageReducer.total(positives) / TYPED_PER_HEALTH);
+                boolean retainedDead = com.juicyslew.moonstation14.ms14.mobs.MobNativeHealthProjection
+                        .shouldCommitRetainedDead(!entity.level().isClientSide(), entity.isRemoved(),
+                                entity.level().getEntity(entity.getId()) == entity,
+                                com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(entity),
+                                entity.getHealth() <= 0f);
+                if (retainedDead) {
+                    observePost(entity, source, DamageReducer.total(positives) / TYPED_PER_HEALTH);
+                } else {
+                    entity.hurt(source, DamageReducer.total(positives) / TYPED_PER_HEALTH);
+                }
             } finally {
                 removePending(entity, source);
             }
             // A canceled/rejected mixed mutation is canceled as a whole. The
             // negative-only path below remains direct and authoritative.
-            return Result.APPLIED;
+            return new ChangeResult(Result.APPLIED, transaction.committedPositive);
         }
 
         commit(entity, DamageReducer.applyDelta(existing(entity), delta));
-        return Result.APPLIED;
+        return new ChangeResult(Result.APPLIED, Map.of());
     }
 
     /** Applies EvenHealthChange's stable, group-sequential healing policy. */
@@ -234,13 +256,14 @@ public final class DamageSystem {
             Map<String, Float> committedPositive = DamageReducer.mitigatedPositiveDelta(pending.positive, appliedDamage);
             commit(entity, DamageReducer.applyMitigated(existing(entity), pending.positive,
                     appliedDamage, pending.negative));
+            pending.committedPositive = Map.copyOf(committedPositive);
             com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, committedPositive);
             double committedTypedDamage = committedPositive.values().stream()
                     .mapToDouble(Float::doubleValue).sum();
             if (committedTypedDamage > 0d) {
-                NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, committedTypedDamage, pending.feedback));
+                NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, committedTypedDamage, pending.feedback, source.getEntity()));
             }
-            if (!committedPositive.isEmpty()) NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, committedPositive));
+            if (!committedPositive.isEmpty()) NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, committedPositive, source.getEntity()));
             return;
         }
 
@@ -252,8 +275,8 @@ public final class DamageSystem {
         commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
         com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
         NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed,
-                ModDamageFeedback.server(causeFor(source).profile)));
-        NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, Map.of(key, typed)));
+                ModDamageFeedback.server(causeFor(source).profile), source.getEntity()));
+        NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, Map.of(key, typed), source.getEntity()));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */
@@ -266,6 +289,20 @@ public final class DamageSystem {
         // Explosion and all other sources are intentionally blunt. There is no
         // safe source-level inference for caustic, holy, toxin, or cellular.
         return DamageKeys.BLUNT;
+    }
+
+    /** Converts one external native hit through the same worn-armor kernel; empty means bypass or typed transaction. */
+    public static java.util.Optional<Float> armorNativeIncomingDamage(LivingEntity entity, DamageSource source, float healthAmount) {
+        if (entity == null || entity.level().isClientSide() || source == null || !Float.isFinite(healthAmount)
+                || healthAmount <= 0f || source.is(DamageTypeTags.BYPASSES_ARMOR)) return java.util.Optional.empty();
+        var pending = PENDING.get(entity);
+        if (pending != null && pending.peekMatching(source) != null) return java.util.Optional.empty();
+        String type = classify(source);
+        float typed = healthAmount * TYPED_PER_HEALTH;
+        if (!Float.isFinite(typed)) return java.util.Optional.empty();
+        float modified = com.juicyslew.moonstation14.ms14.equipment.EquipmentArmorSystem.apply(entity, Map.of(type, typed))
+                .getOrDefault(type, 0f);
+        return java.util.Optional.of(modified / TYPED_PER_HEALTH);
     }
 
     private static Map<String, Float> existing(LivingEntity entity) {
@@ -287,7 +324,7 @@ public final class DamageSystem {
         }
     }
 
-    private static Map<String, Float> scaleDelta(Map<String, Float> raw, float scale) {
+    public static Map<String, Float> scaleDelta(Map<String, Float> raw, float scale) {
         Map<String, Float> input = DamageKeys.validateDelta(raw);
         Map<String, Float> result = new LinkedHashMap<>();
         for (Map.Entry<String, Float> entry : input.entrySet()) {
@@ -354,18 +391,22 @@ public final class DamageSystem {
         }
     }
 
-    private static DamageSource reagentSource(Level level) {
-        return damageSource(level, REAGENT_DAMAGE);
+    private static DamageSource reagentSource(Level level, net.minecraft.world.entity.Entity origin) {
+        return damageSource(level, REAGENT_DAMAGE, origin);
     }
 
-    private static DamageSource reagentBypassSource(Level level) {
-        return damageSource(level, REAGENT_BYPASS_DAMAGE);
+    private static DamageSource reagentBypassSource(Level level, net.minecraft.world.entity.Entity origin) {
+        return damageSource(level, REAGENT_BYPASS_DAMAGE, origin);
     }
 
-    private static DamageSource damageSource(Level level, ResourceKey<DamageType> key) {
+    private static DamageSource damageSource(Level level, ResourceKey<DamageType> key, net.minecraft.world.entity.Entity origin) {
         Registry<DamageType> registry = level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE);
         Holder.Reference<DamageType> holder = registry.getHolderOrThrow(key);
-        return new DamageSource(holder);
+        return damageSource(holder, origin);
+    }
+
+    static DamageSource damageSource(Holder<DamageType> holder, net.minecraft.world.entity.Entity origin) {
+        return origin == null ? new DamageSource(holder) : new DamageSource(holder, origin);
     }
 
     public enum Cause {
@@ -408,6 +449,7 @@ public final class DamageSystem {
         private final Map<String, Float> negative;
         private final DamageFeedbackProfile feedback;
         private boolean committed;
+        private Map<String, Float> committedPositive = Map.of();
         private PendingTransaction(Map<String, Float> positive, Map<String, Float> negative,
                                    DamageFeedbackProfile feedback) {
             this.positive = positive;
@@ -419,6 +461,10 @@ public final class DamageSystem {
             committed = true;
             return true;
         }
+    }
+
+    public record ChangeResult(Result status, Map<String, Float> committedPositive) {
+        public ChangeResult { committedPositive = DamageKeys.validateState(committedPositive); }
     }
 
     public enum Result {

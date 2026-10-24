@@ -232,6 +232,15 @@ public class MoonStation14Client {
     }
 
     static void onClientSetup(FMLClientSetupEvent event) {
+        com.juicyslew.moonstation14.ms14.combat.client.ClientFlyByFeedback.install();
+        com.juicyslew.moonstation14.ms14.combat.CombatModeNetworking.installMeleeReplyHandler(
+                com.juicyslew.moonstation14.ms14.combat.client.MeleeAttackClient::handleReply);
+        com.juicyslew.moonstation14.ms14.combat.CombatModeNetworking.installGunShotReplyHandler(
+                com.juicyslew.moonstation14.ms14.combat.client.GunShotClient::handleReply);
+        com.juicyslew.moonstation14.ms14.combat.CombatModeNetworking.installGunMuzzleFlashHandler(
+                com.juicyslew.moonstation14.ms14.combat.client.GunMuzzleFlashClient::receiveObserver);
+        com.juicyslew.moonstation14.ms14.combat.CombatModeNetworking.installMeleeArcHandler(
+                com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClient::receiveObserver);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates::bootstrapClientBundled);
@@ -947,7 +956,9 @@ public class MoonStation14Client {
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.HYDROPONICS_TRAY.get(), com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.REAGENT_GRINDER.get(), com.juicyslew.moonstation14.ms14.botany.client.ReagentGrinderBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
+        event.registerEntityRenderer(ModEntities.TYPED_PROJECTILE.get(), com.juicyslew.moonstation14.ms14.combat.client.TypedProjectileRenderer::new);
         event.registerEntityRenderer(ModEntities.MOUSE.get(), com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::new);
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
@@ -1146,6 +1157,7 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        com.juicyslew.moonstation14.ms14.combat.client.GunMuzzleFlashClient.clear();
         LocalSpeechClient.clear();
         BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();

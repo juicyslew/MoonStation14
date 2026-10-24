@@ -1,1 +1,6 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"moonstation14:item/utility_case"}}
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "moonstation14:item/utility_case"
+  }
+}

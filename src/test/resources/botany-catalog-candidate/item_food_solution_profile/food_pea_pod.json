@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:food_pea_pod",
+  "capacity_cents": 500,
+  "contents_cents": {
+    "moonstation14:nutriment": 300,
+    "moonstation14:vitamin": 200
+  },
+  "refillable": true
+}

@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -58,19 +59,30 @@ public final class BodyHandItemTransfer {
         try {
             if (!(body.level() instanceof ServerLevel level) || !level.getServer().isSameThread()
                     || body.isRemoved() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body) return null;
+            return createStagedHarvestDrop(level, body.position(), stack, offsetX, offsetZ);
+        } catch (RuntimeException unavailable) { return null; }
+    }
+
+    /** Position-only form shared by body and system harvest; origin is the item's feet plane. */
+    static LooseItemEntity createStagedHarvestDrop(ServerLevel level, Vec3 origin, ItemStack stack,
+                                                   double offsetX, double offsetZ) {
+        if (level == null || origin == null || stack == null || stack.isEmpty()
+                || !Double.isFinite(offsetX) || !Double.isFinite(offsetZ)
+                || Math.abs(offsetX) > .25 || Math.abs(offsetZ) > .25) return null;
+        try {
             LooseObjectProfile profile = LooseObjectProfile.resolveForStack(stack, false);
-            // SS14 manual harvest places each product around the user, not at the ordinary
-            // forward thrown-drop destination. LooseItemEntity positions are feet origins.
-            Vec3 bodyOrigin = body.position();
-            Vec3 placed = new Vec3(bodyOrigin.x + offsetX,
-                    bodyOrigin.y + Math.max(.01, profile.physicalHeight() * .5), bodyOrigin.z + offsetZ);
+            Vec3 placed = new Vec3(origin.x + offsetX,
+                    origin.y + Math.max(.01, profile.physicalHeight() * .5), origin.z + offsetZ);
             if (!finite(placed) || !level.hasChunkAt(net.minecraft.core.BlockPos.containing(placed))
-                    || !BodyItemTargetProbe.loadedItemBoxClear(level, placed,
-                    profile.physicalWidth(), profile.physicalHeight())) return null;
+                    || !loadedItemBoxClear(level, placed, profile.physicalWidth(), profile.physicalHeight())) return null;
             LooseItemEntity entity = LooseItemEntity.create(level, placed, stack.copy());
             entity.setDeltaMovement(Vec3.ZERO);
             return same(stack, entity.getItem()) ? entity : null;
         } catch (RuntimeException unavailable) { return null; }
+    }
+
+    private static boolean loadedItemBoxClear(ServerLevel level, Vec3 placed, double width, double height) {
+        return BodyItemTargetProbe.loadedItemBoxClear(level, placed, width, height);
     }
 
     /** Keep the authored scatter when it fits; otherwise try a bounded set within the same harvest footprint. */
@@ -222,6 +234,9 @@ public final class BodyHandItemTransfer {
         Vec3 sourcePosition = item.position();
         ItemToken token = new ItemToken(UUID.randomUUID().toString());
         LiveHands.WholeResult transition = before.putWhole(expectedHandRevision, hand, token, source);
+        if (transition.succeeded()) transition = new LiveHands.WholeResult(
+                MeleeSelectionCooldown.stageSelectedInsertion(body, before, transition.state()),
+                transition.takenStack(), transition.rejection());
         BodyItemTargetProbe.Target confirmed = trusted ? null : transition.succeeded()
                 ? (selectedPolicy ? BodyItemTargetProbe.probeSelected(level, body, sourceId, BodyItemTargetProbe.MAX_REACH)
                 : BodyItemTargetProbe.nearestVisible(level, body, BodyItemTargetProbe.MAX_REACH)) : null;
@@ -260,7 +275,20 @@ public final class BodyHandItemTransfer {
                  || item.getTarget() != null || item.hasPickUpDelay()
                  || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                  || !same(source, item.getItem()))
-            return Result.DENIED;
+             return Result.DENIED;
+
+         if (!trusted && item instanceof LooseItemEntity loose) {
+             var contact = loose.profile().damageOnInteract();
+             var contactDecision = com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageSystem.onContact(body, loose, contact);
+             if (!authorityValid.getAsBoolean() || !CharacterControlSystem.canAct(body)
+                     || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body)
+                     || body.level() != level || body.isRemoved() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
+                     || item.level() != level || item.isRemoved() || !item.isAddedToLevel() || level.getEntity(sourceId) != item
+                     || item.getTarget() != null || item.hasPickUpDelay() || !sourcePosition.equals(item.position())
+                     || !same(source, item.getItem()) || !reachable(body, item.position())) return Result.DENIED;
+             if (contactDecision == com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageSystem.Decision.HANDLED)
+                 return Result.DENIED;
+         }
 
         // The entity must stop owning the stack before the attachment starts owning it.
         try {

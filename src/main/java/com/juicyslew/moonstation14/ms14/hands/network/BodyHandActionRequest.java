@@ -28,7 +28,7 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD, GRID_BODY_TO_EQUIPMENT,
         GRID_EQUIPMENT_TO_BODY,
         TRANSFER_HAND, PRIME_GRENADE, THROW_GRENADE, PICKUP_SELECTED, THROW_ITEM,
-        USE_TARGET, ACTIVATE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE, USE_BODY,
+        USE_TARGET, BUTCHER, GUN_EMPTY, GUN_SPIN, ACTIVATE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE, USE_BODY,
         CYCLE_SYRINGE_AMOUNT, EQUIP_SLOT, UNEQUIP_SLOT, QUICK_EQUIP, MOVE_EQUIPMENT }
 
     /** Compatibility constructor preserving the prior canonical signature. */
@@ -75,7 +75,8 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                 buf.writeVarLong(request.expectedRevision);
                 if (request.action == Action.SIP_PUDDLE) buf.writeBlockPos(request.targetBlock);
                 if (isWorldAction(request.action)) buf.writeUUID(request.pickupTarget);
-                if (request.action == Action.ALTERNATE_TARGET || request.action == Action.TOGGLE_PULL) {
+                if (request.action == Action.ALTERNATE_TARGET || request.action == Action.TOGGLE_PULL
+                        || request.action == Action.GUN_EMPTY || request.action == Action.GUN_SPIN) {
                     buf.writeBoolean(request.expectedToken != null);
                     if (request.expectedToken != null) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
                 } else if (requiresToken(request.action)) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
@@ -113,7 +114,8 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                 if (isWorldAction(action)) {
                     UUID target = buf.readUUID();
                     String token = action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL
-                            ? buf.readBoolean() ? buf.readUtf(ItemToken.MAX_LENGTH) : null
+                            || action == Action.GUN_EMPTY || action == Action.GUN_SPIN
+                            ? optionalToken(buf)
                             : requiresToken(action) ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
                     if (buf.isReadable()) throw new IllegalArgumentException("Unexpected world action payload");
                     return new BodyHandActionRequest(action, hand, epoch, sequence, revision, target, token);
@@ -176,7 +178,7 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                   || (action == Action.USE_BODY && (expectedToken == null || expectedToken.isBlank()))
                    || (action == Action.PICKUP && expectedToken != null)
                    || (action == Action.ACTIVATE_TARGET && expectedToken != null)
-                   || ((action == Action.USE_TARGET) && (expectedToken == null || expectedToken.isBlank()
+                   || ((action == Action.USE_TARGET || action == Action.BUTCHER) && (expectedToken == null || expectedToken.isBlank()
                             || expectedToken.length() > ItemToken.MAX_LENGTH))
                   || (action == Action.SELECT_HAND && (pickupTarget != null || expectedToken != null))
                   || (action == Action.SIP_PUDDLE ? targetBlock == null || pickupTarget != null || expectedToken != null
@@ -184,7 +186,7 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                   || (requiresToken(action) && !isWorldAction(action)
                            && (pickupTarget != null || expectedToken == null
                             || expectedToken.isBlank() || expectedToken.length() > ItemToken.MAX_LENGTH))
-                   || ((action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL) && expectedToken != null
+                   || ((action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL || action == Action.GUN_EMPTY || action == Action.GUN_SPIN) && expectedToken != null
                             && (expectedToken.isBlank() || expectedToken.length() > ItemToken.MAX_LENGTH))
                   || (!isWorldAction(action) && pickupTarget != null)
                   || (action == Action.TRANSFER_HAND ? !validHostId(destinationHostId) || sourceHostId != null || destinationHostToken != null
@@ -229,9 +231,14 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         return new BodyHandActionRequest(Action.SIP_PUDDLE, hand, epoch, sequence, revision, null, null,
                 null, -1, -1, -1, -1, -1, -1, null, null, null, pos.immutable());
     }
+    private static String optionalToken(RegistryFriendlyByteBuf buf) {
+        int flag = buf.readUnsignedByte();
+        if (flag > 1) throw new IllegalArgumentException("Invalid optional hand token flag");
+        return flag == 1 ? buf.readUtf(ItemToken.MAX_LENGTH) : null;
+    }
 
-     private static boolean isWorldAction(Action action) { return action == Action.PICKUP || action == Action.PICKUP_SELECTED || action == Action.USE_TARGET || action == Action.ACTIVATE_TARGET || action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL || action == Action.USE_BODY; }
-     private static boolean requiresToken(Action action) { return action != Action.SELECT_HAND && action != Action.PICKUP && action != Action.PICKUP_SELECTED && action != Action.STOP_PULL && action != Action.ALTERNATE_TARGET && action != Action.ACTIVATE_TARGET && action != Action.SIP_PUDDLE; }
+      private static boolean isWorldAction(Action action) { return action == Action.PICKUP || action == Action.PICKUP_SELECTED || action == Action.USE_TARGET || action == Action.BUTCHER || action == Action.GUN_EMPTY || action == Action.GUN_SPIN || action == Action.ACTIVATE_TARGET || action == Action.ALTERNATE_TARGET || action == Action.TOGGLE_PULL || action == Action.USE_BODY; }
+     private static boolean requiresToken(Action action) { return action != Action.SELECT_HAND && action != Action.PICKUP && action != Action.PICKUP_SELECTED && action != Action.STOP_PULL && action != Action.ALTERNATE_TARGET && action != Action.ACTIVATE_TARGET && action != Action.SIP_PUDDLE && action != Action.GUN_EMPTY && action != Action.GUN_SPIN; }
         private static boolean isBodyCross(Action action) { return action == Action.GRID_BODY_WORN_TO_HELD || action == Action.GRID_BODY_HELD_TO_WORN || action == Action.GRID_BODY_HELD_TO_HELD; }
         private static boolean isBodyGridHostAction(Action action) { return isBodyCross(action) || action == Action.GRID_BODY_TO_EQUIPMENT || action == Action.GRID_EQUIPMENT_TO_BODY; }
         private static boolean isGenericEquipment(Action action) { return action == Action.EQUIP_SLOT || action == Action.UNEQUIP_SLOT; }

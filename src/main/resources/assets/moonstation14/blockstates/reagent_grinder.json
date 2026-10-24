@@ -1,1 +1,1 @@
-{"variants":{"":{"model":"moonstation14:block/reagent_grinder"}}}
+{"variants":{"beaker_attached=false,working=false":{"model":"moonstation14:block/machines/grinder/grinder_empty"},"beaker_attached=true,working=false":{"model":"moonstation14:block/machines/grinder/grinder_beaker_attached"},"beaker_attached=false,working=true":{"model":"moonstation14:block/machines/grinder/grinder_empty"},"beaker_attached=true,working=true":{"model":"moonstation14:block/machines/grinder/grinder_beaker_attached"}}}

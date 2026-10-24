@@ -74,6 +74,13 @@ public final class LocalSpeechServerHooks {
         Entity body = speaker.body();
         if (body instanceof net.minecraft.world.entity.LivingEntity living
                 && !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(living)) return;
+        if (body instanceof net.minecraft.world.entity.LivingEntity living
+                && com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem.hasActiveBehavior(living,
+                com.juicyslew.moonstation14.component.codec.json.StatusEffectBehavior.SPEECH_BLOCK)) {
+            com.juicyslew.moonstation14.ms14.effect.PopupMessageEffect.showToPlayer(player, "speech-muted",
+                    com.juicyslew.moonstation14.component.codec.json.EffectData.PopupVisualType.SmallCaution);
+            return;
+        }
         UUID speakerUuid = body.getUUID();
         if (body.getId() <= 0 || speakerUuid == null || LocalSpeechPayload.NO_UUID.equals(speakerUuid)) return;
         Vec3 position = body.position();

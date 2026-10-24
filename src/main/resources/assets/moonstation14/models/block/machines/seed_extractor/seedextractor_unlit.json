@@ -366,7 +366,7 @@
         12.666666666666666,
         1.6749999999999998
       ],
-      "shade": true,
+      "shade": false,
       "faces": {
         "north": {
           "texture": "#atlas",
@@ -375,7 +375,8 @@
             4.0,
             6.0,
             5.375
-          ]
+          ],
+          "neoforge_data": { "block_light": 15, "sky_light": 15, "ambient_occlusion": false }
         },
         "east": {
           "texture": "#atlas",
@@ -393,7 +394,8 @@
             4.0,
             8.25,
             5.375
-          ]
+          ],
+          "neoforge_data": { "block_light": 15, "sky_light": 15, "ambient_occlusion": false }
         },
         "west": {
           "texture": "#atlas",

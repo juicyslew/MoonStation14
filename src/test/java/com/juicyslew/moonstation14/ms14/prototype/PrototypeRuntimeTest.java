@@ -34,6 +34,7 @@ import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
 import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
+import com.juicyslew.moonstation14.ms14.botany.ModWeightedRandomFillSolutions;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -55,10 +56,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PrototypeRuntimeTest {
     @Test
     void serverAndClientCatalogsAreIndependentAndServerCleanupKeepsRegistrations() {
-        PrototypeManager server = PrototypeRuntime.serverManager();
-        PrototypeManager client = PrototypeRuntime.clientManager();
+        PrototypeManager globalServer = PrototypeRuntime.serverManager();
+        PrototypeManager globalClient = PrototypeRuntime.clientManager();
+        var globalServerBefore = globalServer.snapshot();
+        var globalClientBefore = globalClient.snapshot();
+        PrototypeManager server = registeredManager(globalServer);
+        PrototypeManager client = registeredManager(globalClient);
         server.clearPublishedCatalogs();
-        client.clearPublishedCatalogs();
+
 
         assertNotSame(server, client);
 
@@ -69,8 +74,17 @@ class PrototypeRuntimeTest {
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
                 ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE);
         expectedTypes.add(ModDamageFeedback.TYPE);
@@ -95,6 +109,8 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
+        expectedTypes.add(ModWeightedRandomFillSolutions.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -115,49 +131,53 @@ class PrototypeRuntimeTest {
         server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("server-source"), new ExplosiveSourceData(380, 3, 10, id("default"))));
         client.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("client-source"), new ExplosiveSourceData(120, 3, 10, id("default"))));
 
-        assertTrue(PrototypeRuntime.serverReagents().contains(id("server")));
-        assertFalse(PrototypeRuntime.serverReagents().contains(id("client")));
-        assertTrue(PrototypeRuntime.clientReagents().contains(id("client")));
-        assertFalse(PrototypeRuntime.clientReagents().contains(id("server")));
-        assertEquals(lungs, PrototypeRuntime.serverOrgans().get(id("server-lungs")));
-        assertFalse(PrototypeRuntime.serverOrgans().contains(id("client-heart")));
-        assertEquals(heart, PrototypeRuntime.clientOrgans().get(id("client-heart")));
-        assertFalse(PrototypeRuntime.clientOrgans().contains(id("server-lungs")));
-        assertEquals(serverReaction, PrototypeRuntime.serverGasReactions().get(id("server-reaction")));
-        assertFalse(PrototypeRuntime.serverGasReactions().contains(id("client-reaction")));
-        assertEquals(clientReaction, PrototypeRuntime.clientGasReactions().get(id("client-reaction")));
-        assertFalse(PrototypeRuntime.clientGasReactions().contains(id("server-reaction")));
-        assertEquals(serverExplosion, PrototypeRuntime.serverExplosions().get(id("server-explosion")));
-        assertFalse(PrototypeRuntime.serverExplosions().contains(id("client-explosion")));
-        assertEquals(clientExplosion, PrototypeRuntime.clientExplosions().get(id("client-explosion")));
-        assertFalse(PrototypeRuntime.clientExplosions().contains(id("server-explosion")));
-        assertTrue(PrototypeRuntime.serverExplosiveSources().contains(id("server-source")));
-        assertFalse(PrototypeRuntime.serverExplosiveSources().contains(id("client-source")));
-        assertTrue(PrototypeRuntime.clientExplosiveSources().contains(id("client-source")));
-        assertFalse(PrototypeRuntime.clientExplosiveSources().contains(id("server-source")));
+        assertTrue(server.snapshot(ModReagents.REAGENT_TYPE).contains(id("server")));
+        assertFalse(server.snapshot(ModReagents.REAGENT_TYPE).contains(id("client")));
+        assertTrue(client.snapshot(ModReagents.REAGENT_TYPE).contains(id("client")));
+        assertFalse(client.snapshot(ModReagents.REAGENT_TYPE).contains(id("server")));
+        assertEquals(lungs, server.snapshot(ModOrgans.ORGAN_TYPE).get(id("server-lungs")));
+        assertFalse(server.snapshot(ModOrgans.ORGAN_TYPE).contains(id("client-heart")));
+        assertEquals(heart, client.snapshot(ModOrgans.ORGAN_TYPE).get(id("client-heart")));
+        assertFalse(client.snapshot(ModOrgans.ORGAN_TYPE).contains(id("server-lungs")));
+        assertEquals(serverReaction, server.snapshot(ModGasReactions.GAS_REACTION_TYPE).get(id("server-reaction")));
+        assertFalse(server.snapshot(ModGasReactions.GAS_REACTION_TYPE).contains(id("client-reaction")));
+        assertEquals(clientReaction, client.snapshot(ModGasReactions.GAS_REACTION_TYPE).get(id("client-reaction")));
+        assertFalse(client.snapshot(ModGasReactions.GAS_REACTION_TYPE).contains(id("server-reaction")));
+        assertEquals(serverExplosion, server.snapshot(ModExplosions.EXPLOSION_TYPE).get(id("server-explosion")));
+        assertFalse(server.snapshot(ModExplosions.EXPLOSION_TYPE).contains(id("client-explosion")));
+        assertEquals(clientExplosion, client.snapshot(ModExplosions.EXPLOSION_TYPE).get(id("client-explosion")));
+        assertFalse(client.snapshot(ModExplosions.EXPLOSION_TYPE).contains(id("server-explosion")));
+        assertTrue(server.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE).contains(id("server-source")));
+        assertFalse(server.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE).contains(id("client-source")));
+        assertTrue(client.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE).contains(id("client-source")));
+        assertFalse(client.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE).contains(id("server-source")));
 
         server.clearPublishedCatalogs();
 
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
-        assertTrue(PrototypeRuntime.serverReagents().asMap().isEmpty());
-        assertTrue(PrototypeRuntime.clientReagents().contains(id("client")));
-        assertTrue(PrototypeRuntime.serverOrgans().asMap().isEmpty());
-        assertEquals(heart, PrototypeRuntime.clientOrgans().get(id("client-heart")));
-        assertTrue(PrototypeRuntime.serverGasReactions().asMap().isEmpty());
-        assertEquals(clientReaction, PrototypeRuntime.clientGasReactions().get(id("client-reaction")));
-        assertTrue(PrototypeRuntime.serverExplosions().asMap().isEmpty());
-        assertTrue(PrototypeRuntime.serverExplosiveSources().asMap().isEmpty());
-        assertEquals(clientExplosion, PrototypeRuntime.clientExplosions().get(id("client-explosion")));
+        assertTrue(server.snapshot(ModReagents.REAGENT_TYPE).asMap().isEmpty());
+        assertTrue(client.snapshot(ModReagents.REAGENT_TYPE).contains(id("client")));
+        assertTrue(server.snapshot(ModOrgans.ORGAN_TYPE).asMap().isEmpty());
+        assertEquals(heart, client.snapshot(ModOrgans.ORGAN_TYPE).get(id("client-heart")));
+        assertTrue(server.snapshot(ModGasReactions.GAS_REACTION_TYPE).asMap().isEmpty());
+        assertEquals(clientReaction, client.snapshot(ModGasReactions.GAS_REACTION_TYPE).get(id("client-reaction")));
+        assertTrue(server.snapshot(ModExplosions.EXPLOSION_TYPE).asMap().isEmpty());
+        assertTrue(server.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE).asMap().isEmpty());
+        assertEquals(clientExplosion, client.snapshot(ModExplosions.EXPLOSION_TYPE).get(id("client-explosion")));
 
-        server.clearPublishedCatalogs();
-        client.clearPublishedCatalogs();
+        assertEquals(globalServerBefore, globalServer.snapshot());
+        assertEquals(globalClientBefore, globalClient.snapshot());
     }
 
     @Test
     void runtimeExportImportsAllRegisteredFamiliesIncludingConstructionAirlocksAndMedicalWithoutSharingState() {
-        PrototypeManager server = PrototypeRuntime.serverManager();
-        PrototypeManager client = PrototypeRuntime.clientManager();
+        PrototypeManager globalServer = PrototypeRuntime.serverManager();
+        PrototypeManager globalClient = PrototypeRuntime.clientManager();
+        var globalServerBefore = globalServer.snapshot();
+        var globalClientBefore = globalClient.snapshot();
+        PrototypeManager server = registeredManager(globalServer);
+        PrototypeManager client = registeredManager(globalClient);
         server.clearPublishedCatalogs();
         client.clearPublishedCatalogs();
 
@@ -201,15 +221,33 @@ class PrototypeRuntimeTest {
         server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
                 id("wirecutter"), fixture("tool_profile", "wirecutter"), id("screwdriver"), fixture("tool_profile", "screwdriver"),
                 id("multitool"), fixture("tool_profile", "multitool"), id("base_item"), fixture("tool_profile", "base_item"),
-                id("base_crowbar"), fixture("tool_profile", "base_crowbar")));
+                id("base_crowbar"), fixture("tool_profile", "base_crowbar"),
+                id("kitchen_knife"), fixture("tool_profile", "kitchen_knife")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
                 false, 0, 8, .1f, 10, .5f, .5f,
                 new LooseObjectProfile.VisualTuning(.5f, .5f, .5f, .5f, 1, 0));
         server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-test"), profile));
+        var fiber = net.minecraft.resources.ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, id("fiber"));
+        var extractable = new com.juicyslew.moonstation14.ms14.item_processing.ExtractableProfile(null,
+                new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent(Map.of(fiber, 3f)));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE,
+                Map.of(id("cotton_material"), extractable));
+        var itemFoodSolution = new com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile(250,
+                Map.of(id("nutriment"), 200L));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE,
+                Map.of(id("food-only"), itemFoodSolution));
+        var seedItemProfile = new com.juicyslew.moonstation14.ms14.botany.SeedItemProfile(id("wheat"));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE,
+                Map.of(id("wheat_seeds"), seedItemProfile));
         DamageFeedbackProfile damageFeedback = DamageFeedbackProfile.PHYSICAL;
         server.publishDecoded(ModDamageFeedback.TYPE, Map.of(id("damage-feedback-test"), damageFeedback));
+        var armorPrototype = new com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData(
+                new com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.Item("Small"), Optional.empty(), Optional.empty(), java.util.List.of(),
+                Optional.of(new com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.Armor(Map.of("blunt", .95f))));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE,
+                Map.of(id("armor-sync-test"), armorPrototype));
         server.publishDecoded(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE,
                 Map.of(id("medical-test"), new com.juicyslew.moonstation14.ms14.medical.MedicalItemData(
                         new com.juicyslew.moonstation14.ms14.medical.MedicalItemData.Item("Small"),
@@ -243,8 +281,12 @@ class PrototypeRuntimeTest {
                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                 ModIngestionProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE.typeId(),
+                 ModIngestionProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
                 ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
@@ -265,7 +307,8 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE.typeId()), exported.keySet());
+                 com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE.typeId(),
+                 ModWeightedRandomFillSolutions.TYPE.typeId(), com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -283,73 +326,96 @@ class PrototypeRuntimeTest {
         assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
         assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
+        assertTrue(exported.get(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE.typeId())
+                .containsKey(id("cotton_material")));
+        assertEquals(200L, exported.get(com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE.typeId())
+                .get(id("food-only")).getAsJsonObject().getAsJsonObject("contents_cents").get(id("nutriment").toString()).getAsLong());
+        assertEquals(id("wheat").toString(), exported.get(com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE.typeId())
+                .get(id("wheat_seeds")).get("seed_id").getAsString());
         assertTrue(exported.get(ModDamageFeedback.TYPE.typeId()).containsKey(id("damage-feedback-test")));
+        assertEquals(.95f, exported.get(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE.typeId())
+                .get(id("armor-sync-test")).getAsJsonObject().getAsJsonObject("armor").getAsJsonObject("coefficients").get("blunt").getAsFloat());
         ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
         server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("source-test"), source));
         exported = server.encodePublishedCatalogs();
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
         client.publishEncodedCatalogs(exported);
-        var serverWelder = PrototypeRuntime.serverTools().get(ModTools.WELDER);
-        assertEquals(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));
-        assertNotSame(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));
-        assertTrue(ModTools.hasQuality(PrototypeRuntime.serverTools(), ModTools.WRENCH,
+        assertEquals(armorPrototype, client.snapshot(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE).get(id("armor-sync-test")));
+        assertNotSame(armorPrototype, client.snapshot(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE).get(id("armor-sync-test")));
+        var serverWelder = server.snapshot(ModTools.TOOL_TYPE).get(ModTools.WELDER);
+        assertEquals(serverWelder, client.snapshot(ModTools.TOOL_TYPE).get(ModTools.WELDER));
+        assertNotSame(serverWelder, client.snapshot(ModTools.TOOL_TYPE).get(ModTools.WELDER));
+        assertTrue(ModTools.hasQuality(server.snapshot(ModTools.TOOL_TYPE), ModTools.WRENCH,
                 com.juicyslew.moonstation14.ms14.construction.tool.ToolPrototypeData.Quality.Anchoring));
-        assertEquals(serverWelder.speedModifier(), PrototypeRuntime.clientTools().get(ModTools.WELDER).speedModifier());
-        assertEquals(PrototypeRuntime.serverDisposals().get(ModDisposals.UNIT).unit(),
-                PrototypeRuntime.clientDisposals().get(ModDisposals.UNIT).unit());
-        assertEquals(1000, PrototypeRuntime.clientDisposals().get(ModDisposals.UNIT).unit().powerWatts());
-        assertEquals(PrototypeRuntime.serverDisposals().get(ModDisposals.HOLDER).holder(),
-                PrototypeRuntime.clientDisposals().get(ModDisposals.HOLDER).holder());
-        assertNotSame(PrototypeRuntime.serverDisposals().get(ModDisposals.UNIT),
-                PrototypeRuntime.clientDisposals().get(ModDisposals.UNIT));
-        assertEquals(status, PrototypeRuntime.clientStatusEffects().get(id("status-test")));
-        assertEquals(character, PrototypeRuntime.clientCharacters().get(id("human-test")));
-        assertEquals(radio, PrototypeRuntime.clientRadioChannels().get(id("common")));
-        assertEquals(lungs, PrototypeRuntime.clientOrgans().get(id("lungs-test")));
-        assertEquals(lungs, PrototypeRuntime.serverOrgans().get(id("lungs-test")));
-        assertEquals(reaction, PrototypeRuntime.clientGasReactions().get(id("reaction-test")));
-        assertEquals(explosion, PrototypeRuntime.clientExplosions().get(id("explosion-test")));
-        assertEquals(source, PrototypeRuntime.clientExplosiveSources().get(id("source-test")));
-        assertEquals(profile, PrototypeRuntime.clientLooseObjectProfiles().get(id("profile-test")));
-        assertEquals(profile, PrototypeRuntime.serverLooseObjectProfiles().get(id("profile-test")));
-        assertEquals(damageFeedback, PrototypeRuntime.clientDamageFeedback().get(id("damage-feedback-test")));
-        assertEquals(damageFeedback, PrototypeRuntime.serverDamageFeedback().get(id("damage-feedback-test")));
+        assertEquals(serverWelder.speedModifier(), client.snapshot(ModTools.TOOL_TYPE).get(ModTools.WELDER).speedModifier());
+        assertEquals(server.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT).unit(),
+                client.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT).unit());
+        assertEquals(1000, client.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT).unit().powerWatts());
+        assertEquals(server.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.HOLDER).holder(),
+                client.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.HOLDER).holder());
+        assertNotSame(server.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT),
+                client.snapshot(ModDisposals.DISPOSAL_TYPE).get(ModDisposals.UNIT));
+        assertEquals(status, client.snapshot(ModStatusEffects.STATUS_EFFECT_TYPE).get(id("status-test")));
+        assertEquals(character, client.snapshot(ModCharacters.CHARACTER_TYPE).get(id("human-test")));
+        assertEquals(radio, client.snapshot(ModRadioChannels.RADIO_CHANNEL_TYPE).get(id("common")));
+        assertEquals(lungs, client.snapshot(ModOrgans.ORGAN_TYPE).get(id("lungs-test")));
+        assertEquals(lungs, server.snapshot(ModOrgans.ORGAN_TYPE).get(id("lungs-test")));
+        assertEquals(reaction, client.snapshot(ModGasReactions.GAS_REACTION_TYPE).get(id("reaction-test")));
+        assertEquals(explosion, client.snapshot(ModExplosions.EXPLOSION_TYPE).get(id("explosion-test")));
+        assertEquals(source, client.snapshot(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE).get(id("source-test")));
+        assertEquals(profile, client.snapshot(ModLooseObjectProfiles.PROFILE_TYPE).get(id("profile-test")));
+        assertEquals(profile, server.snapshot(ModLooseObjectProfiles.PROFILE_TYPE).get(id("profile-test")));
+        assertEquals(extractable, client.snapshot(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE).get(id("cotton_material")));
+        assertEquals(extractable, server.snapshot(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE).get(id("cotton_material")));
+        assertEquals(itemFoodSolution, client.snapshot(com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE).get(id("food-only")));
+        assertEquals(itemFoodSolution, server.snapshot(com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE).get(id("food-only")));
+        assertEquals(seedItemProfile, client.snapshot(com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE).get(id("wheat_seeds")));
+        assertEquals(seedItemProfile, server.snapshot(com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE).get(id("wheat_seeds")));
+        assertNotSame(extractable, client.snapshot(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE).get(id("cotton_material")));
+        assertEquals(damageFeedback, client.snapshot(ModDamageFeedback.TYPE).get(id("damage-feedback-test")));
+        assertEquals(damageFeedback, server.snapshot(ModDamageFeedback.TYPE).get(id("damage-feedback-test")));
         assertEquals(explosion, ModExplosions.EXPLOSION_TYPE.codec().parse(JsonOps.INSTANCE,
                 exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).get(id("explosion-test"))).getOrThrow());
-        assertEquals(reaction, PrototypeRuntime.serverGasReactions().get(id("reaction-test")));
-        assertEquals(PrototypeRuntime.serverVentilationDevices().asMap(), PrototypeRuntime.clientVentilationDevices().asMap());
-        assertEquals(PrototypeRuntime.serverAirAlarms().asMap(), PrototypeRuntime.clientAirAlarms().asMap());
-        assertEquals(1, PrototypeRuntime.clientConstructionGraphs().asMap().size());
+        assertEquals(reaction, server.snapshot(ModGasReactions.GAS_REACTION_TYPE).get(id("reaction-test")));
+        assertEquals(server.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE).asMap(), client.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE).asMap());
+        assertEquals(server.snapshot(ModAirAlarms.AIR_ALARM_TYPE).asMap(), client.snapshot(ModAirAlarms.AIR_ALARM_TYPE).asMap());
+        assertEquals(1, client.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE).asMap().size());
         assertEquals(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size(),
-                PrototypeRuntime.clientConstructionRecipes().asMap().size());
+                client.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE).asMap().size());
         assertEquals(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size(),
-                PrototypeRuntime.clientConstructionEntities().asMap().size());
-        assertEquals(PrototypeRuntime.serverConstructionGraphs().asMap(), PrototypeRuntime.clientConstructionGraphs().asMap());
-        assertEquals(PrototypeRuntime.serverConstructionRecipes().asMap(), PrototypeRuntime.clientConstructionRecipes().asMap());
-        assertEquals(PrototypeRuntime.serverConstructionEntities().asMap(), PrototypeRuntime.clientConstructionEntities().asMap());
-        assertEquals(explosion, PrototypeRuntime.serverExplosions().get(id("explosion-test")));
-        assertTrue(PrototypeRuntime.clientCharacters().contains(id("human-test")));
-        assertFalse(PrototypeRuntime.clientCharacters().contains(id("missing")));
-        assertTrue(PrototypeRuntime.clientReagents().asMap().isEmpty());
-        assertTrue(PrototypeRuntime.serverReagents().asMap().isEmpty());
+                client.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE).asMap().size());
+        assertEquals(server.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE).asMap(), client.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE).asMap());
+        assertEquals(server.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE).asMap(), client.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE).asMap());
+        assertEquals(server.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE).asMap(), client.snapshot(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE).asMap());
+        assertEquals(explosion, server.snapshot(ModExplosions.EXPLOSION_TYPE).get(id("explosion-test")));
+        assertTrue(client.snapshot(ModCharacters.CHARACTER_TYPE).contains(id("human-test")));
+        assertFalse(client.snapshot(ModCharacters.CHARACTER_TYPE).contains(id("missing")));
+        assertTrue(client.snapshot(ModReagents.REAGENT_TYPE).asMap().isEmpty());
+        assertTrue(server.snapshot(ModReagents.REAGENT_TYPE).asMap().isEmpty());
         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> missingReactionType = new HashMap<>(exported);
         missingReactionType.remove(ModGasReactions.GAS_REACTION_TYPE.typeId());
         assertThrows(IllegalArgumentException.class, () -> client.publishEncodedCatalogs(missingReactionType));
-        assertEquals(reaction, PrototypeRuntime.clientGasReactions().get(id("reaction-test")));
+        assertEquals(reaction, client.snapshot(ModGasReactions.GAS_REACTION_TYPE).get(id("reaction-test")));
         server.publishDecoded(ModOrgans.ORGAN_TYPE, Map.of(id("heart-test"),
                 new OrganData(OrganCategory.HEART, Optional.empty())));
         server.publishDecoded(ModGasReactions.GAS_REACTION_TYPE,
                 reactions(id("new-reaction"), reaction(GasType.TRITIUM)));
         server.publishDecoded(ModLooseObjectProfiles.PROFILE_TYPE, Map.of(id("profile-server-only"), profile));
-        assertEquals(lungs, PrototypeRuntime.clientOrgans().get(id("lungs-test")));
-        assertFalse(PrototypeRuntime.clientOrgans().contains(id("heart-test")));
-        assertEquals(reaction, PrototypeRuntime.clientGasReactions().get(id("reaction-test")));
-        assertFalse(PrototypeRuntime.clientGasReactions().contains(id("new-reaction")));
-        assertFalse(PrototypeRuntime.clientLooseObjectProfiles().contains(id("profile-server-only")));
+        assertEquals(lungs, client.snapshot(ModOrgans.ORGAN_TYPE).get(id("lungs-test")));
+        assertFalse(client.snapshot(ModOrgans.ORGAN_TYPE).contains(id("heart-test")));
+        assertEquals(reaction, client.snapshot(ModGasReactions.GAS_REACTION_TYPE).get(id("reaction-test")));
+        assertFalse(client.snapshot(ModGasReactions.GAS_REACTION_TYPE).contains(id("new-reaction")));
+        assertFalse(client.snapshot(ModLooseObjectProfiles.PROFILE_TYPE).contains(id("profile-server-only")));
 
-        server.clearPublishedCatalogs();
-        client.clearPublishedCatalogs();
+        assertEquals(globalServerBefore, globalServer.snapshot());
+        assertEquals(globalClientBefore, globalClient.snapshot());
+    }
+
+    private static PrototypeManager registeredManager(PrototypeManager source) {
+        var manager = new PrototypeManager();
+        source.registeredTypes().forEach(manager::register);
+        return manager;
     }
 
     private static GasReactionData reaction(GasType gas) {
@@ -450,3 +516,7 @@ class PrototypeRuntimeTest {
         return ResourceLocation.fromNamespaceAndPath("moonstation14", path);
     }
 }
+
+
+
+

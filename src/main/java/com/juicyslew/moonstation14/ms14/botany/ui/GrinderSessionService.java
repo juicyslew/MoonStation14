@@ -45,10 +45,13 @@ public final class GrinderSessionService {
         String rejection = null;
         if (!valid(authority, machine) || !matches(s, authority, machine)) { invalidate(s); return; }
         if (control.expectedStateRevision() != machine.stateRevision()) rejection = "stale state";
-        else if (control.operation() == GrinderControl.Operation.GRIND) {
+        else if (control.operation() == GrinderControl.Operation.GRIND || control.operation() == GrinderControl.Operation.JUICE) {
             // The trusted core captures its own proof; no client-supplied StartProof is accepted.
             var proof = machine.startProof();
-            if (proof == null || !machine.startTrusted(proof, machine.getLevel().getGameTime(), true)) rejection = "grind unavailable";
+            var selected = control.operation() == GrinderControl.Operation.JUICE
+                    ? com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation.JUICE
+                    : com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation.GRIND;
+            if (proof == null || !machine.startTrusted(proof, machine.getLevel().getGameTime(), true, selected)) rejection = "processing unavailable";
         } else if (machine.program() == null || !machine.program().canEject()) rejection = "machine busy";
         else {
             var hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
@@ -121,8 +124,12 @@ public final class GrinderSessionService {
          if (beaker != null) { var x = beaker.snapshot(); slots.add(new GrinderSnapshot.Slot(-1, x.revision(), null, x.stack())); }
          int i=0; for (var slot : be.chamberSlots()) { var x=slot.snapshot(); slots.add(new GrinderSnapshot.Slot(i++, x.revision(), null, x.stack())); }
          var p=be.program(); boolean powered = be.isPowered(); REVISIONS.put(s.id(), be.stateRevision()); LAST_POWER.put(s.id(), powered);
-         s.publish().accept(new GrinderSnapshot(s.id(), s.placement(), s.body(), s.epoch(), s.dimension(), s.position(), be.stateRevision(), beaker == null ? 0 : beaker.snapshot().revision(), slots, powered, p != null && p.active(), p == null ? -1 : p.startTick(), p == null ? -1 : p.endTick(), true, rejection));
+          boolean active = p != null && p.active();
+          s.publish().accept(new GrinderSnapshot(s.id(), s.placement(), s.body(), s.epoch(), s.dimension(), s.position(), be.stateRevision(), beaker == null ? 0 : beaker.snapshot().revision(), slots, powered, active, p == null ? -1 : p.startTick(), p == null ? -1 : p.endTick(),
+                  be.canStart(com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation.GRIND),
+                  be.canStart(com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation.JUICE),
+                  active ? p.operation() : null, true, rejection));
     }
-    private static void invalidate(Session s) { remove(s); s.publish().accept(new GrinderSnapshot(s.id(), s.placement(), s.body(), s.epoch(), s.dimension(), s.position(), 0, 0, List.of(), false, false, -1, -1, false, "interaction invalid")); }
+    private static void invalidate(Session s) { remove(s); s.publish().accept(new GrinderSnapshot(s.id(), s.placement(), s.body(), s.epoch(), s.dimension(), s.position(), 0, 0, List.of(), false, false, -1, -1, false, false, null, false, "interaction invalid")); }
     private static void remove(Session s) { SESSIONS.remove(s.id()); REVISIONS.remove(s.id()); LAST_POWER.remove(s.id()); }
 }

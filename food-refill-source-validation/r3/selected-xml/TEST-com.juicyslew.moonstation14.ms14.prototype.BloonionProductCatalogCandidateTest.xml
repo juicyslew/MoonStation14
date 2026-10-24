@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.BloonionProductCatalogCandidateTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-21T12:31:11.331Z" hostname="DESKTOP-4F0ER3K" time="0.016">
+  <properties/>
+  <testcase name="bloonionProfilesResolveTogetherWithoutPublication()" classname="com.juicyslew.moonstation14.ms14.prototype.BloonionProductCatalogCandidateTest" time="0.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

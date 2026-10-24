@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyWorldGridAction;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 import net.minecraft.server.level.ServerLevel;
@@ -141,7 +142,7 @@ public final class BodyWorldGridTransfer {
                 } else {
                     LiveHands.WholeResult filled = before.putWhole(revision, hand, new ItemToken(token), child.stack());
                     if (!filled.succeeded()) return Result.DENIED;
-                    finalBody = filled.state();
+                    finalBody = MeleeSelectionCooldown.stageSelectedInsertion(body, before, filled.state());
                     entries.remove(child);
                     stagedWorld = GridContents.applyCopyWithGrid(copy, GridContents.of(entries)).orElse(null);
                     finalWorld = stagedWorld;

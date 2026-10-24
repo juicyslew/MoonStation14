@@ -17,6 +17,8 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDevice
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
+import com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile;
+import com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles;
 import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
@@ -38,12 +40,20 @@ import com.juicyslew.moonstation14.ms14.ingestion.IngestionProfile;
 import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
 import com.juicyslew.moonstation14.ms14.botany.SeedProfile;
 import com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles;
+import com.juicyslew.moonstation14.ms14.botany.SeedItemProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles;
+import com.juicyslew.moonstation14.ms14.botany.ModWeightedRandomFillSolutions;
+import com.juicyslew.moonstation14.ms14.botany.WeightedRandomFillSolution;
 import com.juicyslew.moonstation14.ms14.botany.ProduceProfile;
 import com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles;
+import com.juicyslew.moonstation14.ms14.item_processing.ExtractableProfile;
+import com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles;
 import com.juicyslew.moonstation14.ms14.botany.MachineProfile;
 import com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles;
 import com.juicyslew.moonstation14.ms14.botany.TrayProfile;
 import com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles;
+import com.juicyslew.moonstation14.ms14.botany.PlantMutationTable;
+import com.juicyslew.moonstation14.ms14.botany.ModPlantMutations;
 import com.juicyslew.moonstation14.ms14.damage.DamageFeedbackProfile;
 import com.juicyslew.moonstation14.ms14.damage.ModDamageFeedback;
 import com.juicyslew.moonstation14.ms14.medical.ModMedicalItems;
@@ -185,14 +195,36 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<ItemFootprintProfile> clientItemFootprints() { return CLIENT_MANAGER.snapshot(ModItemFootprints.TYPE); }
     public static PrototypeCatalog<IngestionProfile> serverIngestionProfiles() { return SERVER_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
     public static PrototypeCatalog<IngestionProfile> clientIngestionProfiles() { return CLIENT_MANAGER.snapshot(ModIngestionProfiles.TYPE); }
+    public static PrototypeCatalog<ItemFoodSolutionProfile> serverItemFoodSolutionProfiles() { return SERVER_MANAGER.snapshot(ModItemFoodSolutionProfiles.TYPE); }
+    public static PrototypeCatalog<ItemFoodSolutionProfile> clientItemFoodSolutionProfiles() { return CLIENT_MANAGER.snapshot(ModItemFoodSolutionProfiles.TYPE); }
     public static PrototypeCatalog<SeedProfile> serverSeedProfiles() { return SERVER_MANAGER.snapshot(ModSeedProfiles.TYPE); }
     public static PrototypeCatalog<SeedProfile> clientSeedProfiles() { return CLIENT_MANAGER.snapshot(ModSeedProfiles.TYPE); }
+    public static PrototypeCatalog<SeedItemProfile> serverSeedItemProfiles() { return SERVER_MANAGER.snapshot(ModSeedItemProfiles.TYPE); }
+    public static PrototypeCatalog<SeedItemProfile> clientSeedItemProfiles() { return CLIENT_MANAGER.snapshot(ModSeedItemProfiles.TYPE); }
+    public static PrototypeCatalog<WeightedRandomFillSolution> serverWeightedRandomFillSolutions() { return SERVER_MANAGER.snapshot(ModWeightedRandomFillSolutions.TYPE); }
+    public static PrototypeCatalog<WeightedRandomFillSolution> clientWeightedRandomFillSolutions() { return CLIENT_MANAGER.snapshot(ModWeightedRandomFillSolutions.TYPE); }
     public static PrototypeCatalog<ProduceProfile> serverProduceProfiles() { return SERVER_MANAGER.snapshot(ModProduceProfiles.TYPE); }
     public static PrototypeCatalog<ProduceProfile> clientProduceProfiles() { return CLIENT_MANAGER.snapshot(ModProduceProfiles.TYPE); }
+    public static PrototypeCatalog<ExtractableProfile> serverExtractableProfiles() { return SERVER_MANAGER.snapshot(ModExtractableProfiles.TYPE); }
+    public static PrototypeCatalog<ExtractableProfile> clientExtractableProfiles() { return CLIENT_MANAGER.snapshot(ModExtractableProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.item_processing.ItemProcessingProfile> serverItemProcessingProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.item_processing.ItemProcessingProfile> clientItemProcessingProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfile> serverMeleeWeaponProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfile> clientMeleeWeaponProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.GunProfile> serverGunProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.GunProfile> clientGunProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.CartridgeProfile> serverCartridgeProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.CartridgeProfile> clientCartridgeProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.ProjectileProfile> serverProjectileProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.ProjectileProfile> clientProjectileProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.MeleeArcProfile> serverMeleeArcProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.MeleeArcProfile> clientMeleeArcProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE); }
     public static PrototypeCatalog<MachineProfile> serverBotanyMachineProfiles() { return SERVER_MANAGER.snapshot(ModBotanyMachineProfiles.TYPE); }
     public static PrototypeCatalog<MachineProfile> clientBotanyMachineProfiles() { return CLIENT_MANAGER.snapshot(ModBotanyMachineProfiles.TYPE); }
     public static PrototypeCatalog<TrayProfile> serverTrayProfiles() { return SERVER_MANAGER.snapshot(ModTrayProfiles.TYPE); }
     public static PrototypeCatalog<TrayProfile> clientTrayProfiles() { return CLIENT_MANAGER.snapshot(ModTrayProfiles.TYPE); }
+    public static PrototypeCatalog<PlantMutationTable> serverPlantMutationTables() { return SERVER_MANAGER.snapshot(ModPlantMutations.TYPE); }
+    public static PrototypeCatalog<PlantMutationTable> clientPlantMutationTables() { return CLIENT_MANAGER.snapshot(ModPlantMutations.TYPE); }
     public static PrototypeCatalog<DamageFeedbackProfile> serverDamageFeedback() { return SERVER_MANAGER.snapshot(ModDamageFeedback.TYPE); }
     public static PrototypeCatalog<DamageFeedbackProfile> clientDamageFeedback() { return CLIENT_MANAGER.snapshot(ModDamageFeedback.TYPE); }
     public static PrototypeCatalog<MedicalItemData> serverMedicalItems() { return SERVER_MANAGER.snapshot(ModMedicalItems.TYPE); }
@@ -251,10 +283,21 @@ public final class PrototypeRuntime {
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
         manager.register(ModIngestionProfiles.TYPE);
+        manager.register(ModItemFoodSolutionProfiles.TYPE);
         manager.register(ModSeedProfiles.TYPE);
+        manager.register(ModSeedItemProfiles.TYPE);
+        manager.register(ModWeightedRandomFillSolutions.TYPE);
         manager.register(ModProduceProfiles.TYPE);
+        manager.register(ModExtractableProfiles.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE);
         manager.register(ModBotanyMachineProfiles.TYPE);
         manager.register(ModTrayProfiles.TYPE);
+        manager.register(ModPlantMutations.TYPE);
         manager.register(ModDamageFeedback.TYPE);
         manager.register(ModMedicalItems.TYPE);
         manager.register(ModInjectorModes.TYPE);

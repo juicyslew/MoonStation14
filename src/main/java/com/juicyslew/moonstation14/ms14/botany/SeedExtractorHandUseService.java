@@ -42,17 +42,26 @@ public final class SeedExtractorHandUseService {
         var produce = produceProfiles == null ? null : produceProfiles.get(BuiltInRegistries.ITEM.getKey(held.getItem()));
         if (produce == null) return BodyBlockUseResult.Outcome.DENIED;
         var instance = held.get(ModDataComponents.PRODUCE_INSTANCE.get());
-        var seedId = instance == null ? produce.seed() : instance.seed();
+        var reference = held.get(ModDataComponents.PLANT_SEED_REFERENCE.get());
+        var carried = GeneticCarriers.resolve(held, () -> null);
+        // Instance genetics are authoritative: baseline species eligibility must not
+        // override a seedless mutation carried by this particular produce item.
+        var seedId = carried != null ? carried.species() : instance == null ? produce.seed() : instance.seed();
         var seeds = ModSeedProfiles.serverCatalog();
-        var seed = seeds == null || seedId == null ? null : seeds.get(seedId);
-        if (seed == null || instance != null && Float.compare(instance.baselinePotency(), produceLifecyclePotency(produce, seed)) != 0)
-            return BodyBlockUseResult.Outcome.DENIED;
+        var seed = carried != null ? carried.profile() : seeds == null || seedId == null ? null : seeds.get(seedId);
+        if (!canExtract(seed)) return BodyBlockUseResult.Outcome.DENIED;
         var packet = BuiltInRegistries.ITEM.get(seed.packet());
         if (packet == null || packet == net.minecraft.world.item.Items.AIR
                 || !BuiltInRegistries.ITEM.getKey(packet).equals(seed.packet())) return BodyBlockUseResult.Outcome.DENIED;
         int count = level.random.nextInt(profile.minimumPacketYield(), profile.maximumPacketYield() + 1);
         var outputs = new java.util.ArrayList<ItemStack>(count);
-        for (int i = 0; i < count; i++) outputs.add(new ItemStack(packet));
+        var genetics = carried != null ? carried : new GeneticValue(seedId, seed);
+        PlantSeedReference outputReference = reference != null ? reference : new PlantSeedReference(genetics, true);
+        for (int i = 0; i < count; i++) {
+            var output = GeneticCarriers.createSeedPacket(outputReference, null);
+            if (output.isEmpty()) return BodyBlockUseResult.Outcome.DENIED;
+            outputs.add(output);
+        }
         var token = request.expectedToken(); long revision = request.expectedRevision();
         var result = FreshWorldOutputBatch.publish(level, body, machine.getBlockPos(), outputs,
                 () -> HandActorAuthority.revalidate(actor, authority) && CharacterControlSystem.canAct(body)
@@ -66,16 +75,18 @@ public final class SeedExtractorHandUseService {
                 () -> {
                     var consumed = BodyHandItemTransfer.consumeOneForAuthorizedBody(actor, authority, request.handId(), token, revision, held);
                     if (consumed != BodyHandItemTransfer.Result.SUCCESS) throw new IllegalStateException("extractor source consume failed: " + consumed);
-                }, (entity, expected) -> {
+                 }, (entity, expected) -> {
                     return BodyHandItemTransfer.pickupTrustedCreated(authority, entity, expected,
                                 () -> machine.isLoadedValid() && machine.isPowered() && placementIdentity.equals(machine.placementIdentity()));
-                });
+                 });
+        if (result == BodyHandItemTransfer.Result.SUCCESS && count > 1) GeneticCarriers.markShared(outputReference);
         return result == BodyHandItemTransfer.Result.SUCCESS ? BodyBlockUseResult.Outcome.PLACED
                 : result == BodyHandItemTransfer.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED
                 : BodyBlockUseResult.Outcome.DENIED;
     }
 
-    private static float produceLifecyclePotency(ProduceProfile produce, SeedProfile seed) {
-        return seed.lifecycle().potency();
+    static boolean canExtract(SeedProfile effectiveSeed) {
+        return effectiveSeed != null && !effectiveSeed.lifecycle().seedless();
     }
+
 }

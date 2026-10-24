@@ -39,9 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.WeakHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 
@@ -50,16 +48,9 @@ public final class SlipSystem {
     private static final Logger LOGGER = LoggerFactory.getLogger(SlipSystem.class);
     private static final ResourceKey<com.juicyslew.moonstation14.component.codec.json.StatusEffectData> KNOCKDOWN =
             ModStatusEffects.createKey("knockdown");
-    // Only currently-contacting actors are retained. Level keys are weak and actor keys
-    // are UUIDs, so this cache cannot keep either a level or an entity alive.
-    private static final Map<ServerLevel, LevelContacts> CONTACTS = new WeakHashMap<>();
     private static final List<Predicate<SlipAttempt>> ATTEMPT_GATES = new CopyOnWriteArrayList<>();
     private static final List<java.util.function.Consumer<SlipEvent>> LISTENERS = new CopyOnWriteArrayList<>();
     private static final int MAX_HOOKS = 64;
-    private static final int MAX_ACTOR_CONTACTS = 32;
-    // Emergency level-wide ceiling in addition to the actor-local bound. Reaching
-    // either ceiling rejects new admissions; it never evicts and rearms an episode.
-    private static final int MAX_LEVEL_CONTACTS = 8192;
     // Fail closed for malformed/custom entity AABBs. A normal .6x1.8 body overlaps
     // at most 2x2x3 cells; 16 permits boundary rounding without unbounded traversal.
     private static final int MAX_ENDPOINT_CELLS = 16;
@@ -78,7 +69,6 @@ public final class SlipSystem {
     public static boolean removeAttemptGate(Predicate<SlipAttempt> gate) {
         return ATTEMPT_GATES.remove(gate);
     }
-
     /** Slip-event consumers (including future reactive chemistry) run before movement/status. */
     public static boolean addListener(java.util.function.Consumer<SlipEvent> listener) {
         if (LISTENERS.size() >= MAX_HOOKS) return false;
@@ -132,7 +122,7 @@ public final class SlipSystem {
     }
 
     private static void admitEndpointContacts(ServerLevel level, LivingEntity body,
-                                              Vec3 acceptedDisplacement, Vec3 launchVelocity, double lengthSqr) {
+                                               Vec3 acceptedDisplacement, Vec3 launchVelocity, double lengthSqr) {
         AABB bounds = body.getBoundingBox();
         int minX = net.minecraft.util.Mth.floor(bounds.minX);
         int minY = net.minecraft.util.Mth.floor(bounds.minY);
@@ -143,7 +133,13 @@ public final class SlipSystem {
         long cells = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
         if (!finite(bounds) || bounds.getXsize() > MAX_BODY_WIDTH || bounds.getZsize() > MAX_BODY_WIDTH
                 || bounds.getYsize() > MAX_BODY_HEIGHT || cells <= 0 || cells > MAX_ENDPOINT_CELLS) return;
-        reconcileContacts(level, body, bounds);
+        StepContactEpisodes.reconcile(level, body, bounds);
+        ItemStepContactSystem.scan(level, body, bounds, launchVelocity, Math.sqrt(lengthSqr) * 20d, context -> {
+            // Deterministic local adaptation of unordered upstream subscribers: slip first,
+            // then trigger damage/delete independently of slip eligibility or outcome.
+            onItemContact(context);
+            com.juicyslew.moonstation14.ms14.loose_objects.ItemStepDamageSystem.onContact(context);
+        });
         for (BlockPos position : BlockPos.betweenClosed(minX, minY, minZ, maxX, maxY, maxZ)) {
             if (level.hasChunkAt(position) && level.getBlockState(position).is(ModBlocks.PUDDLE.get())
                     && level.getBlockEntity(position) instanceof PuddleBlockEntity puddle) {
@@ -163,10 +159,7 @@ public final class SlipSystem {
         if (level.isClientSide || !target.isAlive() || target.level() != level) return;
         BlockPos sourcePosition = position.immutable();
         UUID actorId = target.getUUID();
-        synchronized (CONTACTS) {
-            ActorContacts contacts = actorContacts(level, actorId, false);
-            if (contacts != null && contacts.sources.containsKey(sourcePosition)) return;
-        }
+        if (StepContactEpisodes.containsPuddle(level, actorId, sourcePosition)) return;
 
         CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
         if (character == null || character.component(StunnableComponent.class).isEmpty()
@@ -192,8 +185,9 @@ public final class SlipSystem {
 
         // StepTriggerSystem latches once speed/contact/CanSlip are satisfied. The later
         // slippery attempt, target NoSlip, and knockdown checks do not undo that latch.
-        if (!latch(level, actorId, sourcePosition)) return;
-        if (character.component(NoSlipComponent.class).isPresent()) return;
+        if (!StepContactEpisodes.latchPuddle(level, actorId, sourcePosition)) return;
+        if (character.component(NoSlipComponent.class).isPresent()
+                || com.juicyslew.moonstation14.ms14.equipment.EquipmentNoSlipPolicy.hasWornFeetNoSlip(target)) return;
         boolean knockedDown = StatusEffectSystem.hasStatus(statusTrait.toHandleSelf(), level, KNOCKDOWN);
         if (knockedDown && !profile.superSlippery()) return;
         SlipAttempt attempt = new SlipAttempt(level, position.immutable(), puddle, target, profile, knockedDown);
@@ -216,33 +210,89 @@ public final class SlipSystem {
             }
         }
 
-        // SS14 only plays feedback and applies a new stun when the target was not
-        // already knocked down. Super-slippery sources may still admit an event
-        // while knocked down, and still refresh the knockdown below.
-        if (!knockedDown) {
-            level.playSound(null, target.getX(), target.getY(), target.getZ(),
-                    SoundEvents.SLIME_BLOCK_FALL, SoundSource.PLAYERS, 0.35F, 1.0F);
-            CharacterControlSystem.applyStun(target, (float) profile.stunSeconds());
-        }
+        boolean proneEligible = character.component(StandingStateComponent.class).map(StandingStateComponent::proneEligible).orElse(false);
+        SlipResponseData responseProfile = SlipResponseData.puddle(profile.stunSeconds(),
+                profile.knockdownSeconds(), profile.launchVelocityMultiplier(), profile.friction(), true);
+        respond(new SlipResponse(level, null, target, responseProfile, velocity, wasSliding, knockedDown,
+                proneEligible),
+                statusTrait);
+    }
 
-        // The listener observes the pre-slip value; publish only the real transition afterward.
-        if (!wasSliding && profile.knockdownSeconds() > 0d && character.component(StandingStateComponent.class).map(StandingStateComponent::proneEligible).orElse(false)) {
+    private static void onItemContact(ItemStepContactSystem.ContactContext context) {
+        LivingEntity target = context.target();
+        if (!(target instanceof IStatusEffectTrait statusTrait)) return;
+        CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
+        if (character == null || character.component(StunnableComponent.class).isEmpty()
+                || character.component(StandingStateComponent.class).filter(StandingStateComponent::standingEligible).isEmpty()) return;
+        SlipResponseData response = context.slipResponse();
+        if (response == null) return;
+        boolean down = StatusEffectSystem.hasStatus(statusTrait.toHandleSelf(), context.level(), KNOCKDOWN);
+        if (character.component(NoSlipComponent.class).isPresent()
+                || com.juicyslew.moonstation14.ms14.equipment.EquipmentNoSlipPolicy.hasWornFeetNoSlip(target)
+                || (down && !response.superSlippery())) return;
+        respond(new SlipResponse(context.level(), context.source(), target, response, context.velocity(),
+                isSliding(target), down, character.component(StandingStateComponent.class)
+                .map(StandingStateComponent::proneEligible).orElse(false)), statusTrait);
+    }
+
+    public static double contactIntersectionRatio(AABB target, AABB source) {
+        return ItemStepContactGeometry.intersectionRatio(target, source);
+    }
+
+    /** Minecraft item adaptation: use the same lower 0.25-block band as sliding contact. */
+    static AABB itemContactFeetBand(AABB bounds) {
+        return ItemStepContactGeometry.feetBand(bounds);
+    }
+
+    /** Shared response seam: sources are entities, while puddle admission/events remain block-specific. */
+    static void respond(SlipResponse response, IStatusEffectTrait statusTrait) {
+        LivingEntity target = response.target();
+        ServerLevel level = response.level();
+        SlipResponseData profile = response.profile();
+        // Preserve source order: publish movement/sliding after SlipEvent, before down-only effects.
+        if (!response.wasSliding() && profile.requiresContact() && profile.affectsSliding()
+                && profile.knockdownSeconds() > 0d && response.proneEligible()) {
             SlidingAttachment sliding = new SlidingAttachment();
             sliding.setSliding(true);
             MS14Provider.update(target, MS14Bridges.SLIDING, sliding);
         }
-
-        // SS14 does not reapply launch while sliding; preserve the current
-        // physical velocity even when another source admits a slip event.
-        if (!wasSliding) {
-            target.setDeltaMovement(velocity.scale(profile.launchVelocityMultiplier()));
+        if (!response.wasSliding()) {
+            target.setDeltaMovement(response.velocity().scale(profile.launchVelocityMultiplier()));
             target.hurtMarked = true;
         }
-        if (character.component(StandingStateComponent.class).map(StandingStateComponent::proneEligible).orElse(false) && profile.knockdownSeconds() > 0d) {
+        boolean newlyDown = !response.alreadyKnockedDown();
+        if (newlyDown) {
+            // DropHandItemsEvent is source-directed upstream behavior. Do not drop the victim's hands.
+            if (response.source() instanceof LivingEntity source) {
+                com.juicyslew.moonstation14.ms14.mobs.MedicalIncapacitationEffects.dropSlipSourceHands(source);
+            }
+            CharacterControlSystem.updateStun(target, StatusEffectSystem.secondsToTicks((float) profile.stunSeconds()));
+            if (profile.frictionDurationSeconds() > 0d && Math.abs(profile.frictionFactor() - 1d) > 1.0e-6d) StatusEffectSystem.apply(statusTrait.toHandleSelf(), level,
+                    com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.createKey("slip_friction"),
+                    StatusEffectOperation.UPDATE, java.util.OptionalInt.of(StatusEffectSystem.secondsToTicks((float) profile.frictionDurationSeconds())), 0,
+                    new com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPayload.FrictionModifier(profile.frictionFactor()));
+            if (profile.staminaDamage() > 0d)
+                com.juicyslew.moonstation14.ms14.character.stamina.StaminaSystem.takeStaminaDamage(target, (float) profile.staminaDamage());
+            com.juicyslew.moonstation14.ms14.audio.PositionalSoundRouter.play(level, profile.soundEvent(),
+                    SoundSource.PLAYERS, target.getX(), target.getY(), target.getZ(),
+                    (float) Math.pow(10d, profile.soundVolumeDb() / 20d), 1.0F);
+        }
+        if (response.proneEligible() && profile.knockdownSeconds() > 0d) {
             int duration = StatusEffectSystem.secondsToTicks((float) profile.knockdownSeconds());
             StatusEffectSystem.apply(statusTrait.toHandleSelf(), level, KNOCKDOWN,
-                    StatusEffectOperation.SET, java.util.OptionalInt.of(duration), 0);
+                    StatusEffectOperation.UPDATE, java.util.OptionalInt.of(duration), 0);
         }
+    }
+
+    record SlipResponse(ServerLevel level, Entity source, LivingEntity target,
+                                SlipResponseData profile, Vec3 velocity, boolean wasSliding,
+                                boolean alreadyKnockedDown, boolean proneEligible) { }
+
+    static SlipResponseData looseItemResponse(double stunSeconds, double knockdownSeconds,
+                                                  double launchMultiplier, double frictionFactor,
+                                                  boolean superSlippery) {
+        return new SlipResponseData(stunSeconds, knockdownSeconds, launchMultiplier,
+                frictionFactor, .5d, 25d, false, true, superSlippery);
     }
 
     /** Exit reconciliation for the repeated vanilla entityInside callback. */
@@ -250,7 +300,7 @@ public final class SlipSystem {
         if (!(entity.level() instanceof ServerLevel level)) return;
         if (!entity.isAlive()) {
             clearSliding(entity);
-            clearActorContacts(level, entity.getUUID());
+            StepContactEpisodes.clearActor(level, entity.getUUID());
             return;
         }
         if (entity instanceof LivingEntity living && isSliding(entity)) {
@@ -258,76 +308,7 @@ public final class SlipSystem {
                     && StatusEffectSystem.hasStatus(trait.toHandleSelf(), level, KNOCKDOWN);
             if (!knockedDown || !SlidingFrictionSystem.hasQualifyingContact(living)) clearSliding(entity);
         }
-        reconcileContacts(level, entity, entity.getBoundingBox());
-    }
-
-    private static ActorContacts actorContacts(ServerLevel level, UUID actorId, boolean create) {
-        LevelContacts state = CONTACTS.get(level);
-        if (state == null && create) {
-            state = new LevelContacts();
-            CONTACTS.put(level, state);
-        }
-        if (state == null) return null;
-        ActorContacts result = state.actors.get(actorId);
-        if (result == null && create) {
-            result = new ActorContacts();
-            state.actors.put(actorId, result);
-        }
-        return result;
-    }
-
-    private static boolean latch(ServerLevel level, UUID actorId, BlockPos position) {
-        synchronized (CONTACTS) {
-            LevelContacts state = CONTACTS.get(level);
-            ActorContacts contacts = actorContacts(level, actorId, false);
-            if (contacts != null && contacts.sources.containsKey(position)) return false;
-            // Emergency bound only: never evict/rearm existing episodes to admit a new one.
-            if ((contacts != null && contacts.sources.size() >= MAX_ACTOR_CONTACTS)
-                    || (state != null && state.latchCount >= MAX_LEVEL_CONTACTS)) {
-                if (!contactsCapLogged) {
-                    contactsCapLogged = true;
-                    LOGGER.warn("Puddle slip contact capacity reached (actor {}, level {}); new contacts fail closed",
-                            MAX_ACTOR_CONTACTS, MAX_LEVEL_CONTACTS);
-                }
-                return false;
-            }
-            contacts = actorContacts(level, actorId, true);
-            contacts.sources.put(position, level.getGameTime());
-            CONTACTS.get(level).latchCount++;
-            return true;
-        }
-    }
-
-    private static boolean contactsCapLogged;
-
-    private static void reconcileContacts(ServerLevel level, Entity entity, AABB bounds) {
-        synchronized (CONTACTS) {
-            LevelContacts state = CONTACTS.get(level);
-            if (state == null) return;
-            ActorContacts contacts = state.actors.get(entity.getUUID());
-            if (contacts == null) return;
-            int previousCount = contacts.sources.size();
-            contacts.sources.entrySet().removeIf(entry -> {
-                BlockPos position = entry.getKey();
-                if (!level.hasChunkAt(position) || !level.getBlockState(position).is(ModBlocks.PUDDLE.get())) return true;
-                AABB shape = level.getBlockState(position).getShape(level, position, CollisionContext.empty())
-                        .bounds().move(position);
-                return !bounds.intersects(shape);
-            });
-            state.latchCount -= previousCount - contacts.sources.size();
-            if (contacts.sources.isEmpty()) state.actors.remove(entity.getUUID());
-            if (state.actors.isEmpty()) CONTACTS.remove(level);
-        }
-    }
-
-    private static void clearActorContacts(ServerLevel level, UUID actorId) {
-        synchronized (CONTACTS) {
-            LevelContacts state = CONTACTS.get(level);
-            if (state == null) return;
-            ActorContacts removed = state.actors.remove(actorId);
-            if (removed != null) state.latchCount -= removed.sources.size();
-            if (state.actors.isEmpty()) CONTACTS.remove(level);
-        }
+        StepContactEpisodes.reconcile(level, entity, entity.getBoundingBox());
     }
 
     private static final double MIN_INTERSECTION_RATIO = 0.3d;
@@ -346,13 +327,8 @@ public final class SlipSystem {
         double sourceMaxX = blockPos.getX() + 0.9d;
         double sourceMinZ = blockPos.getZ() + 0.1d;
         double sourceMaxZ = blockPos.getZ() + 0.9d;
-        double targetArea = Math.max(0d, target.getXsize()) * Math.max(0d, target.getZsize());
-        double sourceArea = (sourceMaxX - sourceMinX) * (sourceMaxZ - sourceMinZ);
-        if (targetArea <= 0d || sourceArea <= 0d) return 0d;
-        double overlapX = Math.max(0d, Math.min(target.maxX, sourceMaxX) - Math.max(target.minX, sourceMinX));
-        double overlapZ = Math.max(0d, Math.min(target.maxZ, sourceMaxZ) - Math.max(target.minZ, sourceMinZ));
-        double overlapArea = overlapX * overlapZ;
-        return Math.max(overlapArea / targetArea, overlapArea / sourceArea);
+        return contactIntersectionRatio(target, new AABB(sourceMinX, contactShape.minY, sourceMinZ,
+                sourceMaxX, contactShape.maxY, sourceMaxZ));
     }
 
     /** Read-only on either logical side; absent attachment means not sliding. */
@@ -368,26 +344,18 @@ public final class SlipSystem {
     /** Nonpersistent state has no trustworthy provenance after transfer/reload; fail neutral. */
     public static void onEntityJoin(Entity entity) {
         if (entity.level() instanceof ServerLevel level) {
-            clearActorContacts(level, entity.getUUID());
+            StepContactEpisodes.clearActor(level, entity.getUUID());
             clearSliding(entity);
         }
     }
 
     /** Drops only this actor's volatile contact episodes when it leaves a server level. */
     public static void onEntityLeave(ServerLevel level, Entity entity) {
-        if (entity instanceof LivingEntity) clearActorContacts(level, entity.getUUID());
+        if (entity instanceof LivingEntity) StepContactEpisodes.clearActor(level, entity.getUUID());
     }
 
     public record SlipAttempt(ServerLevel level, BlockPos sourcePosition, PuddleBlockEntity source,
-                              LivingEntity target, SlipperySolution.Outcome solution,
-                              boolean alreadyKnockedDown) { }
+                               LivingEntity target, SlipperySolution.Outcome solution,
+                               boolean alreadyKnockedDown) { }
 
-    private static final class ActorContacts {
-        private final Map<BlockPos, Long> sources = new java.util.HashMap<>();
-    }
-
-    private static final class LevelContacts {
-        private final Map<UUID, ActorContacts> actors = new java.util.HashMap<>();
-        private int latchCount;
-    }
 }

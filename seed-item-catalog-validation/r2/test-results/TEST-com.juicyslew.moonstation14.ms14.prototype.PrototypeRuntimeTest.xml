@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-16T12:15:26.896Z" hostname="DESKTOP-4F0ER3K" time="0.221">
+  <properties/>
+  <testcase name="serverAndClientCatalogsAreIndependentAndServerCleanupKeepsRegistrations()" classname="com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest" time="0.034"/>
+  <testcase name="runtimeExportImportsAllRegisteredFamiliesIncludingConstructionAirlocksAndMedicalWithoutSharingState()" classname="com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest" time="0.186"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -9,6 +9,8 @@ import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.LivingEntity;
@@ -26,9 +28,11 @@ public final class SlidingFrictionSystem {
     private SlidingFrictionSystem() { }
 
     public static double frictionFactor(LivingEntity entity) {
-        if (entity == null || !SlipSystem.isSliding(entity)) return NEUTRAL;
-        ContactFactor contact = scanContacts(entity);
-        return contact.present ? contact.friction : NEUTRAL;
+        if (entity == null) return NEUTRAL;
+        double puddle = SlipSystem.isSliding(entity) ? scanContacts(entity).friction : NEUTRAL;
+        double timed = StatusEffectSystem.frictionFactor(entity);
+        double factor = puddle * timed;
+        return Double.isFinite(factor) && factor >= 0d ? factor : NEUTRAL;
     }
 
     /** Read-only query for currently qualifying slippery feet contact. */

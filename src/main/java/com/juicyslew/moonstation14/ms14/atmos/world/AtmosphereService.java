@@ -72,6 +72,15 @@ public final class AtmosphereService {
     static final int MAX_DISCOVERY_PROBES_PER_SLICE = 384;
     static final int MAX_OWNERSHIP_CLAIMS_PER_SLICE = 128;
     static final int MAX_FINITE_ROOM_ENDPOINT_PROBES = 1024;
+    /** Separate cap for once-guarded trusted authored setup; normal endpoint probes stay at 1024. */
+    static final int MAX_TRUSTED_SETUP_CELLS = 8192;
+
+    static int trustedSetupCandidateBudget(int suppliedCount) {
+        if (suppliedCount < 1 || suppliedCount > MAX_TRUSTED_SETUP_CELLS)
+            throw new IllegalArgumentException("Invalid trusted setup cell count");
+        return Math.multiplyExact(suppliedCount, Direction.values().length + 1);
+    }
+    private static final int TRUSTED_SETUP_SEARCH_CALLS_PER_CELL = Direction.values().length + 2;
     static final int MAX_PENDING_OWNERSHIP_CLAIM_PLANS = 256;
     static final int MAX_EXTERIOR_WITNESS_CHECKS = AtmosphereOwnershipSearch.DEFAULT_MAX_CANDIDATES;
     private static final int MAX_QUEUED_POSITIONS = 8192;
@@ -346,24 +355,40 @@ public final class AtmosphereService {
      */
     public boolean initializeEnclosedFiniteMixtureForTrustedSetup(ServerLevel level, List<BlockPos> cells,
                                                                    GasMixture mixture) {
-        if (level == null || cells == null || cells.isEmpty() || cells.size() > 128
-                || mixture == null || level.getServer() == null || !level.getServer().isSameThread()) return false;
+        return initializeEnclosedFiniteMixtureForTrustedSetup(level, cells, mixture, ignored -> { });
+    }
+
+    /** Diagnostic variant of trusted setup; emits one bounded reason on rejection. */
+    public boolean initializeEnclosedFiniteMixtureForTrustedSetup(ServerLevel level, List<BlockPos> cells,
+                                                                   GasMixture mixture,
+                                                                   java.util.function.Consumer<String> rejection) {
+        java.util.function.Consumer<String> reject = rejection == null ? ignored -> { } : rejection;
+        if (level == null || cells == null || cells.isEmpty() || cells.size() > MAX_TRUSTED_SETUP_CELLS
+                || mixture == null || level.getServer() == null || !level.getServer().isSameThread()) {
+            reject.accept("invalid input or cell count (" + (cells == null ? "null" : cells.size()) + ")"); return false;
+        }
         Set<BlockPos> supplied = new HashSet<>();
         for (BlockPos cell : cells) {
-            if (cell == null || !supplied.add(cell.immutable())) return false;
+            if (cell == null || !supplied.add(cell.immutable())) { reject.accept("null or repeated supplied cell: " + cell); return false; }
         }
         Set<BlockPos> proven = new HashSet<>();
-        int remaining = MAX_FINITE_ROOM_ENDPOINT_PROBES;
+        // One seed call, up to six directional inspections per supplied cell (including
+        // already-known neighbors), and a final completion call per component/cell.
+        // Input size is capped at 8192 above, so this multiplication is bounded by 65536.
+        int remaining = TRUSTED_SETUP_SEARCH_CALLS_PER_CELL * supplied.size();
         for (BlockPos seed : supplied) {
             if (proven.contains(seed)) continue;
             LevelChunk seedChunk = loadedChunk(level, seed);
-            if (!inBounds(level, seed) || seedChunk == null || !AtmosphereTopology.isPassable(level, seed)) return false;
-            // Neighbor discovery examines blocked boundary cells as well as the supplied room.
-            // Bound candidates by the trusted-setup inspection budget, not by room size.
-            AtmosphereOwnershipSearch search = new AtmosphereOwnershipSearch(seed, MAX_FINITE_ROOM_ENDPOINT_PROBES);
+            if (!inBounds(level, seed) || seedChunk == null || !AtmosphereTopology.isPassable(level, seed)) { reject.accept("seed " + seed + " unloaded, out of bounds, or non-passable"); return false; }
+            // Candidate storage and total step calls are separate limits: this preserves the
+            // existing candidate cap while allowing the bounded directional work per cell.
+            // Each supplied open cell contributes at most itself plus six blocked/open neighbors
+            // to the candidate set. Blocked boundary candidates are not supplied room cells.
+            int candidateBudget = trustedSetupCandidateBudget(supplied.size());
+            AtmosphereOwnershipSearch search = new AtmosphereOwnershipSearch(seed, candidateBudget);
             AtmosphereOwnershipSearch.Snapshot result;
             do {
-                if (remaining-- <= 0) return false;
+                if (remaining-- <= 0) { reject.accept("call budget exhausted; seed=" + seed + ", supplied=" + supplied.size()); return false; }
                 result = search.step(pos -> {
                     if (!inBounds(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
                     LevelChunk chunk = loadedChunk(level, pos);
@@ -375,19 +400,19 @@ public final class AtmosphereService {
                 if (result.status() == AtmosphereOwnershipSearch.Status.UNKNOWN
                         || result.status() == AtmosphereOwnershipSearch.Status.EXTERIOR
                         || result.status() == AtmosphereOwnershipSearch.Status.SATURATED
-                        || result.status() == AtmosphereOwnershipSearch.Status.CANCELLED) return false;
+                        || result.status() == AtmosphereOwnershipSearch.Status.CANCELLED) { reject.accept("search status=" + result.status() + "; seed=" + seed + ", visited=" + result.visitedOpenCells().size() + ", trackedCandidates=" + result.trackedCandidates() + ", candidateBudget=" + candidateBudget); return false; }
             } while (result.status() == AtmosphereOwnershipSearch.Status.IN_PROGRESS);
-            if (result.status() != AtmosphereOwnershipSearch.Status.FINITE) return false;
+            if (result.status() != AtmosphereOwnershipSearch.Status.FINITE) { reject.accept("search status=" + result.status() + "; seed=" + seed); return false; }
             for (BlockPos visited : result.visitedOpenCells()) {
-                if (!supplied.contains(visited) || !proven.add(visited)) return false;
+                if (!supplied.contains(visited) || !proven.add(visited)) { reject.accept("visited cell omitted or repeated: " + visited + "; visited=" + result.visitedOpenCells().size() + ", supplied=" + supplied.size()); return false; }
             }
         }
-        if (!proven.equals(supplied)) return false;
+        if (!proven.equals(supplied)) { reject.accept("visited coverage mismatch; visited=" + proven.size() + ", supplied=" + supplied.size()); return false; }
         // All topology work and target validation finish before the first ownership or gas write.
         Map<BlockPos, LevelChunk> targetChunks = new LinkedHashMap<>();
         for (BlockPos cell : proven) {
             LevelChunk chunk = loadedChunk(level, cell);
-            if (chunk == null || !AtmosphereTopology.isPassable(level, cell)) return false;
+            if (chunk == null || !AtmosphereTopology.isPassable(level, cell)) { reject.accept("target validation failed at " + cell + " (unloaded or non-passable)"); return false; }
             targetChunks.put(cell, chunk);
         }
 
@@ -1137,6 +1162,26 @@ public final class AtmosphereService {
         double ratio = Math.min(1.0, maxMoles / total);
         GasMixture.Removal split = before.splitRatio(ratio);
         return write(level, pos, split.remaining()) ? split.removed().totalMoles() : 0.0;
+    }
+
+    /**
+     * Removes exactly the requested amount of one gas from a known finite cell. This is an
+     * all-or-nothing physical mutation: insufficient gas and unavailable/unwritable cells do
+     * not change the mixture. A zero request succeeds for a sampled finite cell without writing.
+     */
+    public boolean tryConsumeGas(ServerLevel level, BlockPos pos, GasType type, double moles) {
+        if (type == null || !Double.isFinite(moles) || moles < 0.0
+                || isLoadedPassableExterior(level, pos)) return false;
+        Optional<GasMixture> current = sample(level, pos);
+        if (current.isEmpty()) return false;
+        GasMixture before = current.get();
+        if (moles == 0.0) return true;
+        if (before.moles(type) < moles) return false;
+        try {
+            return write(level, pos, before.withGasDelta(type, -moles, before.temperatureKelvin()));
+        } catch (IllegalArgumentException | IllegalStateException invalid) {
+            return false;
+        }
     }
 
     public boolean addEnergy(ServerLevel level, BlockPos pos, double joules) {

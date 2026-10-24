@@ -6,11 +6,32 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
+import com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionSequenceGate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Synthetic input/pure sequence policy only; does not claim real ServerPlayer packet authorization. */
 class BodyHandActionPolicyTest {
+    @Test void gunWorldActionCodecPreservesNullableTokenAndRequiresTarget() {
+        for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.GUN_EMPTY,
+                BodyHandActionRequest.Action.GUN_SPIN}) {
+            for (String token : new String[]{null, "held-token"}) {
+                var request = new BodyHandActionRequest(action, "right", 4, 8, 12, UUID.randomUUID(), token);
+                var wire = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                BodyHandActionRequest.STREAM_CODEC.encode(wire, request);
+                assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(wire));
+            }
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(action,
+                    "right", 4, 8, 12, null, null));
+            assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(action,
+                    "right", 4, 8, 12, UUID.randomUUID(), " "));
+        }
+        var malformed = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        malformed.writeEnum(BodyHandActionRequest.Action.GUN_EMPTY); malformed.writeUtf("right", 32);
+        malformed.writeVarLong(4); malformed.writeVarLong(8); malformed.writeVarLong(12);
+        malformed.writeUUID(UUID.randomUUID()); malformed.writeByte(2);
+        assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(malformed));
+    }
     @Test void activateTargetCarriesExactUuidWithoutOccupantToken() {
         var request = new BodyHandActionRequest(BodyHandActionRequest.Action.ACTIVATE_TARGET,
                 "left", 7, 2, 9, UUID.randomUUID(), null);
@@ -77,22 +98,24 @@ class BodyHandActionPolicyTest {
     }
 
     @Test void rejectsReplayAndBoundsRatePerTick() {
-        var gate = new BodyHandRequestService.SequenceGate();
-        assertEquals(BodyHandActionResult.Reason.WRONG_EPOCH, gate.admit(7, 6, 1, 100));
-        assertNull(gate.admit(7, 7, 1, 100));
-        assertEquals(BodyHandActionResult.Reason.REPLAY, gate.admit(7, 7, 1, 100));
-        for (int seq = 2; seq <= 6; seq++) assertNull(gate.admit(7, 7, seq, 100));
-        assertEquals(BodyHandActionResult.Reason.RATE_LIMITED, gate.admit(7, 7, 7, 100));
-        assertNull(gate.admit(7, 7, 7, 101));
-        assertEquals(BodyHandActionResult.Reason.REPLAY, gate.admit(7, 7, 6, 102));
-        assertNull(gate.admit(8, 8, 1, 102));
+        var gate = new BodyActionSequenceGate();
+        assertEquals(BodyActionSequenceGate.Result.WRONG_EPOCH, gate.admit(7, 6, 1, 100));
+        assertEquals(BodyActionSequenceGate.Result.ADMITTED, gate.admit(7, 7, 1, 100));
+        assertEquals(BodyActionSequenceGate.Result.REPLAY, gate.admit(7, 7, 1, 100));
+        for (int seq = 2; seq <= 6; seq++) assertEquals(BodyActionSequenceGate.Result.ADMITTED, gate.admit(7, 7, seq, 100));
+        assertEquals(BodyActionSequenceGate.Result.RATE_LIMITED, gate.admit(7, 7, 7, 100));
+        assertEquals(BodyActionSequenceGate.Result.ADMITTED, gate.admit(7, 7, 7, 101));
+        assertEquals(BodyActionSequenceGate.Result.REPLAY, gate.admit(7, 7, 6, 102));
+        assertEquals(BodyActionSequenceGate.Result.ADMITTED, gate.admit(8, 8, 1, 102));
     }
 
     @Test void pouchActionsKeepTheDropShapeAndRejectClientSuppliedTargets() {
         for (var action : BodyHandActionRequest.Action.values()) {
             if (action == BodyHandActionRequest.Action.TRANSFER_HAND || action.name().startsWith("GRID_") || action.name().startsWith("HELD_GRID_")
                     || action.name().startsWith("SMART_") || action == BodyHandActionRequest.Action.PICKUP_SELECTED
-                     || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
+                    || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.BUTCHER
+                    || action == BodyHandActionRequest.Action.GUN_EMPTY || action == BodyHandActionRequest.Action.GUN_SPIN
+                      || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
                      || action == BodyHandActionRequest.Action.ACTIVATE_TARGET
                     || action == BodyHandActionRequest.Action.TOGGLE_PULL || action == BodyHandActionRequest.Action.STOP_PULL
                      || action == BodyHandActionRequest.Action.SIP_PUDDLE
@@ -184,10 +207,10 @@ class BodyHandActionPolicyTest {
         BodyHandActionRequest.STREAM_CODEC.encode(extra, select);
         extra.writeByte(42);
         assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(extra));
-        var gate = new BodyHandRequestService.SequenceGate();
-        assertEquals(BodyHandActionResult.Reason.WRONG_EPOCH, gate.admit(7, 8, 11, 10));
-        assertNull(gate.admit(7, 7, 11, 10));
-        assertEquals(BodyHandActionResult.Reason.REPLAY, gate.admit(7, 7, 11, 10));
+        var gate = new BodyActionSequenceGate();
+        assertEquals(BodyActionSequenceGate.Result.WRONG_EPOCH, gate.admit(7, 8, 11, 10));
+        assertEquals(BodyActionSequenceGate.Result.ADMITTED, gate.admit(7, 7, 11, 10));
+        assertEquals(BodyActionSequenceGate.Result.REPLAY, gate.admit(7, 7, 11, 10));
     }
 
     @Test void equipmentIntentsCarryOnlyHandAndSourceToken() {
@@ -286,7 +309,7 @@ class BodyHandActionPolicyTest {
 
     @Test void worldActionIntentsEncodeOnlyExplicitTargetsAndRequiredTokens() {
         for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.PICKUP_SELECTED,
-                BodyHandActionRequest.Action.USE_TARGET, BodyHandActionRequest.Action.ALTERNATE_TARGET,
+                BodyHandActionRequest.Action.USE_TARGET, BodyHandActionRequest.Action.BUTCHER, BodyHandActionRequest.Action.ALTERNATE_TARGET,
                 BodyHandActionRequest.Action.TOGGLE_PULL}) {
             String token = action == BodyHandActionRequest.Action.PICKUP_SELECTED ? null : "held-token";
             var request = new BodyHandActionRequest(action, "left", 7, 2, 9, UUID.randomUUID(), token);
@@ -306,5 +329,9 @@ class BodyHandActionPolicyTest {
             BodyHandActionRequest.STREAM_CODEC.encode(nullableBuf, nullable);
             assertEquals(nullable, BodyHandActionRequest.STREAM_CODEC.decode(nullableBuf));
         }
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                BodyHandActionRequest.Action.BUTCHER, "left", 7, 2, 9, UUID.randomUUID(), null));
+        assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
+                BodyHandActionRequest.Action.BUTCHER, "left", 7, 2, 9, null, ""));
     }
 }

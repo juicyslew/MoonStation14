@@ -4,6 +4,14 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MobNativeHealthProjectionTest {
+    @Test void retainedDeadCommitSelectorRejectsUnsafeTargets() {
+        assertTrue(MobNativeHealthProjection.shouldCommitRetainedDead(true, false, true, true, true));
+        assertFalse(MobNativeHealthProjection.shouldCommitRetainedDead(false, false, true, true, true));
+        assertFalse(MobNativeHealthProjection.shouldCommitRetainedDead(true, true, true, true, true));
+        assertFalse(MobNativeHealthProjection.shouldCommitRetainedDead(true, false, false, true, true));
+        assertFalse(MobNativeHealthProjection.shouldCommitRetainedDead(true, false, true, false, true));
+        assertFalse(MobNativeHealthProjection.shouldCommitRetainedDead(true, false, true, true, false));
+    }
     @Test void scalesTypicalStatesIntoNativeHealth() {
         assertEquals(40, MobNativeHealthProjection.project(200, 0, true, false, false, true).maxHealth());
         assertEquals(35, MobNativeHealthProjection.project(200, 25, true, false, false, true).health());

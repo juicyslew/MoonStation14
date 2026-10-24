@@ -38,6 +38,14 @@ public final class SeedExtractorBlockEntity extends BlockEntity {
         if (!profile.powered()) return true;
         return com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.processingMeter((ServerLevel) level, this).known();
     }
+    /** Projects the existing extraction-admission power predicate into the client block appearance. */
+    public void projectPowerVisual() {
+        if (!(level instanceof ServerLevel) || !isLoadedValid() || getBlockState().getBlock() != com.juicyslew.moonstation14.block.ModBlocks.SEED_EXTRACTOR.get()) return;
+        BlockState current = getBlockState();
+        boolean powered = isPowered();
+        if (current.hasProperty(SeedExtractorBlock.POWERED) && current.getValue(SeedExtractorBlock.POWERED) != powered)
+            level.setBlock(worldPosition, current.setValue(SeedExtractorBlock.POWERED, powered), 3);
+    }
     public static void tick(Level level, BlockPos pos, SeedExtractorBlockEntity entity) {
         if (!(level instanceof ServerLevel) || !entity.isLoadedValid() || entity.level != level || entity.initialized) return;
         MachineProfile profile = entity.resolvedProfile();

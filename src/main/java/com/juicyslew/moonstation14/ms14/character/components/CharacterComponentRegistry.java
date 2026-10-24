@@ -27,6 +27,9 @@ public final class CharacterComponentRegistry {
     }
 
     private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
+            Map.entry(CombatModeComponent.TYPE, new Entry<>(CombatModeComponent.class, CombatModeComponent.CODEC)),
+            Map.entry(DisarmProneComponent.TYPE, new Entry<>(DisarmProneComponent.class, DisarmProneComponent.CODEC)),
+            Map.entry(MeleeWeaponComponent.TYPE, new Entry<>(MeleeWeaponComponent.class, MeleeWeaponComponent.CODEC)),
             Map.entry(DamageableComponent.TYPE, new Entry<>(DamageableComponent.class, DamageableComponent.CODEC)),
             Map.entry(HumanoidProfileComponent.TYPE, new Entry<>(HumanoidProfileComponent.class, HumanoidProfileComponent.CODEC)),
             Map.entry(GhostRoleComponent.TYPE, new Entry<>(GhostRoleComponent.class, GhostRoleComponent.CODEC)),
@@ -57,6 +60,8 @@ public final class CharacterComponentRegistry {
             Map.entry(GhostOnMoveComponent.TYPE, new Entry<>(GhostOnMoveComponent.class, GhostOnMoveComponent.CODEC)),
             Map.entry(MouthComponent.TYPE, new Entry<>(MouthComponent.class, MouthComponent.CODEC)),
             Map.entry(NoSlipComponent.TYPE, new Entry<>(NoSlipComponent.class, NoSlipComponent.CODEC)),
+            Map.entry(ProtectedFromStepTriggersComponent.TYPE, new Entry<>(ProtectedFromStepTriggersComponent.class, ProtectedFromStepTriggersComponent.CODEC)),
+            Map.entry(DamageOnInteractProtectionComponent.TYPE, new Entry<>(DamageOnInteractProtectionComponent.class, DamageOnInteractProtectionComponent.CODEC)),
             Map.entry(ReactiveComponent.TYPE, new Entry<>(ReactiveComponent.class, ReactiveComponent.CODEC)),
             Map.entry(RespiratorComponent.TYPE, new Entry<>(RespiratorComponent.class, RespiratorComponent.CODEC)),
             Map.entry(SpeechComponent.TYPE, new Entry<>(SpeechComponent.class, SpeechComponent.CODEC)),
@@ -64,6 +69,8 @@ public final class CharacterComponentRegistry {
             Map.entry(StomachPrototypeComponent.TYPE, new Entry<>(StomachPrototypeComponent.class, StomachPrototypeComponent.CODEC)),
             Map.entry(StunnableComponent.TYPE, new Entry<>(StunnableComponent.class, StunnableComponent.CODEC)),
             Map.entry(ThirstPrototypeComponent.TYPE, new Entry<>(ThirstPrototypeComponent.class, ThirstPrototypeComponent.CODEC)),
+            Map.entry(StaminaPrototypeComponent.TYPE, new Entry<>(StaminaPrototypeComponent.class, StaminaPrototypeComponent.CODEC)),
+            Map.entry(StatusEffectsPrototypeComponent.TYPE, new Entry<>(StatusEffectsPrototypeComponent.class, StatusEffectsPrototypeComponent.CODEC)),
             Map.entry(TemperatureComponent.TYPE, new Entry<>(TemperatureComponent.class, TemperatureComponent.CODEC)),
             Map.entry(TemperatureDamageComponent.TYPE, new Entry<>(TemperatureDamageComponent.class, TemperatureDamageComponent.CODEC)),
             Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)));

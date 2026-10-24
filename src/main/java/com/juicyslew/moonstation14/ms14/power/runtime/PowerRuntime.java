@@ -962,6 +962,10 @@ public final class PowerRuntime {
                         result.processingWatts().getOrDefault(processingIdentity(machine).toString(), 0.0), machine, processingIdentity(machine), demand,
                         provider, provider == null ? -1 : provider.breakerRevision()));
         }
+        // Use the machine's authoritative extraction predicate, including its fail-closed
+        // unknown/uninitialized behavior; appearance is a projection, not a second solver.
+        for (Object machine : processingMachines)
+            if (machine instanceof SeedExtractorBlockEntity extractor) extractor.projectPowerVisual();
         for (DisposalUnitBlockEntity unit : disposalUnits) {
             var meter = disposalUnitMeter(level, unit);
             unit.updatePower(meter.known() && meter.deliveredWatts() == unit.prototype().powerWatts());

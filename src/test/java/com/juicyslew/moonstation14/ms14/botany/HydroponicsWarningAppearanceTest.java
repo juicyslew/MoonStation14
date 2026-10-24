@@ -10,7 +10,7 @@ class HydroponicsWarningAppearanceTest {
     private static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "warning_test");
     private static final SeedProfile SEED = new SeedProfile(ID, ID, "plant",
             new SeedProfile.Biology(30, 0, 0, 293, 10, 81, 121, 5, 10, 4),
-            new SeedProfile.Lifecycle(5, 25, 10, 5, 1, 1, SeedProfile.Harvest.REPEAT), Map.of());
+            new SeedProfile.Lifecycle(5, 25, 10, 5, 1, 1, SeedProfile.Harvest.REPEAT), Map.of(), "test-plant-name");
 
     @Test void warningBitsAreQuietWhenDisabledOrAtmosphereUnknown() {
         PlantInstance plant = new PlantInstance(100, 100, 0);

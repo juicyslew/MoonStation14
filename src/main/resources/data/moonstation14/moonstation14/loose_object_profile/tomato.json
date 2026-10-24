@@ -1,0 +1,15 @@
+{
+  "id": "moonstation14:tomato",
+  "parent": "moonstation14:generic",
+  "item_damage": {
+    "allowed_groups": ["brute", "burn", "toxin", "airloss", "genetic"],
+    "high_speed_impact": {"blunt": 1.0},
+    "minimum_impact_speed": 0.1,
+    "impact_factor": 0.5,
+    "impact_cooldown_ticks": 40,
+    "throw_land_damage": {"blunt": 1.0},
+    "destruction_threshold": 1.0,
+    "destruction_sound": "moonstation14:botany/produce/desecration",
+    "spill_current_reagents": true
+  }
+}

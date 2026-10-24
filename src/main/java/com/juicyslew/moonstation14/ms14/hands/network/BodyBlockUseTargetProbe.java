@@ -30,7 +30,20 @@ public final class BodyBlockUseTargetProbe {
 
     @Nullable
     public static Target probe(ServerLevel level, LivingEntity body, BlockPos nominated, Direction nominatedFace) {
-        if (level == null || body == null || nominated == null || nominatedFace == null
+        if (nominated == null || nominatedFace == null) return null;
+        return select(level, body, nominated, nominatedFace);
+    }
+
+    @Nullable
+    public static Target probeSelected(ServerLevel level, LivingEntity body) {
+        return select(level, body, null, null);
+    }
+
+    /** Shared bounded ray; nominated calls validate identity/face, selected calls return the actual first hit. */
+    @Nullable
+    private static Target select(ServerLevel level, LivingEntity body, @Nullable BlockPos nominated,
+                                 @Nullable Direction nominatedFace) {
+        if (level == null || body == null || (nominated == null) != (nominatedFace == null)
                 || !level.getServer().isSameThread() || body.level() != level || !body.isAlive() || body.isRemoved()
                 || level.getEntity(body.getId()) != body) return null;
         // Contained bodies have no camera-derived world ray: their exact live owner grants one
@@ -40,19 +53,21 @@ public final class BodyBlockUseTargetProbe {
         if (owner != null) {
             var view = owner.view();
             if (!owner.isValid() || view == null || !view.ownerIdentity().equals(owner.identity())
-                    || view.worldTarget().isEmpty() || !view.worldTarget().orElseThrow().equals(nominated)
-                    || !level.getWorldBorder().isWithinBounds(nominated)
-                    || level.isOutsideBuildHeight(nominated)) return null;
-            var chunk = level.getChunkSource().getChunkNow(nominated.getX() >> 4, nominated.getZ() >> 4);
+                    || view.worldTarget().isEmpty()) return null;
+            BlockPos pos = view.worldTarget().orElseThrow();
+            if ((nominated != null && !pos.equals(nominated))
+                    || !level.getWorldBorder().isWithinBounds(pos) || level.isOutsideBuildHeight(pos)) return null;
+            var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
             if (chunk == null || !chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL)) return null;
-            Vec3 center = Vec3.atCenterOf(nominated);
-            return new Target(nominated, Direction.UP, center.add(0, .5, 0));
+            Vec3 center = Vec3.atCenterOf(pos);
+            return new Target(pos, Direction.UP, center.add(0, .5, 0));
         }
         Vec3 from = body.getEyePosition(), look = body.getLookAngle();
         if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01) return null;
         Vec3 to = from.add(look.scale(MAX_REACH));
         if (!finite(to) || from.equals(to) || !inside(level, from) || !inside(level, to)
-                || !level.getWorldBorder().isWithinBounds(nominated) || level.isOutsideBuildHeight(nominated)) return null;
+                || (nominated != null && (!level.getWorldBorder().isWithinBounds(nominated)
+                || level.isOutsideBuildHeight(nominated)))) return null;
 
         int fromX = BlockPos.containing(from).getX(), toX = BlockPos.containing(to).getX();
         int fromZ = BlockPos.containing(from).getZ(), toZ = BlockPos.containing(to).getZ();
@@ -73,11 +88,13 @@ public final class BodyBlockUseTargetProbe {
                     return super.getBlockShape(state, level, pos);
                 }
             });
-            return hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(nominated)
-                    && hit.getDirection() == nominatedFace && finite(hit.getLocation())
+            // Nominated admission requires an exact match; selection reports the ray's actual first hit.
+            boolean validHit = hit.getType() == HitResult.Type.BLOCK && finite(hit.getLocation())
+                    && (nominated == null || hit.getBlockPos().equals(nominated) && hit.getDirection() == nominatedFace);
+            return validHit
                     && level.getWorldBorder().isWithinBounds(hit.getLocation())
                     && from.distanceToSqr(hit.getLocation()) <= MAX_REACH * MAX_REACH
-                    ? new Target(nominated, hit.getDirection(), hit.getLocation()) : null;
+                    ? new Target(hit.getBlockPos(), hit.getDirection(), hit.getLocation()) : null;
         } catch (MissingChunk ignored) {
             return null;
         } catch (PipeGasTransaction.RecoveryRequiredException recoveryRequired) {

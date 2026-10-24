@@ -1,134 +1,22 @@
-# Audio with unresolved file-specific provenance
+# Audio provenance notes
 
-## Items and effects with unknown provenance
+The following clips were imported unchanged from SS14 `Resources/Audio` at pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`:
 
-- `src/main/resources/assets/moonstation14/sounds/mouse_squeak.ogg` — imported from pinned SS14 checkout `Resources/Audio/Animals/mouse_squeak.ogg`; upstream source attribution/license was not present in the inspected source metadata. Preserve this entry until provenance is confirmed.
-- `src/main/resources/assets/moonstation14/sounds/ss14/items/eating_{1,2,3}.ogg` — imported from pinned SS14 checkout `Resources/Audio/Items/eating_{1,2,3}.ogg` (collection `Resources/Prototypes/SoundCollections/food.yml`, id `eating`); no attribution/license metadata for these files was found in the inspected upstream audio tree. Preserve until provenance is confirmed.
+- `Weapons/punchmiss.ogg`, `Weapons/punch1.ogg`–`punch4.ogg`, `Weapons/bladeslice.ogg`
+- `Effects/weak_hit1.ogg`, `Effects/weak_hit2.ogg`, `Effects/lightburn.ogg`
 
-This is the running list required by the [media reuse and attribution policy](media-use-and-attribution.md).
-List **every imported audio file** whose file-specific license or attribution
-remains unresolved, with a link to its adjacent notice. Planned files may be
-listed provisionally, but must be explicitly marked **not imported**; add the
-actual destination and notice, verify copied bytes, and update the status in
-the same change that imports them. Do not use this list to reclassify assets
-with already verified per-file metadata, such as the
-[emote sounds](third-party-emote-audio.md).
+Their individual file provenance/license attribution is not established by adjacent matching source metadata; do not infer a license (including MIT) or treat singular `weak_hit` metadata as provenance for these variants.
 
-| Status | Audio / upstream source | Local destination and adjacent notice | Evidence and open question | Next action |
-|---|---|---|---|---|
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Machines/machine_switch.ogg` at [`c9df5ef5d675b0d1d226828bddf6b78c28502d91`](https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Machines/machine_switch.ogg); 7,307 bytes, SHA-256 `e39e881d52afc399f50ac4ed9b79084736a3025cf10cde51460f106a2bace55d` | [`src/main/resources/assets/moonstation14/sounds/apc/machine_switch.ogg`](../src/main/resources/assets/moonstation14/sounds/apc/machine_switch.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/apc/machine_switch.ogg.license.txt). Verbatim byte copy; source/destination SHA-256 match. | No entry for `machine_switch.ogg` in pinned [`Resources/Audio/Machines/attributions.yml`](https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Machines/attributions.yml). Pinned [README](https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/README.md) says most assets CC-BY-SA unless otherwise, not a file-specific attribution. License/author/original source URL: **UNRESOLVED - not MIT; do not assume CC for this file**. | Seek file-specific evidence or rights-holder permission; document response. Replace/remove asset and its registration if terms cannot be established for intended distribution. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Machines/disposalflush.ogg`; 37,814 bytes, SHA-256 `82ed14d487928ca0e569c5e147394d520b82e85f1dbe22da490f9e6023cca744` | [`sounds/disposal/flush.ogg`](../src/main/resources/assets/moonstation14/sounds/disposal/flush.ogg) and [notice](../src/main/resources/assets/moonstation14/sounds/disposal/flush.ogg.license.txt) | No file-specific entry in pinned Machines attribution manifest. | Resolve rights or remove clip and declaration. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Effects/clang.ogg`; 19,932 bytes, SHA-256 `861bf3e6ddff30f7c066037ae286caeda3ed7b010745c5c8a8d9c2bb5c994fc8` | [`sounds/disposal/pipe_clang.ogg`](../src/main/resources/assets/moonstation14/sounds/disposal/pipe_clang.ogg) and [notice](../src/main/resources/assets/moonstation14/sounds/disposal/pipe_clang.ogg.license.txt) | No file-specific entry in pinned Effects attribution manifest. | Resolve rights or remove clip and declaration. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Effects/trashbag1.ogg` at [`c9df5ef5d675b0d1d226828bddf6b78c28502d91`](https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Effects/trashbag1.ogg); SHA-256 `77adcfb6ba63abf4e4646a26a922f26a9ce5509c5ab6d468df41996fa31fbcc2` | [`sounds/disposal/insert.ogg`](../src/main/resources/assets/moonstation14/sounds/disposal/insert.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/disposal/insert.ogg.license.txt); source/destination SHA-256 match. | No file-specific entry in pinned Effects attribution manifest. Author, original source, and license remain **UNKNOWN / UNRESOLVED**; no blanket license inferred. | Resolve rights or remove clip and registration. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Items/drink.ogg` at [`c9df5ef5d675b0d1d226828bddf6b78c28502d91`](https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Items/drink.ogg) | [`src/main/resources/assets/moonstation14/sounds/ss14/items/drink.ogg`](../src/main/resources/assets/moonstation14/sounds/ss14/items/drink.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/ss14/items/drink.ogg.license.txt). Verbatim byte copy; source/destination SHA-256 match (`6c09f978706f20302eafbd79a03ac25cc719fb34dfe1443251a026eda6867b1f`). | File-specific author, license, and original source were not found in pinned upstream evidence. **Author and license unresolved; this record is not a permission or license claim.** | Seek file-specific evidence or rights-holder permission; replace/remove if terms cannot be established for intended distribution. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Items/ratchet.ogg` at pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256 `64c5112f85c4ba1df4a80623c2171c9d344c27cf7ee531d58574c6162079ea4b` | [`src/main/resources/assets/moonstation14/sounds/ss14/tools/ratchet.ogg`](../src/main/resources/assets/moonstation14/sounds/ss14/tools/ratchet.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/ss14/tools/ratchet.ogg.license.txt); byte-for-byte verified. | No matching file entry in pinned `Resources/Audio/Items/attributions.yml`; author/license/original source unresolved. | Resolve file-specific rights or remove clip and registration if terms cannot be established. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Items/crowbar.ogg` at pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256 `feae4d0be300a01494df5fadcaf466990b46b36b5227d09e31e6c9461835e9db` | [`src/main/resources/assets/moonstation14/sounds/ss14/tools/crowbar.ogg`](../src/main/resources/assets/moonstation14/sounds/ss14/tools/crowbar.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/ss14/tools/crowbar.ogg.license.txt); byte-for-byte verified. | No matching file entry in pinned `Resources/Audio/Items/attributions.yml`; author/license/original source unresolved. | Resolve file-specific rights or remove clip and registration if terms cannot be established. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Items/screwdriver.ogg` at pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256 `5c9aff23dd10a3e8699e75d504603f80f914304135151fe78049aa98e15077b6` | [`src/main/resources/assets/moonstation14/sounds/ss14/tools/screwdriver.ogg`](../src/main/resources/assets/moonstation14/sounds/ss14/tools/screwdriver.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/ss14/tools/screwdriver.ogg.license.txt); byte-for-byte verified. | No matching file entry in pinned `Resources/Audio/Items/attributions.yml`; author/license/original source unresolved. | Resolve file-specific rights or remove clip and registration if terms cannot be established. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Items/screwdriver2.ogg` at pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256 `07e8f9c55556ae90ed756e57ddacbf44ab7ba435adb0bc850941ba0f4fc04c2c` | [`src/main/resources/assets/moonstation14/sounds/ss14/tools/screwdriver2.ogg`](../src/main/resources/assets/moonstation14/sounds/ss14/tools/screwdriver2.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/ss14/tools/screwdriver2.ogg.license.txt); byte-for-byte verified. | No matching file entry in pinned `Resources/Audio/Items/attributions.yml`; author/license/original source unresolved. | Resolve file-specific rights or remove clip and registration if terms cannot be established. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Items/welder.ogg` at pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256 `79aeecd39b7695d0a08c5516b3fc38ea84385dd863388055133d422299d368a0` | [`src/main/resources/assets/moonstation14/sounds/ss14/tools/welder.ogg`](../src/main/resources/assets/moonstation14/sounds/ss14/tools/welder.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/ss14/tools/welder.ogg.license.txt); byte-for-byte verified. | No matching file entry in pinned `Resources/Audio/Items/attributions.yml`; author/license/original source unresolved. | Resolve file-specific rights or remove clip and registration if terms cannot be established. |
-| **Imported - file-specific license unresolved** | SS14 `Resources/Audio/Items/welder2.ogg` at pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256 `865efd6ada43bf70f85fbfdc6fdfb160973fd702dab7c1d2aeed78f99774e887` | [`src/main/resources/assets/moonstation14/sounds/ss14/tools/welder2.ogg`](../src/main/resources/assets/moonstation14/sounds/ss14/tools/welder2.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/ss14/tools/welder2.ogg.license.txt); byte-for-byte verified. | No matching file entry in pinned `Resources/Audio/Items/attributions.yml`; author/license/original source unresolved. | Resolve file-specific rights or remove clip and registration if terms cannot be established. |
+`Voice/Diona/diona_salute.ogg` is attributed in source `Resources/Audio/Voice/Diona/attributions.yml` lines 21–24: CC-BY-3.0, “Taken from tgstation”, https://github.com/tgstation/tgstation/tree/943f38bf7c5f9c048cc785deb0c537d57ee6ba77/sound/creatures/venus_trap_hurt.ogg. The attribution notice is retained verbatim in the packaged clip's `.license.txt`.
 
-When an unresolved entry is cleared, retain a brief dated disposition (evidence
-and exact license, or replacement/removal and affected path) here, and update
-or remove the adjacent notice and media as appropriate. Do not mark a planned
-entry imported before the file and notice exist.
+`Effects/thudswoosh.ogg` is imported unchanged from the pinned SS14 revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`. Packaged SHA-256: `519b7a4693681a2a62a061ac6f437897b0710a5dbf629cfe6ac50f87a2335c56`. No adjacent source license/attribution metadata was found; provenance/license remains unknown. No native playback validation is claimed.
 
-## Body-fall samples
+`Weapons/Guns/Gunshots/revolver.ogg` is imported unchanged from the same pinned revision (SHA-256 `f77277216bbc595904e3375cf097b8432314e935f0ce0d8c78006aadc88a33cd`). No adjacent source license/attribution metadata was established; provenance/license remains unknown. No commercial-use permission is claimed.
 
-The following upstream audio files have no matching per-file entry in the pinned
-checkout's `Resources/Audio/Effects/attributions.yml`. Their author and license
-are unverified; no per-file author or license claim is made here. Reference
-checkout: Space Station 14 at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
+`Weapons/Guns/Empty/empty.ogg` is imported unchanged from SS14 revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91` (SHA-256 `a47dd0ce367b04651e23d1dc5e67867326791bf02477960caf1a01bee36912df`). No adjacent source license/attribution metadata was established; provenance/license remains unknown. No commercial-use permission is claimed.
 
-| Upstream path | SHA-256 |
-|---|---|
-| `Resources/Audio/Effects/bodyfall1.ogg` | `E2C3ED1CE6300D96ED4BA757205F4233D5274DB171815C5AACA09A1DB9ACB73E` |
-| `Resources/Audio/Effects/bodyfall2.ogg` | `934D7BC860E876705B09E62CFEACD050160143A9F0CF2BE4357B38EFD23184BD` |
-| `Resources/Audio/Effects/bodyfall3.ogg` | `00583958A08EEC9550B93D9AF52691CEFDA49E467062AD70E92DE07EA031E381` |
-| `Resources/Audio/Effects/bodyfall4.ogg` | `A22D748BD0ED41E7D53EB3DAF649DA528369880C9ABE295620DF1F13A1601109` |
+Three revolver interaction clips are imported unchanged from the same SS14 revision: `Weapons/Guns/MagOut/revolver_magout.ogg` (SHA-256 `c87b4a5115e46fb90bda415a2bb5258ec880cd5cc717e6c1785b2da94ddaa75c`), `Weapons/Guns/MagIn/revolver_magin.ogg` (`05ac8ef3a1219e504b36ecb902df3745301072db487a32d2cef8e62991cb17a2`), and `Weapons/Guns/Misc/revolver_spin.ogg` (`980e4998fab2dfda930582f759aa3d398eb41c49979ffe646c2e55c115fc39d5`). SS14 `Resources/Audio/Weapons/Guns/sources.json` attributes MagOut and MagIn to CEV-Eris commit `01f7518e0f8177734a6579aba2bbf76024aa96c4` at `sound/weapons/guns/interact/rev_magout.ogg` and `rev_magin.ogg`, respectively. That source listing does not state a license; spin has no source attribution entry. Licenses remain unverified; no commercial-use permission is claimed.
 
+`Weapons/Guns/Hits/bullet_hit.ogg` is imported unchanged from pinned SS14 revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`, SHA-256 `979954a8c41f6d33c9e5ae45edd09c380600620174decc0fa11cbeededcb6039`. The source `Hits/attributions.yml` does not list this clip; license and attribution remain unknown.
 
-## Airlock provenance records retained from the airlocks sprint
-
-### Attributed airlock sounds
-
-The following files were copied from pinned SS14 revision
-`c9df5ef5d675b0d1d226828bddf6b78c28502d91` into
-`src/main/resources/assets/moonstation14/sounds/airlock/`:
-
-- `airlock_open.ogg` and `airlock_deny.ogg` are attributed in
-  `Resources/Audio/Machines/attributions.yml` to /tg/station, CC-BY-SA-3.0:
-  [source](https://github.com/tgstation/tgstation/tree/5f5002b21253354c20ea224be3f604d79299b37e/sound/machines).
-- `airlock_close.ogg` is attributed there to CEV-Eris (commit
-  `789ed19064ac42376d2355192cd1069a45a310f1`), modified by mirrorcult,
-  CC-BY-SA-3.0:
-  [source](https://github.com/discordia-space/CEV-Eris/commit/789ed19064ac42376d2355192cd1069a45a310f1).
-
-Upstream metadata establishes these licenses; no independent upstream audio
-README/license text for the original creators was identified during this asset
-pass. Retain upstream attribution and do not imply vanilla Minecraft sound
-provenance.
-
-### Airlock sounds with unresolved provenance
-
-- `boltsup.ogg` and `boltsdown.ogg` are unchanged copies from pinned SS14
-  `Resources/Audio/Machines/`. `Content.Shared/Doors/Components/DoorBoltComponent.cs`
-  identifies them as bolt up/down sounds. The pinned machines attribution file
-  has no entries for either filename, and no separate audio README/license
-  attribution was located. Provenance and license remain unresolved; do not
-  claim CC-BY-SA or distribute until clarified.
-- `panel_open.ogg` and `panel_close.ogg` are unchanged copies of pinned SS14
-  `Resources/Audio/Machines/screwdriveropen.ogg` and `screwdriverclose.ogg`,
-  selected by `WiresPanelComponent` defaults and consumed after successful
-  `SharedWiresSystem` panel completion. Neither source filename appears in the
-  machines attribution file; license and provenance remain unresolved. Do not
-  claim CC-BY-SA or distribute until clarified.
-- `sounds/tools/wirecutter.ogg` is an unchanged copy of pinned
-  `Resources/Audio/Items/wirecutter.ogg` (6,474 bytes). No matching filename
-  entry was found in `Resources/Audio/Items/attributions.yml`; author, license,
-  and provenance are unresolved. Do not claim a license or distribute until
-  clarified. At pinned `WiresSystem.UpdateWires`, successful-eligible Cut and
-  Mend branches call `Tool.PlayToolSound`; `SharedToolSystem.PlayToolSound`
-  plays resolved `Tool.UseSound` when non-null. Pulse does not call it. Local
-  airlock cut/mend feedback follows the resolved held-tool `useSound` and
-  accepted state mutation.
-- Airlock shock audio uses pinned SS14 `Resources/Audio/Effects/sparks1.ogg`
-  through `sparks4.ogg`, copied to
-  `assets/moonstation14/sounds/airlock/sparks/`. The pinned
-  `Resources/Prototypes/SoundCollections/sparks.yml` identifies these as the
-  sparks collection; no filename attribution was found in the effects
-  attribution file. Author, license, and provenance remain unresolved; do not
-  represent these sounds as licensed or cleared.
-
-### Attributed electrification sounds
-
-`airlock_electrify_on.ogg` and `airlock_electrify_off.ogg` are unchanged copies
-from pinned SS14 `Resources/Audio/Machines/`. The pinned machines attribution
-file identifies them as CC0-1.0 by ScarKy0, source
-[PR #32012](https://github.com/space-wizards/space-station-14/pull/32012).
-## ChemMaster slot samples
-| Imported - unresolved | SS14 `Resources/Audio/Weapons/Guns/MagIn/revolver_magin.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91` | `src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magin.ogg`; adjacent [`notice`](../src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magin.ogg.license.txt) | Pinned `Content.Shared/Containers/ItemSlot/ItemSlotsComponent.cs:78-81` supplies the resolved ItemSlots `slotInsertSound` sample. SHA-256 `05AC8EF3A1219E504B36ECB902DF3745301072DB487A32D2CEF8E62991CB17A2`; no file-specific attribution/license record verified. | Seek per-file clearance or remove/replace. |
-| Imported - unresolved | SS14 `Resources/Audio/Weapons/Guns/MagOut/revolver_magout.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91` | `src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magout.ogg`; adjacent [`notice`](../src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/revolver_magout.ogg.license.txt) | Pinned `Content.Shared/Containers/ItemSlot/ItemSlotsComponent.cs:78-81` supplies the resolved ItemSlots `slotEjectSound` sample. SHA-256 `C87B4A5115E46FB90BDA415A2BB5258EC880CD5CC717E6C1785B2DA94DDAA75C`; no file-specific attribution/license record verified. | Seek per-file clearance or remove/replace. |
-| Imported - unresolved | SS14 `Resources/Audio/Effects/Fluids/slosh.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91` | `src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/dump.ogg`; adjacent [notice](../src/main/resources/assets/moonstation14/sounds/chemistry/chemmaster/dump.ogg.license.txt) | `Content.Shared/Fluids/SolutionDumpingSystem.cs` plays `AbsorbentComponent.DefaultTransferSound` at -3 dB. SHA-256 `B1FF48CEB87BD5672F8458680D9CF40AA2AFD60BDF46BD91CD65449C12AA8E3C`; no file-specific license/attribution found. | Seek per-file clearance or remove/replace. |
-| Imported - unresolved | SS14 `Resources/Audio/Effects/Chemistry/bubbles.ogg` at pinned `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; 21,048 bytes, SHA-256 `55CB6421386835B21428F98DF14C84CA8923DBB858C4D3630E98FD2959BE0F9F` | [`reaction_bubbles.ogg`](../src/main/resources/assets/moonstation14/sounds/chemistry/reaction_bubbles.ogg) and [adjacent notice](../src/main/resources/assets/moonstation14/sounds/chemistry/reaction_bubbles.ogg.license.txt); copied bytes verified by matching SHA-256. | No matching file-specific entry in pinned `Resources/Audio/Effects/attributions.yml`; author, license, and original source unresolved. No blanket license inferred. | Seek file-specific clearance or remove/replace. |
-The ChemMaster click reuses the APC sample `machine_switch.ogg`; retain its
-existing unresolved-provenance entry above and adjacent notice. Source SHA-256:
-`E39E881D52AFC399F50AC4ED9B79084736A3025CF10CDE51460F106A2BACE55D`.
-## Grinder blender audio
-
-`src/main/resources/assets/moonstation14/sounds/botany/grinder/blender.ogg`
-is an unchanged copy of SS14 `Resources/Audio/Machines/blender.ogg` at pinned
-revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; SHA-256
-`521E12A215F45C40FFF3C50718D1380A6AE404713C769100725CFC2EB7CDBC0F`.
-The pinned `Machines/attributions.yml` has no file-specific blender entry.
-Author, original source, and file-specific license are unresolved. Do not infer
-coverage from root MIT, repository-level CC, or another blanket license. See the
-[adjacent notice](../src/main/resources/assets/moonstation14/sounds/botany/grinder/blender.ogg.license.txt).
-This is a one-shot lasting 5.269 seconds; future controlled playback must stop
-at 70 ticks on completion, not on power loss. No runtime playback or stop
-integration is claimed here.
-
-## Defibrillator overload audio
-- Device light-switch audio is **resolved**, not unknown: pinned `Resources/Audio/Machines/attributions.yml:106�109` credits Skyrat-SS13 under CC-BY-SA-3.0. The source URL, revision and hash are retained in `sounds/device_lightswitch.ogg.license.txt`.
-- `src/main/resources/assets/moonstation14/sounds/device/defib_zap.ogg` was copied byte-for-byte from pinned SS14 `Resources/Audio/Items/Defib/defib_zap.ogg` (revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`). SHA-256: `CC851D025345F472C05682372C17AFA7D0C0AFB7D6F1D606855C952A76BB56EE`. Asset-specific upstream credit/license metadata was not located; provenance remains unknown. Do not infer a license or attribution from the repository-level license. Resolve rights/credit before redistribution beyond this repository.
-The upstream `SoundOnOverloadComponent` defaults to `/Audio/Items/Defib/defib_zap.ogg` and `VolumeModifier = 0`; `base_structureairlocks.yml` composes it for base airlocks. This asset is imported for that parity mapping.
+The four `Weapons/Guns/Miss/bullet_missN.ogg` samples are imported unchanged from that revision: miss1 `d4d4c31021f5b4adf6519c0ab22d3852a427835f6a4f1884c205ce47f1f6eb36`, miss2 `fb7f0378404d8e1221e7c40fcd2099f425e18c86a056860b9b768e112653e353`, miss3 `448e920dccefa54c9c6028de3f3a58dbc369f58d363162e30158f01476d5b102`, miss4 `ce572020da868d4241a07bd3336e952f305934c82c574d7f16c2577d05cfd092`. Source `Miss/attributions.yml` states CC-BY-SA-3.0, “Taken from CM-SS13”, https://github.com/cmss13-devs/cmss13/tree/0535055a7abcd3016123f2be2cd3db428c122dac/sound/bullets. Attribution is retained; do not infer other permission.

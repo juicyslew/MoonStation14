@@ -10,6 +10,7 @@ import com.juicyslew.moonstation14.ms14.ui.client.window.WindowChromeButtons;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.function.Consumer;
@@ -17,7 +18,7 @@ import java.util.function.Consumer;
 /** Non-modal, snapshot-driven grinder window hosted by the shared pointer workspace. */
 public final class GrinderWindow implements PointerOverlayWindow {
     static final int WINDOW_WIDTH = 210;
-    static final int WINDOW_HEIGHT = 148;
+    static final int WINDOW_HEIGHT = 170;
     public static final GrinderWindow INSTANCE = new GrinderWindow();
     private GrinderSnapshot state;
     private int x, y, grabX, grabY;
@@ -46,28 +47,41 @@ public final class GrinderWindow implements PointerOverlayWindow {
         var close=WindowChromeButtons.closeBounds(x+190,y+5,14,14); WindowChromeButtons.paintClose(new GuiGraphicsPaint(g,Minecraft.getInstance().font),close,mx,my);
         int bx=x+8,by=y+32; var beaker=state.chamber().stream().filter(s->s.index()==-1).findFirst().orElse(null);
         p.text(Component.literal("Beaker: "+(beaker==null||beaker.item().isEmpty()?"Empty":beaker.item().getHoverName().getString())),bx,by,MachineWindowRenderer.TEXT,true);
-        boolean busy=state.active(); String status=state.rejection()!=null?state.rejection():busy?"Grinding "+Math.max(0,state.endTick()-state.startTick())+" ticks (70 tick cycle)":state.powered()?"Ready":"Unpowered";
+         boolean busy=state.active(); String status=state.rejection()!=null?state.rejection():busy?(state.activeOperation()==com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation.JUICE?"Juicing ":"Grinding ")+Math.max(0,state.endTick()-state.startTick())+" ticks":state.powered()?"Ready":"Unpowered";
         p.text(Component.literal(status),bx,by+12,MachineWindowRenderer.MUTED_TEXT,true);
         for(int i=0;i<6;i++){final int index=i;int sx=bx+i*31;var slot=state.chamber().stream().filter(s->s.index()==index).findFirst().orElse(null);MachineWindowRenderer.insetPanel(p,sx,by+29,28,28);
             if(slot!=null&&!slot.item().isEmpty()){g.renderItem(slot.item(),sx+6,by+34);g.renderItemDecorations(Minecraft.getInstance().font,slot.item(),sx+6,by+34);}
             String name=slot==null||slot.item().isEmpty()?"—":Minecraft.getInstance().font.plainSubstrByWidth(slot.item().getHoverName().getString(),28);p.text(Component.literal(name),sx,by+59,MachineWindowRenderer.TEXT,false);
-            button(g,"E",sx,by+73,28,14,mx,my,slot!=null&&!slot.item().isEmpty()&&!busy,()->send(GrinderControl.Operation.EJECT_ONE,index));
+            button(g,"E",new ScreenRectangle(sx,by+73,28,14),mx,my,slot!=null&&!slot.item().isEmpty()&&!busy);
         }
-        button(g,"GRIND",bx,by+91,55,18,mx,my,state.powered()&&!busy&&beaker!=null&&!beaker.item().isEmpty()&&state.chamber().stream().anyMatch(s->s.index()>=0&&!s.item().isEmpty()),()->send(GrinderControl.Operation.GRIND,-1));
-        button(g,"Eject All",bx+60,by+91,58,18,mx,my,!busy,()->send(GrinderControl.Operation.EJECT_ALL,-1));
-        button(g,"Eject Beaker",bx+123,by+91,70,18,mx,my,beaker!=null&&!beaker.item().isEmpty()&&!busy,()->send(GrinderControl.Operation.EJECT_BEAKER,-1));
-    }
-    private static void button(GuiGraphics g,String label,int x,int y,int w,int h,int mx,int my,boolean enabled,Runnable action){MachineActionButtonRenderer.render(new GuiGraphicsPaint(g,Minecraft.getInstance().font),label,x,y,w,h,mx>=x&&mx<x+w&&my>=y&&my<y+h,enabled,false,1f);}
-     @Override public boolean mouseClicked(double px,double py,int button){if(button!=0||!contains(px,py))return false;int mx=(int)px,my=(int)py;if(mx>=x+190&&my>=y+5&&my<y+19){close();return true;}PointerOverlayRegistry.bringToFront(this);if(my<y+28){dragging=true;grabX=mx-x;grabY=my-y;return true;}int row=y+32;int slot=(mx-(x+8))/31;if(my>=row+73&&my<row+87&&slot>=0&&slot<6){if(!state.active())send(GrinderControl.Operation.EJECT_ONE,slot);return true;}if(my>=row+91)routeActionClick(mx,my,x,y,state.active(),canGrind(),op->send(op,-1));return true;}
-     static boolean routeActionClick(int mx,int my,int x,int y,boolean active,boolean canGrind,Consumer<GrinderControl.Operation> dispatch){
-         int row=y+32;
-         if(my<row+91||my>=row+109)return false;
-         if(mx>=x+8&&mx<x+63){if(canGrind)dispatch.accept(GrinderControl.Operation.GRIND);return true;}
-         if(mx>=x+68&&mx<x+126){if(!active)dispatch.accept(GrinderControl.Operation.EJECT_ALL);return true;}
-         if(mx>=x+131&&mx<x+201){if(!active)dispatch.accept(GrinderControl.Operation.EJECT_BEAKER);return true;}
-         return true;
+         button(g,"GRIND",actionBounds(GrinderControl.Operation.GRIND,x,y),mx,my,state.canGrind());
+         button(g,"JUICE",actionBounds(GrinderControl.Operation.JUICE,x,y),mx,my,state.canJuice());
+         button(g,"Eject All",actionBounds(GrinderControl.Operation.EJECT_ALL,x,y),mx,my,!busy);
+         button(g,"Eject Beaker",actionBounds(GrinderControl.Operation.EJECT_BEAKER,x,y),mx,my,beaker!=null&&!beaker.item().isEmpty()&&!busy);
      }
-    private boolean canGrind(){return state.powered()&&!state.active()&&state.chamber().stream().anyMatch(s->s.index()==-1&&!s.item().isEmpty())&&state.chamber().stream().anyMatch(s->s.index()>=0&&!s.item().isEmpty());}
+     private static void button(GuiGraphics g,String label,ScreenRectangle bounds,int mx,int my,boolean enabled){MachineActionButtonRenderer.render(new GuiGraphicsPaint(g,Minecraft.getInstance().font),label,bounds.left(),bounds.top(),bounds.width(),bounds.height(),WindowChromeButtons.contains(bounds,mx,my),enabled,false,1f);}
+     static ScreenRectangle actionBounds(GrinderControl.Operation operation,int x,int y){
+         return switch(operation){
+             case GRIND -> new ScreenRectangle(x+8,y+123,55,18);
+             case JUICE -> new ScreenRectangle(x+68,y+123,55,18);
+             case EJECT_ALL -> new ScreenRectangle(x+8,y+146,90,18);
+             case EJECT_BEAKER -> new ScreenRectangle(x+103,y+146,90,18);
+             default -> throw new IllegalArgumentException("not a grinder action button: "+operation);
+         };
+     }
+      @Override public boolean mouseClicked(double px,double py,int button){if(button!=0||!contains(px,py))return false;int mx=(int)px,my=(int)py;if(mx>=x+190&&my>=y+5&&my<y+19){close();return true;}PointerOverlayRegistry.bringToFront(this);if(my<y+28){dragging=true;grabX=mx-x;grabY=my-y;return true;}int row=y+32;int slot=(mx-(x+8))/31;if(my>=row+73&&my<row+87&&slot>=0&&slot<6){if(!state.active())send(GrinderControl.Operation.EJECT_ONE,slot);return true;}if(my>=row+91)routeActionClick(mx,my,x,y,state.active(),state.canGrind(),state.canJuice(),op->send(op,-1));return true;}
+      static boolean routeActionClick(int mx,int my,int x,int y,boolean active,boolean canGrind,boolean canJuice,Consumer<GrinderControl.Operation> dispatch){
+          for(var operation:new GrinderControl.Operation[]{GrinderControl.Operation.GRIND,GrinderControl.Operation.JUICE,
+                  GrinderControl.Operation.EJECT_ALL,GrinderControl.Operation.EJECT_BEAKER}){
+              if(!WindowChromeButtons.contains(actionBounds(operation,x,y),mx,my))continue;
+              if(active)return true;
+              if(operation==GrinderControl.Operation.GRIND&&canGrind)dispatch.accept(operation);
+              else if(operation==GrinderControl.Operation.JUICE&&canJuice)dispatch.accept(operation);
+              else if(operation==GrinderControl.Operation.EJECT_ALL||operation==GrinderControl.Operation.EJECT_BEAKER)dispatch.accept(operation);
+              return true;
+          }
+          return false;
+      }
     @Override public boolean mouseDragged(double px,double py){if(!dragging)return false;x=(int)px-grabX;y=(int)py-grabY;clamp();return true;}
     @Override public boolean mouseReleased(int button){if(button==0&&dragging){dragging=false;return true;}return false;}
     @Override public boolean mouseScrolled(double x,double y,double d){return contains(x,y);}

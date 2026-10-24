@@ -9,11 +9,15 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import javax.annotation.Nullable;
 
 /** Static Minecraft footprint for the SS14 seed extractor; artwork is a native texture fallback. */
 public final class SeedExtractorBlock extends Block implements EntityBlock {
-    public SeedExtractorBlock(Properties properties) { super(properties); }
+    public static final BooleanProperty POWERED = BooleanProperty.create("powered");
+    public SeedExtractorBlock(Properties properties) { super(properties); registerDefaultState(stateDefinition.any().setValue(POWERED, false)); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(POWERED); }
     @Nullable @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return ModBlockEntities.SEED_EXTRACTOR.get().create(pos, state);
     }

@@ -1,1 +1,1 @@
-{"id":"moonstation14:produce_base","abstract":true,"grindable":true}
+{"id":"moonstation14:produce_base","abstract":true,"grindable":true,"potency_visuals":{"minimum_scale":0.5,"maximum_scale":4.5}}

@@ -41,4 +41,11 @@ final class BodyInputGesturePolicy {
         if (looseTarget) return heldItem ? NormalWorldRoute.TARGET_USE : NormalWorldRoute.ACTIVATE_TARGET;
         return NormalWorldRoute.BLOCK_ACTIVATE;
     }
+
+    static com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent aimedActivationIntent(
+            boolean hydroponicsTray, boolean ordinaryActivationTarget) {
+        if (hydroponicsTray) return com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE;
+        return ordinaryActivationTarget
+                ? com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.ACTIVATE_WORLD : null;
+    }
 }

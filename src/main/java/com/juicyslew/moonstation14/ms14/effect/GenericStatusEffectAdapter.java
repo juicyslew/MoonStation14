@@ -28,9 +28,13 @@ final class GenericStatusEffectAdapter {
 
     private static final Alias JITTERING_ALIAS = new Alias("jitter", "jittering");
     private static final Alias JITTER_WITHOUT_COMPONENT = new Alias("jitter", "");
+    private static final Alias MUTED_ALIAS = new Alias("muted", "muted");
+    private static final Alias MUTED_WITHOUT_COMPONENT = new Alias("muted", "");
     private static final Map<Alias, ResourceKey<StatusEffectData>> ALLOWLIST = Map.of(
             JITTERING_ALIAS, com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.createKey("jitter"),
-            JITTER_WITHOUT_COMPONENT, com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.createKey("jitter"));
+            JITTER_WITHOUT_COMPONENT, com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.createKey("jitter"),
+            MUTED_ALIAS, com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.createKey("muted"),
+            MUTED_WITHOUT_COMPONENT, com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.createKey("muted"));
 
     private final Consumer<String> warningSink;
     private final Set<Alias> warnedAliases = ConcurrentHashMap.newKeySet();

@@ -24,6 +24,8 @@ public class DamageHooks {
         }
         com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.ensureProjection(event.getEntity());
         DamageSystem.ensureBaseline(event.getEntity());
+        DamageSystem.armorNativeIncomingDamage(event.getEntity(), event.getSource(), event.getAmount())
+                .ifPresent(event::setAmount);
     }
 
     /** Mirror only the final damage that vanilla actually applied, exactly once. */

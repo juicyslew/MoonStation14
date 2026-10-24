@@ -160,7 +160,8 @@ public final class MachineItemSlot {
                     || !ItemStack.matches(slot.stack, change.originalStack) || change.originalStack.isEmpty()) return BatchResult.REJECTED;
             ItemStack replacement = change.replacementStack;
             if (replacement.isEmpty()) removals.put(change.token, new ItemLocation.MachineSlot(slot.owner, slot.id));
-            else if (replacement.is(change.originalStack.getItem()) && replacement.getCount() == change.originalStack.getCount()
+            else if (replacement.is(change.originalStack.getItem()) && replacement.getCount() > 0
+                    && replacement.getCount() <= change.originalStack.getCount()
                     && slot.accepts.test(replacement)) candidates.put(slot, replacement.copy());
             else return BatchResult.REJECTED;
         }

@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.ms14.metabolism.MetabolismSystem;
 import com.juicyslew.moonstation14.ms14.metabolism.MetabolizerProfile;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
+import com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.stomach.StomachDigestionTransfer;
 import com.mojang.serialization.JsonOps;
@@ -41,13 +42,19 @@ class NutrimentPipelineTest {
     void fiveResolvedCheesesFlowThroughStomachMetabolismAndMouseHunger() {
         var profiles = new PrototypeManager();
         profiles.register(ModIngestionProfiles.TYPE);
+        profiles.register(ModItemFoodSolutionProfiles.TYPE);
         Map<ResourceLocation, JsonObject> rawProfiles = new LinkedHashMap<>();
         for (String name : new String[]{"edible_defaults", "food_base", "food_baking_base", "cheese_slice"})
             rawProfiles.put(id(name), json("/data/moonstation14/moonstation14/ingestion_profile/" + name + ".json"));
         profiles.reload(ModIngestionProfiles.TYPE, rawProfiles);
+        Map<ResourceLocation, JsonObject> rawSources = new LinkedHashMap<>();
+        for (String name : new String[]{"cheese_slice"})
+            rawSources.put(id(name), json("/data/moonstation14/moonstation14/item_food_solution_profile/" + name + ".json"));
+        profiles.reload(ModItemFoodSolutionProfiles.TYPE, rawSources);
         IngestionProfile cheese = profiles.snapshot(ModIngestionProfiles.TYPE).get(id("cheese_slice"));
+        var cheeseSource = profiles.snapshot(ModItemFoodSolutionProfiles.TYPE).get(id("cheese_slice"));
         assertEquals(IngestionProfile.Kind.FOOD, cheese.edible().kind());
-        assertEquals(375L, cheese.edible().sourceSolution().contentsCents().get(id("nutriment")));
+        assertEquals(375L, cheeseSource.contentsCents().get(id("nutriment")));
 
         ReagentData nutriment = ReagentData.CODEC.parse(JsonOps.INSTANCE,
                 json("/data/moonstation14/moonstation14/reagent/nutriment.json")).getOrThrow();
@@ -64,7 +71,7 @@ class NutrimentPipelineTest {
         AtomicReference<Float> peakHunger = new AtomicReference<>(25f);
         ReagentAttachment stomach = new ReagentAttachment();
         ReagentAttachment body = new ReagentAttachment();
-        long expectedSourceCents = cheese.edible().sourceSolution().contentsCents().get(id("nutriment")) * 5;
+        long expectedSourceCents = cheeseSource.contentsCents().get(id("nutriment")) * 5;
         assertEquals(expectedSourceCents, stomach.admitUnits(NUTRIMENT, expectedSourceCents, 5_000));
         AtomicLong metabolizedCents = new AtomicLong();
         double grossHunger = 0;
@@ -90,15 +97,20 @@ class NutrimentPipelineTest {
 
     @Test
     void threeResolvedPumpkinPieSlicesRestoreStarvingMouseThroughRealReagentPipeline() {
-        var profiles = new PrototypeManager(); profiles.register(ModIngestionProfiles.TYPE);
+        var profiles = new PrototypeManager(); profiles.register(ModIngestionProfiles.TYPE); profiles.register(ModItemFoodSolutionProfiles.TYPE);
         Map<ResourceLocation, JsonObject> raw = new LinkedHashMap<>();
         for (String name : new String[]{"edible_defaults", "food_base", "pumpkin_pie_slice"})
             raw.put(id(name), json("/data/moonstation14/moonstation14/ingestion_profile/" + name + ".json"));
         profiles.reload(ModIngestionProfiles.TYPE, raw);
+        Map<ResourceLocation, JsonObject> rawSources = new LinkedHashMap<>();
+        for (String name : new String[]{"pumpkin_pie_slice"})
+            rawSources.put(id(name), json("/data/moonstation14/moonstation14/item_food_solution_profile/" + name + ".json"));
+        profiles.reload(ModItemFoodSolutionProfiles.TYPE, rawSources);
         var pie = profiles.snapshot(ModIngestionProfiles.TYPE).get(id("pumpkin_pie_slice"));
-        assertEquals(1225, pie.edible().sourceSolution().capacityCents());
+        var pieSource = profiles.snapshot(ModItemFoodSolutionProfiles.TYPE).get(id("pumpkin_pie_slice"));
+        assertEquals(1225, pieSource.capacityCents());
         assertEquals(Map.of(id("nutriment"), 750L, id("vitamin"), 350L, id("sugar"), 125L),
-                pie.edible().sourceSolution().contentsCents());
+                pieSource.contentsCents());
 
         Map<ResourceLocation, ReagentData> catalog = new LinkedHashMap<>();
         for (String name : new String[]{"nutriment", "vitamin", "sugar"}) {
@@ -108,7 +120,7 @@ class NutrimentPipelineTest {
         }
         var stomach = new ReagentAttachment(); var body = new ReagentAttachment();
         long expected = 0;
-        for (int i = 0; i < 3; i++) for (var e : pie.edible().sourceSolution().contentsCents().entrySet()) {
+        for (int i = 0; i < 3; i++) for (var e : pieSource.contentsCents().entrySet()) {
             var key = ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, e.getKey());
             assertEquals(e.getValue(), stomach.admitUnits(key, e.getValue(), 5_000));
             expected += e.getValue();

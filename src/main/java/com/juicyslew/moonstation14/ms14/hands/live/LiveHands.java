@@ -223,8 +223,8 @@ public final class LiveHands {
     }
 
     /** Pure component update for an owned stack; item identity and count cannot change. */
-    Optional<LiveHands> replaceOwnedComponents(long expectedRevision, String hand, ItemToken expectedToken,
-                                                ItemStack replacement) {
+    public Optional<LiveHands> replaceOwnedComponents(long expectedRevision, String hand, ItemToken expectedToken,
+                                                 ItemStack replacement) {
         if (revision != expectedRevision || revision == Long.MAX_VALUE || hand == null || expectedToken == null
                 || replacement == null || replacement.isEmpty()) return Optional.empty();
         int index = handIds().indexOf(hand);
@@ -236,6 +236,24 @@ public final class LiveHands {
         ArrayList<Slot> next = new ArrayList<>(hands);
         next.set(index, new Slot(hand, Optional.of(new Occupant(expectedToken.value(), replacement))));
         return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
+    /** Component-only patch on the exact equipped owner; preserves all hand and equipment ownership. */
+    public Optional<LiveHands> replaceEquipmentOwnedComponents(long expectedRevision, String slot,
+            ItemToken expectedToken, ItemStack replacement) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || slot == null || expectedToken == null
+                || replacement == null || replacement.isEmpty()) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(equipment.orElse(List.of()));
+        int index = -1;
+        for (int i = 0; i < next.size(); i++) if (next.get(i).id().equals(slot)) { index = i; break; }
+        if (index < 0) return Optional.empty();
+        Slot currentSlot = next.get(index);
+        Occupant owner = currentSlot.occupant().orElse(null);
+        if (owner == null || !owner.token().equals(expectedToken.value())
+                || !owner.stack().is(replacement.getItem()) || owner.stack().getCount() != replacement.getCount()) return Optional.empty();
+        next.set(index, new Slot(slot, Optional.of(new Occupant(expectedToken.value(), replacement))));
+        return Optional.of(new LiveHands(hands, active, revision + 1,
+                equipment.isPresent() ? Optional.of(next) : Optional.empty()));
     }
 
     public Optional<LiveHands> releaseHand(String hand, java.util.UUID exactTarget) {
@@ -604,6 +622,12 @@ public final class LiveHands {
         next.set(index, new Slot(hand, Optional.empty()));
         return new WholeResult(new LiveHands(next, active, revision + 1, equipment),
                 Optional.of(occupant.orElseThrow().stack()), Optional.empty());
+    }
+
+    /** Owner-facing immutable whole-stack clear; the returned state preserves every other owner. */
+    public Optional<LiveHands> clearHeldWhole(long expectedRevision, String hand, ItemToken expectedToken) {
+        WholeResult result = takeWhole(expectedRevision, hand, expectedToken);
+        return result.rejection().isPresent() ? Optional.empty() : Optional.of(result.state());
     }
 
     /** Pure consumption of exactly one unit from the exact active hand. */

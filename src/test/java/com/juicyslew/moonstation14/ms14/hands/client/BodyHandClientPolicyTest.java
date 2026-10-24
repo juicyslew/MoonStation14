@@ -602,6 +602,58 @@ class BodyHandClientPolicyTest {
         assertNull(policy.confirmedSnapshot());
     }
 
+    @Test void explicitTrayEUsesOrdinaryBlockUseRegardlessOfLooseItemPresence() {
+        for (boolean looseItemPresent : List.of(false, true)) {
+            assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE,
+                    BodyInputGesturePolicy.aimedActivationIntent(true, false));
+            assertEquals(looseItemPresent ? BodyInputGesturePolicy.NormalWorldRoute.ACTIVATE_TARGET
+                            : BodyInputGesturePolicy.NormalWorldRoute.BLOCK_ACTIVATE,
+                    BodyInputGesturePolicy.normalWorldRoute(false, looseItemPresent, false));
+        }
+        assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.ACTIVATE_WORLD,
+                BodyInputGesturePolicy.aimedActivationIntent(false, true));
+        assertNull(BodyInputGesturePolicy.aimedActivationIntent(false, false));
+    }
+
+    @Test void confirmedSnapshotClockAnchorsReceiptAndIgnoresRejectedOrDuplicateTicks() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var dimension = "minecraft:overworld";
+        long query = policy.query(1);
+        var first = clockSnapshot(query, ACCOUNT, BODY, 7, 1, 1000, false);
+        assertTrue(policy.accept(first, 100, dimension));
+        assertEquals(1000, policy.estimatedServerTick(100).orElseThrow());
+        assertEquals(1005, policy.estimatedServerTick(105).orElseThrow());
+        var duplicate = clockSnapshot(0, ACCOUNT, BODY, 7, 1, 1000, true);
+        assertTrue(policy.accept(duplicate, 104, dimension));
+        assertEquals(1005, policy.estimatedServerTick(105).orElseThrow());
+        var newer = clockSnapshot(0, ACCOUNT, BODY, 7, 2, 1006, true);
+        assertTrue(policy.accept(newer, 106, dimension));
+        assertEquals(1006, policy.estimatedServerTick(106).orElseThrow());
+
+        var wrongContext = clockSnapshot(0, UUID.randomUUID(), BODY, 7, 3, 3000, true);
+        assertFalse(policy.accept(wrongContext, 200, dimension));
+        assertEquals(1006, policy.estimatedServerTick(106).orElseThrow());
+        var stale = clockSnapshot(0, ACCOUNT, BODY, 7, 1, 4000, true);
+        assertFalse(policy.accept(stale, 300, dimension));
+        assertEquals(1006, policy.estimatedServerTick(106).orElseThrow());
+
+        policy.bind(ACCOUNT, BODY, 8);
+        assertTrue(policy.estimatedServerTick(400).isEmpty());
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(clockSnapshot(policy.query(1), ACCOUNT, BODY, 7, 4, 5000, false), 400, "minecraft:the_nether"));
+        assertEquals(5000, policy.estimatedServerTick(400).orElseThrow());
+        policy.reset();
+        assertTrue(policy.estimatedServerTick(500).isEmpty());
+    }
+
+    private static BodyHandStateSnapshot clockSnapshot(long sequence, UUID account, UUID body, long epoch,
+            long revision, long serverTick, boolean push) {
+        return new BodyHandStateSnapshot(0, sequence, BodyHandStateSnapshot.Reason.OK, account, body, epoch,
+                revision, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)),
+                List.of(), List.of(), push, null, serverTick);
+    }
+
     @Test void lastConfirmedHandsRemainNominationOnlyAcrossRefreshAndClearOnContextReset() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);

@@ -1,0 +1,114 @@
+[
+  {
+    "id": "FoodBluePumpkin",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "blue pumpkin",
+      "parent": "FoodProduceBase",
+      "id": "FoodBluePumpkin",
+      "description": "A large, blue... berry. Seriously.",
+      "components": [
+        {
+          "type": "Item",
+          "size": "Small",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "bluepumpkin"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 25,
+              "reagents": [
+                {
+                  "ReagentId": "Ammonia",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Chlorine",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "JuiceBluePumpkin",
+                "Quantity": 10
+              }
+            ]
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/blue_pumpkin.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "bluePumpkin"
+        },
+        {
+          "type": "Damageable",
+          "damageContainer": "Biological"
+        },
+        {
+          "type": "Destructible",
+          "thresholds": [
+            {
+              "trigger": {
+                "__yaml_tag__": "!type:DamageTrigger",
+                "value": {
+                  "damage": 16
+                }
+              },
+              "behaviors": [
+                {
+                  "__yaml_tag__": "!type:PlaySoundBehavior",
+                  "value": {
+                    "sound": {
+                      "collection": "desecration"
+                    }
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:SpillBehavior",
+                  "value": {
+                    "solution": "food"
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:DoActsBehavior",
+                  "value": {
+                    "acts": [
+                      "Destruction"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        }
+      ]
+    }
+  }
+]

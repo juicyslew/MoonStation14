@@ -1,0 +1,3 @@
+run=shared-combat-mode-validation/r2
+pre_manifest_timestamp=2026-10-21T06:44:46.8647954-07:00
+command=./gradlew.bat compileJava compileTestJava compileGametestJava test --tests '*CombatModeStateTest' --tests '*CharacterPrototypeTest' --tests '*PrototypeRuntimeTest' --tests '*MeleeWeaponResolverTest'

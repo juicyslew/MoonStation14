@@ -13,6 +13,7 @@ public final class ModToolProfiles {
     public static final ResourceLocation BASE_CROWBAR = id("base_crowbar");
     public static final ResourceLocation CROWBAR = id("crowbar");
     public static final ResourceLocation WIRECUTTER = id("wirecutter");
+    public static final ResourceLocation KITCHEN_KNIFE = id("kitchen_knife");
     public static final ResourceLocation SCREWDRIVER = id("screwdriver");
     public static final ResourceLocation MULTITOOL = id("multitool");
     public static final ResourceLocation BOTANY_HOE = id("botany_hoe");
@@ -36,11 +37,14 @@ public final class ModToolProfiles {
         }
         ToolProfile crowbar = catalog.get(CROWBAR);
         if (crowbar.prying() == null) throw new IllegalArgumentException("crowbar must inherit prying");
+        ToolProfile knife = catalog.get(KITCHEN_KNIFE);
+        if (knife == null || knife.sharp() == null || knife.knife() == null || knife.tool() != null)
+            throw new IllegalArgumentException("kitchen knife must expose Sharp and Knife without a tool quality");
     }
 
     private static void validateInheritance(PrototypeCatalog<JsonObject> raw,
                                             PrototypeCatalog<JsonObject> resolved) {
-        requireAbstract(raw.get(BASE_ITEM), BASE_ITEM, Set.of("abstract", "tool"));
+        requireAbstract(raw.get(BASE_ITEM), BASE_ITEM, Set.of("abstract"));
         requireAbstract(raw.get(BASE_CROWBAR), BASE_CROWBAR, Set.of("abstract", "parent", "prying"));
         if (!BASE_ITEM.getPath().equals(raw.get(BASE_CROWBAR).get("parent").getAsString()))
             throw new IllegalArgumentException("base_crowbar must inherit base_item");
@@ -57,6 +61,10 @@ public final class ModToolProfiles {
                     if (!Set.of("name", "description").contains(field)) throw new IllegalArgumentException("unknown tool metadata field: " + field);
             }
         }
+        JsonObject knife = raw.get(KITCHEN_KNIFE);
+        if (knife == null || knife.has("abstract") || knife.has("tool") || knife.has("prying")
+                || !knife.has("sharp") || !knife.has("knife") || !knife.has("parent") || !BASE_ITEM.getPath().equals(knife.get("parent").getAsString()))
+            throw new IllegalArgumentException("kitchen knife must inherit base_item and define Sharp and Knife capabilities");
         if (resolved.asMap().containsKey(BASE_ITEM) || resolved.asMap().containsKey(BASE_CROWBAR))
             throw new IllegalArgumentException("abstract tool profiles must not be published");
     }

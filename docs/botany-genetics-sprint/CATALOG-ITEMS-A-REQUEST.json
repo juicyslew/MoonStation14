@@ -1,0 +1,42 @@
+{
+  "id": "botany-genetics-catalog-items-a-20261015-r1",
+  "title": "Botany catalog items A source-faithful item art",
+  "brief": "Art-only request for exactly the 23 upstream item identities in asset_ids. Follow docs/botany-genetics-sprint/CATALOG-ITEMS-A-ASSET-BRIEF.md for verified pinned source, selected RSI states, source-parent/layer requirements, licenses and boundaries. This is separate from the 65-family grown request and existing 10-item request; it has no dependency on grown assets. Preserve the accepted BasicBotany five-pair/tray package. Source-faithful art only: no runtime code/registration/import, mechanics claims, audio, or Blockbench 3D plant models. Retain distinct item bindings, lowercase runtime resource names, and exact upstream identity case in metadata. Art coverage is not mechanics completion, especially for OatBushel ruminant output, banana/mimana toxin/peel and slip behavior, and corn trash consumers.",
+  "scope": "art-only",
+  "target_runtime": "Minecraft Java 1.21.1 / NeoForge 21.1.224 native item-model and PNG pipeline",
+  "source_pin": "SS14 space-station-14 revision c9df5ef5d675b0d1d226828bddf6b78c28502d91; verified at C:/Users/William/Documents/SS14-dev/space-station-14",
+  "asset_ids": [
+    "OatSeeds",
+    "OatBushel",
+    "BananaSeeds",
+    "FoodBanana",
+    "MimanaSeeds",
+    "FoodMimana",
+    "CarrotSeeds",
+    "FoodCarrot",
+    "CabbageSeeds",
+    "FoodCabbage",
+    "GarlicSeeds",
+    "FoodGarlic",
+    "AppleSeeds",
+    "FoodApple",
+    "GoldenAppleSeeds",
+    "FoodGoldenApple",
+    "CornSeeds",
+    "FoodCorn",
+    "PineappleSeeds",
+    "FoodPineapple",
+    "TrashBananaPeel",
+    "TrashMimanaPeel",
+    "FoodCornTrash"
+  ],
+  "dependencies": [],
+  "context": [
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-A-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/CATALOG-REFERENCES.md",
+    "docs/botany-genetics-sprint/ITEM-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/item-asset-request.json",
+    "docs/botany-genetics-sprint/PLANT-MODEL-BRIEF.md",
+    "docs/botany-genetics-sprint/plant-model-request.json"
+  ]
+}

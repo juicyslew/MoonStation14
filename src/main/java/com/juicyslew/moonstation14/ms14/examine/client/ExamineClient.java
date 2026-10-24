@@ -545,7 +545,11 @@ public final class ExamineClient {
             Entity entity = mc.level.getEntity(target.entityId());
             if (entity == null || entity.isRemoved() || !entity.getUUID().equals(target.entityUuid())) return;
             float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
-            outlineBox = outlineBox.move(entity.getPosition(partialTick).subtract(entity.position()));
+            if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
+                var presentation = com.juicyslew.moonstation14.ms14.loose_objects.client.LoosePresentationBounds.flatProduce(loose, partialTick);
+                if (presentation != null) outlineBox = presentation;
+                else outlineBox = outlineBox.move(entity.getPosition(partialTick).subtract(entity.position()));
+            } else outlineBox = outlineBox.move(entity.getPosition(partialTick).subtract(entity.position()));
         }
         var buffers = mc.renderBuffers().bufferSource();
         var lines = buffers.getBuffer(net.minecraft.client.renderer.RenderType.lines());

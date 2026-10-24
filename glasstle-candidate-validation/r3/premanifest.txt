@@ -1,0 +1,6 @@
+r3 pre-manifest 2026-10-21T05:42:56.4665141-07:00
+7191 bytes 10/21/2026 12:42:46 src/test/java/com/juicyslew/moonstation14/ms14/prototype/GlasstleProductCatalogCandidateTest.java
+4498 bytes 10/21/2026 12:37:08 src/test/java/com/juicyslew/moonstation14/ms14/prototype/BotanyProductIdentityTest.java
+151 bytes 10/21/2026 12:40:59 src/test/resources/botany-catalog-candidate/item_food_solution_profile/shard_glass.json
+116 bytes 10/21/2026 12:40:59 src/test/resources/botany-catalog-candidate/extractable_profile/shard_glass.json
+695 bytes 10/21/2026 12:40:59 src/test/resources/botany-catalog-candidate/loose_object_profile/shard_glass.json

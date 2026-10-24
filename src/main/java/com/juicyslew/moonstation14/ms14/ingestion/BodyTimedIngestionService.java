@@ -37,7 +37,7 @@ public final class BodyTimedIngestionService {
         IngestionProfile policyProfile = drinkProfile(snapshot.body(), stack);
         return start(snapshot.body(), actor, sequence, authority,
                 () -> TimedIngestionAccess.admitHeld(snapshot.body(), hand, token, revision, authority), "held:" + token,
-                () -> intentValid(snapshot.body(), authority, hand, revision, token, true, false), policyProfile);
+                  () -> intentValid(snapshot.body(), authority, hand, revision, token, true, false), policyProfile);
     }
 
     public static BodyHandActionResult.Reason startWorld(ServerPlayer actor, UUID target, String hand,
@@ -121,7 +121,7 @@ public final class BodyTimedIngestionService {
                 profile.delayTicks(), true, false,
                 () -> TimedIngestionAccess.valid(body, admitted, authority),
                  () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(),
-                         profile.edible().kind() == IngestionProfile.Kind.FOOD, authority)) {
+                          profile.edible().kind() == IngestionProfile.Kind.FOOD, authority, owner)) {
                     case COMMITTED_REPEAT -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.REPEAT; }
                     case COMMITTED_STOP -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.STOP; }
                     case CANNOT_INGEST -> {

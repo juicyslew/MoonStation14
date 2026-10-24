@@ -1,0 +1,5 @@
+Source: SS14 Resources/Textures/Objects/Weapons/Melee/kitchen_knife.rsi/icon.png at c9df5ef5d675b0d1d226828bddf6b78c28502d91
+SHA-256: 51A87C0BC8CE2AC3326B20668C0B52C06F3FA5D79088070830C0907A98C33572
+License: CC-BY-SA-3.0
+Copyright: Taken/modified from desertrose at https://github.com/DesertRose2/desertrose/pull/378/commits/9e081bd2a0d7614be5a9dabbca34886ce204105d
+Adaptation: Unedited 32x32 icon state used as a flat Minecraft generated-item sprite; directional held and belt states are not represented.

@@ -30,6 +30,7 @@ import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateAttachment;
 import com.juicyslew.moonstation14.ms14.standing.PostureAttachment;
+import com.juicyslew.moonstation14.ms14.combat.CombatModeAttachment;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -41,6 +42,9 @@ import java.util.function.Supplier;
 public class ModDataAttachments {
     // Create the DeferredRegister for attachment types
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, MoonStation14.MOD_ID);
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer>> ITEM_CONTACT_TIMER = ATTACHMENT_TYPES.register(
+            "item_contact_timer", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer::new).build());
 
     public static final Supplier<AttachmentType<ReagentAttachment>> REAGENT = ATTACHMENT_TYPES.register(
             "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment())
@@ -88,6 +92,16 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<StatusEffectAttachment>> STATUS_EFFECT = ATTACHMENT_TYPES.register(
             "status_effect", () -> AttachmentType.builder(() -> new StatusEffectAttachment()).serialize(StatusEffectAttachment.CODEC, attachment -> !attachment.isEmpty()).sync(StatusEffectAttachment.STREAM_CODEC).build()
     );
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment>> STAMINA = ATTACHMENT_TYPES.register(
+            "stamina", () -> AttachmentType.builder(() -> new com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment(
+                    com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.EMPTY))
+                    .serialize(com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.CODEC.xmap(
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::new,
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::state))
+                    .sync(com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.STREAM_CODEC.map(
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::new,
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::state)).build());
 
     public static final Supplier<AttachmentType<AlertAttachment>> ALERT = ATTACHMENT_TYPES.register(
             "alert", () -> AttachmentType.builder((Supplier<AlertAttachment>) AlertAttachment::new)
@@ -214,6 +228,17 @@ public class ModDataAttachments {
             "posture", () -> AttachmentType.builder((Supplier<PostureAttachment>) PostureAttachment::new)
                     .serialize(PostureAttachment.CODEC).sync(PostureAttachment.STREAM_CODEC).build()
     );
+
+    /** Persisted and synchronized body-owned combat-mode toggle. */
+    public static final Supplier<AttachmentType<CombatModeAttachment>> COMBAT_MODE = ATTACHMENT_TYPES.register(
+            "combat_mode", () -> AttachmentType.builder((Supplier<CombatModeAttachment>) CombatModeAttachment::new)
+                    .serialize(CombatModeAttachment.CODEC).sync(CombatModeAttachment.STREAM_CODEC).build());
+
+    /** Body-owned unarmed melee cooldown; weapon deadlines remain on weapon stack components. */
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment>> MELEE_COOLDOWN = ATTACHMENT_TYPES.register(
+            "melee_cooldown", () -> AttachmentType.builder((Supplier<com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment>) com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment::new)
+                    .serialize(com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment.CODEC)
+                    .sync(com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment.STREAM_CODEC).build());
 
     /** Persisted server-only lifecycle identity for ordinary mapped role mobs; never synchronized or copied. */
     public static final Supplier<AttachmentType<PlayerCharacterBinding>> MOB_LIFECYCLE_BINDING = ATTACHMENT_TYPES.register(

@@ -24,7 +24,7 @@ import java.util.Set;
  * data bag to the authoritative attachment.</p>
  */
  public sealed interface StatusEffectPayload permits StatusEffectPayload.None, StatusEffectPayload.Jitter,
-         StatusEffectPayload.MovementSpeedModifier {
+          StatusEffectPayload.MovementSpeedModifier, StatusEffectPayload.FrictionModifier {
     None NONE = None.INSTANCE;
 
     /** The default payload for statuses that have no application-specific state. */
@@ -84,6 +84,22 @@ import java.util.Set;
         }
     }
 
+    /** Source-equivalent scalar applied to both friction and acceleration. */
+    record FrictionModifier(float factor) implements StatusEffectPayload {
+        public FrictionModifier {
+            if (!Float.isFinite(factor) || factor < 0f)
+                throw new IllegalArgumentException("friction factor must be finite and nonnegative");
+        }
+        public FrictionModifier(double factor) {
+            this(requireFloat(factor));
+        }
+        private static float requireFloat(double value) {
+            if (!Double.isFinite(value) || value < 0d || value > Float.MAX_VALUE)
+                throw new IllegalArgumentException("friction factor must be finite and representable as a float");
+            return (float) value;
+        }
+    }
+
     Codec<StatusEffectPayload> CODEC = PayloadCodecs.CODEC;
     StreamCodec<RegistryFriendlyByteBuf, StatusEffectPayload> STREAM_CODEC = PayloadCodecs.STREAM_CODEC;
 
@@ -107,6 +123,7 @@ import java.util.Set;
         private static final int NONE_ID = 0;
         private static final int JITTER_ID = 1;
         private static final int MOVEMENT_SPEED_ID = 2;
+        private static final int FRICTION_ID = 3;
         private static final Codec<Float> FINITE_FLOAT = Codec.FLOAT.validate(value ->
                 Float.isFinite(value)
                         ? DataResult.success(value)
@@ -116,9 +133,10 @@ import java.util.Set;
                         Codec.STRING.fieldOf("type").forGetter(EncodedFields::type),
                         FINITE_FLOAT.optionalFieldOf("amplitude").forGetter(EncodedFields::amplitude),
                         FINITE_FLOAT.optionalFieldOf("frequency").forGetter(EncodedFields::frequency),
-                        FINITE_FLOAT.optionalFieldOf("multiplier").forGetter(EncodedFields::multiplier)
+                         FINITE_FLOAT.optionalFieldOf("multiplier").forGetter(EncodedFields::multiplier),
+                         FINITE_FLOAT.optionalFieldOf("factor").forGetter(EncodedFields::factor)
                 ).apply(instance, EncodedFields::new));
-        private static final Set<String> FIELDS = Set.of("type", "amplitude", "frequency", "multiplier");
+        private static final Set<String> FIELDS = Set.of("type", "amplitude", "frequency", "multiplier", "factor");
 
         private static final Decoder<EncodedFields> STRICT_DECODER = new Decoder<>() {
             @Override
@@ -152,24 +170,25 @@ import java.util.Set;
                 StreamCodec.of(PayloadCodecs::encodeNetwork, PayloadCodecs::decodeNetwork);
 
         private record EncodedFields(String type, Optional<Float> amplitude, Optional<Float> frequency,
-                                     Optional<Float> multiplier) {
+                                      Optional<Float> multiplier, Optional<Float> factor) {
             private EncodedFields {
                 Objects.requireNonNull(type, "type");
                 Objects.requireNonNull(amplitude, "amplitude");
                 Objects.requireNonNull(frequency, "frequency");
                 Objects.requireNonNull(multiplier, "multiplier");
+                Objects.requireNonNull(factor, "factor");
             }
         }
 
         private static DataResult<StatusEffectPayload> decode(EncodedFields fields) {
             return switch (fields.type()) {
                 case "none" -> fields.amplitude().isPresent() || fields.frequency().isPresent()
-                        || fields.multiplier().isPresent()
+                        || fields.multiplier().isPresent() || fields.factor().isPresent()
                         ? DataResult.error(() -> "none status effect payload cannot contain variant fields")
                         : DataResult.success(StatusEffectPayload.none());
                 case "jitter" -> {
                     if (fields.amplitude().isEmpty() || fields.frequency().isEmpty()
-                            || fields.multiplier().isPresent()) {
+                            || fields.multiplier().isPresent() || fields.factor().isPresent()) {
                         yield DataResult.error(() -> "jitter status effect payload requires amplitude and frequency");
                     }
                     try {
@@ -181,7 +200,7 @@ import java.util.Set;
                 }
                 case "movement_speed" -> {
                     if (fields.multiplier().isEmpty()
-                            || fields.amplitude().isPresent() || fields.frequency().isPresent()) {
+                            || fields.amplitude().isPresent() || fields.frequency().isPresent() || fields.factor().isPresent()) {
                         yield DataResult.error(() -> "movement_speed status effect payload requires multiplier only");
                     }
                     try {
@@ -190,6 +209,12 @@ import java.util.Set;
                         yield DataResult.error(exception::getMessage);
                     }
                 }
+                case "friction" -> {
+                    if (fields.factor().isEmpty() || fields.amplitude().isPresent() || fields.frequency().isPresent()
+                            || fields.multiplier().isPresent()) yield DataResult.error(() -> "friction status effect payload requires factor only");
+                    try { yield DataResult.success(new FrictionModifier(fields.factor().orElseThrow())); }
+                    catch (IllegalArgumentException exception) { yield DataResult.error(exception::getMessage); }
+                }
                 default -> DataResult.error(() -> "unknown status effect payload type '" + fields.type() + "'");
             };
         }
@@ -197,16 +222,17 @@ import java.util.Set;
         private static DataResult<EncodedFields> encode(StatusEffectPayload payload) {
             Objects.requireNonNull(payload, "payload");
             if (payload instanceof None) {
-                return DataResult.success(new EncodedFields("none", Optional.empty(), Optional.empty(), Optional.empty()));
+                return DataResult.success(new EncodedFields("none", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
             }
             if (payload instanceof Jitter jitter) {
                 return DataResult.success(new EncodedFields("jitter",
-                        Optional.of(jitter.amplitude()), Optional.of(jitter.frequency()), Optional.empty()));
+                        Optional.of(jitter.amplitude()), Optional.of(jitter.frequency()), Optional.empty(), Optional.empty()));
             }
             if (payload instanceof MovementSpeedModifier movement) {
                 return DataResult.success(new EncodedFields("movement_speed", Optional.empty(), Optional.empty(),
-                        Optional.of(movement.multiplier())));
+                        Optional.of(movement.multiplier()), Optional.empty()));
             }
+            if (payload instanceof FrictionModifier friction) return DataResult.success(new EncodedFields("friction", Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(friction.factor())));
             throw new IllegalStateException("unhandled status effect payload " + payload.getClass());
         }
 
@@ -221,6 +247,9 @@ import java.util.Set;
             } else if (payload instanceof MovementSpeedModifier movement) {
                 writeBoundedInt(buffer, MOVEMENT_SPEED_ID);
                 buffer.writeFloat(movement.multiplier());
+            } else if (payload instanceof FrictionModifier friction) {
+                writeBoundedInt(buffer, FRICTION_ID);
+                buffer.writeFloat(friction.factor());
             } else {
                 throw new IllegalArgumentException("unhandled status effect payload " + payload.getClass());
             }
@@ -237,11 +266,12 @@ import java.util.Set;
             if (id == MOVEMENT_SPEED_ID) {
                 return new MovementSpeedModifier(buffer.readFloat());
             }
+            if (id == FRICTION_ID) return new FrictionModifier(buffer.readFloat());
             throw new IllegalArgumentException("unknown status effect payload discriminator " + id);
         }
 
         private static void writeBoundedInt(RegistryFriendlyByteBuf buffer, int value) {
-            if (value < NONE_ID || value > MOVEMENT_SPEED_ID) {
+            if (value < NONE_ID || value > FRICTION_ID) {
                 throw new IllegalArgumentException("payload discriminator is outside its network bounds");
             }
             buffer.writeVarInt(value);
@@ -249,7 +279,7 @@ import java.util.Set;
 
         private static int readBoundedInt(RegistryFriendlyByteBuf buffer) {
             int value = buffer.readVarInt();
-            if (value < NONE_ID || value > MOVEMENT_SPEED_ID) {
+            if (value < NONE_ID || value > FRICTION_ID) {
                 throw new IllegalArgumentException("payload discriminator is outside its network bounds");
             }
             return value;

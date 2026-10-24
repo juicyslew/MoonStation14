@@ -4,7 +4,7 @@
 
 ## Tray ancestry and composition
 
-Start at `Resources/Prototypes/Entities/Structures/soil.yml`. `hydroponicsTray` derives from `hydroponicsSoil`; soil derives from `SmallConstructibleMachine`, which derives from `ConstructibleMachine` (no further parents). This is not the `BaseMachine`/`Structure` chain. `HydroponicsTrayEmpty` derives from the tray and overrides initial water and nutrition to zero. The soil composition carries a `PlantHolderComponent` and soil solution attachment of capacity 200 units with refill maximum 50. Do not mistake refill maximum for total capacity or a plant nutrient conversion.
+**Correction (direct source resolution; supersedes the ancestry sentence below in older revisions):** `hydroponicsTray` has parents `[hydroponicsSoil, SmallConstructibleMachine]`; `hydroponicsSoil` has no parent; `SmallConstructibleMachine → ConstructibleMachine`, and `ConstructibleMachine` has no parent. The tray is not `hydroponicsSoil → SmallConstructibleMachine`; neither add `BaseStructure`. `HydroponicsTrayEmpty` derives from the tray and overrides initial water and nutrition to zero. Soil solution capacity is 200 units with refill maximum 50.
 
 The tray composition also supplies appearance, anchoring/transform, fixtures, and warning-overlay behavior. `HydroponicsTrayComponent` enables `DrawWarnings`; warning rendering is not plant simulation. Watering uses the composed slosh sound (`slosh.ogg`, volume -6, pitch variation 0.2). Verify the local renderer/physics owners support each composed behavior rather than inventing upstream components. Empty-tray initial values are an explicit leaf override; do not substitute holder component defaults of 100 for that leaf.
 

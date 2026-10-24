@@ -1,0 +1,26 @@
+{
+  "id": "botany-genetics-target-items-swab-20261015-r1",
+  "title": "Botany seed, produce, and sterile swab item art",
+  "scope": "art-only",
+  "target_runtime": "Minecraft Java 1.21.1 / NeoForge 21.1.224 native item-model and PNG pipeline",
+  "source_pin": "SS14 space-station-14 revision c9df5ef5d675b0d1d226828bddf6b78c28502d91; verified at C:/Users/William/Documents/SS14-dev/space-station-14",
+  "asset_ids": [
+    "DiseaseSwab",
+    "MeatwheatSeeds",
+    "MeatwheatBushel",
+    "FoodMeatWheat",
+    "BlueTomatoSeeds",
+    "FoodBlueTomato",
+    "BloodTomatoSeeds",
+    "FoodBloodTomato",
+    "LilySeeds",
+    "FoodLily"
+  ],
+  "dependencies": [],
+  "brief": "Art-only request for the ten exact item identities in asset_ids. Follow docs/botany-genetics-sprint/ITEM-ASSET-BRIEF.md, which documents the verified pinned-checkout prototype ancestry, selected sprite layers/states, frame metadata and exact RSI licenses/attributions. Source pin is c9df5ef5d675b0d1d226828bddf6b78c28502d91. This is separate from and does not expand the 65-family grown-plant request; preserve the canonical five BasicBotany grown models and corrected tray. Distinguish raw MeatwheatBushel produce state from FoodMeatWheat meat.rsi clump. DiseaseSwab uses its configured mouth_swab icon only; no blood/pollen states or visual mechanics. Seed packets inherit layered seed/paper artwork; preserve conditional paper label behavior. Provide a source-first design contact gate, editable/source files, native non-overwriting item JSON/PNG exports, lowercase runtime bindings with original IDs retained in metadata, complete mapping/manifest/provenance/license/previews and a read-only validator. Reuse existing flat item render profiles where evidenced; no full 3D plant inventions, runtime registration, code, gameplay, audio, or import. Delivery/validation is not independent visual review, owner acceptance, or installed runtime behavior.",
+  "context": [
+    "docs/botany-genetics-sprint/ITEM-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/PLANT-MODEL-BRIEF.md",
+    "docs/botany-genetics-sprint/plant-model-request.json"
+  ]
+}

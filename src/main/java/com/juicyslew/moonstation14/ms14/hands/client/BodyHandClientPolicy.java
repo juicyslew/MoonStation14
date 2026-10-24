@@ -36,6 +36,8 @@ public final class BodyHandClientPolicy {
     private BodyHandStateSnapshot presentationSnapshot;
     // Read-only last confirmed state is retained for input nomination while proof is refreshed.
     private BodyHandStateSnapshot lastConfirmedSnapshot;
+    private long snapshotReceivedAt = Long.MIN_VALUE;
+    private String snapshotDimension;
     private long pushedRevision = -1;
     private String feedback;
     private long localFeedbackUntil;
@@ -63,6 +65,8 @@ public final class BodyHandClientPolicy {
         snapshot = null;
         presentationSnapshot = null;
         lastConfirmedSnapshot = null;
+        snapshotReceivedAt = Long.MIN_VALUE;
+        snapshotDimension = null;
         pushedRevision = -1;
         feedback = null;
         localFeedbackUntil = 0;
@@ -112,12 +116,14 @@ public final class BodyHandClientPolicy {
 
     public long queryEpoch() { return snapshot == null ? 0 : epoch; }
 
-    public boolean accept(BodyHandStateSnapshot incoming) {
+    public boolean accept(BodyHandStateSnapshot incoming) { return accept(incoming, 0, null); }
+    public boolean accept(BodyHandStateSnapshot incoming, long localReceiptTick, String dimension) {
         if (incoming.push()) {
             if (!inputEnabled || incoming.reason() != BodyHandStateSnapshot.Reason.OK
                     || !account.equals(incoming.accountId()) || !body.equals(incoming.bodyId())
                     || epoch != incoming.epoch() || snapshot != null && incoming.revision() < snapshot.revision()) return false;
             snapshot = incoming;
+            anchor(incoming, localReceiptTick, dimension);
             presentationSnapshot = incoming;
             lastConfirmedSnapshot = incoming;
             pushedRevision = incoming.revision();
@@ -140,6 +146,7 @@ public final class BodyHandClientPolicy {
             return false;
         }
         snapshot = incoming;
+        anchor(incoming, localReceiptTick, dimension);
         refreshRequired = false;
         presentationSnapshot = incoming;
         lastConfirmedSnapshot = incoming;
@@ -157,6 +164,23 @@ public final class BodyHandClientPolicy {
         selectionPresentation = false;
         return true;
     }
+
+    private void anchor(BodyHandStateSnapshot incoming, long receipt, String dimension) {
+        boolean same = snapshotReceivedAt != Long.MIN_VALUE && lastConfirmedSnapshot != null
+                && account.equals(incoming.accountId()) && body.equals(incoming.bodyId()) && epoch == incoming.epoch()
+                && java.util.Objects.equals(snapshotDimension, dimension)
+                && lastConfirmedSnapshot.serverTick() == incoming.serverTick();
+        if (!same) snapshotReceivedAt = receipt;
+        snapshotDimension = dimension;
+    }
+    public java.util.OptionalDouble estimatedServerTick(long now) {
+        var confirmed = confirmedSnapshot();
+        if (confirmed == null || snapshotReceivedAt == Long.MIN_VALUE || lastConfirmedSnapshot != confirmed
+                || !java.util.Objects.equals(snapshotDimension, confirmedDimension())) return java.util.OptionalDouble.empty();
+        return java.util.OptionalDouble.of(com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicy
+                .estimatedServerTick(confirmed.serverTick(), snapshotReceivedAt, now, 0));
+    }
+    private String confirmedDimension() { return snapshotDimension; }
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
     public boolean handQueryPending() { return pendingQuery != 0 && pendingAction == 0 && pendingBlockUse == 0; }

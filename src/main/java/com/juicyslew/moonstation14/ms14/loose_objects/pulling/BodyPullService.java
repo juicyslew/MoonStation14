@@ -163,6 +163,10 @@ public final class BodyPullService {
     }
 
     public static boolean isPulling(LivingEntity body) { return PULLS.containsKey(body); }
+    /** Read-only check against authoritative active leases; no mirrored pull state. */
+    public static boolean isBeingPulled(Entity target) {
+        return target != null && PULLS.values().stream().anyMatch(pull -> pull.target == target);
+    }
     /** A conscious pulled body can resist its single active lease with an actual directional wish. */
     public static void onMovementInput(LivingEntity target, boolean directionalWish) {
         if (!directionalWish || target == null || !CharacterControlSystem.canAct(target)) return;

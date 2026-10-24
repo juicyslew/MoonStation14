@@ -8,8 +8,11 @@ public enum StatusEffectBehavior {
     MARKER("marker"),
     CLIENT_JITTER("client_jitter"),
     MOVEMENT_SPEED("movement_speed"),
+    FRICTION("friction"),
     STUN_ACTION_BLOCK("stun_action_block"),
-    KNOCKDOWN_POSTURE("knockdown_posture");
+    KNOCKDOWN_POSTURE("knockdown_posture"),
+    SPEECH_BLOCK("speech_block"),
+    PACIFIED("pacified");
 
     public static final Codec<StatusEffectBehavior> CODEC = Codec.STRING.comapFlatMap(
             value -> {

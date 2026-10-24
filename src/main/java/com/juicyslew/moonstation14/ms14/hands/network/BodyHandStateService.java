@@ -78,7 +78,7 @@ public final class BodyHandStateService {
             var equipment = equipment(hands, authority.body(), slots);
             var snapshot = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK,
                     actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(),
-                    slots, equipment, grids(hands, authority.body()), true);
+                    slots, equipment, grids(hands, authority.body()), true, null, actor.level().getGameTime());
             if (HandActorAuthority.revalidate(actor, authority)
                     && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands) {
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(actor, snapshot);
@@ -129,7 +129,7 @@ public final class BodyHandStateService {
             grids = grids(hands, authority.body());
             summary = new BodyHandStateSnapshot(query.epoch(), query.sequence(), BodyHandStateSnapshot.Reason.OK,
                     actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(), slots, equipment, grids, false,
-                    templateId(authority.body()));
+                    templateId(authority.body()), actor.level().getGameTime());
         } catch (RuntimeException invalidSummary) {
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
         }

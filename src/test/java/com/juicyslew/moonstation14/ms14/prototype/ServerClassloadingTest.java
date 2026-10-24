@@ -30,6 +30,10 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/devicenet/item/client/";
     private static final String CLIENT_STRIPPING_SOURCE_PREFIX =
             "com/juicyslew/moonstation14/ms14/stripping/client/";
+    private static final String CLIENT_ITEM_PROCESSING_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/item_processing/client/";
+    private static final String CLIENT_COMBAT_SOURCE_PREFIX =
+            "com/juicyslew/moonstation14/ms14/combat/client/";
     private static final Set<String> CLIENT_ONLY_SOURCES = Set.of(
             "com/juicyslew/moonstation14/MoonStation14Client.java",
             "com/juicyslew/moonstation14/CameraJitterHandler.java",
@@ -108,6 +112,8 @@ class ServerClassloadingTest {
                     + "com\\.mojang\\.blaze3d)(?:\\.[A-Za-z_$][\\w$]*)+\\.class\\b");
     private static final Pattern CLIENT_UI_REFERENCE = Pattern.compile(
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.ui\\.client\\.[A-Za-z_$][\\w$]*");
+    private static final Pattern CLIENT_COMBAT_REFERENCE = Pattern.compile(
+            "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.combat\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern CLIENT_CHEMMASTER_REFERENCE = Pattern.compile(
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.chemistry\\.chemmaster\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern CLIENT_MIXIN_REFERENCE = Pattern.compile(
@@ -133,6 +139,8 @@ class ServerClassloadingTest {
                         || relativePath.startsWith(CLIENT_CHEMMASTER_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_DEVICE_NET_SOURCE_PREFIX)
                         || relativePath.startsWith(CLIENT_STRIPPING_SOURCE_PREFIX)
+                        || relativePath.startsWith(CLIENT_ITEM_PROCESSING_SOURCE_PREFIX)
+                        || relativePath.startsWith(CLIENT_COMBAT_SOURCE_PREFIX)
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/equipment/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/ghost_roles/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
@@ -148,6 +156,8 @@ class ServerClassloadingTest {
                 findMatches(CLIENT_CLASS_LITERAL, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
                 findMatches(CLIENT_UI_REFERENCE, code)
+                        .forEach(match -> violations.add(relativePath + ": " + match));
+                findMatches(CLIENT_COMBAT_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
                 findMatches(CLIENT_CHEMMASTER_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));

@@ -1,1 +1,3 @@
-{"parent":"moonstation14:block/atmos_cooler"}
+{
+  "parent": "moonstation14:block/atmos_cooler"
+}

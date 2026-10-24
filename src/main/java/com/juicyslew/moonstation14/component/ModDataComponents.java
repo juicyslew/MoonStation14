@@ -17,11 +17,17 @@ import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.chemistry.output.PillData;
 import com.juicyslew.moonstation14.ms14.chemistry.output.ChemOutputLabel;
 import com.juicyslew.moonstation14.ms14.botany.ProduceInstanceData;
+import com.juicyslew.moonstation14.ms14.botany.GeneticValue;
+import com.juicyslew.moonstation14.ms14.botany.PlantSeedReference;
+import com.juicyslew.moonstation14.ms14.botany.SeedPacketHealthOverride;
 import com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelData;
 import com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerStackData;
 import com.juicyslew.moonstation14.ms14.medical.SyringeStackData;
 import com.juicyslew.moonstation14.ms14.devicenet.item.NetworkConfiguratorStackData;
 import com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerStackData;
+import com.juicyslew.moonstation14.ms14.damage.ItemDamageState;
+import com.juicyslew.moonstation14.ms14.slip.ItemSlipperyComposition;
+import com.juicyslew.moonstation14.ms14.combat.RevolverState;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -91,6 +97,15 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ProduceInstanceData>> PRODUCE_INSTANCE =
             register_component("produce_instance", builder -> builder.persistent(ProduceInstanceData.CODEC)
                     .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodec(ProduceInstanceData.CODEC)));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<GeneticValue>> GENETIC_VALUE =
+            register_component("genetic_value", builder -> builder.persistent(GeneticValue.CODEC)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodec(GeneticValue.CODEC)));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<PlantSeedReference>> PLANT_SEED_REFERENCE =
+            register_component("plant_seed_reference", builder -> builder.persistent(PlantSeedReference.CODEC)
+                    .networkSynchronized(PlantSeedReference.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<SeedPacketHealthOverride>> SEED_PACKET_HEALTH_OVERRIDE =
+            register_component("seed_packet_health_override", builder -> builder.persistent(SeedPacketHealthOverride.CODEC)
+                    .networkSynchronized(SeedPacketHealthOverride.STREAM_CODEC));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<GrenadeFuseData>> GRENADE_FUSE =
             register_component("grenade_fuse", builder -> builder.persistent(GrenadeFuseData.CODEC)
@@ -102,6 +117,21 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ResourceLocation>> LOOSE_OBJECT_PROFILE =
             register_component("loose_object_profile", builder -> builder.persistent(ResourceLocation.CODEC)
                     .networkSynchronized(ResourceLocation.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<ItemSlipperyComposition>> ITEM_SLIPPERY_COMPOSITION =
+            register_component("item_slippery_composition", builder -> builder.persistent(ItemSlipperyComposition.CODEC.codec())
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodec(ItemSlipperyComposition.CODEC.codec())));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<ItemDamageState>> ITEM_DAMAGE_STATE =
+            register_component("item_damage_state", builder -> builder.persistent(ItemDamageState.CODEC)
+                    .networkSynchronized(ItemDamageState.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<RevolverState>> REVOLVER_STATE =
+            register_component("revolver_state", builder -> builder.persistent(RevolverState.CODEC)
+                    .networkSynchronized(RevolverState.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.GunRuntimeState>> GUN_RUNTIME_STATE =
+            register_component("gun_runtime_state", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.GunRuntimeState.CODEC)
+                    .networkSynchronized(com.juicyslew.moonstation14.ms14.combat.GunRuntimeState.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> CARTRIDGE_SPENT =
+            register_component("cartridge_spent", builder -> builder.persistent(com.mojang.serialization.Codec.BOOL)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL));
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ResourceLocation>> NETWORK_DEVICE_ITEM_PROFILE =
             register_component("network_device_item_profile", builder -> builder.persistent(ResourceLocation.CODEC)
                     .networkSynchronized(ResourceLocation.STREAM_CODEC));
@@ -117,6 +147,10 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<NetworkConfiguratorStackData>> NETWORK_CONFIGURATOR =
             register_component("network_configurator", builder -> builder.persistent(NetworkConfiguratorStackData.CODEC)
                     .networkSynchronized(NetworkConfiguratorStackData.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.MeleeCooldownData>> MELEE_COOLDOWN =
+            register_component("melee_cooldown", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.MeleeCooldownData.CODEC)
+                    .networkSynchronized(com.juicyslew.moonstation14.ms14.combat.MeleeCooldownData.STREAM_CODEC));
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<RemoteSignallerStackData>> REMOTE_SIGNALLER =
             register_component("remote_signaller", builder -> builder.persistent(RemoteSignallerStackData.CODEC)
                     .networkSynchronized(RemoteSignallerStackData.STREAM_CODEC));

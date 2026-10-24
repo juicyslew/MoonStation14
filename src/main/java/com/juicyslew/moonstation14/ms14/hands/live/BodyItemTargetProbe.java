@@ -64,7 +64,7 @@ public final class BodyItemTargetProbe {
         if ((long)(maxX-minX+1)*(maxZ-minZ+1)>MAX_CHUNKS) return java.util.List.of();
         for(int x=minX;x<=maxX;x++) for(int z=minZ;z<=maxZ;z++) if(level.getChunkSource().getChunkNow(x,z)==null)return java.util.List.of();
         try {
-            BlockHitResult block = new LoadedGetter(level,minX,maxX,minZ,maxZ).clip(new ClipContext(from,to,ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,body));
+            BlockHitResult block = ((BlockGetter) loadedAlong(level, from, to)).clip(new ClipContext(from,to,ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,body));
             if (!finite(block.getLocation())) return java.util.List.of();
             double blocker=block.getType()==HitResult.Type.BLOCK?from.distanceTo(block.getLocation()):reach;
             java.util.ArrayList<Target> result=new java.util.ArrayList<>();
@@ -120,6 +120,23 @@ public final class BodyItemTargetProbe {
         }
     }
 
+    /** Loaded-only ray using an explicit trusted direction rather than body look. */
+    public static Vec3 loadedAimPoint(ServerLevel level, LivingEntity body, double reach, Vec3 direction) {
+        if (level == null || body == null || !level.getServer().isSameThread()
+                || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
+                || level.getEntity(body.getUUID()) != body || !Double.isFinite(reach) || reach <= 0
+                || reach > MAX_THROW_REACH || !finite(direction) || direction.y != 0
+                || direction.horizontalDistanceSqr() < 1.0e-8) return null;
+        Vec3 from = body.getEyePosition(), unit = direction.normalize(), to = from.add(unit.scale(reach));
+        if (!finite(from) || !finite(to) || !inside(level, from) || !inside(level, to)) return null;
+        try {
+            BlockHitResult hit = loadedAlong(level, from, to).clip(
+                    new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, body));
+            Vec3 aim = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation() : to;
+            return finite(aim) ? aim : null;
+        } catch (MissingChunk ignored) { return null; }
+    }
+
     /** Immutable server placement plan; velocity is intentional, never the ItemEntity constructor's random motion. */
     record DropPlacement(Vec3 position, Vec3 velocity) { }
 
@@ -149,7 +166,7 @@ public final class BodyItemTargetProbe {
         Vec3 rayEnd = launch.add(look.scale(DROP_AIM_REACH));
         if (inside(level, launch) && inside(level, rayEnd)) {
             try {
-                LoadedGetter getter = loadedAlong(level, launch, rayEnd);
+                BlockGetter getter = loadedAlong(level, launch, rayEnd);
                 BlockHitResult hit = getter.clip(new ClipContext(launch, rayEnd, ClipContext.Block.COLLIDER,
                         ClipContext.Fluid.NONE, body));
                 if (hit.getType() == HitResult.Type.BLOCK && hit.getDirection() == Direction.UP
@@ -184,7 +201,7 @@ public final class BodyItemTargetProbe {
                                             @Nullable Entity excludedCarrier, double width, double height) {
         if (!finite(destination) || !inside(level, destination)) return false;
         try {
-            LoadedGetter getter = loadedAlong(level, from, destination, width / 2 + .125);
+                BlockGetter getter = loadedAlong(level, from, destination, width / 2 + .125);
             // Sweep the complete item box, not just its centre ray. Shape intersections permit
             // partial blocks (slabs, fences) when the item box actually clears them.
             int samples = Math.max(1, (int) Math.ceil(from.distanceTo(destination) / .03125));
@@ -219,7 +236,7 @@ public final class BodyItemTargetProbe {
         if (!inside(level, new Vec3(box.minX, box.minY, box.minZ))
                 || !inside(level, new Vec3(box.maxX, box.maxY - .000001, box.maxZ))) return false;
         try {
-            LoadedGetter getter = loadedAlong(level, position, position, width / 2);
+            BlockGetter getter = loadedAlong(level, position, position, width / 2);
             for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(box.minX, box.minY, box.minZ),
                     BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
                 var shape = getter.getBlockState(pos).getCollisionShape(getter, pos);
@@ -230,20 +247,13 @@ public final class BodyItemTargetProbe {
         } catch (MissingChunk ignored) { return false; }
     }
 
-    private static LoadedGetter loadedAlong(ServerLevel level, Vec3 from, Vec3 to) {
+    private static BlockGetter loadedAlong(ServerLevel level, Vec3 from, Vec3 to) {
         return loadedAlong(level, from, to, .125);
     }
 
-    private static LoadedGetter loadedAlong(ServerLevel level, Vec3 from, Vec3 to, double margin) {
-        int minX = BlockPos.containing(Math.min(from.x, to.x) - margin, from.y, from.z).getX() >> 4;
-        int maxX = BlockPos.containing(Math.max(from.x, to.x) + margin, from.y, from.z).getX() >> 4;
-        int minZ = BlockPos.containing(from.x, from.y, Math.min(from.z, to.z) - margin).getZ() >> 4;
-        int maxZ = BlockPos.containing(from.x, from.y, Math.max(from.z, to.z) + margin).getZ() >> 4;
-        if ((long) (maxX - minX + 1) * (maxZ - minZ + 1) > MAX_CHUNKS) throw new MissingChunk();
-        for (int x = minX; x <= maxX; x++)
-            for (int z = minZ; z <= maxZ; z++)
-                if (level.getChunkSource().getChunkNow(x, z) == null) throw new MissingChunk();
-        return new LoadedGetter(level, minX, maxX, minZ, maxZ);
+    private static BlockGetter loadedAlong(ServerLevel level, Vec3 from, Vec3 to, double margin) {
+        try { return com.juicyslew.moonstation14.ms14.player_body_control.action.BodyTargetVisibility.loadedAlong(level,from,to,margin); }
+        catch (IllegalStateException ignored) { throw new MissingChunk(); }
     }
 
     @Nullable
@@ -283,7 +293,7 @@ public final class BodyItemTargetProbe {
                 if (level.getChunkSource().getChunkNow(x, z) == null) return null;
 
         try {
-            BlockHitResult block = new LoadedGetter(level, minX, maxX, minZ, maxZ).clip(
+            BlockHitResult block = loadedAlong(level, from, to).clip(
                     new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, body));
             if (!finite(block.getLocation())) return null;
             double blockerDistance = block.getType() == HitResult.Type.BLOCK
@@ -338,21 +348,10 @@ public final class BodyItemTargetProbe {
                 Mth.clamp(eye.z, box.minZ, box.maxZ));
         if (!finite(bodyPosition) || !finite(targetPosition) || !finite(eye) || !finite(point)
                 || !inside(level, eye) || !inside(level, point) || eye.distanceToSqr(point) > reach * reach) return false;
-        int minX = (Math.min(BlockPos.containing(eye).getX(), BlockPos.containing(point).getX()) >> 4) - 1;
-        int maxX = (Math.max(BlockPos.containing(eye).getX(), BlockPos.containing(point).getX()) >> 4) + 1;
-        int minZ = (Math.min(BlockPos.containing(eye).getZ(), BlockPos.containing(point).getZ()) >> 4) - 1;
-        int maxZ = (Math.max(BlockPos.containing(eye).getZ(), BlockPos.containing(point).getZ()) >> 4) + 1;
-        if ((long) (maxX - minX + 1) * (maxZ - minZ + 1) > MAX_CHUNKS) return false;
-        for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++)
-            if (level.getChunkSource().getChunkNow(x, z) == null) return false;
-        try {
-            BlockHitResult hit = new LoadedGetter(level, minX, maxX, minZ, maxZ).clip(
-                    new ClipContext(eye, point, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, body));
-            return hit.getType() == HitResult.Type.MISS && sameLive(level, body, target)
-                    && bodyPosition.equals(body.position()) && targetPosition.equals(target.position())
-                    && eye.equals(body.getEyePosition()) && box.equals(target.getBoundingBox())
-                    && target.getTarget() == null;
-        } catch (MissingChunk ignored) { return false; }
+        return com.juicyslew.moonstation14.ms14.player_body_control.action.BodyTargetVisibility.visible(level, body, eye, point)
+                && sameLive(level, body, target) && bodyPosition.equals(body.position())
+                && targetPosition.equals(target.position()) && eye.equals(body.getEyePosition())
+                && box.equals(target.getBoundingBox()) && target.getTarget() == null;
     }
 
     /** Reach against the nearest point of an interaction target's bounds; independent of current gaze. */
@@ -392,32 +391,4 @@ public final class BodyItemTargetProbe {
 
     private static final class MissingChunk extends RuntimeException { }
 
-    private static final class LoadedGetter implements BlockGetter {
-        private final ServerLevel level;
-        private final int minX, maxX, minZ, maxZ;
-
-        private LoadedGetter(ServerLevel level, int minX, int maxX, int minZ, int maxZ) {
-            this.level = level;
-            this.minX = minX;
-            this.maxX = maxX;
-            this.minZ = minZ;
-            this.maxZ = maxZ;
-        }
-
-        private LevelChunk chunk(BlockPos pos) {
-            int x = pos.getX() >> 4, z = pos.getZ() >> 4;
-            if (x < minX || x > maxX || z < minZ || z > maxZ) throw new MissingChunk();
-            LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
-            if (chunk == null || level.isOutsideBuildHeight(pos)) throw new MissingChunk();
-            return chunk;
-        }
-
-        @Override public BlockState getBlockState(BlockPos pos) { return chunk(pos).getBlockState(pos); }
-        @Override public FluidState getFluidState(BlockPos pos) { return chunk(pos).getFluidState(pos); }
-        @Nullable @Override public BlockEntity getBlockEntity(BlockPos pos) {
-            return chunk(pos).getBlockEntities().get(pos);
-        }
-        @Override public int getHeight() { return level.getHeight(); }
-        @Override public int getMinBuildHeight() { return level.getMinBuildHeight(); }
-    }
 }

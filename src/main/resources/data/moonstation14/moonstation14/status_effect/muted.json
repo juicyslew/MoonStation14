@@ -1,0 +1,7 @@
+{
+  "translation_key": "status_effect.moonstation14.muted",
+  "beneficial": false,
+  "color": "0x808080",
+  "behaviors": ["speech_block"],
+  "eligibility": ["living_entity"]
+}

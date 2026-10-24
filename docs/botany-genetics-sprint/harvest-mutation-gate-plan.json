@@ -1,0 +1,53 @@
+{
+  "title": "Botany genetics M3C: harvest mutation runtime and generic produce (R7 fresh gate)",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Resolved 27-entry ChangeHarvest uses no effect RNG; immutable modes progress NO_REPEAT→REPEAT→SELF→SELF and survive profile copy.",
+    "Ordinary 15s cycle self-harvests only ready, living plants after health; current produce age applies and failed attempts remain retryable.",
+    "Zero yield gives auto-harvest ≥1 but manual may give 0; shared retention keeps REPEAT/SELF and clears NO_REPEAT.",
+    "Shared factory publishes tray-position batches with staging, one commit/compensation, current loaded source, block collision checks, and valid pile co-location.",
+    "Native tests cover six outputs, repeat/zero-yield, normal ticks, and exact-component multi-output, blocked, and stale pre-source-commit batches.",
+    "Generic produce uses IReagentTrait/resolved profile, preserves food priority, distinguishes zero/missing source, replaces contents, initializes source once, adds genetic capacity eagerly, and never refills/overfills depleted or partial source.",
+    "Generic evidence claims no nonfood leaf registration; full 71-entry catalog and every mutation remain required beyond this gate.",
+    "Native checks verify source-correct A NO-REPEAT/B REPEAT/C SELF sign text, association, bounded footprint, and protected room; visual readability is manual.",
+    "Report focused evidence and full-suite/catalog, visual/client, and owner-acceptance limits; technical ready_for_owner is possible, owner acceptance is not inferred.",
+    "Main, JVM-test, and native sources compile and runtime jar is produced."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantAutoHarvestGameTests.java",
+  "manual_steps": [
+    "Run `/ms14 botany_fixture` to build the revised test bench; read the physical A/B/C signs. These preset modes compare behavior, not random mutation, and are not the full catalog.",
+    "At A (NO-REPEAT), use the ordinary empty-hand right-click/USE harvest interaction described by the station sign; expect the source plant to clear.",
+    "At B (REPEAT), use the same ordinary empty-hand right-click/USE harvest interaction; expect the same plant to remain.",
+    "At C (SELF), do not interact; wait about 15 seconds. Expect fruit to appear near the tray as a world item while the plant remains. This is not fruit placed in tray inventory."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile sources and produce runtime jar.",
+      "covers": ["Main, JVM-test, and native sources compile and runtime jar is produced."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.atmos.core.GasMixtureTest --tests com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantChemicalMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantGasMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.SeedExtractorEligibilityTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest --tests com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.reagent.PlantReagentMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest --tests com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "13-class gas baseline plus three M3C classes and ownership-search budget regression; read counts from fresh XML. Factory tests cover wheat/tomato gateway, not nonfood-leaf runtime.",
+      "covers": ["Resolved 27-entry ChangeHarvest uses no effect RNG; immutable modes progress NO_REPEAT→REPEAT→SELF→SELF and survive profile copy.", "Ordinary 15s cycle self-harvests only ready, living plants after health; current produce age applies and failed attempts remain retryable.", "Zero yield gives auto-harvest ≥1 but manual may give 0; shared retention keeps REPEAT/SELF and clears NO_REPEAT.", "Generic produce uses IReagentTrait/resolved profile, preserves food priority, distinguishes zero/missing source, replaces contents, initializes source once, adds genetic capacity eagerly, and never refills/overfills depleted or partial source.", "Report focused evidence and full-suite/catalog, visual/client, and owner-acceptance limits; technical ready_for_owner is possible, owner acceptance is not inferred."]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --info --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Regression selectors only; not harvest/native proof.",
+      "covers": ["Report focused evidence and full-suite/catalog, visual/client, and owner-acceptance limits; technical ready_for_owner is possible, owner acceptance is not inferred."] ,
+      "selectors": ["interaction", "prediction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics,botany-chemical-mutation,botany-stat-mutation,botany-gas-mutation,botany-auto-harvest,harvest-placement' '-Pms14GameTestDir=build/gametest-botany-auto-harvest-r8' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "R8 must execute this check afresh through the serialized integration-lead gate; earlier results are not evidence. Use a new isolated R8 world, preserve R3-R7 worlds/logs and owner configuration; harvest-placement selects batch tests. Full suite belongs to final gate.",
+      "covers": ["Shared factory publishes tray-position batches with staging, one commit/compensation, current loaded source, block collision checks, and valid pile co-location.", "Native tests cover six outputs, repeat/zero-yield, normal ticks, and exact-component multi-output, blocked, and stale pre-source-commit batches.", "Native checks verify source-correct A NO-REPEAT/B REPEAT/C SELF sign text, association, bounded footprint, and protected room; visual readability is manual.", "Generic evidence claims no nonfood leaf registration; full 71-entry catalog and every mutation remain required beyond this gate."] ,
+      "selectors": ["botany", "botany-genetics", "botany-chemical-mutation", "botany-stat-mutation", "botany-gas-mutation", "botany-auto-harvest", "harvest-placement"],
+      "log": "build/reports/botany-genetics/harvest-mutation-gate-native-r8.log"
+    }
+  ]
+}

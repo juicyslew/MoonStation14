@@ -110,6 +110,7 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking::registerPayloadHandlers);
         com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking.installDefaultServerHandler();
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.damage.DamageFeedbackNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.combat.CombatModeNetworking::registerPayloadHandlers);
         modEventBus.addListener(LocalSpeechNetworking::registerPayloadHandlers);
         modEventBus.addListener(GrenadeSoundNetworking::registerPayloadHandlers);
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
@@ -231,6 +232,7 @@ public class MoonStation14 {
         com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitMenuService.onServerStopped();
         com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeAll();
         AtmosphereService.INSTANCE.onServerStopped();
+        com.juicyslew.moonstation14.ms14.explosion.server.QueuedExplosionSystem.onServerStopped(event);
         PrototypeRuntime.serverManager().clearPublishedCatalogs();
     }
 
@@ -247,6 +249,7 @@ public class MoonStation14 {
     public void onLevelTickPost(net.neoforged.neoforge.event.tick.LevelTickEvent.Post event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
             com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).tick();
+            com.juicyslew.moonstation14.ms14.explosion.server.QueuedExplosionSystem.tick(level);
             com.juicyslew.moonstation14.ms14.disposal.transport.DisposalPendingAirSavedData.retryLoaded(level);
             com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.tick(level);
         }
@@ -256,5 +259,6 @@ public class MoonStation14 {
     public void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)
             com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeLevel(level);
+        com.juicyslew.moonstation14.ms14.explosion.server.QueuedExplosionSystem.onLevelUnload(event);
     }
 }

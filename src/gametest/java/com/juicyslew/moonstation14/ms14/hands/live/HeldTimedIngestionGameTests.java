@@ -6,6 +6,9 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.MS14Bridges;
+import com.juicyslew.moonstation14.ms14.MS14Provider;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyLiquidInteraction;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
 import com.juicyslew.moonstation14.ms14.ingestion.BodyTimedIngestionService;
 import com.juicyslew.moonstation14.ms14.organ.BodySystem;
@@ -542,6 +545,49 @@ public final class HeldTimedIngestionGameTests {
                 require(body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get()) == null
                         || body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().isEmpty(),
                         "rejection creates no timed ingestion operation");
+                h.succeed();
+            } finally { fixture.close(); }
+        });
+    }
+
+    @GameTestTags({"ingestion", "botany", "botany-food"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 30)
+    public static void wheatWholeSourceTransactionRejectsCurrentSpecialDigestionProfile(GameTestHelper h) {
+        var fixture = com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture
+                .register((net.minecraft.server.level.ServerLevel) h.getLevel(), "wheat-whole-source");
+        h.runAtTickTime(2, () -> {
+            try {
+                var active = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                ItemStack wheat = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(
+                        com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"), 10f);
+                var hands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                String hand = hands.activeHand(), token = "whole-wheat-food";
+                require(LiveHandsFixtureTransfer.put(fixture.player(), body, hand, token, wheat), "actual wheat put through live hands owner");
+                hands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                var held = hands.stackCopy(hand).orElseThrow();
+                var profile = com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.serverLookup(
+                        net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem()));
+                require(profile != null && profile.edible().requiresSpecialDigestion(), "whole-source case has resolved flagged profile");
+                var reagentBefore = held.get(ModDataComponents.REAGENT.get());
+                require(reagentBefore != null, "harvested wheat has materialized source chemistry");
+                long actualSourceCents = ReagentUnits.total(reagentBefore.centContents().values());
+                require(actualSourceCents == 650L, "generated wheat composition has the expected 650-cent source");
+                var stomachBefore = MS14Provider.getDetached(body, MS14Bridges.STOMACH).getMap();
+                long stomachUsed = ReagentUnits.total(ReagentUnits.fromMap(stomachBefore).values());
+                require(actualSourceCents > 0 && actualSourceCents <= com.juicyslew.moonstation14.ms14.loose_objects.interaction.LiquidInteractionCapability.STOMACH_CAPACITY_CENTS - stomachUsed,
+                        "whole-source request fits the actual current stomach capacity");
+                var result = BodyLiquidInteraction.consumeTimedEdibleOwned(body, hand, token, hands.revision(),
+                        Math.toIntExact(actualSourceCents), () -> true, profile.completionSound(), profile.completionVolumeDb(), profile.completionPitchVariation());
+                require(result == BodyLiquidInteraction.Result.DENIED, "whole-source transaction denies wheat at final guard");
+                var afterHands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                require(token.equals(afterHands.token(hand).orElse(null))
+                                && ItemStack.matches(held, afterHands.stackCopy(hand).orElseThrow()),
+                        "denied whole-source transaction retains source contents and ledger token");
+                require(reagentBefore.equals(afterHands.stackCopy(hand).orElseThrow().get(ModDataComponents.REAGENT.get())),
+                        "denied whole-source transaction retains the exact generated reagent map");
+                require(stomachBefore.equals(MS14Provider.getDetached(body, MS14Bridges.STOMACH).getMap()),
+                        "denied whole-source transaction leaves stomach unchanged");
                 h.succeed();
             } finally { fixture.close(); }
         });

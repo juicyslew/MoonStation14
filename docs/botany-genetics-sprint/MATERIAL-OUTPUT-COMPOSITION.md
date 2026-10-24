@@ -1,0 +1,69 @@
+# Botany material-output composition and reuse
+
+Verified source basis: SS14 `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; see [PARITY.md](PARITY.md), especially its material-output boundaries. A narrow generic `Log` capability and authenticated loose-source consumer are now implemented below; no primary species/input bindings or asset claim is implied.
+
+## Five `Log` output chains
+
+Source `Log` is consumed by **LogSystem**: a tool bearing `SharpComponent` applies the configured output list, spawns separate material entities, then deletes the source. Default output count is two; these are entities, not a new Minecraft stack-count adaptation.
+
+| Source | Resolved output | Source count | Relevant identity |
+|---|---|---:|---|
+| Towercap | `MaterialWoodPlank1` | 2 | Wood material, Stack `WoodPlank` → `BaseMediumStack` (max 30) |
+| Steelcap | `SheetSteel1` | 1 | Steel sheet, Stack `Steel` → `BaseSheetStack` (max 30) |
+| Papercane | `SheetPaper1` | 2 | Paper sheet, Stack `Paper` → `BaseSheetStack` (max 30) |
+| Cotton | `MaterialCotton1` | 2 | Cotton material/stack identity; special-digestion fiber food and physical composition |
+| Pyrotton | `MaterialPyrotton1` | 2 | Distinct Pyrotton stack and special-digestion fiber + Phlogiston; not a physical-composition leaf |
+
+Source paths: `Resources/Prototypes/Hydroponics/seeds.yml` (plant/product references); `Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml` and `Objects/Specific/Hydroponics/leaves.yml` (product composition); `Resources/Prototypes/Entities/Objects/Materials/materials.yml:231–283,410–519`; `.../Materials/Sheets/metal.yml:38–96`; `.../Materials/Sheets/other.yml:31–75`; `Content.Server/Botany/Components/LogComponent.cs` and `Content.Server/Botany/Systems/LogSystem.cs`. Cotton is not `ModItems.CLOTH`/Stack `Cloth`; do not alias it. Local cloth's Stack Cloth is not cotton's fiber behavior.
+
+This consumer is not the powered `ProduceMaterialExtractorSystem`: that machine processes produce biomass from its solution, truncates material yield, stores material, and deletes produce. It does not consume `Log` or preserve genetics. Neither system establishes local sharp-tool material output.
+
+## Local reuse and blockers
+
+The construction material audit records local wood, steel, and paper items at max stack 30 as `StackWoodPlank`, `StackSteel`, and `StackPaper` equivalents; reuse those owners for the three corresponding outputs rather than creating a parallel material catalog. Local cloth is max 30 but is not a valid Cotton substitute. This implementation adds distinct `cotton_material` and `pyrotton_material` (not cloth, `CottonBol`, or `PyrottonBol`), max 30, generated-item flat models, and exact source single-state sprites. Per-texture attribution records the full source RSI CC-BY-SA-3.0 license and credits. Cotton's upstream Cotton 100 physical composition has no local consumer; no inert field is introduced. No primary produce/seed registrations or grants are included.
+
+Resolved source chain: `MaterialCotton1 -> MaterialCotton -> MaterialBase -> BaseItem`; Cotton adds Stack Cotton, Appearance, special-digestion Edible, initial food solution max 5u/Fiber 5u, Extractable, tags, Material, PhysicalComposition Cotton 100, and held prefix. The single variant changes sprite and Stack count only, inheriting food. `MaterialPyrotton1 -> MaterialPyrotton -> MaterialBase -> BaseItem`; Pyrotton adds Stack Pyrotton, Appearance, special-digestion Edible, food solution max 10u/Fiber 5u + Phlogiston 5u, Extractable, tags, and held prefix; single changes sprite/count only. Locally both ingestion profiles inherit `food_base` and set special digestion true; existing `PrototypeEdibleItem` resolves them and initializes reagent only while absent (depletion is not refilled). Shared admission remains default-denied; no stomach whitelist behavior is claimed. Generic Log outputs can now resolve the distinct items through the existing output stack builder; genetics are not copied.
+
+Stack semantics boundary: source solutions are entity-scoped, not per-count. At pin `StackSystem.cs:29-54` split decreases source count and spawns a fresh configured material entity with prototype chemistry; it does not move/scale source chemistry. `SharedStackSystem.cs:43-70` merge transfers count only, preserves recipient solution, deletes donor with its solution. Eating `SharedStackSystem.cs:149-184` consumes current entity solution per bite and refreshes a remaining stack from prototype. Locally supported authenticated body ownership paths transfer whole stacks: `BodyHandItemTransfer.pickupSelected` (`BodyHandItemTransfer.java:144,231`), `LiveHands.putWhole` (`LiveHands.java:535`), and loose item ownership (`LooseItemEntity.java:175`); `LooseItemEntity` deliberately has no item-entity auto-merge. No body hands/pouch stack path currently splits/merges item stacks. `LiveHands.grant` can merge but is trusted grant behavior, not a player route, and no material grants were added. Thus count-one Log output followed by supported whole-stack pickup/drop/storage preserves entity-scoped chemistry. Max 30 is a native stack limit, not a claim of SS14-like stack UI split/merge. If a local split route is later added, it must spawn a fresh prototype-sourced unit; merge must preserve recipient chemistry and not scale/copy donor chemistry. No framework, creative inventory redesign, or conservation transfer is introduced.
+
+## Implemented narrow Log consumer
+
+`ms14/item_processing/ItemProcessingProfile` represents only `Log(output,count)`; output defaults to local `moonstation14:wood` (verified WoodPlank reuse) and count defaults to two, matching `LogComponent.cs:11–16`. References validate against the registered item catalog. It resolves through the shared prototype manager/inheritance path. `ToolProfile.sharp` is a separate optional marker (not `CUTTING`); no production tool, including wirecutter, is marked Sharp. `BodyHandRequestService` preserves its exact nominated loose target and dispatches recognized Log processing through `LooseLogCuttingService`. That service requires Sharp and a one-unit source, revalidates actor/body/hand/source identity and target nomination, creates `count` individual count-one outputs, then delegates staging/publication/rollback/source deletion to `FreshWorldOutputBatch.publishAtLooseSource`. Stable collision-safe placement reuses the shared physical-profile placement owner at the source position. Tool ownership is untouched; no seed/genetics/chemistry is copied.
+
+Supported output mappings now include distinct cotton and pyrotton material IDs in addition to wood, steel, and paper. Focused source GameTests exercise both registered output identities through authenticated Sharp Log processing with fixture-scoped input profiles; no production source-input bindings exist because authored log-input assets are absent. Cotton/Pyrotton material items are not primary produce and no art-backed production species exposes these actions. The five-species catalog is unchanged.
+
+No art is imported or newly commissioned by this implementation; existing primary art requests cover log inputs, not Cotton/Pyrotton outputs. No art delivery/acceptance is asserted, and no duplicate request is warranted for existing wood/steel/paper art.
+
+## Asset attribution (source RSI metadata, verbatim)
+
+All three RSI metadata records specify `CC-BY-SA-3.0`, size `32×32`.
+
+`Resources/Textures/Objects/Materials/materials.rsi/meta.json` copyright:
+> Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/c6e3401f2e7e1e55c57060cdf956a98ef1fefc24 , bear pelt remade by Alekshhh, wood sprite modified by MisterMecky, wood_2 and wood_3 made by MisterMecky based on wood sprite, cardboard sprites made by MisterMecky, bananium, bananium_1 and peel made by brainfood1183 (github) for ss14. Pyrotton sprites are drawn by Ubaser, using the cotton material sprites as a base. Bananium, cardboard, corgihide, cloth, cotton, pyrotton, bones and durathread inhands by mubururu_ (github). Bananium peel's on-head sprite by FlipBrooke, based on the bananaium peel sprite.
+
+`Resources/Textures/Objects/Materials/Sheets/metal.rsi/meta.json` and `Sheets/other.rsi/meta.json` copyright (each):
+> Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/c6e3401f2e7e1e55c57060cdf956a98ef1fefc24
+
+Keep these full credits and CC-BY-SA-3.0 attribution with any reuse; the source credit is not an assertion that these audit notes imported assets.
+
+## Resolved primary-product boundaries
+
+Follow-up source audit at the same verified pin:
+
+| Seed / packet / primary product | Relevant seed overrides | Primary composition |
+|---|---|---|
+| papercane / PapercaneSeeds / Papercane | lifespan 60, maturation/production 6, yield 3, potency 10, Repeat, 3 stages, heat 298; no chemicals/targets | ProduceBase child, empty solution manager, Log paper ×2 |
+| towercap / TowercapSeeds / Log | lifespan 80, maturation 15, production 3, yield 5, potency 1, 3 stages, ligneous, water .60/nutrients .50, light tolerance 6, heat 288; target steelcap | ProduceBase child, melee Blunt 10, default Log wood ×2 |
+| steelcap / SteelcapSeeds / SteelLog | same lifecycle as towercap except yield 3/nutrients .80; no target/chemicals | ProduceBase child, melee Blunt 12, Log steel ×1 |
+| cotton / CottonSeeds / CottonBol | lifespan 25, maturation 8, production 3, yield 3, potency 5, 3 stages, water .60; target pyrotton; Fiber 5–10/divisor 20 | FoodProduceBase child, special digestion, initial Fiber 10u, Log Cotton ×2 |
+| pyrotton / PyrottonSeeds / PyrottonBol | lifespan 25, maturation 8, production 3, yield 2, potency 5, 3 stages, water .80; Fiber 5–10/20 and Phlogiston 4–8/30 | FoodProduceBase child, special digestion, initial Fiber 5u + Phlogiston 5u, Log Pyrotton ×2 |
+
+Omitted seed values resolve from `SeedPrototype`'s `SeedData` C# defaults, not YAML seed-parent prototypes: default nutrients .75, water .5, ideal heat 293 K / tolerance 10, endurance 100, low/high pressure bounds 81/121 kPa, toxin/pest/weed tolerances 4/5/5 (high-weed-level threshold 10), viable true, seedless false, ligneous false, empty gas maps. The table records species overrides, not a claim that all resolved defaults have been transcribed. Harvest repeat is `Repeat` only for papercane (explicit at `seeds.yml:463`); towercap, steelcap, cotton, and pyrotton resolve to `NoRepeat`. Towercap and steelcap explicitly override ligneous true. Source ideal light is 7/tolerance 3; towercap/steelcap override light tolerance 6 and both cotton/pyrotton override ideal light 8. These light fields are copied/crossed but have no environmental consumer at the pin; `ImproperLight` is explicitly unused. Local omission is a seed-data retention boundary, not missing active light-damage behavior or a reason to add inert metadata. The two source crossing draws still matter. No whole-species local profile is emitted here. All packets retain SeedBase inheritance and their explicit Seed identity. ProduceBase supplies named `food` Extractable metadata, **not** proof a given product actually has a resolvable food solution; empty logs must not be admitted as grindable just because that component is inherited. Cotton/Pyrotton bol products have actual food solutions, effective initial capacity 10u, and grinding independent of cutting. Harvest replaces initial chemistry with genetic output. Cutting does not establish genetics propagation into material stacks. These bol products are not leaves; no drying/smoking route is authored by these blocks.
+
+**Generation qualification:** the preceding missing-solution warning applies to fresh prototype instances, not all harvested logs. `ProduceGrown` ensures `food` at zero capacity before populating seed chemistry; generated Log/Papercane therefore has an existing empty or mutation-filled solution. CanGrind requires its existence, not positive volume, and completion consumes even an empty non-stack source. Local Extractable capability and current source presence are separate checks; the factory's zero-initial-source path and grinder's existing-empty handling implement this distinction without an Edible component. See `PARITY.md` and `CURRENT.md` for focused validation and remaining native/primary-binding boundaries.
+
+**Secondary material extraction:** `MaterialCotton1`/`MaterialPyrotton1` inherit juice-only Extractable, not food grinding: static Fiber 3u, or Fiber 3u + Phlogiston 3u per stack unit (`materials.yml:408–519`; Extractable's grindable-name default is null). Their food contents are separately 5u and 10u. Local `extractable_profile/{cotton_material,pyrotton_material}` has no food-grinding parent or fake Produce seed. Current shared stack processing scales static juice by consumed count and retains remaining per-entity food chemistry/token; native source cases are authored, not executed. CottonBol still inherits food grinding from FoodProduceBase; do not confuse primary bol and secondary material composition.
+
+Cotton material has its distinct Cotton stack and physical composition Cotton 100. Pyrotton material has its distinct Pyrotton stack and special-digestion Fiber/Phlogiston composition. Neither is Cloth or interchangeable ordinary fiber. Biological eligibility/crafting/chemical consumers outside these source blocks are not claimed implemented.
+
+Source indexes: `Content.Server/Botany/SeedPrototype.cs:148–198` (resolved SeedData defaults); seed YAML 454–514,1886–1936; packet YAML 1–27,208–241,693–711; produce YAML 4–44,138–153,191–229,2614–2680; LogSystem 20–48 and LogComponent 11–16; materials YAML 230–283,410–519. Exact source Log admission is SharpComponent; it is separate from SliceableFood's utensil-knife requirement and SharpSystem's butchery timing. The production KitchenKnife and generic Log consumer now exist; primary catalog input art/bindings remain separate unfinished work.

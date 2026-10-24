@@ -2,14 +2,18 @@ package com.juicyslew.moonstation14.ms14.equipment;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.resources.ResourceLocation;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape;
 
-/** Resolved supported Item, Clothing and optional AllowSuitStorage composition. */
+/** Resolved supported Item, Clothing and optional composition markers. */
 public record EquipmentItemData(Item item, Optional<Clothing> clothing,
-                                Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags) {
+                                Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags,
+                                Optional<Armor> armor, Optional<NoSlip> noSlip, Optional<ProtectedFromStepTriggers> protectedFromStepTriggers,
+                                Optional<ContactDamageProtectionData> contactDamageProtection) {
     public enum AppearanceRegion { HEAD, TORSO, LEGS, FEET, HANDS, EYES, EARS, NECK, FACE }
 
     public static final Codec<AppearanceRegion> REGION_CODEC = Codec.STRING.comapFlatMap(value -> {
@@ -44,17 +48,50 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
     ).apply(instance, Clothing::new));
     public static final Codec<AllowSuitStorage> SUIT_STORAGE_CODEC = Codec.BOOL.xmap(
             AllowSuitStorage::new, AllowSuitStorage::enabled);
+    public static final Codec<NoSlip> NO_SLIP_CODEC = Codec.BOOL.comapFlatMap(value -> value
+            ? com.mojang.serialization.DataResult.success(new NoSlip())
+            : com.mojang.serialization.DataResult.error(() -> "NoSlip is presence-only"), ignored -> true);
+    public static final Codec<Armor> ARMOR_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.unboundedMap(Codec.STRING, Codec.FLOAT).fieldOf("coefficients").forGetter(Armor::coefficients)
+    ).apply(instance, Armor::new));
+    public static final Codec<ProtectedFromStepTriggers> PROTECTED_FROM_STEP_TRIGGERS_CODEC = ProtectedFromStepTriggers.CODEC;
+    public static final Codec<ContactDamageProtectionData> CONTACT_DAMAGE_PROTECTION_CODEC = ContactDamageProtectionData.CODEC;
     public static final Codec<EquipmentItemData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ITEM_CODEC.fieldOf("item").forGetter(EquipmentItemData::item),
             CLOTHING_CODEC.optionalFieldOf("clothing").forGetter(EquipmentItemData::clothing),
             SUIT_STORAGE_CODEC.optionalFieldOf("allow_suit_storage").forGetter(EquipmentItemData::allowSuitStorage),
-            EquipmentTag.CODEC.listOf().optionalFieldOf("tags", List.of()).forGetter(EquipmentItemData::tags)
+            EquipmentTag.CODEC.listOf().optionalFieldOf("tags", List.of()).forGetter(EquipmentItemData::tags),
+            ARMOR_CODEC.optionalFieldOf("armor").forGetter(EquipmentItemData::armor),
+            NO_SLIP_CODEC.optionalFieldOf("no_slip").forGetter(EquipmentItemData::noSlip),
+            PROTECTED_FROM_STEP_TRIGGERS_CODEC.optionalFieldOf("protected_from_step_triggers").forGetter(EquipmentItemData::protectedFromStepTriggers),
+            CONTACT_DAMAGE_PROTECTION_CODEC.optionalFieldOf("damage_on_interact_protection").forGetter(EquipmentItemData::contactDamageProtection)
     ).apply(instance, EquipmentItemData::new));
 
     public EquipmentItemData {
-        if (item == null || clothing == null || allowSuitStorage == null || tags == null)
+        if (item == null || clothing == null || allowSuitStorage == null || tags == null || armor == null || noSlip == null || protectedFromStepTriggers == null || contactDamageProtection == null)
             throw new IllegalArgumentException("null equipment composition");
         tags = List.copyOf(tags);
+    }
+
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> allowSuitStorage,
+                             List<EquipmentTag> tags, Optional<Armor> armor) {
+        this(item, clothing, allowSuitStorage, tags, armor, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip) { this(item, clothing, allowSuitStorage, tags, armor, noSlip, Optional.empty(), Optional.empty()); }
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip, Optional<ProtectedFromStepTriggers> step) { this(item, clothing, allowSuitStorage, tags, armor, noSlip, step, Optional.empty()); }
+
+    public record Armor(Map<String, Float> coefficients) {
+        public Armor {
+            if (coefficients == null) throw new IllegalArgumentException("null armor coefficients");
+            var copy = new java.util.LinkedHashMap<String, Float>();
+            coefficients.forEach((key, value) -> {
+                DamageKeys.requireCanonical(key);
+                if (value == null || !Float.isFinite(value) || value < 0f)
+                    throw new IllegalArgumentException("armor coefficients must be finite and nonnegative");
+                copy.put(key, value);
+            });
+            coefficients = Map.copyOf(copy);
+        }
     }
 
     public record Item(String size) {
@@ -110,4 +147,6 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             if (!enabled) throw new IllegalArgumentException("AllowSuitStorage must be enabled when composed");
         }
     }
+    /** Upstream NoSlipComponent is an empty networked marker; true-only local presence encoding. */
+    public record NoSlip() { }
 }

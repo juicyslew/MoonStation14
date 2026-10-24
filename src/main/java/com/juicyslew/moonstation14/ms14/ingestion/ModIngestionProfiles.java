@@ -9,7 +9,8 @@ import net.minecraft.resources.ResourceLocation;
 /** Ingestion profile catalog; callers must use explicit serverCatalog on mutation paths. */
 public final class ModIngestionProfiles {
     public static final PrototypeType<IngestionProfile> TYPE = new PrototypeType<>(id("ingestion_profile"),
-            "moonstation14/ingestion_profile", IngestionProfile.CODEC, new IngestionProfileMergeStrategy());
+            "moonstation14/ingestion_profile", IngestionProfile.CODEC, new IngestionProfileMergeStrategy(),
+            catalog -> catalog.asMap().values().forEach(IngestionProfile::validate));
     private ModIngestionProfiles() { }
     private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, path); }
     public static PrototypeCatalog<IngestionProfile> serverCatalog() { return PrototypeRuntime.serverIngestionProfiles(); }

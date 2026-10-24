@@ -1,1 +1,1 @@
-{"id":"moonstation14:seed_extractor","parent":"moonstation14:seed_extractor_base","power_watts":0,"powered":true,"extractor":true}
+{"id":"moonstation14:seed_extractor","parent":"moonstation14:seed_extractor_base","power_watts":1000,"powered":true,"extractor":true}

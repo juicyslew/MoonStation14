@@ -56,6 +56,7 @@ public class TickHooks {
         // Run before the living-only systems guard so dropped world items are covered too.
         WelderOwnerTickService.tick(entity, serverLevel);
         if (!(entity instanceof LivingEntity livingEntity)) return;
+        com.juicyslew.moonstation14.ms14.character.stamina.StaminaSystem.tick(livingEntity, serverLevel);
         com.juicyslew.moonstation14.ms14.slip.SlipSystem.reconcileTarget(entity);
         // Resolve policy lazily on entity ticks so entities that joined before
         // prototype publication retry without eager state on ineligible hosts.

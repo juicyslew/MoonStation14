@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-10-21T14:26:20.540Z" hostname="DESKTOP-4F0ER3K" time="0.025">
+  <properties/>
+  <testcase name="determinismAndNoDuplicateInflation()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.009"/>
+  <testcase name="unknownAndSolidStopPropagationAndSamplerCanRepresentLoadedSeam()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.001"/>
+  <testcase name="breachedWallsReleaseOnLaterExpansionAcrossAllAxes()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.002"/>
+  <testcase name="singleTileThresholdIsStrictAndFloatingPointConsistent()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.001"/>
+  <testcase name="iterationCapReturnsNoPartialPlanWhenOpenFrontierRemains()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.001"/>
+  <testcase name="reachedShellSharesFractionalBudgetAcrossOpenAndSolidSamples()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.0"/>
+  <testcase name="immuneSolidsAndUnknownNeverOpenAndBreachIsImmutableDeterministic()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.001"/>
+  <testcase name="consecutiveWallsBreachInSequenceAndUnknownNeverPropagates()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.001"/>
+  <testcase name="solidSourceIsRejectedAndDiscoveryShellsFollowRoutes()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.001"/>
+  <testcase name="rejectsUnspendableSubEpsilonAndUnderflowingProposals()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.0"/>
+  <testcase name="cappedReachedShellDoesNotPhantomDebitSharedBudget()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.0"/>
+  <testcase name="capFailureExposesNoPartialPlanAndSmallBudgetIsSourceOnly()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.001"/>
+  <testcase name="subStepBudgetReturnsOnlyEpicenterBeforeApplyingCap()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.0"/>
+  <testcase name="openVolumeReachesFloorWallAndCeilingSymmetricallyUnderOneSharedBudget()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.0"/>
+  <testcase name="toleranceSamplerBreachesOnlyAfterDamageAndThenExpands()" classname="com.juicyslew.moonstation14.ms14.explosion.core.BlastPlannerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

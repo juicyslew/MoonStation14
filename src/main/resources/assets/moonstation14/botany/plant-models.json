@@ -45,6 +45,16 @@
       "stage-5": "moonstation14:block/botany/plants/aloe/stage-5",
       "harvest": "moonstation14:block/botany/plants/aloe/harvest",
       "dead": "moonstation14:block/botany/plants/aloe/dead"
+    },
+    "meatwheat": {
+      "stage-1": "moonstation14:block/botany/plants/meatwheat/stage-1",
+      "stage-2": "moonstation14:block/botany/plants/meatwheat/stage-2",
+      "stage-3": "moonstation14:block/botany/plants/meatwheat/stage-3",
+      "stage-4": "moonstation14:block/botany/plants/meatwheat/stage-4",
+      "stage-5": "moonstation14:block/botany/plants/meatwheat/stage-5",
+      "stage-6": "moonstation14:block/botany/plants/meatwheat/stage-6",
+      "harvest": "moonstation14:block/botany/plants/meatwheat/harvest",
+      "dead": "moonstation14:block/botany/plants/meatwheat/dead"
     }
   }
 }

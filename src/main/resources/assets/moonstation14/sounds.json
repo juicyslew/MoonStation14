@@ -1,6 +1,34 @@
 {
+  "ss14/weapons/guns/hits/bullet_hit": {
+    "sounds": ["moonstation14:ss14/weapons/guns/hits/bullet_hit"]
+  },
+  "ss14/weapons/guns/miss/bullet_miss": {
+    "sounds": [
+      "moonstation14:ss14/weapons/guns/miss/bullet_miss1",
+      "moonstation14:ss14/weapons/guns/miss/bullet_miss2",
+      "moonstation14:ss14/weapons/guns/miss/bullet_miss3",
+      "moonstation14:ss14/weapons/guns/miss/bullet_miss4"
+    ]
+  },
+  "ss14/weapons/guns/magout/revolver_magout": {
+    "sounds": ["moonstation14:ss14/weapons/guns/magout/revolver_magout"]
+  },
+  "ss14/weapons/guns/magin/revolver_magin": {
+    "sounds": ["moonstation14:ss14/weapons/guns/magin/revolver_magin"]
+  },
+  "ss14/weapons/guns/misc/revolver_spin": {
+    "sounds": ["moonstation14:ss14/weapons/guns/misc/revolver_spin"]
+  },
+  "ss14/weapons/guns/empty": {
+    "sounds": ["moonstation14:ss14/weapons/guns/empty/empty"]
+  },
+  "ss14/weapons/guns/gunshots/revolver": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/revolver"]
+  },
   "mouse_squeak": {
-    "sounds": ["moonstation14:mouse_squeak"]
+    "sounds": [
+      "moonstation14:mouse_squeak"
+    ]
   },
   "crowbar_use": {
     "sounds": [
@@ -69,6 +97,37 @@
       "moonstation14:botany/grinder/blender"
     ]
   },
+  "botany/grinder/juicer": {
+    "sounds": [
+      "moonstation14:botany/grinder/juicer"
+    ]
+  },
+  "botany/produce/desecration": {
+    "sounds": [
+      {
+        "name": "moonstation14:botany/produce/desecration-01",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:botany/produce/desecration-02",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:botany/produce/desecration-03",
+        "weight": 1
+      }
+    ]
+  },
+  "botany/produce/slime_squish": {
+    "sounds": [
+      "moonstation14:botany/produce/slime_squish"
+    ]
+  },
+  "botany/produce/packetrip": {
+    "sounds": [
+      "moonstation14:botany/produce/packetrip"
+    ]
+  },
   "ss14/items/drink": {
     "sounds": [
       "moonstation14:ss14/items/drink"
@@ -81,9 +140,28 @@
   },
   "ss14/items/eat": {
     "sounds": [
-      { "name": "moonstation14:ss14/items/eating_1", "weight": 1 },
-      { "name": "moonstation14:ss14/items/eating_2", "weight": 1 },
-      { "name": "moonstation14:ss14/items/eating_3", "weight": 1 }
+      {
+        "name": "moonstation14:ss14/items/eating_1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/items/eating_2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/items/eating_3",
+        "weight": 1
+      }
+    ]
+  },
+  "ss14/items/chop": {
+    "sounds": [
+      "moonstation14:ss14/items/chop"
+    ]
+  },
+  "ss14/effects/slip": {
+    "sounds": [
+      "moonstation14:ss14/effects/slip"
     ]
   },
   "body_fall": {
@@ -335,6 +413,100 @@
   "device/defib_zap": {
     "sounds": [
       "moonstation14:device/defib_zap"
+    ]
+  },
+  "ss14/effects/explosion_small": {
+    "sounds": [
+      "moonstation14:ss14/effects/explosion_small1",
+      "moonstation14:ss14/effects/explosion_small2",
+      "moonstation14:ss14/effects/explosion_small3"
+    ]
+  },
+  "ss14/effects/explosion_small_far": {
+    "sounds": [
+      "moonstation14:ss14/effects/explosionsmallfar"
+    ]
+  },
+  "ss14/effects/glass_break": {
+    "sounds": [
+      {
+        "name": "moonstation14:ss14/effects/glass_break1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/glass_break2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/glass_break3",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/glass_break4",
+        "weight": 1
+      }
+    ]
+  },
+  "ss14/effects/glass_step": {
+    "sounds": [
+      "moonstation14:ss14/effects/glass_step"
+    ]
+  },
+  "ss14/effects/thudswoosh": {
+    "sounds": [
+      "moonstation14:ss14/effects/thudswoosh"
+    ]
+  },
+  "ss14/weapons/punch_miss": {
+    "sounds": [
+      "moonstation14:ss14/weapons/punchmiss"
+    ]
+  },
+  "ss14/weapons/punch": {
+    "sounds": [
+      {
+        "name": "moonstation14:ss14/weapons/punch1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/weapons/punch2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/weapons/punch3",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/weapons/punch4",
+        "weight": 1
+      }
+    ]
+  },
+  "ss14/weapons/blade_slice": {
+    "sounds": [
+      "moonstation14:ss14/weapons/bladeslice"
+    ]
+  },
+  "ss14/effects/weak_hit": {
+    "sounds": [
+      {
+        "name": "moonstation14:ss14/effects/weak_hit1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/weak_hit2",
+        "weight": 1
+      }
+    ]
+  },
+  "ss14/effects/light_burn": {
+    "sounds": [
+      "moonstation14:ss14/effects/lightburn"
+    ]
+  },
+  "ss14/voice/diona/salute": {
+    "sounds": [
+      "moonstation14:ss14/voice/diona/diona_salute"
     ]
   }
 }

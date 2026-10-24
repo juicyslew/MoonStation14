@@ -37,6 +37,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CharacterPrototypeTest {
     @Test
+    void combatModeDefaultsAndNullableDisarmArePreserved() {
+        var absent = com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"CombatMode\"}")).getOrThrow();
+        assertFalse(absent.initiallyInCombat());
+        assertTrue(absent.canDisarm().isEmpty());
+        for (String value : List.of("true", "false")) {
+            var explicit = com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.CODEC.parse(JsonOps.INSTANCE,
+                    JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":" + value + "}")).getOrThrow();
+            assertEquals(Optional.of(Boolean.valueOf(value)), explicit.canDisarm());
+        }
+        var explicitNull = com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":null}")).getOrThrow();
+        assertTrue(explicitNull.canDisarm().isEmpty());
+    }
+    @Test
     void standingStateDownSoundDefaultsAndCustomizes() throws IOException {
         var defaultComponent = StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
                 JsonParser.parseString("{\"type\":\"StandingState\",\"standing_eligible\":true,\"prone_eligible\":true}")).getOrThrow();
@@ -342,7 +357,7 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(36, data.components().size(), "merged Human composition retains role metadata and stripping policy alongside existing component families");
+        assertEquals(38, data.components().size(), "Human composition includes status admission alongside existing component families");
         assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());

@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PrimaryWorldGestureTest {
     @Test void routesOnlyOwnedWorldPrimaryGestures() {
+        assertEquals(PrimaryWorldGesture.Route.MELEE, PrimaryWorldGesture.route(true, true, true, true, true, true));
+        assertEquals(PrimaryWorldGesture.Route.VANILLA, PrimaryWorldGesture.route(false, true, true, true, true, true));
         assertEquals(PrimaryWorldGesture.Route.VANILLA, PrimaryWorldGesture.route(false, true, true, true));
         assertEquals(PrimaryWorldGesture.Route.TARGET_USE, PrimaryWorldGesture.route(true, true, true, true));
         assertEquals(PrimaryWorldGesture.Route.MEDICAL_USE, PrimaryWorldGesture.route(true, true, true, true, true));

@@ -21,6 +21,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
     public static final Supplier<SoundEvent> BOTANY_GRINDER = registerSoundEvent("botany/grinder/blender");
+    public static final Supplier<SoundEvent> BOTANY_GRINDER_JUICE = registerSoundEvent("botany/grinder/juicer");
+    public static final Supplier<SoundEvent> BOTANY_PRODUCE_DESECRATION = registerSoundEvent("botany/produce/desecration");
+    public static final Supplier<SoundEvent> BOTANY_PRODUCE_SLIME_SQUISH = registerSoundEvent("botany/produce/slime_squish");
+    public static final Supplier<SoundEvent> BOTANY_PRODUCE_PACKETRIP = registerSoundEvent("botany/produce/packetrip");
     public static final Supplier<SoundEvent> CHEMMASTER_CLICK = registerSoundEvent("chemistry/chemmaster/click");
     public static final Supplier<SoundEvent> CHEMMASTER_INSERT = registerSoundEvent("chemistry/chemmaster/insert");
     public static final Supplier<SoundEvent> CHEMMASTER_EJECT = registerSoundEvent("chemistry/chemmaster/eject");
@@ -41,6 +45,15 @@ public class ModSounds {
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
     public static final Supplier<SoundEvent> PILL = registerSoundEvent("ss14/items/pill");
     public static final Supplier<SoundEvent> EAT = registerSoundEvent("ss14/items/eat");
+    public static final Supplier<SoundEvent> FOOD_CHOP = registerSoundEvent("ss14/items/chop");
+    public static final Supplier<SoundEvent> GUNSHOT_REVOLVER = registerSoundEvent("ss14/weapons/guns/gunshots/revolver");
+    public static final Supplier<SoundEvent> GUN_EMPTY = registerSoundEvent("ss14/weapons/guns/empty");
+    public static final Supplier<SoundEvent> GUN_REVOLVER_MAGOUT = registerSoundEvent("ss14/weapons/guns/magout/revolver_magout");
+    public static final Supplier<SoundEvent> GUN_REVOLVER_MAGIN = registerSoundEvent("ss14/weapons/guns/magin/revolver_magin");
+    public static final Supplier<SoundEvent> GUN_REVOLVER_SPIN = registerSoundEvent("ss14/weapons/guns/misc/revolver_spin");
+    public static final Supplier<SoundEvent> GUN_BULLET_HIT = registerSoundEvent("ss14/weapons/guns/hits/bullet_hit");
+    public static final Supplier<SoundEvent> GUN_BULLET_MISS = registerSoundEvent("ss14/weapons/guns/miss/bullet_miss");
+    public static final Supplier<SoundEvent> SLIP = registerSoundEvent("ss14/effects/slip");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
@@ -61,6 +74,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE = registerFixedRangeSoundEvent("grenade/explode", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE_FAR = registerSoundEvent("grenade/explode_far");
+    public static final Supplier<SoundEvent> EXPLOSION_SMALL = registerFixedRangeSoundEvent("ss14/effects/explosion_small", 30.0F);
+    public static final Supplier<SoundEvent> EXPLOSION_SMALL_FAR = registerSoundEvent("ss14/effects/explosion_small_far");
+    public static final Supplier<SoundEvent> GLASS_BREAK = registerSoundEvent("ss14/effects/glass_break");
+    public static final Supplier<SoundEvent> GLASS_STEP = registerSoundEvent("ss14/effects/glass_step");
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),
             java.util.Map.entry("crying", registerSoundEvent("emote/crying")),
