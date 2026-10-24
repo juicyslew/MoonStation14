@@ -44,6 +44,14 @@ public final class ApcOverloadGameTests {
         initialFixture.apc().setEnergyJoules(0);
         DebugFixture fixture = addSecondNativeSourceToDebugFixture(helper, initialFixture);
         assertDebugFixtureInsideBounds(helper, fixture);
+        // A ticket being requested is not proof that the graph's candidate-neighbor
+        // chunks are entity ticking. In particular, lease/wait the north halo where
+        // the HV graph probe can otherwise report an unloaded potential neighbor.
+        FixtureChunkTickets.Lease fixtureChunks = FixtureChunkTickets.acquire(helper, helper.getBounds().inflate(1));
+        BlockPos northHalo = new BlockPos(net.minecraft.util.Mth.floor(helper.getBounds().minX),
+                helper.absolutePos(BlockPos.ZERO).getY() + 1,
+                net.minecraft.util.Mth.floor(helper.getBounds().minZ) - 1);
+        FixtureChunkTickets.awaitEntityTicking(helper, fixtureChunks, 100, () -> {
         fixture.lit(0); // Validate the authored first load before adding the second real load.
         double totalDebugDemand = 2 * PowerDeviceKind.DEBUG_LOAD_LAMP.lampDemandWatts();
         double ratedSubstationOutput = 30_000 * .9;
@@ -87,6 +95,11 @@ public final class ApcOverloadGameTests {
                 });
             });
         });
+        }, northHalo,
+                helper.absolutePos(new BlockPos(4, 1, 1)),
+                helper.absolutePos(new BlockPos(4, 1, 2)),
+                helper.absolutePos(new BlockPos(4, 1, 3)),
+                helper.absolutePos(new BlockPos(4, 1, 4)));
     }
 
     private static void awaitFullDebugDelivery(GameTestHelper helper, DebugFixture fixture, Runnable ready) {
@@ -558,7 +571,10 @@ public final class ApcOverloadGameTests {
         var cutTick = new java.util.concurrent.atomic.AtomicInteger(-1);
         var maxNativeTicks = new java.util.concurrent.atomic.AtomicLong();
         var lastNativeTicks = new java.util.concurrent.atomic.AtomicLong();
-        for (int tick = 1; tick <= remainingTestTicks; tick++) {
+        var recentSamples = new java.util.ArrayDeque<String>();
+        var expectedEpoch = new java.util.concurrent.atomic.AtomicLong(Long.MIN_VALUE);
+        var expectedDeadline = new java.util.concurrent.atomic.AtomicLong(Long.MAX_VALUE);
+        for (int tick = 1; tick <= maxTripObservationTick + CONNECTED_OVERLOAD_CLEANUP_TICKS; tick++) {
             final int checkTick = tick;
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, tick, () -> {
                 // A trip intentionally zeros output and resets native protection; detect it
@@ -577,23 +593,52 @@ public final class ApcOverloadGameTests {
                     lastNativeTicks.set(protection.overloadTicks());
                     maxNativeTicks.accumulateAndGet(protection.overloadTicks(), Math::max);
                     var observed = PowerRuntime.apcOutputObservation(level, apcEntity);
+                    recentSamples.addLast("testTick=" + checkTick + ",worldTick=" + level.getGameTime()
+                            + ",output=" + observed.outputWatts() + ",known=" + observed.known()
+                            + ",sampleTick=" + observed.sampleTick() + ",generation="
+                            + observed.topologyGeneration() + ",overloadTicks=" + protection.overloadTicks()
+                            + ",lastAdvancedTick=" + protection.lastAdvancedTick());
+                    while (recentSamples.size() > 8) recentSamples.removeFirst();
                     var outputState = PowerGraphService.state(level, output);
                     var spineState = PowerGraphService.state(level, spine);
                     boolean connected = outputState.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
                             && spineState.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
                             && outputState.componentId() == spineState.componentId();
-                    if (apcEntity.breakerClosed() && observed.known() && observed.outputWatts() > 20_000
+                    var config = com.juicyslew.moonstation14.ms14.power.device.PowerDeviceRules.DEFAULT_APC_PROTECTION;
+                    if (apcEntity.breakerClosed() && observed.known() && observed.outputWatts() > config.maxLoadWatts()
                             && observed.outputWatts() >= fullFixtureDemandWatts && connected) {
+                        if (protection.overloadTicks() > 0 && protection.lastAdvancedTick() != Long.MIN_VALUE) {
+                            long epoch = protection.lastAdvancedTick() - protection.overloadTicks() + 1;
+                            if (epoch != expectedEpoch.get()) {
+                                expectedEpoch.set(epoch);
+                                expectedDeadline.set(epoch + (long) Math.floor(config.tripTimeSeconds() * 20) + 1);
+                            }
+                        } else {
+                            expectedEpoch.set(Long.MIN_VALUE);
+                            expectedDeadline.set(Long.MAX_VALUE);
+                        }
                         require(level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT),
                                 "full fixture demand " + fullFixtureDemandWatts
                                         + " W must light connected lamp: "
-                                        + overloadState(level, apcEntity, output, spine));
-                    }
-                    if (checkTick >= maxTripObservationTick) {
-                        require(false, "no native protection trip within initial observation window: required="
-                                + fullFixtureDemandWatts + "W,observed=" + observed + ",connected=" + connected
-                                + ",native=" + protection + ",output=" + outputState + ",spine=" + spineState + ","
                                 + overloadState(level, apcEntity, output, spine));
+                    } else {
+                        expectedEpoch.set(Long.MIN_VALUE);
+                        expectedDeadline.set(Long.MAX_VALUE);
+                    }
+                    if (expectedDeadline.get() != Long.MAX_VALUE && level.getGameTime() >= expectedDeadline.get() + 2) {
+                        String trace = "native overload failure trace=" + recentSamples;
+                        System.out.println(trace);
+                        String diagnostic = "no trip: count=" + protection.overloadTicks() + ",last="
+                                + protection.lastAdvancedTick() + ",epoch=" + expectedEpoch.get() + ",deadline="
+                                + expectedDeadline.get() + ",worldTick=" + level.getGameTime() + ",output="
+                                + observed + ",threshold=" + config.maxLoadWatts() + "W/"
+                                + config.tripTimeSeconds() + "s";
+                        require(false, diagnostic.substring(0, Math.min(diagnostic.length(), 850)));
+                    }
+                    if (checkTick >= maxTripObservationTick && tripTick.get() < 0) {
+                        require(false, "native trip exceeded absolute phase budget " + maxTripObservationTick
+                                + ": native=" + protection + ",epoch=" + expectedEpoch.get()
+                                + ",deadline=" + expectedDeadline.get());
                     }
                 }
                 if (tripTick.get() < 0) return;

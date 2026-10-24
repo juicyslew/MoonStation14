@@ -22,7 +22,7 @@ import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
-public final class EmitterBlock extends Block implements EntityBlock {
+public final class EmitterBlock extends Block implements EntityBlock, com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public enum Visual implements StringRepresentable { OFF("default"), ON("on"), UNDERPOWERED("underpowered"); private final String id; Visual(String id){this.id=id;} @Override public String getSerializedName(){return id;} }
     public static final EnumProperty<Visual> VISUAL=EnumProperty.create("visual",Visual.class);

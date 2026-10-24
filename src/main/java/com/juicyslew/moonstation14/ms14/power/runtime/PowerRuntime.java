@@ -207,15 +207,32 @@ public final class PowerRuntime {
     }
     /** Fresh full-demand observation. Unknown topology, stale identity, or partial power is not authorization. */
     public static VentMeterObservation chemMasterMeter(ServerLevel level, ChemMasterBlockEntity expected) {
+        return chemMasterMeterCheck(level, expected).observation();
+    }
+    public static String chemMasterMeterDiagnostic(ServerLevel level, ChemMasterBlockEntity expected) {
+        ChemMasterMeterCheck check = chemMasterMeterCheck(level, expected);
+        ChemMasterMeterSample sample = check.sample();
+        return check.reason() + (sample == null ? " sample=absent" : " sampleTick=" + sample.sampleTick()
+                + " sampleGeneration=" + sample.topologyGeneration() + " delivered=" + sample.deliveredWatts()
+                + " demand=" + sample.demandWatts() + " sampleMachineIdentity=" + (sample.machine() == expected)
+                + " samplePlacementIdentity=" + (expected != null && sample.identity().equals(expected.placementIdentity()))
+                + " sampleApc=" + (sample.apc() == null ? "none" : sample.apc().getBlockPos().toShortString())
+                + " sampleBreakerRevision=" + sample.breakerRevision()) + " " + PowerGraphService.diagnosticSnapshot(level);
+    }
+    private record ChemMasterMeterCheck(VentMeterObservation observation, String reason, ChemMasterMeterSample sample) { }
+    private static ChemMasterMeterCheck chemMasterMeterCheck(ServerLevel level, ChemMasterBlockEntity expected) {
         if (level == null || expected == null || expected.isRemoved() || !level.getServer().isSameThread()
-                || !expected.isLoadedValid() || expected.powerLoadWatts() <= 0) return VentMeterObservation.UNKNOWN;
-        BlockPos pos = expected.getBlockPos();
-        ChemMasterMeterSample sample = CHEM_MASTER_METERS.getOrDefault(level, Map.of()).get(pos);
-        if (sample == null || sample.machine() != expected || !sample.identity().equals(expected.placementIdentity())
-                || sample.demandWatts() != expected.powerLoadWatts()
-                || !freshFullDemandApcAuthorization(level, sample.sampleTick(), sample.topologyGeneration(),
-                sample.deliveredWatts(), sample.demandWatts(), sample.apc(), sample.breakerRevision())) return VentMeterObservation.UNKNOWN;
-        return new VentMeterObservation(true, sample.deliveredWatts());
+                || !expected.isLoadedValid() || expected.powerLoadWatts() <= 0)
+            return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "machine=invalid-or-no-demand", null);
+        ChemMasterMeterSample sample = CHEM_MASTER_METERS.getOrDefault(level, Map.of()).get(expected.getBlockPos());
+        if (sample == null) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "sample=absent", null);
+        if (sample.machine() != expected) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "sample=machine-identity-mismatch", sample);
+        if (!sample.identity().equals(expected.placementIdentity())) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "sample=placement-identity-mismatch", sample);
+        if (sample.demandWatts() != expected.powerLoadWatts()) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "demand=mismatch", sample);
+        String reason = fullDemandApcAuthorizationFailure(level, sample.sampleTick(), sample.topologyGeneration(),
+                sample.deliveredWatts(), sample.demandWatts(), sample.apc(), sample.breakerRevision());
+        if (reason != null) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, reason, sample);
+        return new ChemMasterMeterCheck(new VentMeterObservation(true, sample.deliveredWatts()), "accepted", sample);
     }
     public record ChemMasterPowerDiagnostic(long tickSequence, Long sampleTick, long sampleGeneration,
                                              long currentGeneration, boolean topologyReady, boolean fullFresh) { }
@@ -234,19 +251,29 @@ public final class PowerRuntime {
 
     /** Shared freshness, topology, full-delivery, and loaded APC authorization for processing meters. */
     private static boolean freshFullDemandApcAuthorization(ServerLevel level, long sampleTick, long generation,
-                                                            double delivered, double demand,
-                                                            PowerDeviceBlockEntity apc, long breakerRevision) {
-        if (!PowerGraphService.topologyReady(level) || demand <= 0 || delivered != demand
-                || generation != PowerGraphService.topologyGeneration(level)
-                || serverTickSequence < sampleTick || serverTickSequence - sampleTick > TICKS_PER_SOLVE
-                || apc == null || apc.isRemoved() || !apc.breakerClosed()
-                || apc.breakerRevision() != breakerRevision) return false;
+                                                             double delivered, double demand,
+                                                             PowerDeviceBlockEntity apc, long breakerRevision) {
+        return fullDemandApcAuthorizationFailure(level, sampleTick, generation, delivered, demand, apc, breakerRevision) == null;
+    }
+    private static String fullDemandApcAuthorizationFailure(ServerLevel level, long sampleTick, long generation,
+                                                             double delivered, double demand,
+                                                             PowerDeviceBlockEntity apc, long breakerRevision) {
+        if (!PowerGraphService.topologyReady(level)) return "topology=not-ready";
+        if (demand <= 0 || delivered != demand) return "delivery=mismatch";
+        if (generation != PowerGraphService.topologyGeneration(level)) return "generation=mismatch";
+        if (serverTickSequence < sampleTick) return "sample=future";
+        if (serverTickSequence - sampleTick > TICKS_PER_SOLVE) return "sample=stale(age=" + (serverTickSequence - sampleTick) + ")";
+        if (apc == null) return "apc=missing";
+        if (apc.isRemoved()) return "apc=removed";
+        if (!apc.breakerClosed()) return "apc=breaker-open";
+        if (apc.breakerRevision() != breakerRevision) return "apc=breaker-revision-mismatch";
         BlockPos apcPos = apc.getBlockPos();
-        return level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4,
+        if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4,
                 ChunkStatus.FULL, false) instanceof LevelChunk chunk
                 && chunk.getBlockEntity(apcPos) == apc
                 && apc.getBlockState().getBlock() instanceof PowerDeviceBlock block
-                && block.kind() == PowerDeviceKind.APC;
+                && block.kind() == PowerDeviceKind.APC)) return "apc=stale-or-invalid";
+        return null;
     }
     /** Position lookup for backend callers; caller must separately bind placementIdentity to its session. */
     public static VentMeterObservation chemMasterMeter(ServerLevel level, BlockPos pos) {

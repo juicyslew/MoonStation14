@@ -1159,5 +1159,7 @@
   "gui.moonstation14.pa.part.power": "Power",
   "gui.moonstation14.pa.part.port": "Port",
   "gui.moonstation14.pa.part.fore": "Fore",
-  "gui.moonstation14.pa.part.starboard": "Starboard"
+  "gui.moonstation14.pa.part.starboard": "Starboard",
+  "block.moonstation14.singularity_beacon": "Singularity beacon",
+  "item.moonstation14.singularity_beacon": "Singularity beacon"
 }

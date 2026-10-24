@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(67, raw.size());
+        assertEquals(68, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(62, resolved.size());
+        assertEquals(63, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -52,7 +52,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(62, catalog.size());
+        assertEquals(63, catalog.size());
         assertEquals(4, catalog.get(id("mothroach_normal")).cells().size());
         assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Normal), catalog.get(id("mothroach_normal")).itemSize());
         assertEquals(1, catalog.get(id("hamster_tiny")).cells().size());

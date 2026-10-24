@@ -136,10 +136,14 @@ class GameTestTagSelectorTest {
     @Test void registrationSeamPublishesFullOrTaggedSubsetAndRejectsBeforePublishing() throws Exception {
         List<java.lang.reflect.Method> methods = List.of(Fixture.class.getDeclaredMethod("test"), Fixture.class.getDeclaredMethod("untagged"), UntaggedFixture.class.getDeclaredMethod("test"));
         Set<java.lang.reflect.Method> published = new java.util.HashSet<>();
-        assertEquals(3, GameTestTagRegistrar.registerMethods(methods, Set.of(), published::add).selected());
+        var full = GameTestTagRegistrar.registerMethods(methods, Set.of(), published::add);
+        assertEquals(3, full.selected());
+        assertEquals("GameTest tag preflight: 3/3 fixtures selected", GameTestTagRegistrar.selectionPreflight(full, methods.size()));
         assertEquals(Set.copyOf(methods), published);
         published.clear();
-        assertEquals(1, GameTestTagRegistrar.registerMethods(methods, Set.of("ventilation"), published::add).selected());
+        var filtered = GameTestTagRegistrar.registerMethods(methods, Set.of("ventilation"), published::add);
+        assertEquals(1, filtered.selected());
+        assertEquals("GameTest tag preflight: 1/3 fixtures selected", GameTestTagRegistrar.selectionPreflight(filtered, methods.size()));
         assertEquals(Set.of(Fixture.class.getDeclaredMethod("test")), published);
         published.clear();
         assertThrows(IllegalStateException.class, () -> GameTestTagRegistrar.registerMethods(methods, Set.of("missing"), published::add));

@@ -93,9 +93,23 @@ public final class PowerGraphService {
 
     public static LoadedPowerGraph.NodeState state(ServerLevel level, CableFaceNode node) {
         LevelState state = STATES.get(level);
-        return state == null || !state.pending.isEmpty()
-                ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1)
-                : state.graph.state(node);
+        if (state == null || !state.pending.isEmpty())
+            return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1);
+        LoadedPowerGraph.NodeState answer = state.graph.state(node);
+        if (answer.knowledge() != LoadedPowerGraph.Knowledge.UNKNOWN) return answer;
+        // A component can have a distant unloaded frontier absent from the loaded
+        // index. Probe a bounded rotating graph-owned batch; normal ticks reconcile it.
+        for (ChunkPos pos : state.graph.missingFrontierBatch(node, FOREGROUND_FRONTIER_PROBES))
+            admitFullFrontier(state, pos, level.getChunkSource().getChunkNow(pos.x, pos.z) != null);
+        return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, answer.componentId());
+    }
+
+    private static final int FOREGROUND_FRONTIER_PROBES = 8;
+
+    static boolean admitFullFrontier(LevelState state, ChunkPos pos, boolean isFull) {
+        if (!isFull || !state.pending.add(pos)) return false;
+        state.topologyGeneration++;
+        return true;
     }
 
     /** Read-only graph internals for focused runtime diagnostics; never loads chunks. */
@@ -220,7 +234,7 @@ public final class PowerGraphService {
         if (event.getLevel() instanceof ServerLevel level) {
             LevelState state = STATES.get(level);
             if (state != null) {
-                resolveFullChunkLoad(state, event.getChunk().getPos());
+                ChunkPos pos = event.getChunk().getPos();
                 boolean unloadedPowerDevice = event.getChunk() instanceof LevelChunk chunk
                         && chunk.getBlockEntities().values().stream().anyMatch(be ->
                         be instanceof com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity
@@ -228,14 +242,8 @@ public final class PowerGraphService {
                                 || be instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity
                                 || be instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity
                                 || be instanceof com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity);
-                state.pending.remove(event.getChunk().getPos());
-                state.validation.remove(event.getChunk().getPos());
-                state.indexed.remove(event.getChunk().getPos());
-                state.lampChoices.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
-                long revision = state.graph.revision();
-                state.graph.removeChunk(event.getChunk().getPos());
-                state.graph.setChunkLoaded(event.getChunk().getPos(), false);
-                if (state.graph.revision() != revision || unloadedPowerDevice) state.topologyGeneration++;
+                processChunkUnload(state, pos, level.getChunkSource().getChunkNow(pos.x, pos.z),
+                        event.getChunk(), unloadedPowerDevice);
             }
         }
     }
@@ -336,6 +344,24 @@ public final class PowerGraphService {
 
     static void resolveFullChunkLoad(LevelState state, ChunkPos pos) { state.deferredLoads.remove(pos); }
 
+    static boolean processChunkUnload(LevelState state, ChunkPos pos, Object current, Object unloading,
+                                      boolean unloadedPowerDevice) {
+        // An unload notification for an old chunk incarnation can arrive after a
+        // replacement has already entered the FULL cache. It must not erase the
+        // replacement's loaded-space knowledge or queued reconciliation.
+        if (current != null && current != unloading) return false;
+        resolveFullChunkLoad(state, pos);
+        state.pending.remove(pos);
+        state.validation.remove(pos);
+        state.indexed.remove(pos);
+        state.lampChoices.keySet().removeIf(lampPos -> new ChunkPos(lampPos).equals(pos));
+        long revision = state.graph.revision();
+        state.graph.removeChunk(pos);
+        state.graph.setChunkLoaded(pos, false);
+        if (state.graph.revision() != revision || unloadedPowerDevice) state.topologyGeneration++;
+        return true;
+    }
+
     private static void noteBlockChange(net.minecraft.world.level.LevelAccessor accessor, BlockPos pos) {
         if (!(accessor instanceof ServerLevel level)) return;
         var chunk = level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
@@ -369,6 +395,6 @@ public final class PowerGraphService {
     }
 
     /** Diagnostic details are appended to the existing snapshot without forcing world queries. */
-    private record CachedLampNode(long revision, int radius, CableFaceNode node) { }
+    record CachedLampNode(long revision, int radius, CableFaceNode node) { }
 }
 

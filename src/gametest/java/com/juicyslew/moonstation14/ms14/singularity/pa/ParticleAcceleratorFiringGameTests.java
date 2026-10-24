@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.entities.ParticleAcceleratorParticleEntity;
 import com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
@@ -62,10 +63,36 @@ public final class ParticleAcceleratorFiringGameTests {
                 "place " + tier + " cable at " + pos + " face=" + face+" host="+level.getBlockState(pos)+" sturdy="+level.getBlockState(pos).isFaceSturdy(level,pos,face));
     }
 
-     @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000)
+     @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", timeoutTicks=1000)
     public static void realPoweredControlEmitsThreeParticlesAfterResolvedDelay(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
-        var fixture=poweredAssembly(h,level);
+        exerciseRealPoweredWaves(h,level,poweredAssembly(h,level,0));
+    }
+
+    @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", timeoutTicks=1000)
+    public static void chunkBoundaryAlignedHvSupplySupportsRealPaWave(GameTestHelper h) {
+        ServerLevel level=(ServerLevel)h.getLevel();
+        int offsetX=Math.floorMod(-h.absolutePos(new BlockPos(4,0,0)).getX(),16);
+        var profile=com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators.catalog(level)
+                .get(com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators.TYPE.typeId());
+        require(profile!=null,"resolved PA profile available for alignment geometry check");
+        for(int residue=0;residue<16;residue++) {
+            for(BlockPos local:poweredFixturePositions(profile,0)) {
+                BlockPos translated=h.absolutePos(local.offset(residue,0,0));
+                require(h.getBounds().contains(translated.getCenter()),
+                        "complete powered PA fixture fits template at X translation residue="+residue+" local="+local);
+                var graphHalo=h.getBounds().inflate(16);
+                for(Direction direction:Direction.values()) require(graphHalo.contains(translated.relative(direction).getCenter()),
+                        "powered PA graph neighbor remains inside existing lease at X translation residue="+residue
+                                +" fixture="+local+" neighbor="+direction);
+            }
+        }
+        var fixture=poweredAssembly(h,level,offsetX);
+        require(Math.floorMod(fixture.ports()[0].host().getX(),16)==0,"first HV node aligned to chunk boundary");
+        exerciseRealPoweredWaves(h,level,fixture);
+    }
+
+    private static void exerciseRealPoweredWaves(GameTestHelper h, ServerLevel level, PoweredAssembly fixture) {
         ParticleAcceleratorPartBlockEntity control=fixture.control();
         ParticleAcceleratorPartBlockEntity power=fixture.power();
         var assembly=fixture.assembly();
@@ -79,7 +106,7 @@ public final class ParticleAcceleratorFiringGameTests {
         long[] observedEpoch={-1};
         PowerFixtureReadiness.await(h,level,500,
                  ()->PowerFixtureReadiness.topologyReadyWithKnownPorts(level,ports),
-                  ()->powerDiagnostics(level, control, power, apc, ports),()->{
+                   fixture.readinessDiagnostics(),()->{
                       control.setEnabled(true);
                       awaitStandbyBeforeStrengthTransition(h,level,control,power,assembly,apc,ports,0,()->{
                      BoundedGameTestWait.await(h,PowerRuntime.TICKS_PER_SOLVE*4,
@@ -183,7 +210,7 @@ public final class ParticleAcceleratorFiringGameTests {
     }
 
     @GameTestTags({"reactor-models", "pa-session-demand", "reactor-interaction"})
-    @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000)
+    @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", timeoutTicks=1000)
     public static void resolvedAssemblyProjectsEveryPartAcrossNaturalPowerAndStrengthTransitions(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         var fixture=poweredAssembly(h,level,0);
@@ -192,7 +219,7 @@ public final class ParticleAcceleratorFiringGameTests {
         assembly.parts().forEach((role,part)->ids.put(role,part.placementIdentity()));
         PowerFixtureReadiness.await(h,level,500,
                  ()->PowerFixtureReadiness.topologyReadyWithKnownPorts(level,fixture.ports()),
-                 ()->powerDiagnostics(level,control,power,fixture.apcPos(),fixture.ports()),()->{
+                  fixture.readinessDiagnostics(),()->{
                       long stableTopology=com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(level);
                      var visualProperty=com.juicyslew.moonstation14.block.custom.ParticleAcceleratorPartBlock.VISUAL;
                       StandbyProjectionEpoch[] baselineEpoch={null};
@@ -331,14 +358,14 @@ public final class ParticleAcceleratorFiringGameTests {
         };
     }
 
-     @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=MV_OUTAGE_TEST_TIMEOUT_TICKS)
+     @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", timeoutTicks=MV_OUTAGE_TEST_TIMEOUT_TICKS)
      public static void mvOutageRestartsFullResolvedChargeInterval(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         var f=poweredAssembly(h,level);
         var control=f.control(); var power=f.power(); var assembly=f.assembly();
         var ports=f.ports(); var particles=f.particles();
         PowerFixtureReadiness.await(h,level,500,()->PowerFixtureReadiness.topologyReadyWithKnownPorts(level,ports),
-                ()->powerDiagnostics(level,control,power,f.apcPos(),ports),()->{
+                 f.readinessDiagnostics(),()->{
             control.setStrength(ParticleAcceleratorStrength.LEVEL_2); control.setEnabled(true);
             BoundedGameTestWait.await(h,PowerRuntime.TICKS_PER_SOLVE*4,
                     ()->powerDiagnostics(level,control,power,f.apcPos(),ports),()->control.firingEligible(),()->{
@@ -359,14 +386,14 @@ public final class ParticleAcceleratorFiringGameTests {
                          BoundedGameTestWait.await(h,PowerRuntime.TICKS_PER_SOLVE*4,
                                 ()->powerDiagnostics(level,control,power,f.apcPos(),ports),
                                 ()->control.firingEligible()&&PowerRuntime.mvPowerMeter(level,power).known()&&PowerRuntime.mvPowerMeter(level,power).deliveredWatts()>0,
-                                   ()->awaitRestoredEpoch(h,level,f,restoredAt,before,interval,overallDeadline,-1,new ArrayList<>()));
+                                     ()->awaitRestoredEpoch(h,level,f,restoredAt,before,interval,overallDeadline,-1,new ArrayList<>()));
                     });
                 });
             });
         });
     }
 
-    @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000)
+    @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", timeoutTicks=1000)
     public static void missingEmitterPreventsPartialWave(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         var f=poweredAssembly(h,level);
@@ -393,7 +420,7 @@ public final class ParticleAcceleratorFiringGameTests {
         });
     }
 
-     @GameTest(templateNamespace="moonstation14", template="pa_contained_clear", timeoutTicks=CONTAINED_PA_STARTUP_TIMEOUT_TICKS)
+      @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", timeoutTicks=CONTAINED_PA_STARTUP_TIMEOUT_TICKS)
     public static void realPoweredWavesStartExactlyOneContainedSingularity(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         var f=poweredAssembly(h,level,10);
@@ -513,7 +540,7 @@ public final class ParticleAcceleratorFiringGameTests {
 
 
      private static void awaitRestoredEpoch(GameTestHelper h,ServerLevel level,PoweredAssembly f,long restoredAt,
-                                             int baseline,long interval,long overallDeadline,long latestObservedEpoch,List<String> epochHistory) {
+                                             int baseline,long interval,long overallDeadline,long firstObservedEpoch,List<String> epochHistory) {
         var schedule=f.control().waveScheduleSnapshot();
         String epochState="t="+level.getGameTime()+" epoch="+schedule.eligibleSinceTick()+" next="+schedule.nextWaveTick()
                 +" eligible="+f.control().firingEligible();
@@ -522,29 +549,40 @@ public final class ParticleAcceleratorFiringGameTests {
             while(epochHistory.size()>6) epochHistory.remove(0);
         }
         var current=f.control().waveScheduleSnapshot();
-        boolean eligible=f.control().firingEligible()&&current.eligibleSinceTick()>=restoredAt;
-        long expected=eligible?current.eligibleSinceTick()+interval:-1;
-        long observedEpoch=eligible?current.eligibleSinceTick():latestObservedEpoch;
-        if(f.particles().size()>baseline) {
-            long tick=f.joinTicks().get(baseline), actualJoinEpoch=f.joinEpochs().get(baseline);
-            require(actualJoinEpoch>=restoredAt,"captured restored particle epoch follows physical restore; restore="+restoredAt+" epoch="+actualJoinEpoch);
-            require(tick==actualJoinEpoch+interval,"first restored wave follows authoritative epoch interval exactly; tick="+tick+" epoch="+actualJoinEpoch);
-            require(f.particles().size()>=baseline+3,"restored wave contains three particles");
+         boolean eligible=f.control().firingEligible()&&current.eligibleSinceTick()>=restoredAt;
+         // Preserve the first eligible epoch observed after restoration; later schedule epochs
+         // must not replace the lower bound used to validate the event-captured join epoch.
+          final long resolvedFirstObservedEpoch=eligible&&firstObservedEpoch<0?current.eligibleSinceTick():firstObservedEpoch;
+          long observedEpoch=eligible?current.eligibleSinceTick():resolvedFirstObservedEpoch;
+         if(f.particles().size()>baseline) {
+             long tick=f.joinTicks().get(baseline), actualJoinEpoch=f.joinEpochs().get(baseline);
+             require(actualJoinEpoch>=restoredAt,"captured restored particle epoch follows physical restore; restore="+restoredAt+" epoch="+actualJoinEpoch);
+              if(resolvedFirstObservedEpoch>=0) require(actualJoinEpoch>=resolvedFirstObservedEpoch,
+                      "captured restored particle epoch is not earlier than first observed restored eligible epoch; firstObservedEpoch="
+                              +resolvedFirstObservedEpoch+" actualJoinEpoch="+actualJoinEpoch+" "+restoredEpochDiagnostics(level,f,restoredAt,observedEpoch,interval,baseline,overallDeadline));
+            require(tick-actualJoinEpoch==interval,"first restored wave follows authoritative epoch interval exactly; "+restoredEpochDiagnostics(level,f,restoredAt,observedEpoch,interval,baseline,overallDeadline));
+            require(f.particles().size()>=baseline+3,"restored wave contains three particles; "+restoredEpochDiagnostics(level,f,restoredAt,observedEpoch,interval,baseline,overallDeadline));
             for(int i=0;i<3;i++) require(f.joinTicks().get(baseline+i)==tick&&f.joinEpochs().get(baseline+i)==actualJoinEpoch,
-                    "restored wave particles share one tick and authoritative epoch");
+                    "restored wave particles share one tick and authoritative epoch; "+restoredEpochDiagnostics(level,f,restoredAt,observedEpoch,interval,baseline,overallDeadline));
             h.succeed(); return;
         }
         // No post-restore particle has been captured yet; current ineligibility is harmless here.
         // Any later join is judged from its event-captured authoritative epoch, not this snapshot.
-        if(level.getGameTime()>=overallDeadline) throw new GameTestAssertException("restored wave exceeded remaining fixture budget; expectedWave="+expected
-                +" history="+epochHistory+" "+restoredEpochDiagnostics(level,f,restoredAt,observedEpoch));
-        BoundedGameTestWait.safeDelay(h,1,()->awaitRestoredEpoch(h,level,f,restoredAt,baseline,interval,overallDeadline,observedEpoch,epochHistory));
+        if(level.getGameTime()>=overallDeadline) throw new GameTestAssertException("restored wave exceeded remaining fixture budget; history="+epochHistory
+                +" "+restoredEpochDiagnostics(level,f,restoredAt,observedEpoch,interval,baseline,overallDeadline));
+          BoundedGameTestWait.safeDelay(h,1,()->awaitRestoredEpoch(h,level,f,restoredAt,baseline,interval,overallDeadline,resolvedFirstObservedEpoch,epochHistory));
      }
 
-     private static String restoredEpochDiagnostics(ServerLevel level,PoweredAssembly f,long restoredAt,long latestObservedEpoch) {
-         return "restoredAt="+restoredAt+" latestObservedEpoch="+latestObservedEpoch+" schedule="+f.control().waveScheduleSnapshot()
-                +" mv="+PowerRuntime.mvPowerMeter(level,f.power())+" apc="+PowerRuntime.apcPowerMeter(level,f.control())
-                +" mvDemand="+f.power().mvPowerDemandWatts()+" eligible="+f.control().firingEligible();
+     private static String restoredEpochDiagnostics(ServerLevel level,PoweredAssembly f,long restoredAt,long firstObservedEpoch,
+                                                     long interval,int baseline,long deadline) {
+         var schedule=f.control().waveScheduleSnapshot();
+         long expectedTick=firstObservedEpoch+interval;
+         return "restoredAt="+restoredAt+" firstObservedEpoch="+firstObservedEpoch+" expectedFirstWaveTick="+expectedTick
+                 +" ticksUntilExpected="+(expectedTick-level.getGameTime())+" currentTick="+level.getGameTime()
+                 +" currentEpoch="+schedule.eligibleSinceTick()+" epochShifted="+(schedule.eligibleSinceTick()!=firstObservedEpoch)
+                 +" overallDeadline="+deadline+" baselineParticles="+baseline+" schedule="+schedule
+                 +" mv="+PowerRuntime.mvPowerMeter(level,f.power())+" apc="+PowerRuntime.apcPowerMeter(level,f.control())
+                 +" mvDemand="+f.power().mvPowerDemandWatts()+" eligible="+f.control().firingEligible();
     }
 
     private static CableFaceNode node(BlockPos pos, Direction face, CableTier tier) {
@@ -561,7 +599,51 @@ public final class ParticleAcceleratorFiringGameTests {
         return poweredAssembly(h,level,0);
     }
 
+    /** Complete footprint inventory shared by the builder's preflight and translation geometry checks. */
+    private static List<BlockPos> poweredFixturePositions(ParticleAcceleratorControlProfile profile, int offsetX) {
+        List<BlockPos> positions=new ArrayList<>();
+        for(int z=2;z<=6;z++) positions.add(new BlockPos(offsetX+4,1,z)); // stone supports / HV and APC cable
+        for(int z=4;z<=6;z++) positions.add(new BlockPos(offsetX+2,1,z)); // stone supports / MV cable
+        positions.add(new BlockPos(offsetX+3,1,2)); // HV source
+        positions.add(new BlockPos(offsetX+3,1,4)); // substation
+        positions.add(new BlockPos(offsetX+3,1,6)); // APC
+        for(int y=2;y<=3;y++) positions.add(new BlockPos(offsetX+2,y,4));
+        for(int z=5;z<=9;z++) positions.add(new BlockPos(offsetX+2,3,z));
+        positions.add(new BlockPos(offsetX+3,3,7));
+        positions.add(new BlockPos(offsetX+3,3,8));
+        for(int x=4;x<=8;x++) positions.add(new BlockPos(offsetX+x,3,8));
+        for(int y=2;y<=3;y++) positions.add(new BlockPos(offsetX+4,y,6));
+        positions.add(new BlockPos(offsetX+4,3,7));
+        positions.add(new BlockPos(offsetX+4,3,8));
+        for(int x=4;x<=9;x++) positions.add(new BlockPos(offsetX+x,3,7));
+        BlockPos control=new BlockPos(offsetX+9,3,8);
+        positions.add(control);
+        for(var part:profile.parts().values()) {
+            BlockPos position=control.offset(ParticleAcceleratorAssembly.toWorldVec(part.offsetX(),part.offsetY(),Rotation.NONE));
+            positions.add(position);
+            if("power".equals(part.role())) positions.add(position.north());
+        }
+        positions.add(control.north());
+        return positions;
+    }
+
     private static PoweredAssembly poweredAssembly(GameTestHelper h, ServerLevel level, int offsetX) {
+        // The HV source's west/north-facing graph probe may cross the template's chunk edge.
+        // Lease the full fixture plus a one-block halo before placing any power devices, so a
+        // missing neighboring chunk cannot make the graph report a deceptively ready topology.
+        // PowerGraphService probes potential neighbors around every face-node/device terminal.
+        // The source-side HV node at the template's z boundary (observed at z=-11954528)
+        // needs the adjacent chunk resident too; a one-block lease doesn't guarantee the
+        // graph's full neighbor halo is entity-ticking. Match the neighboring native power fixtures.
+        FixtureChunkTickets.Lease lease = FixtureChunkTickets.acquire(h, h.getBounds().inflate(16));
+        var resolvedProfile=com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators.catalog(level)
+                .get(com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators.TYPE.typeId());
+        require(resolvedProfile!=null,"resolved PA profile available for fixture placement");
+        // Validate every position placed by this fixture builder before changing the world.
+        for (BlockPos local : poweredFixturePositions(resolvedProfile,offsetX)) {
+            BlockPos pos=at(h,local.getX(),local.getY(),local.getZ());
+            require(h.getBounds().contains(pos.getCenter()),"powered PA fixture position inside template bounds: "+pos+" bounds="+h.getBounds());
+        }
         List<Entity> owned=new ArrayList<>();
         var particles=new ArrayList<ParticleAcceleratorParticleEntity>();
         var joinTicks=new ArrayList<Long>();
@@ -584,6 +666,9 @@ public final class ParticleAcceleratorFiringGameTests {
         });
         BlockPos controlPos=at(h,offsetX,9,3,8), apc=at(h,offsetX,3,1,6);
         var assembly=PAAssemblyFixture.place(level,controlPos,Rotation.NONE);
+        for (var part : assembly.parts().entrySet())
+            require(h.getBounds().contains(part.getValue().getBlockPos().getCenter()),
+                    "powered PA part inside template bounds: "+part.getKey()+" at "+part.getValue().getBlockPos()+" bounds="+h.getBounds());
         var control=assembly.control();
         observedControl[0]=control;
         var power=assembly.parts().get("power");
@@ -608,12 +693,21 @@ public final class ParticleAcceleratorFiringGameTests {
         for(int x=4;x<=9;x++) cable(level,at(h,offsetX,x,3,7),Direction.SOUTH,CableTier.APC);
         cable(level,controlPos.north(),Direction.SOUTH,CableTier.APC);
         var ports=new CableFaceNode[]{node(at(h,offsetX,4,1,2),Direction.WEST,CableTier.HV),node(at(h,offsetX,4,1,4),Direction.WEST,CableTier.HV),node(at(h,offsetX,2,1,4),Direction.EAST,CableTier.MV),node(power.getBlockPos().north(),Direction.SOUTH,CableTier.MV),node(at(h,offsetX,4,1,6),Direction.WEST,CableTier.APC),node(controlPos.north(),Direction.SOUTH,CableTier.APC)};
+        assertCablePath(level,List.of(node(at(h,offsetX,4,1,2),Direction.WEST,CableTier.HV),
+                node(at(h,offsetX,4,1,3),Direction.WEST,CableTier.HV),
+                node(at(h,offsetX,4,1,4),Direction.WEST,CableTier.HV)),"HV source-to-substation");
         assertCablePath(level,List.of(node(at(h,offsetX,4,1,6),Direction.WEST,CableTier.APC),node(at(h,offsetX,4,2,6),Direction.WEST,CableTier.APC),node(at(h,offsetX,4,3,6),Direction.WEST,CableTier.APC),node(at(h,offsetX,4,3,7),Direction.WEST,CableTier.APC),node(at(h,offsetX,4,3,8),Direction.WEST,CableTier.APC),node(at(h,offsetX,3,3,7),Direction.SOUTH,CableTier.APC),node(at(h,offsetX,4,3,7),Direction.SOUTH,CableTier.APC),node(at(h,offsetX,5,3,7),Direction.SOUTH,CableTier.APC),node(at(h,offsetX,6,3,7),Direction.SOUTH,CableTier.APC),node(at(h,offsetX,7,3,7),Direction.SOUTH,CableTier.APC),node(at(h,offsetX,8,3,7),Direction.SOUTH,CableTier.APC),node(at(h,offsetX,9,3,7),Direction.SOUTH,CableTier.APC)),"APC");
         assertCablePath(level,List.of(node(at(h,offsetX,2,1,4),Direction.EAST,CableTier.MV),node(at(h,offsetX,2,2,4),Direction.EAST,CableTier.MV),node(at(h,offsetX,2,3,4),Direction.EAST,CableTier.MV),node(at(h,offsetX,2,3,5),Direction.EAST,CableTier.MV),node(at(h,offsetX,2,3,6),Direction.EAST,CableTier.MV),node(at(h,offsetX,2,3,7),Direction.EAST,CableTier.MV),node(at(h,offsetX,2,3,8),Direction.EAST,CableTier.MV),node(at(h,offsetX,2,3,9),Direction.EAST,CableTier.MV),node(at(h,offsetX,3,3,8),Direction.SOUTH,CableTier.MV),node(at(h,offsetX,4,3,8),Direction.SOUTH,CableTier.MV),node(at(h,offsetX,5,3,8),Direction.SOUTH,CableTier.MV),node(at(h,offsetX,6,3,8),Direction.SOUTH,CableTier.MV),node(at(h,offsetX,7,3,8),Direction.SOUTH,CableTier.MV),node(at(h,offsetX,8,3,8),Direction.SOUTH,CableTier.MV)),"MV");
         require(PowerTopology.deviceAdjacent(control.powerRuntimePorts().stream().filter(port->port.tier()==CableTier.APC).findFirst().orElse(null),node(controlPos.north(),Direction.SOUTH,CableTier.APC)),"APC terminal contacts controller port");
         require(PowerTopology.deviceAdjacent(power.powerRuntimePorts().stream().filter(port->port.tier()==CableTier.MV).findFirst().orElse(null),node(power.getBlockPos().north(),Direction.SOUTH,CableTier.MV)),"MV terminal contacts power box port");
+        var sourcePorts=com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind.HV_SOURCE.ports(source,Direction.EAST);
+        var subPorts=com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind.HV_MV_SUBSTATION.ports(sub,Direction.EAST);
+        require(PowerTopology.deviceAdjacent(sourcePorts.getFirst(),ports[0]),"HV source east-facing terminal contacts west-side HV cable");
+        require(PowerTopology.deviceAdjacent(subPorts.getFirst(),ports[1]),"substation east-facing HV terminal contacts west-side HV cable");
+        require(PowerTopology.deviceAdjacent(subPorts.getLast(),ports[2]),"substation west-facing MV terminal contacts east-side MV cable");
         expected.addAll(Set.of(assembly.parts().get("port").placementIdentity(),assembly.parts().get("fore").placementIdentity(),assembly.parts().get("starboard").placementIdentity()));
-        return new PoweredAssembly(control,power,assembly,apc,ports,particles,joinTicks,velocities,joinEpochs,expected,()->powerDiagnostics(level,control,power,apc,ports));
+        return new PoweredAssembly(control,power,assembly,apc,ports,particles,joinTicks,velocities,joinEpochs,expected,
+                () -> fixtureDiagnostics(level, control, power, apc, ports, lease));
     }
 
     private static void assertCablePath(ServerLevel level, List<CableFaceNode> path, String name) {
@@ -629,9 +723,18 @@ public final class ParticleAcceleratorFiringGameTests {
                                            ParticleAcceleratorPartBlockEntity power, BlockPos apcPos,
                                            CableFaceNode[] ports) {
         var apc = level.getBlockEntity(apcPos) instanceof PowerDeviceBlockEntity device ? device : null;
+        BlockPos sourcePos=ports[0].host().west();
+        BlockPos subPos=ports[1].host().west();
+        var source=level.getBlockEntity(sourcePos) instanceof PowerDeviceBlockEntity device?device:null;
+        var sub=level.getBlockEntity(subPos) instanceof PowerDeviceBlockEntity device?device:null;
         return "indexedDeviceCount="+PowerRuntime.indexedDeviceCount(level)
                 +", topologyReady="+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyReady(level)
                 +", ports="+Arrays.toString(ports)
+                +", source="+(source==null?"missing@"+sourcePos:source.getBlockState().getBlock()+"@"+sourcePos+"#be"+System.identityHashCode(source))
+                +", substation="+(sub==null?"missing@"+subPos:sub.getBlockState().getBlock()+"@"+subPos+"#be"+System.identityHashCode(sub))
+                +", supplyNodes="+Arrays.stream(ports).filter(n->n.tier()==CableTier.HV||n.tier()==CableTier.MV)
+                .map(n->n+"="+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.diagnostics(level,n).state())
+                .toList()
                 +", controlIdentity="+control.apcPowerIdentity()+", controlDemand="+control.apcPowerDemandWatts()
                 +", controlApcMeter="+PowerRuntime.apcPowerMeter(level,control)
                 +", powerPlacement="+power.placementIdentity()+", mvDemand="+power.mvPowerDemandWatts()
@@ -639,5 +742,34 @@ public final class ParticleAcceleratorFiringGameTests {
                 +", apc="+(apc==null?"missing":("breakerClosed="+apc.breakerClosed()
                 +", chargeJ="+apc.energyJoules()+", output="+PowerRuntime.apcOutputObservation(level,apc)))
                 +", solve="+PowerRuntime.lastSolveSummary(level);
+    }
+
+    private static String fixtureDiagnostics(ServerLevel level, ParticleAcceleratorPartBlockEntity control,
+                                              ParticleAcceleratorPartBlockEntity power, BlockPos apcPos,
+                                              CableFaceNode[] ports, FixtureChunkTickets.Lease lease) {
+        var diagnostics = Arrays.stream(ports).map(node -> {
+            var diagnostic = com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.diagnostics(level, node);
+            var missing = diagnostic.unloadedPotentialNeighborChunks().stream().map(chunk -> chunk + ":lease="
+                    + lease.covers(chunk) + "/world=" + level.hasChunkAt(new BlockPos(chunk.getMinBlockX(), 0, chunk.getMinBlockZ()))
+                    + "/tick=" + level.isPositionEntityTicking(new BlockPos(chunk.getMinBlockX(), 0, chunk.getMinBlockZ()))).toList();
+            String entry = node.tier() + "@" + node.host() + "=" + diagnostic.state().knowledge() + "#"
+                    + diagnostic.state().componentId() + " missing=" + missing;
+            return new AbstractMap.SimpleImmutableEntry<>(diagnostic.state().knowledge(), entry);
+        }).toList();
+        String allPorts = diagnostics.stream().map(Map.Entry::getValue).collect(java.util.stream.Collectors.joining("; "));
+        // This supplier is evaluated by PowerFixtureReadiness only on timeout. Keep verbose
+        // evidence out of the native assertion/book, while retaining all six port records in stdout.
+        String stdout = "PA_GRAPH_TIMEOUT ports=" + allPorts + " topology="
+                + com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.diagnosticSnapshot(level)
+                + " demand=" + power.mvPowerDemandWatts() + " mv=" + PowerRuntime.mvPowerMeter(level, power)
+                + " apc=" + PowerRuntime.apcPowerMeter(level, control);
+        System.out.println(stdout.length() <= 6000 ? stdout : stdout.substring(0, 5997) + "...");
+
+        String unknownPorts = diagnostics.stream().filter(entry -> entry.getKey()
+                        == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN)
+                .map(Map.Entry::getValue).collect(java.util.stream.Collectors.joining("; "));
+        String compact = "unknownPorts=" + unknownPorts + " topology="
+                + com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.diagnosticSnapshot(level);
+        return compact.length() <= 900 ? compact : compact.substring(0, 897) + "...";
     }
 }

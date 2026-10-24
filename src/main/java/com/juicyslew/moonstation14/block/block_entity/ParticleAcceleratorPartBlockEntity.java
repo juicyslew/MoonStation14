@@ -193,11 +193,16 @@ public final class ParticleAcceleratorPartBlockEntity extends BlockEntity implem
             var source=(ParticleAcceleratorPartBlockEntity)ParticleAcceleratorAssembly.loadedPartEntity(server,part.position());
             Direction forward=part.rotation().rotate(Direction.SOUTH);
             Vec3 direction=Vec3.atLowerCornerOf(forward.getNormal());
-            Vec3 origin=Vec3.atCenterOf(part.position()).add(direction.scale(.8)).add(0,.25,0);
+            Vec3 origin=emissionOrigin(part.position(),forward);
             var bolt=new com.juicyslew.moonstation14.entities.ParticleAcceleratorParticleEntity(server,profile.particleProfile(),profile.strength(strength),source.placementIdentity());
             bolt.setPos(origin); bolt.setDeltaMovement(direction.scale(profile.particleSpeed()/20.0)); spawns.add(bolt);
         }
         for(var bolt:spawns)server.addFreshEntity(bolt);
+    }
+    /** Shared launch transform for live waves and fixture beam-clearance planning. */
+    public static Vec3 emissionOrigin(BlockPos source, Direction forward) {
+        Vec3 direction=Vec3.atLowerCornerOf(forward.getNormal());
+        return Vec3.atCenterOf(source).add(direction.scale(.8)).add(0,.25,0);
     }
     private boolean placementIdentityMatches(ParticleAcceleratorAssembly.Part part){
         return role().equals(part.profile().role())&&orientation()==part.rotation()&&prototypeId().toString().equals(part.profile().completedPrototype());

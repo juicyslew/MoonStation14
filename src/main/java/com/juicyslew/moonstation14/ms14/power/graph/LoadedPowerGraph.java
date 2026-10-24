@@ -184,6 +184,32 @@ public final class LoadedPowerGraph {
                 ? new NodeState(Knowledge.UNKNOWN, id) : new NodeState(Knowledge.KNOWN, id);
     }
 
+    /** Bounded, rotating scan of one component's stored frontier. Each visited key
+     * counts against limit, including keys already known loaded. */
+    public List<net.minecraft.world.level.ChunkPos> missingFrontierBatch(CableFaceNode node, int limit) {
+        if (limit < 1) throw new IllegalArgumentException();
+        Integer id = dirty ? null : components.get(node);
+        ComponentInfo info = id == null ? null : componentInfo.get(id);
+        if (info == null || info.potentialNeighborChunks.isEmpty()) return List.of();
+        var keys = info.potentialNeighborChunks;
+        var result = new ArrayList<net.minecraft.world.level.ChunkPos>(limit);
+        int examined = 0;
+        var iterator = info.probeCursor == null ? keys.iterator()
+                : keys.tailSet(info.probeCursor, false).iterator();
+        if (!iterator.hasNext()) iterator = keys.iterator();
+        long last = info.probeCursor == null ? 0 : info.probeCursor;
+        while (examined < limit && iterator.hasNext()) {
+            long key = iterator.next();
+            if (info.probeCursor != null && key == info.probeCursor && examined > 0) break;
+            last = key;
+            examined++;
+            if (!loadedChunks.contains(key)) result.add(new net.minecraft.world.level.ChunkPos(key));
+        }
+        if (examined == keys.size()) info.probeCursor = null;
+        else info.probeCursor = last;
+        return List.copyOf(result);
+    }
+
     /** Reports stored component frontier data; does not infer neighbors or change graph state. */
     public NodeDiagnostics diagnostics(CableFaceNode node) {
         NodeState current = state(node);
@@ -267,7 +293,8 @@ public final class LoadedPowerGraph {
 
     private static final class ComponentInfo {
         final Set<Long> loadedChunks = new HashSet<>();
-        final Set<Long> potentialNeighborChunks = new HashSet<>();
+        final java.util.NavigableSet<Long> potentialNeighborChunks = new java.util.TreeSet<>();
+        Long probeCursor;
     }
 
 }

@@ -23,9 +23,12 @@ class GateProgressTests(unittest.TestCase):
         (self.root / 'candidates').mkdir(parents=True)
         try:
             from . import agent_status
+            from . import owner_attention
         except ImportError:
             import agent_status
+            import owner_attention
         self.agent_status = agent_status
+        self.owner_attention = owner_attention
         self.roster_patch = patch.object(agent_status, 'roster', side_effect=self.fixture_roster)
         self.roster_patch.start()
         self.addCleanup(self.roster_patch.stop)
@@ -59,20 +62,11 @@ class GateProgressTests(unittest.TestCase):
         syntax = subprocess.run([node, '--check', '--input-type=commonjs'], input=script,
                                 capture_output=True, text=True, encoding='utf-8', timeout=15)
         self.assertEqual(syntax.returncode, 0, syntax.stderr)
-        harness = r"""
-class FixtureElement {
-  constructor(tag){this.tag=tag;this.children=[];this.hidden=false;this.className='';this._text='';this.attributes={};}
-  append(...items){this.children.push(...items);}
-  replaceChildren(...items){this.children=[...items];}
-  set textContent(v){this._text=String(v);this.children=[];}
-  get textContent(){return this._text+this.children.map(x=>x.textContent||'').join('');}
-  get childNodes(){return this.children;}
-  setAttribute(k,v){this.attributes[k]=v;}
-}
-const elements=new Map();
-const document={createElement:t=>new FixtureElement(t),getElementById:id=>{if(!elements.has(id))elements.set(id,new FixtureElement('div'));return elements.get(id);}};
-Date.now=()=>NOW*1000;
-""".replace('NOW', str(now))
+        try:
+            from .test_gate_progress_dom_support import NODE_DOM_HARNESS, run_node
+        except ImportError:
+            from test_gate_progress_dom_support import NODE_DOM_HARNESS, run_node
+        harness = NODE_DOM_HARNESS.replace('__NOW__', str(now))
         inspect = r"""
 console.log(JSON.stringify({
  text:Object.fromEntries(['working-cards','waiting-cards','active-cards','ready-cards','health-banner'].map(id=>[id,document.getElementById(id).textContent])),
@@ -81,8 +75,7 @@ console.log(JSON.stringify({
  alertCount:['working','waiting','active','ready'].reduce((n,id)=>n+(function walk(e){return (e.attributes.role==='alert'?1:0)+e.childNodes.reduce((m,x)=>m+walk(x),0)})(document.getElementById(id+'-cards')),0)
 }));
 """
-        result = subprocess.run([node, '-e', harness + script + inspect], capture_output=True,
-                                text=True, encoding='utf-8', timeout=15)
+        result = run_node(node, harness + script + inspect, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout.strip().splitlines()[-1])
 
@@ -108,11 +101,29 @@ console.log(JSON.stringify({
     def test_stage_clock_stable_for_same_phase(self):
         c = self.candidate('clock')
         first = gp.update(self.root, c, 'running', argv=['python', 'test'], log='check.log', runner_pid=42, child_pid=43)
-        with patch('tooling.agent_workflow.gate_progress.time.time', return_value=first['updated_at'] + 20):
+        with patch.object(gp.time, 'time', return_value=first['updated_at'] + 20):
             second = gp.update(self.root, c, 'running')
-        self.assertEqual(first['stage_started_at'], second['stage_started_at'])
-        for key in ('argv', 'log', 'runner_pid', 'child_pid'):
-            self.assertEqual(first[key], second[key])
+            self.assertEqual(first['stage_started_at'], second['stage_started_at'])
+            for key in ('argv', 'log', 'runner_pid', 'child_pid'):
+                self.assertEqual(first[key], second[key])
+
+    def test_execution_board_requires_bound_live_claim_and_terminal_phase_keeps_evidence(self):
+        try:
+            from . import gate_execution
+        except ImportError:
+            import gate_execution
+        c=self.candidate('worker')
+        gate_execution._write(gate_execution._path(self.root,'worker'),{'job_id':'worker','candidate_id':'worker',
+            'snapshot_key':c['snapshot_key'],'state':'running','claim':'a'*64,'attempt':1,'worker_pid':4321})
+        with patch.object(gp,'_pid_alive',return_value=True):
+            self.assertTrue(gp._execution_worker_alive(self.root,c))
+        with patch.object(gp,'_pid_alive',return_value=False):
+            self.assertFalse(gp._execution_worker_alive(self.root,c))
+        old=self.progress('worker',c,phase='running',check_index=2,total=3,runner_pid=98,child_pid=99,argv=['python'],log='check.log')
+        gp.update(self.root,c,'interrupted',detail='worker dead')
+        saved=json.loads((self.root/'progress'/'worker.json').read_text(encoding='utf-8'))
+        self.assertEqual(saved['phase'],'interrupted')
+        self.assertEqual((saved['check_index'],saved['runner_pid'],saved['child_pid']),(2,98,99))
 
     def test_admitted_and_review_liveness_contract(self):
         admitted = self.candidate('admitted', gate_request={'session_id': 'lead-a'})
@@ -233,10 +244,14 @@ console.log(JSON.stringify({
                                  'worktree': {'worktree': 'tree-z'}, 'reason': 'owner accepted'}]}
         (self.root / 'owner-feedback-observer.json').write_text(json.dumps({
             'status': 'unavailable', 'updated_at': now - 600, 'errors': ['observer unavailable', 'retry deferred']}), encoding='utf-8')
-        with patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
-             patch('tooling.agent_workflow.gate_progress._pid_alive', side_effect=lambda pid: pid in {7001, 7004}), \
-             patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
+        with patch.object(gp.time, 'time', return_value=now), \
+             patch.object(gp, '_pid_alive', side_effect=lambda pid: pid in {7001, 7004}), \
+             patch.object(self.owner_attention, 'collect', return_value=groups):
             self.write_activity_snapshot(now)
+            snapshot = json.loads((self.root / self.agent_status.SNAPSHOT).read_text(encoding='utf-8'))
+            for agent in snapshot['agents']:
+                agent['activity'] = 'working'
+            (self.root / self.agent_status.SNAPSHOT).write_text(json.dumps(snapshot), encoding='utf-8')
             page = gp.render(self.root).read_text(encoding='utf-8')
         headings = ['Working', 'Waiting on Validation', 'Active Validation', 'Ready for Manual testing']
         positions = [page.index('>'+heading+' <') for heading in headings]
@@ -244,6 +259,7 @@ console.log(JSON.stringify({
         self.assertIn('grid-template-columns:repeat(4,minmax(0,1fr))', page)
         self.assertIn('@media(max-width:1150px){.columns{grid-template-columns:repeat(2,minmax(0,1fr))}', page)
         self.assertIn('@media(max-width:650px){.columns{grid-template-columns:1fr}', page)
+        self.assertIn('Owner response and technical validation are separate. This dashboard is read-only.', page)
         dom = self.dom(page, now)
         self.assertIn('live-check', dom['text']['active-cards'])
         self.assertIn('Check 2/3', dom['text']['active-cards'])
@@ -287,7 +303,7 @@ console.log(JSON.stringify({
              'activity': 'unknown', 'summary': 'Activity unknown'},
         ])
         projection = {'agents': agents, 'checked_at': now, 'errors': ['Agent 06 activity API unavailable']}
-        with patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
+        with patch.object(gp.time, 'time', return_value=now), \
              patch.object(self.agent_status, 'project', return_value=projection):
             page = gp.render(self.root).read_text(encoding='utf-8')
         dom = self.dom(page, now)
@@ -306,7 +322,7 @@ console.log(JSON.stringify({
                   'core': True, 'column': 'active_validation', 'activity': 'idle',
                   'summary': 'Review current candidate', 'candidate_id': 'candidate-review',
                   'validation_stage': 'review', 'additional_work': []}
-        with patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
+        with patch.object(gp.time, 'time', return_value=now), \
              patch.object(gp, '_project_agents', return_value={
                  'agents': [review], 'checked_at': now, 'errors': []}):
             page = gp.render(self.root).read_text(encoding='utf-8')
@@ -347,11 +363,11 @@ console.log(JSON.stringify({
                            'gate_outcome': {}, 'submitted_at': now}}
                  for row in rows]
         with patch.object(agent_status, 'roster', return_value=slots), \
-             patch('tooling.agent_workflow.owner_attention.current_work', return_value=heads), \
-             patch('tooling.agent_workflow.gate_progress._pid_alive', side_effect=lambda pid: pid == 333), \
-             patch('tooling.agent_workflow.gate_progress.time.time', return_value=now), \
-             patch('tooling.agent_workflow.gate_progress._rows', return_value=rows), \
-             patch('tooling.agent_workflow.owner_attention.collect', return_value=attention):
+             patch.object(self.owner_attention, 'current_work', return_value=heads), \
+             patch.object(gp, '_pid_alive', side_effect=lambda pid: pid == 333), \
+             patch.object(gp.time, 'time', return_value=now), \
+             patch.object(gp, '_rows', return_value=rows), \
+             patch.object(self.owner_attention, 'collect', return_value=attention):
             projection = agent_status._project(self.root, rows, attention, now, snapshot)
             (self.root / agent_status.SNAPSHOT).write_text(json.dumps(snapshot), encoding='utf-8')
             page = gp.render(self.root).read_text(encoding='utf-8')
@@ -478,7 +494,7 @@ console.log(JSON.stringify({
         groups = {'awaiting_owner': items, 'agent_work': [{'id': 'triage', 'reason': 'owner responded; agent triage required'}],
                   'unconfirmed': [{'id': 'legacy', 'reason': 'legacy request'}], 'completed': [{'id': 'accepted'}]}
         (self.root / 'owner-feedback-observer.json').write_text(json.dumps({'status': 'watching', 'updated_at': 9999999999, 'errors': []}), encoding='utf-8')
-        with patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
+        with patch.object(self.owner_attention, 'collect', return_value=groups):
             page = gp.render(self.root).read_text(encoding='utf-8')
         self.assertIn('No agents in this state.', page)
         self.assertIn('Ready for Manual testing', page)
@@ -494,7 +510,7 @@ console.log(JSON.stringify({
     def test_unconfirmed_prevents_verified_empty_queue(self):
         (self.root / 'owner-feedback-observer.json').write_text(json.dumps({'status': 'idle', 'updated_at': 9999999999, 'errors': []}), encoding='utf-8')
         groups = {'awaiting_owner': [], 'agent_work': [], 'unconfirmed': [{'id': 'old', 'reason': 'head unknown'}], 'completed': []}
-        with patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
+        with patch.object(self.owner_attention, 'collect', return_value=groups):
             page = gp.render(self.root).read_text(encoding='utf-8')
         self.assertIn('id="health-banner"', page)
         self.assertIn('Agent status unknown; do not infer an empty queue.', page)
@@ -515,7 +531,7 @@ console.log(JSON.stringify({
         groups = owner_attention.collect(self.root, workflow=Workflow)
         self.assertTrue(any(isinstance(item.get('worktree'), str) and 'legacy' in item['worktree'].casefold() for item in groups['unconfirmed']))
         self.assertEqual(groups['awaiting_owner'][0]['report_path'], str(self.root / 'reports' / 'review.html'))
-        with patch('tooling.agent_workflow.owner_attention.collect', return_value=groups):
+        with patch.object(self.owner_attention, 'collect', return_value=groups):
             page = gp.render(self.root).read_text(encoding='utf-8')
         data = json.loads(re.search(r'const data=(.*?);\nfunction elem', page, re.S).group(1))
         active_path = self.agent_status._worktree('C:/agents/active')

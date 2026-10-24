@@ -1,57 +1,75 @@
 # STATUS
 
-Initial transport implemented 2026-10-12; automatic coding-gate extension and shared-runtime distribution added 2026-10-13. Shared publication and all five bindings are verified; live gate/notification verification remains pending. `MoonStation14-agent-05` / `agent/05` is the central integration/readiness workspace, created from `16bc66a`. Changes remain uncommitted; no gameplay/art assets or feature branches were merged. Start with [README.md](README.md).
+Installed state is determined by `build/agent-workflow/agent-status-board/publication.json`, not this document. Workflow tooling changes do not imply gameplay readiness, commits or merges. Start with [README.md](README.md); current finality repair evidence is in `build/agent-workflow/r31-pending-verdict-incident/`.
 
 # ARCHITECTURE
 
-Main-repository `tooling/agent_workflow/` remains the development source. One runtime is published to sibling `MoonStation14-shared`, containing the CLI modules, workflow guides and role contracts. Worktrees retain only cwd-preserving CLI shims, workspace-specific permission/role headers and documentation pointers. They do not receive independent runtime copies. Git's common directory still resolves the shared operational queue at sibling `Asset Building Workspace/work/agent_exchange`; this is not a competing asset registry.
+MAIN `tooling/agent_workflow/` is the development source. The receipt-based publisher installs one runtime in sibling `MoonStation14-shared`; worktrees retain cwd-preserving shims and scoped configuration. Publication maps `workflow_runtime.py` to shared `workflow.py`, and `README.runtime.md` to shared `README.md`. The existing exchange remains sibling `Asset Building Workspace/work/agent_exchange`. Do not create another queue, validator, backend, or scheduler.
 
-Model transport: request/context snapshot → exclusive claim → exact complete-manifest delivery → independent fidelity report → explicit owner acceptance → inspected destination plan → optional import. Automatic dispatch currently applies to Git coding candidates, not standalone asset deliveries.
+The local stdio MCP server is transport-only, using official `mcp==1.26.0` in shared `.venv-workflow-mcp`. Author profiles expose submit/status; central 05 exposes status/validate/review/finish. Neutral 05 is not a Git worktree: resolve its exchange through the existing explicit sibling asset-workspace route, not Git discovery. Submit freezes the author-owned plan and requests integration. The observer automatically admits eligible current, fresh, program-admitted requests through the existing execution owner; AI does not decide whether checks start. Validate remains idempotent for the same job. Review/finish reuse existing scoped-review and finalization owners. Status is recorded metadata, not freshness or approval. Normal agents use MCP; CLI is administrative/debug only.
 
-Code flow: primary author submits an immutable candidate with a structured fixture/check plan → automatically calls `gate-request` → existing OpenCode service creates/reuses an integration-lead session rooted in 05 → independent inspection and serialized validation → `needs_changes` returned to the author, or a fresh manual-testing entry and Windows notification → explicit owner disposition. The author fixes rejected work and submits a new revision before advancing. Passing the technical gate never accepts a sprint or merges code.
+Startup fixes worktree/profile. Check claimed session IDs against authenticated OpenCode and durable candidate/lead binding. Tools expose no runtime/deadline/retry/cleanup controls. Preserve other MCP servers, models and permissions; this is cooperative tooling, not a hostile-client sandbox.
 
-`gate_dispatch.py` uses the authenticated `opencode api` CLI against the existing v2 service. Default requests omit `--server` so the CLI reuses its background-service credentials; bare URL requests to this installation require separate authentication. No credentials are read or logged by the workflow. No backend or watcher is started. Reviewer sessions are rooted in the candidate's worktree, avoiding broad peer access for helpers. An idle session without a persisted verdict is blocked, not approved.
+OpenCode 2.0.18 requires **`mcp.servers.ms14_workflow`**, not flat `mcp.ms14_workflow`. Validate `Config.InfoEncoded.mcp` and actual discovery. Lead mode `all` is primary-capable; subagent-only roles are not.
 
-`gate-validate` owns the shared-machine slot using an OS mutex keyed by the shared exchange. Typed evidence reuses current Gradle/JUnit/readiness/GameTest producers; exit zero alone is insufficient for those checks. Startup smoke checks stop their owned process tree after the declared marker. An unverified stop quarantines further validation until the integration lead explicitly confirms clearance. Logs, reports, artifacts and original/copied visual evidence remain hash-bound to the candidate.
+One `workflow_observer.py` handles dispatch, finite-worker launch, collection and delivery. Public tools persist intent and return promptly. The worker owns the shared OS mutex and verifies source/plan freshness before checks. Ordinary ceilings remain 3,600 seconds; launch smoke is 120. Let GameTest batches finish before skipping later checks. Typed producer evidence, not exit zero alone, determines results. Both final readiness verdicts require a matching completed execution job, verified receipt and collected requested scoped reports. `readiness_finalization_guard` runs before report/outcome writes and in direct finish. Pending finish returns `validation_pending`, never `needs_changes`; wait for the observer without polling/resubmitting. Failed checks with passing scoped code reviews may legitimately yield rejection, never readiness. Post-finalization registration/delivery runs outside metadata locks and retries through existing idempotent owners.
+
+Candidate/plan/lead-bound claims and locks prevent duplicate execution. PID plus OS creation/exit identity distinguishes alive/dead/unknown. Failed spawns terminalize; unknown startup gets 30 seconds, then interrupts/quarantines. Use existing owned-tree cleanup. Root-PID absence or agent confirmation cannot clear unknown descendants without program-owned proof.
+
+Resume the same lead for readiness review, including failed-check rejection; diagnostics never imply readiness. Do not starve scoped collection. Transport retries reuse IDs/bodies; ACK is not execution/consumption. Board `column` is workflow responsibility, separate from raw `activity`: bound admitted waits need no PID, obsolete terminal progress cannot renew admission, and real bound outstanding jobs retain precedence over an old verdict. Completed jobs do not wait; active checks need execution proof. Evidence: `build/agent-workflow/validation-wait-status-fix/`.
+
+Scoped continuations have separate saved delivery/observation state per reviewer/report hash; one review's ACK cannot satisfy another. Only the freshly reread matching scoped record is cleared through the existing dynamic-write owner. Author/model idle while waiting is normal; completion callbacks, not periodic model wakes, continue work.
 
 # IMPORTANT FILES
 
-- [CLI.md](CLI.md): supported schemas, commands and runnable examples.
-- [coordinator.md](coordinator.md), `.opencode/agents/integration-lead.md`: fifth-agent role and authority.
-- [source-fidelity.md](source-fidelity.md), [request-template.json](request-template.json), [review-report.md](review-report.md): early design checkpoint, original-first comparison and evidence requirements.
-- `.opencode/agents/fidelity-reviewer.md`: independently invoked visual reviewer; also available in the asset workspace.
-- `tooling/agent_workflow/{workflow,gate_dispatch,validation_evidence}.py`: shared lifecycle, existing-service dispatch, and producer evidence interpretation.
-- `tooling/agent_workflow/test_*.py`: focused isolated lifecycle, process, evidence and mocked API fixtures.
-- `tooling/agent_workflow/publish_workflow.ps1`, `workflow_entry.py`: dry-run-first shared publication and one-time local bindings; receipt-verified retirement of owned duplicate files, with backups. Future publications update only the shared payload.
-- `docs/development-workflow/roles/`: shared role contracts; local agent files hold permissions/model settings and a pointer.
-- Asset workspace `MODEL_HANDOFF.md`, `asset_locations.json`, package manifests and validators remain authoritative for retrieval and accepted/pending status.
+- `workflow_mcp.py`, `requirements-workflow-mcp.txt`, `install_workflow_mcp.ps1`: bounded adapter, pinned SDK, isolated dependency setup.
+- `workflow_runtime.py`: candidate lifecycle, shared `resolve_gate_plan`, typed receipts, reports/finalization.
+- `gate_execution.py`, `gate_dispatch.py`, `gate_liveness.py`, `workflow_observer.py`: execution ownership and existing-service dispatch/supervision.
+- `gate_progress.py`, `agent_status.py`, `owner_attention.py`, `owner_feedback.py`: board, owner responsibility, observed continuation.
+- `publish_workflow.ps1`: staged/hash/receipt publication; `-WorkflowMcpOnly` selectively manages MCP configuration without full rebinding. Preserve merged ownership receipts and backups.
+- [CLI.md](CLI.md), `roles/`, `.opencode/agents/`: schemas, administrative commands, and scoped role contracts.
+- Asset transport remains separate: `source-fidelity.md`, request/review templates, and the asset workspace's package/manifest/provenance registry remain authoritative.
 
 # SS14 CORRESPONDENCE
 
-No gameplay parity implementation was changed. Art review protects source-specific silhouettes, proportions, palette, anatomy, states and characteristic motion; source-authentic behavior, 3D adaptations and unsupported inference must be distinguished. Existing prototype/readiness obligations still apply to gameplay work.
+No gameplay parity implementation changed. Existing SS14 prototype ancestry/defaults/runtime consumers, shared-owner reuse, prediction/readiness, asset fidelity/provenance, and owner acceptance requirements remain in force. MCP does not replace independent judgment or gameplay tests.
 
 # DECISIONS / WHY
 
-Authors invoke the gate automatically at submission; the owner need not ask it to review the queue. The lead remains bounded, not an unattended daemon. Only it runs expensive server/client, GameTest, full build/JVM and readiness checks, through the shared runner. Authors retain cheap focused checks and correction ownership. Already-running sessions must adopt the updated instructions at their next task boundary; configuration reload is not proof of in-flight prompt refresh.
+Authors edit plans before submission. Tools freeze resolved contents and maintain execution/health/results, not the author file. A changed submitted plan requires a fresh plan/candidate revision. The lead inspects/rejects rather than editing author work. Process/prose-only changes do not enter the mod coding gate.
 
-Workers stay within their assigned trees plus read/use access to the neutral shared runtime; author profiles may read 05 for handoff, while the 05 lead may inspect the four submitted worker trees. Scoped reviewers use their candidate tree. The consultant's publication access is not a worker grant. Role defaults remain coordinator `openai/gpt-6.1-sol`, medium, orange `#FF8C42`; fidelity reviewer `openai/gpt-6-luna`, high, lime `#A3E635`. Global models/default-agent settings are unchanged. Shell restrictions and actor labels are cooperative policy, not filesystem security sandboxes.
+Keep MCP catalogs and responses compact (4 KiB maximum reply), submit/request combined, and completion event-driven. Do not model-poll progress, wake idle agents periodically, or create speculative reviewers. Preserve immutable saved prompt bodies and reuse existing sessions/receipts.
 
-Reuse existing saved packages, manifests and validators; never regenerate to retrieve or select by timestamps. Import requires exact delivery/receipt hashes and a fresh destination plan. Predictable directory/parent conflicts fail before writes. Ordinary copy failures leave an explicit partial-failure record; rollback is not promised.
+Publication merges exact owned entries/rules only; preserve custom models, servers and role prose. Unknown conflicts refuse. Verify planned hashes before writing. Completion retries reuse saved bodies, including after formatter upgrades.
+
+Merge receipt rows by exact target/path across publication modes, including MAIN ownership. Missing managed rows can be reconciled without rewriting unchanged config.
 
 # KNOWN GAPS
 
-Transport supports complete flat `files[{file,destination}]` manifests and byte copies only. Nested wearable manifests, unresolved geometry destinations and transformations such as MTL remapping are explicitly blocked. Hashes and PNG header checks establish evidence identity, not visual truth or owner identity. No Minecraft runtime or gameplay validation was needed or performed.
+Submit timeout: Windows MCP Git hangs caused surviving timed-out submissions. Preserve quiet, stdin-isolated 20-second Git bounds, owned-tree cleanup, the 240-second submit budget, bounded capture/mutex waits and pre-write deadline checks. Never invent alternate candidate IDs after timeout. Exact Windows causality remains unproven. Evidence: `build/agent-workflow/submit-timeout-repair/`.
 
-The earlier five-copy deployment has been retired. Publication receipt/backups are under approved temp `workflow-publish-78e222785a964fcb9552a63b77306cb2`; subsequent publications produce their own receipts. The one-time binding change invalidates older whole-worktree candidate snapshots: authors must resubmit them, not bypass freshness checks. The standalone modeling workspace is not a Git coding requester; its transport/fidelity/owner gates remain separate. OS delivery cannot prove the owner saw a notification. Minecraft execution is not established by mocked dispatcher or Python process tests.
+Lead outage: disconnecting MCP while the observer dispatched stranded 01 R30/02 R29. Their original leads were recovered; reconnection/ACK alone was insufficient. Worktree-bound MCP guards defer lead work without spending attempts; native/quarantine/block priority stays authoritative. Keep MCP connected during ordinary observer reloads. Diagnostic outcome/delivery does not require lead tools. Evidence: `build/agent-workflow/lead-activation-incident/`.
+
+R31 premature `needs_changes/NOT_RUN` suppressed continuation after checks finished. Guards now prohibit that transition. `gate_liveness.recover_premature_outcome` is explicit, hash/session/snapshot/freshness-bound repair, not migration: archive old report/candidate/health, retire its completion observation, preserve job/receipt/scopes/lead, and resume matching partial writes idempotently. Never rerun checks to recover delivery. Consult the current incident `WORK_STATE.md` for actual activation/recovery. Separate dashboard cache expiry remains outside this repair.
+
+Git HEAD predates important uncommitted workflow changes. Never recover these files from HEAD; compare the current source and published receipt first. A mistaken source restoration was caught before MCP publication; the accepted repair stayed installed. Shared evidence folders must not be recursively cleaned.
+
+Legacy 03 R25 lacks a receipt/aggregate. Preserve its used fixture/log and interrupted state; root absence did not prove descendant cleanup. Its author answered the prior notice. Do not rerun it.
+
+OS notification visibility/click-through is manually unverified. Fixtures do not establish Minecraft correctness, owner acceptance or universal crash recovery. Session counters do not establish measured token savings.
+
+`roslyn_ss14` remains failed/untouched; launch no replacement backend. Configuration affects whole-worktree snapshots: serialize migrations, preserve historical receipts and never force native reruns for tooling adoption.
 
 # VALIDATION
 
-Initial transport: 15 focused tests and independent code/documentation reviews passed; real 3,348-file compact-airlock planning was read-only. Nested wearable input was refused.
+Earlier execution/MCP evidence includes 322 Python tests, eight real-process cases, SDK stdio/layout/idempotency checks, 6/6 actual connections and 11/11 permissions. See `build/agent-workflow/durable-validation-execution/` and `MCP_ACCEPTANCE.md`; transport fixtures do not prove native gameplay.
 
-Gate extension: 45 focused Python tests passed (24 lifecycle/process, 10 producer evidence, 11 dispatcher). Independent core, dispatcher and corrected publisher reviews passed. Publisher fixtures include full fake-worktree dry-run, receipt ownership, scoped permissions and shim caller context. Actual shared publication/binding succeeded; repeated binding dry-run reported zero changes, and all five shim help commands passed. Read-only authenticated API checks resolved OpenCode 2.0.18 and the central role, correct model/color, shared contract pointer and four peer grants. The first live request (`workflow-setup-r1`) was blocked by direct-HTTP authentication before creating any session; it is not an approval. Authentication now reuses the CLI. A complete live callback and actual OS notification remain unverified.
+Dependency guard and waiting-column follow-up: independent final review passed 246 affected Python tests, including all eight real-process cases; `git diff --check` passed. Service probes in fixtures use actual worktree-bound MCP response shapes. These checks do not establish Minecraft behavior or universal outage recovery.
 
-Independent configuration review passed: OpenCode discovered the repository-local profiles and parsed their delegation, report-edit, external-directory, and read-only research-tool permissions. This checks loaded configuration, not malicious-command containment.
+An actual author03 `ms14_workflow_status` call completed through OpenCode after the saved release notice. It correctly returned historical R26 completion with unchecked/stale current-source freshness; no candidate or native check was created. Execution evidence is separate from the API ACK record.
+
+R26 diagnostic hit its deadline, retained filtered 2/893 evidence (2 passed; failed count unavailable), recorded FAIL/124, cleaned its tree and delivered the receipt. This proves execution/delivery, not readiness; no fixture was rerun for setup.
 
 # NEXT WORK
 
-Submit a fresh candidate through the published CLI for a bounded central-gate roundtrip and notification. Preserve per-tree prototype/readiness instructions and existing owner work. Use exact candidate/build/fixture identities for owner testing. Standalone asset automation and additional manifest shapes remain separate work; coding-gate readiness is not asset acceptance/import authorization.
+Use MCP and observer-delivered results; never submit merely to test setup. Preserve existing author/session/message identities. Investigate token savings only with comparable evidence. Resolve dashboard cache expiry separately; do not replace workflow fixes with label latches.

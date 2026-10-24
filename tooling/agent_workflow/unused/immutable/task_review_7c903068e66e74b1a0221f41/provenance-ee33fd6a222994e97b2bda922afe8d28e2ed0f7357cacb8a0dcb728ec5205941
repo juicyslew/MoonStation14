@@ -1,0 +1,1 @@
+{"body_sha256":"a4334872c6f249a0b3ec2b9fdca0b5d31e0bced7c251f3aa81696e4d8b721a82","created":1792199637674,"message":"still unavailable","message_id":"auth-second","mode":"HISTORY_CONSUMED","original_message_id":"msg_137a89eaccb15e9ca6ebbdf7b7062c5ede55fa1e","ownership_basis":"exclusive_session_exact_queued_prompt_no_foreign_postdispatch_user","status":401,"type":"provider.auth"}

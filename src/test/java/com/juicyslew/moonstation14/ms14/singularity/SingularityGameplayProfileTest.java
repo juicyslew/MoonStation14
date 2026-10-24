@@ -32,6 +32,28 @@ class SingularityGameplayProfileTest {
         assertFalse(SingularityHorizonGeometry.touches(center, -.1, boundary));
     }
 
+    @Test void minecraftPlayerLethalCoreIsSmallerWithoutChangingGeneralHorizonGeometry() {
+        var profile = profileWithHorizon(1);
+        assertEquals(.35, profile.eventHorizon().playerLethalRadiusScale());
+        assertEquals(.35, profile.eventHorizon().playerLethalRadiusMax());
+        assertEquals(.35, profile.playerLethalRadiusAtLevel(4), 1e-9);
+        var body = new net.minecraft.world.phys.AABB(2, 0, 0, 2.5, 1, 1);
+        var center = net.minecraft.world.phys.Vec3.ZERO;
+        assertTrue(SingularityHorizonGeometry.touches(center, profile.eventHorizonRadiusAtLevel(4), body));
+        assertFalse(SingularityHorizonGeometry.touches(center, profile.playerLethalRadiusAtLevel(4), body));
+        assertEquals(3.5, profile.eventHorizonRadiusAtLevel(4), 1e-12, "NPC and terrain horizon remain on the upstream-derived radius");
+        assertFalse(SingularityHorizonGeometry.touches(center, profile.playerLethalRadiusAtLevel(4),
+                new net.minecraft.world.phys.AABB(.9, 0, 0, 1.4, 1, 1)), "body survives outside the capped player core");
+        assertTrue(SingularityHorizonGeometry.touches(center, profile.playerLethalRadiusAtLevel(4),
+                new net.minecraft.world.phys.AABB(.2, 0, 0, .7, 1, 1)), "body contact inside capped core is lethal");
+        var invalid = new SingularityGameplayProfile.EventHorizon(true, true, .5, 1, 1, .01, 0);
+        var base = profileWithHorizon(1);
+        var invalidProfile = new SingularityGameplayProfile(base.initialEnergy(), base.initialLevel(), base.radsPerLevel(), base.energyLoss(),
+                base.gravityAcceleration(), base.gravityRange(), base.minSpeed(), base.maxSpeed(), base.levelThresholds(), base.drainPerSecond(),
+                base.radiation(), base.sounds(), invalid, base.randomWalk());
+        assertThrows(IllegalArgumentException.class, invalidProfile::validate);
+    }
+
     @Test void resolvedCatalogDrivesEnergyAndLevelTransitions() throws Exception {
         var manager = new PrototypeManager(); manager.register(ModSingularityGameplay.TYPE);
         var raw = new LinkedHashMap<ResourceLocation, JsonObject>();
@@ -53,6 +75,12 @@ class SingularityGameplayProfileTest {
         assertEquals(2, profile.radiation().intensity());
         assertEquals(.2, profile.radiation().slope());
         assertTrue(profile.eventHorizon().consumeEntities());
+        assertTrue(profile.eventHorizon().consumeTiles());
+        assertEquals(.5, profile.eventHorizon().consumePeriodSeconds());
+        assertEquals(1, profile.eventHorizon().terrainEnergy());
+        assertEquals(.01, profile.eventHorizon().lowYieldTerrainEnergy());
+        assertEquals(.7, profile.randomWalk().verticalScale());
+        assertEquals(200, profile.randomWalk().initialEscapeTicks());
         assertEquals(1, profile.eventHorizon().entityEnergy());
         double[] boundaries = {200, 500, 1000, 2000, 5000};
         for (int i = 0; i < boundaries.length; i++) {
@@ -81,6 +109,12 @@ class SingularityGameplayProfileTest {
         assertTrue(horizonCodec.parse(com.mojang.serialization.JsonOps.INSTANCE,
                 new com.google.gson.JsonPrimitive("bad")).error().isPresent());
         assertThrows(IllegalArgumentException.class, () -> profileWithHorizon(-1).validate());
+        var base = profileWithHorizon(1);
+        var invalidPeriod = new SingularityGameplayProfile.EventHorizon(true, true, Double.MAX_VALUE, 1, 1, .01);
+        var p = new SingularityGameplayProfile(base.initialEnergy(), base.initialLevel(), base.radsPerLevel(), base.energyLoss(),
+                base.gravityAcceleration(), base.gravityRange(), base.minSpeed(), base.maxSpeed(), base.levelThresholds(),
+                base.drainPerSecond(), base.radiation(), base.sounds(), invalidPeriod, base.randomWalk());
+        assertThrows(IllegalArgumentException.class, p::validate);
     }
 
     @Test void resolvedPrototypeUsesNestedHorizonDefaultsWhenCompositionOmitsIt() throws Exception {
@@ -96,8 +130,52 @@ class SingularityGameplayProfileTest {
             assertEquals(SingularityGameplayProfile.EventHorizon.DEFAULT,
                     manager.snapshot(ModSingularityGameplay.TYPE).get(id).eventHorizon());
             var resolved = manager.snapshot(ModSingularityGameplay.TYPE).get(id);
+            assertEquals(SingularityGameplayProfile.RandomWalk.DEFAULT, resolved.randomWalk());
             assertEquals(2.5, resolved.eventHorizonRadiusAtLevel(3));
         }
+    }
+
+    @Test void horizonWaveAndWalkCompositionResolveIndependently() {
+        var horizon = SingularityGameplayProfile.EventHorizon.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                new JsonObject()).getOrThrow();
+        assertTrue(horizon.consumeTiles());
+        assertEquals(.5, horizon.consumePeriodSeconds());
+        var noEntities = new JsonObject(); noEntities.addProperty("consumeEntities", false);
+        var decoded = SingularityGameplayProfile.EventHorizon.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, noEntities).getOrThrow();
+        assertFalse(decoded.consumeEntities());
+        assertTrue(decoded.consumeTiles(), "disabling entity contact must not disable terrain waves");
+        var walk = SingularityGameplayProfile.RandomWalk.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                new JsonObject()).getOrThrow();
+        assertEquals(SingularityGameplayProfile.RandomWalk.DEFAULT, walk);
+    }
+
+    @Test void gravityStrengthAdaptationDefaultsOverridesAndRejectsInvalidValues() {
+        try (var stream = SingularityGameplayProfileTest.class.getResourceAsStream(
+                "/data/moonstation14/singularity_gameplay/singularity.json")) {
+            var authored = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+            var profile = SingularityGameplayProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, authored).getOrThrow();
+            assertEquals(15, profile.gravityStrengthMultiplier());
+            assertEquals(3, profile.gravityRangeMultiplier());
+            assertEquals(2, profile.gravityRampFullStrengthRadiusScale());
+            assertEquals(.35, profile.eventHorizon().playerLethalRadiusMax());
+            authored.remove("gravityStrengthMultiplier");
+            assertEquals(15, SingularityGameplayProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, authored)
+                    .getOrThrow().gravityStrengthMultiplier(), "prototype omission inherits the adaptation default");
+            authored.addProperty("gravityStrengthMultiplier", 20);
+            assertEquals(20, SingularityGameplayProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, authored)
+                    .getOrThrow().gravityStrengthMultiplier());
+            authored.addProperty("gravityStrengthMultiplier", Double.POSITIVE_INFINITY);
+            var invalid = SingularityGameplayProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, authored).getOrThrow();
+            assertThrows(IllegalArgumentException.class, invalid::validate);
+            authored.addProperty("gravityStrengthMultiplier", 15);
+            authored.getAsJsonObject("gravityRamp").addProperty("rangeMultiplier", 0);
+            var invalidRange = SingularityGameplayProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, authored).getOrThrow();
+            assertThrows(IllegalArgumentException.class, invalidRange::validate);
+            authored.getAsJsonObject("gravityRamp").addProperty("rangeMultiplier", 3);
+            authored.getAsJsonObject("eventHorizon").addProperty("playerLethalRadiusMax", Double.NaN);
+            var invalidCore = SingularityGameplayProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, authored).getOrThrow();
+            assertThrows(IllegalArgumentException.class, invalidCore::validate);
+        } catch (Exception failure) { throw new AssertionError(failure); }
     }
 
     private static SingularityGameplayProfile profileWithHorizon(double energy) {

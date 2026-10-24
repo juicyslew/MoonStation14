@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonstation14.local/workflow/preflight.schema.json",
+  "$defs": {
+    "hash": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "binding": {"type":"object","additionalProperties":false,"required":["session_id","worktree","role"],"properties":{"session_id":{"type":"string","minLength":1},"worktree":{"type":"string","minLength":1},"role":{"const":"author"}}},
+    "override": {"type":"object","additionalProperties":false,"required":["worktree","path","sha256","authority_ref"],"properties":{"worktree":{"type":"string","minLength":1},"path":{"const":"opencode.jsonc"},"sha256":{"$ref":"#/$defs/hash"},"authority_ref":{"type":"string","minLength":1}}},
+    "policy": {
+      "type":"object","additionalProperties":false,
+      "required":["contract_version","sprint_id","source_worktree","author","criteria","coverage","selector_requirements","fixture","package_artifacts","owner_exceptions","review_roles","review_summaries","review_envelope_limit_bytes","config_overrides"],
+      "properties": {
+        "contract_version":{"const":1},"sprint_id":{"type":"string","minLength":1},"source_worktree":{"type":"string","minLength":1},"author":{"$ref":"#/$defs/binding"},
+        "criteria":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+        "coverage":{"type":"object","minProperties":1,"additionalProperties":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["unit","readiness","focused_gametest","full_gametest","package","provenance"]}}},
+        "selector_requirements":{"type":"object","additionalProperties":false,"properties":{"unit":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},"readiness":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},"focused_gametest":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}}}},
+        "fixture":{"type":"string","minLength":1},"package_artifacts":{"type":"array","items":{"type":"string","minLength":1}},
+        "owner_exceptions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","sprint_id","source_worktree","input_digest","allow"],"properties":{"id":{"type":"string","minLength":1},"sprint_id":{"type":"string","minLength":1},"source_worktree":{"type":"string","minLength":1},"input_digest":{"$ref":"#/$defs/hash"},"allow":{"const":"full_gametest"}}}},
+        "review_roles":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["implementation","parity","coverage","fidelity"]}},
+        "review_summaries":{"type":"object","additionalProperties":{"type":"string","minLength":1,"maxLength":4000}},
+        "review_envelope_limit_bytes":{"type":"integer","minimum":1024,"maximum":16000},"config_overrides":{"type":"array","items":{"$ref":"#/$defs/override"}}
+      }
+    },
+    "bundle":{"type":"object","additionalProperties":false,"required":["contract_version","request_digest","submission_id","source_manifest","resolved_plan","review_policy","verified_artifacts","config_provenance","review_inputs","completed_receipt_ref","input_digest","plan_digest","policy_digest"],"properties":{"contract_version":{"const":1},"request_digest":{"$ref":"#/$defs/hash"},"submission_id":{"type":"string","pattern":"^submit_[a-f0-9]{24}$"},"source_manifest":{"type":"object"},"resolved_plan":{"type":"object"},"review_policy":{"$ref":"#/$defs/policy"},"verified_artifacts":{"type":"array","items":{"type":"object"}},"config_provenance":{"type":"object"},"review_inputs":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["role","body","size_bytes","body_sha256"],"properties":{"role":{"type":"string"},"body":{"type":"object"},"size_bytes":{"type":"integer","minimum":1},"body_sha256":{"$ref":"#/$defs/hash"}}}},"completed_receipt_ref":{"type":["string","null"]},"input_digest":{"$ref":"#/$defs/hash"},"plan_digest":{"$ref":"#/$defs/hash"},"policy_digest":{"$ref":"#/$defs/hash"}}}
+  }
+}

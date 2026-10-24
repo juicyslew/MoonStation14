@@ -64,13 +64,22 @@ public final class FixtureChunkTicketsGameTests {
                 actors[i].setPos(positions[i].getX() + .5, positions[i].getY(), positions[i].getZ() + .5);
                 if (!level.addFreshEntity(actors[i])) throw new GameTestAssertException("boundary fixture actor joins");
             }
-            FixtureChunkTickets.awaitEntityTicking(helper, tickets, RESIDENCY_READY_TICKS,
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.await(helper,
+                    RESIDENCY_READY_TICKS, () -> "signed-edge actor readiness timed out: "
+                            + java.util.Arrays.stream(actors).map(actor -> actor == null ? "not-created"
+                                    : "uuid=" + actor.getUUID() + ",registered="
+                                    + (level.getEntity(actor.getUUID()) == actor) + ",tickCount=" + actor.tickCount
+                                    + ",removed=" + actor.isRemoved() + ",removalReason=" + actor.getRemovalReason()
+                                    + ",pos=" + actor.blockPosition() + ",entityTicking="
+                                    + tickets.entityTicking(actor.blockPosition())).toList(),
                     () -> {
                         for (Villager actor : actors)
                             if (actor == null || level.getEntity(actor.getUUID()) != actor || actor.tickCount <= 0)
                                 return false;
+                        for (int i = 0; i < actors.length; i++)
+                            if (!tickets.entityTicking(positions[i])) return false;
                         return true;
-                    }, "all four actors registered and naturally ticked", () -> {
+                    }, () -> {
             for (int i = 0; i < actors.length; i++) {
                 if (level.getEntity(actors[i].getUUID()) != actors[i] || actors[i].tickCount <= 0
                         || !tickets.entityTicking(positions[i]))
@@ -84,7 +93,7 @@ public final class FixtureChunkTicketsGameTests {
                     || level.isPositionEntityTicking(center) != rootWasEntityTicking)
                 throw new GameTestAssertException("fixture ticket removal preserves engine and forced-ticket state");
             helper.succeed();
-            }, positions);
+            });
         }, positions);
     }
 }

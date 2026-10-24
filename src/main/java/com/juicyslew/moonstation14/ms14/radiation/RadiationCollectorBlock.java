@@ -12,7 +12,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
-public final class RadiationCollectorBlock extends BaseEntityBlock {
+public final class RadiationCollectorBlock extends BaseEntityBlock implements com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     public RadiationCollectorBlock() { super(BlockBehaviour.Properties.of().strength(3f).noOcclusion()); }
     @Override protected com.mojang.serialization.MapCodec<? extends BaseEntityBlock> codec() {
         return com.mojang.serialization.MapCodec.unit(RadiationCollectorBlock::new);

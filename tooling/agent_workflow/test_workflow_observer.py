@@ -16,7 +16,67 @@ class Workflow:
     def writejson(self, path, data): pass
 
 
+class ImmediateFuture:
+    def __init__(self, fn, *args, **kwargs):
+        try: self.value, self.error = fn(*args, **kwargs), None
+        except Exception as exc: self.value, self.error = None, exc
+    def done(self): return True
+    def result(self):
+        if self.error: raise self.error
+        return self.value
+
+
+class ImmediateExecutor:
+    def __init__(self, **kwargs): pass
+    def submit(self, fn, *args, **kwargs): return ImmediateFuture(fn, *args, **kwargs)
+    def shutdown(self, **kwargs): pass
+
+
+class HeldFuture:
+    def __init__(self): self.ready = False; self.value = None; self.error = None
+    def done(self): return self.ready
+    def result(self):
+        if self.error: raise self.error
+        return self.value
+    def finish(self, value): self.value=value; self.ready=True
+    def fail(self, error): self.error=error; self.ready=True
+
+
+class HeldExecutor:
+    def __init__(self, **kwargs): self.futures=[]
+    def submit(self, fn, *args, **kwargs):
+        future=HeldFuture(); future.fn=fn; future.args=args; future.kwargs=kwargs; self.futures.append(future); return future
+    def shutdown(self, **kwargs): pass
+
+
+def held_owner_and_immediate_gate(**kwargs):
+    return held_executor if kwargs.get('thread_name_prefix') == 'workflow-owner-feedback' else ImmediateExecutor(**kwargs)
+
+held_executor = None
+
+
 class ObserverTests(unittest.TestCase):
+    def test_blocked_gate_worker_does_not_starve_agent_poll_and_health_is_truthful(self):
+        clock=[0.0]; executors={}; health=[]; agent_ticks=[]
+        class WF(Workflow):
+            def writejson(self,path,data):
+                if str(path).endswith('workflow-observer.json'): health.append(data)
+        def factory(**kwargs):
+            prefix=kwargs.get('thread_name_prefix')
+            if prefix not in executors: executors[prefix]=HeldExecutor()
+            return executors[prefix]
+        wf=WF()
+        with patch.object(observer,'_workflow',return_value=wf), patch.object(owner_feedback,'reconcile',return_value={'sessions':1,'pending_owner':1,'errors':[]}), \
+                patch.object(observer,'_gate_reconcile',side_effect=lambda *a,**k: (_ for _ in ()).throw(AssertionError('held task must not run inline'))), \
+                patch.object(observer,'_reconcile_agent_status',side_effect=lambda *a,**k:(agent_ticks.append(clock[0]) or {'core_monitored':1,'errors':[]})), patch.object(observer,'_render'):
+            def sleep(_):
+                clock[0]+=10
+                if clock[0]>=20: raise StopIteration
+            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=factory)
+        self.assertEqual(len(executors['workflow-gate-liveness'].futures),1)
+        self.assertGreaterEqual(len(agent_ticks),2)
+        self.assertTrue(any(x['components']['gate_liveness']['reconciliation_pending'] for x in health))
+
     def test_ensure_started_hides_all_child_streams(self):
         with patch.object(observer.subprocess, 'Popen', return_value='child') as launch:
             self.assertEqual(observer.ensure_started('.', Workflow()), 'child')
@@ -29,7 +89,7 @@ class ObserverTests(unittest.TestCase):
         wf=SimpleNamespace(gate_lock=lambda *a,**k: (_ for _ in ()).throw(BlockingIOError()))
         with patch.object(observer,'_workflow',return_value=wf), patch.object(observer,'reconcile_components') as reconcile:
             with self.assertRaises(BlockingIOError):
-                observer.watch('.',request=lambda *a,**k:None,clock=lambda:0,sleep=lambda _:None)
+                observer.watch('.',request=lambda *a,**k:None,clock=lambda:0,sleep=lambda _:None,executor_factory=ImmediateExecutor)
         reconcile.assert_not_called()
 
     def test_agent_status_reuses_shared_workflow_and_request_with_notifications(self):
@@ -55,10 +115,10 @@ class ObserverTests(unittest.TestCase):
              patch.object(observer, '_gate_reconcile', return_value=gate) as reconcile_gate, \
              patch.object(observer, '_reconcile_agent_status', return_value={'core_monitored':0,'errors':[]}) as reconcile_agents, \
              patch.object(observer, '_render'):
-            self.assertEqual(observer.watch('.', request=lambda *a, **k: None, clock=lambda: clock[0], sleep=advance), 0)
+             self.assertEqual(observer.watch('.', request=lambda *a, **k: None, clock=lambda: clock[0], sleep=advance, executor_factory=ImmediateExecutor), 0)
         self.assertEqual(reconcile_owner.call_count, 2)
         self.assertEqual(reconcile_gate.call_count, 2)
-        self.assertEqual(reconcile_agents.call_count, 2)
+        self.assertGreaterEqual(reconcile_agents.call_count, 2)  # immediate startup poll plus periodic polls
 
     def test_component_failures_are_isolated_and_renderer_failure_is_reported(self):
         wf = Workflow()
@@ -69,6 +129,58 @@ class ObserverTests(unittest.TestCase):
                 owner, gate, agent, errors = observer.reconcile_components('.', wf, None)
         self.assertTrue(owner['errors']); self.assertFalse(gate['errors'])
         self.assertTrue(any('renderer' in e for e in errors))
+
+    def test_implicit_agent_timestamp_is_taken_after_slow_owner_and_gate_work(self):
+        clock_values=iter((100.0, 131.0)); observed=[]
+        with patch.object(owner_feedback,'reconcile',return_value={'sessions':0,'errors':[]}), \
+             patch.object(observer,'_gate_reconcile',return_value={'pending':0,'errors':[]}), \
+             patch.object(observer,'_reconcile_agent_status',side_effect=lambda *a: (observed.append(a[-1]) or {'errors':[]})), \
+             patch.object(observer,'_render'), patch.object(observer.time,'time',side_effect=lambda: next(clock_values)):
+            observer.reconcile_components('.',Workflow(),None)
+        self.assertEqual(observed,[131.0])
+
+    def test_held_known_empty_owner_pass_keeps_health_active_until_completion(self):
+        global held_executor
+        clock=[0.0]; health=[]; executor=HeldExecutor(); held_executor=executor
+        class WF(Workflow):
+            def writejson(self,path,data):
+                if str(path).endswith('workflow-observer.json'): health.append(data)
+        wf=WF(); empty={'sessions':0,'pending_owner':0,'errors':[]}
+        with patch.object(observer,'_workflow',return_value=wf), \
+             patch.object(owner_feedback,'reconcile',return_value=empty), \
+             patch.object(observer,'_gate_reconcile',return_value={'pending':0,'active':0,'errors':[]}), \
+             patch.object(observer,'_reconcile_agent_status',return_value={'core_monitored':0,'errors':[]}), patch.object(observer,'_render'):
+            def sleep(_):
+                clock[0]+=10
+                if clock[0]==10: executor.futures[0].finish(empty)
+                if clock[0]==100:
+                    self.assertEqual(len(executor.futures),2)
+                    self.assertFalse(any(item['status']=='stopped' for item in health))
+                    executor.futures[1].finish(empty)
+            result=observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=held_owner_and_immediate_gate)
+        self.assertEqual(result,0)
+        self.assertTrue(any(item['components']['owner_feedback']['owner_pending'] for item in health))
+
+    def test_known_idle_observer_stops_after_grace_without_spurious_refresh(self):
+        global held_executor
+        clock=[0.0]; executor=HeldExecutor(); held_executor=executor; health=[]
+        class WF(Workflow):
+            def writejson(self,path,data):
+                if str(path).endswith('workflow-observer.json'): health.append(data)
+        wf=WF(); empty={'sessions':0,'pending_owner':0,'errors':[]}
+        with patch.object(observer,'_workflow',return_value=wf), patch.object(owner_feedback,'reconcile',return_value=empty), \
+             patch.object(observer,'_gate_reconcile',return_value={'pending':0,'active':0,'errors':[]}), \
+             patch.object(observer,'_reconcile_agent_status',return_value={'core_monitored':0,'errors':[]}), patch.object(observer,'_render'):
+            def sleep(_):
+                clock[0]+=10
+                if clock[0]==10: executor.futures[0].finish(empty)
+                if clock[0]==40:
+                    self.assertEqual(len(executor.futures),2)
+                    self.assertFalse(executor.futures[1].kwargs['refresh'])
+                if clock[0]==70: executor.futures[1].finish(empty)
+            result=observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=held_owner_and_immediate_gate)
+        self.assertEqual(result,0)
+        self.assertGreaterEqual(len(executor.futures),2)
 
     def test_expired_readiness_uses_elapsed_time_and_pending_gate_error_stays_active(self):
         clock = [0.0]; calls=[]
@@ -87,7 +199,7 @@ class ObserverTests(unittest.TestCase):
             def sleep(_):
                 advance(_)
                 if clock[0] >= 40: raise StopIteration
-            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep)
+            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=ImmediateExecutor)
         refreshes=[value for item in calls if isinstance(item,tuple) for kind,value in [item] if kind=='refresh']
         self.assertIn(True,refreshes)
         self.assertEqual(refreshes.count(True),2)  # startup and elapsed 30-second refresh
@@ -114,7 +226,7 @@ class ObserverTests(unittest.TestCase):
                 if cycles[0] > 20: raise AssertionError('startup failure fixture exceeded 20 fake-clock cycles')
                 clock[0]+=61
                 if len(gate_calls)>1: raise StopIteration
-            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep)
+            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=ImmediateExecutor)
         self.assertGreaterEqual(len(gate_calls),2)
 
     def test_periodic_owner_error_preserves_pending_then_successful_none_idles(self):
@@ -132,7 +244,7 @@ class ObserverTests(unittest.TestCase):
                 cycles[0] += 1
                 if cycles[0] > 20: raise AssertionError('periodic failure fixture exceeded 20 fake-clock cycles')
                 clock[0]+=10
-            result=observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep)
+            result=observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=ImmediateExecutor)
         self.assertEqual(result,0)
         self.assertGreaterEqual(len(owner_calls),3)
         self.assertGreaterEqual(len(gate_calls),2)
@@ -156,11 +268,11 @@ class ObserverTests(unittest.TestCase):
                 cycles[0]+=1
                 if cycles[0]>3: raise StopIteration
                 clock[0]+=61
-            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep)
+            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=ImmediateExecutor)
         self.assertGreaterEqual(len(agent_calls),3)
         self.assertGreaterEqual(owner_poll.call_count,2); self.assertGreaterEqual(gate_poll.call_count,2)
         self.assertTrue(any('temporary scan error' in str(h['components']['agent_status'].get('errors')) for h in health))
-        self.assertTrue(all(h['components']['owner_feedback'] is owner and h['components']['gate_liveness'] is gate for h in health))
+        self.assertTrue(all('owner_pending' in h['components']['owner_feedback'] and 'gate_liveness' in h['components'] for h in health))
         self.assertFalse(any(h['status']=='stopped' for h in health))
 
     def test_periodic_agent_error_reaches_shared_health_then_clears_on_recovery(self):
@@ -180,12 +292,39 @@ class ObserverTests(unittest.TestCase):
                 cycles[0]+=1
                 if cycles[0]>3: raise StopIteration
                 clock[0]+=10
-            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep)
+            with self.assertRaises(StopIteration): observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=ImmediateExecutor)
         failed=next(h for h in health if 'agent API unavailable' in h['errors'])
         self.assertEqual(failed['status'],'error')
         self.assertEqual(failed['components']['agent_status']['core_monitored'],4)
         self.assertTrue(any(h['status']=='active' and not h['errors'] for h in health[health.index(failed)+1:]))
         self.assertFalse(any(h['status']=='stopped' for h in health))
+
+    def test_held_owner_pass_does_not_block_observer_and_recovers_without_overlap(self):
+        global held_executor
+        clock=[0.0]; health=[]; rendered=[]; agents=[]; executor=HeldExecutor(); held_executor=executor
+        class WF(Workflow):
+            def writejson(self,path,data):
+                if str(path).endswith('workflow-observer.json'): health.append(data)
+        wf=WF(); gate={'pending':0,'active':0,'errors':[]}
+        with patch.object(observer,'_workflow',return_value=wf), \
+             patch.object(owner_feedback,'reconcile',return_value={'sessions':0,'pending_owner':0,'errors':[]}), \
+             patch.object(observer,'_gate_reconcile',return_value=gate), \
+             patch.object(observer,'_reconcile_agent_status',side_effect=lambda *a,**k:(agents.append(a[-1]) or {'core_monitored':0,'errors':[]})), \
+             patch.object(observer,'_render',side_effect=lambda root:rendered.append(clock[0])):
+            def sleep(_):
+                clock[0]+=10
+                if clock[0] == 40: executor.futures[0].fail(RuntimeError('first owner failure'))
+                if clock[0] == 50:
+                    self.assertEqual(len(executor.futures),1)  # completion + 10s cadence
+                if clock[0] == 60: executor.futures[1].finish({'sessions':0,'pending_owner':0,'errors':[]})
+                if clock[0] >= 70: raise StopIteration
+            with self.assertRaises(StopIteration):
+                observer.watch('.',request=lambda *a,**k:None,clock=lambda:clock[0],sleep=sleep,executor_factory=held_owner_and_immediate_gate)
+        self.assertEqual(len(executor.futures),2)
+        self.assertGreaterEqual(len(agents),6); self.assertGreaterEqual(len(rendered),6); self.assertGreaterEqual(len(health),6)
+        self.assertTrue(any(h['components']['owner_feedback'].get('owner_pending') and h['components']['owner_feedback'].get('unknown_work') for h in health))
+        self.assertTrue(any('first owner failure' in str(h['errors']) for h in health))
+        self.assertTrue(any(h['components']['owner_feedback'].get('owner_pending') is False and not h['components']['owner_feedback'].get('errors') for h in health))
 
     def test_once_runs_owner_gate_and_render(self):
         wf=Workflow()

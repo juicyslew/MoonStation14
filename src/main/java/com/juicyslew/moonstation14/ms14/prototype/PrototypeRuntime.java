@@ -80,6 +80,7 @@ import com.juicyslew.moonstation14.ms14.singularity.containment.ModFieldGenerato
 import com.juicyslew.moonstation14.ms14.singularity.emitter.ModEmitters;
 import com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators;
 import com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAcceleratorParticles;
+import com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons;
 import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankData;
 import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
 import com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterProfile;
@@ -247,6 +248,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.containment.FieldGeneratorProfile> clientFieldGenerators() { return CLIENT_MANAGER.snapshot(ModFieldGenerators.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfile> serverSingularityGameplay() { return SERVER_MANAGER.snapshot(ModSingularityGameplay.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfile> clientSingularityGameplay() { return CLIENT_MANAGER.snapshot(ModSingularityGameplay.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfile> serverSingularityBeacons() { return SERVER_MANAGER.snapshot(ModSingularityBeacons.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfile> clientSingularityBeacons() { return CLIENT_MANAGER.snapshot(ModSingularityBeacons.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorControlProfile> serverParticleAccelerators() { return SERVER_MANAGER.snapshot(ModParticleAccelerators.TYPE); }
      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorControlProfile> clientParticleAccelerators() { return CLIENT_MANAGER.snapshot(ModParticleAccelerators.TYPE); }
      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticleProfile> serverParticleAcceleratorParticles() { return SERVER_MANAGER.snapshot(ModParticleAcceleratorParticles.TYPE); }
@@ -293,6 +296,7 @@ public final class PrototypeRuntime {
         manager.register(ModPowerAppearances.TYPE);
         manager.register(ModSingularityVisuals.TYPE);
         manager.register(ModSingularityGameplay.TYPE);
+        manager.register(ModSingularityBeacons.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
         manager.register(ModFieldGenerators.TYPE);
         manager.register(ModEmitters.TYPE);
@@ -309,4 +313,3 @@ public final class PrototypeRuntime {
         return manager;
     }
 }
-

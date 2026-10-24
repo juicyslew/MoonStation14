@@ -20,7 +20,7 @@ import net.minecraft.util.StringRepresentable;
 import com.mojang.serialization.MapCodec;
 
 /** Placeholder PA hardware. Its placed facing is authoritative; assembly/profile logic lives elsewhere. */
-public final class ParticleAcceleratorPartBlock extends HorizontalDirectionalBlock implements EntityBlock {
+public final class ParticleAcceleratorPartBlock extends HorizontalDirectionalBlock implements EntityBlock, com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     public static final MapCodec<ParticleAcceleratorPartBlock> CODEC = MapCodec.unit(() -> new ParticleAcceleratorPartBlock("control", "particle_accelerator_control", true, Properties.of()));
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
     public enum Visual implements StringRepresentable {

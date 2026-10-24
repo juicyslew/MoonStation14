@@ -45,25 +45,55 @@ public final class SingularityFixtureOperatorKit {
         Set<BlockPos> floors = new LinkedHashSet<>(), stairs = new LinkedHashSet<>();
         for (int x=0;x<=26;x++) for(int z=0;z<=18;z++) floors.add(o.offset(x,0,z));
         for(int x=16;x<=22;x++) for(int z=6;z<=12;z++) floors.add(o.offset(x,4,z));
-        for(int x=2;x<=4;x++) for(int z=6;z<=12;z++) floors.add(o.offset(x,6,z));
-        for(int x=10;x<=15;x++) for(int z=6;z<=12;z++) floors.add(o.offset(x,6,z));
-        // Keep both enclosure sizes' X/Z field-face interiors clear through the deck.
-        for(int x:new int[]{minX,maxX}) for(int z=minZ;z<=maxZ;z++) floors.remove(o.offset(x,6,z));
-        for(int z:new int[]{minZ,maxZ}) for(int x=minX;x<=maxX;x++) floors.remove(o.offset(x,6,z));
+        for(int x=2;x<=4;x++) for(int z=6;z<=12;z++) floors.add(o.offset(x,maxY-1,z));
+        for(int x=10;x<=15;x++) for(int z=6;z<=12;z++) floors.add(o.offset(x,maxY-1,z));
+        // Keep all field-face interiors clear through the deck.
+        int upperDeckY=maxY-1;
+        for(int x:new int[]{minX,maxX}) for(int z=minZ;z<=maxZ;z++) floors.remove(o.offset(x,upperDeckY,z));
+        for(int z:new int[]{minZ,maxZ}) for(int x=minX;x<=maxX;x++) floors.remove(o.offset(x,upperDeckY,z));
         // Outside cage: west and east access stairs, plus the PA approach stair.
         // Stop at the top-deck support height: the next cell is the upper emitter
         // lane for compact geometry (y=maxY, z=minZ=maxY), and stairs have collision.
         // The deck itself reaches the upper generators without this final blocker.
         for(int y=1;y<maxY;y++) stairs.add(o.offset(minX-1,y,y));
         for(int y=1;y<maxY;y++) stairs.add(o.offset(maxX+1,y,y));
-        for(int y=1;y<=4;y++) stairs.add(o.offset(23,y,y+3));
-        // Upper access walkways approach all four Y=9 corner generators from outside
+        for(int y=1;y<maxY;y++) stairs.add(o.offset(23,y,y+3));
+        // Upper access walkways approach the upper corner generators from outside
         // the six-face shell; the east route passes around the clear end of the glass wall.
         for(int z=minZ;z<=maxZ;z++) floors.add(o.offset(minX-1,maxY-1,z));
         for(int z=minZ;z<=maxZ;z++) floors.add(o.offset(maxX+1,maxY-1,z));
         for(int z=maxZ-1;z<=maxZ+1;z++) floors.add(o.offset(15,maxY-1,z));
         for(int x=maxX+1;x<=15;x++) floors.add(o.offset(x,maxY-1,maxZ+1));
+        // Preserve a two-block-high stairwell through any authored walkway above a
+        // stair step.  In particular, the west route's low step at (x=2,y=5,z=5)
+        // otherwise has the y=6 walkway block directly over its standing space.
+        for(BlockPos stair:stairs) for(int y=stair.getY()+1;y<=stair.getY()+2;y++)
+            floors.remove(new BlockPos(stair.getX(),y,stair.getZ()));
         floors.removeAll(stairs); // stairs take the deck overlap only where the original world is clear.
+
+        // Compute the full swept beam corridors from the three assembled emitters,
+        // using the same resolved particle extent and launch transform as live PA fire.
+        // Do this after every walkway/deck addition so later furnishing cannot close a lane.
+        var controlEntity=level.getBlockEntity(fixture.acceleratorControl());
+        if(!(controlEntity instanceof com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity control))
+            return new Result(null,"assembled PA control unavailable for operator-kit clearance");
+        var paProfile=com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators.catalog(level).get(control.profileId());
+        var particleProfile=paProfile==null?null:com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAcceleratorParticles.catalog(level).get(paProfile.particleProfile());
+        if(paProfile==null||particleProfile==null) return new Result(null,"resolved PA launch profile unavailable for operator-kit clearance");
+        var target=net.minecraft.world.phys.Vec3.atCenterOf(fixture.startupGenerator());
+        int emitterCount=0;
+        for(BlockPos sourcePos:fixture.acceleratorParts()) {
+            if(!(level.getBlockEntity(sourcePos) instanceof com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity source))
+                return new Result(null,"PA emitter unavailable during operator-kit clearance at "+sourcePos);
+            if(!List.of("port","fore","starboard").contains(source.role())) continue;
+            if(!source.profileId().equals(control.profileId())) return new Result(null,"PA emitter profile differs from assembled control at "+sourcePos);
+            emitterCount++;
+            var direction=source.orientation().rotate(net.minecraft.core.Direction.SOUTH);
+            var from=com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity.emissionOrigin(sourcePos,direction);
+            var swept=new net.minecraft.world.phys.AABB(from,target).inflate(particleProfile.halfExtent());
+            floors.removeIf(pos->swept.intersects(new net.minecraft.world.phys.AABB(pos)));
+        }
+        if(emitterCount!=3) return new Result(null,"expected three assembled PA emitter corridors, found "+emitterCount);
 
         Set<BlockPos> occupied = new LinkedHashSet<>(fixture.occupiedPositions());
         for(BlockPos p:floors) if(occupied.contains(p)) return new Result(null,"floor would intersect fixture device at "+p);

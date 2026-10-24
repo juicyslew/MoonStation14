@@ -1,0 +1,41 @@
+test_child_registration_failure_stops_owned_child_and_keeps_failure_log (test_finite_checks.FiniteChecksTests.test_child_registration_failure_stops_owned_child_and_keeps_failure_log) ... ok
+test_completion_callback_can_externalize_typed_evidence_before_next_check (test_finite_checks.FiniteChecksTests.test_completion_callback_can_externalize_typed_evidence_before_next_check) ... ok
+test_nonzero_fails_fast (test_finite_checks.FiniteChecksTests.test_nonzero_fails_fast) ... ok
+test_progress_failure_stops_owned_child (test_finite_checks.FiniteChecksTests.test_progress_failure_stops_owned_child) ... ok
+test_runs_actual_subprocess_and_returns_typed_record (test_finite_checks.FiniteChecksTests.test_runs_actual_subprocess_and_returns_typed_record) ... ok
+test_tampered_prefix_log_rejected_before_popen (test_finite_checks.FiniteChecksTests.test_tampered_prefix_log_rejected_before_popen) ... ok
+test_verified_prefix_resumes_without_rerunning_first_check (test_finite_checks.FiniteChecksTests.test_verified_prefix_resumes_without_rerunning_first_check) ... ok
+test_windows_gradle_wrapper_prefers_batch_entrypoint_and_preserves_arguments (test_finite_checks.FiniteChecksTests.test_windows_gradle_wrapper_prefers_batch_entrypoint_and_preserves_arguments) ... ok
+test_absent_root_with_live_descendant_cannot_clear_quarantine (test_gate_execution.GateExecutionTests.test_absent_root_with_live_descendant_cannot_clear_quarantine) ... ok
+test_admission_is_quick_idempotent_and_does_not_verify_or_spawn (test_gate_execution.GateExecutionTests.test_admission_is_quick_idempotent_and_does_not_verify_or_spawn) ... ok
+test_claimed_worker_must_match_job (test_gate_execution.GateExecutionTests.test_claimed_worker_must_match_job) ... ok
+test_current_gate_plan_descriptive_metadata_is_typed_not_execution_control (test_gate_execution.GateExecutionTests.test_current_gate_plan_descriptive_metadata_is_typed_not_execution_control) ... ok
+test_exact_owned_child_is_terminated_and_absence_verified (test_gate_execution.GateExecutionTests.test_exact_owned_child_is_terminated_and_absence_verified) ... ok
+test_final_candidate_rejects_new_job_but_returns_existing_job_unchanged (test_gate_execution.GateExecutionTests.test_final_candidate_rejects_new_job_but_returns_existing_job_unchanged) ... ok
+test_identityless_startup_grace_and_unknown_quarantine (test_gate_execution.GateExecutionTests.test_identityless_startup_grace_and_unknown_quarantine) ... ok
+test_legacy_pid_only_blocker_refuses_and_verified_tree_proof_clears (test_gate_execution.GateExecutionTests.test_legacy_pid_only_blocker_refuses_and_verified_tree_proof_clears) ... ok
+test_live_handshake_wins_startup_grace (test_gate_execution.GateExecutionTests.test_live_handshake_wins_startup_grace) ... ok
+test_owner_decision_alone_blocks_new_job_admission (test_gate_execution.GateExecutionTests.test_owner_decision_alone_blocks_new_job_admission) ... ok
+test_popen_failure_is_durable_blocked_and_never_retried (test_gate_execution.GateExecutionTests.test_popen_failure_is_durable_blocked_and_never_retried) ... ok
+test_procedural_gate_controls_are_not_public_arguments (test_gate_execution.GateExecutionTests.test_procedural_gate_controls_are_not_public_arguments) ... usage: workflow [-h] [--repo REPO] [--asset-workspace ASSET_WORKSPACE]
+                {request,claim,plan-manifest,deliver,review,import-assets,submit,candidate-review,gate-report,candidate-decision,gate-preflight,gate-validate,gate-clear-blocker,gate-finish,gate-deliver,manual-notify,manual-tests,sprint-cleanup,gate-request,gate-scope-review,status} ...
+workflow: error: unrecognized arguments: --wait-timeout 1
+usage: workflow [-h] [--repo REPO] [--asset-workspace ASSET_WORKSPACE]
+                {request,claim,plan-manifest,deliver,review,import-assets,submit,candidate-review,gate-report,candidate-decision,gate-preflight,gate-validate,gate-clear-blocker,gate-finish,gate-deliver,manual-notify,manual-tests,sprint-cleanup,gate-request,gate-scope-review,status} ...
+workflow: error: unrecognized arguments: --server http://example
+usage: workflow [-h] [--repo REPO] [--asset-workspace ASSET_WORKSPACE]
+                {request,claim,plan-manifest,deliver,review,import-assets,submit,candidate-review,gate-report,candidate-decision,gate-preflight,gate-validate,gate-clear-blocker,gate-finish,gate-deliver,manual-notify,manual-tests,sprint-cleanup,gate-request,gate-scope-review,status} ...
+workflow: error: unrecognized arguments: --server http://example
+ok
+test_process_identity_uses_pid_and_creation (test_gate_execution.GateExecutionTests.test_process_identity_uses_pid_and_creation) ... ok
+test_public_command_only_returns_safe_admission_fields (test_gate_execution.GateExecutionTests.test_public_command_only_returns_safe_admission_fields) ... ok
+test_unsafe_timeout_cli_is_rejected (test_gate_execution.GateExecutionTests.test_unsafe_timeout_cli_is_rejected) ... usage: workflow [-h] [--repo REPO] [--asset-workspace ASSET_WORKSPACE]
+                {request,claim,plan-manifest,deliver,review,import-assets,submit,candidate-review,gate-report,candidate-decision,gate-preflight,gate-validate,gate-clear-blocker,gate-finish,gate-deliver,manual-notify,manual-tests,sprint-cleanup,gate-request,gate-scope-review,status} ...
+workflow: error: unrecognized arguments: --timeout 1
+ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 1.652s
+
+OK
+cleared gate blocker for program-verified stopped process tree PID 26484; artifacts: (unrecorded)

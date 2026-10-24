@@ -16,11 +16,13 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
 import com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlock;
 import com.juicyslew.moonstation14.item.ModItems;
+import com.juicyslew.moonstation14.item.custom.SingularityBeaconItem;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
 import com.juicyslew.moonstation14.block.custom.FieldGeneratorBlock;
 import com.juicyslew.moonstation14.block.custom.SingularityGeneratorBlock;
+import com.juicyslew.moonstation14.block.custom.SingularityBeaconBlock;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.block.custom.EmitterBlock;
 import com.juicyslew.moonstation14.block.custom.ParticleAcceleratorPartBlock;
@@ -125,12 +127,15 @@ public class ModBlocks {
             () -> new DisposalTubeBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion().noLootTable()));
     public static final DeferredBlock<ChemMasterBlock> CHEM_MASTER = BLOCKS.register("chem_master", ChemMasterBlock::new);
     public static final DeferredBlock<FieldGeneratorBlock> FIELD_GENERATOR = registerBlock("field_generator",
-            () -> new FieldGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL)));
+            () -> new FieldGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
     public static final DeferredBlock<SingularityGeneratorBlock> SINGULARITY_GENERATOR = registerBlock("singularity_generator",
             () -> new SingularityGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
     public static final DeferredBlock<EmitterBlock> EMITTER = registerBlock("emitter",
-            () -> new EmitterBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL)));
+            () -> new EmitterBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
     public static final DeferredBlock<RadiationCollectorBlock> RADIATION_COLLECTOR = registerBlock("radiation_collector", RadiationCollectorBlock::new);
+    public static final DeferredBlock<SingularityBeaconBlock> SINGULARITY_BEACON = BLOCKS.register("singularity_beacon",
+            () -> new SingularityBeaconBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
+    static { ModItems.ITEMS.register("singularity_beacon", () -> new SingularityBeaconItem(SINGULARITY_BEACON.get(), new Item.Properties().stacksTo(1))); }
     public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_CONTROL_BOX = registerPa("pa_control_box", "control", true);
     public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_END_CAP = registerPa("pa_end_cap", "end", false);
     public static final DeferredBlock<ParticleAcceleratorPartBlock> PA_FUEL_CHAMBER = registerPa("pa_fuel_chamber", "fuel", false);

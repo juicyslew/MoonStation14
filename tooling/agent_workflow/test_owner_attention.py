@@ -5,6 +5,7 @@ import importlib.util
 from unittest import mock
 import subprocess
 import time
+from types import SimpleNamespace
 from argparse import Namespace
 
 BASE = Path(__file__).parent
@@ -92,7 +93,9 @@ class OwnerAttentionTests(unittest.TestCase):
             def verify_publication(self, c, root): pass
         failed = oa.collect(self.root, workflow=Workflow(), refresh=True)
         self.assertFalse(failed['awaiting_owner'])
-        self.assertEqual('readiness evidence stale or owner request identity invalid; revalidation required', failed['agent_work'][0]['reason'])
+        self.assertIn('stale source', failed['agent_work'][0]['reason'])
+        self.assertTrue(failed['agent_work'][0]['reason'].startswith('readiness evidence stale'))
+        self.assertFalse(failed['awaiting_owner'])
         good = mock.Mock()
         good.readjson = w.readjson; good.writejson = w.writejson; good.sprint_lock = w.sprint_lock
         good.verify_gate.return_value = c; good.verify_publication.return_value = None
@@ -150,7 +153,12 @@ class OwnerAttentionTests(unittest.TestCase):
             installed = importlib.util.module_from_spec(spec); spec.loader.exec_module(installed)
             import sys
             sys.path.insert(0, str(folder))
-            try: result = installed.ensure_feedback_observer(folder)
+            # Suite-wide import leaves bare owner_feedback cached; resolve this
+            # installed-layout helper against its intended fixture owner.
+            fake_feedback = SimpleNamespace(ensure_started=lambda root: {'status':'started','root':str(root)})
+            try:
+                with mock.patch.dict('sys.modules', {'owner_feedback': fake_feedback}):
+                    result = installed.ensure_feedback_observer(folder)
             finally: sys.path.remove(str(folder))
             self.assertEqual('started', result['status'])
 

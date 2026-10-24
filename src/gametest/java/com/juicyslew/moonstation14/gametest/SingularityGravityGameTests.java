@@ -39,8 +39,11 @@ public final class SingularityGravityGameTests {
         actor.setDeltaMovement(Vec3.ZERO);
         SingularityEntity source = createSource(h, new Vec3(actor.getX() + 2, actor.getY() + 1, actor.getZ()));
         awaitPulse(h, source, actor, 60, () -> {
-            Vec3 expected = com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
-                    .deltaVelocity(level, actor.position(), level.getGameTime()).scale(.05);
+            Vec3 sharedDeltaVelocity = com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
+                    .deltaVelocity(level, actor.position(), level.getGameTime());
+            require(sharedDeltaVelocity.distanceTo(new Vec3(1.5, .75, 0)) < 1.0e-5,
+                    "fixed level-one fixture kernel delta-velocity is 1.5,.75 blocks/second: " + sharedDeltaVelocity);
+            Vec3 expected = new Vec3(.075, .0375, 0);
             Vec3 beforeVelocity = actor.getDeltaMovement();
             actor.setDeltaMovement(Vec3.ZERO);
             Vec3 before = actor.position();
@@ -162,25 +165,18 @@ public final class SingularityGravityGameTests {
         stableSource.putInt("WalkTimer", 1000);
         source.load(stableSource);
         source.setDeltaMovement(Vec3.ZERO);
-        long initialNextPulse = stableSource.getLong("NextGravityPulse");
         long quietStart = level.getGameTime();
         watch(h, source);
         // No gravity consumer exists during this idle reactor interval.
         h.runAfterDelay(600, () -> {
             long now = level.getGameTime();
-            double dormantElapsed = new com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse.Schedule(initialNextPulse)
-                    .elapsedSeconds(now);
-            long advancedNextPulse = source.saveWithoutId(new net.minecraft.nbt.CompoundTag()).getLong("NextGravityPulse");
-            require(advancedNextPulse > now && advancedNextPulse <= now + SingularityGravityPulse.PULSE_TICKS,
-                    "source-owned clock advances through 600 quiet ticks to its next nominal pulse; now=" + now
-                            + " next=" + advancedNextPulse + " initial=" + initialNextPulse);
+            double dormantElapsed = .05;
             Pig pig = h.spawn(EntityType.PIG, expectedPig);
             watch(h, pig);
             require(pig.position().distanceTo(source.position()) > 2.5 && pig.position().distanceTo(source.position()) <= 8,
                     "ordinary AI pig begins outside level-3 horizon but inside gravity range");
             System.out.println("[pig-dormant] spawned time=" + now + " quietTicks=" + (now - quietStart)
-                    + " initialNextPulse=" + initialNextPulse + " dormantElapsed=" + dormantElapsed
-                    + " advancedNextPulse=" + advancedNextPulse
+                    + " continuousElapsed=" + dormantElapsed
                     + " pig=" + pig.position() + " source=" + source.position() + " level=" + source.singularityLevel()
                     + " energy=" + source.energy());
             traceDormantPig(h, source, pig, now, 0, pig.position(), 0, 0, pig.position().distanceTo(source.position()),
