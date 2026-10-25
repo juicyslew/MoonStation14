@@ -587,28 +587,26 @@ def project(raw, *, worktree, connection=None, author_activity=None):
             history.append({"id":old_id,"run_id":old_id,"label":_short(old_run.get("feature_id") or old.get("sprint")),"phase":"Superseded",
                             "details":{"title":(old.get("request") or {}).get("title") or old_run.get("title"),"generation":old_run.get("current_attempt")}})
         system=_system_state(all_records,raw,worktree)
-        # Unsubmitted coding activity is supplementary; any live submitted card
-        # in that worktree remains the authoritative workflow representation.
-        if isinstance(author_activity,list):
-            active_author_phases={"Building","Queued","Checking","Reviewing","Your testing"}
-            for agent in author_activity:
-                if not isinstance(agent,dict) or agent.get("worktree")!=worktree:
-                    continue
-                if any(c.get("phase") in active_author_phases and c.get("details",{}).get("worktree",worktree)==worktree
-                       for cards in columns.values() for c in cards):
-                    continue
-                activity=agent.get("activity")
-                if activity not in ("working","waiting","idle"):
-                    continue
-                phase="Idle" if activity=="idle" else "Building"
-                status="Idle" if activity=="idle" else ("Waiting for your input" if activity=="waiting" else "Working")
-                label=_short(agent.get("label") or "Coding agent")
-                columns[phase].append({"id":"author-activity:"+str(agent.get("worktree")),"run_id":None,
-                    "generation":None,"sequence":None,"input_digest":None,"label":label,"phase":phase,
-                    "agent":label,"revision":None,"step":None,"actor":None,"capabilities":[],"bindings":{},
-                    "status_text":status,"dismissible":False,"next_action":None,"next_actor":None,"badge":None,
-                    "focused_result":None,"owner_state":None,"regression_state":None,
-                    "details":{"title":_short(agent.get("summary") or label,100),"session_id":agent.get("session_id") or ""}})
+    # Unsubmitted coding activity is supplementary; any live submitted card
+    # in that worktree remains the authoritative workflow representation.
+    if isinstance(author_activity,list):
+        active_author_phases={"Building","Queued","Checking","Reviewing"}
+        for agent in author_activity:
+            if not isinstance(agent,dict) or agent.get("worktree")!=worktree:
+                continue
+            if any(c.get("phase") in active_author_phases and c.get("details",{}).get("worktree",worktree)==worktree
+                   for cards in columns.values() for c in cards):
+                continue
+            activity=agent.get("activity")
+            phase="Idle" if activity in ("idle","unknown") else "Building"
+            status="Activity unavailable" if activity=="unknown" else "Idle" if activity=="idle" else ("Waiting for your input" if activity=="waiting" else "Working")
+            label=_short(agent.get("label") or "Coding agent")
+            columns[phase].append({"id":"author-activity:"+str(agent.get("worktree")),"run_id":None,
+                "generation":None,"sequence":None,"input_digest":None,"label":label,"phase":phase,
+                "agent":label,"revision":None,"step":None,"actor":None,"capabilities":[],"bindings":{},
+                "status_text":status,"dismissible":False,"next_action":None,"next_actor":None,"badge":None,
+                "focused_result":None,"owner_state":None,"regression_state":None,
+                "details":{"title":_short(agent.get("summary") or label,100),"session_id":agent.get("session_id") or "","activity_unknown":activity=="unknown"}})
     unscoped=_unscoped_counts(raw) if is_available else None
     deduped_faults=[]
     fault_keys=set()

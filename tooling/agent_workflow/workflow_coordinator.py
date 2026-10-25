@@ -284,7 +284,12 @@ class ExplicitCoordinator:
         self._activity_state_lock=threading.Lock()
         self._activity_clock=time.monotonic
         self._activity_checked=None
-        self._activity_result={'checked_at':None,'complete':False,'agents':[],'errors':[]}
+        roots=_configured_activity_roots(
+            [getattr(getattr(binding,'context',None),'repo',None) for binding in self.bindings.values()]
+            +[getattr(binding,'repo',None) for binding in self.author_worktrees.values()])
+        initial_agents=[{'worktree':root,'label':'Agent '+Path(root).name[-2:],'activity':'unknown',
+                         'summary':'Activity unavailable','session_id':''} for root in roots]
+        self._activity_result={'checked_at':None,'complete':False,'agents':initial_agents,'errors':[]}
         self._activity_semantic=None
         self.review_bindings = dict(review_bindings or {})
         self.owner_bindings = dict(owner_bindings or {})
@@ -1598,6 +1603,8 @@ def _configured_activity_roots(paths):
     """Select only explicitly configured canonical Agent 01–04 repository roots."""
     roots=[]; seen=set()
     for value in paths:
+        if not isinstance(value,(str,os.PathLike)) or not str(value).strip():
+            continue
         root=Path(value).resolve()
         if root.name not in {f'MoonStation14-agent-{index:02d}' for index in range(1,5)}:
             continue
@@ -1675,7 +1682,7 @@ def load_coordinator(config_path):
         except ModuleNotFoundError: from tooling.agent_workflow import agent_status
         def activity_request(_unused, method, endpoint, **kwargs):
             return base_request(server,method,endpoint,**kwargs)
-        activity_observer=lambda:agent_status.observe_coding_agents(activity_roots,request=activity_request,budget_seconds=5)
+        def activity_observer(): return agent_status.observe_coding_agents(activity_roots,request=activity_request,budget_seconds=5)
     try: import workflow_transport_health, transport_health
     except ModuleNotFoundError: from tooling.agent_workflow import workflow_transport_health, transport_health
     circuit=workflow_transport_health.WorkflowTransportHealth(workflow_store.WorkflowStore(database),server,request=base_request)
