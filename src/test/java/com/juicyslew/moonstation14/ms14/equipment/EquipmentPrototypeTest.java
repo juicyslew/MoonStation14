@@ -21,7 +21,7 @@ class EquipmentPrototypeTest {
         var templates=new LinkedHashMap<ResourceLocation,JsonObject>();templates.put(ModInventoryTemplates.HUMAN_ID,resource("inventory_template","human"));
         manager.reload(ModInventoryTemplates.TYPE,templates);
         var items=new LinkedHashMap<ResourceLocation,JsonObject>();
-        for(String name:java.util.List.of("base_item","base_clothing","grey_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt","suit_rad","hood_rad"))
+        for(String name:java.util.List.of("base_item","base_clothing","grey_cap","debug_capability_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt","suit_rad","hood_rad"))
             items.put(ModInventoryTemplates.id(name),resource("equipment_item",name));
         manager.reload(ModEquipmentItems.TYPE,items);
         var template=manager.snapshot(ModInventoryTemplates.TYPE).get(ModInventoryTemplates.HUMAN_ID);
@@ -60,6 +60,17 @@ class EquipmentPrototypeTest {
         assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).clothing().orElseThrow().equipSound().isEmpty());
         assertTrue(resolved.get(ModInventoryTemplates.id("simple_coat")).allowSuitStorage().isEmpty());
         assertTrue(resolved.get(ModInventoryTemplates.id("utility_case")).allowSuitStorage().isEmpty());
+        var grant=resolved.get(ModInventoryTemplates.id("debug_capability_cap")).supportedActionGrant().orElseThrow();
+        assertEquals(java.util.List.of(ResourceLocation.parse("moonstation14:debug_pulse")),grant.actions());
+        assertTrue(grant.itemActionGrant().activeIfWorn());
+        assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).supportedActionGrant().isEmpty());
+        assertEquals("Normal",resolved.get(ModInventoryTemplates.id("debug_capability_cap")).item().size());
+    }
+
+    @Test void actionGrantRejectsDuplicateActionIds() {
+        var action=ResourceLocation.parse("moonstation14:debug_pulse");
+        assertThrows(IllegalArgumentException.class, () -> new EquipmentItemData.SupportedActionGrant(
+                java.util.List.of(action, action), new EquipmentItemData.ItemActionGrant(true)));
     }
 
     @Test void quickEquipDefaultAndInheritedFalseSurviveChildOverrides() throws Exception {

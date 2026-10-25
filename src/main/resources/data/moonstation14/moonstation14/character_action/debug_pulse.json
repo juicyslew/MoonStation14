@@ -1,0 +1,1 @@
+{"parent":"base_action","display_name":"action.moonstation14.debug_pulse","icon":"moonstation14:textures/interface/actions/harm_off.png","handler":"DEBUG_PULSE","use_delay_ticks":20,"priority":100}

@@ -199,6 +199,19 @@
     ],
     "subtitle": "sounds.moonstation14.emote.scream"
   },
+  "vocal_human_scream": {
+    "sounds": [
+      "moonstation14:emote/scream/malescream_1",
+      "moonstation14:emote/scream/malescream_2",
+      "moonstation14:emote/scream/malescream_3",
+      "moonstation14:emote/scream/malescream_4",
+      "moonstation14:emote/scream/malescream_5",
+      "moonstation14:emote/scream/malescream_6"
+    ]
+  },
+  "vocal_reptilian_scream": { "sounds": ["moonstation14:voice/reptilian/reptilian_scream"] },
+  "vocal_scurret_scream": { "sounds": ["moonstation14:animals/wawa_protest"] },
+  "vocal_wilhelm": { "sounds": ["moonstation14:voice/human/wilhelm_scream"] },
   "emote/weh": {
     "sounds": [
       "moonstation14:emote/weh/weh"

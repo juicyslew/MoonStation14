@@ -10,6 +10,8 @@ Gas pressure release and internals-connect event mappings are deferred because t
 
 ## Additional unresolved audio
 
+`voice/reptilian/reptilian_scream.ogg` is from pinned SS14 `Resources/Audio/Voice/Reptilian/reptilian_scream.ogg`; upstream `attritbutions.yml` gives copyright “scream_lizard.ogg” by Skyrat-SS13 and source `https://github.com/Skyrat-SS13/Skyrat-tg/pull/892`, but leaves license blank. License remains unknown. `animals/wawa_protest.ogg` is from `Resources/Audio/Animals/wawa_protest.ogg`, credited to FairlySadPanda, CC-BY-4.0, source `https://github.com/space-wizards/space-station-14/pull/37936`. Hashes and exact source paths are recorded in `audio-interaction-provenance-notes.md`.
+
 - `src/main/resources/assets/moonstation14/sounds/mouse_squeak.ogg` — imported from pinned SS14 checkout `Resources/Audio/Animals/mouse_squeak.ogg`; upstream source attribution/license was not present in the inspected source metadata. Preserve this entry until provenance is confirmed.
 - `src/main/resources/assets/moonstation14/sounds/ss14/items/eating_{1,2,3}.ogg` — imported from pinned SS14 checkout `Resources/Audio/Items/eating_{1,2,3}.ogg` (collection `Resources/Prototypes/SoundCollections/food.yml`, id `eating`); no attribution/license metadata for these files was found in the inspected upstream audio tree. Preserve until provenance is confirmed.
 

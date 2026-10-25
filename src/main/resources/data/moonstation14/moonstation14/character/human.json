@@ -126,6 +126,8 @@
     {"type": "ComplexInteraction"},
     {"type": "Metabolizer", "types": ["human"]},
     {"type": "Speech"},
+    {"type": "CombatMode"},
+    {"type": "Vocal", "screamSound": "moonstation14:vocal_human_scream", "screamPitchVariation": 0.125, "wilhelmProbability": 0.0002},
     {"type": "Mouth"},
     {"type": "DoorBumpOpener"}
   ]

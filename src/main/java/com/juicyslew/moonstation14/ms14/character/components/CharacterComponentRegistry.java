@@ -83,7 +83,9 @@ public final class CharacterComponentRegistry {
             Map.entry(UdderComponent.TYPE, new Entry<>(UdderComponent.class, UdderComponent.CODEC)),
             Map.entry(EggLayerComponent.TYPE, new Entry<>(EggLayerComponent.class, EggLayerComponent.CODEC)),
             Map.entry(AbsorbentCleaningComponent.TYPE,
-                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)));
+                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)),
+            Map.entry(CombatModeComponent.TYPE, new Entry<>(CombatModeComponent.class, CombatModeComponent.CODEC)),
+            Map.entry(VocalComponent.TYPE, new Entry<>(VocalComponent.class, VocalComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }
 

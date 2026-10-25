@@ -4,6 +4,7 @@
     {"type": "Damageable", "damage_container": "Biological"},
     {"type": "MobState"},
     {"type": "GhostOnMove", "must_be_dead": true, "can_return": true},
-    {"type": "Pullable"}
+    {"type": "Pullable"},
+    {"type": "CombatMode", "combatToggleAction": "moonstation14:combat_mode_toggle"}
   ]
 }

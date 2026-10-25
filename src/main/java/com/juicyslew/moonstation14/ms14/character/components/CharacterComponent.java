@@ -14,6 +14,6 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         NpcBehaviorComponent, AmbientVocalizationComponent, NpcIdleAttentionComponent, PortableBodyComponent, UdderComponent,
         CanEscapeInventoryComponent, SpeciesComponent, AnimalAppearanceComponent, FlightComponent, NpcRetaliationComponent,
         MeleeAttackComponent, ParrotListenerComponent, ParrotMemoryComponent, EggLayerComponent,
-        AbsorbentCleaningComponent {
+        AbsorbentCleaningComponent, CombatModeComponent, VocalComponent {
     String type();
 }

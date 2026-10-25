@@ -11,7 +11,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.
 /** Resolved supported Item, Clothing and optional AllowSuitStorage composition. */
 public record EquipmentItemData(Item item, Optional<Clothing> clothing,
                                 Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags,
-                                Optional<Armor> armor) {
+                                Optional<Armor> armor, Optional<SupportedActionGrant> supportedActionGrant) {
     public enum AppearanceRegion { HEAD, TORSO, LEGS, FEET, HANDS, EYES, EARS, NECK, FACE }
 
     public static final Codec<AppearanceRegion> REGION_CODEC = Codec.STRING.comapFlatMap(value -> {
@@ -60,24 +60,47 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
                 }
             }, value -> value), ARMOR_MODIFIER_CODEC).fieldOf("modifiers").forGetter(Armor::modifiers)
     ).apply(instance, Armor::new));
+    public static final Codec<ItemActionGrant> ITEM_ACTION_GRANT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.BOOL.fieldOf("active_if_worn").forGetter(ItemActionGrant::activeIfWorn)
+    ).apply(instance, ItemActionGrant::new));
+    public static final Codec<SupportedActionGrant> SUPPORTED_ACTION_GRANT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            ResourceLocation.CODEC.listOf().fieldOf("actions").forGetter(SupportedActionGrant::actions),
+            ITEM_ACTION_GRANT_CODEC.fieldOf("item_action_grant").forGetter(SupportedActionGrant::itemActionGrant)
+    ).apply(instance, SupportedActionGrant::new));
     public static final Codec<EquipmentItemData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ITEM_CODEC.fieldOf("item").forGetter(EquipmentItemData::item),
             CLOTHING_CODEC.optionalFieldOf("clothing").forGetter(EquipmentItemData::clothing),
             SUIT_STORAGE_CODEC.optionalFieldOf("allow_suit_storage").forGetter(EquipmentItemData::allowSuitStorage),
             EquipmentTag.CODEC.listOf().optionalFieldOf("tags", List.of()).forGetter(EquipmentItemData::tags),
-            ARMOR_CODEC.optionalFieldOf("armor").forGetter(EquipmentItemData::armor)
+            ARMOR_CODEC.optionalFieldOf("armor").forGetter(EquipmentItemData::armor),
+            SUPPORTED_ACTION_GRANT_CODEC.optionalFieldOf("supported_action_grant").forGetter(EquipmentItemData::supportedActionGrant)
     ).apply(instance, EquipmentItemData::new));
 
     public EquipmentItemData {
-        if (item == null || clothing == null || allowSuitStorage == null || tags == null || armor == null)
+        if (item == null || clothing == null || allowSuitStorage == null || tags == null || armor == null || supportedActionGrant == null)
             throw new IllegalArgumentException("null equipment composition");
         tags = List.copyOf(tags);
+        supportedActionGrant = supportedActionGrant == null ? Optional.empty() : supportedActionGrant;
+    }
+
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags, Optional<Armor> armor) {
+        this(item, clothing, allowSuitStorage, tags, armor, Optional.empty());
     }
 
     public EquipmentItemData(Item item, Optional<Clothing> clothing,
                              Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags) {
         this(item, clothing, allowSuitStorage, tags, Optional.empty());
     }
+
+    public record SupportedActionGrant(List<ResourceLocation> actions, ItemActionGrant itemActionGrant) {
+        public SupportedActionGrant {
+            if (actions == null || itemActionGrant == null || new java.util.HashSet<>(actions).size() != actions.size()
+                    || actions.stream().anyMatch(java.util.Objects::isNull))
+                throw new IllegalArgumentException("invalid supported action grant");
+            actions = List.copyOf(actions);
+        }
+    }
+    public record ItemActionGrant(boolean activeIfWorn) {}
 
     /** Generic typed armor modifiers; absent type entries leave damage untouched. */
     public record Armor(Map<String, ArmorModifier> modifiers) {
@@ -154,4 +177,3 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
         }
     }
 }
-

@@ -10,6 +10,8 @@ import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.character.components.CharacterComponentRegistry;
 import com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.VocalComponent;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 
 import java.util.Set;
@@ -294,6 +296,23 @@ public final class CharacterSchemaAudit {
         if ("NpcBehavior".equals(type)) {
             checkFields(object, Set.of("type", "tasks", "visionRange", "mealRange", "idleRange",
                     "planIntervalTicks", "idleMinimumTicks", "idleMaximumTicks"), path);
+            return;
+        }
+        if (CombatModeComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "combatToggleAction"), path);
+            if (object.has("combatToggleAction")) auditCapabilityString(object, "combatToggleAction", path);
+            return;
+        }
+        if (VocalComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "screamAction", "screamEmote", "screamSound", "screamPitchVariation", "wilhelmProbability"), path);
+            for (String field : Set.of("screamAction", "screamEmote"))
+                if (object.has(field)) auditCapabilityString(object, field, path);
+            if (object.has("screamSound")) auditResourceLocation(object.get("screamSound"), path + ".screamSound");
+            for (String field : Set.of("screamPitchVariation", "wilhelmProbability")) if (object.has(field)) {
+                JsonElement value = object.get(field);
+                if (!finiteNumber(value) || value.getAsDouble() < 0 || value.getAsDouble() > 1)
+                    fail(path + "." + field, "expected finite number in [0, 1]");
+            }
             return;
         }
         if ("AbsorbentCleaning".equals(type)) {
@@ -972,6 +991,13 @@ public final class CharacterSchemaAudit {
         for (String field : object.keySet()) {
             if (!allowed.contains(field)) fail(path + "." + field, "unknown field");
         }
+    }
+
+    private static void auditCapabilityString(JsonObject object, String field, String path) {
+        JsonElement value = object.get(field);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+                || value.getAsString().isBlank() || value.getAsString().length() > 128)
+            fail(path + "." + field, "expected nonblank string of at most 128 characters");
     }
 
     private static void auditResourceLocation(JsonElement value, String path) {

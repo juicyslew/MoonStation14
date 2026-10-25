@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.explosion.grenade.network;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.common.util.FakePlayer;
 
@@ -17,8 +18,11 @@ public final class ControlledSoundDispatch {
         emit(level, sound, x, y, z, volume, 1f);
     }
     public static void emit(ServerLevel level, ResourceLocation sound, double x, double y, double z, float volume, float pitch) {
+        emit(level, sound, x, y, z, volume, pitch, SoundSource.PLAYERS);
+    }
+    public static void emit(ServerLevel level, ResourceLocation sound, double x, double y, double z, float volume, float pitch, SoundSource category) {
         if (level == null || sound == null || level.getServer() == null) return;
-        var payload = new ControlledSoundPayload(level.dimension().location(), sound, x, y, z, volume, pitch);
+        var payload = new ControlledSoundPayload(level.dimension().location(), sound, x, y, z, volume, pitch, category);
         var players = level.getServer().getPlayerList();
         for (ServerPlayer player : players.getPlayers()) {
             if (player instanceof FakePlayer || player.isRemoved() || players.getPlayer(player.getUUID()) != player
@@ -36,4 +40,3 @@ public final class ControlledSoundDispatch {
         return dx * dx + dy * dy + dz * dz <= RADIUS * RADIUS;
     }
 }
-

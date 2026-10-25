@@ -51,6 +51,12 @@ public class ModDataAttachments {
                     .build()
     );
 
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.actions.CombatModeState>> COMBAT_MODE = ATTACHMENT_TYPES.register(
+            "combat_mode", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.actions.CombatModeState::new).build());
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.actions.BodyActionRuntimeState>> ACTION_RUNTIME = ATTACHMENT_TYPES.register(
+            "action_runtime", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.actions.BodyActionRuntimeState::new).build());
+
     public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.UdderAttachment>> UDDER = ATTACHMENT_TYPES.register(
             "udder", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.UdderAttachment.EMPTY)
                     .serialize(com.juicyslew.moonstation14.ms14.animals.UdderAttachment.CODEC)

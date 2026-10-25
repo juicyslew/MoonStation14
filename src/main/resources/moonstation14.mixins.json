@@ -48,6 +48,7 @@
   "client": [
     "client.EditBoxDisplayAccessor",
     "client.MinecraftStunInputMixin",
+    "client.MinecraftBodyActionKeysMixin",
     "client.ChatComponentUnifiedViewMixin",
     "client.ChatScreenReviewPagingMixin",
     "client.ChatListenerSystemNoticeMixin",

@@ -407,7 +407,7 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(37, data.components().size(), "merged Human composition retains species alongside existing component families");
+        assertEquals(39, data.components().size(), "merged Human composition retains species alongside existing component families");
         assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());
@@ -425,6 +425,15 @@ class CharacterPrototypeTest {
                 data.hostEntityTypes());
         assertEquals(List.of("left", "right"), data.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class).orElseThrow().hands());
         assertTrue(data.component(ComplexInteractionComponent.class).isPresent());
+        assertEquals(com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.DEFAULT_ACTION,
+                data.component(com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.class)
+                        .orElseThrow().combatToggleAction());
+        var vocal = data.component(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.class).orElseThrow();
+        assertEquals(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.DEFAULT_ACTION, vocal.screamAction());
+        assertEquals(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.DEFAULT_EMOTE, vocal.screamEmote());
+        assertEquals(ResourceLocation.parse("moonstation14:vocal_human_scream"), vocal.screamSound());
+        assertEquals(0.125f, vocal.screamPitchVariation());
+        assertEquals(0.0002f, vocal.wilhelmProbability());
         assertEquals(java.util.Set.of(MetabolizerTypeEnum.HUMAN), data.component(MetabolizerPrototypeComponent.class).orElseThrow().types());
         var thermal = data.component(com.juicyslew.moonstation14.ms14.character.components.TemperatureComponent.class).orElseThrow();
         assertEquals(Math.PI * 0.35 * 0.35 * 185, thermal.massKg(), 1e-12);
