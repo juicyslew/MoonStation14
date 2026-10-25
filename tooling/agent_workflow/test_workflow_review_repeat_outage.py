@@ -5,11 +5,36 @@ from pathlib import Path
 
 import workflow_review_control
 import workflow_review_dependency
+import workflow_review_results
 import workflow_store
 import test_workflow_review_dependency as dependency_fixtures
 
 
 class ReviewRepeatOutageTests(unittest.TestCase):
+    def test_transport_reset_does_not_pause_but_auth_still_does(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store, planner, task, server, envelope = dependency_fixtures.ReviewDependencyTests().prepared(Path(tmp))
+            dispatch_ms = store.get_event(envelope['event_id'])['created_ms']
+            original = dependency_fixtures.ReviewDependencyTests().owned_prompt(store, planner, task, envelope)
+            path = '/api/session/' + task['assigned_session_id'] + '/message?limit=50&order=desc'
+            transport = {'id': 'reset', 'time': {'created': dispatch_ms + 1},
+                         'error': {'type': 'provider.transport', 'message': 'connection reset'}}
+            fake = dependency_fixtures.ReviewDependencyTests().history(path, [transport, original])
+            monitor = workflow_review_dependency.ReviewDependencyMonitor(
+                planner, server=server, request=fake, now_ms=lambda: dispatch_ms + 10)
+            self.assertEqual('CLEAR', monitor.poll(task['task_id']))
+            self.assertFalse(store.task_is_dependency_paused(task['task_id']))
+            expired=workflow_review_results.ReviewResults(store,planner).aggregate(
+                task['run_id'],now_ms=task['deadline_ms']+1)
+            self.assertEqual('ERROR',expired['decision'])
+            self.assertEqual('MISSING_REVIEW_RESULT',expired['error']['code'])
+            auth = {'id': 'auth-after-reset', 'time': {'created': dispatch_ms + 2},
+                    'error': {'type': 'provider.auth', 'status': 401, 'message': 'invalid API key'}}
+            fake.response = {'data': [auth, transport, original], 'cursor': {}}
+            monitor.now_ms = lambda: dispatch_ms + 20
+            self.assertEqual('PAUSED', monitor.poll(task['task_id']))
+            self.assertEqual(server + ':provider.auth', store.get_task_dependency_pause(task['task_id'])['dependency_key'])
+
     def test_resumed_continuation_survives_repeat_auth_outage(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

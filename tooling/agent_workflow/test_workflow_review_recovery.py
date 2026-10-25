@@ -47,6 +47,9 @@ class ReviewRecoveryTests(unittest.TestCase):
             coordinator.notify_committed=lambda *args: None
             coordinator.transport_health=None
             pipeline=workflow_coordinator.configure_review_pipeline(coordinator,{'implementation':{'role':'reviewer','worktree':str(root)}},{'implementation':'workflow-reviewer-implementation'},{'token':workflow_coordinator.ReviewerBinding('caller',str(root),'implementation')},transport_request=lambda *_: (200,{'data':{}}))
+            self.assertIs(pipeline.completion_owner,coordinator.review_retry)
+            self.assertIs(pipeline.completion_owner.transport,pipeline.transport)
+            self.assertIs(pipeline.completion_owner.request,pipeline.transport.request)
             pipeline.transport=transport
             event=store.get_event('event_review_recovery'); payload=event['payload']; adapter=coordinator.handlers['RECOVERY_STARTED']
             self.assertEqual(adapter.observe('event_review_recovery',dict(payload,failed_boundary='review:foreign')),'UNKNOWN')

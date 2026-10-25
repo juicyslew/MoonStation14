@@ -80,7 +80,7 @@ class ReviewRetryServiceTests(unittest.TestCase):
                     receipt=[r for r in store.get_task(task['task_id'])['result']['artifact_refs'] if store.get_artifact(r)['artifact']['type']=='CHECK_RECEIPT'] if store.get_task(task['task_id']).get('result') else []
                     checkrefs=[r for r in store.get_task(check)['result']['artifact_refs'] if store.get_artifact(r)['artifact']['type']=='CHECK_RECEIPT']
                     api.active[sid]=False
-                    completed=client.post('/v1/review/complete',headers=reviewer_headers,json={'contract_version':1,**identity,'decision':'PASS','findings':[{'criterion_id':'criterion-1','category':'IMPLEMENTATION','message':'verified','location':'repo','evidence_refs':checkrefs}],'inspected_refs':checkrefs})
+                    completed=client.post('/v1/review/complete',headers=reviewer_headers,json={'contract_version':1,**identity,'decision':'PASS','findings':[],'owner_followups':[],'inspected_refs':checkrefs})
                     self.assertTrue(completed.json()['accepted'],completed.text)
                     end=time.monotonic()+5
                     while time.monotonic()<end and store.get_run(accepted['run_id'])['attempt']['phase']!='DECIDED': time.sleep(.02)

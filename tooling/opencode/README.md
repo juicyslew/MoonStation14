@@ -8,6 +8,13 @@ once to create receipt-owned overlays; later shared-template updates use
 receipt-backed deployment preflight and deployer. The ignored `.opencode/workflow/opencode-local.json`
 file is a generated local binding overlay, not shared policy; do not edit or
 stage it. Do not edit the generated root `opencode.jsonc` files directly.
+`check` reports repairable generated-output drift as `STALE`; initialized
+`apply` regenerates the root file from the canonical template and its
+receipt-owned overlay. It does not adopt the current root-file contents and
+does not create a backup of that generated file. `init` remains strict and
+requires the root config to match its receipt before extracting an overlay.
+Use `opencode reload` to refresh configuration and MCP connections in an already
+running OpenCode service after applying changed configuration.
 
 Only the shared template is merged. A new checkout must first receive its
 existing local binding through the workflow binding owner; do not copy private

@@ -435,4 +435,5 @@ def load_recovery_prefix(store, new_task, request, bundle):
         input_digest=request['input_digest'], run_id=new_task['run_id'],
         generation=new_task['evaluation_generation'], task_id=new_task['task_id'],
         prefix_count=len(prefix['records']))
+    runtime_fixtures = list(prefix.get('runtime_fixtures', [])) + runtime_fixtures
     return dict(prefix, runtime_fixtures=runtime_fixtures)

@@ -182,6 +182,40 @@ class RunControlCoordinatorTests(unittest.TestCase):
         replay=workflow_run_control.ServiceRunControl(store).cancel(command,binding)
         self.assertEqual(replay['cancellation_id'],retired['cancellation_id'])
 
+    def test_owner_cancel_retires_settled_fail_head_without_changing_history(self):
+        case,store,taskid,saved,run_id=self.error_case('retire-fail')
+        attempt=saved['attempt']; attempt.update(phase='DECIDED',result='FAIL',cleanup_state='CONFIRMED')
+        db=store._connect()
+        try:
+            db.execute('UPDATE attempts SET attempt_json=? WHERE run_id=? AND generation=1',(workflow_store.canonical_json(attempt),run_id)); db.commit()
+            before=(db.execute('SELECT attempt_json FROM attempts WHERE run_id=?',(run_id,)).fetchall(),
+                db.execute('SELECT id,task_json,result_digest,result_json FROM tasks WHERE run_id=?',(run_id,)).fetchall(),
+                db.execute('SELECT id,event_id,state,protocol_ack FROM deliveries WHERE event_id IN (SELECT id FROM events WHERE run_id=?)',(run_id,)).fetchall(),
+                db.execute('SELECT id,artifact_json FROM artifacts WHERE run_id=?',(run_id,)).fetchall())
+        finally: db.close()
+        cmd={'contract_version':1,'run_id':run_id,'evaluation_generation':1,'expected_sequence':saved['run']['sequence'],'command_id':'retire-fail','actor':'OWNER','reason':'CANCELLED'}
+        service=workflow_run_control.ServiceRunControl(store); binding=SimpleNamespace(worktree=str(case.repo),caller='owner')
+        with self.assertRaises(workflow_store.StaleCommand):
+            store.retire_settled_failed_head(run_id=run_id,generation=1,expected_sequence=cmd['expected_sequence'],caller='foreign',command_id='wrong-tree',worktree='foreign-tree')
+        with self.assertRaises(workflow_store.StaleCommand):
+            store.retire_settled_failed_head(run_id=run_id,generation=1,expected_sequence=cmd['expected_sequence']+1,caller='owner',command_id='stale-sequence',worktree=str(case.repo))
+        receipt=service.cancel(cmd,binding)
+        self.assertEqual(receipt['state'],'RETIRED_HEAD'); self.assertEqual(receipt['historical_result'],'FAIL')
+        db=store._connect()
+        try: self.assertIsNone(db.execute('SELECT 1 FROM feature_heads WHERE run_id=?',(run_id,)).fetchone())
+        finally: db.close()
+        replay=service.cancel(cmd,binding); self.assertEqual(replay['cancellation_id'],receipt['cancellation_id'])
+        db=store._connect()
+        try:
+            after=(db.execute('SELECT attempt_json FROM attempts WHERE run_id=?',(run_id,)).fetchall(),
+                db.execute('SELECT id,task_json,result_digest,result_json FROM tasks WHERE run_id=?',(run_id,)).fetchall(),
+                db.execute("SELECT id,event_id,state,protocol_ack FROM deliveries WHERE event_id IN (SELECT id FROM events WHERE run_id=? AND kind!='OWNER_FAIL_HEAD_RETIRED')",(run_id,)).fetchall(),
+                db.execute('SELECT id,artifact_json FROM artifacts WHERE run_id=?',(run_id,)).fetchall())
+            self.assertEqual(before,after)
+            event=db.execute("SELECT payload FROM events WHERE kind='OWNER_FAIL_HEAD_RETIRED' AND run_id=?",(run_id,)).fetchone()
+            self.assertEqual(json.loads(event[0])['historical_result'],'FAIL')
+        finally: db.close()
+
     def test_settled_error_retirement_rejects_unsettled_dispatch(self):
         case,store,_,taskid=admit_native_fixture(self.root,caller='author',key='retire-held',delay=0)
         saved=store.get_run(store.get_task(taskid)['run_id']); run_id=saved['run']['run_id']

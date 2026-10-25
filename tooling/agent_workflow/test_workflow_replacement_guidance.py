@@ -20,7 +20,7 @@ class FailedRunReplacementGuidanceTests(unittest.TestCase):
         self.assertEqual(receipt,before)
         self.assertEqual(guidance['next_action'],'PREPARE_FAILED_RUN_REPLACEMENT')
         self.assertEqual(guidance['field'],'replaces_run_id')
-        for phrase in ('fresh scope/submission keys','fresh artifact IDs','original owned, settled FAIL run ID','Never edit or reuse'):
+        for phrase in ('fresh scope/submission keys','fresh artifact IDs','original owned, settled PASS or FAIL feature run ID','Never edit or reuse'):
             self.assertIn(phrase,guidance['recovery'])
         unsettled=workflow_coordinator._submission_guidance({"status":"REJECTED","result":"ERROR","code":"FEATURE_HEAD_UNSETTLED"})
         self.assertEqual(unsettled['next_action'],'WAIT_FOR_RECOVERY')

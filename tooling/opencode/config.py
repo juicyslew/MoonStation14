@@ -32,7 +32,7 @@ def _pinned_python(main: Path) -> Path:
     return python
 
 
-def _plan(main: Path, initialize: bool) -> dict:
+def _plan(main: Path, initialize: bool, refresh_reviewer_instructions: bool = False) -> dict:
     import workflow_coordinator_bindings as bindings
     from workflow_coordinator_bindings import _index_digest
 
@@ -48,9 +48,14 @@ def _plan(main: Path, initialize: bool) -> dict:
                      "expected_local_sha256": digest(overlay),
                      "expected_gitignore_sha256": digest(gitignore),
                      "expected_index_digest": _index_digest(root)})
+    tracked = any(subprocess.run(["git", "-C", str(main if r["target"] == "main" else main.parent / r["target"]),
+                                  "ls-files", "--error-unmatch", "opencode.jsonc"], stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL).returncode == 0 for r in rows)
     result = {"version": 1, "mode": "shared-opencode-config",
               "template": {"path": str(template.resolve()), "sha256": hashlib.sha256(template.read_bytes()).hexdigest()},
-              "initialize": initialize, "untrack_generated": True, "targets": rows}
+              "initialize": initialize, "untrack_generated": tracked, "targets": rows}
+    if refresh_reviewer_instructions:
+        result["refresh_reviewer_instructions"] = True
     return bindings.validate_shared_config_plan_shape(result)
 
 
@@ -73,10 +78,10 @@ def _status(main: Path, initialize: bool):
         root = main if target == "main" else main.parent / target
         cfg = root / "opencode.jsonc"
         overlay_path = root / ".opencode/workflow/opencode-local.json"
-        cfg_bytes = cfg.read_bytes()
+        cfg_bytes = cfg.read_bytes() if cfg.is_file() else b""
         owners = [r for r in receipt.get("files", []) if r.get("target") == target and
                   r.get("path") == "opencode.jsonc" and not r.get("deleted")]
-        if len(owners) != 1 or hashlib.sha256(cfg_bytes).hexdigest() != owners[0].get("new_sha256"):
+        if len(owners) != 1:
             raise ValueError(f"configuration is not receipt-owned: {target}")
         exists = overlay_path.is_file()
         if initialize and exists:
@@ -90,7 +95,13 @@ def _status(main: Path, initialize: bool):
             if len(local_owner) != 1 or hashlib.sha256(overlay_bytes).hexdigest() != local_owner[0].get("new_sha256"):
                 raise ValueError(f"local overlay is not receipt-owned: {target}")
             overlay = oc._overlay(overlay_bytes)
-            if not oc.configs_equivalent(oc._loads(cfg_bytes), oc.render_config(template, overlay)):
+            try:
+                equivalent = oc.configs_equivalent(oc._loads(cfg_bytes), oc.render_config(template, overlay))
+            except (ValueError, UnicodeError):
+                equivalent = False
+            if not equivalent:
+                changed.add(target)
+            if hashlib.sha256(cfg_bytes).hexdigest() != owners[0].get("new_sha256"):
                 changed.add(target)
             provenance = owners[0].get("config_scope", {}).get("shared_template", {})
             if provenance.get("path") != str((main / "tooling/opencode/shared-config.jsonc").resolve()) or provenance.get("sha256") != hashlib.sha256(template_bytes).hexdigest():
@@ -167,14 +178,18 @@ def _delegate(main: Path, plan: dict, python: Path):
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("check", "init", "apply"))
+    parser.add_argument("--refresh-reviewer-instructions", action="store_true",
+                        help="refresh only existing dedicated reviewer system instructions in receipt-owned overlays")
     args = parser.parse_args(argv)
     try:
+        if args.refresh_reviewer_instructions and args.command != "apply":
+            raise ValueError("--refresh-reviewer-instructions is valid only with apply")
         root = _main_root()
         python = _pinned_python(root)
         workflow_dir = str(root / "tooling/agent_workflow")
         if workflow_dir not in sys.path:
             sys.path.insert(0, workflow_dir)
-        plan = _plan(root, args.command == "init")
+        plan = _plan(root, args.command == "init", args.refresh_reviewer_instructions)
         if args.command == "check":
             status, detail = _status(root, initialize=False)
             print(json.dumps({"status": status, "detail": detail}, sort_keys=True))
@@ -182,7 +197,7 @@ def main(argv=None) -> int:
         status, detail = _status(root, initialize=args.command == "init")
         if args.command == "apply" and status == "NOT_INITIALIZED":
             raise ValueError(f"{detail} is not initialized; run init after provisioning local bindings")
-        if args.command == "apply" and status == "CURRENT":
+        if args.command == "apply" and status == "CURRENT" and not args.refresh_reviewer_instructions:
             print(json.dumps({"status": "UP_TO_DATE"}, sort_keys=True))
             return 0
         print(json.dumps(_delegate(root, plan, python), sort_keys=True))

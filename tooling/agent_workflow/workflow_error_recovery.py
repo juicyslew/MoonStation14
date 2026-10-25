@@ -45,6 +45,7 @@ def verified_prefix(store, task_id, request, bundle):
     output = []
     links = []
     toolchains = []
+    runtime_fixtures = []
     for expected_index, link in enumerate(store.list_native_check_records(task_id)):
         if link.get('check_index') != expected_index:
             break
@@ -73,17 +74,26 @@ def verified_prefix(store, task_id, request, bundle):
             raise ValueError('completed prefix record is malformed')
         if not workflow_native_fixtures.verify_original_execution(
                 checks[expected_index], request['input_digest'], expected_index, record,
-                provenance.get('runtime_fixture'), request['source_worktree']):
+                provenance.get('runtime_fixture'), request['source_worktree'], run_id=task['run_id'],
+                generation=task['evaluation_generation'], task_id=task_id):
             raise ValueError('completed prefix runtime fixture attribution differs from original accepted check')
+        expected_execution_check = checks[expected_index]
+        runtime = provenance.get('runtime_fixture')
+        if isinstance(runtime, dict) and runtime.get('mode') == 'FRESH_INITIAL':
+            binding = workflow_native_fixtures.derive_initial_binding(checks[expected_index],
+                input_digest=request['input_digest'], run_id=task['run_id'],
+                generation=task['evaluation_generation'], task_id=task_id, check_index=expected_index)
+            expected_execution_check = workflow_native_fixtures.adapt_plan({'checks':[checks[expected_index]]},
+                [dict(binding, check_index=0, check_digest=workflow_store.digest(checks[expected_index]))])['checks'][0]
         recorded_toolchain = provenance.get('toolchain')
-        expected_toolchain = workflow_toolchain.capture(checks[expected_index], Path(request['source_worktree']))
+        expected_toolchain = workflow_toolchain.capture(expected_execution_check, Path(request['source_worktree']))
         if recorded_toolchain is None or recorded_toolchain != expected_toolchain:
             raise ValueError('completed prefix toolchain differs from current executable inputs')
         if (checks[expected_index].get('kind') == 'gametest' and
-                provenance.get('execution_check_digest') != workflow_store.digest(checks[expected_index])):
+                provenance.get('execution_check_digest') != workflow_store.digest(expected_execution_check)):
             raise ValueError('completed prefix execution check differs from original accepted GameTest')
         if (record.get('exit_code') != 0 or record.get('evidence', {}).get('status') != 'PASS' or
-                any(record.get(k) != checks[expected_index].get(k, default)
+                any(record.get(k) != expected_execution_check.get(k, default)
                     for k, default in (('argv', None), ('kind', 'command'), ('covers', None)))):
             break
         _verify_file(record.get('log'), record.get('log_sha256'))
@@ -103,6 +113,9 @@ def verified_prefix(store, task_id, request, bundle):
                 raise ValueError('completed prefix evidence artifact binding mismatch')
         output.append(record)
         toolchains.append(recorded_toolchain)
+        if isinstance(runtime, dict) and runtime.get('mode') == 'FRESH_INITIAL':
+            runtime_fixtures.append(binding)
         links.append({'check_index': expected_index, 'artifact_ref': link['artifact_ref'],
                       'source_task_id': task_id})
-    return {'records': output, 'source_links': links, 'toolchain': toolchains}
+    return {'records': output, 'source_links': links, 'toolchain': toolchains,
+            'runtime_fixtures': runtime_fixtures}

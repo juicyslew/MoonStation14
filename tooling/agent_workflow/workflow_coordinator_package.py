@@ -289,9 +289,9 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
         from workflow_coordinator_bindings import validate_shared_config_plan_shape
         if set(bindings)!={"version","mode","source_plan","source_plan_sha256","staged_plan","staged_plan_sha256","receipt_path","receipt_sha256","targets","files","metadata"}:
             raise ValueError("shared config binding manifest has unknown fields")
-        if (bindings.get("mode") != "shared-opencode-config" or
-                set(bindings.get("files", {})) != {f"{n}/{p}" for n in ("main", *(f"MoonStation14-agent-0{i}" for i in range(1,5))) for p in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore")}):
-            raise ValueError("shared config plan must bind exact MAIN and agents 01..04 files")
+        allowed_shared_files = {f"{n}/{p}" for n in ("main", *(f"MoonStation14-agent-0{i}" for i in range(1,5))) for p in ("opencode.jsonc", ".opencode/workflow/opencode-local.json", ".gitignore")}
+        if bindings.get("mode") != "shared-opencode-config" or not isinstance(bindings.get("files"), dict) or not set(bindings["files"]).issubset(allowed_shared_files):
+            raise ValueError("shared config plan contains unknown targets or files")
         validate_shared_config_plan_shape(plan_data)
         if bindings.get("targets")!=sorted(r["target"] for r in plan_data["targets"]):
             raise ValueError("shared config binding target list differs from reviewed plan")
@@ -376,14 +376,23 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
             if source.exists(): raise ValueError(f"binding source appeared after staging: {key}")
         elif not source.is_file() or digest(source)!=row["source_sha256"]:
             raise ValueError(f"binding source config changed: {key}")
-        if digest(src) != row["new_sha256"] or (backup is not None and (digest(backup) != row["backup_sha256"] or row["backup_sha256"] != row["old_sha256"])) or (backup is None and (row.get("old_sha256") is not None or row.get("backup_sha256") is not None)):
+        generated_config_candidate = (shared_config and not plan_data["initialize"] and row["path"] == "opencode.jsonc"
+                                      and row.get("config_scope", {}).get("shared_template") is not None)
+        if digest(src) != row["new_sha256"] or (backup is not None and (digest(backup) != row["backup_sha256"] or row["backup_sha256"] != row["old_sha256"])) or (backup is None and (row.get("backup_sha256") is not None or (row.get("old_sha256") is not None and not generated_config_candidate))):
             raise ValueError(f"binding staged bytes/backup mismatch: {key}")
         receipt_rows = [x for x in previous["files"] if x.get("target")==row["target"] and x.get("path")==row["path"]]
         formatted_main = shell_retirement and row.get("target")=="main" and row.get("formatting_preimage",{}).get("sha256")==row.get("receipt_sha256")
         new_overlay = shared_config and row["path"] == ".opencode/workflow/opencode-local.json" and row["old_sha256"] is None and row["receipt_sha256"] is None
         reviewed_ignore = shared_config and row["path"] == ".gitignore" and row.get("receipt_sha256") is None
-        if (not new_overlay and not reviewed_ignore and (len(receipt_rows)!=1 or receipt_rows[0].get("deleted") or receipt_rows[0].get("new_sha256") != row["receipt_sha256"] or (row["old_sha256"] != row["receipt_sha256"] and not formatted_main))):
+        generated_config = (shared_config and not plan_data["initialize"] and row["path"] == "opencode.jsonc"
+                            and row["target"] in {"main", *(f"MoonStation14-agent-0{i}" for i in range(1,5))}
+                            and row.get("config_scope", {}).get("shared_template") is not None
+                            and row.get("backup_path") is None and row.get("backup_sha256") is None
+                            and row.get("old_sha256") == next(r["expected_config_sha256"] for r in plan_data["targets"] if r["target"] == row["target"]))
+        if (not new_overlay and not reviewed_ignore and (len(receipt_rows)!=1 or receipt_rows[0].get("deleted") or receipt_rows[0].get("new_sha256") != row["receipt_sha256"] or (row["old_sha256"] != row["receipt_sha256"] and not formatted_main and not generated_config))):
             raise ValueError(f"binding target not owned by previous receipt: {key}")
+        if backup is None and row.get("old_sha256") is not None and not generated_config:
+            raise ValueError(f"binding backup is required: {key}")
         if shell_retirement and row.get("path")==".opencode/agents/fidelity-reviewer.md":
             from workflow_coordinator_bindings import retire_fidelity_shell_profile
             profile=profile_by_target.get(row["target"])

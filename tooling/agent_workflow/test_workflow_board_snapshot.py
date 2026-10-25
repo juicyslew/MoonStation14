@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import unittest
 import uuid
+from unittest import mock
 from pathlib import Path
 
 from starlette.testclient import TestClient
@@ -12,6 +13,7 @@ from starlette.testclient import TestClient
 import workflow_coordinator
 import workflow_native_execution
 import workflow_store
+import workflow_board
 from test_workflow_native_execution import admit_native_fixture
 
 
@@ -293,6 +295,194 @@ class WorkflowBoardSnapshotTests(unittest.TestCase):
                 self.assertIsNone(store.get_incident('incident_board_scope')['resolved_ms'])
             finally:
                 backend.close()
+
+    def test_unscoped_artifacts_are_decoded_once_per_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            case,store,*_rest=self._accepted(root,key='artifact-once')
+            backend=_rest[-1]
+            try:
+                db=sqlite3.connect(store.path)
+                try:
+                    artifact_json=[row[0] for row in db.execute(
+                        'SELECT artifact_json FROM artifacts WHERE run_id IS NULL ORDER BY id')]
+                finally:
+                    db.close()
+                original=json.loads
+                decoded=[]
+                def loads(value,*args,**kwargs):
+                    if value in artifact_json:
+                        decoded.append(value)
+                    return original(value,*args,**kwargs)
+                statements=[]
+                real_connect=sqlite3.connect
+                def traced_connect(*args,**kwargs):
+                    connection=real_connect(*args,**kwargs)
+                    connection.set_trace_callback(statements.append)
+                    return connection
+                with mock.patch.object(workflow_store.sqlite3,'connect',side_effect=traced_connect), \
+                        mock.patch.object(workflow_store.json,'loads',side_effect=loads):
+                    raw=workflow_store.WorkflowStore.readonly_snapshot(store.path)
+                self.assertTrue(raw['available'],raw)
+                self.assertEqual(len(artifact_json),len(decoded))
+                self.assertTrue(any(r['artifacts'] for r in raw['records']+raw['history']))
+                for table in ('artifacts','events','deliveries'):
+                    matching=[sql for sql in statements if sql.lstrip().upper().startswith('SELECT') and
+                        f'FROM {table.upper()} ' in sql.upper()]
+                    self.assertEqual(2 if table=='artifacts' else 1,len(matching),(table,matching))
+            finally:
+                backend.close()
+
+    def test_board_snapshot_projects_submissions_and_skips_audit_payload_tables(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            case,store,feature,_accepted,_admitted,_frozen,backend=self._accepted(root,'board-light-read')
+            try:
+                statements=[]
+                real_connect=sqlite3.connect
+                def traced_connect(*args,**kwargs):
+                    connection=real_connect(*args,**kwargs)
+                    connection.set_trace_callback(statements.append)
+                    return connection
+                with mock.patch.object(workflow_store.sqlite3,'connect',side_effect=traced_connect):
+                    light=workflow_store.WorkflowStore.readonly_board_snapshot(store.path,worktree=str(case.repo.resolve()))
+                self.assertTrue(light['available'],light)
+                self.assertEqual(feature['run_id'],light['records'][0]['run']['run_id'])
+                request=light['records'][0]['request']
+                self.assertEqual(case.request['author'],request['author'])
+                self.assertEqual(case.request['manual_steps'],request['manual_steps'])
+                full_initial=workflow_store.WorkflowStore.readonly_snapshot(store.path,worktree=str(case.repo.resolve()))
+                projected_live=workflow_board.project(light,worktree=str(case.repo.resolve()))
+                projected_audit=workflow_board.project(full_initial,worktree=str(case.repo.resolve()))
+                self.assertEqual(projected_audit['columns']['Your testing'][0]['agent'],
+                    projected_live['columns']['Your testing'][0]['agent'])
+                terminal=light['records'][0]['terminal_result']
+                db=sqlite3.connect(store.path)
+                try:
+                    db.execute("UPDATE events SET created_ms=123456 WHERE id=?",(terminal['result_id'],)); db.commit()
+                finally: db.close()
+                light=workflow_store.WorkflowStore.readonly_board_snapshot(store.path,worktree=str(case.repo.resolve()))
+                full=workflow_store.WorkflowStore.readonly_snapshot(store.path,worktree=str(case.repo.resolve()))
+                projected_light=workflow_board.project(light,worktree=str(case.repo.resolve()))
+                projected_full=workflow_board.project(full,worktree=str(case.repo.resolve()))
+                card_light=projected_light['columns']['Your testing'][0]
+                card_full=projected_full['columns']['Your testing'][0]
+                self.assertEqual(123456,card_light['result_created_ms'])
+                self.assertEqual(card_full['result_created_ms'],card_light['result_created_ms'])
+                selects=[s.upper() for s in statements if s.lstrip().upper().startswith('SELECT')]
+                for table in ('ARTIFACTS','EVENTS','DELIVERIES'):
+                    self.assertFalse(any('FROM '+table+' ' in s for s in selects),table)
+                submission_selects=[s for s in selects if 'FROM SUBMISSIONS' in s]
+                self.assertTrue(submission_selects)
+                self.assertTrue(all('SELECT ID,REQUEST_JSON' not in s and ',REQUEST_JSON,RESPONSE_JSON' not in s for s in submission_selects),submission_selects)
+                self.assertTrue(all('JSON_EXTRACT(REQUEST_JSON' in s for s in submission_selects),submission_selects)
+            finally:
+                backend.close()
+
+    def test_full_reader_batches_unscoped_artifacts_once_across_run_chunks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); case,store,*rest=self._accepted(root,'artifact-chunks'); backend=rest[-1]
+            try:
+                db=sqlite3.connect(store.path)
+                try:
+                    run_json,attempt_json=db.execute("SELECT r.run_json,a.attempt_json FROM runs r JOIN attempts a ON a.run_id=r.id WHERE a.generation=r.current_generation LIMIT 1").fetchone()
+                    template=json.loads(run_json); attempt=json.loads(attempt_json)
+                    for i in range(501):
+                        rid=f'run_history_chunk_{i:04d}'
+                        run=dict(template,run_id=rid)
+                        db.execute("INSERT INTO runs(id,sprint,worktree,run_json,current_generation,sequence) VALUES(?,?,?,?,1,0)",
+                            (rid,'chunk-test',str(root),json.dumps(run)))
+                        db.execute("INSERT INTO attempts(run_id,generation,attempt_json) VALUES(?,1,?)",(rid,json.dumps(attempt)))
+                    db.commit()
+                    artifact={'contract_version':1,'artifact':{'artifact_id':'artifact_unscoped_once','submission_id':'sub_not_selected'},'classification':'PUBLIC'}
+                    db.execute("INSERT INTO artifacts(id,run_id,artifact_json) VALUES(?,NULL,?)",('artifact_unscoped_once',json.dumps(artifact))); db.commit()
+                finally: db.close()
+                decoded=[]; statements=[]; original=json.loads; real_connect=sqlite3.connect
+                def loads(value,*args,**kwargs):
+                    if value==json.dumps(artifact): decoded.append(value)
+                    return original(value,*args,**kwargs)
+                def traced_connect(*args,**kwargs):
+                    connection=real_connect(*args,**kwargs); connection.set_trace_callback(statements.append); return connection
+                with mock.patch.object(workflow_store.sqlite3,'connect',side_effect=traced_connect), \
+                        mock.patch.object(workflow_store.json,'loads',side_effect=loads):
+                    raw=workflow_store.WorkflowStore.readonly_snapshot(store.path,worktree=str(root))
+                self.assertTrue(raw['available'],raw)
+                self.assertEqual(1,len(decoded))
+                artifact_queries=[s for s in statements if s.lstrip().upper().startswith('SELECT') and 'FROM ARTIFACTS ' in s.upper()]
+                self.assertEqual(3,len(artifact_queries),artifact_queries) # two scoped chunks, one unscoped query
+                copies=[a for r in raw['records']+raw['history'] for a in r['artifacts'] if a.get('artifact',{}).get('artifact_id')=='artifact_unscoped_once']
+                self.assertEqual(0,len(copies))  # no selected submission owns this row
+            finally: backend.close()
+
+    def test_live_board_route_uses_light_reader_not_audit_reader(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            case,store,*rest=self._accepted(root,'board-route-light')
+            backend=rest[-1]
+            try:
+                coordinator=workflow_coordinator.ExplicitCoordinator(store,bindings={'unused':object()},
+                    artifact_dir=root/'artifacts',identity_verifier=lambda *_:True,
+                    owner_bindings={'board-token':workflow_coordinator.OwnerBinding('board-owner',str(case.repo.resolve()))})
+                with mock.patch.object(workflow_store.WorkflowStore,'readonly_snapshot',side_effect=AssertionError('audit snapshot called')):
+                    response=TestClient(coordinator.app()).get('/v1/board/snapshot',headers={'Authorization':'Bearer board-token'})
+                self.assertEqual(200,response.status_code,response.text)
+            finally:
+                backend.close()
+
+    def test_historical_board_read_does_not_decode_owner_or_regression_payloads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); case,store,feature,*rest=self._accepted(root,'history-summary-boundary'); backend=rest[-1]
+            try:
+                db=sqlite3.connect(store.path)
+                try:
+                    db.execute('DELETE FROM feature_heads WHERE run_id=?',(feature['run_id'],))
+                    db.execute("UPDATE owner_decisions SET decision_json=json_set(decision_json,'$.findings','HISTORICAL_PRIVATE_FINDINGS') WHERE run_id=?",(feature['run_id'],))
+                    db.execute("UPDATE regression_jobs SET inputs_json=json_object('private_payload','HISTORICAL_PRIVATE_REGRESSION_INPUTS')")
+                    db.commit()
+                    audit=workflow_store.WorkflowStore.readonly_snapshot(store.path,worktree=str(case.repo.resolve()))
+                    self.assertIn('HISTORICAL_PRIVATE_FINDINGS',json.dumps(audit['history']))
+                    self.assertIn('HISTORICAL_PRIVATE_REGRESSION_INPUTS',json.dumps(audit['history']))
+                finally: db.close()
+                original=json.loads
+                def guarded_loads(value,*args,**kwargs):
+                    self.assertNotIn('HISTORICAL_PRIVATE_FINDINGS',value)
+                    self.assertNotIn('HISTORICAL_PRIVATE_REGRESSION_INPUTS',value)
+                    return original(value,*args,**kwargs)
+                with mock.patch.object(workflow_store.json,'loads',side_effect=guarded_loads):
+                    light=workflow_store.WorkflowStore.readonly_board_snapshot(store.path,worktree=str(case.repo.resolve()))
+                self.assertTrue(light['available'],light)
+                self.assertEqual(feature['run_id'],light['history'][0]['run']['run_id'])
+                self.assertEqual([],light['history'][0]['owner_decisions'])
+                self.assertEqual([],light['history'][0]['regression_jobs'])
+            finally: backend.close()
+
+    def test_historical_incident_projection_preserves_missing_null_and_json_types(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); case,store,feature,*rest=self._accepted(root,'incident-type-boundary'); backend=rest[-1]
+            try:
+                db=sqlite3.connect(store.path)
+                try:
+                    db.execute('DELETE FROM feature_heads WHERE run_id=?',(feature['run_id'],))
+                    base={'contract_version':1,'incident_id':'incident_missing_kind','run_id':feature['run_id'],
+                        'state':'OPEN','message':'Missing kind','owner_action_required':False,'evaluation_generation':1}
+                    explicit=dict(base,incident_id='incident_explicit_null',kind=None,message='Explicit null')
+                    for incident in (base,explicit):
+                        db.execute("INSERT INTO incidents(id,run_id,generation,incident_json) VALUES(?,?,1,?)",
+                            (incident['incident_id'],feature['run_id'],json.dumps(incident)))
+                    db.commit()
+                finally: db.close()
+                full=workflow_store.WorkflowStore.readonly_snapshot(store.path,worktree=str(case.repo.resolve()))
+                compact=workflow_store.WorkflowStore.readonly_board_snapshot(store.path,worktree=str(case.repo.resolve()))
+                full_record=full['history'][0]; compact_record=compact['history'][0]
+                full_faults=workflow_board._record_faults(full_record,feature['run_id'],str(case.repo.resolve()))
+                compact_faults=workflow_board._record_faults(compact_record,feature['run_id'],str(case.repo.resolve()))
+                self.assertEqual(full_faults,compact_faults)
+                by_id={fault['id']:fault for fault in compact_faults[0]}
+                self.assertEqual('incident',by_id['incident_missing_kind']['kind'])
+                self.assertIsNone(by_id['incident_explicit_null']['kind'])
+                self.assertIs(False,by_id['incident_missing_kind']['owner_action_required'])
+                self.assertIs(type(1),type(by_id['incident_missing_kind']['evaluation_generation']))
+            finally: backend.close()
 
 
 if __name__=='__main__': unittest.main()

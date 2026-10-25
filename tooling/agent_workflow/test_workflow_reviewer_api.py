@@ -8,9 +8,12 @@ from types import SimpleNamespace
 from starlette.testclient import TestClient
 
 import workflow_coordinator
+import workflow_coordinator_mcp
+import workflow_preflight
 import workflow_review_results
 import workflow_review_transport
 import workflow_store
+import workflow_task_artifacts
 import test_workflow_review as review_fixtures
 from test_workflow_review_transport import FakeTransport
 
@@ -53,10 +56,13 @@ class ReviewerAPITests(unittest.TestCase):
                    **{k:self.task[k] for k in ('task_id','run_id','evaluation_generation','assignment_generation','input_digest')}}
         payload.update(extra)
         return self.client.post('/v1/review/claim', headers=self.headers(token), json=payload)
-    def result(self, category='IMPLEMENTATION'):
+    def result(self, category='IMPLEMENTATION', decision='PASS'):
+        finding={'criterion_id':'criterion-1','category':category,'message':'Reviewed registered receipt',
+                'location':'source tree','evidence_refs':[self.receipt],'validation_stage':'TECHNICAL'}
+        if decision=='FAIL': finding['required_change']='Correct the technical defect.'
         return {'contract_version':1, **{k:self.task[k] for k in ('task_id','run_id','evaluation_generation','assignment_generation','input_digest')},
-                'decision':'PASS','findings':[{'criterion_id':'criterion-1','category':category,'message':'Reviewed registered receipt',
-                'location':'source tree','evidence_refs':[self.receipt]}], 'inspected_refs':[self.receipt]}
+                'decision':decision,'findings':[finding] if decision=='FAIL' else [],
+                'owner_followups':[], 'inspected_refs':[self.receipt]}
 
     def test_claim_complete_and_author_token_is_not_review_token(self):
         self.assertEqual(403, self.claim('author-token').status_code)
@@ -71,6 +77,38 @@ class ReviewerAPITests(unittest.TestCase):
         self.assertTrue(any(a['type']=='CHECK_RECEIPT' and a['path'] for a in body['artifacts']),body)
         self.assertEqual(403,self.client.get('/v1/review/status',headers=self.headers('author-token'),params={'task_id':self.task['task_id']}).status_code)
         self.assertEqual(400,self.client.get('/v1/review/status',headers=self.headers(),params={'task_id':self.task['task_id'],'extra':'x'}).status_code)
+
+    def test_server_owns_bindings_for_semantic_callbacks_but_rejects_wrong_supplied_metadata(self):
+        minimal={'task_id':self.task['task_id'],'session_id':self.task['assigned_session_id']}
+        public=workflow_coordinator_mcp.CoordinatorClient
+        schema=public('http://127.0.0.1:1','x',self.root,profile='reviewer').tools()[0]['inputSchema']
+        self.assertEqual({'task_id','session_id'},set(schema['required']))
+        claim=self.client.post('/v1/review/claim',headers=self.headers(),json={'task_id':minimal['task_id']})
+        self.assertTrue(claim.json().get('accepted'),claim.text)
+        semantic={k:v for k,v in self.result().items() if k not in {'contract_version','run_id','evaluation_generation','assignment_generation','input_digest'}}
+        accepted=self.client.post('/v1/review/complete',headers=self.headers(),json=semantic)
+        self.assertTrue(accepted.json().get('accepted'),accepted.text)
+
+    def test_wrong_supplied_run_is_rejected_with_actual_field(self):
+        base={'contract_version':1,'command_id':'wrong-run',**{k:self.task[k] for k in ('task_id','run_id','evaluation_generation','assignment_generation','input_digest')}}
+        for field,wrong in [('run_id','run_b54cf8de7282ef6bff5a45f2'),
+                            ('contract_version',True),('evaluation_generation',1.0)]:
+            payload={**base,field:wrong}
+            response=self.client.post('/v1/review/claim',headers=self.headers(),json=payload)
+            self.assertEqual(400,response.status_code,response.text)
+            self.assertEqual(field,response.json()['error'].get('field'),response.text)
+        self.assertEqual('DISPATCHING',self.store.get_task(self.task['task_id'])['state'])
+
+    def test_claim_rechecks_current_source_before_accepting(self):
+        (Path(self.worktree)/'changed-after-plan.txt').write_text('not in admitted source')
+        response=self.claim()
+        self.assertEqual(409,response.status_code,response.text)
+        self.assertEqual('DISPATCHING',self.store.get_task(self.task['task_id'])['state'])
+
+    def test_selectorless_status_uses_frozen_inputs_without_live_source_capture(self):
+        with patch.object(workflow_preflight,'capture_source',side_effect=AssertionError('live source capture')):
+            response=self.client.get('/v1/review/status',headers=self.headers(),params={'task_id':self.task['task_id']})
+        self.assertEqual(200,response.status_code,response.text)
 
     def test_claim_preserves_deadline_and_frozen_assignment_identity_through_completion(self):
         before_task=self.store.get_task(self.task['task_id'])
@@ -90,39 +128,46 @@ class ReviewerAPITests(unittest.TestCase):
 
     def test_claim_response_has_small_stable_guide_locator_on_replay(self):
         before=self.planner.build_assignment(self.task['task_id'])
-        first=self.claim(); second=self.claim()
+        with patch.object(workflow_task_artifacts,'register_bytes',wraps=workflow_task_artifacts.register_bytes) as register:
+            first=self.claim(); second=self.claim()
+            self.assertEqual(1,register.call_count)
         self.assertTrue(first.json().get('accepted'),first.text)
         self.assertTrue(second.json().get('accepted'),second.text)
         self.assertLessEqual(len(first.content),4096)
         self.assertEqual(first.json()['review_guide'],second.json()['review_guide'])
+        self.assertIn('input_ref=\'review_guide\'',first.json()['review_instruction'])
+        self.assertNotIn('error path',first.json()['review_instruction'].lower())
+        self.assertNotIn('write this exact',first.json()['review_instruction'].lower())
         self.assertEqual(before,self.planner.build_assignment(self.task['task_id']))
         self.assertEqual(self.assignment['artifact_refs'],before['body']['envelope']['artifact_refs'])
 
-    def test_claimed_bad_frozen_receipt_reports_guide_fault_without_verdict(self):
+    def test_status_pages_only_exact_assigned_input_after_session_authorization(self):
+        response=self.client.get('/v1/review/status',headers=self.headers(),params={
+            'task_id':self.task['task_id'],'input_ref':'review_guide','input_offset':'0'})
+        self.assertEqual(200,response.status_code,response.text)
+        page=response.json()['input_access']
+        self.assertEqual(self.task['input_digest'],page['input_digest'])
+        self.assertEqual(0,page['offset'])
+        denied=self.client.get('/v1/review/status',headers=self.headers(),params={
+            'task_id':self.task['task_id'],'input_ref':'foreign-ref'})
+        self.assertEqual(400,denied.status_code)
+        self.assertEqual('INVALID_QUERY',denied.json()['error']['code'])
+        both=self.client.get('/v1/review/status',headers=self.headers(),params={
+            'task_id':self.task['task_id'],'input_ref':'review_guide','source_query':'x'})
+        self.assertEqual(400,both.status_code)
+
+    def test_bad_frozen_receipt_is_rejected_before_claim_without_verdict(self):
         from workflow_store import ProtocolError
-        with patch.object(self.planner,'review_guide',side_effect=ProtocolError('CHECK_RECEIPT is unreadable: receipt-id')):
+        before=self.store.get_task(self.task['task_id'])
+        with patch.object(self.planner,'_render_review_guide',side_effect=ProtocolError('CHECK_RECEIPT is unreadable: receipt-id')):
             response=self.claim()
         body=response.json()
-        self.assertTrue(body['accepted'])
-        self.assertEqual('FROZEN_INPUTS_UNAVAILABLE',body['guide_error']['code'])
-        self.assertEqual('REPORT_ERROR',body['guide_error']['next_action'])
-        self.assertIn('claim is accepted',body['guide_error']['recovery'])
-        template=body['guide_error']['error_report_template']
-        workflow_store.validate(template,'task_error')
-        self.assertEqual({**{k:self.task[k] for k in ('task_id','run_id','evaluation_generation','assignment_generation','input_digest')},
-                          'contract_version':1,'error_code':'FROZEN_INPUTS_UNAVAILABLE',
-                          'message':'CHECK_RECEIPT is unreadable: receipt-id','artifact_refs':[]},template)
-        self.assertNotIn('session_id',template)
-        self.assertEqual('CLAIMED',self.store.get_task(self.task['task_id'])['state'])
+        self.assertEqual('REVIEW_INPUT_UNAVAILABLE',body['error']['code'])
+        self.assertEqual(before['state'],self.store.get_task(self.task['task_id'])['state'])
         self.assertIsNone(self.store.get_task(self.task['task_id'])['result'])
         replay=self.claim()
-        self.assertTrue(replay.json()['accepted'])
+        self.assertTrue(replay.json().get('accepted'),replay.text)
         self.assertEqual('CLAIMED',self.store.get_task(self.task['task_id'])['state'])
-        error_response=self.client.post('/v1/review/error',headers=self.headers(),json=template)
-        self.assertTrue(error_response.json().get('accepted'),error_response.text)
-        saved=self.store.get_task(self.task['task_id'])
-        self.assertEqual('COMPLETED',saved['state'])
-        self.assertEqual('ERROR',saved['result']['decision'])
 
     def test_large_status_externalizes_complete_bound_artifact_inventory(self):
         import test_workflow_native_execution
@@ -161,7 +206,9 @@ class ReviewerAPITests(unittest.TestCase):
         for artifact in refs:
             metadata=evidence[artifact]['metadata']
             self.assertTrue(metadata['sha256'])
-            self.assertTrue(metadata['source_pointer'])
+            self.assertTrue(metadata['type'])
+            self.assertGreaterEqual(metadata['size_bytes'],0)
+            self.assertNotIn('source_pointer',metadata)
 
     def test_unbound_session_cannot_claim_or_spoof_session(self):
         self.assertEqual(400, self.claim(**{'session_id': self.task['assigned_session_id']}).status_code)
@@ -179,7 +226,7 @@ class ReviewerAPITests(unittest.TestCase):
 
     def test_invalid_category_feedback_then_valid_result(self):
         self.assertTrue(self.claim().json().get('accepted'),self.claim().json())
-        bad = self.client.post('/v1/review/complete', headers=self.headers(), json=self.result('PENDING_TESTS')).json()
+        bad = self.client.post('/v1/review/complete', headers=self.headers(), json=self.result('PENDING_TESTS','FAIL')).json()
         self.assertEqual(('INVALID_REVIEW_RESULT','CORRECT_RESULT'), (bad['code'],bad['next_action']))
         self.assertEqual('CLAIMED', self.store.get_task(self.task['task_id'])['state'])
         good = self.client.post('/v1/review/complete', headers=self.headers(), json=self.result()).json()

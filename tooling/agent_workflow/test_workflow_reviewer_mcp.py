@@ -13,6 +13,40 @@ import test_workflow_reviewer_api as reviewer_fixture
 
 
 class ReviewerSDKTests(unittest.TestCase):
+    def test_official_sdk_reports_preclaim_error_without_claiming(self):
+        from mcp import ClientSession
+        from mcp.client.stdio import StdioServerParameters, stdio_client
+        import uvicorn
+
+        fixture=reviewer_fixture.ReviewerAPITests(); fixture.setUp()
+        root=fixture.root; app=fixture.client.app
+        sock=socket.socket(); sock.bind(('127.0.0.1',0)); sock.listen()
+        endpoint=f'http://127.0.0.1:{sock.getsockname()[1]}'
+        server=uvicorn.Server(uvicorn.Config(app,log_level='error',lifespan='off'))
+        thread=threading.Thread(target=server.run,kwargs={'sockets':[sock]},daemon=True); thread.start()
+        with tempfile.TemporaryDirectory() as td:
+            token=Path(td)/'token'; token.write_text('review-token',encoding='utf-8')
+            script=Path(__file__).with_name('workflow_coordinator_mcp.py').resolve()
+            env=os.environ.copy(); env['PYTHONPATH']=str(script.parent)+os.pathsep+env.get('PYTHONPATH',''); env['PYTHONDONTWRITEBYTECODE']='1'
+            params=StdioServerParameters(command=sys.executable,args=[str(script),'--profile','reviewer','--repo',str(root),'--endpoint',endpoint,'--token-file',str(token)],env=env)
+            task=fixture.task; sid=task['assigned_session_id']
+            report={'contract_version':1,**{k:task[k] for k in ('task_id','run_id','evaluation_generation','assignment_generation','input_digest')},'error_code':'ASSIGNMENT_MISSING_COMMAND_ID','message':'Reviewer bootstrap failed','artifact_refs':[fixture.receipt]}
+            async def scenario():
+                async with asyncio.timeout(30):
+                    async with stdio_client(params) as (reader,writer):
+                        async with ClientSession(reader,writer) as session:
+                            await session.initialize()
+                            reply=await session.call_tool('report_error',{'error':report,'session_id':sid})
+                            self.assertFalse(getattr(reply,'isError',False),repr(reply))
+                            body=json.loads(reply.content[0].text); self.assertTrue(body['accepted'],body)
+            try:
+                deadline=time.monotonic()+5
+                while not server.started and time.monotonic()<deadline: time.sleep(.01)
+                self.assertTrue(server.started); asyncio.run(scenario())
+                self.assertEqual('ERROR',fixture.store.get_task(task['task_id'])['result']['decision'])
+            finally:
+                server.should_exit=True; thread.join(timeout=5); sock.close(); fixture.tearDown()
+
     def test_official_sdk_claim_and_complete_review(self):
         from mcp import ClientSession
         from mcp.client.stdio import StdioServerParameters, stdio_client

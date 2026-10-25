@@ -2,6 +2,7 @@
 import hashlib
 import time
 import urllib.parse
+from pathlib import Path
 
 try:
     import gate_dispatch, workflow_store
@@ -13,6 +14,23 @@ def _created(record):
     raw=record.get('time',{}).get('created') if isinstance(record,dict) and isinstance(record.get('time'),dict) else None
     try: return int(raw)
     except (TypeError,ValueError): return -1
+
+
+def _ended_idle_after(records, after_ms):
+    """Require a stop-finished latest assistant and a later successful idle event."""
+    assistants=[r for r in records if isinstance(r,dict) and r.get('type')=='assistant']
+    latest=max(assistants,key=_created) if assistants else None
+    stamp=latest.get('time') if isinstance(latest,dict) else None
+    completed=stamp.get('completed') if isinstance(stamp,dict) else None
+    if (not isinstance(completed,int) or isinstance(completed,bool) or completed<after_ms or
+        latest.get('finish')!='stop'):
+        return None
+    idles=[r for r in records if isinstance(r,dict) and r.get('type')=='idle' and r.get('outcome')=='succeeded']
+    idle=max(idles,key=_created) if idles else None
+    idle_ms=_created(idle) if idle else -1
+    if idle_ms<=completed or idle_ms<after_ms:
+        return None
+    return latest,idle,idle_ms
 
 
 class ReviewRetryAdapter:
@@ -148,7 +166,103 @@ class ReviewRetryAdapter:
         finally:
             lock.close()
 
-    def _retry_locked(self, task_id, command_id, authenticated_caller):
+    def continue_unsubmitted(self, task_id):
+        """One code-owned protocol repair after a positively ended reviewer turn."""
+        task=self.store.get_task(task_id) if isinstance(task_id,str) else None
+        if not task or task.get('kind')!='REVIEW' or task.get('state') not in ('CLAIMED','RUNNING'):
+            return {'status':'PENDING','reason':'review task is not actively assigned'}
+        if self._deadline_due(task):
+            return {'status':'PENDING','reason':'review assignment deadline elapsed'}
+        assignment=self.planner.build_assignment(task_id)
+        try:
+            import workflow_review_history, workflow_review_effects
+            records=workflow_review_history.read_since(self.request,self.server,task['assigned_session_id'],
+                self.store.get_event(assignment['body']['envelope']['event_id'])['created_ms'])
+            # Only a completed assistant turn is evidence of a stop. Never infer
+            # completion from prose, an absent session, or a transport failure.
+            event=self.store.get_event(assignment['body']['envelope']['event_id'])
+            if not event or _ended_idle_after(records,event['created_ms']) is None:
+                return {'status':'PENDING','reason':'reviewer turn is not positively finished'}
+            command='review-completion:'+task_id+':'+str(task['assignment_generation'])
+            lock=workflow_review_effects.review_effect_guard(self.store,self.server,task['assigned_session_id'],nonblocking=True)
+            try:
+                saved=self.store.get_review_retry(task_id=task_id,caller='SYSTEM',command_id=command)
+                if saved and saved.get('status')=='RESUMED' and saved.get('effect_status')=='APPLIED':
+                    return self._finish_repeated_stop(task_id,assignment,saved)
+                return self._retry_locked(task_id,command,'SYSTEM',purpose='REVIEW_COMPLETION')
+            finally: lock.close()
+        except (OSError,KeyError,TypeError,ValueError,TimeoutError):
+            return {'status':'PENDING','reason':'reviewer completion state is uncertain'}
+
+    def _finish_repeated_stop(self, task_id, assignment, receipt):
+        """Commit an honest task ERROR only after the one repair turn also ended empty."""
+        task=self.store.get_task(task_id)
+        if (not task or task.get('state') not in ('CLAIMED','RUNNING') or task.get('result') is not None or
+            self.store.task_is_dependency_paused(task_id)):
+            return {'status':'PENDING','reason':'review task changed before failure settlement'}
+        binding={k:task.get(k) for k in ('run_id','evaluation_generation','assignment_generation','input_digest','assigned_session_id')}
+        if binding!=receipt.get('binding') or receipt.get('purpose')!='REVIEW_COMPLETION':
+            return {'status':'PENDING','reason':'completion receipt no longer matches assignment'}
+        if self._deadline_due(task):
+            return {'status':'PENDING','reason':'review assignment deadline elapsed'}
+        sid=task['assigned_session_id']; assignment=self.planner.build_assignment(task_id)
+        try:
+            import workflow_review_transport, workflow_review_control
+            if self.transport is None:
+                self.transport=workflow_review_transport.ReviewDispatchBackend(self.planner,server=self.server,agents=self.agents,request=self.request)
+            quoted=urllib.parse.quote(sid)
+            status,session=self.request(self.server,'GET','/api/session/'+quoted)
+            if status!=200 or not self.transport.session_matches_assignment(task,assignment,session): return {'status':'PENDING','reason':'bound reviewer session is uncertain'}
+            status,active=self.request(self.server,'GET','/api/session/active'); active=active.get('data',active) if isinstance(active,dict) else None
+            if status!=200 or not isinstance(active,dict) or sid in active: return {'status':'PENDING','reason':'reviewer session is active or uncertain'}
+            status,inbox=self.request(self.server,'GET','/api/session/'+quoted+'/inbox'); rows=inbox.get('data') if isinstance(inbox,dict) else None
+            if status!=200 or not isinstance(rows,list) or rows: return {'status':'PENDING','reason':'review inbox is pending or uncertain'}
+            expected,history,event_ms=self._owned_history_context(task,assignment)
+            if not self._original_admission_proven(task,assignment,expected,history,rows):
+                return {'status':'PENDING','reason':'original assignment admission is not proven'}
+            for record in history:
+                if record.get('type')=='user':
+                    spec=expected.get(record.get('id'))
+                    if spec is None or not workflow_review_transport.verify_owned_prompt_record(record,message_id=record['id'],session_id=sid,text=spec[0],metadata=spec[1]):
+                        return {'status':'PENDING','reason':'review history ownership is uncertain'}
+            controls=workflow_review_control.continuation_bodies(self.store.list_review_retry_receipts(task_id),task,assignment,self.server)
+            if len(controls)!=1: return {'status':'PENDING','reason':'single repair control is not proven'}
+            control=controls[0]
+            control_record=next((r for r in history if r.get('id')==control['id']),None)
+            if not control_record: return {'status':'PENDING','reason':'repair control is not admitted in history'}
+            started=_created(control_record)
+            terminal=_ended_idle_after(history,started)
+            if terminal is None: return {'status':'PENDING','reason':'second reviewer turn is not proven finished after repair'}
+            ended,idle,idle_ms=terminal; ended_ms=(ended.get('time') or {}).get('completed')
+            if not isinstance(ended.get('id'),str):
+                return {'status':'PENDING','reason':'second reviewer turn is not proven finished after repair'}
+            facts={'task_id':task_id,'run_id':task['run_id'],'evaluation_generation':task['evaluation_generation'],
+                'assignment_generation':task['assignment_generation'],'input_digest':task['input_digest'],'session_id':sid,
+                'original_prompt_id':next(iter(expected)),'repair_message_id':control['id'],'ended_message_id':ended['id'],
+                'repair_started_ms':started,'ended_ms':ended_ms,'idle_message_id':idle.get('id'),
+                'idle_ms':idle_ms,'repair_receipt_command_id':receipt['command_id']}
+            try: import workflow_task_artifacts
+            except ModuleNotFoundError: from tooling.agent_workflow import workflow_task_artifacts
+            ref,_=workflow_task_artifacts.register_bytes(self.store,task,Path(self.planner.artifact_dir),'PROVENANCE',
+                workflow_store.canonical_json(facts).encode())
+            report=self.planner.error_report_template(task_id,error_code='REVIEW_ENDED_WITHOUT_RESULT',
+                message='Reviewer turn ended twice without an accepted SDK result; no reviewer judgment was inferred.')
+            report['artifact_refs']=[ref]
+            result=self.store.report_task_error(report,session_id=sid)
+            return {'status':'ERROR','task_id':task_id,'error_code':'REVIEW_ENDED_WITHOUT_RESULT',**result}
+        except Exception as exc:
+            return {'status':'PENDING','reason':'review completion settlement is uncertain: '+str(exc)[:180]}
+
+    def _deadline_due(self, task):
+        try:
+            import workflow_dependency
+        except ModuleNotFoundError:
+            from tooling.agent_workflow import workflow_dependency
+        paused=self.store.task_is_dependency_paused(task['task_id'])
+        paused_ms=self.store.task_paused_duration_ms(task['task_id'],self.now_ms())
+        return workflow_dependency.task_deadline_due(task,self.now_ms(),paused_ms=paused_ms,paused=paused)
+
+    def _retry_locked(self, task_id, command_id, authenticated_caller, *, purpose='PROVIDER_RETRY'):
         if not all(isinstance(v, str) and v.strip() for v in (task_id, command_id, authenticated_caller)):
             return {'status':'REJECTED','reason':'task, command, and authenticated caller are required'}
         task = self.store.get_task(task_id)
@@ -160,8 +274,12 @@ class ReviewRetryAdapter:
         if not task or task.get('kind') != 'REVIEW' or task.get('state') not in ('DISPATCHING','CLAIMED','RUNNING'):
             return {'status':'REJECTED','reason':'review task is not active'}
         pause = self.store.get_task_dependency_pause(task_id)
-        if not pause or not pause.get('active'):
+        if purpose=='PROVIDER_RETRY' and (not pause or not pause.get('active')):
             return {'status':'REJECTED','reason':'review task is not dependency-paused'}
+        if purpose=='REVIEW_COMPLETION' and pause and pause.get('active'):
+            return {'status':'PENDING','reason':'review task has an active provider dependency pause'}
+        if purpose=='REVIEW_COMPLETION' and self._deadline_due(task):
+            return {'status':'PENDING','reason':'review assignment deadline elapsed'}
         assignment = self.planner.build_assignment(task_id)
         body = assignment['body']; envelope = body.get('envelope', {})
         sid = task.get('assigned_session_id')
@@ -249,12 +367,12 @@ class ReviewRetryAdapter:
                     # Explicit owner action supplies a new checkpoint control, never a replay of the assignment.
                     try: import workflow_review_control
                     except ModuleNotFoundError: from tooling.agent_workflow import workflow_review_control
-                    control_body=workflow_review_control.continuation_body(task,assignment,command_id)
+                    control_body=workflow_review_control.continuation_body(task,assignment,command_id,purpose=purpose)
                     control_meta=control_body['metadata']; control_text=control_body['text']; control_id=control_body['id']
                     controls=[{'id':control_id,'session_id':sid,'body_sha256':hashlib.sha256(workflow_store.canonical_json(control_body).encode()).hexdigest(),
                         'text':control_text,'metadata':control_meta,'body':control_body}]
                     intent=self.store.begin_review_retry(task_id=task_id,caller=authenticated_caller,command_id=command_id,
-                        binding=binding,proof=proof,mode='CONTROL_PROMPT',controls_snapshot=controls)
+                        binding=binding,proof=proof,mode='CONTROL_PROMPT',controls_snapshot=controls,purpose=purpose)
                     if intent.get('disposition')=='REPLAYED': return {'status':'UNKNOWN','reason':'prior retry intent exists; refusing another wake'}
                     try: ack_status,ack=self.request(self.server,'POST','/api/session/'+quoted+'/prompt',control_body)
                     except Exception: ack_status,ack=None,None
@@ -284,6 +402,11 @@ class ReviewRetryAdapter:
                          'assignment_generation':task['assignment_generation'],'input_digest':task['input_digest'],
                          'effect_status':'APPLIED'}
                 return self.store.complete_review_retry(task_id=task_id,caller=authenticated_caller,command_id=command_id,response=receipt)['response']
+            if purpose=='REVIEW_COMPLETION':
+                receipt={'status':'RESUMED','task_id':task_id,'command_id':command_id,
+                         'assignment_generation':task['assignment_generation'],'input_digest':task['input_digest'],
+                         'purpose':purpose,'effect_status':'APPLIED'}
+                return self.store.complete_review_retry(task_id=task_id,caller=authenticated_caller,command_id=command_id,response=receipt)['response']
             result = self.store.resume_dependency_task(task_id=task_id, dependency_key=pause['dependency_key'], binding=binding, now_ms=self.now_ms())
             receipt = {'status':'RESUMED','task_id':task_id,'command_id':command_id,'paused_ms':result.get('paused_ms'),
                        'assignment_generation':task['assignment_generation'],'input_digest':task['input_digest']}
@@ -301,8 +424,10 @@ class ReviewRetryAdapter:
         held=[r for r in self.store.get_task_resources(task_id) if r.get('state')=='HELD']
         run=self.store.get_run(task['run_id']) if task else None
         pause=self.store.get_task_dependency_pause(task_id)
+        completion=intent.get('purpose')=='REVIEW_COMPLETION'
         if (not task or task.get('kind')!='REVIEW' or task.get('state') not in ('DISPATCHING','CLAIMED','RUNNING') or
-            not run or run['run']['current_attempt']!=task['evaluation_generation'] or not pause or not pause.get('active') or
+            not run or run['run']['current_attempt']!=task['evaluation_generation'] or
+            (not completion and (not pause or not pause.get('active'))) or (completion and pause and pause.get('active')) or
             actual!=binding or len(held)!=1 or held[0].get('identity_proof')!=proof):
             return {'status':'UNKNOWN','reason':'retry intent binding or held resource changed'}
         if self.observe_effect(task_id,intent)!='APPLIED':
@@ -313,6 +438,11 @@ class ReviewRetryAdapter:
             receipt={'status':'STOPPING','task_id':task_id,'command_id':command_id,
                      'assignment_generation':task['assignment_generation'],'input_digest':task['input_digest'],
                      'effect_status':'APPLIED'}
+            return self.store.complete_review_retry(task_id=task_id,caller=caller,command_id=command_id,response=receipt)['response']
+        if completion:
+            receipt={'status':'RESUMED','task_id':task_id,'command_id':command_id,
+                     'assignment_generation':task['assignment_generation'],'input_digest':task['input_digest'],
+                     'purpose':'REVIEW_COMPLETION','effect_status':'APPLIED'}
             return self.store.complete_review_retry(task_id=task_id,caller=caller,command_id=command_id,response=receipt)['response']
         if pause and pause.get('active'):
             resumed=self.store.resume_dependency_task(task_id=task_id,dependency_key=pause['dependency_key'],binding=binding,now_ms=self.now_ms())
